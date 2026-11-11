@@ -1,0 +1,954 @@
+2026-11-11T20:50:56Z -> /opt/rfd4-venv/bin/python /root/kc/rfd4_gpu.py --spec /root/kc/rfd4in/9TH6-A-c216-b120.yaml --size 336 --arm native-compile --batch 1 --warm 3 --out /root/kc/pvo/rfd4/exact-b1/b1 --set compile_lengths=[336]
+/opt/rfd4-venv/lib/python3.12/site-packages/torch/jit/_script.py:1491: FutureWarning: `torch.jit.script` is deprecated. Please switch to `torch.compile` or `torch.export`.
+  warnings.warn(
+Environment variable CCD_MIRROR_PATH not set. Will not be able to use function requiring this variable. To set it you may:
+  (1) add the line 'export VAR_NAME=path/to/variable' to your .bashrc or .zshrc file
+  (2) set it in your current shell with 'export VAR_NAME=path/to/variable'
+  (3) write it to a .env file in the root of the atomworks.io repository
+Environment variable PDB_MIRROR_PATH not set. Will not be able to use function requiring this variable. To set it you may:
+  (1) add the line 'export VAR_NAME=path/to/variable' to your .bashrc or .zshrc file
+  (2) set it in your current shell with 'export VAR_NAME=path/to/variable'
+  (3) write it to a .env file in the root of the atomworks.io repository
+Fetching 2 files:   0%|          | 0/2 [00:00<?, ?it/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Fetching 2 files:  50%|█████     | 1/2 [00:00<00:00,  4.42it/s]Fetching 2 files: 100%|██████████| 2/2 [00:15<00:00,  9.23s/it]Fetching 2 files: 100%|██████████| 2/2 [00:15<00:00,  7.88s/it]
+{"size": 336, "arm": "native-compile", "batch": 1, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/exact-b1/b1", "host": "vast:60259464", "overrides": ["compile_lengths=[336]"], "nn_overrides": {}, "kind": "cold", "phase": "load", "designs": 0, "wall_s": 31.052, "t": "2026-11-11T20:51:27Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+cuEquivariance has no fused compiled inference triangle multiplication for batch=1, n=336, c_z=384, c_hidden=256, bf16=True; using the torch backend.
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:00:45 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "native-compile", "batch": 1, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/exact-b1/b1", "host": "vast:60259464", "overrides": ["compile_lengths=[336]"], "nn_overrides": {}, "kind": "cold", "designs": 1, "wall_s": 50.042, "sm_mhz": 1410, "power_w": 86.99, "util_pct": 49, "phase": "compile", "t": "2026-11-11T20:52:17Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:00:11 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "native-compile", "batch": 1, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/exact-b1/b1", "host": "vast:60259464", "overrides": ["compile_lengths=[336]"], "nn_overrides": {}, "kind": "warm", "designs": 1, "wall_s": 13.761, "sm_mhz": 1410, "power_w": 91.15, "util_pct": 7, "t": "2026-11-11T20:52:31Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:00:11 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "native-compile", "batch": 1, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/exact-b1/b1", "host": "vast:60259464", "overrides": ["compile_lengths=[336]"], "nn_overrides": {}, "kind": "warm", "designs": 1, "wall_s": 13.629, "sm_mhz": 1410, "power_w": 95.18, "util_pct": 7, "t": "2026-11-11T20:52:44Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:00:11 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "native-compile", "batch": 1, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/exact-b1/b1", "host": "vast:60259464", "overrides": ["compile_lengths=[336]"], "nn_overrides": {}, "kind": "warm", "designs": 1, "wall_s": 13.674, "sm_mhz": 1410, "power_w": 96.53, "util_pct": 7, "t": "2026-11-11T20:52:58Z"}
+2026-11-11T20:53:01Z -> /opt/rfd4-venv/bin/python /root/kc/rfd4_gpu.py --spec /root/kc/rfd4in/9TH6-A-c216-b120.yaml --size 336 --arm native-compile --batch 1 --warm 3 --out /root/kc/pvo/rfd4/sweep-native-compile/b1 --set compile_lengths=[336]
+/opt/rfd4-venv/lib/python3.12/site-packages/torch/jit/_script.py:1491: FutureWarning: `torch.jit.script` is deprecated. Please switch to `torch.compile` or `torch.export`.
+  warnings.warn(
+Environment variable CCD_MIRROR_PATH not set. Will not be able to use function requiring this variable. To set it you may:
+  (1) add the line 'export VAR_NAME=path/to/variable' to your .bashrc or .zshrc file
+  (2) set it in your current shell with 'export VAR_NAME=path/to/variable'
+  (3) write it to a .env file in the root of the atomworks.io repository
+Environment variable PDB_MIRROR_PATH not set. Will not be able to use function requiring this variable. To set it you may:
+  (1) add the line 'export VAR_NAME=path/to/variable' to your .bashrc or .zshrc file
+  (2) set it in your current shell with 'export VAR_NAME=path/to/variable'
+  (3) write it to a .env file in the root of the atomworks.io repository
+Fetching 2 files:   0%|          | 0/2 [00:00<?, ?it/s]Fetching 2 files: 100%|██████████| 2/2 [00:00<00:00, 658.29it/s]
+{"size": 336, "arm": "native-compile", "batch": 1, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-native-compile/b1", "host": "vast:60259464", "overrides": ["compile_lengths=[336]"], "nn_overrides": {}, "kind": "cold", "phase": "load", "designs": 0, "wall_s": 15.879, "t": "2026-11-11T20:53:17Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+cuEquivariance has no fused compiled inference triangle multiplication for batch=1, n=336, c_z=384, c_hidden=256, bf16=True; using the torch backend.
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:00:17 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "native-compile", "batch": 1, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-native-compile/b1", "host": "vast:60259464", "overrides": ["compile_lengths=[336]"], "nn_overrides": {}, "kind": "cold", "designs": 1, "wall_s": 24.021, "sm_mhz": 1275, "power_w": 78.9, "util_pct": 23, "phase": "compile", "t": "2026-11-11T20:53:41Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:00:11 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "native-compile", "batch": 1, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-native-compile/b1", "host": "vast:60259464", "overrides": ["compile_lengths=[336]"], "nn_overrides": {}, "kind": "warm", "designs": 1, "wall_s": 14.331, "sm_mhz": 1380, "power_w": 88.58, "util_pct": 0, "t": "2026-11-11T20:53:55Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:00:11 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "native-compile", "batch": 1, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-native-compile/b1", "host": "vast:60259464", "overrides": ["compile_lengths=[336]"], "nn_overrides": {}, "kind": "warm", "designs": 1, "wall_s": 14.133, "sm_mhz": 1410, "power_w": 93.6, "util_pct": 45, "t": "2026-11-11T20:54:10Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:00:11 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "native-compile", "batch": 1, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-native-compile/b1", "host": "vast:60259464", "overrides": ["compile_lengths=[336]"], "nn_overrides": {}, "kind": "warm", "designs": 1, "wall_s": 13.963, "sm_mhz": 1275, "power_w": 82.87, "util_pct": 15, "t": "2026-11-11T20:54:24Z"}
+2026-11-11T20:54:27Z -> /opt/rfd4-venv/bin/python /root/kc/rfd4_gpu.py --spec /root/kc/rfd4in/9TH6-A-c216-b120.yaml --size 336 --arm native-compile --batch 2 --warm 3 --out /root/kc/pvo/rfd4/sweep-native-compile/b2 --set compile_lengths=[336]
+/opt/rfd4-venv/lib/python3.12/site-packages/torch/jit/_script.py:1491: FutureWarning: `torch.jit.script` is deprecated. Please switch to `torch.compile` or `torch.export`.
+  warnings.warn(
+Environment variable CCD_MIRROR_PATH not set. Will not be able to use function requiring this variable. To set it you may:
+  (1) add the line 'export VAR_NAME=path/to/variable' to your .bashrc or .zshrc file
+  (2) set it in your current shell with 'export VAR_NAME=path/to/variable'
+  (3) write it to a .env file in the root of the atomworks.io repository
+Environment variable PDB_MIRROR_PATH not set. Will not be able to use function requiring this variable. To set it you may:
+  (1) add the line 'export VAR_NAME=path/to/variable' to your .bashrc or .zshrc file
+  (2) set it in your current shell with 'export VAR_NAME=path/to/variable'
+  (3) write it to a .env file in the root of the atomworks.io repository
+Fetching 2 files:   0%|          | 0/2 [00:00<?, ?it/s]Fetching 2 files: 100%|██████████| 2/2 [00:00<00:00, 625.13it/s]
+{"size": 336, "arm": "native-compile", "batch": 2, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-native-compile/b2", "host": "vast:60259464", "overrides": ["compile_lengths=[336]"], "nn_overrides": {}, "kind": "cold", "phase": "load", "designs": 0, "wall_s": 15.598, "t": "2026-11-11T20:54:42Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+cuEquivariance has no fused compiled inference triangle multiplication for batch=2, n=336, c_z=384, c_hidden=256, bf16=True; using the torch backend.
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:00:55 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "native-compile", "batch": 2, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-native-compile/b2", "host": "vast:60259464", "overrides": ["compile_lengths=[336]"], "nn_overrides": {}, "kind": "cold", "designs": 2, "wall_s": 66.349, "sm_mhz": 1410, "power_w": 84.81, "util_pct": 17, "phase": "compile", "t": "2026-11-11T20:55:49Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:00:14 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "native-compile", "batch": 2, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-native-compile/b2", "host": "vast:60259464", "overrides": ["compile_lengths=[336]"], "nn_overrides": {}, "kind": "warm", "designs": 2, "wall_s": 18.224, "sm_mhz": 1275, "power_w": 81.62, "util_pct": 16, "t": "2026-11-11T20:56:07Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:00:14 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "native-compile", "batch": 2, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-native-compile/b2", "host": "vast:60259464", "overrides": ["compile_lengths=[336]"], "nn_overrides": {}, "kind": "warm", "designs": 2, "wall_s": 18.104, "sm_mhz": 1275, "power_w": 82.29, "util_pct": 18, "t": "2026-11-11T20:56:25Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:00:14 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "native-compile", "batch": 2, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-native-compile/b2", "host": "vast:60259464", "overrides": ["compile_lengths=[336]"], "nn_overrides": {}, "kind": "warm", "designs": 2, "wall_s": 17.984, "sm_mhz": 1275, "power_w": 82.97, "util_pct": 18, "t": "2026-11-11T20:56:43Z"}
+2026-11-11T20:56:47Z -> /opt/rfd4-venv/bin/python /root/kc/rfd4_gpu.py --spec /root/kc/rfd4in/9TH6-A-c216-b120.yaml --size 336 --arm native-compile --batch 4 --warm 3 --out /root/kc/pvo/rfd4/sweep-native-compile/b4 --set compile_lengths=[336]
+/opt/rfd4-venv/lib/python3.12/site-packages/torch/jit/_script.py:1491: FutureWarning: `torch.jit.script` is deprecated. Please switch to `torch.compile` or `torch.export`.
+  warnings.warn(
+Environment variable CCD_MIRROR_PATH not set. Will not be able to use function requiring this variable. To set it you may:
+  (1) add the line 'export VAR_NAME=path/to/variable' to your .bashrc or .zshrc file
+  (2) set it in your current shell with 'export VAR_NAME=path/to/variable'
+  (3) write it to a .env file in the root of the atomworks.io repository
+Environment variable PDB_MIRROR_PATH not set. Will not be able to use function requiring this variable. To set it you may:
+  (1) add the line 'export VAR_NAME=path/to/variable' to your .bashrc or .zshrc file
+  (2) set it in your current shell with 'export VAR_NAME=path/to/variable'
+  (3) write it to a .env file in the root of the atomworks.io repository
+Fetching 2 files:   0%|          | 0/2 [00:00<?, ?it/s]Fetching 2 files: 100%|██████████| 2/2 [00:00<00:00, 669.96it/s]
+{"size": 336, "arm": "native-compile", "batch": 4, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-native-compile/b4", "host": "vast:60259464", "overrides": ["compile_lengths=[336]"], "nn_overrides": {}, "kind": "cold", "phase": "load", "designs": 0, "wall_s": 16.23, "t": "2026-11-11T20:57:03Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+cuEquivariance has no fused compiled inference triangle multiplication for batch=4, n=336, c_z=384, c_hidden=256, bf16=True; using the torch backend.
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:01:19 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "native-compile", "batch": 4, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-native-compile/b4", "host": "vast:60259464", "overrides": ["compile_lengths=[336]"], "nn_overrides": {}, "kind": "cold", "designs": 4, "wall_s": 89.891, "sm_mhz": 1290, "power_w": 79.44, "util_pct": 40, "phase": "compile", "t": "2026-11-11T20:58:33Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:00:27 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "native-compile", "batch": 4, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-native-compile/b4", "host": "vast:60259464", "overrides": ["compile_lengths=[336]"], "nn_overrides": {}, "kind": "warm", "designs": 4, "wall_s": 32.203, "sm_mhz": 1335, "power_w": 85.63, "util_pct": 42, "t": "2026-11-11T20:59:05Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:00:28 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "native-compile", "batch": 4, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-native-compile/b4", "host": "vast:60259464", "overrides": ["compile_lengths=[336]"], "nn_overrides": {}, "kind": "warm", "designs": 4, "wall_s": 32.277, "sm_mhz": 1275, "power_w": 82.15, "util_pct": 15, "t": "2026-11-11T20:59:38Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:00:28 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "native-compile", "batch": 4, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-native-compile/b4", "host": "vast:60259464", "overrides": ["compile_lengths=[336]"], "nn_overrides": {}, "kind": "warm", "designs": 4, "wall_s": 32.628, "sm_mhz": 1275, "power_w": 82.24, "util_pct": 15, "t": "2026-11-11T21:00:10Z"}
+2026-11-11T21:00:13Z -> /opt/rfd4-venv/bin/python /root/kc/rfd4_gpu.py --spec /root/kc/rfd4in/9TH6-A-c216-b120.yaml --size 336 --arm native-compile --batch 8 --warm 3 --out /root/kc/pvo/rfd4/sweep-native-compile/b8 --set compile_lengths=[336]
+/opt/rfd4-venv/lib/python3.12/site-packages/torch/jit/_script.py:1491: FutureWarning: `torch.jit.script` is deprecated. Please switch to `torch.compile` or `torch.export`.
+  warnings.warn(
+Environment variable CCD_MIRROR_PATH not set. Will not be able to use function requiring this variable. To set it you may:
+  (1) add the line 'export VAR_NAME=path/to/variable' to your .bashrc or .zshrc file
+  (2) set it in your current shell with 'export VAR_NAME=path/to/variable'
+  (3) write it to a .env file in the root of the atomworks.io repository
+Environment variable PDB_MIRROR_PATH not set. Will not be able to use function requiring this variable. To set it you may:
+  (1) add the line 'export VAR_NAME=path/to/variable' to your .bashrc or .zshrc file
+  (2) set it in your current shell with 'export VAR_NAME=path/to/variable'
+  (3) write it to a .env file in the root of the atomworks.io repository
+Fetching 2 files:   0%|          | 0/2 [00:00<?, ?it/s]Fetching 2 files: 100%|██████████| 2/2 [00:00<00:00, 653.22it/s]
+{"size": 336, "arm": "native-compile", "batch": 8, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-native-compile/b8", "host": "vast:60259464", "overrides": ["compile_lengths=[336]"], "nn_overrides": {}, "kind": "cold", "phase": "load", "designs": 0, "wall_s": 15.622, "t": "2026-11-11T21:00:29Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+cuEquivariance has no fused compiled inference triangle multiplication for batch=8, n=336, c_z=384, c_hidden=256, bf16=True; using the torch backend.
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:01:40 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "native-compile", "batch": 8, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-native-compile/b8", "host": "vast:60259464", "overrides": ["compile_lengths=[336]"], "nn_overrides": {}, "kind": "cold", "designs": 8, "wall_s": 113.802, "sm_mhz": 1275, "power_w": 79.29, "util_pct": 17, "phase": "compile", "t": "2026-11-11T21:02:23Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:00:54 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "native-compile", "batch": 8, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-native-compile/b8", "host": "vast:60259464", "overrides": ["compile_lengths=[336]"], "nn_overrides": {}, "kind": "warm", "designs": 8, "wall_s": 61.345, "sm_mhz": 1275, "power_w": 80.41, "util_pct": 15, "t": "2026-11-11T21:03:24Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:00:54 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "native-compile", "batch": 8, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-native-compile/b8", "host": "vast:60259464", "overrides": ["compile_lengths=[336]"], "nn_overrides": {}, "kind": "warm", "designs": 8, "wall_s": 61.14, "sm_mhz": 1410, "power_w": 96.0, "util_pct": 48, "t": "2026-11-11T21:04:25Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:00:54 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "native-compile", "batch": 8, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-native-compile/b8", "host": "vast:60259464", "overrides": ["compile_lengths=[336]"], "nn_overrides": {}, "kind": "warm", "designs": 8, "wall_s": 61.356, "sm_mhz": 1410, "power_w": 96.77, "util_pct": 41, "t": "2026-11-11T21:05:27Z"}
+2026-11-11T21:05:30Z -> /opt/rfd4-venv/bin/python /root/kc/rfd4_gpu.py --spec /root/kc/rfd4in/9TH6-A-c216-b120.yaml --size 336 --arm native-compile --batch 16 --warm 3 --out /root/kc/pvo/rfd4/sweep-native-compile/b16 --set compile_lengths=[336]
+/opt/rfd4-venv/lib/python3.12/site-packages/torch/jit/_script.py:1491: FutureWarning: `torch.jit.script` is deprecated. Please switch to `torch.compile` or `torch.export`.
+  warnings.warn(
+Environment variable CCD_MIRROR_PATH not set. Will not be able to use function requiring this variable. To set it you may:
+  (1) add the line 'export VAR_NAME=path/to/variable' to your .bashrc or .zshrc file
+  (2) set it in your current shell with 'export VAR_NAME=path/to/variable'
+  (3) write it to a .env file in the root of the atomworks.io repository
+Environment variable PDB_MIRROR_PATH not set. Will not be able to use function requiring this variable. To set it you may:
+  (1) add the line 'export VAR_NAME=path/to/variable' to your .bashrc or .zshrc file
+  (2) set it in your current shell with 'export VAR_NAME=path/to/variable'
+  (3) write it to a .env file in the root of the atomworks.io repository
+Fetching 2 files:   0%|          | 0/2 [00:00<?, ?it/s]Fetching 2 files: 100%|██████████| 2/2 [00:00<00:00, 704.87it/s]
+{"size": 336, "arm": "native-compile", "batch": 16, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-native-compile/b16", "host": "vast:60259464", "overrides": ["compile_lengths=[336]"], "nn_overrides": {}, "kind": "cold", "phase": "load", "designs": 0, "wall_s": 15.915, "t": "2026-11-11T21:05:46Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+cuEquivariance has no fused compiled inference triangle multiplication for batch=16, n=336, c_z=384, c_hidden=256, bf16=True; using the torch backend.
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:02:30 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "native-compile", "batch": 16, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-native-compile/b16", "host": "vast:60259464", "overrides": ["compile_lengths=[336]"], "nn_overrides": {}, "kind": "cold", "designs": 16, "wall_s": 163.688, "sm_mhz": 1275, "power_w": 81.86, "util_pct": 16, "phase": "compile", "t": "2026-11-11T21:08:30Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:01:48 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "native-compile", "batch": 16, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-native-compile/b16", "host": "vast:60259464", "overrides": ["compile_lengths=[336]"], "nn_overrides": {}, "kind": "warm", "designs": 16, "wall_s": 119.609, "sm_mhz": 1410, "power_w": 90.65, "util_pct": 93, "t": "2026-11-11T21:10:29Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:01:48 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "native-compile", "batch": 16, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-native-compile/b16", "host": "vast:60259464", "overrides": ["compile_lengths=[336]"], "nn_overrides": {}, "kind": "warm", "designs": 16, "wall_s": 119.865, "sm_mhz": 1275, "power_w": 81.62, "util_pct": 35, "t": "2026-11-11T21:12:29Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:01:48 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "native-compile", "batch": 16, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-native-compile/b16", "host": "vast:60259464", "overrides": ["compile_lengths=[336]"], "nn_overrides": {}, "kind": "warm", "designs": 16, "wall_s": 119.549, "sm_mhz": 1275, "power_w": 81.7, "util_pct": 16, "t": "2026-11-11T21:14:29Z"}
+2026-11-11T21:14:32Z -> /opt/rfd4-venv/bin/python /root/kc/rfd4_gpu.py --spec /root/kc/rfd4in/9TH6-A-c216-b120.yaml --size 336 --arm native-compile --batch 32 --warm 3 --out /root/kc/pvo/rfd4/sweep-native-compile/b32 --set compile_lengths=[336]
+/opt/rfd4-venv/lib/python3.12/site-packages/torch/jit/_script.py:1491: FutureWarning: `torch.jit.script` is deprecated. Please switch to `torch.compile` or `torch.export`.
+  warnings.warn(
+Environment variable CCD_MIRROR_PATH not set. Will not be able to use function requiring this variable. To set it you may:
+  (1) add the line 'export VAR_NAME=path/to/variable' to your .bashrc or .zshrc file
+  (2) set it in your current shell with 'export VAR_NAME=path/to/variable'
+  (3) write it to a .env file in the root of the atomworks.io repository
+Environment variable PDB_MIRROR_PATH not set. Will not be able to use function requiring this variable. To set it you may:
+  (1) add the line 'export VAR_NAME=path/to/variable' to your .bashrc or .zshrc file
+  (2) set it in your current shell with 'export VAR_NAME=path/to/variable'
+  (3) write it to a .env file in the root of the atomworks.io repository
+Fetching 2 files:   0%|          | 0/2 [00:00<?, ?it/s]Fetching 2 files: 100%|██████████| 2/2 [00:00<00:00, 605.24it/s]
+{"size": 336, "arm": "native-compile", "batch": 32, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-native-compile/b32", "host": "vast:60259464", "overrides": ["compile_lengths=[336]"], "nn_overrides": {}, "kind": "cold", "phase": "load", "designs": 0, "wall_s": 16.773, "t": "2026-11-11T21:14:49Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+cuEquivariance has no fused compiled inference triangle multiplication for batch=32, n=336, c_z=384, c_hidden=256, bf16=True; using the torch backend.
+[W1111 21:15:57.669598069 CUDACachingAllocator.cpp:3934] memory allocation failed with OOM on device 0 while trying to allocate 5549064192 bytes (free: 717750272, total: 85094825984).
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:04:35 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "native-compile", "batch": 32, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-native-compile/b32", "host": "vast:60259464", "overrides": ["compile_lengths=[336]"], "nn_overrides": {}, "kind": "cold", "designs": 32, "wall_s": 299.887, "sm_mhz": 1410, "power_w": 89.61, "util_pct": 100, "phase": "compile", "t": "2026-11-11T21:19:49Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+[W1111 21:20:07.948596235 CUDACachingAllocator.cpp:3934] memory allocation failed with OOM on device 0 while trying to allocate 7398752256 bytes (free: 3490185216, total: 85094825984).
+[W1111 21:20:08.421743262 CUDACachingAllocator.cpp:3934] memory allocation failed with OOM on device 0 while trying to allocate 7398752256 bytes (free: 3452436480, total: 85094825984).
+[W1111 21:20:08.567232677 CUDACachingAllocator.cpp:3934] memory allocation failed with OOM on device 0 while trying to allocate 7398752256 bytes (free: 3485990912, total: 85094825984).
+sizzling... 🔥                                  0/1 0:00:00 • -:--:-- 0.00it/s 
+{"size": 336, "arm": "native-compile", "batch": 32, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-native-compile/b32", "host": "vast:60259464", "overrides": ["compile_lengths=[336]"], "nn_overrides": {}, "kind": "warm", "designs": 0, "wall_s": 20.712, "sm_mhz": 1410, "power_w": 86.02, "util_pct": 16, "status": "FAILED", "error": "OutOfMemoryError: CUDA out of memory. Tried to allocate 6.89 GiB. GPU 0 has a total capacity of 79.25 GiB of which 3.25 GiB is free. Process 1081217 has 464.00 MiB memory in use. Process 2533215 has 39.53 GiB memory in use. Process 2663062 has 36.00 GiB memory in use. Of the allocated memory 19.89 GiB is allocated by PyTorch, and 15.60 GiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)", "t": "2026-11-11T21:20:09Z"}
+native-compile: b32 failed (OutOfMemoryError: CUDA out of memory. Tried to allocate 6.89 GiB. GPU 0 has a total capacity of 79.25 GiB of which 3.25 GiB is free. Process 1081217 has 464.00 MiB memory in use. Process 2533215 has 39.53 GiB memory in use. Process 2663062 has 36.00 GiB memory in use. Of the allocated memory 19.89 GiB is allocated by PyTorch, and 15.60 GiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)) -- that is the ceiling
+2026-11-11T21:20:13Z -> /opt/rfd4-venv/bin/python /root/kc/rfd4_gpu.py --spec /root/kc/rfd4in/9TH6-A-c216-b120.yaml --size 336 --arm compile-cueq --batch 1 --warm 3 --out /root/kc/pvo/rfd4/sweep-compile-cueq/b1 --set compile_lengths=[336] --set nn.tri_mult_backend=cuequivariance --set nn.attention_type=cuequivariance
+/opt/rfd4-venv/lib/python3.12/site-packages/torch/jit/_script.py:1491: FutureWarning: `torch.jit.script` is deprecated. Please switch to `torch.compile` or `torch.export`.
+  warnings.warn(
+Environment variable CCD_MIRROR_PATH not set. Will not be able to use function requiring this variable. To set it you may:
+  (1) add the line 'export VAR_NAME=path/to/variable' to your .bashrc or .zshrc file
+  (2) set it in your current shell with 'export VAR_NAME=path/to/variable'
+  (3) write it to a .env file in the root of the atomworks.io repository
+Environment variable PDB_MIRROR_PATH not set. Will not be able to use function requiring this variable. To set it you may:
+  (1) add the line 'export VAR_NAME=path/to/variable' to your .bashrc or .zshrc file
+  (2) set it in your current shell with 'export VAR_NAME=path/to/variable'
+  (3) write it to a .env file in the root of the atomworks.io repository
+Fetching 2 files:   0%|          | 0/2 [00:00<?, ?it/s]Fetching 2 files: 100%|██████████| 2/2 [00:00<00:00, 662.55it/s]
+{"size": 336, "arm": "compile-cueq", "batch": 1, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-compile-cueq/b1", "host": "vast:60259464", "overrides": ["compile_lengths=[336]", "nn.tri_mult_backend=cuequivariance", "nn.attention_type=cuequivariance"], "nn_overrides": {"tri_mult_backend": "cuequivariance", "attention_type": "cuequivariance"}, "kind": "cold", "phase": "load", "designs": 0, "wall_s": 15.328, "t": "2026-11-11T21:20:28Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+cuEquivariance has no fused compiled inference triangle multiplication for batch=1, n=336, c_z=384, c_hidden=256, bf16=True; using the torch backend.
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:00:28 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "compile-cueq", "batch": 1, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-compile-cueq/b1", "host": "vast:60259464", "overrides": ["compile_lengths=[336]", "nn.tri_mult_backend=cuequivariance", "nn.attention_type=cuequivariance"], "nn_overrides": {"tri_mult_backend": "cuequivariance", "attention_type": "cuequivariance"}, "kind": "cold", "designs": 1, "wall_s": 34.737, "sm_mhz": 1410, "power_w": 79.73, "util_pct": 46, "phase": "compile", "t": "2026-11-11T21:21:03Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:00:11 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "compile-cueq", "batch": 1, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-compile-cueq/b1", "host": "vast:60259464", "overrides": ["compile_lengths=[336]", "nn.tri_mult_backend=cuequivariance", "nn.attention_type=cuequivariance"], "nn_overrides": {"tri_mult_backend": "cuequivariance", "attention_type": "cuequivariance"}, "kind": "warm", "designs": 1, "wall_s": 13.599, "sm_mhz": 1410, "power_w": 91.29, "util_pct": 7, "t": "2026-11-11T21:21:16Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:00:11 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "compile-cueq", "batch": 1, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-compile-cueq/b1", "host": "vast:60259464", "overrides": ["compile_lengths=[336]", "nn.tri_mult_backend=cuequivariance", "nn.attention_type=cuequivariance"], "nn_overrides": {"tri_mult_backend": "cuequivariance", "attention_type": "cuequivariance"}, "kind": "warm", "designs": 1, "wall_s": 13.61, "sm_mhz": 1410, "power_w": 92.25, "util_pct": 7, "t": "2026-11-11T21:21:30Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:00:11 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "compile-cueq", "batch": 1, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-compile-cueq/b1", "host": "vast:60259464", "overrides": ["compile_lengths=[336]", "nn.tri_mult_backend=cuequivariance", "nn.attention_type=cuequivariance"], "nn_overrides": {"tri_mult_backend": "cuequivariance", "attention_type": "cuequivariance"}, "kind": "warm", "designs": 1, "wall_s": 13.488, "sm_mhz": 1410, "power_w": 95.82, "util_pct": 7, "t": "2026-11-11T21:21:44Z"}
+2026-11-11T21:21:47Z -> /opt/rfd4-venv/bin/python /root/kc/rfd4_gpu.py --spec /root/kc/rfd4in/9TH6-A-c216-b120.yaml --size 336 --arm compile-cueq --batch 2 --warm 3 --out /root/kc/pvo/rfd4/sweep-compile-cueq/b2 --set compile_lengths=[336] --set nn.tri_mult_backend=cuequivariance --set nn.attention_type=cuequivariance
+/opt/rfd4-venv/lib/python3.12/site-packages/torch/jit/_script.py:1491: FutureWarning: `torch.jit.script` is deprecated. Please switch to `torch.compile` or `torch.export`.
+  warnings.warn(
+Environment variable CCD_MIRROR_PATH not set. Will not be able to use function requiring this variable. To set it you may:
+  (1) add the line 'export VAR_NAME=path/to/variable' to your .bashrc or .zshrc file
+  (2) set it in your current shell with 'export VAR_NAME=path/to/variable'
+  (3) write it to a .env file in the root of the atomworks.io repository
+Environment variable PDB_MIRROR_PATH not set. Will not be able to use function requiring this variable. To set it you may:
+  (1) add the line 'export VAR_NAME=path/to/variable' to your .bashrc or .zshrc file
+  (2) set it in your current shell with 'export VAR_NAME=path/to/variable'
+  (3) write it to a .env file in the root of the atomworks.io repository
+Fetching 2 files:   0%|          | 0/2 [00:00<?, ?it/s]Fetching 2 files: 100%|██████████| 2/2 [00:00<00:00, 542.50it/s]
+{"size": 336, "arm": "compile-cueq", "batch": 2, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-compile-cueq/b2", "host": "vast:60259464", "overrides": ["compile_lengths=[336]", "nn.tri_mult_backend=cuequivariance", "nn.attention_type=cuequivariance"], "nn_overrides": {"tri_mult_backend": "cuequivariance", "attention_type": "cuequivariance"}, "kind": "cold", "phase": "load", "designs": 0, "wall_s": 15.743, "t": "2026-11-11T21:22:03Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+cuEquivariance has no fused compiled inference triangle multiplication for batch=2, n=336, c_z=384, c_hidden=256, bf16=True; using the torch backend.
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:00:31 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "compile-cueq", "batch": 2, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-compile-cueq/b2", "host": "vast:60259464", "overrides": ["compile_lengths=[336]", "nn.tri_mult_backend=cuequivariance", "nn.attention_type=cuequivariance"], "nn_overrides": {"tri_mult_backend": "cuequivariance", "attention_type": "cuequivariance"}, "kind": "cold", "designs": 2, "wall_s": 39.839, "sm_mhz": 1350, "power_w": 85.39, "util_pct": 26, "phase": "compile", "t": "2026-11-11T21:22:42Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:00:14 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "compile-cueq", "batch": 2, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-compile-cueq/b2", "host": "vast:60259464", "overrides": ["compile_lengths=[336]", "nn.tri_mult_backend=cuequivariance", "nn.attention_type=cuequivariance"], "nn_overrides": {"tri_mult_backend": "cuequivariance", "attention_type": "cuequivariance"}, "kind": "warm", "designs": 2, "wall_s": 17.948, "sm_mhz": 1410, "power_w": 92.11, "util_pct": 17, "t": "2026-11-11T21:23:00Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:00:14 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "compile-cueq", "batch": 2, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-compile-cueq/b2", "host": "vast:60259464", "overrides": ["compile_lengths=[336]", "nn.tri_mult_backend=cuequivariance", "nn.attention_type=cuequivariance"], "nn_overrides": {"tri_mult_backend": "cuequivariance", "attention_type": "cuequivariance"}, "kind": "warm", "designs": 2, "wall_s": 17.658, "sm_mhz": 1275, "power_w": 83.21, "util_pct": 16, "t": "2026-11-11T21:23:18Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:00:14 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "compile-cueq", "batch": 2, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-compile-cueq/b2", "host": "vast:60259464", "overrides": ["compile_lengths=[336]", "nn.tri_mult_backend=cuequivariance", "nn.attention_type=cuequivariance"], "nn_overrides": {"tri_mult_backend": "cuequivariance", "attention_type": "cuequivariance"}, "kind": "warm", "designs": 2, "wall_s": 17.811, "sm_mhz": 1275, "power_w": 83.94, "util_pct": 16, "t": "2026-11-11T21:23:36Z"}
+2026-11-11T21:23:39Z -> /opt/rfd4-venv/bin/python /root/kc/rfd4_gpu.py --spec /root/kc/rfd4in/9TH6-A-c216-b120.yaml --size 336 --arm compile-cueq --batch 4 --warm 3 --out /root/kc/pvo/rfd4/sweep-compile-cueq/b4 --set compile_lengths=[336] --set nn.tri_mult_backend=cuequivariance --set nn.attention_type=cuequivariance
+/opt/rfd4-venv/lib/python3.12/site-packages/torch/jit/_script.py:1491: FutureWarning: `torch.jit.script` is deprecated. Please switch to `torch.compile` or `torch.export`.
+  warnings.warn(
+Environment variable CCD_MIRROR_PATH not set. Will not be able to use function requiring this variable. To set it you may:
+  (1) add the line 'export VAR_NAME=path/to/variable' to your .bashrc or .zshrc file
+  (2) set it in your current shell with 'export VAR_NAME=path/to/variable'
+  (3) write it to a .env file in the root of the atomworks.io repository
+Environment variable PDB_MIRROR_PATH not set. Will not be able to use function requiring this variable. To set it you may:
+  (1) add the line 'export VAR_NAME=path/to/variable' to your .bashrc or .zshrc file
+  (2) set it in your current shell with 'export VAR_NAME=path/to/variable'
+  (3) write it to a .env file in the root of the atomworks.io repository
+Fetching 2 files:   0%|          | 0/2 [00:00<?, ?it/s]Fetching 2 files: 100%|██████████| 2/2 [00:00<00:00, 667.46it/s]
+{"size": 336, "arm": "compile-cueq", "batch": 4, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-compile-cueq/b4", "host": "vast:60259464", "overrides": ["compile_lengths=[336]", "nn.tri_mult_backend=cuequivariance", "nn.attention_type=cuequivariance"], "nn_overrides": {"tri_mult_backend": "cuequivariance", "attention_type": "cuequivariance"}, "kind": "cold", "phase": "load", "designs": 0, "wall_s": 15.214, "t": "2026-11-11T21:23:54Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+cuEquivariance has no fused compiled inference triangle multiplication for batch=4, n=336, c_z=384, c_hidden=256, bf16=True; using the torch backend.
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:00:47 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "compile-cueq", "batch": 4, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-compile-cueq/b4", "host": "vast:60259464", "overrides": ["compile_lengths=[336]", "nn.tri_mult_backend=cuequivariance", "nn.attention_type=cuequivariance"], "nn_overrides": {"tri_mult_backend": "cuequivariance", "attention_type": "cuequivariance"}, "kind": "cold", "designs": 4, "wall_s": 53.705, "sm_mhz": 1275, "power_w": 80.69, "util_pct": 17, "phase": "compile", "t": "2026-11-11T21:24:48Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:00:28 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "compile-cueq", "batch": 4, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-compile-cueq/b4", "host": "vast:60259464", "overrides": ["compile_lengths=[336]", "nn.tri_mult_backend=cuequivariance", "nn.attention_type=cuequivariance"], "nn_overrides": {"tri_mult_backend": "cuequivariance", "attention_type": "cuequivariance"}, "kind": "warm", "designs": 4, "wall_s": 32.243, "sm_mhz": 1410, "power_w": 82.15, "util_pct": 56, "t": "2026-11-11T21:25:20Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:00:28 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "compile-cueq", "batch": 4, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-compile-cueq/b4", "host": "vast:60259464", "overrides": ["compile_lengths=[336]", "nn.tri_mult_backend=cuequivariance", "nn.attention_type=cuequivariance"], "nn_overrides": {"tri_mult_backend": "cuequivariance", "attention_type": "cuequivariance"}, "kind": "warm", "designs": 4, "wall_s": 32.274, "sm_mhz": 1410, "power_w": 82.39, "util_pct": 7, "t": "2026-11-11T21:25:53Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:00:27 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "compile-cueq", "batch": 4, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-compile-cueq/b4", "host": "vast:60259464", "overrides": ["compile_lengths=[336]", "nn.tri_mult_backend=cuequivariance", "nn.attention_type=cuequivariance"], "nn_overrides": {"tri_mult_backend": "cuequivariance", "attention_type": "cuequivariance"}, "kind": "warm", "designs": 4, "wall_s": 32.315, "sm_mhz": 1275, "power_w": 80.79, "util_pct": 13, "t": "2026-11-11T21:26:25Z"}
+2026-11-11T21:26:28Z -> /opt/rfd4-venv/bin/python /root/kc/rfd4_gpu.py --spec /root/kc/rfd4in/9TH6-A-c216-b120.yaml --size 336 --arm compile-cueq --batch 8 --warm 3 --out /root/kc/pvo/rfd4/sweep-compile-cueq/b8 --set compile_lengths=[336] --set nn.tri_mult_backend=cuequivariance --set nn.attention_type=cuequivariance
+/opt/rfd4-venv/lib/python3.12/site-packages/torch/jit/_script.py:1491: FutureWarning: `torch.jit.script` is deprecated. Please switch to `torch.compile` or `torch.export`.
+  warnings.warn(
+Environment variable CCD_MIRROR_PATH not set. Will not be able to use function requiring this variable. To set it you may:
+  (1) add the line 'export VAR_NAME=path/to/variable' to your .bashrc or .zshrc file
+  (2) set it in your current shell with 'export VAR_NAME=path/to/variable'
+  (3) write it to a .env file in the root of the atomworks.io repository
+Environment variable PDB_MIRROR_PATH not set. Will not be able to use function requiring this variable. To set it you may:
+  (1) add the line 'export VAR_NAME=path/to/variable' to your .bashrc or .zshrc file
+  (2) set it in your current shell with 'export VAR_NAME=path/to/variable'
+  (3) write it to a .env file in the root of the atomworks.io repository
+Fetching 2 files:   0%|          | 0/2 [00:00<?, ?it/s]Fetching 2 files: 100%|██████████| 2/2 [00:00<00:00, 723.53it/s]
+{"size": 336, "arm": "compile-cueq", "batch": 8, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-compile-cueq/b8", "host": "vast:60259464", "overrides": ["compile_lengths=[336]", "nn.tri_mult_backend=cuequivariance", "nn.attention_type=cuequivariance"], "nn_overrides": {"tri_mult_backend": "cuequivariance", "attention_type": "cuequivariance"}, "kind": "cold", "phase": "load", "designs": 0, "wall_s": 14.695, "t": "2026-11-11T21:26:43Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+cuEquivariance has no fused compiled inference triangle multiplication for batch=8, n=336, c_z=384, c_hidden=256, bf16=True; using the torch backend.
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:01:12 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "compile-cueq", "batch": 8, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-compile-cueq/b8", "host": "vast:60259464", "overrides": ["compile_lengths=[336]", "nn.tri_mult_backend=cuequivariance", "nn.attention_type=cuequivariance"], "nn_overrides": {"tri_mult_backend": "cuequivariance", "attention_type": "cuequivariance"}, "kind": "cold", "designs": 8, "wall_s": 81.141, "sm_mhz": 1275, "power_w": 81.08, "util_pct": 8, "phase": "compile", "t": "2026-11-11T21:28:04Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:00:54 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "compile-cueq", "batch": 8, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-compile-cueq/b8", "host": "vast:60259464", "overrides": ["compile_lengths=[336]", "nn.tri_mult_backend=cuequivariance", "nn.attention_type=cuequivariance"], "nn_overrides": {"tri_mult_backend": "cuequivariance", "attention_type": "cuequivariance"}, "kind": "warm", "designs": 8, "wall_s": 60.833, "sm_mhz": 1275, "power_w": 80.99, "util_pct": 7, "t": "2026-11-11T21:29:05Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:00:54 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "compile-cueq", "batch": 8, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-compile-cueq/b8", "host": "vast:60259464", "overrides": ["compile_lengths=[336]", "nn.tri_mult_backend=cuequivariance", "nn.attention_type=cuequivariance"], "nn_overrides": {"tri_mult_backend": "cuequivariance", "attention_type": "cuequivariance"}, "kind": "warm", "designs": 8, "wall_s": 61.248, "sm_mhz": 1275, "power_w": 82.87, "util_pct": 7, "t": "2026-11-11T21:30:06Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:00:54 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "compile-cueq", "batch": 8, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-compile-cueq/b8", "host": "vast:60259464", "overrides": ["compile_lengths=[336]", "nn.tri_mult_backend=cuequivariance", "nn.attention_type=cuequivariance"], "nn_overrides": {"tri_mult_backend": "cuequivariance", "attention_type": "cuequivariance"}, "kind": "warm", "designs": 8, "wall_s": 61.172, "sm_mhz": 1275, "power_w": 81.32, "util_pct": 21, "t": "2026-11-11T21:31:07Z"}
+2026-11-11T21:31:10Z -> /opt/rfd4-venv/bin/python /root/kc/rfd4_gpu.py --spec /root/kc/rfd4in/9TH6-A-c216-b120.yaml --size 336 --arm compile-cueq --batch 16 --warm 3 --out /root/kc/pvo/rfd4/sweep-compile-cueq/b16 --set compile_lengths=[336] --set nn.tri_mult_backend=cuequivariance --set nn.attention_type=cuequivariance
+/opt/rfd4-venv/lib/python3.12/site-packages/torch/jit/_script.py:1491: FutureWarning: `torch.jit.script` is deprecated. Please switch to `torch.compile` or `torch.export`.
+  warnings.warn(
+Environment variable CCD_MIRROR_PATH not set. Will not be able to use function requiring this variable. To set it you may:
+  (1) add the line 'export VAR_NAME=path/to/variable' to your .bashrc or .zshrc file
+  (2) set it in your current shell with 'export VAR_NAME=path/to/variable'
+  (3) write it to a .env file in the root of the atomworks.io repository
+Environment variable PDB_MIRROR_PATH not set. Will not be able to use function requiring this variable. To set it you may:
+  (1) add the line 'export VAR_NAME=path/to/variable' to your .bashrc or .zshrc file
+  (2) set it in your current shell with 'export VAR_NAME=path/to/variable'
+  (3) write it to a .env file in the root of the atomworks.io repository
+Fetching 2 files:   0%|          | 0/2 [00:00<?, ?it/s]Fetching 2 files: 100%|██████████| 2/2 [00:00<00:00, 717.22it/s]
+{"size": 336, "arm": "compile-cueq", "batch": 16, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-compile-cueq/b16", "host": "vast:60259464", "overrides": ["compile_lengths=[336]", "nn.tri_mult_backend=cuequivariance", "nn.attention_type=cuequivariance"], "nn_overrides": {"tri_mult_backend": "cuequivariance", "attention_type": "cuequivariance"}, "kind": "cold", "phase": "load", "designs": 0, "wall_s": 16.542, "t": "2026-11-11T21:31:27Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+cuEquivariance has no fused compiled inference triangle multiplication for batch=16, n=336, c_z=384, c_hidden=256, bf16=True; using the torch backend.
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:02:07 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "compile-cueq", "batch": 16, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-compile-cueq/b16", "host": "vast:60259464", "overrides": ["compile_lengths=[336]", "nn.tri_mult_backend=cuequivariance", "nn.attention_type=cuequivariance"], "nn_overrides": {"tri_mult_backend": "cuequivariance", "attention_type": "cuequivariance"}, "kind": "cold", "designs": 16, "wall_s": 145.15, "sm_mhz": 1275, "power_w": 82.15, "util_pct": 36, "phase": "compile", "t": "2026-11-11T21:33:52Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:01:48 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "compile-cueq", "batch": 16, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-compile-cueq/b16", "host": "vast:60259464", "overrides": ["compile_lengths=[336]", "nn.tri_mult_backend=cuequivariance", "nn.attention_type=cuequivariance"], "nn_overrides": {"tri_mult_backend": "cuequivariance", "attention_type": "cuequivariance"}, "kind": "warm", "designs": 16, "wall_s": 120.153, "sm_mhz": 1275, "power_w": 83.26, "util_pct": 16, "t": "2026-11-11T21:35:52Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:01:48 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "compile-cueq", "batch": 16, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-compile-cueq/b16", "host": "vast:60259464", "overrides": ["compile_lengths=[336]", "nn.tri_mult_backend=cuequivariance", "nn.attention_type=cuequivariance"], "nn_overrides": {"tri_mult_backend": "cuequivariance", "attention_type": "cuequivariance"}, "kind": "warm", "designs": 16, "wall_s": 119.665, "sm_mhz": 1275, "power_w": 81.71, "util_pct": 39, "t": "2026-11-11T21:37:52Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:01:48 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "compile-cueq", "batch": 16, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-compile-cueq/b16", "host": "vast:60259464", "overrides": ["compile_lengths=[336]", "nn.tri_mult_backend=cuequivariance", "nn.attention_type=cuequivariance"], "nn_overrides": {"tri_mult_backend": "cuequivariance", "attention_type": "cuequivariance"}, "kind": "warm", "designs": 16, "wall_s": 119.754, "sm_mhz": 1410, "power_w": 80.26, "util_pct": 16, "t": "2026-11-11T21:39:52Z"}
+2026-11-11T21:39:55Z -> /opt/rfd4-venv/bin/python /root/kc/rfd4_gpu.py --spec /root/kc/rfd4in/9TH6-A-c216-b120.yaml --size 336 --arm compile-cueq --batch 32 --warm 3 --out /root/kc/pvo/rfd4/sweep-compile-cueq/b32 --set compile_lengths=[336] --set nn.tri_mult_backend=cuequivariance --set nn.attention_type=cuequivariance
+/opt/rfd4-venv/lib/python3.12/site-packages/torch/jit/_script.py:1491: FutureWarning: `torch.jit.script` is deprecated. Please switch to `torch.compile` or `torch.export`.
+  warnings.warn(
+Environment variable CCD_MIRROR_PATH not set. Will not be able to use function requiring this variable. To set it you may:
+  (1) add the line 'export VAR_NAME=path/to/variable' to your .bashrc or .zshrc file
+  (2) set it in your current shell with 'export VAR_NAME=path/to/variable'
+  (3) write it to a .env file in the root of the atomworks.io repository
+Environment variable PDB_MIRROR_PATH not set. Will not be able to use function requiring this variable. To set it you may:
+  (1) add the line 'export VAR_NAME=path/to/variable' to your .bashrc or .zshrc file
+  (2) set it in your current shell with 'export VAR_NAME=path/to/variable'
+  (3) write it to a .env file in the root of the atomworks.io repository
+Fetching 2 files:   0%|          | 0/2 [00:00<?, ?it/s]Fetching 2 files: 100%|██████████| 2/2 [00:00<00:00, 632.05it/s]
+{"size": 336, "arm": "compile-cueq", "batch": 32, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-compile-cueq/b32", "host": "vast:60259464", "overrides": ["compile_lengths=[336]", "nn.tri_mult_backend=cuequivariance", "nn.attention_type=cuequivariance"], "nn_overrides": {"tri_mult_backend": "cuequivariance", "attention_type": "cuequivariance"}, "kind": "cold", "phase": "load", "designs": 0, "wall_s": 14.802, "t": "2026-11-11T21:40:10Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+cuEquivariance has no fused compiled inference triangle multiplication for batch=32, n=336, c_z=384, c_hidden=256, bf16=True; using the torch backend.
+[W1111 21:40:49.245968818 CUDACachingAllocator.cpp:3934] memory allocation failed with OOM on device 0 while trying to allocate 7398752256 bytes (free: 3492282368, total: 85094825984).
+[W1111 21:40:50.809550277 CUDACachingAllocator.cpp:3934] memory allocation failed with OOM on device 0 while trying to allocate 7398752256 bytes (free: 3454533632, total: 85094825984).
+[W1111 21:40:51.645248246 CUDACachingAllocator.cpp:3934] memory allocation failed with OOM on device 0 while trying to allocate 7398752256 bytes (free: 3509059584, total: 85094825984).
+sizzling... 🔥                                  0/1 0:00:19 • -:--:-- 0.00it/s 
+{"size": 336, "arm": "compile-cueq", "batch": 32, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-compile-cueq/b32", "host": "vast:60259464", "overrides": ["compile_lengths=[336]", "nn.tri_mult_backend=cuequivariance", "nn.attention_type=cuequivariance"], "nn_overrides": {"tri_mult_backend": "cuequivariance", "attention_type": "cuequivariance"}, "kind": "cold", "designs": 0, "wall_s": 42.108, "sm_mhz": 1410, "power_w": 86.6, "util_pct": 7, "phase": "compile", "status": "FAILED", "error": "OutOfMemoryError: CUDA out of memory. Tried to allocate 6.89 GiB. GPU 0 has a total capacity of 79.25 GiB of which 3.27 GiB is free. Process 1081217 has 464.00 MiB memory in use. Process 2533215 has 39.53 GiB memory in use. Process 2794923 has 35.98 GiB memory in use. Of the allocated memory 19.90 GiB is allocated by PyTorch, and 15.58 GiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)", "t": "2026-11-11T21:40:52Z"}
+compile-cueq: b32 failed (OutOfMemoryError: CUDA out of memory. Tried to allocate 6.89 GiB. GPU 0 has a total capacity of 79.25 GiB of which 3.27 GiB is free. Process 1081217 has 464.00 MiB memory in use. Process 2533215 has 39.53 GiB memory in use. Process 2794923 has 35.98 GiB memory in use. Of the allocated memory 19.90 GiB is allocated by PyTorch, and 15.58 GiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)) -- that is the ceiling
+2026-11-11T21:40:56Z -> /opt/rfd4-venv/bin/python /root/kc/rfd4_gpu.py --spec /root/kc/rfd4in/9TH6-A-c216-b120.yaml --size 336 --arm compile-reduce-overhead --batch 1 --warm 3 --out /root/kc/pvo/rfd4/sweep-compile-reduce-overhead/b1 --set compile_lengths=[336] --set nn.torch_compile_mode=reduce-overhead
+/opt/rfd4-venv/lib/python3.12/site-packages/torch/jit/_script.py:1491: FutureWarning: `torch.jit.script` is deprecated. Please switch to `torch.compile` or `torch.export`.
+  warnings.warn(
+Environment variable CCD_MIRROR_PATH not set. Will not be able to use function requiring this variable. To set it you may:
+  (1) add the line 'export VAR_NAME=path/to/variable' to your .bashrc or .zshrc file
+  (2) set it in your current shell with 'export VAR_NAME=path/to/variable'
+  (3) write it to a .env file in the root of the atomworks.io repository
+Environment variable PDB_MIRROR_PATH not set. Will not be able to use function requiring this variable. To set it you may:
+  (1) add the line 'export VAR_NAME=path/to/variable' to your .bashrc or .zshrc file
+  (2) set it in your current shell with 'export VAR_NAME=path/to/variable'
+  (3) write it to a .env file in the root of the atomworks.io repository
+Fetching 2 files:   0%|          | 0/2 [00:00<?, ?it/s]Fetching 2 files: 100%|██████████| 2/2 [00:00<00:00, 700.33it/s]
+{"size": 336, "arm": "compile-reduce-overhead", "batch": 1, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-compile-reduce-overhead/b1", "host": "vast:60259464", "overrides": ["compile_lengths=[336]", "nn.torch_compile_mode=reduce-overhead"], "nn_overrides": {"torch_compile_mode": "reduce-overhead"}, "kind": "cold", "phase": "load", "designs": 0, "wall_s": 15.871, "t": "2026-11-11T21:41:12Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+cuEquivariance has no fused compiled inference triangle multiplication for batch=1, n=336, c_z=384, c_hidden=256, bf16=True; using the torch backend.
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:00:33 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "compile-reduce-overhead", "batch": 1, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-compile-reduce-overhead/b1", "host": "vast:60259464", "overrides": ["compile_lengths=[336]", "nn.torch_compile_mode=reduce-overhead"], "nn_overrides": {"torch_compile_mode": "reduce-overhead"}, "kind": "cold", "designs": 1, "wall_s": 38.623, "sm_mhz": 1275, "power_w": 76.37, "util_pct": 32, "phase": "compile", "t": "2026-11-11T21:41:50Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:00:12 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "compile-reduce-overhead", "batch": 1, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-compile-reduce-overhead/b1", "host": "vast:60259464", "overrides": ["compile_lengths=[336]", "nn.torch_compile_mode=reduce-overhead"], "nn_overrides": {"torch_compile_mode": "reduce-overhead"}, "kind": "warm", "designs": 1, "wall_s": 15.188, "sm_mhz": 1275, "power_w": 77.02, "util_pct": 8, "t": "2026-11-11T21:42:06Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:00:11 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "compile-reduce-overhead", "batch": 1, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-compile-reduce-overhead/b1", "host": "vast:60259464", "overrides": ["compile_lengths=[336]", "nn.torch_compile_mode=reduce-overhead"], "nn_overrides": {"torch_compile_mode": "reduce-overhead"}, "kind": "warm", "designs": 1, "wall_s": 14.808, "sm_mhz": 1275, "power_w": 77.58, "util_pct": 19, "t": "2026-11-11T21:42:20Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:00:12 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "compile-reduce-overhead", "batch": 1, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-compile-reduce-overhead/b1", "host": "vast:60259464", "overrides": ["compile_lengths=[336]", "nn.torch_compile_mode=reduce-overhead"], "nn_overrides": {"torch_compile_mode": "reduce-overhead"}, "kind": "warm", "designs": 1, "wall_s": 15.508, "sm_mhz": 1275, "power_w": 77.85, "util_pct": 10, "t": "2026-11-11T21:42:36Z"}
+2026-11-11T21:42:39Z -> /opt/rfd4-venv/bin/python /root/kc/rfd4_gpu.py --spec /root/kc/rfd4in/9TH6-A-c216-b120.yaml --size 336 --arm compile-reduce-overhead --batch 2 --warm 3 --out /root/kc/pvo/rfd4/sweep-compile-reduce-overhead/b2 --set compile_lengths=[336] --set nn.torch_compile_mode=reduce-overhead
+/opt/rfd4-venv/lib/python3.12/site-packages/torch/jit/_script.py:1491: FutureWarning: `torch.jit.script` is deprecated. Please switch to `torch.compile` or `torch.export`.
+  warnings.warn(
+Environment variable CCD_MIRROR_PATH not set. Will not be able to use function requiring this variable. To set it you may:
+  (1) add the line 'export VAR_NAME=path/to/variable' to your .bashrc or .zshrc file
+  (2) set it in your current shell with 'export VAR_NAME=path/to/variable'
+  (3) write it to a .env file in the root of the atomworks.io repository
+Environment variable PDB_MIRROR_PATH not set. Will not be able to use function requiring this variable. To set it you may:
+  (1) add the line 'export VAR_NAME=path/to/variable' to your .bashrc or .zshrc file
+  (2) set it in your current shell with 'export VAR_NAME=path/to/variable'
+  (3) write it to a .env file in the root of the atomworks.io repository
+Fetching 2 files:   0%|          | 0/2 [00:00<?, ?it/s]Fetching 2 files: 100%|██████████| 2/2 [00:00<00:00, 728.49it/s]
+{"size": 336, "arm": "compile-reduce-overhead", "batch": 2, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-compile-reduce-overhead/b2", "host": "vast:60259464", "overrides": ["compile_lengths=[336]", "nn.torch_compile_mode=reduce-overhead"], "nn_overrides": {"torch_compile_mode": "reduce-overhead"}, "kind": "cold", "phase": "load", "designs": 0, "wall_s": 14.583, "t": "2026-11-11T21:42:54Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+cuEquivariance has no fused compiled inference triangle multiplication for batch=2, n=336, c_z=384, c_hidden=256, bf16=True; using the torch backend.
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:00:43 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "compile-reduce-overhead", "batch": 2, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-compile-reduce-overhead/b2", "host": "vast:60259464", "overrides": ["compile_lengths=[336]", "nn.torch_compile_mode=reduce-overhead"], "nn_overrides": {"torch_compile_mode": "reduce-overhead"}, "kind": "cold", "designs": 2, "wall_s": 50.628, "sm_mhz": 1275, "power_w": 78.18, "util_pct": 19, "phase": "compile", "t": "2026-11-11T21:43:44Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:00:15 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "compile-reduce-overhead", "batch": 2, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-compile-reduce-overhead/b2", "host": "vast:60259464", "overrides": ["compile_lengths=[336]", "nn.torch_compile_mode=reduce-overhead"], "nn_overrides": {"torch_compile_mode": "reduce-overhead"}, "kind": "warm", "designs": 2, "wall_s": 18.41, "sm_mhz": 1275, "power_w": 80.35, "util_pct": 7, "t": "2026-11-11T21:44:03Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:00:16 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "compile-reduce-overhead", "batch": 2, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-compile-reduce-overhead/b2", "host": "vast:60259464", "overrides": ["compile_lengths=[336]", "nn.torch_compile_mode=reduce-overhead"], "nn_overrides": {"torch_compile_mode": "reduce-overhead"}, "kind": "warm", "designs": 2, "wall_s": 19.008, "sm_mhz": 1275, "power_w": 79.09, "util_pct": 7, "t": "2026-11-11T21:44:22Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:00:15 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "compile-reduce-overhead", "batch": 2, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-compile-reduce-overhead/b2", "host": "vast:60259464", "overrides": ["compile_lengths=[336]", "nn.torch_compile_mode=reduce-overhead"], "nn_overrides": {"torch_compile_mode": "reduce-overhead"}, "kind": "warm", "designs": 2, "wall_s": 18.465, "sm_mhz": 1275, "power_w": 81.71, "util_pct": 7, "t": "2026-11-11T21:44:40Z"}
+2026-11-11T21:44:44Z -> /opt/rfd4-venv/bin/python /root/kc/rfd4_gpu.py --spec /root/kc/rfd4in/9TH6-A-c216-b120.yaml --size 336 --arm compile-reduce-overhead --batch 4 --warm 3 --out /root/kc/pvo/rfd4/sweep-compile-reduce-overhead/b4 --set compile_lengths=[336] --set nn.torch_compile_mode=reduce-overhead
+/opt/rfd4-venv/lib/python3.12/site-packages/torch/jit/_script.py:1491: FutureWarning: `torch.jit.script` is deprecated. Please switch to `torch.compile` or `torch.export`.
+  warnings.warn(
+Environment variable CCD_MIRROR_PATH not set. Will not be able to use function requiring this variable. To set it you may:
+  (1) add the line 'export VAR_NAME=path/to/variable' to your .bashrc or .zshrc file
+  (2) set it in your current shell with 'export VAR_NAME=path/to/variable'
+  (3) write it to a .env file in the root of the atomworks.io repository
+Environment variable PDB_MIRROR_PATH not set. Will not be able to use function requiring this variable. To set it you may:
+  (1) add the line 'export VAR_NAME=path/to/variable' to your .bashrc or .zshrc file
+  (2) set it in your current shell with 'export VAR_NAME=path/to/variable'
+  (3) write it to a .env file in the root of the atomworks.io repository
+Fetching 2 files:   0%|          | 0/2 [00:00<?, ?it/s]Fetching 2 files: 100%|██████████| 2/2 [00:00<00:00, 709.70it/s]
+{"size": 336, "arm": "compile-reduce-overhead", "batch": 4, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-compile-reduce-overhead/b4", "host": "vast:60259464", "overrides": ["compile_lengths=[336]", "nn.torch_compile_mode=reduce-overhead"], "nn_overrides": {"torch_compile_mode": "reduce-overhead"}, "kind": "cold", "phase": "load", "designs": 0, "wall_s": 15.444, "t": "2026-11-11T21:45:00Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+cuEquivariance has no fused compiled inference triangle multiplication for batch=4, n=336, c_z=384, c_hidden=256, bf16=True; using the torch backend.
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:00:57 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "compile-reduce-overhead", "batch": 4, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-compile-reduce-overhead/b4", "host": "vast:60259464", "overrides": ["compile_lengths=[336]", "nn.torch_compile_mode=reduce-overhead"], "nn_overrides": {"torch_compile_mode": "reduce-overhead"}, "kind": "cold", "designs": 4, "wall_s": 64.48, "sm_mhz": 1275, "power_w": 79.2, "util_pct": 39, "phase": "compile", "t": "2026-11-11T21:46:04Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:00:29 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "compile-reduce-overhead", "batch": 4, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-compile-reduce-overhead/b4", "host": "vast:60259464", "overrides": ["compile_lengths=[336]", "nn.torch_compile_mode=reduce-overhead"], "nn_overrides": {"torch_compile_mode": "reduce-overhead"}, "kind": "warm", "designs": 4, "wall_s": 33.442, "sm_mhz": 1275, "power_w": 82.68, "util_pct": 7, "t": "2026-11-11T21:46:38Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:00:29 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "compile-reduce-overhead", "batch": 4, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-compile-reduce-overhead/b4", "host": "vast:60259464", "overrides": ["compile_lengths=[336]", "nn.torch_compile_mode=reduce-overhead"], "nn_overrides": {"torch_compile_mode": "reduce-overhead"}, "kind": "warm", "designs": 4, "wall_s": 34.183, "sm_mhz": 1275, "power_w": 83.21, "util_pct": 7, "t": "2026-11-11T21:47:12Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:00:28 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "compile-reduce-overhead", "batch": 4, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-compile-reduce-overhead/b4", "host": "vast:60259464", "overrides": ["compile_lengths=[336]", "nn.torch_compile_mode=reduce-overhead"], "nn_overrides": {"torch_compile_mode": "reduce-overhead"}, "kind": "warm", "designs": 4, "wall_s": 33.059, "sm_mhz": 1275, "power_w": 85.39, "util_pct": 28, "t": "2026-11-11T21:47:45Z"}
+2026-11-11T21:47:48Z -> /opt/rfd4-venv/bin/python /root/kc/rfd4_gpu.py --spec /root/kc/rfd4in/9TH6-A-c216-b120.yaml --size 336 --arm compile-reduce-overhead --batch 8 --warm 3 --out /root/kc/pvo/rfd4/sweep-compile-reduce-overhead/b8 --set compile_lengths=[336] --set nn.torch_compile_mode=reduce-overhead
+/opt/rfd4-venv/lib/python3.12/site-packages/torch/jit/_script.py:1491: FutureWarning: `torch.jit.script` is deprecated. Please switch to `torch.compile` or `torch.export`.
+  warnings.warn(
+Environment variable CCD_MIRROR_PATH not set. Will not be able to use function requiring this variable. To set it you may:
+  (1) add the line 'export VAR_NAME=path/to/variable' to your .bashrc or .zshrc file
+  (2) set it in your current shell with 'export VAR_NAME=path/to/variable'
+  (3) write it to a .env file in the root of the atomworks.io repository
+Environment variable PDB_MIRROR_PATH not set. Will not be able to use function requiring this variable. To set it you may:
+  (1) add the line 'export VAR_NAME=path/to/variable' to your .bashrc or .zshrc file
+  (2) set it in your current shell with 'export VAR_NAME=path/to/variable'
+  (3) write it to a .env file in the root of the atomworks.io repository
+Fetching 2 files:   0%|          | 0/2 [00:00<?, ?it/s]Fetching 2 files: 100%|██████████| 2/2 [00:00<00:00, 678.25it/s]
+{"size": 336, "arm": "compile-reduce-overhead", "batch": 8, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-compile-reduce-overhead/b8", "host": "vast:60259464", "overrides": ["compile_lengths=[336]", "nn.torch_compile_mode=reduce-overhead"], "nn_overrides": {"torch_compile_mode": "reduce-overhead"}, "kind": "cold", "phase": "load", "designs": 0, "wall_s": 15.282, "t": "2026-11-11T21:48:04Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+cuEquivariance has no fused compiled inference triangle multiplication for batch=8, n=336, c_z=384, c_hidden=256, bf16=True; using the torch backend.
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:01:19 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "compile-reduce-overhead", "batch": 8, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-compile-reduce-overhead/b8", "host": "vast:60259464", "overrides": ["compile_lengths=[336]", "nn.torch_compile_mode=reduce-overhead"], "nn_overrides": {"torch_compile_mode": "reduce-overhead"}, "kind": "cold", "designs": 8, "wall_s": 88.136, "sm_mhz": 1275, "power_w": 81.23, "util_pct": 7, "phase": "compile", "t": "2026-11-11T21:49:32Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:00:55 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "compile-reduce-overhead", "batch": 8, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-compile-reduce-overhead/b8", "host": "vast:60259464", "overrides": ["compile_lengths=[336]", "nn.torch_compile_mode=reduce-overhead"], "nn_overrides": {"torch_compile_mode": "reduce-overhead"}, "kind": "warm", "designs": 8, "wall_s": 62.366, "sm_mhz": 1275, "power_w": 82.58, "util_pct": 6, "t": "2026-11-11T21:50:34Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:00:56 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "compile-reduce-overhead", "batch": 8, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-compile-reduce-overhead/b8", "host": "vast:60259464", "overrides": ["compile_lengths=[336]", "nn.torch_compile_mode=reduce-overhead"], "nn_overrides": {"torch_compile_mode": "reduce-overhead"}, "kind": "warm", "designs": 8, "wall_s": 62.891, "sm_mhz": 1410, "power_w": 90.94, "util_pct": 45, "t": "2026-11-11T21:51:37Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:00:55 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "compile-reduce-overhead", "batch": 8, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-compile-reduce-overhead/b8", "host": "vast:60259464", "overrides": ["compile_lengths=[336]", "nn.torch_compile_mode=reduce-overhead"], "nn_overrides": {"torch_compile_mode": "reduce-overhead"}, "kind": "warm", "designs": 8, "wall_s": 62.245, "sm_mhz": 1410, "power_w": 82.97, "util_pct": 6, "t": "2026-11-11T21:52:40Z"}
+2026-11-11T21:52:43Z -> /opt/rfd4-venv/bin/python /root/kc/rfd4_gpu.py --spec /root/kc/rfd4in/9TH6-A-c216-b120.yaml --size 336 --arm compile-reduce-overhead --batch 16 --warm 3 --out /root/kc/pvo/rfd4/sweep-compile-reduce-overhead/b16 --set compile_lengths=[336] --set nn.torch_compile_mode=reduce-overhead
+/opt/rfd4-venv/lib/python3.12/site-packages/torch/jit/_script.py:1491: FutureWarning: `torch.jit.script` is deprecated. Please switch to `torch.compile` or `torch.export`.
+  warnings.warn(
+Environment variable CCD_MIRROR_PATH not set. Will not be able to use function requiring this variable. To set it you may:
+  (1) add the line 'export VAR_NAME=path/to/variable' to your .bashrc or .zshrc file
+  (2) set it in your current shell with 'export VAR_NAME=path/to/variable'
+  (3) write it to a .env file in the root of the atomworks.io repository
+Environment variable PDB_MIRROR_PATH not set. Will not be able to use function requiring this variable. To set it you may:
+  (1) add the line 'export VAR_NAME=path/to/variable' to your .bashrc or .zshrc file
+  (2) set it in your current shell with 'export VAR_NAME=path/to/variable'
+  (3) write it to a .env file in the root of the atomworks.io repository
+Fetching 2 files:   0%|          | 0/2 [00:00<?, ?it/s]Fetching 2 files: 100%|██████████| 2/2 [00:00<00:00, 605.20it/s]
+{"size": 336, "arm": "compile-reduce-overhead", "batch": 16, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-compile-reduce-overhead/b16", "host": "vast:60259464", "overrides": ["compile_lengths=[336]", "nn.torch_compile_mode=reduce-overhead"], "nn_overrides": {"torch_compile_mode": "reduce-overhead"}, "kind": "cold", "phase": "load", "designs": 0, "wall_s": 14.923, "t": "2026-11-11T21:52:58Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+cuEquivariance has no fused compiled inference triangle multiplication for batch=16, n=336, c_z=384, c_hidden=256, bf16=True; using the torch backend.
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:02:16 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "compile-reduce-overhead", "batch": 16, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-compile-reduce-overhead/b16", "host": "vast:60259464", "overrides": ["compile_lengths=[336]", "nn.torch_compile_mode=reduce-overhead"], "nn_overrides": {"torch_compile_mode": "reduce-overhead"}, "kind": "cold", "designs": 16, "wall_s": 148.923, "sm_mhz": 1275, "power_w": 79.82, "util_pct": 7, "phase": "compile", "t": "2026-11-11T21:55:27Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:01:49 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "compile-reduce-overhead", "batch": 16, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-compile-reduce-overhead/b16", "host": "vast:60259464", "overrides": ["compile_lengths=[336]", "nn.torch_compile_mode=reduce-overhead"], "nn_overrides": {"torch_compile_mode": "reduce-overhead"}, "kind": "warm", "designs": 16, "wall_s": 120.331, "sm_mhz": 1410, "power_w": 92.54, "util_pct": 65, "t": "2026-11-11T21:57:27Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:01:50 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "compile-reduce-overhead", "batch": 16, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-compile-reduce-overhead/b16", "host": "vast:60259464", "overrides": ["compile_lengths=[336]", "nn.torch_compile_mode=reduce-overhead"], "nn_overrides": {"torch_compile_mode": "reduce-overhead"}, "kind": "warm", "designs": 16, "wall_s": 120.733, "sm_mhz": 1410, "power_w": 82.97, "util_pct": 93, "t": "2026-11-11T21:59:28Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+sizzling... 🔥 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1/1 0:01:49 • 0:00:00 0.00it/s 
+{"size": 336, "arm": "compile-reduce-overhead", "batch": 16, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-compile-reduce-overhead/b16", "host": "vast:60259464", "overrides": ["compile_lengths=[336]", "nn.torch_compile_mode=reduce-overhead"], "nn_overrides": {"torch_compile_mode": "reduce-overhead"}, "kind": "warm", "designs": 16, "wall_s": 120.439, "sm_mhz": 1410, "power_w": 82.39, "util_pct": 76, "t": "2026-11-11T22:01:28Z"}
+2026-11-11T22:01:31Z -> /opt/rfd4-venv/bin/python /root/kc/rfd4_gpu.py --spec /root/kc/rfd4in/9TH6-A-c216-b120.yaml --size 336 --arm compile-reduce-overhead --batch 32 --warm 3 --out /root/kc/pvo/rfd4/sweep-compile-reduce-overhead/b32 --set compile_lengths=[336] --set nn.torch_compile_mode=reduce-overhead
+/opt/rfd4-venv/lib/python3.12/site-packages/torch/jit/_script.py:1491: FutureWarning: `torch.jit.script` is deprecated. Please switch to `torch.compile` or `torch.export`.
+  warnings.warn(
+Environment variable CCD_MIRROR_PATH not set. Will not be able to use function requiring this variable. To set it you may:
+  (1) add the line 'export VAR_NAME=path/to/variable' to your .bashrc or .zshrc file
+  (2) set it in your current shell with 'export VAR_NAME=path/to/variable'
+  (3) write it to a .env file in the root of the atomworks.io repository
+Environment variable PDB_MIRROR_PATH not set. Will not be able to use function requiring this variable. To set it you may:
+  (1) add the line 'export VAR_NAME=path/to/variable' to your .bashrc or .zshrc file
+  (2) set it in your current shell with 'export VAR_NAME=path/to/variable'
+  (3) write it to a .env file in the root of the atomworks.io repository
+Fetching 2 files:   0%|          | 0/2 [00:00<?, ?it/s]Fetching 2 files: 100%|██████████| 2/2 [00:00<00:00, 675.47it/s]
+{"size": 336, "arm": "compile-reduce-overhead", "batch": 32, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-compile-reduce-overhead/b32", "host": "vast:60259464", "overrides": ["compile_lengths=[336]", "nn.torch_compile_mode=reduce-overhead"], "nn_overrides": {"torch_compile_mode": "reduce-overhead"}, "kind": "cold", "phase": "load", "designs": 0, "wall_s": 15.109, "t": "2026-11-11T22:01:47Z"}
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+Expandable segment sentinel insertion copied annotation values without explicit re-derivation for source atom_idx=3478: ['is_aromatic', 'is_backbone_atom', 'label_alt_id', 'stereo', 'transformation_id']
+cuEquivariance has no fused compiled inference triangle multiplication for batch=32, n=336, c_z=384, c_hidden=256, bf16=True; using the torch backend.
+[W1111 22:02:33.527213038 CUDACachingAllocator.cpp:3934] memory allocation failed with OOM on device 0 while trying to allocate 5549064192 bytes (free: 3131572224, total: 85094825984).
+[W1111 22:02:33.529187864 CUDACachingAllocator.cpp:3934] memory allocation failed with OOM on device 0 while trying to allocate 5549064192 bytes (free: 3152543744, total: 85094825984).
+sizzling... 🔥                                  0/1 0:00:26 • -:--:-- 0.00it/s 
+{"size": 336, "arm": "compile-reduce-overhead", "batch": 32, "seed": 1234, "gpu": "NVIDIA A100-SXM4-80GB", "sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "raw": "/root/kc/pvo/rfd4/sweep-compile-reduce-overhead/b32", "host": "vast:60259464", "overrides": ["compile_lengths=[336]", "nn.torch_compile_mode=reduce-overhead"], "nn_overrides": {"torch_compile_mode": "reduce-overhead"}, "kind": "cold", "designs": 0, "wall_s": 47.641, "sm_mhz": 1410, "power_w": 87.51, "util_pct": 25, "phase": "compile", "status": "FAILED", "error": "OutOfMemoryError: CUDA out of memory. Tried to allocate 5.17 GiB. GPU 0 has a total capacity of 79.25 GiB of which 2.94 GiB is free. Process 1081217 has 464.00 MiB memory in use. Process 2533215 has 39.53 GiB memory in use. Process 2904346 has 36.31 GiB memory in use. Of the allocated memory 35.69 GiB is allocated by PyTorch, with 15.79 GiB allocated in private pools (e.g., CUDA Graphs), and 103.46 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)", "t": "2026-11-11T22:02:34Z"}
+compile-reduce-overhead: b32 failed (OutOfMemoryError: CUDA out of memory. Tried to allocate 5.17 GiB. GPU 0 has a total capacity of 79.25 GiB of which 2.94 GiB is free. Process 1081217 has 464.00 MiB memory in use. Process 2533215 has 39.53 GiB memory in use. Process 2904346 has 36.31 GiB memory in use. Of the allocated memory 35.69 GiB is allocated by PyTorch, with 15.79 GiB allocated in private pools (e.g., CUDA Graphs), and 103.46 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)) -- that is the ceiling
+fast arm native-compile b16 7.48 s/design (exact b1 13.67)
+{
+  "size": 336,
+  "spec": "/root/kc/rfd4in/9TH6-A-c216-b120.yaml",
+  "designs": {},
+  "exact_serial": {
+    "status": "ok",
+    "n": 3,
+    "designs_s": 0.07313149041977476,
+    "s_per_design": 13.673999999999998,
+    "spread": [
+      0.07266913741733887,
+      0.07337295472888694
+    ],
+    "batch": 1,
+    "load_s": 31.052,
+    "sm_mhz_median": 1410
+  },
+  "fast_arm": "native-compile",
+  "fast_batch": 16,
+  "fast": {
+    "status": "ok",
+    "n": 3,
+    "designs_s": 0.13376919797005243,
+    "s_per_design": 7.4755625,
+    "spread": [
+      0.1334835022733909,
+      0.13383633489196897
+    ],
+    "batch": 16,
+    "load_s": 15.915,
+    "sm_mhz_median": 1275
+  },
+  "design_batch": 16
+}
