@@ -1327,6 +1327,9 @@ def test_a_pass_is_reused_on_a_commit_that_changed_nothing_the_leg_read(tmp_path
     assert not gf.reads_match(a, c, ["m/a.py", "dir:m"], repo)
     assert gf.reads_match(a, c, ["m/a.py"], repo)                  # import-system listings are not kept
     assert not gf.reads_match(a, d, ["m/a.py"], repo)
+    assert gf.reads_match(a, b, ["m/a.py", "pyproject.toml"], repo)  # a release's version bump
+    f = commit({"pyproject.toml": 'version = "2"\ndependencies = ["x"]\n'}, "f: a dependency")
+    assert not gf.reads_match(a, f, ["pyproject.toml"], repo)
     np = [gf.content_hash(s, repo, python=False) for s in (a, b, d)]
     assert np[0] == np[1] == np[2]                                 # .py and the version line only
     e = commit({"k/x.cpp": "2"}, "e")

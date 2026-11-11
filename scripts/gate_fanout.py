@@ -718,7 +718,8 @@ def content_hash(sha: str, repo: Path = REPO, baselines: bool = False, tests: bo
 
 def reads_match(a: str, b: str, reads: list, repo: Path = REPO) -> bool:
     """True when every file a leg read at `a` (gate_reads.py) is the same blob at `b`, and every
-    directory it listed holds the same names. A file absent at both is the same file."""
+    directory it listed holds the same names. A file absent at both is the same file; pyproject.toml
+    differing only in its `version =` line is the same file (dep_spec)."""
     def tree(sha):
         return {ln.split("\t", 1)[1]: ln.split()[2] for ln in _ls_tree(sha, repo)}
     ta, tb = tree(a), tree(b)
@@ -730,6 +731,9 @@ def reads_match(a: str, b: str, reads: list, repo: Path = REPO) -> bool:
             if kids[0] != kids[1]:
                 return False
         elif ta.get(r) != tb.get(r):
+            # A release commit bumps only pyproject's version line; leg_key ignores it, so must reuse.
+            if r == "pyproject.toml" and r in ta and r in tb and dep_spec(a, repo) == dep_spec(b, repo):
+                continue
             return False
     return True
 
