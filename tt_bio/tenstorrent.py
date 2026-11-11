@@ -621,6 +621,12 @@ _FAST_MODE = False
 #                   of 3.82 ms; ESMFold2's c_z 256 call does not reach T1). ESMFold2's call at 512 on p150a
 #                   (1350 MHz): normal set 9.37 -> 8.71 ms, rel_rms vs float64 0.0088 -> 0.0106; fast set 8.62 -> 8.33
 #                   ms, 0.0088 -> 0.0107 (HiFi3 in the normal set: 9.02 ms at the same error as HiFi4)
+#   trunk_trace     RFD4's trunk replays each call from a capture instead of dispatching its 2,301 ops again,
+#                   one capture per recycle depth. Changes no arithmetic: a replay is the captured program on new
+#                   input-buffer contents. It is a lever because it needs a trace region reserved at device open
+#                   and holds one output pair per depth in DRAM. At PopVax's 620-token cell a design is 87.2 s of
+#                   which the card accounts for ~82.2; two interleaved lanes measured no faster than one, which
+#                   says the host is busy feeding the card rather than waiting on it (state/rfd4-3x.md)
 #   trimul_sig6     the trimul kernels' gate sigmoid (gin, T1, tails) as a degree-6 polynomial instead of degree 8:
 #                   max |error| 7.4e-4 vs 3.0e-4 against float64, ~1/3 fewer SFPU instructions per gate tile
 #   trimul_gin_fuse gin_moved multiplies value and gate in DST (both side by side, half of DST each) instead of
@@ -9102,6 +9108,10 @@ TRACE_REGIONS = {
     # while the 128 MiB open came up. 160 MiB covers the measured need with ~20 % to spare.
     # Blackhole is unmeasured; 240 MiB keeps it under the quarter-bank cap every entry obeys.
     "bc2": {"wormhole_b0": 160 << 20, "blackhole": 240 << 20},
+    # RFD4-Proteina trunk call, one capture per recycle depth (6,5,4,3,2,1 over a design's 60
+    # steps). A call is 2,301 ops at depth 3, ~1.4x rf3's denoiser step, and six live captures
+    # share the region. PROVISIONAL: sized by that ratio, not measured.
+    "rfd4": {"wormhole_b0": 256 << 20, "blackhole": 320 << 20},
     "esmfold2": {"wormhole_b0": 32 << 20, "blackhole": 48 << 20},     # ESMFold2 / -Fast diffusion step, PROVISIONAL
     "saprot": {"wormhole_b0": 64 << 20, "blackhole": 64 << 20},       # one live SaProt batch forward, PROVISIONAL
 }

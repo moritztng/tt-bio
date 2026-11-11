@@ -22,6 +22,8 @@ passed as None and every multiply by it is skipped: x * 1 is x, bit for bit (`tr
 
 from __future__ import annotations
 
+import logging
+
 import ttnn
 
 import torch
@@ -32,8 +34,11 @@ from .. import outer_residual
 from .. import rne_add
 from ..envflags import env_flag
 from ..tenstorrent import (CORE_GRID_MAIN, Module, TriangleMultiplication, WeightScope, _pair_proj_minimal_matmul,
-                           _sdpa_program_config_for_lengths, bfp8_fidelity, download, fused_sdpa, lever,
-                           lever_scope, model_levers, refusals_learned, under_lever_scope, upload)
+                           _sdpa_program_config_for_lengths, bfp8_fidelity, capture_trace, download, fused_sdpa,
+                           lever, lever_scope, model_levers, refusals_learned, trace_region_size,
+                           under_lever_scope, upload)
+
+_log = logging.getLogger(__name__)
 
 EPS = 1e-5
 NEG_INF = -1e4
@@ -993,6 +998,12 @@ class Trunk(Module):
         # on the old one; run it again, so a process's first design equals its repeats. Every
         # refusal site remembers its plan, so the count settles; the cap only bounds a site that
         # someday does not.
+        replayed = self.replay(device, s, z, cs, masks)
+        if replayed is not None:
+            for t in (s, z, *cs):
+                if t.is_allocated():
+                    ttnn.deallocate(t)
+            return n, pair, replayed, None, tuple(self._ran)
         for _ in range(3):
             learned = refusals_learned()
             s_out, z_out = self(s, z, cs, masks)
@@ -1000,7 +1011,85 @@ class Trunk(Module):
                 break
             ttnn.deallocate(s_out)
             ttnn.deallocate(z_out)
+        self.after_pass(device, s, z, cs, masks)
         return n, pair, (s_out, z_out), (s, z, *cs), tuple(self._ran)
+
+    @property
+    def traces(self) -> dict:
+        """A capture per recycle depth and input shape: `{key: {tid, s, z, cs, out, ran}}`."""
+        return self.__dict__.setdefault("_traces", {})
+
+    def traces_wanted(self) -> bool:
+        """Whether this trunk replays its calls. The lever asks for it; the device has to have
+        reserved a trace region at open (`engine.DesignEngine` does when the lever is in the set),
+        and a run that reserved none simply stays eager."""
+        return "trunk_trace" in self._levers and trace_region_size() > 0
+
+    @staticmethod
+    def trace_key(s, z, cs):
+        return len(cs), tuple(s.shape), s.dtype, tuple(z.shape), z.dtype
+
+    def replay(self, device, s, z, cs, masks):
+        """This call's `(s_out, z_out)` from its capture, or None if there is none to replay.
+
+        The capture's own input buffers are what the program reads, so the step's tensors are copied
+        into them and the replay writes the same output tensors every time: `collect` reads them and
+        must not free them. `self` is unchanged by a replay, so `_ran` is restored from the captured
+        call rather than counted again -- the work is the captured call's, pass for pass."""
+        if not self.traces_wanted():
+            return None
+        tr = self.traces.get(self.trace_key(s, z, cs))
+        if tr is None:
+            return None
+        ttnn.copy(s, tr["s"])
+        ttnn.copy(z, tr["z"])
+        for c, buf in zip(cs, tr["cs"]):
+            ttnn.copy(c, buf)
+        ttnn.execute_trace(device, tr["tid"], cq_id=0, blocking=False)
+        self._ran = tr["ran"]
+        return tr["out"]
+
+    def after_pass(self, device, s, z, cs, masks):
+        """Capture this shape once the eager calls before it have settled every lazy cache.
+
+        Two eager calls first, as esmfold2's diffusion step does: a capture that records a cache
+        being filled replays the fill, and a program that allocates during capture is the one the
+        fence exists for. A capture that throws leaves the shape eager for the rest of the run
+        rather than taking the process down -- the trunk is correct either way, only slower."""
+        if not self.traces_wanted():
+            return
+        key = self.trace_key(s, z, cs)
+        if key in self.traces or key in self.__dict__.setdefault("_trace_failed", set()):
+            return
+        warm = self.__dict__.setdefault("_trace_warm", {})
+        warm[key] = warm.get(key, 0) + 1
+        if warm[key] < 2:
+            return
+        bufs = ttnn.clone(s), ttnn.clone(z), [ttnn.clone(c) for c in cs]
+        ttnn.synchronize_device(device)
+        try:
+            tid, out = capture_trace(device, lambda: self(bufs[0], bufs[1], bufs[2], masks))
+        except Exception as exc:  # noqa: BLE001 -- a trace region too small, a program that refuses
+            _log.info("rfd4 trunk: trace capture failed at depth %d, staying eager: %s", len(cs), exc)
+            self._trace_failed.add(key)
+            for buf in (bufs[0], bufs[1], *bufs[2]):
+                if buf.is_allocated():
+                    ttnn.deallocate(buf)
+            return
+        self.traces[key] = {"tid": tid, "s": bufs[0], "z": bufs[1], "cs": bufs[2], "out": out,
+                            "ran": tuple(self._ran)}
+
+    def release_traces(self, device):
+        """Free every capture and the buffers it reads and writes."""
+        for tr in self.traces.values():
+            try:
+                ttnn.release_trace(device, tr["tid"])
+            except Exception:  # noqa: BLE001 -- a closed device has released them already
+                pass
+            for t in (tr["s"], tr["z"], *tr["cs"], *tr["out"]):
+                if t.is_allocated():
+                    ttnn.deallocate(t)
+        self.traces.clear()
 
     def collect(self, pending):
         """The `(s, z)` of a `launch`, back on the host, and its device tensors freed."""
@@ -1009,7 +1098,9 @@ class Trunk(Module):
         self.counted["passes"] += passes * b
         self.counted["blocks"] += blocks * b
         out = download(s_out)[:, :n], download(z_out)[:, :n, :n] if pair else None
-        for t in (*inputs, s_out, z_out):
+        # `inputs is None` is a replayed call: its tensors are the capture's own and the next
+        # replay writes them again, so freeing them here would free the program's buffers.
+        for t in (*inputs, s_out, z_out) if inputs is not None else ():
             if t.is_allocated():
                 ttnn.deallocate(t)
         return out
