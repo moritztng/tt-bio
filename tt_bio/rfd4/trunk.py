@@ -1080,7 +1080,11 @@ class Trunk(Module):
         try:
             tid, out = capture_trace(device, lambda: self(bufs[0], bufs[1], bufs[2], masks))
         except Exception as exc:  # noqa: BLE001 -- a trace region too small, a program that refuses
-            _log.info("rfd4 trunk: trace capture failed at depth %d, staying eager: %s", len(cs), exc)
+            # Said out loud, as autograd's recompute captures do: an arm whose captures were all
+            # refused is an EAGER arm, and without this it reads in the numbers as "tracing bought
+            # nothing" instead of "tracing never happened".
+            print(f"[trace] rfd4 trunk: capture refused at depth {len(cs)}, staying eager: "
+                  f"{str(exc).splitlines()[0][:200]}", flush=True)
             self._trace_failed.add(key)
             for buf in (bufs[0], bufs[1], *bufs[2]):
                 if buf.is_allocated():
@@ -1088,6 +1092,8 @@ class Trunk(Module):
             return
         self.traces[key] = {"tid": tid, "s": bufs[0], "z": bufs[1], "cs": bufs[2], "out": out,
                             "ran": tuple(self._ran)}
+        print(f"[trace] rfd4 trunk: captured depth {len(cs)} at {tuple(s.shape)}, "
+              f"{len(self.traces)} live", flush=True)
 
     def release_traces(self, device):
         """Free every capture and the buffers it reads and writes."""
