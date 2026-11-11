@@ -1,0 +1,20 @@
+# PVO-VISUAL RFD4 cell: a 120-residue de-novo binder against one contiguous 216-residue segment of 9TH6
+# chain A (auth 155-370 = label 175-390), 336 tokens. The 448-residue target of 9TH6-A-b120.yaml spans six modelled
+# segments, and JapanFold refuses a contig covering residues its structure does not carry, so that cell
+# cannot be run on the live service. This one runs identically on both sides: JapanFold takes the same
+# contig in its own label numbering: "120-120, /0, A175-390", hotspots A228,A229,A241.
+9TH6_A_c216_b120:
+  input: 9TH6-A-b120.cif
+  contig: "120-120, /0, A155-370"
+  conditions:
+    C_CRDGRP:
+      1:
+        - select: "sel('A/*/155-370/[N,CA,C,O]') and not has_nan_coord()"
+    C_SEQ:
+      true:
+        - select: "sel('A/*/155-370/*')"
+    C_HOT:
+      true:
+        - select: "sel('A/*/209/*')"
+        - select: "sel('A/*/221/*')"
+        - select: "sel('A/*/208/*')"
