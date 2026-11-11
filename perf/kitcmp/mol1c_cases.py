@@ -21,6 +21,13 @@ cases = {
     # A 88 is token 87; token 540 is DNA chain F's first nucleotide (A, B 244 each, C, D 19, E 14), ~55 A from A 88
     # in the crystal, so this asks for a contact the native fold does not have.
     "c6_token_pairs": {"contact": {"token_pairs": [[87, 540]]}},
+    # c2 is weak evidence: its residues sit 17-23 A from the ligand in the crystal too, so it is satisfied by doing
+    # nothing. c7 is the real EXCLUSION test -- the four chain-A residues an UNCONSTRAINED Mol-1 fold of this input
+    # packs hardest against ligand G (2.57-2.96 A, measured on tt-bio BH 2026-11-11) are asked to leave. Upstream
+    # must run it too: on tt-bio the fold does not move them (ROOT.md c7), and only upstream says whether that is
+    # the model or our port.
+    "c7_exclusion_strong": {"exclusion": {"source_chains": ["A"], "partner_chains": ["G"],
+                                          "residue_ids": [["A", 85], ["A", 86], ["A", 88], ["A", 96]]}},
 }
 out = []
 for name, cons in cases.items():
