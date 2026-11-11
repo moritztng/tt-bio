@@ -1,0 +1,31 @@
+"""mol1-constraint golden cases on upstream's 7PZB example (MSAs from the example; contacts from the 7PZB crystal,
+label_seq_id numbering). Usage: make_cases.py <example input.json> <msa_root> <out.json>"""
+import copy, json, sys
+ex = json.load(open(sys.argv[1]))[0]
+for s in ex["sequences"]:
+    p = s.get("proteinChain")
+    if p:
+        for k in ("pairedMsaPath", "unpairedMsaPath"):
+            p[k] = p[k].replace("./examples/", sys.argv[2].rstrip("/") + "/")
+base = {k: v for k, v in ex.items() if k != "constraints"}
+site = ex["constraints"]["site"]                                   # A 86, 95, 140 -> PCG G (upstream's example)
+excl = {"source_chains": ["A"], "partner_chains": ["G"], "residue_ids": [["A", 6], ["A", 21], ["A", 36], ["A", 156]]}
+pairs = [[["A", 71], ["B", 149]], [["A", 91], ["B", 138]], [["A", 131], ["B", 90]], [["A", 230], ["B", 69]]]
+cases = {
+    "c1_site": {"site": site},
+    "c2_exclusion": {"exclusion": excl},
+    "c3_contact": {"contact": {"pairs": pairs}},
+    "c4_combined": {"site": site, "contact": {"pairs": pairs[:2]},
+                    "exclusion": {"source_chains": ["A"], "partner_chains": ["H"], "residue_ids": [["A", 6], ["A", 21]]}},
+    "c5_none": None,
+    # A 88 is token 87; PCG G's first atom is token 540 (A, B 237 each, DNA 19+19+14+14)
+    "c6_token_pairs": {"contact": {"token_pairs": [[87, 540]]}},
+}
+out = []
+for name, cons in cases.items():
+    t = copy.deepcopy(base); t["name"] = name
+    if cons:
+        t["constraints"] = cons
+    out.append(t)
+json.dump(out, open(sys.argv[3], "w"), indent=1)
+print(len(out), "cases")
