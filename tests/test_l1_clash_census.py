@@ -59,6 +59,20 @@ def test_shortfall_needs_no_device_constants():
     assert "cb_need" not in c or c.get("l1_top")  # omitted, not guessed
 
 
+def test_no_open_device_means_no_device_query(monkeypatch):
+    # An unpinned card-free run hung here on the locks of cards other jobs held (2026-11-11).
+    import tt_bio.tenstorrent as T
+
+    def no_device():
+        raise AssertionError("queried the cluster with no device open")
+
+    monkeypatch.setattr(T, "_device", None)
+    monkeypatch.setattr(T.ttnn, "get_max_worker_l1_unreserved_size", no_device)
+    monkeypatch.setattr(T, "_L1_TOP_SEEN", [1499136])
+    c = describe_l1_clash(CLASH)
+    assert c["resident_per_core"] == 1499136 - 352256 and "cb_need" not in c
+
+
 def test_overflow_form_implicates_no_tensor():
     c = describe_l1_clash(OVERFLOW)
     assert c["cores"] == 72

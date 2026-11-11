@@ -5008,6 +5008,10 @@ def describe_l1_clash(msg: object, l1_top: int | None = None,
 
 
 def _worker_l1_unreserved() -> int | None:
+    # No device open here (the CLI parent, a card-free test): the query would bring up UMD on
+    # every visible chip and block on cards other processes hold. Omit, as documented above.
+    if _device is None:
+        return None
     try:
         return int(ttnn.get_max_worker_l1_unreserved_size())
     except Exception:                                                          # noqa: BLE001
