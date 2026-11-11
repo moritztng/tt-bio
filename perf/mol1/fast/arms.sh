@@ -14,6 +14,8 @@ arm_env() {
     b8) FASTFLAG=; LV=${!n},${!b} ;;             # normal mode + bfp8 pair stack
     fn) FASTFLAG=--fast; LV=${!n},fast ;;        # --fast over the normal set + shared fast set
     fb) FASTFLAG=--fast; LV=${!n},fast,${!b} ;;  # fn + bfp8 pair stack
+    nf0) FASTFLAG=; LV=${!n},fast ;;            # fn without the old bfp8 _FAST_MODE: precision from the set alone
+    nf) FASTFLAG=; LV=${!n},fast,${!b} ;;      # fb without _FAST_MODE
     *) return 1 ;;
   esac
 }
