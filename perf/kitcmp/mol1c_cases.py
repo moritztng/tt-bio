@@ -18,7 +18,8 @@ cases = {
     "c4_combined": {"site": site, "contact": {"pairs": pairs[:2]},
                     "exclusion": {"source_chains": ["A"], "partner_chains": ["H"], "residue_ids": [["A", 6], ["A", 21]]}},
     "c5_none": None,
-    # A 88 is token 87; PCG G's first atom is token 540 (A, B 237 each, DNA 19+19+14+14)
+    # A 88 is token 87; token 540 is DNA chain F's first nucleotide (A, B 244 each, C, D 19, E 14), ~55 A from A 88
+    # in the crystal, so this asks for a contact the native fold does not have.
     "c6_token_pairs": {"contact": {"token_pairs": [[87, 540]]}},
 }
 out = []
