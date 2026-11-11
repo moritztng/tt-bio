@@ -16,6 +16,7 @@ arm_env() {
     fb) FASTFLAG=--fast; LV=${!n},fast,${!b} ;;  # fn + bfp8 pair stack
     nf0) FASTFLAG=; LV=${!n},fast ;;            # fn without the old bfp8 _FAST_MODE: precision from the set alone
     nf) FASTFLAG=; LV=${!n},fast,${!b} ;;      # fb without _FAST_MODE
+    fast) FASTFLAG=--fast; LV= ;;               # the tree's own --fast (from 51e77c5c4: Mol-1's graded fast set)
     *) return 1 ;;
   esac
 }
