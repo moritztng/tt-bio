@@ -238,8 +238,13 @@ class FlowGlue(torch.nn.Module):
             return s_init, self.pair_repr_builder(batch)
         return s_init, self.pair_split.inputs(batch, pair_constant, modulation)
 
-    def heads(self, s: torch.Tensor, batch: dict) -> dict[str, dict[str, torch.Tensor]]:
-        """The four readouts. `emit_masks` decide which tokens a modality may move."""
+    def heads(self, s: torch.Tensor, batch: dict, *, insertion: bool = True
+              ) -> dict[str, dict[str, torch.Tensor]]:
+        """The four readouts. `emit_masks` decide which tokens a modality may move.
+
+        The sampler reads the insertion logits from the final step alone (`sampler.SamplerOutput`),
+        and they are a [tokens, tokens] bilinear map, so `insertion=False` leaves them out of a step
+        whose output is only a state update. Every other readout is computed as it always was."""
         from tt_bio._vendor.rfd4_prep._cif.model_masks import compute_flow_emit_masks
 
         emit = compute_flow_emit_masks(batch)
@@ -251,8 +256,9 @@ class FlowGlue(torch.nn.Module):
         }
         if self.sequence_readout_enabled:
             out["sequence"] = {"logits": self.sequence_readout(s) * batch["padding_mask"][..., None]}
-        q, k = self.insertion_q_proj(s), self.insertion_k_proj(s)
-        out["insertion"] = {"logits": torch.bmm(q, k.transpose(1, 2)) * self._insertion_head_scale}
+        if insertion:
+            q, k = self.insertion_q_proj(s), self.insertion_k_proj(s)
+            out["insertion"] = {"logits": torch.bmm(q, k.transpose(1, 2)) * self._insertion_head_scale}
         return out
 
 
@@ -322,7 +328,7 @@ class FlowNetwork:
         if self.plan is not None and step + 1 < len(self.plan) and self._like is not None:
             t_next, depth_next = self.plan[step + 1]
             self._conditioning(t_next, max(1, int(depth_next)), inputs[0].shape[0])
-        return batch, depth, pending
+        return batch, depth, step, pending
 
     def _step_batch(self, t: dict[str, float], n_designs: int) -> dict:
         batch = dict(self.batch)
@@ -358,16 +364,23 @@ class FlowNetwork:
 
     def collect(self, launched):
         """Wait for the trunk and read s back. The card is free from here on."""
-        batch, depth, pending = launched
+        batch, depth, step, pending = launched
         s, _z = self.trunk.collect(pending) if hasattr(self.trunk, "collect") else pending
         self.passes += depth
-        return s, batch
+        return s, batch, step
 
     def complete(self, collected) -> dict[str, dict[str, Any]]:
         """The heads on a collected s, host work `sampler.run_lanes` runs under the next lane's trunk."""
-        s, batch = collected
+        s, batch, step = collected
         with torch.no_grad():
-            return self.glue.heads(s, batch)
+            return self.glue.heads(s, batch, insertion=self.keeps_insertion(step))
+
+    def keeps_insertion(self, step: int) -> bool:
+        """Whether this step's insertion logits can still be read. The sampler keeps them from its
+        last step only, so with a plan every earlier step skips a [tokens, tokens] bilinear map:
+        5.05 ms a step at 620 tokens, 0.298 s of a design's 0.303 s (`perf/rfd4/heads/cost.py`).
+        Without a plan the network cannot know which step is last and computes every readout."""
+        return self.plan is None or step >= len(self.plan) - 1
 
 
 def _broadcast_batch(batch: dict, n_designs: int) -> dict:
