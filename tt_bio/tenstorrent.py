@@ -624,9 +624,15 @@ _FAST_MODE = False
 #   trunk_trace     RFD4's trunk replays each call from a capture instead of dispatching its 2,301 ops again,
 #                   one capture per recycle depth. Changes no arithmetic: a replay is the captured program on new
 #                   input-buffer contents. It is a lever because it needs a trace region reserved at device open
-#                   and holds one output pair per depth in DRAM. At PopVax's 620-token cell a design is 87.2 s of
-#                   which the card accounts for ~82.2; two interleaved lanes measured no faster than one, which
-#                   says the host is busy feeding the card rather than waiting on it (state/rfd4-3x.md)
+#                   and holds one output pair per depth in DRAM. MEASURED AND IT BUYS NOTHING at PopVax's
+#                   620-token cell: one WH Galaxy chip, AICLK 1000 on every design, all six depths captured,
+#                   off 84.367 s/design (n=2) vs on 84.975 (n=2) -- and the replay is bit-exact against the
+#                   eager path (per-design sha256 70b36d2052 on both arms, seed 1010), so the lever is correct,
+#                   just worthless here. The host profile's 258k ttnn calls / 22.0 s per design look like the
+#                   prize and are not: the card is busy 82.2 s of 87.2, so dispatch runs inside the card's busy
+#                   window and only the ~5 s the card idles was ever reclaimable. Keep it for regimes where the
+#                   card does idle (small widths, many tiny kernels); do not reach for it on a saturated one.
+#                   Two interleaved lanes likewise measured no faster than one (state/rfd4-3x.md)
 #   trimul_sig6     the trimul kernels' gate sigmoid (gin, T1, tails) as a degree-6 polynomial instead of degree 8:
 #                   max |error| 7.4e-4 vs 3.0e-4 against float64, ~1/3 fewer SFPU instructions per gate tile
 #   trimul_gin_fuse gin_moved multiplies value and gate in DST (both side by side, half of DST each) instead of
