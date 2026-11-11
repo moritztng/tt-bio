@@ -281,6 +281,14 @@ def build_protein_features(sequence: str, a3m: str | None = None) -> dict:
     return build_complex_features([(sequence, a3m)])
 
 
+def _is_backbone_bond(mol_type: str, atom_a: str, atom_b: str) -> bool:
+    """Upstream OpenDDE's _is_polymer_backbone_bond: a peptide C-N or a nucleic O3'-P link."""
+    pair = {atom_a, atom_b}
+    if mol_type == "protein":
+        return pair == {"C", "N"}
+    return mol_type in ("dna", "rna") and "P" in pair and bool(pair & {"O3'", "O3*", "O3T"})
+
+
 def _resolve_bond_token(placement: dict, cid, res, atom) -> int:
     """Map a `bond` constraint endpoint (chain id, 1-indexed residue, atom name) to its
     global token index, using the per-chain placement recorded in build_complex_features.
@@ -563,10 +571,16 @@ def build_complex_features(chains: list, mol_dir: str | None = None,
     # endpoint resolves to its per-residue token (1-indexed res); a ligand endpoint to the
     # token of the named atom. token_bonds is the only constraint signal Protenix-v2 consumes
     # (the trunk has no constraint embedder), so pocket/contact are rejected upstream.
+    # A bond that closes the chain's own backbone (a head-to-tail cyclic peptide's C-N) is also
+    # a residue-graph edge for OpenDDE (opendde_data._residue_adjacency); kept only when one
+    # exists, so every other input's feature dict is unchanged.
+    backbone = []
     for (c1, r1, a1), (c2, r2, a2) in (bonds or []):
         t1 = _resolve_bond_token(placement, c1, r1, a1)
         t2 = _resolve_bond_token(placement, c2, r2, a2)
         token_bonds[t1, t2] = token_bonds[t2, t1] = 1.0
+        if t1 != t2 and str(c1) == str(c2) and _is_backbone_bond(placement[str(c1)]["mt"], a1, a2):
+            backbone.append(sorted((t1, t2)))
 
     feats = {
         "restype": torch.cat(restype, 0),
@@ -579,6 +593,8 @@ def build_complex_features(chains: list, mol_dir: str | None = None,
         "token_index": torch.arange(0, N_tot, dtype=torch.long),
         **msa_feats,
     }
+    if backbone:
+        feats["polymer_backbone_bonds"] = torch.tensor(backbone, dtype=torch.long)
     # concat atom features across chains (atom_to_token_idx / ref_space_uid already offset)
     for k in atom_feats[0]:
         feats[k] = torch.cat([af[k] for af in atom_feats], 0)
