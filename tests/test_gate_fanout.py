@@ -1336,7 +1336,19 @@ def test_a_pass_is_reused_on_a_commit_that_changed_nothing_the_leg_read(tmp_path
     assert gf.content_hash(e, repo, python=False) != np[0]
     f = commit({"k/fix.json": "1"}, "f: a fixture only Python reads")
     assert gf.content_hash(f, repo, python=False) != gf.content_hash(e, repo, python=False)
-    assert gf.content_hash(f, repo, python=False, data=False) == gf.content_hash(e, repo, python=False, data=False)
+    assert gf.content_hash(f, repo, **gf.SCOPES[0]) == gf.content_hash(e, repo, **gf.SCOPES[0])
+
+    # A perf note and CI's build pins are read by no leg's non-Python reader: the scope holds, and a
+    # row filed under the scope that still keyed them counts at the later commit (scopes_at).
+    g = commit({"perf/note.txt": "1", ".github/pins.txt": "1"}, "g: a note and CI pins")
+    h = commit({"perf/note.txt": "2", ".github/pins.txt": "2"}, "h: both change")
+    i = commit({"k/x.cpp": "3"}, "i: a kernel")
+    assert gf.content_hash(g, repo, **gf.SCOPES[0]) == gf.content_hash(h, repo, **gf.SCOPES[0])
+    assert gf.content_hash(g, repo, **gf.SCOPES[1]) != gf.content_hash(h, repo, **gf.SCOPES[1])
+    now, olds = gf.scopes_at(h, {g, i, "0" * 40}, repo)
+    assert now == gf.content_hash(h, repo, **gf.SCOPES[0])
+    assert gf.content_hash(g, repo, **gf.SCOPES[1]) in olds and gf.content_hash(h, repo, **gf.SCOPES[1]) in olds
+    assert gf.content_hash(i, repo, **gf.SCOPES[1]) not in olds    # a kernel change keys every leg anew
 
     led = gf.Ledger(tmp_path / "led")
     row = {"leg": "parity:m", "verdict": "PASS", "sha": a, "ended": "1", "worker": "h:0", "log": "l",

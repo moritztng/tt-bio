@@ -49,8 +49,9 @@ key and runs fresh.
 READS. That key changes with any code change, so on its own every staging reruns every leg. Each
 gate venv therefore carries scripts/gate_reads.py, which records every tree file the leg's Python
 processes import, open for reading or list. A PASS row keeps that list and a scope key: the key
-above with only the tracked non-Python files in place of the whole tree (C++ kernels and shell
-scripts are read by something other than Python, so any change to one still reruns every leg).
+above with only the tracked files Python does not read in place of the whole tree (C++ kernels and
+shell scripts are read by something other than Python, so any change to one still reruns every leg;
+data files and notes, PY_DATA, are left to the reads, and CI configuration to nothing).
 A later commit in the same scope reuses the PASS when every file the leg read is the same blob
 there, so a staging that touched one model reruns that model's legs and the ones that import its
 files, not the gate. A row without a list reuses on identical code only.
@@ -545,6 +546,19 @@ def ladder_ab(sha: str, repo: Path = REPO) -> bool:
     return p.returncode == 0
 
 
+def scopes_at(sha: str, shas, repo: Path = REPO) -> tuple:
+    """`sha`'s reuse scope hash, and the older-scope hashes (SCOPES) a ledger row may carry and still
+    count there: those of `sha` and of every commit in `shas` whose current scope equals `sha`'s."""
+    nonpy = content_hash(sha, repo, **SCOPES[0])
+
+    def same(s):
+        try:
+            return content_hash(s, repo, **SCOPES[0]) == nonpy
+        except subprocess.CalledProcessError:     # a commit this clone does not have
+            return False
+    return nonpy, {content_hash(s, repo, **v) for s in {sha, *filter(same, set(shas) - {sha})} for v in SCOPES[1:]}
+
+
 def _same_code(sha: str, content: str, repo: Path = REPO) -> bool:
     """True when `sha` is in this repo and holds the code `content` hashes."""
     try:
@@ -675,12 +689,33 @@ RUNNER_FILES_0 = tuple(f for f in RUNNER_FILES if f not in ("scripts/flock_first
 
 
 #: Data formats only Python parses in this tree: gate_reads.py sees every read of one, so the
-#: reuse scope leaves them to the leg's recorded reads like a .py file.
-PY_DATA = (".json", ".jsonl", ".yaml", ".yml", ".csv", ".tsv")
+#: reuse scope leaves them to the leg's recorded reads like a .py file. Every tracked .txt is a
+#: perf note, a resource tt_bio opens, or CI's build pins; none feeds a C++ build or a shell
+#: script, and .txt joined on 2026-11-11 after perf/abb3_port notes put 2bd90ece9 in a new scope.
+PY_DATA = (".json", ".jsonl", ".yaml", ".yml", ".csv", ".tsv", ".txt")
+#: GitHub Actions configuration. No gate leg runs it, so it leaves the reuse scope entirely.
+CI_ONLY = (".github/",)
+#: The reuse scope's definitions, newest first: (content_hash kwargs, until). A row keeps the
+#: scope key it was filed under, so a row under an older one still counts at a commit whose
+#: current scope equals its own commit's (main()).
+SCOPES = ({"python": False, "data": PY_DATA, "ci": False},
+          {"python": False, "data": PY_DATA[:-1]},         # until 2026-11-11: .txt and .github/ keyed
+          {"python": False})                               # until 2026-10-14: data files keyed
+
+
+@functools.lru_cache(maxsize=None)
+def _recorded(sha: str, repo: Path) -> frozenset:
+    """perf/*.txt at `sha` carrying a `RECORDED-AT:` line (content_hash)."""
+    p = subprocess.run(["git", "-C", str(repo), "grep", "-l", "^RECORDED-AT:", sha, "--", "perf/*.txt"],
+                       capture_output=True, text=True)
+    if p.returncode not in (0, 1):
+        raise subprocess.CalledProcessError(p.returncode, p.args, p.stdout, p.stderr)
+    return frozenset(ln.split(":", 1)[1] for ln in p.stdout.splitlines())
 
 
 def content_hash(sha: str, repo: Path = REPO, baselines: bool = False, tests: bool = False,
-                 runner: tuple = RUNNER_FILES, python: bool = True, data: bool = True) -> str:
+                 runner: tuple = RUNNER_FILES, python: bool = True, data: tuple = (),
+                 ci: bool = True) -> str:
     """Hash of every tracked file at `sha` except Markdown, from git's own blob ids.
 
     pyproject.toml is hashed without its `version =` line: the release commit bumps it, and that
@@ -693,21 +728,17 @@ def content_hash(sha: str, repo: Path = REPO, baselines: bool = False, tests: bo
     So is this runner (RUNNER_FILES): it decides where a leg runs, not what the leg computes, and
     a fix to it must not throw away a gate's worth of evidence. Test files only pytest reads
     (test_only) are keyed on the pytest legs instead; `tests=True` keeps them, the key every
-    ledger row before 2026-10-09 21Z was written under. `python=False` drops the .py files and
-    `data=False` the PY_DATA files too: the reuse scope, whose rows carry the files they read."""
-    def git(*a, ok=(0,)):
-        p = subprocess.run(["git", "-C", str(repo), *a], capture_output=True, text=True)
-        if p.returncode not in ok:
-            raise subprocess.CalledProcessError(p.returncode, a, p.stdout, p.stderr)
-        return p.stdout
-    recorded = {ln.split(":", 1)[1] for ln in git("grep", "-l", "^RECORDED-AT:", sha, "--", "perf/*.txt",
-                                                  ok=(0, 1)).splitlines()}
+    ledger row before 2026-10-09 21Z was written under. `python=False` drops the .py files,
+    `data` the files with those suffixes and `ci=False` CI_ONLY: the reuse scope (SCOPES), whose
+    rows carry the files they read."""
+    recorded = _recorded(_commit(sha, repo), repo)
     only = set() if tests else test_only(sha, repo)
     rows = []
     for ln in _ls_tree(sha, repo):
         path = ln.split("\t", 1)[-1]
         if (path.endswith(".md") or path in recorded or path in runner or path in only
-                or (not python and path.endswith(".py")) or (not data and path.endswith(PY_DATA))
+                or (not python and path.endswith(".py")) or (data and path.endswith(data))
+                or (not ci and path.startswith(CI_ONLY))
                 or (not baselines and path.startswith(_BASELINE_PATHS))):
             continue
         if path == "pyproject.toml":
@@ -2102,9 +2133,11 @@ def main() -> int:
             if r.get("sha") == sha and r["verdict"] == "PASS" and r["leg"].startswith("record:")
             and r.get("seeded") and Path(r["seeded"]).is_file()}
     # A fixture JSON changed in a fix-forward put every leg in a new scope (rel-c2b4b898e, 10-14:
-    # 240 legs planned, 0 reused, though 125 read nothing the fix touched). Rows filed in the scope
-    # that still keyed data files (until 2026-10-14) stay good where those files did not change.
-    nonpy, nonpy_old = content_hash(sha, python=False, data=False), content_hash(sha, python=False)
+    # 240 legs planned, 0 reused, though 125 read nothing the fix touched), and so did a perf note
+    # and CI's build pins (2bd90ece9, 11-11). A row filed under an older scope (SCOPES) counts at any
+    # commit whose current scope equals that of the row's own commit: what it keyed beyond the
+    # current scope is read by no leg, and its recorded reads still decide.
+    nonpy, nonpy_old = scopes_at(sha, ledger.shas())
     for lg in legs:
         on = [a for a in archs if not lg.card_types
               or any(h.arch == a and type_fits(h, lg) for h, _ in workers)] if lg.card else [archs[0]]
@@ -2128,7 +2161,7 @@ def main() -> int:
             # The same leg on any commit with the same non-Python files, whose Python read nothing
             # this commit changed (gate_reads.py), proved this commit's result too.
             scopes[(lg.name, slot)] = scope = leg_key(nonpy, env, ct, hleg, base, tst)
-            scope_old = leg_key(nonpy_old, env, ct, hleg, base, tst)
+            scope_old = [leg_key(n, env, ct, hleg, base, tst) for n in sorted(nonpy_old)]
             # Card-free legs always run: they are cheap, and pytest_cpu checks the recorded
             # measurements the key leaves out.
             # A row under an older key scheme proved the same code against the same inputs, so it
@@ -2144,8 +2177,8 @@ def main() -> int:
                     + [leg_key(runner_in[s], env, ct, hleg, base, tst) for s in match]
                     + [leg_key(content, env, ct, hleg, baseline_hash(s, "perf"), tst) for s in same if ab])
             hit = (None if args.no_reuse or not lg.card or lg.family == "record"
-                   else next(filter(None, map(ledger.get, [k, *olds])), None) or ledger.read_hit(scope, sha)
-                   or ledger.read_hit(scope_old, sha))
+                   else next(filter(None, map(ledger.get, [k, *olds])), None)
+                   or next(filter(None, (ledger.read_hit(x, sha) for x in [scope, *scope_old])), None))
             owes = owed_by(roster, ctype[a], lg)
             if not owes and not any(h.arch == a and cap_fits(roster, h, lg) for h, _ in workers):
                 owes = [CAP_OWED]
