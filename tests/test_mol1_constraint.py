@@ -133,3 +133,30 @@ def test_pair_channels_place_tokens():
 def test_pair_channels_rejects(cons):
     with pytest.raises(ValueError):
         mc.pair_channels(mc.parse(cons), PLACE, 11)
+
+
+def test_upstream_json_reaches_the_yaml_reader(tmp_path):
+    import json
+    import yaml
+    from tt_bio import protenix_json
+    from tt_bio.main import _read_bio_constraints, _read_mol1_constraints
+    cons = {"site": {"source_chains": ["A"], "partner_chains": ["B"], "residue_ids": [["A", 3], ["A", 1]]},
+            "contact": {"token_pairs": [[0, 9]]}}
+    src = tmp_path / "in.json"
+    src.write_text(json.dumps([{"name": "x", "constraints": cons, "sequences": [
+        {"proteinChain": {"sequence": "MKVLA", "count": 1}}, {"ligand": {"ligand": "CCD_ATP", "count": 1}}]}]))
+    doc = protenix_json.read_jobs(src)[0].doc
+    yml = tmp_path / "x.yaml"
+    yml.write_text(yaml.safe_dump(doc))
+    assert _read_mol1_constraints(yml) == mc.parse(cons)
+    assert _read_bio_constraints(yml) == []
+
+
+def test_boltz_contact_still_refused(tmp_path):
+    import click
+    from tt_bio.main import _read_bio_constraints, _read_mol1_constraints
+    yml = tmp_path / "x.yaml"
+    yml.write_text("sequences: []\nconstraints:\n- contact: {token1: [A, 1], token2: [B, 2], max_distance: 6}\n")
+    assert _read_mol1_constraints(yml) is None
+    with pytest.raises(click.ClickException):
+        _read_bio_constraints(yml)

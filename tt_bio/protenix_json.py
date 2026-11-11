@@ -168,6 +168,9 @@ def job_to_doc(job: dict) -> Job:
                 out.unpaired_msa.update({c: unpaired for c in cids})
     bonds = [_bond(b, ids, job["sequences"]) for b in job.get("covalent_bonds") or []]
     cons = [{"bond": {"atom1": a1, "atom2": a2}} for pair in bonds for a1, a2 in pair]
+    # Mol-1-constraint's SITE / CONTACT / EXCLUSION object, one list item per kind (main._read_mol1_constraints)
+    from tt_bio.mol1_constraint import parse
+    cons += [{k: v} for k, v in (parse(job.get("constraints")) or {}).items()]
     if cons:
         out.doc["constraints"] = cons
     return out

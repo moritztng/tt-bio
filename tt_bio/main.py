@@ -2948,6 +2948,8 @@ def _read_bio_constraints(path):
                     "Bond constraint needs atom1 and atom2 as [chain, residue, atom].")
             bonds.append(((str(a1[0]), int(a1[1]), str(a1[2])),
                           (str(a2[0]), int(a2[1]), str(a2[2]))))
+        elif _is_mol1_condition(c):
+            continue                      # Mol-1-constraint, read by _read_mol1_constraints
         elif "pocket" in c or "contact" in c:
             kind = "pocket" if "pocket" in c else "contact"
             raise click.ClickException(
@@ -2957,6 +2959,37 @@ def _read_bio_constraints(path):
         else:
             raise click.ClickException(f"Unsupported constraint for Protenix: {c}")
     return bonds
+
+
+def _is_mol1_condition(item) -> bool:
+    """A `constraints:` list item in Mol-1-constraint's shape: `site`, `exclusion`, or a `contact` given as
+    `pairs` / `token_pairs` (a Boltz contact names token1 / token2 instead)."""
+    if "site" in item or "exclusion" in item:
+        return True
+    c = item.get("contact")
+    return isinstance(c, dict) and bool({"pairs", "token_pairs"} & set(c))
+
+
+def _read_mol1_constraints(path) -> dict | None:
+    """The input's Mol-1-constraint conditions (SITE / CONTACT / EXCLUSION), parsed by upstream's rules
+    (`mol1_constraint.parse`), or None when it names none. Each kind is one list item, as in upstream's
+    `constraints` object; an upstream JSON input is converted to the same items."""
+    if path.suffix.lower() not in (".yml", ".yaml"):
+        return None
+    import yaml
+    from tt_bio import mol1_constraint
+    doc = yaml.safe_load(path.read_text()) or {}
+    merged = {}
+    for c in doc.get("constraints", []) or []:
+        if isinstance(c, dict) and _is_mol1_condition(c):
+            for k, v in c.items():
+                if k in merged:
+                    raise click.ClickException(f"Give one '{k}' constraint per input; list all its residues in it.")
+                merged[k] = v
+    try:
+        return mol1_constraint.parse(merged or None)
+    except ValueError as e:
+        raise click.ClickException(str(e))
 
 
 def _read_cyclic(path) -> list[str]:
@@ -3873,6 +3906,13 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
             done = discover_jobs(data, struct_dir, output_format, override=True)
             click.echo("All predictions complete" if done else "No input files found")
             return
+
+        # Mol-1 inputs that name a site / contact / exclusion fold on the Mol-1-constraint weights, as upstream's
+        # `mol cpred` does. The run takes one checkpoint, so an unconstrained input beside them folds on those weights
+        # too, with the conditions all zero; --checkpoint overrides the choice.
+        if model == "mol1" and not checkpoint and any(_read_mol1_constraints(j.path) for j in jobs):
+            checkpoint = str(weights.fetch("mol1-constraint", root=Path(cache).expanduser() if cache else None))
+            click.echo("Inputs carry Mol-1 constraints: folding with the Mol-1-constraint weights.")
 
         # Read every input NOW and refuse what this model cannot honour, before the weights
         # download and the first device open. The worker checks again -- that is the

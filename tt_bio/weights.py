@@ -317,13 +317,22 @@ _ROWS: tuple[Artifact, ...] = (
     # bucket in Shanghai that serves the rest of the world at tens of KB/s, so the hub mirror,
     # an unofficial byte-identical copy, is tried first. The sha256 is of the official file
     # (its OSS CRC-64 matched the bucket's), so a mirror that drifts is a named error.
-    # Molence states no weights licence (molence/Mol-1#5); the code is Apache-2.0.
-    Artifact("mol1", ("mol1",), "file", "unstated (Molence); code Apache-2.0",
+    # Molence released the weights under Apache-2.0 like the code (molence/Mol-1#5, 2026-11-02).
+    Artifact("mol1", ("mol1",), "file", "Apache-2.0 (Molence)",
              repo=MOL1_REPO, filename="checkpoint/mol-1-base.pt",
              url="https://mol-1-release.oss-cn-shanghai.aliyuncs.com/checkpoint/mol-1-base.pt",
              sha256="d5b83a86884aa6870565b1a249e8f13c232dfc6dfa311089ab0c7868212b6bd6",
              subdir="mol1", approx_bytes=2393615173,
              note="Mol-1 base checkpoint, a Protenix-v2 variant"),
+    # Mol-1-constraint: Mol-1 fine-tuned with SITE / CONTACT / EXCLUSION conditioning (mol1_constraint.py). No CLI
+    # model owns it, so a plain mol1 fold never downloads it; `predict` fetches it for an input that names a
+    # constraint. The mirror does not carry it; sha256 of the official file, whose OSS CRC-64 matched the bucket's.
+    Artifact("mol1-constraint", (), "file", "Apache-2.0 (Molence)",
+             filename="mol-1-constraint.pt",
+             url="https://mol-1-release.oss-cn-shanghai.aliyuncs.com/checkpoint/mol-1-constraint.pt",
+             sha256="33c5139f8bce74ae92bc33e46336724cc11bb720578e34f8a237834cc5e2fa5b",
+             subdir="mol1", approx_bytes=2311106509,
+             note="Mol-1-constraint checkpoint (site / contact / exclusion conditioning)"),
     # Mol-1 takes each reference conformer from its own CCD pickle (mol.ref_conf_id), not the
     # CCD ideal coordinates the other Protenix models read, so ref_pos needs this table to
     # match upstream. Upstream ships the pickle only inside common.tar.gz, so the mirror's loose
