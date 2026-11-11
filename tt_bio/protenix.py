@@ -386,13 +386,13 @@ def _under_size_levers(method):
 # Plus trimul_t1_3g, which keeps c_z 448 on T1 at 1024 tokens (2.63 GiB of outputs, over trimul_t1_2g's 2 GiB) instead
 # of the chunk-32 channel loop, and changes nothing below ~900 tokens. Its A/B: state/mol1/evidence/wh1024-host.
 MOL1_WH = MOL1_T1 | DIT_MM_WH | TRIATT_Q10_WH | X8_WH | BRES_NORMAL | T1_PSIG | {"trimul_t1_3g"}
-# Mol-1 --fast: its tuned normal set plus the bfp8 pair stack Protenix-v2 graded into its --fast sets (triangle attention
-# q/k/v and gate, the fused transition LayerNorm, the degree-6 trimul gate sigmoid, the bf16 DiT modulation), and on
-# Wormhole the bfp8 weights Blackhole normal takes from 512 tokens plus trimul_gin_w8 and opm_b8cfg. 9DBP (791 tokens, 5
-# samples, 20 cycles, 200 steps, median of 3 warm folds, state/mol1/evidence/fast): Galaxy chip at 1000 MHz normal 594.4 ->
-# 540.3 s; the shared FAST_LEVERS on top cost +12.5 s there, so Wormhole leaves them out. Blackhole takes them and ws_lofi:
-# p150a at 1350 MHz 214.2 -> 192.4 s. Accuracy grade: state/mol1/evidence/fast/ROOT.md.
-MOL1_B8_FAST = TRIATT_LN_B8_FAST | {"ws_ln", "trimul_sig6", "dit_mod16"}
+# Mol-1 --fast: its tuned normal set plus part of the bfp8 pair stack Protenix-v2 graded into its --fast sets (the fused
+# transition LayerNorm, the degree-6 trimul gate sigmoid, the bf16 DiT modulation), and on Wormhole the bfp8 weights
+# Blackhole normal takes from 512 tokens plus trimul_gin_w8 and opm_b8cfg. Triangle attention stays bf16: its bfp8 q/k/v
+# and gate (TRIATT_LN_B8_FAST) cost Mol-1 0.04-0.05 ipTM on both chips and flipped 9W8A seed 103 off its interface on
+# Wormhole (state/mol1/evidence/fast). The shared FAST_LEVERS cost +12.5 s on Wormhole and pay on Blackhole, so only
+# Blackhole takes them, with ws_lofi. Times and the accuracy grade: state/mol1/evidence/fast/ROOT.md.
+MOL1_B8_FAST = frozenset({"ws_ln", "trimul_sig6", "dit_mod16"})
 MOL1_WH_FAST = MOL1_B8_FAST | MOL1_BH_512 | GIN_W8_FAST | OPM_B8CFG_FAST
 MOL1_BH_FAST = MOL1_B8_FAST | FAST_LEVERS | {"ws_lofi"}
 from .eltwise_fusion import scale_add, norm_residual, gated_add
