@@ -737,14 +737,21 @@ SDPA_FILL = True
 #: gyration KS p 0.693 with a median delta of 0.222 A inside the 0.354 A two-seed floor, designed-chain CA RMSD
 #: median 5.92 A against a 27.83 A floor, ratio 0.213 against a 0.5 kill line (state/rfd4-3x.md). An earlier grade
 #: read this lever's RoG at p 0.040 before the two-seed floor existed; the regrade at 35 paired seeds is what stands.
-#: It stays opt-in anyway, because that grade covers ONE pad fraction. A bfp8 tile shares an exponent across its
-#: block, so the more pad a tile carries the worse its real lanes are served, and the trunk parity suite measures
-#: exactly that: at 100 real tokens in a 128 bucket (22 % pad, against PopVax's 3 %) the z stream lands 4.632e-02
-#: from the float64 reference against a bf16-mixed floor of 8.066e-03, 5.7x its floor, and five more cases breach
-#: by 3.7-5.7x. The absolute bar passes in every one; it is the floor that is left behind, which is the signal
-#: that the stream is no longer running the precision recipe the floor models. Defaulting it on would ship the
-#: 22 % case to any target landing just over a bucket edge, graded nowhere. Scope it by pad fraction, or grade it
-#: at those shapes, before it joins the set.
+#: It stays opt-in anyway, because the trunk parity suite rejects it: at 100 real tokens in a 128 bucket the z
+#: stream lands 4.632e-02 from the float64 reference against a bf16-mixed floor of 8.066e-03, 5.7x its floor, and
+#: five more cases breach by 3.7-5.7x. The absolute bar passes in every one; it is the floor that is left behind,
+#: which is the signal that the stream is no longer running the precision recipe the floor models.
+#: The obvious guess -- a bfp8 tile shares an exponent across its block, so more pad should serve the real lanes
+#: worse -- is WRONG, and a pad-fraction sweep on one chip says so. z error over its bf16-mixed floor, lever off
+#: then on, bucket 128: 0.0 % pad 5.765 / 5.765, 3.1 % 1.955 / 5.776, 6.2 % 1.946 / 5.778, 12.5 % 1.922 / 5.741,
+#: 21.9 % 1.899 / 5.743. One pad token costs what 28 cost. So the lever CANNOT be scoped by a pad-fraction
+#: threshold, and PopVax's 620-in-640 is not a safe shape for it -- only a shape whose structural grade was not
+#: sensitive to the loss. The cause is not located here and was not located by state/rfd4/bets/z8.md either,
+#: which reached the same action from a different metric: gate a bfp8 pair stream off padded calls.
+#: Note for whoever next touches this: at 0 % pad the two arms are identical at 5.765, because `pair_bfp8z`
+#: already makes the stream bfp8 when nothing is padded. Main therefore ships ~5.77x this floor on every unpadded
+#: call while the suite rejects the same 5.77x on a padded one. That asymmetry is unexplained. It is NOT a reason
+#: to widen a floor or a bar -- the bar is what caught this lever -- but it is where the next look should start.
 NORMAL_LEVERS = frozenset({"trimul_t1", "pair_mm", "pair_mm_tr", "transition_b8", "trimul_gin", "trimul_gin_w8",
                            "pair_block", "pair_tail", "trimul_t1_dram", "pair_bias_rms",
                            "pair_write_res", "trimul_t1_psig", "trimul_gin_hifi2", "trimul_t1w8", "pair_tail_small",
