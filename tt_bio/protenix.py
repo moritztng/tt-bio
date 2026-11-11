@@ -355,8 +355,8 @@ SIZE_LEVERS_MIN_TOKENS = 512
 
 def size_levers(state_dict):
     """The levers a checkpoint's normal mode adds from `SIZE_LEVERS_MIN_TOKENS` padded tokens: `MOL1_BH_512` for Mol-1
-    on Blackhole, else none. None under --fast or a harness set (TT_BIO_LEVERS), which name the whole set."""
-    if _T._FAST_MODE or os.environ.get("TT_BIO_LEVERS") or _T.is_wormhole():
+    on Blackhole in either mode, else none. None under a harness set (TT_BIO_LEVERS), which names the whole set."""
+    if os.environ.get("TT_BIO_LEVERS") or _T.is_wormhole():
         return frozenset()
     widths = Trunk._pair_widths(state_dict)
     return MOL1_BH_512 if widths and widths <= WS_NORMAL_WIDTHS and 448 in widths else frozenset()
@@ -386,6 +386,14 @@ def _under_size_levers(method):
 # Plus trimul_t1_3g, which keeps c_z 448 on T1 at 1024 tokens (2.63 GiB of outputs, over trimul_t1_2g's 2 GiB) instead
 # of the chunk-32 channel loop, and changes nothing below ~900 tokens. Its A/B: state/mol1/evidence/wh1024-host.
 MOL1_WH = MOL1_T1 | DIT_MM_WH | TRIATT_Q10_WH | X8_WH | BRES_NORMAL | T1_PSIG | {"trimul_t1_3g"}
+# Mol-1 --fast: its tuned normal set plus the levers that pay at Mol-1 widths on that chip. Wormhole takes the bfp8
+# weights Blackhole normal takes from 512 tokens, plus trimul_gin_w8 and opm_b8cfg; Blackhole takes the shared
+# FAST_LEVERS, which cost Wormhole +12.5 s on 9DBP. Of the bfp8 pair stack Protenix-v2 grades into its --fast sets,
+# triangle attention cost Mol-1 0.04-0.05 ipTM on both chips and flipped 9W8A seed 103 off its interface on Wormhole,
+# and ws_ln, trimul_sig6 and dit_mod16 bought nothing on Wormhole, so Mol-1 takes none of it.
+# Times and the accuracy grade: state/mol1/evidence/fast/ROOT.md.
+MOL1_WH_FAST = MOL1_BH_512 | GIN_W8_FAST | OPM_B8CFG_FAST
+MOL1_BH_FAST = FAST_LEVERS
 from .eltwise_fusion import scale_add, norm_residual, gated_add
 
 
@@ -411,7 +419,8 @@ def mode_levers(state_dict):
     plus `T2_TAIL`, `WS_CHAIN` and `QSPLIT_NORMAL` for Protenix-v2 (c_z 256), the one width their normal grades cover; Wormhole --fast takes
     `WH_FAST_LEVERS`, and Wormhole adds `TRIATT_LN`, `DIT_MM_WH`, `TRIATT_Q10_WH` and `X8_WH` to both Protenix-v2 modes and `WS_FAST`, `TRIATT_LN_B8_FAST`, `GIN_W8_FAST`, `T1W8_FAST`,
     `OPM_B8CFG_FAST` to its --fast and `WH_V2_NORMAL` to its normal mode; Blackhole adds `BH_V2_FAST` to Protenix-v2's --fast and `BH_V2_NORMAL` to its normal mode. Protenix-v2 takes `BRES_NORMAL`, `TRIATT_LN` and `WS_RESID_NORMAL` in normal mode, `SHOIST_FAST` and `DIT_SEAM_FAST` under --fast and `T1_PSIG` and `TRIATT_K1` in both modes on both chips.
-    Mol-1 (pair widths 448 and 320) adds `WIDE_NORMAL` to its normal mode, plus `MOL1_BH` on Blackhole and `MOL1_WH` on Wormhole."""
+    Mol-1 (pair widths 448 and 320) adds `WIDE_NORMAL` to its normal mode, plus `MOL1_BH` on Blackhole and `MOL1_WH` on Wormhole;
+    its --fast is that normal set plus `MOL1_BH_FAST` or `MOL1_WH_FAST`."""
     widths = Trunk._pair_widths(state_dict)
     v2 = widths == {256}
     wh = _T.is_wormhole()
@@ -422,6 +431,8 @@ def mode_levers(state_dict):
     wh_both = TRIATT_LN | DIT_MM_WH | TRIATT_Q10_WH | X8_WH if v2 and wh else frozenset()
     wh_v2 = WS_FAST | TRIATT_LN_B8_FAST | GIN_W8_FAST | T1W8_FAST | OPM_B8CFG_FAST
     fast = WH_FAST_LEVERS | wh_both | (wh_v2 if v2 else frozenset()) if wh else FAST_LEVERS | (BH_V2_FAST if v2 else frozenset())
+    if m1:
+        fast = NORMAL_LEVERS | ws | m1 | (MOL1_WH_FAST if wh else MOL1_BH_FAST)
     return _T.model_levers((NORMAL_LEVERS | T2_TAIL | WS_CHAIN | QSPLIT_NORMAL | BRES_NORMAL | TRIATT_LN | WS_RESID_NORMAL | T1_PSIG | TRIATT_K1
                             | (WH_V2_NORMAL if wh else BH_V2_NORMAL) if v2 else NORMAL_LEVERS | ws) | wh_both | m1,
                            fast | SHOIST_FAST | DIT_SEAM_FAST | T1_PSIG | TRIATT_K1 if v2 else fast)

@@ -5,6 +5,12 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+### Changed
+- **Mol-1 `--fast` is faster than the default mode.** It used to drop Mol-1's tuned kernels and ran about 1.5x slower.
+  It now keeps them and adds bfp8 pair-stack weights (Wormhole) or the shared fast precision set (Blackhole): 9DBP
+  (791 tokens) folds in 502 s instead of 596 s on Wormhole and 195 s instead of 210 s on Blackhole, same recycles,
+  steps and samples, and the same docking results on 11 post-cutoff complexes.
+
 ## [0.30.1] - 2026-11-11
 
 ### Fixed
