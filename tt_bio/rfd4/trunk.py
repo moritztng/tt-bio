@@ -34,7 +34,8 @@ from .. import outer_residual
 from .. import rne_add
 from ..envflags import env_flag
 from ..tenstorrent import (CORE_GRID_MAIN, Module, TriangleMultiplication, WeightScope, _pair_proj_minimal_matmul,
-                           _sdpa_program_config_for_lengths, bfp8_fidelity, capture_trace, download, fused_sdpa,
+                           _sdpa_program_config_for_lengths, bfp8_fidelity, capture_trace, device_generation,
+                           download, fused_sdpa,
                            lever, lever_scope, model_levers, refusals_learned, trace_region_size,
                            under_lever_scope, upload)
 
@@ -1033,7 +1034,10 @@ class Trunk(Module):
 
     @staticmethod
     def trace_key(s, z, cs):
-        return len(cs), tuple(s.shape), s.dtype, tuple(z.shape), z.dtype
+        # The device generation is part of the key: `cleanup()` closes the device and a later open
+        # gets a fresh one, so a capture taken on the old device names a program that no longer
+        # exists. Keyed this way, a trunk that outlives its device captures again instead.
+        return device_generation(), len(cs), tuple(s.shape), s.dtype, tuple(z.shape), z.dtype
 
     def replay(self, device, s, z, cs, masks):
         """This call's `(s_out, z_out)` from its capture, or None if there is none to replay.
