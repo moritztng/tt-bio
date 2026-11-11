@@ -5,6 +5,15 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+## [0.30.1] - 2026-11-11
+
+### Fixed
+- **An RFD3 contig that starts with a designed segment now builds one chain.** In a contig such as
+  `12-20,C33-59,18-28` the leading designed run came back as a separate chain, 11-13 A from the motif with no
+  peptide bond. It now joins the motif's chain, as a comma means; contigs that start with the motif are unchanged.
+- **Release wheels are built with a hash-locked toolchain**, so the wheel on PyPI no longer depends on whichever
+  `build`, `twine` and `setuptools` PyPI served on release day. The package contents are unchanged.
+
 ## [0.30.0] - 2026-11-09
 
 ### Changed
