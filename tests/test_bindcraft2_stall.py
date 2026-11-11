@@ -52,13 +52,15 @@ def test_it_speaks_once_per_silent_stretch_not_once_per_poll(tmp_path):
 def test_a_file_written_under_the_project_is_progress(tmp_path):
     """MPNN, validation and acceptance run no gradient rounds; they write files."""
     counter = iter(range(10**6))
-    said = _run(tmp_path, warn_s=0.2, every=0.05, seconds=0.6,
+    # The threshold is 40x the write interval: under a full xdist run a starved thread can sit
+    # out 0.2 s, and a threshold that tight read that as a stall (gate 2bd90ece9, 2026-11-11).
+    said = _run(tmp_path, warn_s=1.0, every=0.05, seconds=1.5,
                 work=lambda: (tmp_path / f"f{next(counter)}.csv").write_text("x"))
     assert said == []
 
 
 def test_a_gradient_round_is_progress(tmp_path):
-    said = _run(tmp_path, warn_s=0.2, every=0.05, seconds=0.6, work=bindcraft2._note_progress)
+    said = _run(tmp_path, warn_s=1.0, every=0.05, seconds=1.5, work=bindcraft2._note_progress)
     assert said == []
 
 
