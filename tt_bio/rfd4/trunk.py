@@ -942,6 +942,10 @@ class Trunk(Module):
         if cached is not None and cached[0] is device and torch.equal(cached[1], mask):
             return cached[2]
         if cached is not None and cached[0] is device:
+            # A capture reads these mask tensors at the addresses they had when it was taken, and a
+            # trace key is shapes and dtypes, which a different mask of the same shape matches. So
+            # the captures go with the masks they were taken against, before the masks are freed.
+            self.release_traces(device)
             for t in {id(t): t for t in cached[2] if t is not None}.values():
                 if t.is_allocated():
                     ttnn.deallocate(t)
