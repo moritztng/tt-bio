@@ -98,10 +98,17 @@ def load_trunk(glue, state: dict, cfg: dict):
 
     from tt_bio.rfd4 import network as _network
     from tt_bio.rfd4.trunk import Trunk, compute_kernel_config
-    from tt_bio.tenstorrent import WeightScope
+    from tt_bio.tenstorrent import WeightScope, trunk_compute_kernel_config
 
     scope = WeightScope.recording({k: v.float() for k, v in _network._sub(state, "nn.").items()})
-    trunk = Trunk(scope, compute_kernel_config(), nlayers=cfg["nlayers"], n_heads=cfg["nheads"],
+    # Through `trunk_compute_kernel_config` like boltz2, esmfold2, openfold3 and protenix, so the
+    # shared `trunk_hifi3` / `trunk_hifi2` levers reach RFD4's trunk at all. They did not before: this
+    # call passed the bare HiFi4 default, which is why the family read as "screened and dead" when it
+    # had never been connected. Nothing changes without a lever -- the wrapper returns HiFi4 unless one
+    # is set -- and `trunk_hifi3` is ungraded FOR RFD4 until grade620 + quality.py pass on it, so it
+    # stays out of NORMAL_LEVERS and is reachable only through TT_BIO_LEVERS.
+    trunk = Trunk(scope, trunk_compute_kernel_config(compute_kernel_config()), nlayers=cfg["nlayers"],
+                  n_heads=cfg["nheads"],
                   every_n=cfg["update_pair_repr_every_n"], residual_dtype=ttnn.float32)
     glue.check_trunk_reads(scope.reads)
     return trunk
