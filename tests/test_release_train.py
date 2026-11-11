@@ -278,3 +278,15 @@ def test_the_pypi_wait_reruns_a_failed_release_run_once_then_stops_waiting(monke
     assert rt.cut("b" * 40, "/g", "origin", False, 10**6, None) == 1
     assert reruns == [["gh", "run", "rerun", "7"]]
     assert "failed again" in capsys.readouterr().out
+
+
+def test_a_cut_reads_notes_written_after_its_gate_at_a_head_with_the_same_code(monkeypatch, capsys):
+    shown = []
+    monkeypatch.setattr(rt, "decide", lambda **k: {"do": "CUT", "sha": "g" * 40, "main": "h" * 40, "gate": "/g"})
+    monkeypatch.setattr(rt.subprocess, "run", lambda *a, **k: subprocess.CompletedProcess(a, 0))
+    monkeypatch.setattr(rt, "content_hash", lambda c: "same")
+    monkeypatch.setattr(rt, "last_release", lambda: ("", ""))
+    monkeypatch.setattr(rt, "git", lambda *a, **k: shown.append(a[1]) or "")
+    monkeypatch.setattr(sys, "argv", ["release_train.py", "--gates", "/g", "--dry-run"])
+    assert rt.main() == 1                       # the fake CHANGELOG is empty
+    assert f"{'h' * 40}:CHANGELOG.md" in shown

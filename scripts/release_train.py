@@ -263,11 +263,11 @@ def install_check(version: str, tries: int = 10) -> str:
 
 
 def cut(sha: str, gate_dir: str, remote: str, dry: bool, wait_s: int, record: Path | None,
-        records: str = "", waived: dict | None = None) -> int:
+        records: str = "", waived: dict | None = None, notes_from: str = "") -> int:
     tag, tsha = last_release()
     taken = set(git("tag", "-l", "v*").split())
     released = git("show", f"{tag}:CHANGELOG.md") if tag else ""
-    body = notes(git("show", f"{sha}:CHANGELOG.md"), released)
+    body = notes(git("show", f"{notes_from or sha}:CHANGELOG.md"), released)
     if not body:
         print(f"CUT {sha[:12]} has no release notes in CHANGELOG.md [Unreleased]; not cutting")
         return 1
@@ -406,8 +406,11 @@ def main() -> int:
     if d["do"] != "CUT":
         print(f"{d['do']} {d['sha'][:12]}: {d['why']}")
         return 0
+    # Notes written after the gate are notes, not code: read them at main's head when its code is the
+    # cut's (11-11: 53688fdf1 passed, its notes landed in 0678d51c8, and the train refused for hours).
+    same = content_hash(d["main"]) == content_hash(d["sha"])
     return cut(d["sha"], d["gate"], args.remote, args.dry_run, args.wait, args.record, d.get("records", ""),
-               d.get("waived"))
+               d.get("waived"), d["main"] if same else "")
 
 
 if __name__ == "__main__":
