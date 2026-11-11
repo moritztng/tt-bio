@@ -328,7 +328,7 @@ _ROWS: tuple[Artifact, ...] = (
     # model owns it, so a plain mol1 fold never downloads it; `predict` fetches it for an input that names a
     # constraint. The mirror does not carry it; sha256 of the official file, whose OSS CRC-64 matched the bucket's.
     Artifact("mol1-constraint", (), "file", "Apache-2.0 (Molence)",
-             filename="mol-1-constraint.pt",
+             filename="checkpoint/mol-1-constraint.pt",
              url="https://mol-1-release.oss-cn-shanghai.aliyuncs.com/checkpoint/mol-1-constraint.pt",
              sha256="33c5139f8bce74ae92bc33e46336724cc11bb720578e34f8a237834cc5e2fa5b",
              subdir="mol1", approx_bytes=2311106509,
