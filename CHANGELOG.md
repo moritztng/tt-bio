@@ -5,6 +5,14 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+### Fixed
+- **A motif-scaffolding contig that designs before the motif now comes back as one chain.** In RFD3, a designed
+  segment that opened a comma-run (`12-20,C33-59,18-28`) was given its own synthetic chain, so the model was asked
+  to build two: the leading segment came back 8-13 A from the motif with no peptide bond, and nothing warned. It
+  now takes the chain of the kept segment it is joined to, and only a run that keeps nothing gets a chain of its
+  own. Contigs whose designed run comes after the motif (`C33-59,25-35`), unconditional designs (`60-80`) and
+  explicit chain breaks (`/0`) are unchanged.
+
 ## [0.30.0] - 2026-11-09
 
 ### Changed
