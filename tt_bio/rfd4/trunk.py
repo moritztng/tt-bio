@@ -1027,7 +1027,9 @@ class Trunk(Module):
         """Whether this trunk replays its calls. The lever asks for it; the device has to have
         reserved a trace region at open (`engine.DesignEngine` does when the lever is in the set),
         and a run that reserved none simply stays eager."""
-        return "trunk_trace" in self._levers and trace_region_size() > 0
+        # A trunk a caller built without `__init__` (a stand-in in the work-counting tests, a subclass
+        # that never resolved a lever set) has no `_levers` and simply does not replay.
+        return "trunk_trace" in getattr(self, "_levers", ()) and trace_region_size() > 0
 
     @staticmethod
     def trace_key(s, z, cs):
