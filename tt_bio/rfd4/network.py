@@ -211,6 +211,15 @@ class FlowGlue(torch.nn.Module):
         except ValueError as exc:
             logger.info("rfd4: the pair is built on the host: %s", exc)
             self.pair_split = None
+        from .seq import SeqSplit
+
+        #: `init_repr_factory` split the same way: 19 of its 21 features read the example and not
+        #: the noisy state, so their projection is computed once a design (`tt_bio.rfd4.seq`).
+        try:
+            self.seq_split = SeqSplit(self.init_repr_factory)
+        except ValueError as exc:
+            logger.info("rfd4: the sequence features are rebuilt every step: %s", exc)
+            self.seq_split = None
 
     def check_trunk_reads(self, reads) -> None:
         """Raise unless the trunk read exactly the `nn.` weights the glue left to it."""
@@ -228,12 +237,15 @@ class FlowGlue(torch.nn.Module):
         c = self.cond_factory({**batch, "recycle_remaining": recycle_remaining})
         return self.transition_c_2(self.transition_c_1(c, mask), mask)
 
-    def initial_states(self, batch: dict, pair_constant=None, modulation=None):
+    def initial_states(self, batch: dict, pair_constant=None, modulation=None, seq_constant=None):
         """`(s_init, z_init)` for this step's noisy state. Given the design's `pair_split.constant`,
         `z_init` is the `PairInputs` the card builds the pair from instead of the host tensor;
-        `modulation` is that step's AdaLN `(gamma, beta)` if already computed."""
+        `modulation` is that step's AdaLN `(gamma, beta)` if already computed. `seq_constant` is the
+        design's fixed sequence-feature projection (`tt_bio.rfd4.seq`), which leaves this step the
+        two features that read the state instead of all 21."""
         mask = batch["padding_mask"]
-        s_init = self.init_repr_factory(batch) * mask[..., None]
+        s_init = (self.init_repr_factory(batch) if seq_constant is None
+                  else self.seq_split.s_init(batch, seq_constant)) * mask[..., None]
         if pair_constant is None:
             return s_init, self.pair_repr_builder(batch)
         return s_init, self.pair_split.inputs(batch, pair_constant, modulation)
@@ -294,6 +306,8 @@ class FlowNetwork:
         #: design's constant pair projection, once (`tt_bio.rfd4.pair`).
         self.pair_on_card = bool(getattr(trunk, "builds_pair", False)) and glue.pair_split is not None
         self._pair_constant = None
+        #: The design's fixed sequence-feature projection, per lane width (`tt_bio.rfd4.seq`).
+        self._seq_constant: dict = {}
         self.plan = plan
         self._conditioned: dict = {}
         self._like = None
@@ -316,7 +330,11 @@ class FlowNetwork:
         with torch.no_grad():
             if self.pair_on_card and self._pair_constant is None:
                 self._pair_constant = self.glue.pair_split.constant(self.batch)
-            s_init, z_init = self.glue.initial_states(batch, self._pair_constant, modulation)
+            if self.glue.seq_split is not None and n_designs not in self._seq_constant:
+                # Lanes of a call can differ in width, so the fixed projection is kept per width.
+                self._seq_constant[n_designs] = self.glue.seq_split.constant(batch)
+            s_init, z_init = self.glue.initial_states(batch, self._pair_constant, modulation,
+                                                      self._seq_constant.get(n_designs))
         return batch, depth, step, (s_init, z_init, conds, batch["padding_mask"].float())
 
     def launch(self, prepared):
