@@ -729,21 +729,29 @@ SDPA_FILL = True
 #: PopVax's shape (9TH6-A + 120-mer, 620 tokens, thinking_medium): -1.26 s a design, WH paired A/B on one Galaxy
 #: chip at 1000 MHz. 35 paired seeds, binder grade PASS on all five oracle-free columns, designed-chain CA RMSD
 #: median 2.73 A against a two-seed floor of 27.28 A, ratio 0.100 against a 0.5 kill line (state/rfd4-3x.md).
-#: `mask_at_mix_z8`: with `mask_at_mix`, a padded call carries the bfloat8_b pair stream that `pair_bfp8z` otherwise
-#: gives an unpadded call only, so the padded path stops paying bf16 for z. 620 real tokens in the 640 bucket:
+#: `mask_at_mix_z8` is NOT in the set, and the reason is worth keeping. With `mask_at_mix` it lets a padded call
+#: carry the bfloat8_b pair stream that `pair_bfp8z` otherwise gives an unpadded call only. 620 real tokens in the
+#: 640 bucket:
 #: whole design 82.923 -> 78.404 s (-4.52 s, 5.45 %), WH paired A/B back to back on one Galaxy chip
 #: (UF-EV-A4-GWH02 card 15), AICLK median 1000 on every design. 35 paired seeds, binder grade PASS: radius of
 #: gyration KS p 0.693 with a median delta of 0.222 A inside the 0.354 A two-seed floor, designed-chain CA RMSD
 #: median 5.92 A against a 27.83 A floor, ratio 0.213 against a 0.5 kill line (state/rfd4-3x.md). An earlier grade
 #: read this lever's RoG at p 0.040 before the two-seed floor existed; the regrade at 35 paired seeds is what stands.
+#: It stays opt-in anyway, because that grade covers ONE pad fraction. A bfp8 tile shares an exponent across its
+#: block, so the more pad a tile carries the worse its real lanes are served, and the trunk parity suite measures
+#: exactly that: at 100 real tokens in a 128 bucket (22 % pad, against PopVax's 3 %) the z stream lands 4.632e-02
+#: from the float64 reference against a bf16-mixed floor of 8.066e-03, 5.7x its floor, and five more cases breach
+#: by 3.7-5.7x. The absolute bar passes in every one; it is the floor that is left behind, which is the signal
+#: that the stream is no longer running the precision recipe the floor models. Defaulting it on would ship the
+#: 22 % case to any target landing just over a bucket edge, graded nowhere. Scope it by pad fraction, or grade it
+#: at those shapes, before it joins the set.
 NORMAL_LEVERS = frozenset({"trimul_t1", "pair_mm", "pair_mm_tr", "transition_b8", "trimul_gin", "trimul_gin_w8",
                            "pair_block", "pair_tail", "trimul_t1_dram", "pair_bias_rms",
                            "pair_write_res", "trimul_t1_psig", "trimul_gin_hifi2", "trimul_t1w8", "pair_tail_small",
                            "trimul_bres", "trimul_bres_hifi2", "pair_bf16z",
                            "pair_tail_cm", "trimul_t1b8", "pair_batch", "pair_block_hifi2",
                            "trimul_t1g8", "trimul_tail_hifi2", "pair_bfp8z", "trimul_t1_fgate", "pair_x8", "pair_x8t",
-                           "tok_recycle_mm", "dit_sigf32", "tok_w8", "mask_at_mix", "trimul_sig6",
-                           "mask_at_mix_z8"})
+                           "tok_recycle_mm", "dit_sigf32", "tok_w8", "mask_at_mix", "trimul_sig6"})
 #: `--fast` runs the same set: its two extra levers were graded into the default (bet 23).
 FAST_LEVERS = NORMAL_LEVERS
 
