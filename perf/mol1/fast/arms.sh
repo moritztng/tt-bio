@@ -17,6 +17,7 @@ arm_env() {
     nf0) FASTFLAG=; LV=${!n},fast ;;            # fn without the old bfp8 _FAST_MODE: precision from the set alone
     nf) FASTFLAG=; LV=${!n},fast,${!b} ;;      # fb without _FAST_MODE
     fast) FASTFLAG=--fast; LV= ;;               # the tree's own --fast (from 51e77c5c4: Mol-1's graded fast set)
+    nfb) FASTFLAG=; LV=$(tr , '\n' <<< "${!n},fast,${!b}" | grep -vxE 'triatt_ln_b8g?' | paste -sd,) ;; # 886118ef0's BH fast: nf minus triatt bfp8
     d*) local d; case $2 in                    # b8 minus one group: which part of the stack moves ipTM and 9W8A s103
           dtri) d=triatt_ln_b8,triatt_ln_b8g ;; dwsln) d=ws_ln ;; dsig6) d=trimul_sig6 ;; dmod16) d=dit_mod16 ;;
           dwh) d=transition_b8,ws_b8_plain,trimul_t1w8,trimul_t1g8,trimul_gin_w8,opm_b8cfg ;; *) return 1 ;; esac

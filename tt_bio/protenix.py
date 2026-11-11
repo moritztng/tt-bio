@@ -386,15 +386,14 @@ def _under_size_levers(method):
 # Plus trimul_t1_3g, which keeps c_z 448 on T1 at 1024 tokens (2.63 GiB of outputs, over trimul_t1_2g's 2 GiB) instead
 # of the chunk-32 channel loop, and changes nothing below ~900 tokens. Its A/B: state/mol1/evidence/wh1024-host.
 MOL1_WH = MOL1_T1 | DIT_MM_WH | TRIATT_Q10_WH | X8_WH | BRES_NORMAL | T1_PSIG | {"trimul_t1_3g"}
-# Mol-1 --fast: its tuned normal set plus part of the bfp8 pair stack Protenix-v2 graded into its --fast sets (the fused
-# transition LayerNorm, the degree-6 trimul gate sigmoid, the bf16 DiT modulation), and on Wormhole the bfp8 weights
-# Blackhole normal takes from 512 tokens plus trimul_gin_w8 and opm_b8cfg. Triangle attention stays bf16: its bfp8 q/k/v
-# and gate (TRIATT_LN_B8_FAST) cost Mol-1 0.04-0.05 ipTM on both chips and flipped 9W8A seed 103 off its interface on
-# Wormhole (state/mol1/evidence/fast). The shared FAST_LEVERS cost +12.5 s on Wormhole and pay on Blackhole, so only
-# Blackhole takes them, with ws_lofi. Times and the accuracy grade: state/mol1/evidence/fast/ROOT.md.
-MOL1_B8_FAST = frozenset({"ws_ln", "trimul_sig6", "dit_mod16"})
-MOL1_WH_FAST = MOL1_B8_FAST | MOL1_BH_512 | GIN_W8_FAST | OPM_B8CFG_FAST
-MOL1_BH_FAST = MOL1_B8_FAST | FAST_LEVERS | {"ws_lofi"}
+# Mol-1 --fast: its tuned normal set plus the levers that pay at Mol-1 widths on that chip. Wormhole takes the bfp8
+# weights Blackhole normal takes from 512 tokens, plus trimul_gin_w8 and opm_b8cfg; Blackhole takes the shared
+# FAST_LEVERS, which cost Wormhole +12.5 s on 9DBP. Of the bfp8 pair stack Protenix-v2 grades into its --fast sets,
+# triangle attention cost Mol-1 0.04-0.05 ipTM on both chips and flipped 9W8A seed 103 off its interface on Wormhole,
+# and ws_ln, trimul_sig6 and dit_mod16 bought nothing on Wormhole, so Mol-1 takes none of it.
+# Times and the accuracy grade: state/mol1/evidence/fast/ROOT.md.
+MOL1_WH_FAST = MOL1_BH_512 | GIN_W8_FAST | OPM_B8CFG_FAST
+MOL1_BH_FAST = FAST_LEVERS
 from .eltwise_fusion import scale_add, norm_residual, gated_add
 
 
