@@ -326,7 +326,8 @@ def build_complex_features(chains: list, mol_dir: str | None = None,
                            chain_ids: list | None = None, bonds: list | None = None,
                            paired_a3ms: list | None = None, oxt: list | None = None,
                            modifications: list | None = None, templates: list | None = None,
-                           template_dir: str | None = None, conformer_table: dict | None = None) -> dict:
+                           template_dir: str | None = None, conformer_table: dict | None = None,
+                           constraints: dict | None = None) -> dict:
     """Multi-chain biomolecular complex -> model-ready input_feature_dict.
 
     chains: list of (sequence, a3m_or_None[, mol_type]); mol_type is "protein" (default),
@@ -369,7 +370,13 @@ def build_complex_features(chains: list, mol_dir: str | None = None,
     conformer_table: a model's own reference conformers ({CCD code: {atom name: xyz}},
     load_conformer_table). Atoms it names take its coordinates in place of the CCD ideal ones;
     None keeps the ideal ones. A table that carries topology also supplies the CCD codes the
-    `mols` library lacks (ccd_mols)."""
+    `mols` library lacks (ccd_mols).
+    constraints: Mol-1-constraint SITE / CONTACT / EXCLUSION, as `mol1_constraint.parse` returns them; adds
+    `constraint_pair`, their pair masks on the token axis. Needs chain_ids."""
+    if constraints:
+        if chain_ids is None:
+            raise ValueError("Mol-1 constraints need chain ids")
+        from .mol1_constraint import pair_channels
     norm = [(e[0], e[1], e[2] if len(e) > 2 else "protein") for e in chains]
     conformers = load_ref_conformers()
     # CCD codes needed from the `mols` library: nucleic-acid residues + CCD ligands.
@@ -452,7 +459,7 @@ def build_complex_features(chains: list, mol_dir: str | None = None,
                                    *chain_template_arrays(len("".join(str(seq).split())),
                                                           entries, template_dir)))
         if chain_ids is not None:
-            placement[str(chain_ids[ci])] = {"start": tok_off, "mt": mt, "n": n_res,
+            placement[str(chain_ids[ci])] = {"start": tok_off, "mt": mt, "n": n_res, "tokens": n,
                                              "atoms": lig_names, "res_tok": res_tok,
                                              "res_atoms": res_atoms,
                                              "res_names": _res_names(seq, mt)}
@@ -571,6 +578,7 @@ def build_complex_features(chains: list, mol_dir: str | None = None,
     feats = {
         "restype": torch.cat(restype, 0),
         "token_bonds": token_bonds,
+        **({"constraint_pair": pair_channels(constraints, placement, N_tot)} if constraints else {}),
         "asym_id": torch.cat(asym, 0),
         "entity_id": torch.cat(entity, 0),
         "sym_id": torch.cat(sym, 0),
