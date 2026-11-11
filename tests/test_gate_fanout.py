@@ -911,7 +911,8 @@ def test_a_pool_leg_stopped_by_a_give_back_runs_again(tmp_path, monkeypatch):
     assert len(calls) == backs + 1
 
 
-def test_a_pool_leg_that_died_opening_its_chip_runs_again(tmp_path, monkeypatch):
+@pytest.mark.parametrize("card", [gf.POOL, 2])
+def test_a_leg_that_died_opening_its_chip_runs_again(tmp_path, monkeypatch, card):
     calls, deaths = [], gf.INIT_FAILED_TRIES
 
     def fake_run(host, card, leg, rdir, f):
@@ -922,13 +923,15 @@ def test_a_pool_leg_that_died_opening_its_chip_runs_again(tmp_path, monkeypatch)
         f.write("##LEG-START 5\nok\n")
         return 0
     monkeypatch.setattr(gf, "run_in_pool", fake_run)
+    monkeypatch.setattr(gf, "run_over_ssh", fake_run)
     h = gf.Host("g", {"arch": "wh", "card_type": "w", "root": "/r"}, "c" * 40)
+    h.card_dead = lambda c: None   # the probe read the card alive (11-11: another job held its flock)
     ex = gf.make_executor("c" * 40, tmp_path, gf.Ledger(tmp_path / "l"), {("ux:x", "wh"): "k"}, "o")
-    assert ex(h, gf.POOL, gf.Leg("ux:x", ["PY"], "ux"))["verdict"] == "PASS"
+    assert ex(h, card, gf.Leg("ux:x", ["PY"], "ux"))["verdict"] == "PASS"
     assert len(calls) == gf.INIT_FAILED_TRIES + 1
     calls.clear()
     monkeypatch.setattr(gf, "INIT_FAILED_TRIES", 0)   # out of tries: the init failure is the leg's result
-    assert ex(h, gf.POOL, gf.Leg("ux:x", ["PY"], "ux"))["verdict"] == "FAIL"
+    assert ex(h, card, gf.Leg("ux:x", ["PY"], "ux"))["verdict"] == "FAIL"
     assert gf.INIT_FAILED.search("TT_FATAL: Read unexpected run_mailbox value from core (x=25,y=17)")
 
 

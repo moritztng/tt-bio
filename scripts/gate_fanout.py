@@ -189,6 +189,9 @@ CARD_STUCK = re.compile(r"a fold timed out and its card could not be reset")
 #: an earlier job left dirty and resets them after the job that finds out: gate 412d01dfe recorded six
 #: WH legs FAIL on 2026-10-17 09:00-09:30Z this way (chips 3, 9, 10, 13, 19), each the first job on its
 #: chip, each chip "probe: OK after reset" a minute later. Run such a leg again, a bounded number of times.
+#: A fixed card too: parity:protenix-ubq-msa of gate 53688fdf1 (11-11) died this way on qb2:2 after its first
+#: seed passed, and the card probe read it alive because an spd bench took the chip's flock first, so the leg
+#: was the gate's one FAIL. A card that is really dead fails every try and the probe after the last retires it.
 INIT_FAILED = re.compile(r"failed to initialize FW|ARC core .* failed to start|"
                          r"Failed to set initial power state|Read unexpected run_mailbox value")
 INIT_FAILED_TRIES = 2
@@ -1841,7 +1844,7 @@ def make_executor(sha: str, out: Path, ledger: Ledger, keys: dict, remote_out: s
                 continue
             if rc and card == POOL and GIVEN_BACK in text:
                 continue
-            if rc and card == POOL and INIT_FAILED.search(text) and init_failed < INIT_FAILED_TRIES:
+            if rc and INIT_FAILED.search(text) and init_failed < INIT_FAILED_TRIES:
                 init_failed += 1
                 continue
             if rc and card == POOL and CARD_STUCK.search(text) and not stuck:
