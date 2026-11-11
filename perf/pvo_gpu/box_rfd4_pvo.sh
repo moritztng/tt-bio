@@ -58,7 +58,7 @@ PY
 fi
 say "import gate: $(tail -1 $B/import-gate.log)"
 
-cd /root/kc && /opt/rfd4-venv/bin/python -I /root/kc/pvo_rfd4.py --spec /root/kc/rfd4in/9TH6-A-b120.yaml \
-  --out $B --deadline $DEADLINE --designs ${RFD4_DESIGNS:-128} > $B/rfd4.log 2>&1
+cd /root/kc && /opt/rfd4-venv/bin/python -I /root/kc/pvo_rfd4.py --spec /root/kc/rfd4in/${RFD4_SPEC:-9TH6-A-b120.yaml} \
+  --size ${RFD4_SIZE:-624} --out $B --deadline $DEADLINE --designs ${RFD4_DESIGNS:-128} > $B/rfd4.log 2>&1
 say "rfd4 rc=$? after deadline-$((DEADLINE - $(date +%s)))s"
 echo done > $B/RFD4-DONE

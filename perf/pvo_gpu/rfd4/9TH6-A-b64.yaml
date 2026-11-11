@@ -1,0 +1,20 @@
+# PVO-VISUAL RFD4 input: a 64-residue de-novo binder against 9TH6 chain A, 448 modelled target residues + 64 =
+# 512, the largest RFD4 job JapanFold serves (max_residues 512). The target is kept as its six modelled
+# segments, so the sample dim is 512 with no unmodelled gap positions; JapanFold ran the same contig in its own
+# label numbering ("64-64, /0, A45-83, A86-115, A125-144, A175-390, A397-475, A481-544", label = auth + 20)
+# with hotspots A228/A229/A241 = auth 208/209/221 below. Same structure file as 9TH6-A-b120.
+9TH6_A_b64:
+  input: 9TH6-A-b120.cif
+  contig: "64-64, /0, A25-63, A66-95, A105-124, A155-370, A377-455, A461-524"
+  conditions:
+    C_CRDGRP:
+      1:
+        - select: "sel('A/*/*/[N,CA,C,O]') and not has_nan_coord()"
+    C_SEQ:
+      true:
+        - select: "sel('A')"
+    C_HOT:
+      true:
+        - select: "sel('A/*/209/*')"
+        - select: "sel('A/*/221/*')"
+        - select: "sel('A/*/208/*')"

@@ -122,13 +122,15 @@ def designs(arm, tag, n):
 
 
 def main():
-    global a, R
+    global a, R, SIZE
     ap = argparse.ArgumentParser()
     ap.add_argument("--spec", required=True, type=Path)
     ap.add_argument("--out", required=True, type=Path)
     ap.add_argument("--deadline", required=True, type=int)
     ap.add_argument("--designs", type=int, default=128, help="designs per mode for pvo-accuracy (0 = timing only)")
+    ap.add_argument("--size", type=int, default=SIZE, help="compile bucket holding the spec's sample dim (16-aligned)")
     a = ap.parse_args()
+    SIZE = a.size
     a.out.mkdir(parents=True, exist_ok=True)
     R = {"size": SIZE, "spec": str(a.spec), "sweeps": {}, "designs": {}}
     save()
