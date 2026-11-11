@@ -3169,36 +3169,7 @@ def _in_dram(vals) -> bool:
     return all(v.memory_config().buffer_type == ttnn.BufferType.DRAM for v in vals if v is not None)
 
 
-def _rise(device, run):
-    """``run()`` eagerly; return its result and its DRAM high-water rise per bank.
-
-    Sampled after every 32nd ttnn call: an allocation only happens inside a call, and the miss
-    between two samples is covered by the hole's margin. Too small a hole fails as a refused
-    capture (the unit stays eager), never as a wrong replay. Run once per signature."""
-    from ttnn import decorators as D
-    mem = lambda: int(ttnn.get_memory_view(device, ttnn.BufferType.DRAM).total_bytes_allocated_per_bank)
-    base = mem()
-    peak = [base]
-    real = {c: c.__call__ for c in (D.FastOperation, D.Operation)}
-    n = [0]
-
-    def sampled(f):
-        def call(op, *a, **k):
-            out = f(op, *a, **k)
-            n[0] += 1
-            if n[0] % 32 == 0:
-                peak[0] = max(peak[0], mem())
-            return out
-        return call
-
-    for c, f in real.items():
-        c.__call__ = sampled(f)
-    try:
-        out = run()
-    finally:
-        for c, f in real.items():
-            c.__call__ = f
-    return out, max(peak[0], mem()) - base
+from .tenstorrent import dram_rise as _rise  # the hole TraceScratch opens is sized by it
 
 
 def _op_desc(v):

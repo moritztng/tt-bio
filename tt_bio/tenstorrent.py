@@ -8902,6 +8902,38 @@ def capture_trace(dev, run):
     return tid, out
 
 
+def dram_rise(device, run):
+    """``run()`` eagerly; return its result and its DRAM high-water rise per bank.
+
+    Sampled after every 32nd ttnn call: an allocation only happens inside a call, and the miss
+    between two samples is covered by the hole's margin. Too small a hole fails as a refused
+    capture (the unit stays eager), never as a wrong replay. Run once per signature."""
+    from ttnn import decorators as D
+    mem = lambda: int(ttnn.get_memory_view(device, ttnn.BufferType.DRAM).total_bytes_allocated_per_bank)
+    base = mem()
+    peak = [base]
+    real = {c: c.__call__ for c in (D.FastOperation, D.Operation)}
+    n = [0]
+
+    def sampled(f):
+        def call(op, *a, **k):
+            out = f(op, *a, **k)
+            n[0] += 1
+            if n[0] % 32 == 0:
+                peak[0] = max(peak[0], mem())
+            return out
+        return call
+
+    for c, f in real.items():
+        c.__call__ = sampled(f)
+    try:
+        out = run()
+    finally:
+        for c, f in real.items():
+            c.__call__ = f
+    return out, max(peak[0], mem()) - base
+
+
 class TraceScratch:
     """One DRAM hole that every trace replayed between eager work captures into.
 
@@ -9112,9 +9144,11 @@ TRACE_REGIONS = {
     # Blackhole is unmeasured; 240 MiB keeps it under the quarter-bank cap every entry obeys.
     "bc2": {"wormhole_b0": 160 << 20, "blackhole": 240 << 20},
     # RFD4-Proteina trunk call, one capture per recycle depth (6,5,4,3,2,1 over a design's 60
-    # steps). A call is 2,301 ops at depth 3, ~1.4x rf3's denoiser step, and six live captures
-    # share the region. PROVISIONAL: sized by that ratio, not measured.
-    "rfd4": {"wormhole_b0": 256 << 20, "blackhole": 320 << 20},
+    # steps): six live captures share the region. PROVISIONAL -- not yet measured with
+    # perf/mgx_trace_region, and deliberately under ESMC's 221 MiB, which is the largest entry we
+    # have evidence for. A region too small shows up as a refused capture, which the trunk prints
+    # and then stays eager, so being wrong here costs speed and never correctness.
+    "rfd4": {"wormhole_b0": 192 << 20, "blackhole": 192 << 20},
     "esmfold2": {"wormhole_b0": 32 << 20, "blackhole": 48 << 20},     # ESMFold2 / -Fast diffusion step, PROVISIONAL
     "saprot": {"wormhole_b0": 64 << 20, "blackhole": 64 << 20},       # one live SaProt batch forward, PROVISIONAL
 }

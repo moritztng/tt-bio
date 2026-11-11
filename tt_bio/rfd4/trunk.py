@@ -34,8 +34,8 @@ from .. import outer_residual
 from .. import rne_add
 from ..envflags import env_flag
 from ..tenstorrent import (CORE_GRID_MAIN, Module, TriangleMultiplication, WeightScope, _pair_proj_minimal_matmul,
-                           _sdpa_program_config_for_lengths, bfp8_fidelity, capture_trace, device_generation,
-                           download, fused_sdpa,
+                           TraceScratch, _sdpa_program_config_for_lengths, bfp8_fidelity, device_generation,
+                           download, dram_rise, fused_sdpa,
                            lever, lever_scope, model_levers, refusals_learned, trace_region_size,
                            under_lever_scope, upload)
 
@@ -1077,8 +1077,32 @@ class Trunk(Module):
             return
         bufs = ttnn.clone(s), ttnn.clone(z), [ttnn.clone(c) for c in cs]
         ttnn.synchronize_device(device)
+        # The second eager call is measured, not just warmed: `need` is what this call allocates in
+        # DRAM, and the capture must happen inside a hole at least that large.
+        rise = self.__dict__.setdefault("_trace_rise", {})
+        if key not in rise:
+            out, rise[key] = dram_rise(device, lambda: self(bufs[0], bufs[1], bufs[2], masks))
+            for tensor in out:
+                if tensor.is_allocated():
+                    ttnn.deallocate(tensor)
+        scratch = self.__dict__.get("_trace_scratch")
+        if scratch is None or scratch.dev is not device:
+            scratch = self._trace_scratch = TraceScratch(device)
+        need = rise[key] + rise[key] // 4 + scratch.CHUNK
+        held = {}
         try:
-            tid, out = capture_trace(device, lambda: self(bufs[0], bufs[1], bufs[2], masks))
+            # A replay writes its intermediates at the addresses they had during capture, and the
+            # allocator calls those free the moment the capture ends. Unfenced, the next eager
+            # tensor -- the pair build, the decoder, the next step's upload -- lands there and the
+            # following replay overwrites it: BC2 replayed exactly for 16 calls and then went wrong.
+            # So every capture runs inside TraceScratch's hole, which nothing eager can enter.
+            def run():
+                held["out"] = self(bufs[0], bufs[1], bufs[2], masks)
+
+            tids = scratch.capture(need, max(need, 6 * need // 4), [run])
+            if tids is None:
+                raise RuntimeError(f"no DRAM hole of {need >> 20} MiB for the capture")
+            tid, out = tids[0], held["out"]
         except Exception as exc:  # noqa: BLE001 -- a trace region too small, a program that refuses
             # Said out loud, as autograd's recompute captures do: an arm whose captures were all
             # refused is an EAGER arm, and without this it reads in the numbers as "tracing bought
@@ -1096,7 +1120,7 @@ class Trunk(Module):
               f"{len(self.traces)} live", flush=True)
 
     def release_traces(self, device):
-        """Free every capture and the buffers it reads and writes."""
+        """Free every capture, the buffers it reads and writes, and the hole they were taken in."""
         for tr in self.traces.values():
             try:
                 ttnn.release_trace(device, tr["tid"])
@@ -1106,6 +1130,12 @@ class Trunk(Module):
                 if t.is_allocated():
                     ttnn.deallocate(t)
         self.traces.clear()
+        scratch = self.__dict__.pop("_trace_scratch", None)
+        if scratch is not None:
+            # The hole outlives the captures; released, its bytes go back to ordinary allocation.
+            scratch.release()
+        self.__dict__.pop("_trace_rise", None)
+        self.__dict__.pop("_trace_warm", None)
 
     def collect(self, pending):
         """The `(s, z)` of a `launch`, back on the host, and its device tensors freed."""
