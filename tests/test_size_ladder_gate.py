@@ -765,6 +765,32 @@ def test_every_rung_refused_is_an_error_and_not_an_empty_pass(rg_fresh, monkeypa
     assert "is above this model's size guard" in out["error"]
 
 
+def test_a_part_above_the_ceiling_is_judged_against_the_baseline_refusals(rg_fresh, monkeypatch,
+                                                                         tmp_path):
+    """opendde's 1152-1280 part on a p150a capped at 1024 is all refusals. The baseline recorded
+    the same refusals, so the part passes; split off from the rungs that fold it used to fail
+    as "every rung requested is above this model's size guard" (gate rel-2cca84e6a). A ceiling
+    that moved still fails, and off a part the all-refused error stands."""
+    monkeypatch.setattr(rg_fresh, "_run_census_fold",
+                        lambda *a, **k: {"refused": "has 1152 residues, cap is 1024"})
+    monkeypatch.setattr(rg_fresh, "SIZE_LADDER_AGAINST", "abc1234")
+    monkeypatch.setattr(rg_fresh, "_size_ladder_ab",
+                        lambda *a, **k: pytest.fail("A/B folded for a part with no rung"))
+    base = {"reps": 1, "refused": {"1152": "cap 1024", "1280": "cap 1024"},
+            "levers": {}, "runtime_s": {"1024": 400.0}}
+    leg = rg_fresh._size_ladder_check_model("opendde", (1152, 1280), base, tmp_path, part=True)
+    assert leg["gate"] is True, leg
+
+    moved = rg_fresh._size_ladder_check_model("opendde", (1152, 1280),
+                                              {**base, "refused": {"1280": "cap 1152"},
+                                               "levers": {"1152": {}}}, tmp_path, part=True)
+    assert moved["gate"] is False
+    assert "opendde/1152: folded when the baseline was recorded, now refused" in moved["error"]
+
+    whole = rg_fresh._size_ladder_check_model("opendde", (1152, 1280), base, tmp_path)
+    assert whole["gate"] is False and "is above this model's size guard" in whole["error"]
+
+
 def test_check_flags_a_ceiling_that_moved_in_either_direction(rg_fresh, monkeypatch, tmp_path):
     """A size that folded at the last release and is now refused has no timing to compare,
     so the exponent leg cannot see it. Neither can the census leg. This is the only thing
