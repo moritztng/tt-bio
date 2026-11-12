@@ -5,6 +5,8 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+## [0.31.0] - 2026-11-12
+
 ### Changed
 - **Mol-1 `--fast` is faster than the default mode.** It used to drop Mol-1's tuned kernels and ran about 1.5x slower.
   It now keeps them and adds bfp8 pair-stack weights (Wormhole) or the shared fast precision set (Blackhole): 9DBP
