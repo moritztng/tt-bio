@@ -26,6 +26,35 @@ Searched template hits (`.a3m`, `.hhr`) are kept only if their PDB entry predate
 the first such run downloads the PDB release-date table (13 MB) unless `$MOL_ROOT_DIR/common` already holds
 upstream's copy. Hit structures come from `$MOL_ROOT_DIR/mmcif` or PDBe.
 
+## Guiding a prediction (Mol-1-constraint)
+
+Mol-1 can be told what you already know about the binding: which residues sit in the binding site, which residues
+should touch each other, and which regions to keep clear. Add a `constraints` object to a job and the fold switches
+to Molence's Mol-1-constraint weights, which download on first use.
+
+```json
+{
+  "name": "complex",
+  "sequences": [...],
+  "constraints": {
+    "site":      {"source_chains": ["A"], "partner_chains": ["B"], "residue_ids": [["A", 8], ["A", 12]]},
+    "contact":   {"pairs": [[["A", 8], ["B", 15]]]},
+    "exclusion": {"source_chains": ["A"], "partner_chains": ["C"], "residue_ids": [["A", 22]]}
+  }
+}
+```
+
+- **site**: the listed residues of the source chains should contact the partner chains (within 4.5 A, any heavy atom).
+  Each residue needs to reach any one partner, not all of them.
+- **contact**: each pair should end up within 4.5 A. Give residues as `pairs`, or, for a ligand, nucleic-acid or
+  per-atom token, 0-based indices on the featurized token axis as `token_pairs`.
+- **exclusion**: the listed residues should stay more than 6.0 A from the partner chains.
+
+All three are optional and combine. Positions are 1-based indices into the full sequence you supplied, not PDB author
+numbering, and must be protein residues on a source chain. The same object works in tt-bio's YAML input, one entry
+per kind under `constraints:`. Conditioning guides the prediction, it does not guarantee the geometry: check the
+output, and treat an unsatisfied constraint as information about the complex.
+
 ## Outputs
 
 A JSON job writes upstream's layout, one directory per job and seed:
@@ -85,4 +114,6 @@ The defaults are upstream's: 20 recycles, 200 diffusion steps, 5 samples, seed 1
 The checkpoint is fetched from a byte-identical Hugging Face mirror first and Molence's own bucket second, and is
 checked against the sha256 of the official file either way. Mol-1's code is Apache-2.0, and Molence
 answered on 2026-11-02 that the weights are Apache-2.0 too
-([molence/Mol-1#5](https://github.com/molence/Mol-1/issues/5)).
+([molence/Mol-1#5](https://github.com/molence/Mol-1/issues/5)). Mol-1-constraint is a second checkpoint under the
+same licence, fetched from Molence's bucket and checked against its sha256; it is downloaded only for a job that
+carries a `constraints` object.

@@ -3160,6 +3160,8 @@ class Protenix:
         ck = torch.load(path, map_location="cpu", weights_only=True)
         ck = ck.get("model", ck)
         sd = {k[len("module."):] if k.startswith("module.") else k: v for k, v in ck.items()}
+        from .mol1_constraint import fold_weights
+        fold_weights(sd)
         # gated_move=True: the E6 fused chunk+gate forward move serves 2416 of 2416 trimul
         # channel moves at c_z=256 and is torch.equal to the sequence it replaces, so it is
         # the shipped path. Scoped to this entry point -- OpenDDE builds Protenix directly
@@ -4142,13 +4144,23 @@ class Trunk(_KeyedWeights):
         # contracts the token axis). OuterProductMean reduces over MSA DEPTH, so a padded token
         # cannot reach a real pair through it, and the transitions/norms/linears are per-token.
         from .token_axis import pad_amount, token_pad_masks_torch
+        # Mol-1-constraint widens the token-bond projection by its condition channels (mol1_constraint.py),
+        # so the masks ride beside the bonds; all zero when the input names no constraint.
+        token_bonds = token_bonds.unsqueeze(-1)
+        width = self.trunk_input._w["linear_no_bias_token_bond.weight"].shape[1]
+        cp = feat.get("constraint_pair")
+        if width > 1:
+            token_bonds = torch.cat([token_bonds, cp.to(token_bonds) if cp is not None
+                                     else token_bonds.new_zeros(N, N, width - 1)], -1)
+        elif cp is not None:
+            raise ValueError("site / contact / exclusion constraints need the Mol-1-constraint weights")
         pad = pad_amount(N, _token_pad_multiple()) if _token_bucket() else 0
         m1 = pm_pad = at_pad = None
         if pad:
             N = n_real + pad
             q = _pad_poison()
             relp = F.pad(relp, (0, 0, 0, pad, 0, pad), value=q)
-            token_bonds = F.pad(token_bonds, (0, pad, 0, pad), value=q)
+            token_bonds = F.pad(token_bonds, (0, 0, 0, pad, 0, pad), value=q)
             feat = dict(feat)
             # -1 matches no real chain, so the padded rows and columns are never "same chain".
             feat["asym_id"] = F.pad(feat["asym_id"], (0, pad), value=-1)
@@ -4198,7 +4210,7 @@ class Trunk(_KeyedWeights):
                   if _T.lever("relp_gather") and getattr(self.trunk_input, "dtype", ttnn.bfloat16) == ttnn.bfloat16
                   else None)
         return dict(N=N, pad=pad, feat=feat, relp=self._host_cast(relp), relp_g=relp_g,
-                    token_bonds=self._host_cast(token_bonds.unsqueeze(-1)),
+                    token_bonds=self._host_cast(token_bonds),
                     pm_pad=pm_pad, at_pad=at_pad, nt=nt,
                     te_at=[self._host_cast(t.unsqueeze(0)) for t in te_at], ms=ms)
 
@@ -4756,15 +4768,16 @@ class TrunkInput(_KeyedWeights, Module):
     s_init = linear_sinit(s_inputs); z_init = zinit1(s_init)[:,None] + zinit2(s_init)[None]
     + relative_position_encoding(relp) + token_bond(token_bonds). All LinearNoBias.
     Reference: protenix/model/protenix.py get_pairformer_output (lines 208-226).
-    Validated vs real v2 golden (PCC 0.999997). (Constraint embedder omitted: the
-    inference feat carries no active constraints for plain folding.)"""
+    Validated vs real v2 golden (PCC 0.999997). Mol-1-constraint's conditioner is folded into
+    the token-bond projection at load (mol1_constraint.fold_weights), so token_bonds may carry
+    1 + 5 channels."""
 
     def __init__(self, state_dict, compute_kernel_config):
         super().__init__(state_dict, compute_kernel_config)
         self._w = {k: v for k, v in self.weights.data.items()}
 
     def __call__(self, s_inputs, relp, token_bonds):
-        """s_inputs (N,449); relp (N,N,139); token_bonds (N,N,1). Returns (s_init (N,c_s),
+        """s_inputs (N,449); relp (N,N,139); token_bonds (N,N,1), or (N,N,6) under Mol-1-constraint. Returns (s_init (N,c_s),
         z_init (N,N,c_z))."""
         N = s_inputs.shape[0]
         s_init = self._lin(s_inputs, "linear_no_bias_sinit.weight")

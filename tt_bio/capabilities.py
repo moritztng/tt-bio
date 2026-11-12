@@ -52,6 +52,8 @@ FEATURES: dict[str, tuple[str, str]] = {
     "affinity": ("`properties: affinity`", "no affinity value is written"),
     "constraint": ("a `constraint:` block (contact pairs or an epitope for guided sampling)",
                    "the fold would ignore the constraint"),
+    "condition": ("a `site` / `contact` / `exclusion` condition (Mol-1-constraint)",
+                  "the fold would ignore the binding site you declared"),
 }
 
 _ALL_HONOURED = dict.fromkeys(FEATURES, HONOURED)
@@ -61,7 +63,9 @@ def _row(**overrides) -> dict[str, str]:
     # `constraint:` is OpenDDE 1.2.0's guided-sampling input; only the OpenDDE rows honour it.
     # A ligand from a 3D file is upstream Protenix / Mol-1's `FILE_` ligand; only the Protenix
     # featurizer reads one (protenix_data._file_to_mol).
-    return {**_ALL_HONOURED, "constraint": REFUSED, "ligand_file": REFUSED, **overrides}
+    # `site`/`contact`/`exclusion` conditioning is Mol-1-constraint's; only the mol1 row honours it.
+    return {**_ALL_HONOURED, "constraint": REFUSED, "ligand_file": REFUSED, "condition": REFUSED,
+            **overrides}
 
 
 #: --model -> feature -> verdict. Every id in ``main.PREDICT_MODELS`` needs a row; the
@@ -104,7 +108,8 @@ CAPABILITY: dict[str, dict[str, str]] = {
     "protenix-v1": _row(cyclic=REFUSED, templates=REFUSED, template_structure=REFUSED,
                         pocket=REFUSED, affinity=NOTED, ligand_file=HONOURED),
     "protenix-v2": _row(pocket=REFUSED, affinity=NOTED, ligand_file=HONOURED),
-    "mol1": _row(pocket=REFUSED, affinity=NOTED, ligand_file=HONOURED),
+    # mol1 alone reads SITE / CONTACT / EXCLUSION, on the Mol-1-constraint weights (tt_bio/mol1_constraint.py).
+    "mol1": _row(pocket=REFUSED, affinity=NOTED, ligand_file=HONOURED, condition=HONOURED),
     # OpenDDE's own `constraint:` (contact pairs, epitope) steers its sampler under
     # --use_tfg_guidance (tt_bio/tfg); Boltz-2's `constraints: pocket/contact` it cannot read.
     "opendde": _row(pocket=REFUSED, affinity=NOTED, constraint=HONOURED),
@@ -371,6 +376,8 @@ def detect(path, chains=None) -> dict[str, str]:
             if all(isinstance(a, (list, tuple)) and len(a) == 3 and on_standard(a) for a in ends):
                 found.setdefault("polymer_bond", "constraints: " + " - ".join(
                     "/".join(str(x) for x in a) for a in ends))
+        elif _is_condition(c):
+            found.setdefault("condition", "constraints: " + ", ".join(sorted(c)))
         elif "pocket" in c or "contact" in c:
             found.setdefault("pocket", "constraints")
     if doc.get("constraint"):
@@ -404,6 +411,15 @@ def check_chain_ids(chains, model: str, output_format: str | None = None) -> Non
         from tt_bio.data.pdb import chain_map
 
         chain_map(ids)
+
+
+def _is_condition(item: dict) -> bool:
+    """A Mol-1-constraint condition rather than a Boltz pocket/contact: `site`, `exclusion`, or a `contact`
+    given as `pairs` / `token_pairs` (a Boltz contact names token1 / token2). Mirrors main._is_mol1_condition."""
+    if "site" in item or "exclusion" in item:
+        return True
+    c = item.get("contact")
+    return isinstance(c, dict) and bool({"pairs", "token_pairs"} & set(c))
 
 
 def check_capabilities(path, chains, model: str, echo=_click_note,
@@ -458,6 +474,7 @@ DOC_COLUMNS: tuple[tuple[str, str], ...] = (
     ("pocket", "pocket/contact"),
     ("affinity", "affinity"),
     ("constraint", "guided constraint"),
+    ("condition", "site/contact/exclusion"),
 )
 
 _MARK = {HONOURED: "yes", REFUSED: "refused", NOTED: "ignored, warns"}

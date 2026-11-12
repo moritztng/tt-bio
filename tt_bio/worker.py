@@ -1778,10 +1778,14 @@ class _WorkerState:
         """Sequences -> (optional per-chain MSA) -> model-ready features for one target.
         Shared by the single and batched protenix entry points."""
         from tt_bio.esmfold2 import report_progress
-        from tt_bio.main import _read_bio_bonds, _read_bio_chains
+        from tt_bio.main import _read_bio_bonds, _read_bio_chains, _read_mol1_constraints
         from tt_bio.protenix_data import build_complex_features
 
         model = cfg.get("model", "protenix-v2")
+        conditions = _read_mol1_constraints(path)
+        if conditions and model != "mol1":
+            raise RuntimeError(f"site / contact / exclusion constraints are Mol-1-constraint's; {model} has no "
+                               "conditioner. Use --model mol1.")
         chains = _read_bio_chains(path)
         if not chains:
             raise RuntimeError("no protein/nucleic-acid sequences")
@@ -1814,7 +1818,8 @@ class _WorkerState:
                                        modifications=[mods for *_x, mods in chains],
                                        templates=[tmpl_map.get(cid) for cid, *_r in chains],
                                        template_dir=tmpl_dir,
-                                       conformer_table=_conformer_table(cfg.get("conformer_table")))
+                                       conformer_table=_conformer_table(cfg.get("conformer_table")),
+                                       constraints=conditions)
         # A JSON input's MSA features are built exactly as upstream builds them, from the sidecar alignments
         # plus the searched ones for chains it left out. Ordinary YAML/FASTA inputs have no sidecar.
         if side and not cfg.get("single_sequence"):
