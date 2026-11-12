@@ -234,20 +234,17 @@ class OF3SampleDiffusion:
                     ttnn.deallocate(si_dev)
 
                 def denoise(chunk, _w, t=t, si_pad=si_pad):
-                    # rl_noisy = xl_noisy * atom_mask / sqrt(t^2 + sigma_data^2) (host -> device).
-                    devs = [(self._to_dev(self._pad_atoms_host(
-                                x * atom_mask_host[:, None] / math.sqrt(t * t + self.sigma_data ** 2),
-                                n_atom, NP)),
-                             self._to_dev((x * atom_mask_host[:, None]).unsqueeze(0)))  # [1, n_atom, 3]
-                            for x in chunk]
-                    outs = self.dm(*dm_args, t, self.sigma_data, cache=inv_cache,
-                                   samples=[(si_pad, rl, xl, t) for rl, xl in devs])
-                    res = torch.stack([ttnn.to_torch(o).float().reshape(n_atom, 3) for o in outs])
-                    for o in outs:
-                        ttnn.deallocate(o)
-                    for rl, xl in devs:
-                        ttnn.deallocate(rl); ttnn.deallocate(xl)
-                    return res
+                    # rl_noisy = xl_noisy * atom_mask / sqrt(t^2 + sigma_data^2) (host -> device);
+                    # the device returns rl_update and the EDM scaling stays on the host in fp32.
+                    rls = [self._to_dev(self._pad_atoms_host(
+                               x * atom_mask_host[:, None] / math.sqrt(t * t + self.sigma_data ** 2),
+                               n_atom, NP)) for x in chunk]
+                    outs = self.dm(*dm_args, None, self.sigma_data, cache=inv_cache, edm=False,
+                                   samples=[(si_pad, rl, None, None) for rl in rls])
+                    ru = torch.stack([ttnn.to_torch(o).float().reshape(n_atom, 3) for o in outs])
+                    for y in (*outs, *rls):
+                        ttnn.deallocate(y)
+                    return self._edm_host(chunk, ru, atom_mask_host, t, self.sigma_data)
 
                 xl_denoised, width = denoise_in_chunks(xl_noisy, width, denoise, tag="of3 diffusion")
                 ttnn.deallocate(si_pad)
@@ -258,8 +255,21 @@ class OF3SampleDiffusion:
 
         ttnn.deallocate(zij_pad)
         _free_cached(inv_cache.values())
-        out = [self._to_dev(x.unsqueeze(0)) for x in xl_host]
+        # Coordinates leave in fp32: the act dtype (bf16 under diffusion_bf16) would round every
+        # atom to a grid that coarsens with its distance from the origin (0.5 A at 64-128 A).
+        out = [self._to_dev(x.unsqueeze(0), ttnn.float32) for x in xl_host]
         return out if many else out[0]
+
+    @staticmethod
+    def _edm_host(xl_noisy, rl_update, atom_mask_host, t, sigma_data):
+        """EDM output scaling on the host in fp32, ``(c_skip * x + c_out * rl_update)``, masked.
+        It combines absolute coordinates, so it never runs in the act dtype: bf16 there rounds
+        every atom to a grid that coarsens with its distance from the origin."""
+        mask = atom_mask_host[:, None]
+        sd2 = sigma_data ** 2
+        c_skip = sd2 / (sd2 + t * t)
+        c_out = sigma_data * t / math.sqrt(sd2 + t * t)
+        return ((xl_noisy * mask) * c_skip + rl_update * c_out) * mask
 
     @staticmethod
     def _augment(xl_host, atom_mask_host, rots_list, trans_list, noise_list, tau):
@@ -364,11 +374,7 @@ class OF3SampleDiffusion:
                 if res is not outs:
                     for o in res:
                         ttnn.deallocate(o)
-                # EDM output scaling, then the EDM step.
-                sd2 = self.sigma_data ** 2
-                c_skip = sd2 / (sd2 + t * t)
-                c_out = self.sigma_data * t / math.sqrt(sd2 + t * t)
-                xl_denoised = ((xl_noisy * mask) * c_skip + rl_update * c_out) * mask
+                xl_denoised = self._edm_host(xl_noisy, rl_update, atom_mask_host, t, self.sigma_data)
                 delta = (xl_noisy - xl_denoised) / t
                 xl_host = xl_noisy + step_scale * (float(c_tau_list[tau]) - t) * delta
         finally:
