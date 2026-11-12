@@ -402,6 +402,15 @@ _ROWS: tuple[Artifact, ...] = (
     Artifact("opendde-abag", ("opendde-abag",), "hf-repo", "Apache-2.0 (Aureka Research)",
              repo=OPENDDE_REPO, filename="opendde_abag.pt", approx_bytes=2625271509,
              legacy_env=("OPENDDE_CKPT",)),
+    # Upstream reads every CCD reference conformer from its own RDKit pickle (mol.ref_conf_id),
+    # not the CCD ideal coordinates, the same mechanism as mol1-ccd but OpenDDE's own pickle.
+    Artifact("opendde-ccd", ("opendde", "opendde-abag"), "file", "Apache-2.0 (Aureka Research); CCD data PDB terms",
+             repo=OPENDDE_REPO, filename="common/components.cif.rdkit_mol.pkl",
+             sha256="d1cfb71f5993a3ebea7c47877022d7f597bbfbaf86e28a4770e957da6c50cd35",
+             subdir="opendde", approx_bytes=142498117,
+             derived=Derived("opendde/ccd", "rdkit-conformers", expect=("ccd_table.npz",),
+                             discard_archive=True),
+             note="OpenDDE's CCD table (conformers + topology), reduced to <cache>/opendde/ccd"),
 
     # -- Nesso-1 (Recursion, Apache-2.0) ---------------------------------------
     # An hf-repo pair rather than two hf-file rows, the same shape as the two OpenDDE rows:

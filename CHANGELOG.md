@@ -20,6 +20,10 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   It now keeps them and adds bfp8 pair-stack weights (Wormhole) or the shared fast precision set (Blackhole): 9DBP
   (791 tokens) folds in 502 s instead of 596 s on Wormhole and 195 s instead of 210 s on Blackhole, same recycles,
   steps and samples, and the same docking results on 11 post-cutoff complexes.
+- **OpenDDE reads the same reference conformers as upstream OpenDDE 1.2.0.** It used the CCD ideal coordinates,
+  up to 2.8 A off in intra-residue distances for amino acids and 4.1 A for nucleotides; it now downloads OpenDDE's own
+  conformer table (143 MB, once). Glycans, modified residues and cyclic peptides are also linked the way upstream
+  links them. Accuracy is unchanged within seed noise on 11 complexes and 7 ligand complexes.
 
 ## [0.30.1] - 2026-11-11
 
