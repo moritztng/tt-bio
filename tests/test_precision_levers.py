@@ -32,9 +32,10 @@ def test_a_model_names_its_own_sets_and_the_harness_switch_still_wins(monkeypatc
     # OpenFold3 adds the bf16 fused DiT in normal mode; OpenBind-0 failed its grade and keeps the fp32 DiT, fused on Wormhole.
     assert of3.NORMAL_MODEL_LEVERS["openfold3"] == of3.WH_NORMAL_MODEL_LEVERS["openfold3"] == {"dit_s16", "diffusion_bf16", "dit_fuse", "dit_l1"}
     assert set(of3.NORMAL_MODEL_LEVERS) == {"openfold3"} and set(of3.WH_NORMAL_MODEL_LEVERS) == {"openfold3", "openbind"}
-    assert of3.WH_NORMAL_MODEL_LEVERS["openbind"] == {"dit_fuse", "dit_l1"}
+    assert of3.WH_NORMAL_MODEL_LEVERS["openbind"] == {"dit_fuse", "dit_l1", "dit_kl1", "apb_ln", "trimul_sig6", "triatt_hifi2"}
     assert of3.NORMAL_LEVERS | of3.NORMAL_MODEL_LEVERS["openfold3"] <= of3.FAST_LEVERS
-    assert all(of3.WH_NORMAL_LEVERS | v <= of3.WH_FAST_LEVERS for v in of3.WH_NORMAL_MODEL_LEVERS.values())
+    # dit_kl1 is normal only: fast takes dit_kc, which keeps the same full k chunk with its sums in dest.
+    assert all(of3.WH_NORMAL_LEVERS | v <= of3.WH_FAST_LEVERS | {"dit_kl1"} for v in of3.WH_NORMAL_MODEL_LEVERS.values())
 
 
 def test_parse_expands_modes_and_rejects_unknown_names():
