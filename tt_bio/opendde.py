@@ -509,7 +509,7 @@ TRIATT_Q10 = frozenset({"triatt_q10"})
 PACKER = frozenset({"ws_psilu"}) | T1_PSIG
 NORMAL_LEVERS = (_FAMILY_NORMAL | WS_CHAIN | T2_TAIL | TRIATT_LN | BRES_NORMAL | DIT_SEAM | TRIATT_Q10 | TRIATT_K1 | PACKER
                  | {"ws_resid", "ws_resid2", "trimul_t1w8", "dit_bpad", "inproj_split", "trimul_t1_dram", "trunk_hifi2",
-                    "transition_b8", "ws_b8_plain"})
+                    "transition_b8", "ws_b8_plain", "apb_cat"})
 # Blackhole normal takes the Wormhole normal set without ws_chain (still graded FAIL on BH, above), plus the BH trimul
 # routes (trimul_bres_bh, trimul_t1_2g), ws_psilu and T1_PSIG. p150a, cdk2x2 512, one process per arm, 1 cold + 3 warm
 # folds, AICLK 1331-1350 MHz sampled during the folds (spd-m-opendde-2 l1, 2026-11-04): 52.09 -> 40.26 s (-22.7 %).
