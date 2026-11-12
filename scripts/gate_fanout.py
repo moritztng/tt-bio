@@ -176,6 +176,11 @@ SSH_LOST = re.compile(r"(?:^(?:ssh: connect to host .*|"
                       r"kex_exchange_identification: .*|ssh_dispatch_run_fatal: Connection to .*)|"
                       r"Timeout, server \S+ not responding\.)$", re.M)
 SSH_LOST_RETRY_S, SSH_LOST_TRIES = 120, 30
+#: A named card's leg dies with its ssh stream, so retrying it on a host that stays dark only holds it: qb1 went
+#: dark at 21:45Z on 11-12 and nine BH legs of rel-72875f231 sat in SSH_LOST_TRIES retries (hours with ssh()'s
+#: own backoff) while qb2's cards idled. After this many lost tries with no answer the card is retired and the
+#: leg goes back on its arch's queue.
+HOST_DARK_TRIES = 5
 #: A full disk on the leg's host. Another job filled qb1's root on 2026-10-10 and 116 BH legs were
 #: recorded FAIL in an hour, each at its first mkdir. Wait for space and run the leg again.
 DISK_FULL = re.compile(r"No space left on device")
@@ -1877,6 +1882,12 @@ def make_executor(sha: str, out: Path, ledger: Ledger, keys: dict, remote_out: s
                 # The connection dropped, not the leg: run it again once the host answers.
                 lost += 1
                 time.sleep(SSH_LOST_RETRY_S)
+                if card not in (None, POOL) and lost >= HOST_DARK_TRIES and not host.answers():
+                    raise CardDead({"leg": leg.name, "arch": host.arch, "verdict": "FAIL", "rc": rc,
+                                    "worker": f"{host.name}:{card}", "card_type": host.cfg["card_type"],
+                                    "wall_s": round(time.time() - t0), "log": str(log), "ended": now(),
+                                    "sha": sha, "key": keys[(leg.name, host.arch)]},
+                                   f"{host.name} does not answer ssh")
                 continue
             if rc and DISK_FULL.search(text) and full < DISK_FULL_TRIES:
                 full += 1

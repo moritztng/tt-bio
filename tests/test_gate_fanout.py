@@ -993,6 +993,34 @@ def test_a_leg_that_reports_its_card_unresettable_retires_the_card_without_a_pro
     assert "could not be reset" in e.value.why
 
 
+@pytest.mark.parametrize("answers", [True, False])
+def test_a_leg_on_a_host_that_stays_dark_goes_back_on_the_queue(tmp_path, monkeypatch, answers):
+    """rel-72875f231, 11-12: qb1 went dark and its legs retried there for hours while qb2 idled."""
+    monkeypatch.setattr(gf, "SSH_LOST_RETRY_S", 0)
+    calls = []
+
+    def fake_run(host, card, leg, rdir, f):
+        calls.append(card)
+        if len(calls) <= gf.HOST_DARK_TRIES:
+            f.write("##LEG-START 5\n....Timeout, server q not responding.\n" if len(calls) == 1
+                    else "ssh: connect to host 192.168.178.70 port 22: No route to host\n")
+            return 255
+        f.write("##LEG-START 5\nok\n")
+        return 0
+    monkeypatch.setattr(gf, "run_over_ssh", fake_run)
+    monkeypatch.setattr(gf.Host, "answers", lambda self: answers)
+    h = gf.Host("q", {"arch": "bh", "card_type": "p", "root": "/r"}, "c" * 40)
+    h.card_dead = lambda c: None
+    ex = gf.make_executor("c" * 40, tmp_path, gf.Ledger(tmp_path / "l"), {("ux:x", "bh"): "k"}, "o")
+    if answers:     # a host that answers again only dropped the connection: the leg runs there again
+        assert ex(h, 1, gf.Leg("ux:x", ["PY"], "ux"))["verdict"] == "PASS"
+        return
+    with pytest.raises(gf.CardDead) as e:
+        ex(h, 1, gf.Leg("ux:x", ["PY"], "ux"))
+    assert len(calls) == gf.HOST_DARK_TRIES and "does not answer ssh" in e.value.why
+    assert e.value.res["verdict"] == "FAIL" and e.value.res["worker"] == "q:1"
+
+
 def test_a_second_run_of_a_leg_keeps_the_first_runs_log(tmp_path, monkeypatch):
     def fake_run(host, card, leg, rdir, f):
         f.write("##LEG-START 5\nrun\n")
