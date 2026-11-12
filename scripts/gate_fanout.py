@@ -167,10 +167,14 @@ LOAD_RETRY_S, LOAD_WAIT_MAX_S = 300, 8 * 3600
 #: minutes on 2026-10-09 and five BH legs were recorded FAIL without running. A Galaxy reached
 #: through the japanfold-ssh jump host reports a dropped hop as "Connection closed by UNKNOWN port
 #: 65535": rel-412d01dfe (10-17 08:4xZ) recorded five WH legs FAIL in 7-12 s that way.
-SSH_LOST = re.compile(r"^(ssh: connect to host .*|Timeout, server .* not responding\.|"
+#: The keepalive timeout fires mid-stream, so it lands on whatever line the leg had half written:
+#: rel-72875f231 pytest_device:1/4 bh (11-12 21:45Z) read "....Timeout, server tt-quietbox not
+#: responding." when qb1 went dark at 82 % and was recorded FAIL instead of retried.
+SSH_LOST = re.compile(r"(?:^(?:ssh: connect to host .*|"
                       r"client_loop: send disconnect: .*|Connection to .* closed by remote host\.|"
                       r"Connection closed by \S+ port \d+|"
-                      r"kex_exchange_identification: .*|ssh_dispatch_run_fatal: Connection to .*)$", re.M)
+                      r"kex_exchange_identification: .*|ssh_dispatch_run_fatal: Connection to .*)|"
+                      r"Timeout, server \S+ not responding\.)$", re.M)
 SSH_LOST_RETRY_S, SSH_LOST_TRIES = 120, 30
 #: A full disk on the leg's host. Another job filled qb1's root on 2026-10-10 and 116 BH legs were
 #: recorded FAIL in an hour, each at its first mkdir. Wait for space and run the leg again.
