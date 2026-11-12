@@ -464,7 +464,7 @@ class OF3SampleDiffusion:
                 xn = ttnn.add(xam, nz)
                 xnm = ttnn.multiply(xn, m_dev)
                 rl = ttnn.multiply(xnm, inv_s)
-                rl_a = ttnn.typecast(rl, act) if act != f32 and not _T.lever("diff_r32") else rl
+                rl_a = ttnn.typecast(rl, act) if act != f32 else rl
                 for y in (mean, xc, xr, xa, xam, nz):
                     ttnn.deallocate(y)
                 if rl_a is not rl:

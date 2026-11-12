@@ -1895,18 +1895,32 @@ class DiffusionModule(_KeyedWeights):
         return _T.upload(r.float().contiguous(), ttnn.float32) if _T.lever("diff_r32") else self._up(r)
 
     def _q_from_r(self, r, c_la):
-        """q_l = c_la + W_r r, the encoder's first activation. Under `diff_r32` the scaled positions
-        `r` arrive fp32 and the projection is exact (`edm_device.project_positions`)."""
+        """The atom encoder's first activation, q_l = c_la + W_r r.
+
+        `r` is the scaled absolute atom position. Rounded to the stack's dtype before the
+        projection, a coordinate at |x| keeps only bf16 (or the FPU's tf32) precision of |x|,
+        so the network reads neighbouring atoms with an error that doubles every octave of
+        |x|. Under `diff_r32` the projection reads `r` in fp32 and runs as an exact fp32
+        matmul (bf16 hi/lo split, `edm_device.matmul_f32`); q_l is cast to the stack's
+        dtype only after the add."""
         key = "atom_attention_encoder.linear_no_bias_r.weight"
         if not _T.lever("diff_r32"):
             return ttnn.add(c_la, self._lin(r, key))
-        from .edm_device import f32_ckc, project_positions
+        from .edm_device import matmul_f32
+        f32 = ttnn.float32
         cache = self.__dict__.setdefault("_wc32", {})
-        if key not in cache:
-            cache[key] = ttnn.from_torch(self._w[key].t().contiguous().float(), layout=ttnn.TILE_LAYOUT,
-                                         device=get_device(), dtype=ttnn.float32)
-            cache["ckc"] = f32_ckc(self.dev)
-        return project_positions(r, cache[key], c_la, cache["ckc"], out_dtype=self.dtype)
+        w = cache.get(key)
+        if w is None:
+            w = cache[key] = ttnn.from_torch(self._w[key].t().contiguous().float(), layout=ttnn.TILE_LAYOUT,
+                                             device=get_device(), dtype=f32)
+        ckc = self.__dict__.get("_ckc_f32")
+        if ckc is None:
+            ckc = self._ckc_f32 = ttnn.init_device_compute_kernel_config(
+                self.dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi4, fp32_dest_acc_en=True,
+                packer_l1_acc=False)
+        r32 = r if r.dtype == f32 else ttnn.typecast(r, f32)
+        q = ttnn.add(matmul_f32(r32, w, ckc), c_la if c_la.dtype == f32 else ttnn.typecast(c_la, f32))
+        return q if self.dtype == f32 else ttnn.typecast(q, self.dtype)
 
     def _denoise_device(self, r_noisy_dev, fou_dev, cond):
         """Pure on-device denoise (device_dit path). r_noisy_dev (N,3) and fou_dev

@@ -18860,22 +18860,14 @@ class Diffusion(Module):
         B, N, D = q.shape
         NW = N // ATOM_WINDOW
         self._condition_once(s_trunk, s_inputs, c)
-        if lever("diff_r32"):
-            # The scaled positions arrive fp32 and are projected exactly (edm_device.project_positions).
-            from .edm_device import f32_ckc, project_positions
-            if getattr(self, "_r_to_q32", None) is None:
-                self._r_to_q32 = self.torch_to_tt("atom_attention_encoder.r_to_q_trans.weight", dtype=ttnn.float32)
-                self._ckc32 = f32_ckc(get_device())
-            q = project_positions(r, self._r_to_q32, q, self._ckc32)
-        else:
-            r_to_q = ttnn.linear(
-                r,
-                self.r_to_q_weight,
-                compute_kernel_config=self.compute_kernel_config,
-                core_grid=CORE_GRID_MAIN,
-            )
-            q = ttnn.add(q, r_to_q)
-            ttnn.deallocate(r_to_q)
+        r_to_q = ttnn.linear(
+            r,
+            self.r_to_q_weight,
+            compute_kernel_config=self.compute_kernel_config,
+            core_grid=CORE_GRID_MAIN,
+        )
+        q = ttnn.add(q, r_to_q)
+        ttnn.deallocate(r_to_q)
         q = ttnn.reshape(q, (B, NW, ATOM_WINDOW, -1))
         q = self.encoder(
             q,
@@ -19726,7 +19718,7 @@ class DiffusionModule(TorchWrapper):
                 and s_inputs.shape[0] == 1 and bool((times == times.reshape(-1)[0]).all())):
             times = times[:1]
         out = self._run_diffusion_device(
-            self._r_up(r), self._from_torch(times), seq_len > SEQ_LEN_MORE_CHUNKING, step=self._cond_step(times))
+            self._from_torch(r), self._from_torch(times), seq_len > SEQ_LEN_MORE_CHUNKING, step=self._cond_step(times))
         return self._to_torch(out)[:, :N, :]
 
     # ---------------------------------------------------------------------------
@@ -19743,14 +19735,6 @@ class DiffusionModule(TorchWrapper):
     # output is bit-identical to the untraced ``forward`` (unlike the proven-lossy
     # distinct-structure batching, see the boltzgen-batch-threshold-dead-end memo).
     # ---------------------------------------------------------------------------
-    def _r_up(self, r: torch.Tensor) -> ttnn.Tensor:
-        """The scaled positions on the device: fp32 under `diff_r32` (read exactly by the encoder's
-        r_to_q projection), else as every other input."""
-        if lever("diff_r32"):
-            return ttnn.from_torch(r.float().contiguous(), layout=ttnn.TILE_LAYOUT, device=self.tt_device,
-                                   dtype=ttnn.float32)
-        return self._from_torch(r)
-
     def _host_tt(self, x: torch.Tensor) -> ttnn.Tensor:
         """Host-resident tiled bfloat16 tensor for copy_host_to_device_tensor staging."""
         return ttnn.from_torch(x.float(), layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16)
@@ -19768,7 +19752,7 @@ class DiffusionModule(TorchWrapper):
         self, r_padded: torch.Tensor, times: torch.Tensor,
         large_seq_len: bool, B: int, N_padded: int,
     ) -> dict:
-        in_r = self._r_up(r_padded)              # persistent input buffer
+        in_r = self._from_torch(r_padded)        # persistent input buffer
         in_times = self._from_torch(times)
         _ = self._run_diffusion_device(in_r, in_times, large_seq_len)   # warmup / compile
         _ = self._run_diffusion_device(in_r, in_times, large_seq_len)   # 2nd warmup: populate lazy _s_conditioned/_c_reshaped + per-layer s_o
@@ -19813,8 +19797,7 @@ class DiffusionModule(TorchWrapper):
             if tr is not None:
                 self._release_trace()
             tr = self._capture_diff_trace(r, times, large, B, N_padded)
-        ttnn.copy_host_to_device_tensor(ttnn.from_torch(r.float(), layout=ttnn.TILE_LAYOUT, dtype=tr["in_r"].dtype),
-                                        tr["in_r"])
+        ttnn.copy_host_to_device_tensor(self._host_tt(r), tr["in_r"])
         ttnn.copy_host_to_device_tensor(self._host_tt(times), tr["in_times"])
         ttnn.execute_trace(self.tt_device, tr["tid"], cq_id=0, blocking=False)
         result = torch.Tensor(ttnn.to_torch(tr["out"])).to(torch.float32)
