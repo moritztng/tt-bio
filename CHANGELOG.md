@@ -13,6 +13,8 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   for a job that names a condition; a job without one folds on the base weights exactly as before. Thanks to
   [Molence Bio](https://github.com/molence/Mol-1) for releasing the model and the weights under Apache-2.0.
 
+## [0.31.0] - 2026-11-12
+
 ### Changed
 - **Mol-1 `--fast` is faster than the default mode.** It used to drop Mol-1's tuned kernels and ran about 1.5x slower.
   It now keeps them and adds bfp8 pair-stack weights (Wormhole) or the shared fast precision set (Blackhole): 9DBP
