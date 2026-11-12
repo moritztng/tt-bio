@@ -14193,10 +14193,10 @@ class AttentionPairBias(Module):
                     _APB_BIAS_REFUSED, (tuple(z.padded_shape), str(z.dtype)), whole, rows,
                     rows=PAIR_ROW_BLOCK, tag="pair bias"))
             # Named once so the census counter below cannot drift from the branch it counts.
+            # Fused SDPA takes bf16/bf8 only, so an fp32 stack (Boltz-2's fp32 diffusion opt-in)
+            # takes the unfused branch whether or not it runs the raw-matmul path.
             token_dit_sdpa = (self.token_dit and _B2_TOKEN_DIT_SDPA and z is not None
-                              and seq_mask is None
-                              and not (self.dtype == ttnn.float32
-                                       and self.fp32_raw_matmul_attention))
+                              and seq_mask is None and self.dtype != ttnn.float32)
             if self.token_dit and _B2_TOKEN_DIT_SDPA:
                 B2_TOKEN_DIT_SDPA_STATS[0 if token_dit_sdpa else 1] += 1
             if self._raw_fp32() and self.sdpa32:
