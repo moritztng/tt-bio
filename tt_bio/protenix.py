@@ -1890,38 +1890,6 @@ class DiffusionModule(_KeyedWeights):
     # valid for that cond only: it is keyed on N AND cond's identity token, and
     # a new fold's cond forces a recapture even at the same atom count.
     # ---------------------------------------------------------------------------
-    def _up_r(self, r):
-        """The scaled positions' upload: fp32 under `diff_r32` (see `_q_from_r`), else the stack's dtype."""
-        return _T.upload(r.float().contiguous(), ttnn.float32) if _T.lever("diff_r32") else self._up(r)
-
-    def _q_from_r(self, r, c_la):
-        """The atom encoder's first activation, q_l = c_la + W_r r.
-
-        `r` is the scaled absolute atom position. Rounded to the stack's dtype before the
-        projection, a coordinate at |x| keeps only bf16 (or the FPU's tf32) precision of |x|,
-        so the network reads neighbouring atoms with an error that doubles every octave of
-        |x|. Under `diff_r32` the projection reads `r` in fp32 and runs as an exact fp32
-        matmul (bf16 hi/lo split, `edm_device.matmul_f32`); q_l is cast to the stack's
-        dtype only after the add."""
-        key = "atom_attention_encoder.linear_no_bias_r.weight"
-        if not _T.lever("diff_r32"):
-            return ttnn.add(c_la, self._lin(r, key))
-        from .edm_device import matmul_f32
-        f32 = ttnn.float32
-        cache = self.__dict__.setdefault("_wc32", {})
-        w = cache.get(key)
-        if w is None:
-            w = cache[key] = ttnn.from_torch(self._w[key].t().contiguous().float(), layout=ttnn.TILE_LAYOUT,
-                                             device=get_device(), dtype=f32)
-        ckc = self.__dict__.get("_ckc_f32")
-        if ckc is None:
-            ckc = self._ckc_f32 = ttnn.init_device_compute_kernel_config(
-                self.dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi4, fp32_dest_acc_en=True,
-                packer_l1_acc=False)
-        r32 = r if r.dtype == f32 else ttnn.typecast(r, f32)
-        q = ttnn.add(matmul_f32(r32, w, ckc), c_la if c_la.dtype == f32 else ttnn.typecast(c_la, f32))
-        return q if self.dtype == f32 else ttnn.typecast(q, self.dtype)
-
     def _denoise_device(self, r_noisy_dev, fou_dev, cond):
         """Pure on-device denoise (device_dit path). r_noisy_dev (N,3) and fou_dev
         (1,fdim) are device tensors (the per-step host inputs, already uploaded);
@@ -1937,7 +1905,7 @@ class DiffusionModule(_KeyedWeights):
         for t in self._cond_transitions:
             ss = ttnn.add(ss, ttnn.reshape(t(ss), tuple(ss.shape)))
         s_single = ss
-        q_l = self._q_from_r(r_noisy_dev, c_la)
+        q_l = ttnn.add(c_la, self._lin(r_noisy_dev, E + "linear_no_bias_r.weight"))
         q_out = self.atxE(ttnn.reshape(q_l, (1, N, 128)), ttnn.reshape(c_la, (1, N, 128)), p, mt,
                           bias_cache=cond.get("atxE_bias"), terms=cond.get("atxE_terms"))
         a_tok = ttnn.matmul(cond["Smean_dev"], ttnn.reshape(ttnn.relu(self._lin(q_out, E + "linear_no_bias_q.weight")), (N, 768)),
@@ -1996,7 +1964,7 @@ class DiffusionModule(_KeyedWeights):
     def _capture_trace(self, fou, r_noisy, cond, N, M):
         """Capture one denoise's device stream at (N, M) against `cond`. The two per-step
         inputs live in persistent device buffers that each replay overwrites."""
-        fou_dev = self._up(fou); r_dev = self._up_r(r_noisy)   # persistent input buffers
+        fou_dev = self._up(fou); r_dev = self._up(r_noisy)   # persistent input buffers
         if M == 1:
             run = lambda: self._denoise_device(r_dev, fou_dev, cond)
         else:
@@ -2073,7 +2041,7 @@ class DiffusionModule(_KeyedWeights):
             xn = ttnn.add(xa, eps)
             r0 = ttnn.multiply(xn, inv_s)
             r, r_own = zero_pad(r0)                             # the denoise reads what an upload holds
-            rd = ttnn.typecast(r, self.dtype) if self.dtype != f32 and not _T.lever("diff_r32") else r
+            rd = ttnn.typecast(r, self.dtype) if self.dtype != f32 else r
             out = (self._denoise_device(ttnn.reshape(rd, (N, 3)), fou, cond) if M == 1
                    else self._denoise_device_m(rd, fou, cond, M))
             ru = ttnn.typecast(out, f32) if out.dtype != f32 else out
@@ -2150,8 +2118,7 @@ class DiffusionModule(_KeyedWeights):
         elif tr["M"] != M:
             return self.denoise(x_noisy, t_hat, cond)
         ttnn.copy_host_to_device_tensor(self._host_tt(fou), tr["in_fou"])
-        ttnn.copy_host_to_device_tensor(ttnn.from_torch(r_noisy.float(), layout=ttnn.TILE_LAYOUT,
-                                                        dtype=tr["in_r"].dtype), tr["in_r"])
+        ttnn.copy_host_to_device_tensor(self._host_tt(r_noisy), tr["in_r"])
         ttnn.execute_trace(self.dev, tr["tid"], cq_id=0, blocking=False)
         return self._precondition(x_noisy, t_hat, torch.Tensor(ttnn.to_torch(tr["out"])).float(), M, N)
 
@@ -2382,7 +2349,7 @@ class DiffusionModule(_KeyedWeights):
         M = x_noisy.shape[0]
         N = cond["c_l"].shape[0]
         fou, r_noisy = self._step_inputs(x_noisy, t_hat)
-        r_dev = self._denoise_device_m(self._up_r(r_noisy), self._up(fou), cond, M)
+        r_dev = self._denoise_device_m(self._up(r_noisy), self._up(fou), cond, M)
         return self._precondition(x_noisy, t_hat, torch.Tensor(ttnn.to_torch(r_dev)).float(), M, N)
 
     def _step_inputs(self, x_noisy, t_hat):
@@ -2445,7 +2412,7 @@ class DiffusionModule(_KeyedWeights):
         s_single = ss   # (1, NT, c) shared across M
 
         # 2) atom encoder: coordinate-dependent path with M-leading q_l.
-        q_l = self._q_from_r(r_noisy_dev, c_la_1)  # (M,N,128)
+        q_l = ttnn.add(self._lin(r_noisy_dev, E + "linear_no_bias_r.weight"), c_la_1)  # (M,N,128)
         q_out = self.atxE(q_l, c_la_1, p, mt,
                           bias_cache=cond.get("atxE_bias"), multiplicity=M,
                           terms=cond.get("atxE_terms"))   # (M,N,128)
