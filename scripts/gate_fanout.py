@@ -178,8 +178,10 @@ DISK_FULL = re.compile(r"No space left on device")
 DISK_FULL_RETRY_S, DISK_FULL_TRIES = 300, 12
 #: Another process held the leg's card through its device lease without taking the card's flock.
 #: The timed perf leg of gate 92d5924f5 lost two models to it on qb1 card 3 (2026-10-10 18:4xZ) and
-#: a third read -19.8 %. Nothing about the tree was measured, so the whole leg runs again.
-CONTENDED = re.compile(r"device contention, nothing ran|Refusing to open it concurrently")
+#: a third read -19.8 %. Nothing about the tree was measured, so the whole leg runs again. capacity_gate
+#: names a fleet row's lease on the card before it opens it (capacity:openfold3 of 2cca84e6a, 11-12).
+CONTENDED = re.compile(r"device contention, nothing ran|Refusing to open it concurrently|"
+                       r"is leased by .*\. Nothing was measured")
 CONTENDED_RETRY_S, CONTENDED_TRIES = 300, 3
 #: release_gate stops when a fold timed out and the card's reset was refused (its board-pair sibling
 #: was busy). Opening that card again from the same leg is unsafe, but a pool probes, and if need be

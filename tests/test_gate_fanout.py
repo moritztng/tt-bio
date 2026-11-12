@@ -283,6 +283,9 @@ def test_a_contended_card_is_not_a_leg_result():
     assert gf.CONTENDED.search("[pxdesign] measurement error: design [pxdesign] rep 2/3 exited 75 after 123s: "
                                "device contention, nothing ran: physical card 3 on tt-quietbox is in use\n")
     assert gf.CONTENDED.search("waited 120s. Refusing to open it concurrently (would wedge)\n")
+    assert gf.CONTENDED.search("tt-quietbox2:1 is leased by worker:some-row (pid 2262127). Nothing was "
+                               "measured. Wait for the card, or point --workers at a free one; do NOT reset it.\n")
+    assert gf.CONTENDED.search("# esmfold2-cocrystal: device contention, nothing ran: tt_bio.device_lease.DeviceInUseError\n")
     assert not gf.CONTENDED.search("GATE FAIL — regressed beyond ±15%: boltzgen\n")
 
 

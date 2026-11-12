@@ -2800,6 +2800,17 @@ def main() -> int:
                    if v not in ("BLOCKED-REF-REGEN-NEEDED", "SKIPPED-CARD-GRANT"))
     inconclusive = n_scored == 0
     skipped = [r for r in rows if r["verdict"] == "SKIPPED-CARD-GRANT"]
+    # A leg whose card another job held measured nothing about the tree. Its summary row only says
+    # "predict exited 75" or "scorer returned no report", so name the contention here, where
+    # gate_fanout reads it and runs the leg again (11-12: three BH legs of 2cca84e6a lost qb2:1 to
+    # a fleet row's device lease and were recorded as the gate's failures).
+    for r in rows:
+        if r["verdict"] == "ERROR":
+            hit = next((ln for f in sorted(log_dir.glob(f"{r['leg']}*.log"))
+                        for ln in f.read_text(errors="replace").splitlines()
+                        if "Refusing to open it concurrently" in ln), None)
+            if hit:
+                print(f"# {r['leg']}: device contention, nothing ran: {hit.strip()[:200]}")
     print("\n" + "#" * 78)
     print(f"# Tally: {dict(tally)}    total wall {total_wall/60:.1f} min")
     if skipped:
