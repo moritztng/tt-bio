@@ -5,6 +5,8 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+## [0.32.0] - 2026-11-12
+
 ### Added
 - **Mol-1 can be guided by what you already know about the binding.** A job that carries a `constraints` object folds
   on Molence's Mol-1-constraint weights: `site` names the residues in the binding site, `contact` the pairs that
