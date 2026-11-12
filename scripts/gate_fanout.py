@@ -1167,7 +1167,13 @@ class Host:
         if "pool" in c and argv[1:2] and argv[1] in LOAD_GUARDED:
             argv += ["--load-ceiling", "0"]   # not in the leg's key: it changes nothing measured
         legpid = shlex.quote(f"{out}/leg.pid")
-        body = (f"echo \"##LEG-START $(date +%s)\"; echo $$ > {legpid}; exec timeout -s INT -k 600 {leg.budget} "
+        # The SIGINT below can land mid JIT link: make dies, tt-metal still records the kernel as built, and
+        # every later leg on the host's shared TT_METAL_CACHE that needs it TT_THROWs "cannot map elf file"
+        # on the 0-byte ELF (15ddbdf54's two boltz2 affinity legs on g110, 11-12; 119 such kernels across
+        # six Galaxies). A link writes its ELF in seconds, so one empty for 10 min is dead: drop its kernel.
+        purge = ('[ -d "$TT_METAL_CACHE" ] && timeout 120 find "$TT_METAL_CACHE" -name "*.elf" -size 0 -mmin +10 '
+                 '-printf "%h\\n" 2>/dev/null | xargs -r -n1 dirname | sort -u | xargs -r rm -rf; ')
+        body = (f"{purge}echo \"##LEG-START $(date +%s)\"; echo $$ > {legpid}; exec timeout -s INT -k 600 {leg.budget} "
                 "nice -n 10 " + " ".join(shlex.quote(a) for a in argv))
         envs = " ".join(f"{k}={shlex.quote(v)}" for k, v in env.items())
         run = f"env {envs} bash -c {shlex.quote(body)}"
