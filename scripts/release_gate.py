@@ -4095,19 +4095,25 @@ def _size_ladder_fill_reasons(levers: dict, old_levers: dict, inherited=()) -> i
 
 
 def _size_ladder_check_model(model: str, rungs, base_model: dict, workdir: Path,
-                             timings_differ: str | None = None) -> dict:
+                             timings_differ: str | None = None, part: bool = False) -> dict:
     pre = _size_ladder_precondition(model)
     if pre:
         return {"model": model, "gate": False, "error": pre, "findings": [pre]}
     reps = base_model.get("reps", 1)
     _size_ladder_fold_timeouts(model, base_model.get("runtime_s"))
     meas = _size_ladder_measure_model(model, rungs, workdir, reps, reps)
+    if part and meas.get("refused") and meas.get("error") and not meas.get("runtime_s"):
+        # A part above the model's ceiling, e.g. opendde's 1152-1280 group on a p150a capped at
+        # 1024. Whole, the ladder folds the rungs below and these refusals are cells the
+        # comparator checks against the baseline's; split off, they are all this part has, so
+        # hand them to the comparator instead of failing a ceiling the baseline agrees with.
+        meas = {"levers": {}, "runtime_s": {}, "refused": meas["refused"], "drift": []}
     if meas.get("error"):
         return {"model": model, "gate": False, "error": meas["error"],
                 "findings": [meas["error"]],
                 "runtime_s": meas.get("runtime_s") or {}, "partial": True}
     ab = None
-    if SIZE_LADDER_AGAINST:
+    if SIZE_LADDER_AGAINST and meas["runtime_s"]:
         got = _size_ladder_ab(model, [int(r) for r in meas["runtime_s"]], workdir,
                               SIZE_LADDER_AGAINST)
         ab = got.get("ab")
@@ -5148,7 +5154,7 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
                 continue
             legs.append(_size_ladder_check_model(
                 m, ladders[m], base_model, workdir,
-                _size_ladder_threads_differ(baseline_path, card, m)))
+                _size_ladder_threads_differ(baseline_path, card, m), part=part))
 
     gate = bool(legs) and all(l["gate"] for l in legs)
     row = {"model": "size-ladder", "seconds": time.monotonic() - t0, "gate": gate,
