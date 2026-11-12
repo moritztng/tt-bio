@@ -27,6 +27,7 @@ def load(cif):
     st = gemmi.read_structure(str(cif))
     st.setup_entities()
     ca, lig, k = {}, {}, 0
+    plddt = statistics.mean(a.b_iso for ch in st[0] for r in ch for a in r) / 100  # writers put pLDDT in B_iso
     for ch in st[0]:
         pol = ch.get_polymer()
         if len(pol):
@@ -42,7 +43,7 @@ def load(cif):
                     if a.element.name != "H":
                         lig[(n, a.name)] = np.array(a.pos.tolist())
                 n += 1
-    return ca, lig
+    return ca, lig, plddt
 
 
 def kabsch(P, Q):
@@ -72,7 +73,7 @@ def folds(run, arm, name):
         if r.get("fold_s") is not None and r.get("struct_dir"):
             cif = Path(r["struct_dir"]) / f"{name}.cif"
             cif = cif if cif.exists() else run / arm / name / cif.parent.name / cif.name  # rsynced run
-            out[r["seed"]] = (load(cif), r.get("plddt"))
+            out[r["seed"]] = load(cif)
     return out
 
 
@@ -102,14 +103,14 @@ for name in names:
         insufficient.append(f"{name} ({len(seeds)} paired seeds)")
         if not seeds:
             continue
-    lb = {s: lig_dev(base[s][0], ref, pocket) for s in seeds}
-    lt = {s: lig_dev(test[s][0], ref, pocket) for s in seeds}
-    d = [lig_dev(test[s][0], base[s][0], pocket) for s in seeds]
-    fl = [lig_dev(base[s][0], base[u][0], pocket) for s, u in itertools.combinations(sorted(base), 2)]
+    lb = {s: lig_dev(base[s], ref, pocket) for s in seeds}
+    lt = {s: lig_dev(test[s], ref, pocket) for s in seeds}
+    d = [lig_dev(test[s], base[s], pocket) for s in seeds]
+    fl = [lig_dev(base[s], base[u], pocket) for s, u in itertools.combinations(sorted(base), 2)]
     p = [lt[s] - lb[s] for s in seeds]
     succ[a.base] += sum(v < 2 for v in lb.values()); succ[a.test] += sum(v < 2 for v in lt.values())
     paired.append(statistics.mean(p)); devs += d; floors += fl
-    pl = [(test[s][1] or 0) - (base[s][1] or 0) for s in seeds]
+    pl = [test[s][2] - base[s][2] for s in seeds]
     rows.append(f"| {name} | {len(seeds)} | {statistics.median(lb.values()):.2f} | {statistics.median(lt.values()):.2f} "
                 f"| {statistics.mean(p):+.2f} | {statistics.median(d):.2f} | {statistics.median(fl):.2f} "
                 f"| {statistics.mean(pl):+.4f} |")
