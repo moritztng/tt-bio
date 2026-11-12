@@ -43,3 +43,33 @@ def matmul_f32(a, b, ckc):
     for y in (ah, al, bh, bl, hh, lh, hl, s1):
         ttnn.deallocate(y)
     return out
+
+
+def project_positions(r, w32, c, ckc, out_dtype=None):
+    """``c + r @ w32``, the diffusion's first read of the atom positions, exact in fp32.
+
+    ``r`` is the scaled absolute position (x / sqrt(t^2 + sigma_data^2)). Rounded to bf16 (or read
+    as tf32 by an fp32 matmul) it keeps 8 (11) bits of |x|, so the network sees neighbouring atoms
+    with an error that doubles every octave of |x|. Here ``r`` and ``w32`` stay fp32 through
+    `matmul_f32`, and the sum is cast to ``out_dtype`` (``c``'s dtype by default) only at the end.
+    The extra cost is two (N, 3) x (3, C) matmuls per step."""
+    f32 = ttnn.float32
+    out_dtype = out_dtype or c.dtype
+    r32 = r if r.dtype == f32 else ttnn.typecast(r, f32)
+    c32 = c if c.dtype == f32 else ttnn.typecast(c, f32)
+    p = matmul_f32(r32, w32, ckc)
+    q = ttnn.add(c32, p)
+    for y, own in ((p, True), (c32, c32 is not c), (r32, r32 is not r)):
+        if own:
+            ttnn.deallocate(y)
+    if out_dtype == f32:
+        return q
+    out = ttnn.typecast(q, out_dtype)
+    ttnn.deallocate(q)
+    return out
+
+
+def f32_ckc(device):
+    """HiFi4 with fp32 accumulation, the config `matmul_f32` needs to be exact."""
+    return ttnn.init_device_compute_kernel_config(
+        device.arch(), math_fidelity=ttnn.MathFidelity.HiFi4, fp32_dest_acc_en=True, packer_l1_acc=False)

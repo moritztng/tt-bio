@@ -40,7 +40,8 @@ import ttnn
 
 from . import ops
 from .tenstorrent import (Module, CORE_GRID_MAIN, _dtype, _cached, pad_dim, pair_row_blocks,
-                          row_block_after_refusal, stack_samples)
+                          row_block_after_refusal, stack_samples, get_device)
+from . import tenstorrent as _T
 from .openfold3_atom_transformer import OF3AtomTransformer
 from .openfold3_diffusion_transformer import OF3DiffusionTransformer
 from .openfold3_diffusion_decoder import OF3AtomAttentionDecoder
@@ -155,7 +156,15 @@ class OF3NoisyPositionEmbedder(Module):
         return cl, plm
 
     def ql_at_np(self, cl, rl):
-        """ql = cl + linear_r(rl), both [1, NP, 128] -- the only per-step part."""
+        """ql = cl + linear_r(rl), both [1, NP, 128] -- the only per-step part. Under `diff_r32`
+        the scaled positions `rl` arrive fp32 and the projection is exact
+        (`edm_device.project_positions`)."""
+        if _T.lever("diff_r32"):
+            from .edm_device import f32_ckc, project_positions
+            if getattr(self, "_w_lr32", None) is None:
+                self._w_lr32 = self.torch_to_tt("linear_r.weight", dtype=ttnn.float32)
+                self._ckc32 = f32_ckc(get_device())
+            return project_positions(rl, self._w_lr32, cl, self._ckc32)
         rl_proj = ttnn.linear(rl, self.w_lr,
                               compute_kernel_config=self.compute_kernel_config,
                               core_grid=CORE_GRID_MAIN)                         # [1, NP, 128]
