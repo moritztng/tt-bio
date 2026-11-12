@@ -239,11 +239,11 @@ def test_boltzgen_mode_sets_name_only_known_levers():
 
 
 def test_protenix_family_normal_set():
-    from tt_bio.opendde import BH_DIT, BH_NORMAL_LEVERS, BH_TRUNK, NORMAL_LEVERS as DDE
+    from tt_bio.opendde import BH_DIT, BH_NORMAL_LEVERS, BH_TRUNK, NORMAL_LEVERS as DDE, WH_APB
     from tt_bio.protenix import BRES_NORMAL, NORMAL_LEVERS, T2_TAIL, TRIATT_LN, WS_CHAIN
 
-    assert DDE == NORMAL_LEVERS | WS_CHAIN | T2_TAIL | TRIATT_LN | BRES_NORMAL | {"ws_resid", "ws_resid2", "trimul_t1w8", "dit_bpad", "inproj_split", "trimul_t1_dram", "trunk_hifi2", "transition_b8", "ws_b8_plain", "pz_device", "dit_mod16", "triatt_q10", "triatt_k1", "ws_psilu", "trimul_t1_psig"} and DDE <= set(T.LEVERS)
-    assert BH_NORMAL_LEVERS == (DDE - WS_CHAIN) | {"trimul_bres_bh", "trimul_t1_2g"} | BH_DIT | BH_TRUNK
+    assert DDE == NORMAL_LEVERS | WS_CHAIN | T2_TAIL | TRIATT_LN | BRES_NORMAL | {"ws_resid", "ws_resid2", "trimul_t1w8", "dit_bpad", "inproj_split", "trimul_t1_dram", "trunk_hifi2", "transition_b8", "ws_b8_plain", "pz_device", "dit_mod16", "triatt_q10", "triatt_k1", "ws_psilu", "trimul_t1_psig", "apb_cat"} and DDE <= set(T.LEVERS)
+    assert BH_NORMAL_LEVERS == (DDE - WS_CHAIN - WH_APB) | {"trimul_bres_bh", "trimul_t1_2g"} | BH_DIT | BH_TRUNK
     assert BH_NORMAL_LEVERS <= set(T.LEVERS) | T.UNGRADED_LEVERS
     assert NORMAL_LEVERS - T.NORMAL_LEVERS == {"transition_ws", "ws_l1acc", "trimul_t1_c256", "trimul_t1_c384"}
 
