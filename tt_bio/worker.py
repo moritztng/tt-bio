@@ -33,7 +33,7 @@ from tt_bio.host_controller import (HEARTBEAT_PER_LEASE, LEASE_S, ControllerClie
                                     run_config_hash)
 from tt_bio.envflags import env_flag
 from tt_bio import ranking as rank
-from tt_bio.cache import EMPTY_MSA, cached, msa_pinned, seq_hash, staged
+from tt_bio.cache import EMPTY_MSA, cached, msa_pinned, seq_hash, single_flight, staged
 from tt_bio.capabilities import check_capabilities
 
 
@@ -672,11 +672,11 @@ def search_msas(path, chains, cfg, progress=None) -> None:
         return
     if progress:
         progress("msa")
-    _generate_esmfold2_a3m(
-        need, path.stem, msa_dir, cfg.get("msa_db_path"), cfg.get("use_envdb", False),
+    single_flight(msa_dir, need, lambda h: not cached(msa_dir / f"{h}.a3m"), lambda todo: _generate_esmfold2_a3m(
+        {h: need[h] for h in todo}, path.stem, msa_dir, cfg.get("msa_db_path"), cfg.get("use_envdb", False),
         cfg.get("msa_server_url"), cfg.get("msa_pairing_strategy"),
         cfg.get("msa_server_username"), cfg.get("msa_server_password"),
-        cfg.get("api_key_value"), msa_endpoint=cfg.get("msa_endpoint"))
+        cfg.get("api_key_value"), msa_endpoint=cfg.get("msa_endpoint")))
 
 
 def _msa_source(cfg) -> bool:
