@@ -1668,8 +1668,11 @@ class DiffusionModule(_KeyedWeights):
         # decoder all use ttnn float32. This stays on the device and keeps the existing traced
         # device_dit path. The paired HSA accuracy and performance gates passed; bf16 remains
         # available as an explicit A/B opt-out through PROTENIX_DIFFUSION_FP32_DEVICE=0.
-        self._dit_fp32 = self._diffusion_fp32
-        self._dit_dtype = ttnn.bfloat16 if _T.lever("dit_bf16") else self.dtype
+        # dit_f32: the token DiT alone in fp32 on a bf16 diffusion (the atom stream stays bf16);
+        # _token_dit_device casts in and back out, so the boundary is the same as dit_bf16's.
+        self._dit_fp32 = self._diffusion_fp32 or _T.lever("dit_f32")
+        self._dit_dtype = (ttnn.bfloat16 if _T.lever("dit_bf16") else
+                           ttnn.float32 if self._dit_fp32 else self.dtype)
         self._dit_ckc = compute_kernel_config   # HiFi4 + fp32_dest_acc_en: dtype is on the tensors
         self.device_dit = True
         DT = "diffusion_transformer."
