@@ -10,7 +10,9 @@ With OF3_STEP_DUMP=1 as well, every denoising step's network input and output fo
 sample (t, xl_noisy, rl_update, all fp32 on the host) go to <dir>/steps_<k>.pt, so a CPU
 replay can run upstream's diffusion module on the same inputs and compare one step at a time.
 That mode forces the eager rollout (the traced ones never return to Python per step); the
-network is the same, only the EDM combine moves to the host in fp32.
+network is the same, only the EDM combine moves to the host in fp32. For the steps with
+t <= OF3_STAGE_TMAX (default 2) it also keeps the stage outputs: the atom encoder's ql, the
+DiT input and the DiT output, to name the stage where TT departs from upstream.
 """
 import importlib.abc
 import importlib.util
@@ -18,8 +20,36 @@ import os
 import sys
 
 _TARGET = "tt_bio.openfold3_sample_diffusion"
+_STAGE_TARGET = "tt_bio.openfold3_diffusion_module"
 _DIR = os.environ.get("OF3_TRUNK_DUMP")
 _STEPS = os.environ.get("OF3_STEP_DUMP") == "1"
+_TMAX = float(os.environ.get("OF3_STAGE_TMAX", "2"))
+_STAGE = {}      # stage outputs of the current network call, attached to its step by the EDM hook
+
+
+def _patch_stages(mod):
+    import torch
+    import ttnn
+    cls = mod.OF3DiffusionModule
+    init = cls.__init__
+    back = lambda t: torch.Tensor(ttnn.to_torch(t)).float().cpu()
+
+    def wrap(fn, tags):
+        def run(*a, **kw):
+            if _STAGE.get("on") and tags[0] == "dit_in":
+                _STAGE["dit_in"] = back(a[0])[:1].clone()
+            y = fn(*a, **kw)
+            if _STAGE.get("on"):
+                _STAGE[tags[-1]] = back(y)[:1].clone()
+            return y
+        return run
+
+    def new_init(self, *a, **kw):
+        init(self, *a, **kw)
+        self.enc_at = wrap(self.enc_at, ("ql_enc",))
+        self.dit = wrap(self.dit, ("dit_in", "dit_out"))
+
+    cls.__init__ = new_init
 
 
 def _patch(mod):
@@ -33,13 +63,23 @@ def _patch(mod):
 
     def edm_host(xl_noisy, rl_update, atom_mask_host, t, sigma_data):
         if _STEPS:
-            steps.append({"t": float(t), "xl_noisy": xl_noisy[0].detach().clone(),
-                          "rl_update": rl_update[0].detach().clone()})
+            st = {"t": float(t), "xl_noisy": xl_noisy[0].detach().clone(),
+                  "rl_update": rl_update[0].detach().clone()}
+            st.update({k: v for k, v in _STAGE.items() if k != "on"})
+            steps.append(st)
+            _STAGE.clear()
         return edm(xl_noisy, rl_update, atom_mask_host, t, sigma_data)
 
     cls._edm_host = staticmethod(edm_host)
     if _STEPS:
         cls._traceable = lambda self, S, width: False
+        emb = mod.fourier_noise_emb
+
+        def noise_emb(t, *a, **kw):      # the eager loop calls this once per step, before the network
+            _STAGE.clear()
+            _STAGE["on"] = float(t) <= _TMAX
+            return emb(t, *a, **kw)
+        mod.fourier_noise_emb = noise_emb
 
     def call(self, xl_init_devs, si_trunk_dev, si_input_dev, zij_trunk_dev, *rest, **kw):
         os.makedirs(_DIR, exist_ok=True)
@@ -59,8 +99,11 @@ def _patch(mod):
 
 
 class _Finder(importlib.abc.MetaPathFinder):
+    def __init__(self, target, patch):
+        self.target, self.patch = target, patch
+
     def find_spec(self, name, path, target=None):
-        if name != _TARGET:
+        if name != self.target:
             return None
         sys.meta_path.remove(self)
         spec = importlib.util.find_spec(name)
@@ -69,10 +112,12 @@ class _Finder(importlib.abc.MetaPathFinder):
 
         def run(module):
             exec_module(module)
-            _patch(module)
+            self.patch(module)
         loader.exec_module = run
         return spec
 
 
 if _DIR:
-    sys.meta_path.insert(0, _Finder())
+    sys.meta_path.insert(0, _Finder(_TARGET, _patch))
+    if _STEPS:
+        sys.meta_path.insert(0, _Finder(_STAGE_TARGET, _patch_stages))
