@@ -384,7 +384,10 @@ PARITY_COVERS_RG = {"boltzgen", "opendde-abag", "capacity", "nesso1", "rf3-1024a
 #: Parity legs whose reference and accuracy record exist on Blackhole only. RFD4's upstream fp32
 #: goldens live on the qb hosts, and both ports were graded on Blackhole; on a Wormhole Galaxy the
 #: RFD4 golden suite would skip (a GAP) and redden a release over data that was never there.
-PARITY_CARD_TYPES = {"rfd4-trunk": ("p150a", "p300c"), "bindcraft2-afgrad-stack": ("p150a", "p300c")}
+#: The BindCraft2 gradient leg holds a ~44 GB float64 autograd reference in host RAM, so it runs on
+#: p150a only: qb2 (p300c) shares 249 GB between four legs and other rows, and the kernel OOM-killed
+#: the leg there in gates 25fb92265, 88f1ce541 and 730f010b9 (11-13), each passing on qb1 (503 GB).
+PARITY_CARD_TYPES = {"rfd4-trunk": ("p150a", "p300c"), "bindcraft2-afgrad-stack": ("p150a",)}
 
 CAP_OWED = "host-threads"   # an OWED entry: no granted host times this ladder at its baseline's cap
 
