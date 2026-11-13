@@ -18868,8 +18868,7 @@ class Diffusion(Module):
         self._condition_once(s_trunk, s_inputs, c)
         a32 = self.atom_fp32
         if a32:
-            r, q = _as_f32(r), _as_f32(q)
-            bias_encoder, bias_decoder = _as_f32(bias_encoder), _as_f32(bias_decoder)
+            r, q = _as_f32(r), _as_f32(q)   # the attention biases stay bf16: SDPA takes a bf16 mask
             atom_to_token, atom_to_token_normed = _as_f32(atom_to_token), _as_f32(atom_to_token_normed)
         r_to_q = ttnn.linear(
             r,
