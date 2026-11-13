@@ -8,10 +8,13 @@ only the kernel's own arithmetic is graded.
 usage: TT_VISIBLE_DEVICES=N python sdpa_offset.py OUT.jsonl
 
 Arms: stock (ttnn fused SDPA, bf16, Boltz-2's token DiT), stock_vn (dit_vnorm: 1.0 in v's first pad lane, output
-divided by it), s32 (`_sdpa32`, fp32 operands, bf16 CBs), s32_vn, s32_st32 (fp32 row statistics only).
+divided by it), s32 (`_sdpa32`, fp32 operands, bf16 CBs), s32_vn, s32_st32 (fp32 row statistics only),
+s32_o32 (fp32 output accumulators), s32_o32_vn, s32_o32_st32, s32_all32 (score, output and statistics CBs fp32),
+g16 / g16_o32 / g16_o32_vn (bf16 operands through sdpa_generic, bf16 or fp32 output accumulators, fp32 output).
+ARMS=a,b,... in the environment restricts the run to those arms.
 Per arm and offset: rms and max |o - o64| over the real lanes, and us per call.
 """
-import json, sys, time
+import json, os, sys, time
 from pathlib import Path
 
 import torch
@@ -89,8 +92,17 @@ for C in OFFS:
             br = (bias_h / s).bfloat16().float()          # SDPA scales its mask with the scores
             o64 = ref(qr[..., :D], kr[..., :D], vr[..., :D], br * s)
             B = up(br, dt)
+
+            def g16(Vx, **kw):
+                out = ttnn.allocate_tensor_on_device(ttnn.Shape([M, H, NT, DP]), ttnn.float32, ttnn.TILE_LAYOUT,
+                                                     dev, ttnn.DRAM_MEMORY_CONFIG)
+                SG.sdpa(dev, Q, K, Vx, B, out, chunk, k_chunk, grid, CKC32, s, boxes=boxes, **kw)
+                return out
             arms = {"stock": lambda V=V: T.fused_sdpa(Q, K, V, attn_mask=B, scale=s),
-                    "stock_vn": lambda: T._vnorm_divide(T.fused_sdpa(Q, K, Vn, attn_mask=B, scale=s), D)}
+                    "stock_vn": lambda: T._vnorm_divide(T.fused_sdpa(Q, K, Vn, attn_mask=B, scale=s), D),
+                    "g16": lambda: g16(V),
+                    "g16_o32": lambda: g16(V, out_im_dtype=ttnn.float32),
+                    "g16_o32_vn": lambda: T._vnorm_divide(g16(Vn, out_im_dtype=ttnn.float32), D)}
         else:
             br = bias_h / s
             o64 = ref(qr[..., :D], kr[..., :D], vr[..., :D], br * s)
@@ -102,7 +114,15 @@ for C in OFFS:
                 SG.sdpa(dev, Q, K, Vx, B, out, chunk, k_chunk, grid, CKC32, s, boxes=boxes, **kw)
                 return out
             arms = {"s32": lambda: s32(V), "s32_vn": lambda: T._vnorm_divide(s32(Vn), D),
-                    "s32_st32": lambda: s32(V, stats_dtype=ttnn.float32)}
+                    "s32_st32": lambda: s32(V, stats_dtype=ttnn.float32),
+                    "s32_o32": lambda: s32(V, out_im_dtype=ttnn.float32),
+                    "s32_o32_vn": lambda: T._vnorm_divide(s32(Vn, out_im_dtype=ttnn.float32), D),
+                    "s32_o32_st32": lambda: s32(V, out_im_dtype=ttnn.float32, stats_dtype=ttnn.float32),
+                    "s32_all32": lambda: s32(V, im_dtype=ttnn.float32, out_im_dtype=ttnn.float32,
+                                             stats_dtype=ttnn.float32)}
+        if os.environ.get("ARMS"):
+            keep = set(os.environ["ARMS"].split(","))
+            arms = {k: f for k, f in arms.items() if k in keep}
         for name, fn in arms.items():
             try:
                 o = fn(); ttnn.synchronize_device(dev); oh = host(o)[..., :NT, :D]; ttnn.deallocate(o)
