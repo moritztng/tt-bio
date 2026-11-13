@@ -1434,7 +1434,8 @@ def _spawn_worker_processes(controller_url: str, workers: list, debug: bool) -> 
     _cap_worker_threads(len(workers))
     # So orphaned workers self-terminate (see run_worker_loop): spawn children
     # inherit this; workers of a `tt-bio worker` pool never see it.
-    os.environ["TT_BIO_PARENT_PID"] = str(os.getpid())
+    from tt_bio.device_lease import orphan_guard_env
+    os.environ.update(orphan_guard_env())
     procs = []
     for worker in workers:
         proc = ctx.Process(

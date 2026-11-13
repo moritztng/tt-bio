@@ -790,6 +790,7 @@ def _run_distributed(args: argparse.Namespace, devices: list[int]) -> None:
     # P300 chips are a custom topology; like the `predict` path, each single-chip
     # worker needs the 1x1 Blackhole mesh-graph descriptor or ttnn.open_device
     # aborts with "Custom fabric mesh graph descriptor path must be specified".
+    from tt_bio.device_lease import orphan_guard_env
     from tt_bio.main import _detect_p300_devices, _find_ttnn_mesh_graph_descriptor
     p300_devices = set(_detect_p300_devices())
     p300_mgd = (
@@ -805,7 +806,7 @@ def _run_distributed(args: argparse.Namespace, devices: list[int]) -> None:
         argv = _rewrite_run_argv(sys.argv[1:], {"--output", "--num_designs", "--device_ids", "--seed"},
                                  ["--output", str(shard), "--num_designs", str(counts[d]),
                                   "--device_ids", str(d), *_shard_seed_argv(args, i)])
-        env = {**os.environ, "TT_VISIBLE_DEVICES": str(d)}
+        env = {**os.environ, **orphan_guard_env(), "TT_VISIBLE_DEVICES": str(d)}
         if d in p300_devices and p300_mgd:
             env.setdefault("TT_MESH_GRAPH_DESC_PATH", p300_mgd)
         for var, val in worker_env.items():

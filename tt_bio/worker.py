@@ -2381,9 +2381,11 @@ def _install_orphan_guard(dispatcher_pid: int) -> None:
 
     A worker can afford the SIGTERM handler ``_install_signal_handlers`` puts on
     top of this, which unwinds through close_device and leaves the chip clean,
-    because ``run_worker_loop``'s heartbeat catches a worker too deep in ttnn to
-    take the signal 60 s later. A process with no such backstop must leave SIGTERM
-    at its default disposition instead, or a wedged chip is held forever.
+    because a worker too deep in ttnn to take the signal is still caught: by the
+    heartbeat 60 s later if the interpreter runs, and by the guard's reaper with
+    SIGKILL if it does not (a worker wedged in the bring-up dispatch probe, before
+    the heartbeat starts). A process with neither backstop must leave SIGTERM at its
+    default disposition instead.
 
     Workers are started from the dispatcher's main thread
     (``main._spawn_worker_processes``, ``_supervise_worker_processes``), which is

@@ -1478,7 +1478,8 @@ def _spawn_saprot_shard(idx: int, device: int, shard: list, workdir: str, *,
     with open(in_path, "wb") as f:
         pickle.dump(dict(model=model, sequences=dict(shard), fast=fast,
                          return_logits=return_logits, pool=pool, batch_size=batch_size), f)
-    env = {**os.environ, **(thread_cap_env or {}),
+    from tt_bio.device_lease import orphan_guard_env
+    env = {**os.environ, **(thread_cap_env or {}), **orphan_guard_env(),
            "TT_VISIBLE_DEVICES": str(device), "TT_BIO_LOGICAL_DEVICE_ID": "0"}
     # P300 boards are a custom topology; like the `embed`/`predict`/`boltzgen` fanout
     # paths, a single-chip worker needs the 1x1 Blackhole mesh-graph descriptor or

@@ -580,7 +580,63 @@ class CardSetLease:
 _ARMED = False
 
 
-def install_parent_death_guard(parent_pid: int, *, exit_code: int = 70) -> None:
+#: How long an orphan gets to unwind after its parent is gone before it is SIGKILLed. A worker's
+#: SIGTERM handler closes its chip in seconds, and its heartbeat backstop exits at ~60 s when the
+#: interpreter still runs; this is the case where neither can.
+ORPHAN_KILL_AFTER_S = 90.0
+
+# Runs in its own interpreter, so a process wedged inside a C call cannot stop it. It is the
+# guarded process's child: while ``getppid()`` names that process, a kill cannot hit a recycled
+# pid. The parent's death shows as a changed ppid in /proc, which needs no pidfd (a uv-built
+# Python has no os.pidfd_open). It ignores the group signals its guarded process gets, so a
+# `timeout` that SIGTERMs the whole group does not take the reaper down first, and it holds
+# none of the guarded process's fds, so a reader waiting for that process's EOF never waits on it.
+_REAPER_SRC = """
+import os, signal, sys, time
+for s in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+    signal.signal(s, signal.SIG_IGN)
+guarded, parent, after = int(sys.argv[1]), int(sys.argv[2]), float(sys.argv[3])
+
+def parent_of(pid):
+    try:
+        with open(f"/proc/{pid}/stat") as f:
+            return int(f.read().rsplit(")", 1)[1].split()[1])
+    except (OSError, IndexError, ValueError):
+        return None
+
+while os.getppid() == guarded and parent_of(guarded) == parent:
+    time.sleep(0.25)
+deadline = time.monotonic() + after
+while os.getppid() == guarded and time.monotonic() < deadline:
+    time.sleep(0.25)
+if os.getppid() == guarded:
+    try:
+        with open(f"/proc/{guarded}/fd/2", "w") as err:
+            err.write(f"tt-bio: pid {guarded} outlived its parent {parent} by {after:.0f}s "
+                      "without taking SIGTERM; killing it (SIGKILL)\\n")
+    except OSError:
+        pass
+    os.kill(guarded, signal.SIGKILL)
+"""
+_REAPER = None
+
+
+def _start_orphan_reaper(parent_pid: int, kill_after_s: float) -> None:
+    """SIGKILL this process ``kill_after_s`` after ``parent_pid`` stops being its parent.
+
+    The reaper exits within a quarter second of this process, so it never outlives what it guards.
+    """
+    global _REAPER
+    import subprocess
+
+    _REAPER = subprocess.Popen(
+        [sys.executable, "-I", "-S", "-c", _REAPER_SRC,
+         str(os.getpid()), str(parent_pid), str(kill_after_s)],
+        stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def install_parent_death_guard(parent_pid: int, *, exit_code: int = 70,
+                               kill_after_s: float = ORPHAN_KILL_AFTER_S) -> None:
     """Die with the process that owns this one, from inside any call.
 
     PR_SET_PDEATHSIG is delivered by the kernel the moment the parent dies, so it
@@ -590,9 +646,17 @@ def install_parent_death_guard(parent_pid: int, *, exit_code: int = 70) -> None:
     a gate scorer, held card 1 for 1 h 43 m and killed the next gate's first leg with
     DeviceInUseError.
 
+    The death signal is SIGTERM so that a worker's handler can close its chip cleanly.
+    A Python handler only runs when the interpreter does, though, and a process wedged
+    in a ttnn call never gets back to it: a predict worker stuck in the bring-up
+    dispatch probe held card 3 for 1 h 48 min after `timeout` killed its CLI
+    (2026-11-13). So a reaper process escalates to SIGKILL ``kill_after_s`` later,
+    which nothing in this process can block or delay. Stale-lease reclaim stays the
+    backstop behind both.
+
     The kernel sends the signal when the parent THREAD that created us exits, not when
     the parent process does, so a caller spawning from a thread pool must not let that
-    thread return while the child is still alive.
+    thread return while the child is still alive. The reaper watches the process.
     """
     if not parent_pid:
         return
@@ -606,6 +670,19 @@ def install_parent_death_guard(parent_pid: int, *, exit_code: int = 70) -> None:
     # is sent if it is already gone, so re-check by hand.
     if os.getppid() != parent_pid:
         os._exit(exit_code)
+    try:
+        _start_orphan_reaper(parent_pid, kill_after_s)
+    except OSError:
+        pass
+
+
+def orphan_guard_env() -> dict:
+    """Environment that lets a child this process spawns arm its guard against us.
+
+    Merge it into the env of any child that can open a device. The child arms in
+    ``arm_orphan_guard``, which every device open and every CLI entry point calls.
+    """
+    return {"TT_BIO_PARENT_PID": str(os.getpid())}
 
 
 def arm_orphan_guard() -> None:
