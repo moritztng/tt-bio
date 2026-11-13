@@ -17,6 +17,10 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   Boltz-2 did this; the rest repeated the search in every job. Same search, same output.
 
 ### Fixed
+- **A killed `tt-bio` command no longer leaves a stuck worker holding its card.** When `timeout` or a
+  `kill` ended the CLI while a worker was stuck opening its chip, the worker kept the card until someone killed it
+  by hand. It now gets SIGTERM as before and, if still alive 90 s later, SIGKILL. Embedding shards and BoltzGen
+  per-chip workers are covered too.
 - **OpenFold3 returns its coordinates in full precision.** The sampler rounded every final atom position to bfloat16,
   0.125 A at 16-32 A from the origin and 0.5 A at 64-128 A, which distorted backbone bond lengths in large complexes.
 
