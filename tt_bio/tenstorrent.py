@@ -612,6 +612,9 @@ _FAST_MODE = False
 #   inproj_split    the trimul projects every channel chunk in one split call before its channel loop, not one
 #                   call per chunk (`_gp_in_all`): the pair tensor is read once and N is wide enough to fill the
 #                   grid. Bit-exact (each output tile is the same full-K contraction); holds all chunks at once
+#   dit_vnorm       the bf16 token DiT's fused SDPA (Boltz-2) reads v with 1.0 in its first pad lane and divides its
+#                   output by that lane (`_vnorm_lane`): cancels the bf16 softmax-sum / accumulator scale error, which
+#                   v's absolute positions turn into a bond error growing with distance from the origin. Ungraded.
 #   dit_sdpa32      the fp32 token DiT's attention as one SDPA program: q, k, v, bias and output fp32,
 #                   the exponentiated scores and row statistics bf16 (`_sdpa32`). Inert in bf16.
 #   trimul_gin      the trimul in-projection, both gates, the pair mask and both channel moves in one
@@ -949,7 +952,7 @@ _FAST_MODE = False
 #                   (state/bat-lever.md)
 #   mask_at_mix_z8  with mask_at_mix: a padded call takes the bfloat8_b pair stream too, which `pair_bfp8z` gives
 #                   only an unpadded one. A separate parity decision from the masking, so a separate lever.
-LEVERS = ("lofi", "b2_atom_f32", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffusion_bf16", "dit_bf16", "dit_f32", "dit_res32", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
+LEVERS = ("lofi", "b2_atom_f32", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffusion_bf16", "dit_bf16", "dit_f32", "dit_res32", "dit_vnorm", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
           "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "adaln_mod", "atom_kvcat",
@@ -984,7 +987,7 @@ LEVERS = ("lofi", "b2_atom_f32", "trimul_l1x2", "inproj_k6", "inproj_split", "ac
 # trunk_trace changes no arithmetic -- a replay is the captured program on new input-buffer contents --
 # so it owes a digest comparison rather than a fold grade. It is named here so that it stays out of
 # every shared --fast set until RFD4's own set asks for it.
-UNGRADED_LEVERS = frozenset({"trunk_trace", "b2_atom_f32", "dit_bf16", "dit_f32", "dit_res32", "atom_kvcat", "bres_ta_hifi3", "pz_device", "trimul_b8in", "inproj_k6", "inproj_split", "dit_bpad", "atom_mm16", "triatt_tail_bias", "dit_cond_hifi2", "ws_ln", "dit_fuse",
+UNGRADED_LEVERS = frozenset({"trunk_trace", "b2_atom_f32", "dit_bf16", "dit_f32", "dit_res32", "dit_vnorm", "atom_kvcat", "bres_ta_hifi3", "pz_device", "trimul_b8in", "inproj_k6", "inproj_split", "dit_bpad", "atom_mm16", "triatt_tail_bias", "dit_cond_hifi2", "ws_ln", "dit_fuse",
                              "pair_mm", "ref_memo", "trimul_t2m", "edm_device", "ws_l1acc", "pib_where", "relp_host", "trimul_t2w",
                              "narrow_bw16", "ws_l1dest", "trimul_gin_hifi2", "trimul_gin_b8",
                              "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine",
@@ -3489,6 +3492,36 @@ def fused_sdpa(q, k, v, attn_mask=None, *, scale: float, **kw):
         attn_mask = hit[1]
     return ttnn.transformer.scaled_dot_product_attention(
         q, k, v, attn_mask=attn_mask, is_causal=False, scale=scale, **kw)
+
+
+def _vnorm_lane(v, head_dim: int):
+    """dit_vnorm: `v` with 1.0 in its first pad lane, or None where it has none.
+
+    The fused SDPA keeps its running softmax sum and its output accumulator in bf16, so the output
+    row comes back as (1 + e_i) * sum_j p_ij v_j with e_i ~ 2^-8. The token DiT's v carries absolute
+    position, so that scale error lands on every atom in proportion to its distance from the origin.
+    A lane of ones goes through the same sums: o_i[lane] = 1 + e_i, and o_i / o_i[lane] is the
+    convex combination again (`_vnorm_divide`). In exact arithmetic it is the identity."""
+    pd = int(v.shape[-1])
+    if pd <= head_dim:
+        return None
+    dev = v.device()
+    key = ("vnorm", id(dev), pd, head_dim)
+    hit = _ZERO_MASKS.get(key)
+    if hit is None:  # cached like the zero masks, so a trace capture finds it on the device
+        e = torch.zeros(1, 1, 1, pd)
+        e[..., head_dim] = 1.0
+        hit = _ZERO_MASKS[key] = (dev, ttnn.from_torch(e, dtype=v.dtype, layout=ttnn.TILE_LAYOUT, device=dev))
+    return ttnn.add(v, hit[1])
+
+
+def _vnorm_divide(o, head_dim: int):
+    """The other half of dit_vnorm: o / o[..., head_dim]. Leaves 1.0 in that pad lane."""
+    s = o[:, :, :, head_dim:head_dim + 1]
+    out = ttnn.divide(o, s)
+    ttnn.deallocate(s)
+    ttnn.deallocate(o)
+    return out
 
 
 def _sdpa_masked(fn, q, k, v, bias, *args, site: str, pad: bool = False, **kw):
@@ -14247,8 +14280,14 @@ class AttentionPairBias(Module):
                     o_ = token_dit_sdpa_pm(q_, k_, v_, b_, self.head_dim**-0.5)
                     return stock(q_, k_, v_, b_) if o_ is None else o_
 
+                vn = _vnorm_lane(v, self.head_dim) if lever("dit_vnorm") else None
+                if vn is not None:
+                    ttnn.deallocate(v)
+                    v = vn
                 o = _sdpa_masked(_sdpa_to_bias_width(pm if lever("dit_sdpa_pm") else stock),
                                  q, k, v, z, site="token_dit")
+                if vn is not None:
+                    o = _vnorm_divide(o, self.head_dim)
                 if int(o.shape[2]) > seq:
                     sl = o[:, :, :seq, :]
                     ttnn.deallocate(o)
