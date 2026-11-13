@@ -949,7 +949,7 @@ _FAST_MODE = False
 #                   (state/bat-lever.md)
 #   mask_at_mix_z8  with mask_at_mix: a padded call takes the bfloat8_b pair stream too, which `pair_bfp8z` gives
 #                   only an unpadded one. A separate parity decision from the masking, so a separate lever.
-LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffusion_bf16", "dit_bf16", "dit_f32", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
+LEVERS = ("lofi", "b2_atom_f32", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffusion_bf16", "dit_bf16", "dit_f32", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
           "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "adaln_mod", "atom_kvcat",
@@ -984,7 +984,7 @@ LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffus
 # trunk_trace changes no arithmetic -- a replay is the captured program on new input-buffer contents --
 # so it owes a digest comparison rather than a fold grade. It is named here so that it stays out of
 # every shared --fast set until RFD4's own set asks for it.
-UNGRADED_LEVERS = frozenset({"trunk_trace", "dit_bf16", "dit_f32", "atom_kvcat", "bres_ta_hifi3", "pz_device", "trimul_b8in", "inproj_k6", "inproj_split", "dit_bpad", "atom_mm16", "triatt_tail_bias", "dit_cond_hifi2", "ws_ln", "dit_fuse",
+UNGRADED_LEVERS = frozenset({"trunk_trace", "b2_atom_f32", "dit_bf16", "dit_f32", "atom_kvcat", "bres_ta_hifi3", "pz_device", "trimul_b8in", "inproj_k6", "inproj_split", "dit_bpad", "atom_mm16", "triatt_tail_bias", "dit_cond_hifi2", "ws_ln", "dit_fuse",
                              "pair_mm", "ref_memo", "trimul_t2m", "edm_device", "ws_l1acc", "pib_where", "relp_host", "trimul_t2w",
                              "narrow_bw16", "ws_l1dest", "trimul_gin_hifi2", "trimul_gin_b8",
                              "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine",
@@ -18678,20 +18678,25 @@ class Diffusion(Module):
             self.scope("single_conditioner.transitions.1"),
             compute_kernel_config,
         )
-        self.r_to_q_weight = self.torch_to_tt(
-            "atom_attention_encoder.r_to_q_trans.weight"
-        )
-        self.encoder = DiffusionTransformer(
-            n_layers=ATOM_N_LAYERS,
-            dim=ATOM_DIM,
-            n_heads=ATOM_N_HEADS,
-            atom_level=True,
-            state_dict=self.scope("atom_attention_encoder.atom_encoder.diffusion_transformer"),
-            compute_kernel_config=compute_kernel_config,
-        )
-        self.atom_to_token_weight = self.torch_to_tt(
-            "atom_attention_encoder.atom_to_token_trans.0.weight"
-        )
+        # b2_atom_f32 (ungraded): the position-carrying atom stream (r, r_to_q, q, the atom encoder and decoder,
+        # the position update head) runs in fp32; the token stream keeps its own dtype.
+        self.atom_fp32 = lever("b2_atom_f32")
+        atom_dtype = ttnn.float32 if self.atom_fp32 else _DTYPE_OVERRIDE
+        with device_dtype_override(atom_dtype):
+            self.r_to_q_weight = self.torch_to_tt(
+                "atom_attention_encoder.r_to_q_trans.weight"
+            )
+            self.encoder = DiffusionTransformer(
+                n_layers=ATOM_N_LAYERS,
+                dim=ATOM_DIM,
+                n_heads=ATOM_N_HEADS,
+                atom_level=True,
+                state_dict=self.scope("atom_attention_encoder.atom_encoder.diffusion_transformer"),
+                compute_kernel_config=compute_kernel_config,
+            )
+            self.atom_to_token_weight = self.torch_to_tt(
+                "atom_attention_encoder.atom_to_token_trans.0.weight"
+            )
         self.s_to_a_norm_weight = self.torch_to_tt("s_to_a_linear.0.weight")
         self.s_to_a_norm_bias = self.torch_to_tt("s_to_a_linear.0.bias")
         self.s_to_a_linear_weight = self.torch_to_tt("s_to_a_linear.1.weight")
@@ -18710,26 +18715,27 @@ class Diffusion(Module):
             self.token_transformer.mark_hifi2_site()
         self.a_norm_weight = self.torch_to_tt("a_norm.weight")
         self.a_norm_bias = self.torch_to_tt("a_norm.bias")
-        self.a_to_q_weight = self.torch_to_tt(
-            "atom_attention_decoder.a_to_q_trans.weight"
-        )
-        self.decoder = DiffusionTransformer(
-            n_layers=ATOM_N_LAYERS,
-            dim=ATOM_DIM,
-            n_heads=ATOM_N_HEADS,
-            atom_level=True,
-            state_dict=self.scope("atom_attention_decoder.atom_decoder.diffusion_transformer"),
-            compute_kernel_config=compute_kernel_config,
-        )
-        self.feat_to_pos_norm_weight = self.torch_to_tt(
-            "atom_attention_decoder.atom_feat_to_atom_pos_update.0.weight"
-        )
-        self.feat_to_pos_norm_bias = self.torch_to_tt(
-            "atom_attention_decoder.atom_feat_to_atom_pos_update.0.bias"
-        )
-        self.feat_to_pos_linear_weight = self.torch_to_tt(
-            "atom_attention_decoder.atom_feat_to_atom_pos_update.1.weight"
-        )
+        with device_dtype_override(atom_dtype):
+            self.a_to_q_weight = self.torch_to_tt(
+                "atom_attention_decoder.a_to_q_trans.weight"
+            )
+            self.decoder = DiffusionTransformer(
+                n_layers=ATOM_N_LAYERS,
+                dim=ATOM_DIM,
+                n_heads=ATOM_N_HEADS,
+                atom_level=True,
+                state_dict=self.scope("atom_attention_decoder.atom_decoder.diffusion_transformer"),
+                compute_kernel_config=compute_kernel_config,
+            )
+            self.feat_to_pos_norm_weight = self.torch_to_tt(
+                "atom_attention_decoder.atom_feat_to_atom_pos_update.0.weight"
+            )
+            self.feat_to_pos_norm_bias = self.torch_to_tt(
+                "atom_attention_decoder.atom_feat_to_atom_pos_update.0.bias"
+            )
+            self.feat_to_pos_linear_weight = self.torch_to_tt(
+                "atom_attention_decoder.atom_feat_to_atom_pos_update.1.weight"
+            )
 
     def _condition_once(self, s_trunk, s_inputs, c):
         """The rollout-invariant half of the single conditioning, and `c` cut into atom windows."""
@@ -18752,7 +18758,7 @@ class Diffusion(Module):
                 core_grid=CORE_GRID_MAIN,
             )
             ttnn.deallocate(s)
-            self._c_reshaped = ttnn.reshape(c, (B, NW, ATOM_WINDOW, -1))
+            self._c_reshaped = ttnn.reshape(_as_f32(c) if self.atom_fp32 else c, (B, NW, ATOM_WINDOW, -1))
 
     def _conditioning(self, times):
         """`s` for `times` ([B], or [G] steps at once): the fourier embedding and the two conditioner transitions on
@@ -18860,6 +18866,11 @@ class Diffusion(Module):
         B, N, D = q.shape
         NW = N // ATOM_WINDOW
         self._condition_once(s_trunk, s_inputs, c)
+        a32 = self.atom_fp32
+        if a32:
+            r, q = _as_f32(r), _as_f32(q)
+            bias_encoder, bias_decoder = _as_f32(bias_encoder), _as_f32(bias_decoder)
+            atom_to_token, atom_to_token_normed = _as_f32(atom_to_token), _as_f32(atom_to_token_normed)
         r_to_q = ttnn.linear(
             r,
             self.r_to_q_weight,
@@ -18891,6 +18902,8 @@ class Diffusion(Module):
             compute_kernel_config=self.compute_kernel_config,
         )
         a = ttnn.permute(a, (0, 2, 1))
+        if a32:
+            a = ttnn.typecast(a, ttnn.bfloat16)
         if step is not None:
             chunk = self._steps
             s, s_to_a = None, chunk["s_to_a"][step:step + 1]
@@ -18938,7 +18951,7 @@ class Diffusion(Module):
             compute_kernel_config=self.compute_kernel_config,
         )
         a_to_q = ttnn.linear(
-            a,
+            _as_f32(a) if a32 else a,
             self.a_to_q_weight,
             compute_kernel_config=self.compute_kernel_config,
             core_grid=CORE_GRID_MAIN,
@@ -18979,6 +18992,10 @@ class Diffusion(Module):
         )
         ttnn.deallocate(q)
         return r_update
+
+
+def _as_f32(t):
+    return t if t is None or not isinstance(t, ttnn.Tensor) or t.dtype == ttnn.float32 else ttnn.typecast(t, ttnn.float32)
 
 
 class TorchWrapper(nn.Module):
@@ -19638,6 +19655,10 @@ class DiffusionModule(TorchWrapper):
         if self.module is not None:
             self.module.release_steps()
 
+    def _r_dtype(self):
+        """The positions' upload dtype: fp32 under b2_atom_f32, else the bf16 stack."""
+        return ttnn.float32 if self.module.atom_fp32 else ttnn.bfloat16
+
     def _cond_step(self, times: torch.Tensor):
         """This step's row block of the conditioning computed ahead (`dit_cond_steps`), or None."""
         sched = getattr(self, "_time_schedule", None)
@@ -19718,7 +19739,8 @@ class DiffusionModule(TorchWrapper):
                 and s_inputs.shape[0] == 1 and bool((times == times.reshape(-1)[0]).all())):
             times = times[:1]
         out = self._run_diffusion_device(
-            self._from_torch(r), self._from_torch(times), seq_len > SEQ_LEN_MORE_CHUNKING, step=self._cond_step(times))
+            self._from_torch(r, self._r_dtype()), self._from_torch(times), seq_len > SEQ_LEN_MORE_CHUNKING,
+            step=self._cond_step(times))
         return self._to_torch(out)[:, :N, :]
 
     # ---------------------------------------------------------------------------
@@ -19735,9 +19757,9 @@ class DiffusionModule(TorchWrapper):
     # output is bit-identical to the untraced ``forward`` (unlike the proven-lossy
     # distinct-structure batching, see the boltzgen-batch-threshold-dead-end memo).
     # ---------------------------------------------------------------------------
-    def _host_tt(self, x: torch.Tensor) -> ttnn.Tensor:
-        """Host-resident tiled bfloat16 tensor for copy_host_to_device_tensor staging."""
-        return ttnn.from_torch(x.float(), layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16)
+    def _host_tt(self, x: torch.Tensor, dtype=ttnn.bfloat16) -> ttnn.Tensor:
+        """Host-resident tiled tensor for copy_host_to_device_tensor staging (the device buffer's dtype)."""
+        return ttnn.from_torch(x.float(), layout=ttnn.TILE_LAYOUT, dtype=dtype)
 
     def _release_trace(self):
         tr = getattr(self, "_diff_trace", None)
@@ -19752,7 +19774,7 @@ class DiffusionModule(TorchWrapper):
         self, r_padded: torch.Tensor, times: torch.Tensor,
         large_seq_len: bool, B: int, N_padded: int,
     ) -> dict:
-        in_r = self._from_torch(r_padded)        # persistent input buffer
+        in_r = self._from_torch(r_padded, self._r_dtype())        # persistent input buffer
         in_times = self._from_torch(times)
         _ = self._run_diffusion_device(in_r, in_times, large_seq_len)   # warmup / compile
         _ = self._run_diffusion_device(in_r, in_times, large_seq_len)   # 2nd warmup: populate lazy _s_conditioned/_c_reshaped + per-layer s_o
@@ -19797,7 +19819,7 @@ class DiffusionModule(TorchWrapper):
             if tr is not None:
                 self._release_trace()
             tr = self._capture_diff_trace(r, times, large, B, N_padded)
-        ttnn.copy_host_to_device_tensor(self._host_tt(r), tr["in_r"])
+        ttnn.copy_host_to_device_tensor(self._host_tt(r, tr["in_r"].dtype), tr["in_r"])
         ttnn.copy_host_to_device_tensor(self._host_tt(times), tr["in_times"])
         ttnn.execute_trace(self.tt_device, tr["tid"], cq_id=0, blocking=False)
         result = torch.Tensor(ttnn.to_torch(tr["out"])).to(torch.float32)
