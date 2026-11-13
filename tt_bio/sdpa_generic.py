@@ -266,6 +266,53 @@ def kv_window_kernel_dir() -> Path:
     return d
 
 
+# SDPA_FMT_RECONFIG: the wheel's compute kernel sets the unpack/pack formats at the QK and PV matmuls only.
+# The online-softmax rescale after the PV matmul (`sub_exp_block`, then the `mul_block_bcast_cols` that adds
+# exp_max_diff * prev_out onto the accumulator), the final `matmul_reduce` of the row sum and the closing
+# normalisation run with whatever formats the previous stage left. With every intermediate CB bf16 those agree;
+# with fp32 output accumulators (`out_im_dtype`) the statistics are packed as fp32 into bf16 pages and the
+# accumulator is unpacked as bf16, which is why the wider CBs came back wrong. Three anchors, each behind the
+# define, so a build without it compiles the wheel's kernel unchanged.
+_FMT_PATCHES = (
+    ("void mul_block_bcast_cols(uint32_t in0_cb, uint32_t in1_cb, uint32_t out_cb) {\n",
+     "#ifdef SDPA_FMT_RECONFIG\n    reconfig_data_format(in0_cb, in1_cb);\n    pack_reconfig_data_format(out_cb);\n#endif\n"),
+    ("    reconfig_data_format(in1_cb, out_cb);\n    cb_wait_front(in1_cb, N);\n",
+     "#ifdef SDPA_FMT_RECONFIG\n    pack_reconfig_data_format(out_cb);\n#endif\n"),
+    ("            cb_pop_front(cb_qk_im, qk_chunk_tiles);\n            reconfig_data_format(alias_prev_max, alias_cur_max);\n",
+     "#ifdef SDPA_FMT_RECONFIG\n            pack_reconfig_data_format(cb_exp_max_diff);\n#endif\n"),
+)
+
+
+def _fmt_reconfig(common: str) -> str:
+    """compute_common.hpp with the SDPA_FMT_RECONFIG lines after each `_FMT_PATCHES` anchor."""
+    for anchor, add in _FMT_PATCHES:
+        assert common.count(anchor) == 1, ("fmt_reconfig: the wheel's SDPA compute kernel changed", anchor)
+        common = common.replace(anchor, anchor + add, 1)
+    return common
+
+
+def fmt_kernel_dir() -> Path:
+    """The wheel's SDPA compute kernel with `_fmt_reconfig` applied, for builds that use neither css nor pv_l1acc."""
+    kd = _kdir()
+    files = {"compute/compute_common.hpp": _fmt_reconfig((kd / "compute/compute_common.hpp").read_text())}
+    for name in ("compute/sdpa.cpp", "compute/compute_streaming.hpp"):
+        files[name] = (kd / name).read_text()
+    return _write_kernel_dir("sdpa_fmt", files)
+
+
+def _write_kernel_dir(tag, files) -> Path:
+    import hashlib
+    d = (Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "tt_bio" / tag
+         / hashlib.sha1("".join(files[k] for k in sorted(files)).encode()).hexdigest()[:12])
+    if not all((d / name).exists() for name in files):
+        for name, src in files.items():
+            (d / name).parent.mkdir(parents=True, exist_ok=True)
+            tmp = d / (name + f".{os.getpid()}")
+            tmp.write_text(src)
+            tmp.replace(d / name)
+    return d
+
+
 CB_CSS = 13
 _CSS_LOOP_ORIG = "for (uint32_t k_chunk = 0; (k_chunk * Sk_chunk_t) < q_high_idx; ++k_chunk) {"
 _CSS_FIRST_ORIG = "if (k_chunk == 0) {"
@@ -283,7 +330,7 @@ def css_kernel_dir() -> Path:
     block to the output, so leaving it out changes nothing but the work."""
     kd = _kdir()
     reader = (kd / "dataflow/reader_interleaved.cpp").read_text()
-    common = (kd / "compute/compute_common.hpp").read_text()
+    common = _fmt_reconfig((kd / "compute/compute_common.hpp").read_text())
     for src, line in ((reader, _CSS_LOOP_ORIG), (reader, _CSS_FIRST_ORIG), (common, _CSS_END_ORIG)):
         assert src.count(line) == 1, ("css: the wheel's SDPA kernels changed", line)
     reader = reader.replace(_CSS_LOOP_ORIG, (
@@ -312,16 +359,7 @@ def css_kernel_dir() -> Path:
     files = {"dataflow/reader_interleaved.cpp": reader, "compute/compute_common.hpp": common}
     for name in ("dataflow/dataflow_common.hpp", "compute/sdpa.cpp", "compute/compute_streaming.hpp"):
         files[name] = (kd / name).read_text()
-    import hashlib
-    d = (Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "tt_bio" / "sdpa_css"
-         / hashlib.sha1("".join(files[k] for k in sorted(files)).encode()).hexdigest()[:12])
-    if not (d / "compute/compute_common.hpp").exists():
-        for name, src in files.items():
-            (d / name).parent.mkdir(parents=True, exist_ok=True)
-            tmp = d / (name + f".{os.getpid()}")
-            tmp.write_text(src)
-            tmp.replace(d / name)
-    return d
+    return _write_kernel_dir("sdpa_css", files)
 
 
 _PV_CALL_ORIG = "            /* OUT_IM = QK @ V_CHUNK */\n            matmul_blocks("
@@ -386,7 +424,7 @@ def pv_l1acc_kernel_dir() -> Path:
     PV accumulation leaves dest, the same fix `dest_guard` applies to the linears. The sums land in the
     bf16 output CB either way, as they did when each 32-key chunk was its own softmax step."""
     kd = _kdir()
-    common = (kd / "compute/compute_common.hpp").read_text()
+    common = _fmt_reconfig((kd / "compute/compute_common.hpp").read_text())
     for line in (_PV_CALL_ORIG, _PV_ANCHOR):
         assert common.count(line) == 1, ("pv_l1acc: the wheel's SDPA compute kernel changed", line)
     common = common.replace(_PV_ANCHOR, _PV_FN + _PV_ANCHOR, 1)
@@ -394,16 +432,7 @@ def pv_l1acc_kernel_dir() -> Path:
     files = {"compute/compute_common.hpp": common}
     for name in ("compute/sdpa.cpp", "compute/compute_streaming.hpp"):
         files[name] = (kd / name).read_text()
-    import hashlib
-    d = (Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "tt_bio" / "sdpa_pv_l1acc"
-         / hashlib.sha1("".join(files[k] for k in sorted(files)).encode()).hexdigest()[:12])
-    if not (d / "compute/compute_common.hpp").exists():
-        for name, src in files.items():
-            (d / name).parent.mkdir(parents=True, exist_ok=True)
-            tmp = d / (name + f".{os.getpid()}")
-            tmp.write_text(src)
-            tmp.replace(d / name)
-    return d
+    return _write_kernel_dir("sdpa_pv_l1acc", files)
 
 
 def css_width(k_num_chunks):
@@ -932,6 +961,8 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
         # The block row-max LLK streams the score tiles at bf16's tile stride (its own header says
         # the operand must be bfloat16_b), so a narrower score CB takes the per-tile reduce.
         defines["QK_TILEWISE_MAX"] = "1"
+    if out_im_dtype not in (None, ttnn.bfloat16):
+        defines["SDPA_FMT_RECONFIG"] = "1"
     if kv_window is not None:
         defines.update(KV_WINDOW_NB=str(kv_window[0]), KV_WINDOW_NKH=str(int(k.padded_shape[1])),
                        KV_WINDOW_FRAME_T=str(int(k.padded_shape[2]) // TILE))
@@ -1002,6 +1033,8 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
     if pv_l1acc:
         assert css is None, "pv_l1acc and css both patch the compute kernel"
         compute_src = str(pv_l1acc_kernel_dir() / "compute/sdpa.cpp")
+    elif "SDPA_FMT_RECONFIG" in defines and compute_src == str(stock / "compute/sdpa.cpp"):
+        compute_src = str(fmt_kernel_dir() / "compute/sdpa.cpp")
 
     q_a, k_a, v_a = q.buffer_address(), k.buffer_address(), v.buffer_address()
     m_a, o_a = mask.buffer_address(), out.buffer_address()
