@@ -313,6 +313,20 @@ def releasable(sha: str, tsha: str, repo: Path = REPO) -> bool:
         return True                                    # no CHANGELOG to read: the cut decides
 
 
+def stranded(sha: str, tsha: str, repo: Path = REPO) -> list[str]:
+    """Names of released CHANGELOG sections at `sha` that gained bullets the last release's
+    CHANGELOG does not carry. Such a note is invisible to `notes`, so a candidate whose only notes
+    sit there is never releasable and the train holds without a word (0564a3f0a, 11-13: a branch cut
+    before 0.31.0 merged its OpenDDE note under [0.31.0]; 0.33.0 waited on three passed gates)."""
+    try:
+        new, old = (git("show", f"{s}:CHANGELOG.md", repo=repo) for s in (sha, tsha))
+    except subprocess.CalledProcessError:
+        return []
+    have = {b.strip() for m in SECTION.finditer(old) for b in BULLET.findall(m["body"])}
+    return [m["name"] for m in SECTION.finditer(new) if m["name"] != "Unreleased"
+            and any(b.strip() not in have for b in BULLET.findall(m["body"]))]
+
+
 def passed_since(gates: Path | None, tsha: str, repo: Path = REPO, ref: str = "origin/main"
                  ) -> tuple[str, Path] | None:
     """(sha, dir) of the newest commit after the last release whose full gate passed, or None.
@@ -466,6 +480,13 @@ def running_gates(gates: Path | None, partial: bool = False) -> list[str]:
 
 
 def decide(repo: Path = REPO, gates: Path | None = None, ref: str = "origin/main") -> dict:
+    d = _decide(repo, gates, ref)
+    if d["do"] != "CUT" and d.get("last_release_sha") and (s := stranded(d["main"], d["last_release_sha"], repo)):
+        d["why"] += f"; CHANGELOG at main's head has notes under released {', '.join(s)}: move them to [Unreleased]"
+    return d
+
+
+def _decide(repo: Path = REPO, gates: Path | None = None, ref: str = "origin/main") -> dict:
     head = git("rev-parse", ref, repo=repo)
     tag, tsha = last_release(repo)
     out = {"main": head, "last_release": tag, "last_release_sha": tsha,

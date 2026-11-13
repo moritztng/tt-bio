@@ -5,6 +5,21 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+### Changed
+- **OpenDDE reads the same reference conformers as upstream OpenDDE 1.2.0.** It used the CCD ideal coordinates,
+  up to 2.8 A off in intra-residue distances for amino acids and 4.1 A for nucleotides; it now downloads OpenDDE's own
+  conformer table (143 MB, once). Glycans, modified residues and cyclic peptides are also linked the way upstream
+  links them. Accuracy is unchanged within seed noise on 11 complexes and 7 ligand complexes.
+- **OpenDDE on Wormhole folds about 2 % faster in the default mode** (384 tokens 77.5 -> 75.9 s on a Galaxy chip at
+  1000 MHz). Structures agree with the previous release to 0.11 A median on 11 complexes, well inside seed noise.
+- **Jobs that share an MSA cache search each sequence once.** When several jobs in a burst need the same chain, the
+  first one searches and the others wait and read its result, for every MSA model, paired and unpaired. Before, only
+  Boltz-2 did this; the rest repeated the search in every job. Same search, same output.
+
+### Fixed
+- **OpenFold3 returns its coordinates in full precision.** The sampler rounded every final atom position to bfloat16,
+  0.125 A at 16-32 A from the origin and 0.5 A at 64-128 A, which distorted backbone bond lengths in large complexes.
+
 ## [0.32.0] - 2026-11-12
 
 ### Added
@@ -22,10 +37,6 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   It now keeps them and adds bfp8 pair-stack weights (Wormhole) or the shared fast precision set (Blackhole): 9DBP
   (791 tokens) folds in 502 s instead of 596 s on Wormhole and 195 s instead of 210 s on Blackhole, same recycles,
   steps and samples, and the same docking results on 11 post-cutoff complexes.
-- **OpenDDE reads the same reference conformers as upstream OpenDDE 1.2.0.** It used the CCD ideal coordinates,
-  up to 2.8 A off in intra-residue distances for amino acids and 4.1 A for nucleotides; it now downloads OpenDDE's own
-  conformer table (143 MB, once). Glycans, modified residues and cyclic peptides are also linked the way upstream
-  links them. Accuracy is unchanged within seed noise on 11 complexes and 7 ligand complexes.
 
 ## [0.30.1] - 2026-11-11
 
