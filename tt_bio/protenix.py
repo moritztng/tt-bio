@@ -2266,7 +2266,21 @@ class DiffusionModule(_KeyedWeights):
         wide = self._dit_shoist(s_t) if _T.lever("dit_shoist") else None
         W = lambda t, j: _T._ColWin(t, j * 768, 768)  # noqa: E731
 
+        # dit_res32: on a bf16 DiT the residual stream a is carried in fp32 between blocks; every block still reads
+        # a bf16 copy and computes in bf16, only the two gated residual adds a block run accumulate in fp32.
+        res32 = _T.lever("dit_res32") and not self._dit_fp32
+        if res32:
+            a_t = ttnn.typecast(a_t, ttnn.float32)
+        lo = (lambda x: ttnn.typecast(x, self._dit_dtype)) if res32 else (lambda x: x)  # noqa: E731
+
         def gated(x, y, j, wk, bk):
+            if res32:
+                g = W(wide[2], j).cut() if wide else ttnn.sigmoid(linb(s_t, wk, bk))
+                p = ttnn.multiply(y, g)
+                ttnn.deallocate(g)
+                out = ttnn.add(x, ttnn.typecast(p, ttnn.float32))
+                ttnn.deallocate(p)
+                return out
             out = _T._win_addcmul(x, y, W(wide[2], j)) if wide else None
             if out is None and _T.lever("dit_mod16") and x.dtype == ttnn.bfloat16:
                 g = ttnn.sigmoid(linb(s_t, wk, bk))
@@ -2277,14 +2291,14 @@ class DiffusionModule(_KeyedWeights):
             return out
         for _bi, ((adaln_a, apb, ctb_adaln, A, Cc), bias) in enumerate(zip(self._dit, biases)):
             terms = (lambda j: _T._SigTerms((W(wide[0], j), W(wide[1], j)))) if wide else (lambda j: None)
-            b = adaln_a(a_t, s_t, dtype=ln_dt, s_terms=terms(2 * _bi))
+            b = adaln_a(lo(a_t), s_t, dtype=ln_dt, s_terms=terms(2 * _bi))
             bias_dev = _T.host_unpark(bias)
             attn = apb(b, bias_dev, bias_precomputed=True)
             if bias_dev is not bias:
                 ttnn.deallocate(bias_dev)
             dram_peak(f"dit[M={a_t.shape[0]}] block {_bi}")
             ao = gated(a_t, attn, 2 * _bi, A + "linear_a_last.weight", A + "linear_a_last.bias")
-            an2 = ctb_adaln(ao, s_t, dtype=ln_dt, s_terms=terms(2 * _bi + 1))
+            an2 = ctb_adaln(lo(ao), s_t, dtype=ln_dt, s_terms=terms(2 * _bi + 1))
             if lp:
                 bb = ttnn.multiply(linlp(an2, Cc + "linear_nobias_a1.weight", ttnn.bfloat16, "silu"),
                                    linlp(an2, Cc + "linear_nobias_a2.weight", ttnn.bfloat16), dtype=lp.mid)
