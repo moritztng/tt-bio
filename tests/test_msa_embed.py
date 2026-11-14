@@ -13,6 +13,10 @@ from tt_bio import tenstorrent as T
 
 pytestmark = pytest.mark.device
 
+TT_OOM = ("Out of Memory: Not enough space to allocate 4831838208 B DRAM buffer across 8 banks, "
+          "where each bank needs to store 603979776 B, but bank size is 4278190016 B (allocated: "
+          "3579670528 B, free: 698519488 B, largest free block: 504088512 B)")
+
 
 @pytest.fixture
 def dev():
@@ -55,3 +59,76 @@ def test_a_device_feature_is_embedded_whole_and_consumed(dev, monkeypatch):
     out = T.msa_embed(x, project)
     assert not x.is_allocated()
     assert torch.equal(ttnn.to_torch(out), ref)
+
+
+def test_keep_holds_m_on_the_chip_and_the_env_override_still_wins(dev, monkeypatch):
+    n, c, project = _project(dev)
+    feat = torch.randn(1, 40, n, c)
+    up = lambda: ttnn.from_torch(feat, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+    m_bytes = 40 * n * 64 * 2
+    monkeypatch.delenv("TT_BIO_MSA_HOST_OFFLOAD_MIN_BYTES", raising=False)
+    monkeypatch.setattr(T, "MSA_HOST_OFFLOAD_MIN_BYTES", m_bytes - 1)
+    parked = T.msa_embed(up(), project)
+    assert torch.is_tensor(parked)
+    kept = T.msa_embed(up(), project, keep=m_bytes)
+    assert not torch.is_tensor(kept)
+    assert torch.equal(ttnn.to_torch(kept), parked)
+    monkeypatch.setenv("TT_BIO_MSA_HOST_OFFLOAD_MIN_BYTES", "0")
+    assert torch.is_tensor(T.msa_embed(up(), project, keep=m_bytes))
+
+
+def test_chunks_join_on_the_chip_when_keep_holds_m(dev, monkeypatch):
+    """Past the one-upload size but inside `keep`, `m` is joined on the chip, not streamed:
+    the chunk path's rows, on the device. 80 rows in 8-row chunks is 10 chunks, two join levels."""
+    n, c, project = _project(dev)
+    feat = torch.randn(1, 80, n, c)
+    monkeypatch.delenv("TT_BIO_MSA_HOST_OFFLOAD_MIN_BYTES", raising=False)
+    monkeypatch.setattr(T, "MSA_HOST_OFFLOAD_MIN_BYTES", 0)
+    streamed = T.msa_embed(feat, project, 8)
+    assert torch.is_tensor(streamed)
+    kept = T.msa_embed(feat, project, 8, keep=80 * n * 64 * 2)
+    assert not torch.is_tensor(kept) and tuple(kept.shape) == (1, 80, n, 64)
+    assert torch.equal(ttnn.to_torch(kept), streamed)
+
+
+def test_a_refused_join_streams_the_same_rows(dev, monkeypatch):
+    n, c, project = _project(dev)
+    feat = torch.randn(1, 80, n, c)
+    monkeypatch.delenv("TT_BIO_MSA_HOST_OFFLOAD_MIN_BYTES", raising=False)
+    monkeypatch.setattr(T, "MSA_HOST_OFFLOAD_MIN_BYTES", 0)
+    streamed = T.msa_embed(feat, project, 8)
+    concat, calls = ttnn.concat, []
+
+    def refuse_second_level(parts, dim):
+        calls.append(len(parts))
+        if len(calls) > 2:      # level one is two groups (8 + 2), the join of those is refused
+            raise RuntimeError(TT_OOM)
+        return concat(parts, dim=dim)
+
+    monkeypatch.setattr(ttnn, "concat", refuse_second_level)
+    out = T.msa_embed(feat, project, 8, keep=80 * n * 64 * 2)
+    assert calls == [8, 2, 2]
+    assert torch.is_tensor(out) and torch.equal(out, streamed)
+
+
+def test_a_bf16_feature_tilized_on_the_chip_is_the_host_tilized_one(dev):
+    # 34 channels pad to 64 inside the tile, as the alignment feature does; the projection reads the padding.
+    n, c, project = _project(dev)
+    feat = torch.randn(1, 96, n, c).to(torch.bfloat16)
+    host = ttnn.from_torch(feat, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+    chip = T._up_tilize_on_device(feat)
+    assert torch.equal(ttnn.to_torch(chip), ttnn.to_torch(host))
+    assert torch.equal(ttnn.to_torch(project(chip)), ttnn.to_torch(project(host)))
+
+
+def test_rows_picked_on_the_chip_are_the_host_cut(dev):
+    n, c, project = _project(dev)
+    feat = torch.randn(1, 200, n, c).to(torch.bfloat16)
+    table = T.msa_rows_table(feat)
+    for rows, bucket in ((torch.tensor([7, 0, 199, 31]), 32), (torch.randperm(200)[:150], 160)):
+        x, _ = T.msa_rows_host(feat, rows, bucket)
+        host = ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+        chip = T.msa_rows_device(table, rows, bucket, n)
+        assert tuple(chip.shape) == (1, bucket, n, c)
+        assert torch.equal(ttnn.to_torch(chip), ttnn.to_torch(host))
+        assert torch.equal(ttnn.to_torch(project(chip)), ttnn.to_torch(project(host)))

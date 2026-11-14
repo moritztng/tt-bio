@@ -21,6 +21,8 @@ topological sort and the fan-in sum below are the whole of what it would have su
 from __future__ import annotations
 
 import contextlib
+import functools
+import gc
 import math
 import os
 import sys
@@ -101,10 +103,11 @@ def precise_config():
     ``fp32_dest_acc_en = true``, ``math_approx_mode = false``, ``MathFidelity::HiFi4``,
     ``packer_l1_acc = true``). A backward accumulates over the reduction axis and again
     over fan-in, and bf16 accumulation is how a gradient turns into noise. Every op here
-    defaults to it.
+    defaults to it. `tenstorrent.PRECISE_HIFI3` makes it HiFi3.
     """
+    from .tenstorrent import precise_fidelity
     return ttnn.WormholeComputeKernelConfig(
-        math_fidelity=ttnn.MathFidelity.HiFi4,
+        math_fidelity=precise_fidelity(),
         math_approx_mode=False,
         fp32_dest_acc_en=True,
         packer_l1_acc=True,
@@ -226,8 +229,15 @@ def _last_axis(y, dim: int):
     return rank - 1 if dim in (-1, rank - 1) else None
 
 
-def softmax_bw(y, g, dim=-1, config=None):
+def softmax_bw(y, g, dim=-1, config=None, refine=False):
     """The whole softmax backward `dx = y (g - sum_j g_j y_j)`, row-sum corrected.
+
+    `refine` runs it twice, the second time on `g - inner` (the backward is exactly invariant
+    to a per-row shift of `g`). The card reduces with TF32 operands, so on a one-hot row
+    (AF2's IPA, logits ~5,000, top-2 gap ~800) `g_max - inner` keeps ~5e-4 |g| of rounding
+    where float64 gets 0, and the large keys downstream amplify it: structure module d_act0
+    rel 2.24. Centring first squares that error, 3e-5 -> 1e-8 of |g| per one-hot head
+    (`perf/bc4_headdev/softmax_probe.py`). Costs one more product and two reductions.
 
     All three callers used to close `softmax_bw_inner` with the same two verbs of their own
     (`ttnn.multiply(y, ttnn.subtract(g, inner))`), which is the same duplication the inner
@@ -245,12 +255,14 @@ def softmax_bw(y, g, dim=-1, config=None):
         y32, g32 = ttnn.typecast(y, ttnn.float32), ttnn.typecast(g, ttnn.float32)
         # Recursion, not a second copy of the expression: `y32` is fp32, so this branch is not
         # taken twice and the arithmetic below stays the only definition of the backward.
-        dx32 = softmax_bw(y32, g32, dim=dim, config=config or precise_config())
+        dx32 = softmax_bw(y32, g32, dim=dim, config=config or precise_config(), refine=refine)
         ttnn.deallocate(y32)
         ttnn.deallocate(g32)
         dx = ttnn.typecast(dx32, g.dtype)
         ttnn.deallocate(dx32)
         return dx
+    if refine:
+        g = ttnn.subtract(g, softmax_bw_inner(y, g, dim=dim, config=config or precise_config()))
     ax = _last_axis(y, dim) if SOFTMAX_BW_FUSED else None
     if ax is not None:
         SOFTMAX_BW_RENORM_STATS["applied" if SOFTMAX_BW_RENORM else "declined"] += 1
@@ -462,7 +474,7 @@ class Tensor:
         if not self.evictable or not self.value.is_allocated():
             return
         if self.shares is not None:
-            self._free_shared()
+            self._free_shared(release=True)
             return
         if not self.pinned and (self.node is not None or not self.requires_grad):
             ttnn.deallocate(self.value)
@@ -504,8 +516,9 @@ class Tensor:
         if self.box is not None:
             self.box[0] = self.value
 
-    def _free_shared(self) -> None:
-        """`free` for a buffer several taped tensors are views of, decided for all of them.
+    def _free_shared(self, release: bool = False) -> None:
+        """`free` (`release`) or `evict` for a buffer several taped tensors are views of, decided
+        for all of them.
 
         A ttnn shape op can hand back a view (`_tape` explains), and a view pair used to be
         marked non-evictable outright, because releasing or evicting either one alone kills the
@@ -522,11 +535,20 @@ class Tensor:
         released once, refused if a member is a leaf (its placement is the module's tuning, as in
         `_evict_read_parents`). Either way a member that holds its buffer for the other reason,
         `evictable` False for a closure that reads its output by raw handle, refuses both.
+
+        A release asks what `free` asks of a lone tensor: does any backward read the bytes, and
+        is any member a leaf. Requiring a gradient is not reading a value, and every intermediate
+        in the middle of the graph requires one, so testing it here kept every dead view group
+        of a KEPT tape on the card. BindCraft 2's masked outer product mean reshapes its matmul
+        output, and from 7353c9aef that held one [N, N, 128] pair tensor per resident Evoformer
+        block: 0.50 GB at 224 tokens and 40 blocks, which is what refused the backward at 47.
         """
         group = _members(self.shares)
         if any(not t.evictable for t in group):
             return
-        if not any(t.pinned or t.requires_grad for t in group):
+        if not any(t.pinned for t in group) and (
+                not any(t.requires_grad for t in group)
+                or (release and all(t.node is not None or not t.requires_grad for t in group))):
             ttnn.deallocate(self.value)
             return
         if any(t.node is None for t in group):
@@ -555,9 +577,13 @@ class Tensor:
         """
         if not self.requires_grad:
             return
-        want, got = tuple(self.value.shape), tuple(grad.shape)
-        if want != got:
-            raise ValueError(f"gradient shape {got} does not match value shape {want}")
+        # Shapes compared as they come: `tuple()` of a ttnn.Shape walks its iterator at ~0.5 us
+        # a dim, and this runs once per contribution. The tuples are still the arbiter, so a
+        # shape type that does not compare to a ttnn.Shape cannot raise here where it did not.
+        want, got = self.value.shape, grad.shape
+        if want != got and tuple(want) != tuple(got):
+            raise ValueError(f"gradient shape {tuple(got)} does not match value shape "
+                             f"{tuple(want)}")
         # A parent receives its cotangent in ITS OWN layout. Closures compute in whatever
         # layout their output arrived in, and most of the tape is tiled end to end so this
         # never came up; a row-major activation -- `ttnn.embedding`'s table, the atom
@@ -717,7 +743,14 @@ class Tensor:
 
 
 def _pad_slice(g, starts, ends, shape):
-    """A slice's gradient padded with zeros back out to the shape it was cut from."""
+    """A slice's gradient padded with zeros back out to the shape it was cut from.
+
+    One `ttnn.pad` when the cut starts at 0 on every axis. A concat with a zeros tensor along a
+    sub-tile last dim runs ~14 GB/s: 2.90 ms against the pad's 0.15 ms on the template's
+    [224, 4, 224, 16] head, same bits (`perf/bc4_layout/padslice_ab.py`)."""
+    if not any(starts):
+        pads = [(0, n - e) for e, n in zip(ends, shape)]
+        return ttnn.pad(g, pads, 0.0) if any(q for _, q in pads) else g
     for ax in range(len(shape)):
         before, after = starts[ax], shape[ax] - ends[ax]
         if before or after:
@@ -739,6 +772,11 @@ def _join_slices(parts, shape):
     are one concat in axis order, with zeros only where no slice was read. Anything else is
     padded slice by slice. Both give the same numbers, since a padded zero adds nothing.
     """
+    if len(parts) == 1:
+        # One slice is one pad, not a concat with zeros: BindCraft 2's [224, 4, 224, 16] head
+        # gradient took 2.9 ms as a concat on a p300c, 4 calls an iteration (`_pad_slice`).
+        (s, e, g), = parts
+        return [_pad_slice(g, s, e, shape)]
     cuts = {tuple(ax for ax in range(len(shape)) if (s[ax], e[ax]) != (0, shape[ax]))
             for s, e, _ in parts}
     if len(cuts) == 1 and len(next(iter(cuts))) == 1:
@@ -990,6 +1028,18 @@ def _tape(out_value, parents: Sequence[Tensor], make_fn, reads=None) -> Tensor:
     return out
 
 
+def _cross_reads(a: Tensor, b: Tensor) -> tuple:
+    """Parent indices a PRODUCT's backward reads, given which of its two operands want a gradient.
+
+    For ``a * b`` and ``a @ b`` each operand's gradient reads only the OTHER operand's value, so a
+    side is read exactly when the other side wants a gradient. In a design round every weight is
+    frozen, so a linear's input and a dropout multiply's update are read by nothing: pinning them
+    kept ~10 of a block's ~60 pair tensors on the card for a gradient nobody asked for. The shapes
+    a backward needs are taken at record time, so an operand left unpinned can be released.
+    """
+    return tuple(i for i, other in ((0, b), (1, a)) if other is not None and other.requires_grad)
+
+
 def _evict_read_parents(parents: Sequence[Tensor]) -> None:
     """Move every L1-resident intermediate this op has just read down to DRAM.
 
@@ -1060,7 +1110,7 @@ def _matmul(a, b, **kw):
     """
     kw = _mm_layout.plan(a, b, kw)
     if not kw.get("transpose_a") or a.dtype == b.dtype:
-        return ttnn.matmul(a, b, **kw)
+        return _split_k(a, b, kw) or ttnn.matmul(a, b, **kw)
     MIXED_TRANSPOSE_A["promoted"] += 1
     tmp = []
     if a.dtype != ttnn.float32:
@@ -1069,9 +1119,79 @@ def _matmul(a, b, **kw):
     if b.dtype != ttnn.float32:
         b = ttnn.typecast(b, ttnn.float32)
         tmp.append(b)
-    out = ttnn.matmul(a, b, **kw)
+    out = _split_k(a, b, kw) or ttnn.matmul(a, b, **kw)
     for t in tmp:
         ttnn.deallocate(t)
+    return out
+
+
+# A 2-D ``a^T @ b`` whose output is at most this many tiles and whose contraction is at least
+# `SPLIT_K_MIN_KT` tiles runs as K chunks on separate cores (`_split_k`).
+SPLIT_K_OUT_TILES = 32
+SPLIT_K_MIN_KT = 64
+# At most this many chunks, a constant rather than the core count so that the grouping, and so
+# the bits, are the same on every card.
+SPLIT_K_CHUNKS = 64
+SPLIT_K_STATS = {"served": 0}
+
+
+def _split_k(a, b, kw):
+    """``a^T @ b`` over a long K with a small output, as a batch of K chunks summed in fp32, or
+    None to leave the call to ``ttnn.matmul``.
+
+    ttnn plans a 2-D product over its OUTPUT tiles, so a reduction over every token into a
+    [64, 224] result runs on 14 cores, each contracting the whole axis: BindCraft 2's masked
+    outer product backward, ``[28672, 64]^T @ [28672, 224]``, took 604 us at 27 GB/s and
+    ``[8192, 64]^T @ [8192, 224]`` 173 us, 0.037 device s/it together on a p300c
+    (`bets/unnamed` u2). Splitting K by whole tiles is a view, each chunk is one batch element of
+    `bmm_program_config`'s reuse plan, so the chunks land on separate cores, and the partials
+    stay fp32 through a pairwise tree of adds. The same contraction, grouped by chunk instead of
+    by K block.
+    """
+    if (not kw.get("transpose_a") or kw.get("transpose_b") or kw.get("program_config") is not None
+            or set(kw) - {"transpose_a", "transpose_b", "program_config", "compute_kernel_config",
+                          "dtype", "memory_config"}
+            or len(a.shape) != 2 or len(b.shape) != 2 or a.layout != ttnn.TILE_LAYOUT
+            or b.layout != ttnn.TILE_LAYOUT or a.is_sharded() or b.is_sharded()):
+        return None
+    K, M, N = int(a.shape[0]), int(a.shape[1]), int(b.shape[1])
+    if K % ttnn.TILE_SIZE or M % ttnn.TILE_SIZE or N % ttnn.TILE_SIZE:
+        return None
+    Kt = K // ttnn.TILE_SIZE
+    if (M // ttnn.TILE_SIZE) * (N // ttnn.TILE_SIZE) > SPLIT_K_OUT_TILES or Kt < SPLIT_K_MIN_KT:
+        return None
+    P = 1
+    while P * 2 <= min(Kt // 2, SPLIT_K_CHUNKS) and Kt % (P * 2) == 0:
+        P *= 2
+    if P < 4:
+        return None
+    a3 = ttnn.reshape(a, [P, K // P, M])
+    b3 = ttnn.reshape(b, [P, K // P, N])
+    cfg = kw.get("compute_kernel_config")
+    plan = bmm_program_config(a3, b3, True, dtype=ttnn.float32, compute_kernel_config=cfg)
+    if plan is None:
+        return None
+    parts = ttnn.matmul(a3, b3, transpose_a=True, program_config=plan, dtype=ttnn.float32,
+                        compute_kernel_config=cfg)
+    # Halve with fp32 adds, not ttnn.sum: a reduction feeds the FPU, which reads fp32 as tf32, and
+    # took rel L2 against float64 from the partials' 4.1e-4 to 1.0e-3 (stock 4.9e-4). P is a power of two.
+    out = parts
+    while P > 1:
+        P //= 2
+        lo = ttnn.slice(out, [0, 0, 0], [P, M, N])
+        hi = ttnn.slice(out, [P, 0, 0], [2 * P, M, N])
+        ttnn.deallocate(out)
+        out = ttnn.add(lo, hi, dtype=ttnn.float32)
+        ttnn.deallocate(lo)
+        ttnn.deallocate(hi)
+    out = ttnn.reshape(out, [M, N])
+    dtype = kw.get("dtype") or a.dtype
+    if dtype != ttnn.float32:
+        out = ttnn.typecast(out, dtype)
+    mc = kw.get("memory_config")
+    if mc is not None and mc != out.memory_config():
+        out = ttnn.to_memory_config(out, mc)
+    SPLIT_K_STATS["served"] += 1
     return out
 
 
@@ -1434,6 +1554,12 @@ def _bmm_blocked(a, b, transpose_a: bool, transpose_b: bool, kw):
     return out
 
 
+def _dims(shape) -> list:
+    """`[int(d) for d in shape]`, by index: a ttnn.Shape's iterator costs ~0.5 us a dim and
+    `shape[i]` ~40 ns, which matters on paths that run once per taped call."""
+    return [int(shape[i]) for i in range(len(shape))]
+
+
 def _reduce_to(g, shape):
     """A broadcast operand's gradient: the output's, summed over the axes it was spread along.
 
@@ -1445,7 +1571,11 @@ def _reduce_to(g, shape):
     has been summed over the wrong thing or not at all. Same volume is a reshape; a genuinely
     stretched axis is a sum, at fp32 fidelity for `_sum_leading`'s reason.
     """
-    gs = [int(d) for d in g.shape]
+    if g.shape == shape:
+        # The common case, without the two list copies below (~4 us for a 4D ttnn.Shape).
+        # Only a True is trusted; anything else is decided by the ints as before.
+        return g
+    gs = _dims(g.shape)
     ws = [int(d) for d in shape]
     if gs == ws:
         return g
@@ -1577,6 +1707,7 @@ def matmul(a: Tensor, b: Tensor, *, transpose_a: bool = False, transpose_b: bool
     out_v = rows(a.value, lambda v: _matmul(v, b.value, transpose_a=transpose_a,
                                             transpose_b=transpose_b,
                                             compute_kernel_config=cfg))
+    ashape, bshape = a.value.shape, b.value.shape
 
     def make():
         def bw(g):
@@ -1593,23 +1724,23 @@ def matmul(a: Tensor, b: Tensor, *, transpose_a: bool = False, transpose_b: bool
                     # dA = g @ op(b)^T
                     a.add_grad(_reduce_to(rows(g, lambda v: bmm(v, b.value, False, not transpose_b,
                                                                 compute_kernel_config=cfg)),
-                                          a.value.shape))
+                                          ashape))
                 else:
                     # A entered as A^T, so dA = (dA_eff)^T = op(b) @ g^T
                     a.add_grad(_reduce_to(bmm(b.value, g, transpose_b, True,
-                                              compute_kernel_config=cfg), a.value.shape))
+                                              compute_kernel_config=cfg), ashape))
             if b.requires_grad:
                 if not transpose_b:
                     # dB = op(a)^T @ g
                     b.add_grad(_reduce_to(bmm(a.value, g, not transpose_a,
-                                              compute_kernel_config=cfg), b.value.shape))
+                                              compute_kernel_config=cfg), bshape))
                 else:
                     # B entered as B^T, so dB = (dB_eff)^T = g^T @ op(a)
                     b.add_grad(_reduce_to(bmm(g, a.value, True, transpose_a,
-                                              compute_kernel_config=cfg), b.value.shape))
+                                              compute_kernel_config=cfg), bshape))
         return bw
 
-    return _tape(out_v, [a, b], make)
+    return _tape(out_v, [a, b], make, reads=_cross_reads(a, b))
 
 
 def linear(x: Tensor, w: Tensor, b: Optional[Tensor] = None, *, dtype=None, core_grid=None,
@@ -1792,8 +1923,9 @@ def layer_norm(x: Tensor, gamma: Optional[Tensor] = None, beta: Optional[Tensor]
     return _tape(out_v, parents, make)
 
 
-def softmax(x: Tensor, dim: int = -1, *, config=None) -> Tensor:
-    """Softmax over ``dim``. Backward is ``y * (dy - sum(dy * y))``, which needs only y."""
+def softmax(x: Tensor, dim: int = -1, *, config=None, refine=False) -> Tensor:
+    """Softmax over ``dim``. Backward is ``y * (dy - sum(dy * y))``, which needs only y;
+    ``refine`` as in `softmax_bw`."""
     cfg = config or precise_config()
     y0 = ttnn.softmax(x.value, dim=dim, compute_kernel_config=cfg)
     box = [y0]
@@ -1801,7 +1933,7 @@ def softmax(x: Tensor, dim: int = -1, *, config=None) -> Tensor:
     def make():
         def bw(g):
             y = box[0]                      # through the box: `free` may have moved it
-            x.add_grad(softmax_bw(y, g, dim=dim, config=cfg))
+            x.add_grad(softmax_bw(y, g, dim=dim, config=cfg, refine=refine))
         return bw
 
     out = _tape(y0, [x], make)
@@ -2873,6 +3005,33 @@ def pair_contract(a: Tensor, b: Tensor, *, incoming: bool = False, config=None) 
 _CKPT_PINS: list = []
 
 
+def release_dead(outputs: Sequence[Tensor], inputs: Sequence[Tensor]) -> None:
+    """Release every intermediate of a taped segment that no backward reads.
+
+    The tape keeps a Tensor for every value it recorded, and a value goes back to the card only
+    where the shipped forward calls `ttnn.deallocate` on it. Most of a tuned forward lets an
+    activation go out of scope instead, and under a tape the node graph keeps the handle alive,
+    so an unpinned value nobody will read stays on the card until the backward has run. For a
+    segment whose tape is KEPT (BindCraft 2's resident Evoformer blocks) that is the difference
+    between a block's tape fitting and not. This walks from `outputs` back to `inputs` and frees
+    what lies between, through `free`, which keeps anything pinned and decides shared-storage
+    groups together. Only values with a node are touched: constants and parameters have none.
+    """
+    stop = {id(t) for t in (*outputs, *inputs) if isinstance(t, Tensor)}
+    seen = set(stop)
+    stack = [p for t in outputs if isinstance(t, Tensor) and t.node is not None
+             for p in t.node.parents]
+    while stack:
+        t = stack.pop()
+        if id(t) in seen or not isinstance(t, Tensor):
+            continue
+        seen.add(id(t))
+        if t.node is None:
+            continue
+        t.free()
+        stack.extend(t.node.parents)
+
+
 def release_pins() -> None:
     """Drop every pin a checkpointed segment took. Call after a backward, or after a forward
     whose tape is being discarded."""
@@ -2921,8 +3080,419 @@ def _to_host(t: Tensor):
     return home
 
 
+# A checkpointed segment's backward -- its taped recompute and the walk of that inner tape --
+# replayed from a metal trace, keyed by the caller's `trace` key and every operand's shape.
+#
+# On a host-bound card (a Wormhole Galaxy chip runs a BindCraft 2 round at ~60 % idle, the host
+# spending ~14 us dispatching each of ~64k calls plus the tape's own Python) the recompute is
+# pure host overhead: the same programs on the same shapes every round. Rounds 1 and 2 at a key
+# run eagerly; round 2 also allocates the SHARED buffers every segment of that shape copies its
+# operands into and its input gradients out of; round 3 captures; every later round copies in,
+# replays, and clones the gradients out. Shared buffers are allocated in round 2 and not at the
+# capture because a capture keeps its intermediates at addresses the allocator then calls free:
+# anything that is live at a replay and was not live at the capture can sit there and be
+# overwritten. Allocating them a whole round before the first capture makes every later round's
+# allocation sequence -- the forward's pins included -- the one the captures saw.
+#
+# Raw ttnn operands (a segment's dropout masks, new each round) are copied in like the taped
+# ones, so `fn` must take them as inputs rather than close over them. Bit-exact by construction:
+# the replay runs the programs the eager recompute runs, on the same values.
+# Default OFF until graded on a card: TT_BIO_TRACE_RECOMPUTE=1. Needs a trace region at open.
+TRACE_RECOMPUTE = env_flag("TT_BIO_TRACE_RECOMPUTE", False)
+_RTRACE: dict = {}    # (key, signature) -> rounds seen (int), then (trace id, shared)
+_RSHARED: dict = {}   # signature -> dict(ins=[...], seeds=[...], outs=[...])
+RTRACE_STATS = {"eager": 0, "capture": 0, "replay": 0, "refused": 0, "regrow": 0}
+# The checkpoint's untaped FORWARD replayed the same way (`_traced_forward`), so a block's three
+# passes per round (two forwards, one recompute + VJP) all come from traces. Follows
+# TRACE_RECOMPUTE unless set on its own.
+TRACE_FORWARD = env_flag("TT_BIO_TRACE_FORWARD", TRACE_RECOMPUTE)
+
+
+@contextlib.contextmanager
+def block_traces(on: bool = True):
+    """Replay every traced block unit (checkpoint forward, recompute + VJP) for the duration, or
+    run them all eagerly with `on=False`. What `bindcraft2.predictor(trace=...)` sets; the two
+    environment flags only pick the default. Captures made inside stay cached after the exit."""
+    global TRACE_RECOMPUTE, TRACE_FORWARD
+    saved = TRACE_RECOMPUTE, TRACE_FORWARD
+    TRACE_RECOMPUTE = TRACE_FORWARD = bool(on)
+    try:
+        yield
+    finally:
+        TRACE_RECOMPUTE, TRACE_FORWARD = saved
+
+
+_RPEAK: dict = {}     # signature -> DRAM rise per bank of its first eager run; sizes the hole
+_RSHAPE: dict = {}    # forward signature -> whether fn returns a tuple
+_SCRATCH: list = [None]   # the device's `TraceScratch`, made at the first capture
+_EAGER = object()
+_RPEND: dict = {}     # signature -> {key: make(shared)}, keys waiting for their batch capture
+# Diagnostic: the first N replays also run the block eagerly on the same inputs and record the
+# relative L2 error of each input gradient against it (RTRACE_CHECKS). Replays are expected to be
+# exact; anything else means a replay read or wrote memory the eager side now owns.
+TRACE_RECOMPUTE_CHECK = int(os.environ.get("TT_BIO_TRACE_RECOMPUTE_CHECK", "0"))
+RTRACE_CHECKS: list = []
+
+
+_RMODE: dict = {}     # diagnostic: the ambient mode at a key's registration and at its capture
+
+
+def _mode():
+    from . import ops
+    return dict(taping=ops.taping(), recording=ops.recording(), grad=_GRAD_ENABLED,
+                nogradinf=ops.NOGRAD_IS_INFERENCE, relu_entry=ops._KERNEL_ENTRIES.get("pair_relu") is not None,
+                raw=ops._RAW_DEPTH)
+
+
+def _rt_raw(t, home):
+    return home(t) if isinstance(t, Tensor) else (t if isinstance(t, ttnn.Tensor) else None)
+
+
+def _grad_value(dup):
+    g = dup.grad if isinstance(dup, Tensor) else None
+    return g.value if isinstance(g, Tensor) else g
+
+
+def _rt_sig(vals, extra=()):
+    """What a block trace is keyed on: its operands' shapes, plus the ambient state that picks the
+    block's op sequence. An open tape turns off the fused kernels that have no tape entry
+    (`ops.taping`), so one block ran 300 ttnn calls under a tape and 288 without; a trace captured
+    in one mode and replayed in the other was off by rel 1e-4 on every block (bc4-bet-dispatch c10)."""
+    from . import ops
+    return (tuple(None if v is None else (tuple(v.shape), str(v.dtype), str(v.layout)) for v in vals),
+            tuple(extra), ops.taping(), tuple(sorted(_EXACT_SAVED)))
+
+
+def _in_dram(vals) -> bool:
+    """Every device operand interleaved in DRAM. L1 is not fenced (`TraceScratch`), so a unit
+    whose operands or outputs live in L1 stays eager."""
+    return all(v.memory_config().buffer_type == ttnn.BufferType.DRAM for v in vals if v is not None)
+
+
+from .tenstorrent import dram_rise as _rise  # the hole TraceScratch opens is sized by it
+
+
+def _op_desc(v):
+    if isinstance(v, ttnn.Tensor):
+        return f"T{tuple(v.shape)}:{v.dtype}:{v.layout}:{v.memory_config().buffer_type}"
+    if isinstance(v, (list, tuple)):
+        return "[" + ",".join(_op_desc(x) for x in v) + "]"
+    return repr(v)[:120]
+
+
+def _ops(run):
+    """``run()`` and the list of ttnn calls it made, each as name plus operand description.
+    Diagnostic for `TRACE_RECOMPUTE_CHECK`: a replay that disagrees with eager on the same
+    inputs ran different calls, and the first differing one names the state that moved."""
+    from ttnn import decorators as D
+    real = {c: c.__call__ for c in (D.FastOperation, D.Operation)}
+    log = []
+
+    def rec(f):
+        def call(op, *a, **k):
+            log.append(f"{getattr(op, 'python_fully_qualified_name', op)}("
+                       + ", ".join([_op_desc(x) for x in a] + [f"{n}={_op_desc(x)}" for n, x in k.items()]) + ")")
+            return f(op, *a, **k)
+        return call
+
+    for c, f in real.items():
+        c.__call__ = rec(f)
+    try:
+        out = run()
+    finally:
+        for c, f in real.items():
+            c.__call__ = f
+    return out, log
+
+
+def _ops_diff(key, ref, now) -> None:
+    import difflib
+    print(f"[trace-check] {key!r}: capture made {len(ref)} calls, eager {len(now)}", flush=True)
+    for tag, a0, a1, b0, b1 in difflib.SequenceMatcher(None, ref, now, autojunk=False).get_opcodes():
+        if tag != "equal":
+            print(f"[trace-check]   {tag} capture[{a0}:{a1}] eager[{b0}:{b1}]", flush=True)
+            for x in ref[a0:a1][:6]:
+                print(f"[trace-check]     - {x}", flush=True)
+            for x in now[b0:b1][:6]:
+                print(f"[trace-check]     + {x}", flush=True)
+
+
+_ROPS: dict = {}      # (key, signature) -> the calls its capture made, when checking
+
+
+def _rt_first(device, sig, run):
+    """A unit's first eager run at a key; its DRAM rise is measured for the signature's first."""
+    if sig in _RPEAK:
+        return run()
+    out, _RPEAK[sig] = _rise(device, run)
+    return out
+
+
+def _rt_clone(vals):
+    return [None if v is None else ttnn.clone(v) for v in vals]
+
+
+def _rt_inner(kinds, bufs):
+    return [Tensor(ttnn.clone(b), requires_grad=rg) if tensor else (ttnn.clone(b) if b is not None else raw)
+            for (tensor, rg, raw), b in zip(kinds, bufs)]
+
+
+def _rt_kinds(inputs):
+    return [(isinstance(t, Tensor), getattr(t, "requires_grad", False),
+             None if isinstance(t, (Tensor, ttnn.Tensor)) else t) for t in inputs]
+
+
+def _rt_copy_in(vals, bufs):
+    for v, b in zip(vals, bufs):
+        if b is not None:
+            ttnn.copy(v, b)
+
+
+def _rt_batch(device, sig, sh):
+    """Capture every key of ``sig`` waiting in `_RPEND`, all inside one fence."""
+    from .tenstorrent import TraceScratch
+    pend = _RPEND.pop(sig, {})
+    if not pend:
+        return
+    if _SCRATCH[0] is None:
+        _SCRATCH[0] = TraceScratch(device)
+    sc = _SCRATCH[0]
+    margin = lambda b: b + b // 4 + sc.CHUNK
+    need = margin(_RPEAK[sig])
+    if sc.hole is not None and need > sc.hole[1] - sc.hole[0]:
+        # A unit measured after the hole was opened needs a bigger one: drop every trace and
+        # the hole, and let every key capture again into one sized for all of them.
+        release_recompute_traces(device)
+        RTRACE_STATS["regrow"] += 1
+        return
+    runs = [functools.partial(make, sh) for make in pend.values()]
+    if TRACE_RECOMPUTE_CHECK:
+        def logged(key, run):
+            def go():
+                _RMODE.setdefault(("cap", key, sig), _mode())
+                _, _ROPS[(key, sig)] = _ops(run)
+            return go
+        runs = [logged(key, run) for key, run in zip(pend, runs)]
+    # One warm pass through the shared buffers compiles anything only they reach.
+    runs[0]()
+    ttnn.synchronize_device(device)
+    before = set(_WRAPPED)
+
+    def settle():
+        # Wrappers the captures made hold buffers allocated in the hole. Dropped before the
+        # hole is filled, so no later tape close frees them into it (bcx-tracewire).
+        for k in set(_WRAPPED) - before:
+            del _WRAPPED[k]
+        gc.collect()
+
+    try:
+        tids = sc.capture(need, margin(max(_RPEAK.values())), runs, settle)
+    except RuntimeError as e:   # a trace region too small for the batch: the keys stay eager
+        print(f"[trace] {len(runs)} captures refused: {str(e).splitlines()[0][:200]}", flush=True)
+        tids = None
+    for i, key in enumerate(pend):
+        _RTRACE[(key, sig)] = "eager" if tids is None else (tids[i],)
+    RTRACE_STATS["refused" if tids is None else "capture"] += len(pend)
+
+
+def _traced_recompute(key, fn, inputs, home, seeded) -> bool:
+    """`_recompute(seeded)` from a trace, or False to let the caller run it eagerly.
+
+    Round 1 at a key runs eagerly and registers the key. Round 2 runs eagerly, makes the
+    signature's shared buffers if they are new, and captures every registered key of that
+    signature in one fence (`_rt_batch`). Later rounds copy in, replay and clone the input
+    gradients out."""
+    from .taped_ttnn import recompute_scope
+    vals = [_rt_raw(t, home) for t in inputs]
+    ks = [k for k, _ in seeded]
+    sig = ("bwd",) + _rt_sig(vals, ((k, tuple(g.shape), str(g.dtype)) for k, g in seeded))
+    st = _RTRACE.get((key, sig), 0)
+    if st == "eager":
+        return False
+    device = next(v for v in vals if v is not None).device()
+
+    if isinstance(st, tuple):
+        sh = _RSHARED[sig]
+        _rt_copy_in(vals, sh["ins"])
+        _rt_copy_in([g for _, g in seeded], sh["seeds"])
+        ttnn.execute_trace(device, st[0], cq_id=0, blocking=False)
+        RTRACE_STATS["replay"] += 1
+        if RTRACE_STATS["replay"] <= TRACE_RECOMPUTE_CHECK:
+            _check_replay(key, fn, inputs, vals, seeded, sh["outs"])
+        for src, ob in zip(inputs, sh["outs"]):
+            if ob is not None and isinstance(src, Tensor):
+                src.add_grad(ttnn.clone(ob))
+        return True
+
+    def eager():
+        inner = [Tensor(v, requires_grad=t.requires_grad) if isinstance(t, Tensor) else t
+                 for t, v in zip(inputs, vals)]
+        with recompute_scope():
+            y = fn(*inner)
+        backward([y[k] if k is not None else y for k in ks], [g for _, g in seeded])
+        return inner
+
+    inner = _rt_first(device, sig, eager) if st == 0 else eager()
+    grads = [_grad_value(d) for d in inner]
+    for src, dup in zip(inputs, inner):
+        if isinstance(src, Tensor) and isinstance(dup, Tensor) and dup.grad is not None:
+            src.add_grad(dup.grad)
+    RTRACE_STATS["eager"] += 1
+    if st == 0:
+        if not _in_dram([*vals, *grads]):
+            _RTRACE[(key, sig)] = "eager"
+            return True
+        kinds = _rt_kinds(inputs)
+
+        def make(sh):
+            inner = _rt_inner(kinds, sh["ins"])
+            with recompute_scope():
+                y = fn(*inner)
+            backward([y[k] if k is not None else y for k in ks], [ttnn.clone(b) for b in sh["seeds"]])
+            for dup, ob in zip(inner, sh["outs"]):
+                if ob is not None:
+                    ttnn.copy(_grad_value(dup), ob)
+            del y, inner
+        _RPEND.setdefault(sig, {})[key] = make
+        if TRACE_RECOMPUTE_CHECK:
+            _RMODE[("key", key, sig)] = _mode()
+        _RTRACE[(key, sig)] = 1
+        return True
+    if sig not in _RSHARED:
+        _RSHARED[sig] = dict(ins=_rt_clone(vals), seeds=_rt_clone([g for _, g in seeded]),
+                             outs=_rt_clone(grads))
+    sh = _RSHARED[sig]
+    _rt_copy_in(vals, sh["ins"])
+    _rt_copy_in([g for _, g in seeded], sh["seeds"])
+    del inner, grads
+    _rt_batch(device, sig, sh)
+    return True
+
+
+def _traced_forward(key, fn, inputs):
+    """A checkpoint's untaped forward ``fn(*inputs)`` from a trace, or the sentinel `_EAGER` to
+    let the caller run it. The same rounds as `_traced_recompute`; the caller is under
+    `no_grad`."""
+    vals = [_rt_raw(t, lambda t: t.value) for t in inputs]
+    sig = ("fwd",) + _rt_sig(vals)
+    st = _RTRACE.get((key, sig), 0)
+    if st == "eager":
+        return _EAGER
+    device = next(v for v in vals if v is not None).device()
+
+    def flat(y):
+        ys = y if isinstance(y, (tuple, list)) else (y,)
+        return [o.value if isinstance(o, Tensor) else o for o in ys]
+
+    if isinstance(st, tuple):
+        sh = _RSHARED[sig]
+        check = RTRACE_STATS["replay"] < TRACE_RECOMPUTE_CHECK
+        pre = _rt_clone(flat(fn(*inputs))) if check else None
+        _rt_copy_in(vals, sh["ins"])
+        ttnn.execute_trace(device, st[0], cq_id=0, blocking=False)
+        RTRACE_STATS["replay"] += 1
+        outs = [None if ob is None else ttnn.clone(ob) for ob in sh["outs"]]
+        if check:
+            # Four readings on the same inputs separate the two ways a replay can be wrong:
+            # replay != replay again means it read scratch another trace last wrote;
+            # eager before != eager after means it wrote memory the eager side owns.
+            _rt_copy_in(vals, sh["ins"])
+            ttnn.execute_trace(device, st[0], cq_id=0, blocking=False)
+            again = _rt_clone(sh["outs"])
+            post, now = _ops(lambda: flat(fn(*inputs)))
+            rel = lambda xs, ys: max([_rel(x, y) for x, y in zip(xs, ys) if x is not None and y is not None] or [0.0])
+            r = dict(eager=rel(outs, post), again=rel(outs, again), drift=rel(pre, post), pre=rel(outs, pre))
+            RTRACE_CHECKS.append(dict(key=repr(key), unit="fwd", replay=RTRACE_STATS["replay"], rel=[r["eager"]], **r))
+            if max(r.values()) > 0:
+                print(f"[trace-check] fwd replay {RTRACE_STATS['replay']} {key!r}: "
+                      + " ".join(f"{k} {v:.3e}" for k, v in r.items()), flush=True)
+                print(f"[trace-check]   mode at key {_RMODE.get(('key', key, sig))}, capture "
+                      f"{_RMODE.get(('cap', key, sig))}, now {_mode()}", flush=True)
+                if (key, sig) in _ROPS:
+                    _ops_diff(key, _ROPS.pop((key, sig)), now)
+        return tuple(outs) if _RSHAPE[sig] else outs[0]
+
+    y = _rt_first(device, sig, lambda: fn(*inputs)) if st == 0 else fn(*inputs)
+    RTRACE_STATS["eager"] += 1
+    if st == 0:
+        if not _in_dram([*vals, *flat(y)]):
+            _RTRACE[(key, sig)] = "eager"
+            return y
+        _RSHAPE[sig] = isinstance(y, (tuple, list))
+        kinds = _rt_kinds(inputs)
+
+        def make(sh):
+            inner = _rt_inner(kinds, sh["ins"])
+            for o, ob in zip(flat(fn(*inner)), sh["outs"]):
+                if ob is not None:
+                    ttnn.copy(o, ob)
+            del inner
+        _RPEND.setdefault(sig, {})[key] = make
+        if TRACE_RECOMPUTE_CHECK:
+            _RMODE[("key", key, sig)] = _mode()
+        _RTRACE[(key, sig)] = 1
+        return y
+    if sig not in _RSHARED:
+        _RSHARED[sig] = dict(ins=_rt_clone(vals), outs=_rt_clone(flat(y)))
+    sh = _RSHARED[sig]
+    _rt_copy_in(vals, sh["ins"])
+    _rt_batch(device, sig, sh)
+    return y
+
+
+def _rel(a, b) -> float:
+    a, b = ttnn.to_torch(a).double(), ttnn.to_torch(b).double()
+    den = float(b.norm())
+    return float((a - b).norm()) / den if den else float((a - b).norm())
+
+
+def _check_replay(key, fn, inputs, vals, seeded, outs) -> None:
+    """Run the block eagerly on the replay's own inputs and record each gradient's error."""
+    from .taped_ttnn import recompute_scope
+    inner = [Tensor(ttnn.clone(v), requires_grad=t.requires_grad) if isinstance(t, Tensor)
+             else (ttnn.clone(v) if v is not None else t) for t, v in zip(inputs, vals)]
+    with recompute_scope():
+        y = fn(*inner)
+    roots = [y[k] if k is not None else y for k, _ in seeded]
+    backward(roots, [ttnn.clone(g) for _, g in seeded])
+    rels = []
+    for dup, ob in zip(inner, outs):
+        ref = _grad_value(dup) if isinstance(dup, Tensor) else None
+        if ob is None or ref is None:
+            continue
+        a = ttnn.to_torch(ob).double()
+        b = ttnn.to_torch(ref).double()
+        den = float(b.norm())
+        rels.append(float((a - b).norm()) / den if den else float((a - b).norm()))
+    RTRACE_CHECKS.append(dict(key=repr(key), replay=RTRACE_STATS["replay"], rel=rels))
+    if rels and max(rels) > 0:
+        print(f"[trace-check] bwd replay {RTRACE_STATS['replay']} {key!r}: grad rel L2 {max(rels):.3e}", flush=True)
+    del y, inner, roots
+
+
+def release_recompute_traces(device) -> None:
+    """Drop every recompute trace and its shared buffers; each key starts again at round 1.
+
+    Called when something persistent is allocated mid-run (a trunk loading its weights): it would
+    sit wherever the allocator then found room, which may be a capture's intermediates."""
+    for st in _RTRACE.values():
+        if isinstance(st, tuple):
+            ttnn.release_trace(device, st[0])
+    for sh in _RSHARED.values():
+        for b in (*sh["ins"], *sh.get("seeds", ()), *sh["outs"]):
+            if b is not None:
+                ttnn.deallocate(b)
+    _RTRACE.clear()
+    _RSHARED.clear()
+    _RSHAPE.clear()
+    _RPEND.clear()
+    if _SCRATCH[0] is not None:
+        _SCRATCH[0].release()
+        _SCRATCH[0] = None
+
+
 def checkpoint(fn, *inputs: Tensor, params: Sequence[Tensor] = (), offload: bool = False,
-               _nested: bool = False) -> Tensor:
+               _nested: bool = False, trace=None) -> Tensor:
     """Run ``fn`` untaped, and re-run it taped inside its own backward.
 
     Trades one extra forward for dropping every intermediate ``fn`` produced. The
@@ -2972,7 +3542,11 @@ def checkpoint(fn, *inputs: Tensor, params: Sequence[Tensor] = (), offload: bool
             _CKPT_PINS.append(t)
     _TOUCHED.clear()
     with no_grad():
-        produced = fn(*inputs)
+        produced = _EAGER
+        if trace is not None and TRACE_FORWARD and not offload and params is not _ALL_PARAMS:
+            produced = _traced_forward(trace, fn, inputs)
+        if produced is _EAGER:
+            produced = fn(*inputs)
     # Only the parameters this segment READ. Naming all of them would give every block a node,
     # including the ones that touch no trainable weight, and those recompute to an empty tape.
     touched = [t for k, t in _PARAMS.items() if k in _TOUCHED] if params is _ALL_PARAMS \
@@ -2984,6 +3558,9 @@ def checkpoint(fn, *inputs: Tensor, params: Sequence[Tensor] = (), offload: bool
         """Re-run the segment on fresh nodes over the same input VALUES and replay its tape
         ONCE, seeding every output in `seeded`, a list of (output index or None, gradient)."""
         from .taped_ttnn import recompute_scope
+        if trace is not None and TRACE_RECOMPUTE and _traced_recompute(
+                trace, fn, inputs, _home, seeded):
+            return
         inner = [Tensor(_home(t), requires_grad=t.requires_grad) if isinstance(t, Tensor) else t
                  for t in inputs]
         with recompute_scope():
@@ -3242,32 +3819,49 @@ def _unwrap(t):
 
 
 def _walk(args, kwargs):
-    for v in list(args) + list(kwargs.values()):
-        if isinstance(v, (list, tuple)):
-            yield from v
-        else:
-            yield v
+    for vs in (args, kwargs.values()):
+        for v in vs:
+            if isinstance(v, (list, tuple)):
+                yield from v
+            else:
+                yield v
 
 
 def _on_tape(args, kwargs):
     # A registered parameter counts, even though it arrives as a raw handle: it is the first
     # taped thing in a forward whose inputs are all data, and without it the short circuit
     # below reaches the shipped op and the whole downstream chain is never taped.
-    return any(isinstance(v, Tensor) or _param_on_tape(v) is not None
-               for v in _walk(args, kwargs))
+    #
+    # `_walk` spelled out, because every ttnn call under a tape comes through here (~64k per
+    # BC2 step) and the generator plus two list copies were most of its cost. Same operands in
+    # the same order, same short circuit, so `_param` touches exactly what it touched before;
+    # with nothing registered it can only answer None, and it is not asked.
+    scan = _PARAM_SCAN and bool(_PARAMS)
+    for vs in (args, kwargs.values()):
+        for v in vs:
+            if isinstance(v, (list, tuple)):
+                for u in v:
+                    if isinstance(u, Tensor) or (scan and _param(u) is not None):
+                        return True
+            elif isinstance(v, Tensor) or (scan and _param(v) is not None):
+                return True
+    return False
 
 
 def _differentiating(args, kwargs):
     if not _GRAD_ENABLED:
         return False
-    for v in _walk(args, kwargs):
-        if isinstance(v, Tensor):
-            if v.requires_grad:
-                return True
-        else:
-            p = _param_on_tape(v)
-            if p is not None and p.requires_grad:
-                return True
+    scan = _PARAM_SCAN and bool(_PARAMS)
+    for vs in (args, kwargs.values()):
+        for v in vs:
+            for u in (v if isinstance(v, (list, tuple)) else (v,)):
+                if isinstance(u, Tensor):
+                    if u.requires_grad:
+                        return True
+                elif scan:
+                    p = _param(u)
+                    if p is not None and p.requires_grad:
+                        return True
     return False
 
 
@@ -3331,6 +3925,7 @@ def _taped_linear(shipped, args, kwargs):
     cfg = cfg or precise_config()
     bwcfg = precise_config()
     parents = [t for t in (x, w, bias) if t is not None]
+    xshape, wshape = x.value.shape, w.value.shape
 
     def make():
         def bw(g):
@@ -3344,7 +3939,7 @@ def _taped_linear(shipped, args, kwargs):
                                           v, w.value, True, lambda: _matmul(
                                               v, w.value, transpose_b=True,
                                               compute_kernel_config=bwcfg), bwcfg)),
-                                      x.value.shape))
+                                      xshape))
             if w.requires_grad:
                 # dW reduces over every token at once: 4096 terms on a 64x64 pair block,
                 # 262144 at 512 aa. `fp32_dest_acc_en` does not cover that, because
@@ -3358,12 +3953,12 @@ def _taped_linear(shipped, args, kwargs):
                 w.add_grad(_reduce_to(
                     _matmul(_flat2d(x.value), _flat2d(g), transpose_a=True,
                             compute_kernel_config=bwcfg, dtype=ttnn.float32),
-                    w.value.shape))
+                    wshape))
             if bias is not None and bias.requires_grad:
                 bias.add_grad(_sum_leading(g, bias.value.shape))
         return bw
 
-    out = _tape(out_v, parents, make)
+    out = _tape(out_v, parents, make, reads=_cross_reads(x, w))
     if act is None:
         return out
     activated = act(out)
@@ -3435,6 +4030,9 @@ def _hook(name, shipped, args, kwargs):
 # nothing. `raw` is how `ops.fused_kernel` hands such a forward's kernel its operands.
 _hook.recording = is_grad_enabled
 _hook.raw = lambda args, kwargs: _raw(args, kwargs)
+# What `ops.declines_under_tape` asks of a kernel's operands: the shim's own test, registered
+# parameters included, so a kernel declines exactly where the stock op would be taped.
+_hook.on_tape = lambda args, kwargs: _on_tape(args, kwargs)
 
 
 def _checkpoint_segment(fn, *inputs):

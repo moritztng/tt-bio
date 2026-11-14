@@ -1,0 +1,13 @@
+{
+ "layer": 12,
+ "rows": 16384,
+ "rel_rms_vs_f64": {
+  "bf16_act_f64_w": 0.0026337609029360195,
+  "HiFi4": 0.008831270974020658,
+  "HiFi2": 0.010978894850304864,
+  "LoFi": 0.03569438637628607
+ },
+ "x_std": 0.6069527473834023,
+ "golden": "/home/moritz/rfd4-goldens/unconditional_512/PairReprUpdate__nn_pair_update_layers_12__call0.pt",
+ "script": "perf/rfd4/relu/fidelity_emu.py"
+}

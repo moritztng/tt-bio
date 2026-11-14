@@ -1,0 +1,135 @@
+{
+ "stock": {
+  "arm": "stock",
+  "settings": [],
+  "xla": null,
+  "evidence": "/root/kc/bc2/arms/stock/runs.jsonl",
+  "n": 2,
+  "dropped_low_clock": 0,
+  "median": 0.3814,
+  "spread": [
+   0.3731,
+   0.3898
+  ],
+  "iterations": [
+   120,
+   140
+  ],
+  "terminated": [
+   "None",
+   "anneal"
+  ],
+  "design_s": [
+   52.23,
+   46.77
+  ],
+  "sm_mhz": 1980.0,
+  "gpu": "NVIDIA H200, 700.00 W, 580.178.04",
+  "jax": "0.11.2",
+  "bc2_sha": "7a2dfdb8a285232a6f881899fe135c6dc48679f1",
+  "cpu": "INTEL(R) XEON(R) PLATINUM 8568Y+",
+  "ncpu": 192,
+  "wall_s": 345.1,
+  "rc": 0
+ },
+ "cueq": {
+  "arm": "cueq",
+  "settings": [
+   "use_cueq=true"
+  ],
+  "xla": null,
+  "evidence": "/root/kc/bc2/arms/cueq/runs.jsonl",
+  "n": 0,
+  "dropped_low_clock": 0,
+  "median": null,
+  "spread": null,
+  "iterations": [],
+  "terminated": [],
+  "design_s": [],
+  "sm_mhz": null,
+  "gpu": "NVIDIA H200, 700.00 W, 580.178.04",
+  "jax": "0.11.2",
+  "bc2_sha": "7a2dfdb8a285232a6f881899fe135c6dc48679f1",
+  "cpu": "INTEL(R) XEON(R) PLATINUM 8568Y+",
+  "ncpu": 192,
+  "wall_s": 16.9,
+  "rc": 0
+ },
+ "attn-stock": {
+  "arm": "attn-stock",
+  "settings": [
+   "attention_backend=stock"
+  ],
+  "xla": null,
+  "evidence": "/root/kc/bc2/arms/attn-stock/runs.jsonl",
+  "n": 2,
+  "dropped_low_clock": 0,
+  "median": 0.4388,
+  "spread": [
+   0.4383,
+   0.4392
+  ],
+  "iterations": [
+   140
+  ],
+  "terminated": [
+   "None",
+   "mutate"
+  ],
+  "design_s": [
+   61.48,
+   61.37
+  ],
+  "sm_mhz": 1980.0,
+  "gpu": "NVIDIA H200, 700.00 W, 580.178.04",
+  "jax": "0.11.2",
+  "bc2_sha": "7a2dfdb8a285232a6f881899fe135c6dc48679f1",
+  "cpu": "INTEL(R) XEON(R) PLATINUM 8568Y+",
+  "ncpu": 192,
+  "wall_s": 401.6,
+  "rc": 0
+ },
+ "_skipped": [],
+ "_ranking": [
+  "stock"
+ ],
+ "_winner": {
+  "arm": "stock",
+  "settings": [],
+  "xla": null,
+  "evidence": "/root/kc/bc2/winner/runs.jsonl",
+  "n": 7,
+  "dropped_low_clock": 0,
+  "median": 0.3714,
+  "spread": [
+   0.37,
+   0.3903
+  ],
+  "iterations": [
+   125,
+   140
+  ],
+  "terminated": [
+   "None",
+   "harden"
+  ],
+  "design_s": [
+   48.78,
+   51.91,
+   52.03,
+   51.88,
+   48.7,
+   51.8,
+   51.99
+  ],
+  "sm_mhz": 1980.0,
+  "gpu": "NVIDIA H200, 700.00 W, 580.178.04",
+  "jax": "0.11.2",
+  "bc2_sha": "7a2dfdb8a285232a6f881899fe135c6dc48679f1",
+  "cpu": "INTEL(R) XEON(R) PLATINUM 8568Y+",
+  "ncpu": 192,
+  "wall_s": 628.6,
+  "rc": 0,
+  "stacked": null
+ }
+}

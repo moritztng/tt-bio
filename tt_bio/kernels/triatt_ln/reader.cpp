@@ -1,0 +1,155 @@
+// SPDX-FileCopyrightText: (c) 2026 Tenstorrent USA, Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
+// triatt_ln reader (tt_bio/triatt_ln.py). Once: this core's column group of the [K, NWF] qkvgb weight,
+// columns n0 .. n0 + NW - 1 (runtime arg 4; the tail past NWF is left unread, compute's result there is
+// never written), into c_0 (resident),
+// gamma / beta (Kt tiles, row 0 carries the [K] vector) into c_8 / c_9, the 1/K reduce scaler into
+// c_10 and an fp32 eps tile into c_11, as trimul T1. Then this core's row tiles r0 .. r0 + n - 1 of
+// the raw pair x, Kt tiles each (row tile r is pages r * Kt ..), RB row tiles per barrier, into c_7.
+// TR (runtime arg 2): x is z and the kernel norms z^T without writing it. A unit u = (bt, jt, half) is the 16
+// row tiles b = bt*32 + half*16 + k (k < 16) of z^T at column tile jt; their rows are rows half*16 + k of the 32
+// z tiles (s = jt*32 + q, bt), i.e. faces 2*half and 2*half+1 of each, one contiguous KB. Per channel tile the
+// 32 half tiles land in a c_3 stage and are shuffled as pair_transpose's writer does: row k of stage tile q ->
+// row q of row tile k. Writer and compute see the same rows in the same order (writer.cpp row_of).
+#include "api/dataflow/dataflow_api.h"
+#ifndef ABL_R
+#define ABL_R 0   // bench-only (triatt_ln.ABL bit 8): skip the DRAM reads of x
+#endif
+#ifndef HM
+#define HM 0      // triatt_ln.BIAS_HEADS: plain rows run in TR's 16-row units too (writer.cpp row_of), r0 is a unit
+#endif
+#include "ttnn/kernel/dataflow/generate_reduce_scaler.hpp"
+
+void kernel_main() {
+    constexpr uint32_t Kt = get_compile_time_arg_val(0);
+    constexpr uint32_t NW = get_compile_time_arg_val(1);
+    constexpr uint32_t RB = get_compile_time_arg_val(2);
+    constexpr uint32_t SCALER = get_compile_time_arg_val(3);   // packed bf16 pair, 1/K
+    constexpr uint32_t EPS = get_compile_time_arg_val(4);      // fp32 bits
+    constexpr uint32_t NWF = get_compile_time_arg_val(5);      // weight tiles a row, all groups
+    constexpr auto x_args = TensorAccessorArgs<6>();
+    constexpr auto w_args = TensorAccessorArgs<x_args.next_compile_time_args_offset()>();
+    constexpr auto gm_args = TensorAccessorArgs<w_args.next_compile_time_args_offset()>();
+    constexpr auto bt_args = TensorAccessorArgs<gm_args.next_compile_time_args_offset()>();
+
+    const auto x = TensorAccessor(x_args, get_common_arg_val<uint32_t>(0));
+    const auto wt = TensorAccessor(w_args, get_common_arg_val<uint32_t>(1));
+    const auto gm = TensorAccessor(gm_args, get_common_arg_val<uint32_t>(2));
+    const auto bt = TensorAccessor(bt_args, get_common_arg_val<uint32_t>(3));
+    const uint32_t r0 = get_arg_val<uint32_t>(0);
+    const uint32_t nrows = get_arg_val<uint32_t>(1);
+
+    constexpr uint32_t w_cb = tt::CBIndex::c_0;
+    constexpr uint32_t x_cb = tt::CBIndex::c_7;
+    constexpr uint32_t gamma_cb = tt::CBIndex::c_8;
+    constexpr uint32_t beta_cb = tt::CBIndex::c_9;
+    constexpr uint32_t scaler_cb = tt::CBIndex::c_10;
+    constexpr uint32_t eps_cb = tt::CBIndex::c_11;
+    const uint32_t tb = get_tile_size(x_cb);
+
+    generate_reduce_scaler(scaler_cb, SCALER);
+    {
+        cb_reserve_back(eps_cb, 1);
+        volatile tt_l1_ptr uint32_t* p = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(get_write_ptr(eps_cb));
+        for (uint32_t i = 0; i < 1024; ++i) p[i] = EPS;
+        cb_push_back(eps_cb, 1);
+    }
+    cb_reserve_back(w_cb, Kt * NW);
+    cb_reserve_back(gamma_cb, Kt);
+    cb_reserve_back(beta_cb, Kt);
+    const uint32_t n0 = get_arg_val<uint32_t>(4);
+    const uint32_t nw = (NWF - n0 < NW) ? NWF - n0 : NW;
+    uint32_t w = get_write_ptr(w_cb);
+    for (uint32_t k = 0; k < Kt; ++k)
+        for (uint32_t j = 0; j < NW; ++j, w += tb)
+            if (j < nw) noc_async_read_page(k * NWF + n0 + j, wt, w);
+    w = get_write_ptr(gamma_cb);
+    for (uint32_t t = 0; t < Kt; ++t, w += tb) noc_async_read_page(t, gm, w);
+    w = get_write_ptr(beta_cb);
+    for (uint32_t t = 0; t < Kt; ++t, w += tb) noc_async_read_page(t, bt, w);
+    noc_async_read_barrier();
+    cb_push_back(w_cb, Kt * NW);
+    cb_push_back(gamma_cb, Kt);
+    cb_push_back(beta_cb, Kt);
+
+    if (get_arg_val<uint32_t>(2)) {
+        constexpr uint32_t ROW = 32, FACE = 16 * ROW, HALF = 2 * FACE;
+        const uint32_t MT = get_arg_val<uint32_t>(3);        // row tiles per b = column tiles of z
+        const uint32_t stage = get_write_ptr(tt::CBIndex::c_3);
+        auto row = [](uint32_t r) { return ((r >> 4) * 2) * FACE + (r & 15) * ROW; };
+        for (uint32_t u = r0; u < r0 + nrows; ++u) {
+            const uint32_t half = u & 1, jt = (u >> 1) % MT, bt = (u >> 1) / MT;
+            cb_reserve_back(x_cb, 16 * Kt);
+            const uint32_t dst = get_write_ptr(x_cb);
+            for (uint32_t n = 0; n < Kt; ++n) {
+                for (uint32_t q = 0; q < 32; ++q)
+                    if constexpr (!ABL_R)
+                        noc_async_read(x.get_noc_addr(((jt * 32 + q) * MT + bt) * Kt + n) + half * HALF, stage + q * HALF, HALF);
+                noc_async_read_barrier();
+                for (uint32_t k = 0; k < 16; ++k) {
+                    const uint32_t tile = dst + (k * Kt + n) * tb;
+                    for (uint32_t q = 0; q < 32; ++q) {
+                        const uint32_t src = stage + q * HALF + k * ROW;
+                        noc_async_read(get_noc_addr(src), tile + row(q), ROW);
+                        noc_async_read(get_noc_addr(src + FACE), tile + row(q) + FACE, ROW);
+                    }
+                }
+                noc_async_read_barrier();
+            }
+            cb_push_back(x_cb, 16 * Kt);
+        }
+        return;
+    }
+    // Row i is row tile r0 + (i + s) % nrows (runtime arg 5, triatt_ln.STAGGER), as writer.cpp row_of.
+    const uint32_t s = get_arg_val<uint32_t>(5);
+    auto read_rows = [&](uint32_t i, uint32_t n, uint32_t step) {
+        cb_reserve_back(x_cb, n * Kt);
+        uint32_t dst = get_write_ptr(x_cb);
+        for (uint32_t k = 0; k < n; ++k) {
+            uint32_t ir = i + k * step + s;
+            if (ir >= nrows) ir -= nrows;
+            const uint32_t MT = get_arg_val<uint32_t>(3), u = r0 + ir / 16;
+            const uint32_t page = (HM ? ((u >> 1) / MT * 32 + (u & 1) * 16 + ir % 16) * MT + (u >> 1) % MT : r0 + ir) * Kt;
+            for (uint32_t t = 0; t < Kt; ++t, dst += tb)
+                if constexpr (!ABL_R) noc_async_read_page(page + t, x, dst);
+        }
+        noc_async_read_barrier();
+        cb_push_back(x_cb, n * Kt);
+    };
+    const uint32_t lns = get_arg_val<uint32_t>(6);
+    if (!lns) {
+        for (uint32_t i = 0; i < nrows; i += RB) read_rows(i, (nrows - i < RB) ? (nrows - i) : RB, 1);
+        return;
+    }
+    // LN_SHARE (runtime arg 6 = 2 + own): this core reads and norms row 2p + own of each pair p, its partner (NOC x, y
+    // in runtime args 7, 8, same rows) the other. Compute pushes an empty page to c_6 once an own xn is in c_1; this
+    // core then bumps the partner's semaphore 0, waits for the partner's bump and copies the partner's xn out of its
+    // c_1 slot (the k-th row a core norms sits in slot k % 2 of the 2 x Kt ring, at the same L1 address on every
+    // core) into c_5. The partner norms into that slot again two pairs later, after projecting a row this core
+    // bumped for only once this copy had landed. x for the next pair is read before the handshake, so the norm of
+    // pair p + 1 never waits on it. Here and not in the writer: bf16 outputs are bound by the writer's DRAM writes.
+    const uint32_t own = lns - 2;
+    const uint64_t sem_far = get_noc_addr(get_arg_val<uint32_t>(7), get_arg_val<uint32_t>(8), get_semaphore(0));
+    const uint64_t xn_far = get_noc_addr(get_arg_val<uint32_t>(7), get_arg_val<uint32_t>(8), get_read_ptr(tt::CBIndex::c_1));
+    const uint32_t bytes = Kt * get_tile_size(tt::CBIndex::c_1);
+    volatile tt_l1_ptr uint32_t* sem = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(get_semaphore(0));
+    uint32_t got = 0;
+    if (own < nrows) read_rows(own, 1, 2);
+    for (uint32_t p = 0; 2 * p < nrows; ++p) {
+        if (2 * p + 2 + own < nrows) read_rows(2 * p + 2 + own, 1, 2);
+        if (2 * p + own < nrows) {
+            cb_wait_front(tt::CBIndex::c_6, 1);
+            cb_pop_front(tt::CBIndex::c_6, 1);
+            noc_semaphore_inc(sem_far, 1);
+        }
+        if (2 * p + 1 - own < nrows) {
+            noc_semaphore_wait_min(sem, ++got);
+            cb_reserve_back(tt::CBIndex::c_5, Kt);
+            noc_async_read(xn_far + ((got - 1) & 1) * bytes, get_write_ptr(tt::CBIndex::c_5), bytes);
+            noc_async_read_barrier();
+            cb_push_back(tt::CBIndex::c_5, Kt);
+        }
+    }
+}

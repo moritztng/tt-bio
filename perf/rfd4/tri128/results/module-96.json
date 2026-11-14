@@ -1,0 +1,109 @@
+{
+ "rows": [
+  {
+   "n": 96,
+   "module": "tri_mult_out",
+   "arm": "pair_bias_rms,pair_block,pair_mm,pair_mm_tr,pair_tail,pair_write_res,transition_b8,trimul_gin,trimul_gin_hifi2,trimul_gin_w8,trimul_t1,trimul_t1_dram,trimul_t1_psig,trimul_t1w8",
+   "took_residual": false,
+   "t2_served_declined": [
+    0,
+    0
+   ],
+   "ms": 0.834,
+   "p10_ms": 0.8177,
+   "rel_rms_vs_f64": 0.007573790541605232,
+   "max_abs_vs_f64": 0.018468778434370003,
+   "max_abs_vs_first": 0.0,
+   "t": "22:24:09"
+  },
+  {
+   "n": 96,
+   "module": "tri_mult_out",
+   "arm": "pair_bias_rms,pair_block,pair_mm,pair_mm_tr,pair_tail,pair_write_res,transition_b8,trimul_gin,trimul_gin_hifi2,trimul_gin_w8,trimul_t1,trimul_t1_dram,trimul_t1_psig,trimul_t1w8,pair_tail_small",
+   "took_residual": true,
+   "t2_served_declined": [
+    1,
+    0
+   ],
+   "ms": 0.8013,
+   "p10_ms": 0.7922,
+   "rel_rms_vs_f64": 0.008154536132121741,
+   "max_abs_vs_f64": 0.0167668254627511,
+   "max_abs_vs_first": 0.0126953125,
+   "t": "22:24:10"
+  },
+  {
+   "n": 96,
+   "module": "tri_mult_out",
+   "arm": "pair_bias_rms,pair_block,pair_mm,pair_mm_tr,pair_tail,pair_write_res,transition_b8,trimul_gin,trimul_gin_hifi2,trimul_gin_w8,trimul_t1,trimul_t1_dram,trimul_t1_psig,trimul_t1w8",
+   "took_residual": false,
+   "t2_served_declined": [
+    0,
+    0
+   ],
+   "ms": 0.8253,
+   "p10_ms": 0.8139,
+   "rel_rms_vs_f64": 0.007573790541605232,
+   "max_abs_vs_f64": 0.018468778434370003,
+   "max_abs_vs_first": 0.0,
+   "t": "22:24:10"
+  },
+  {
+   "n": 96,
+   "module": "tri_mult_in",
+   "arm": "pair_bias_rms,pair_block,pair_mm,pair_mm_tr,pair_tail,pair_write_res,transition_b8,trimul_gin,trimul_gin_hifi2,trimul_gin_w8,trimul_t1,trimul_t1_dram,trimul_t1_psig,trimul_t1w8",
+   "took_residual": false,
+   "t2_served_declined": [
+    0,
+    0
+   ],
+   "ms": 0.8207,
+   "p10_ms": 0.8142,
+   "rel_rms_vs_f64": 0.007679528769681686,
+   "max_abs_vs_f64": 0.022564659026429013,
+   "max_abs_vs_first": 0.0,
+   "t": "22:24:10"
+  },
+  {
+   "n": 96,
+   "module": "tri_mult_in",
+   "arm": "pair_bias_rms,pair_block,pair_mm,pair_mm_tr,pair_tail,pair_write_res,transition_b8,trimul_gin,trimul_gin_hifi2,trimul_gin_w8,trimul_t1,trimul_t1_dram,trimul_t1_psig,trimul_t1w8,pair_tail_small",
+   "took_residual": true,
+   "t2_served_declined": [
+    1,
+    0
+   ],
+   "ms": 0.7887,
+   "p10_ms": 0.7833,
+   "rel_rms_vs_f64": 0.008353909534243323,
+   "max_abs_vs_f64": 0.02574403600726849,
+   "max_abs_vs_first": 0.0125732421875,
+   "t": "22:24:10"
+  },
+  {
+   "n": 96,
+   "module": "tri_mult_in",
+   "arm": "pair_bias_rms,pair_block,pair_mm,pair_mm_tr,pair_tail,pair_write_res,transition_b8,trimul_gin,trimul_gin_hifi2,trimul_gin_w8,trimul_t1,trimul_t1_dram,trimul_t1_psig,trimul_t1w8",
+   "took_residual": false,
+   "t2_served_declined": [
+    0,
+    0
+   ],
+   "ms": 0.8214,
+   "p10_ms": 0.8136,
+   "rel_rms_vs_f64": 0.007679528769681686,
+   "max_abs_vs_f64": 0.022564659026429013,
+   "max_abs_vs_first": 0.0,
+   "t": "22:24:10"
+  }
+ ],
+ "aiclk": {
+  "0": {
+   "min": 1350,
+   "max": 1350,
+   "median": 1350,
+   "n": 1
+  }
+ },
+ "script": "perf/rfd4/tri128/module.py"
+}

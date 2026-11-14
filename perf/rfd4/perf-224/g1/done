@@ -1,0 +1,10 @@
+start chip 1 tree 37b597211 2026-10-23T22:56:44Z load 5.01
+ux rc=0 2026-10-23T22:57:11Z load 5.54
+n224-w5 rc=0 2026-10-23T23:01:23Z load 5.35
+n224-w10 rc=0 2026-10-23T23:05:44Z load 5.04
+n192-w7 rc=0 2026-10-23T23:09:12Z load 4.67
+n192-w14 rc=0 2026-10-23T23:13:00Z load 5.25
+designs done 2026-10-23T23:13:00Z load 5.25
+quality c224 rc=0 binder: PASS (5 metrics graded) -> /home/ttuser/scratch/rfd4-224/g1/quality-c224.json 2026-10-23T23:13:12Z load 5.14
+quality c192 rc=0 binder: PASS (5 metrics graded) -> /home/ttuser/scratch/rfd4-224/g1/quality-c192.json 2026-10-23T23:13:25Z load 4.88
+ALLDONE 2026-10-23T23:13:25Z load 4.88

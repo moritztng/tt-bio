@@ -43,6 +43,7 @@ ALLOWED_DIRS = {
     "perf",          # every measurement artifact; see perf/README.md
     "site",          # tt-bio.com
     "site-redirect", # the old tt-boltz domain
+    "site-contact",  # the tt-bio.com contact form Worker, deployed by scripts/deploy_site.sh
     ".github",
 }
 

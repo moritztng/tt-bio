@@ -34,7 +34,8 @@ def reported_bytes(p, **kw) -> int:
 
 
 def fits(p, **kw) -> bool:
-    return cb_fits_l1(p, **kw)
+    """Against Blackhole's budget whatever host asks: every row above was measured on a p150a."""
+    return cb_fits_l1(p, wormhole=False, **kw)
 
 
 def plan_for(seq, heads, head_dim, q_chunk, k_chunk, grid=(11, 10), split=None):

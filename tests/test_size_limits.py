@@ -1037,3 +1037,17 @@ def test_oom_summary_reads_the_last_refusal_not_the_first():
     one that ended the run."""
     assert "chip is full" in sl.describe_device_oom(_FRAGMENTED + "\nretrying\n" + _FULL)
     assert "fragmentation" in sl.describe_device_oom(_FULL + "\nretrying\n" + _FRAGMENTED)
+
+
+@_needs_ccd
+def test_a_ccd_code_newer_than_the_mols_library_is_counted_from_the_models_table(tmp_path, monkeypatch):
+    """YKX is in Mol-1's CCD table and not in `mols`; the featurizer builds its 53 heavy atoms from the table, so
+    the gate counts them. A model without a table still scores it 0 (its featurizer refuses the code)."""
+    from tt_bio.protenix_data import load_conformer_table
+    table = load_conformer_table(Path(__file__).parent / "data" / "mol1_io" / "ccd_conformers_golden.npz")
+    q = _yaml(tmp_path, "new.yaml",
+              "sequences:\n  - protein: {id: A, sequence: MKTAYIAK}\n  - ligand: {id: L, ccd: YKX}\n"
+              "  - ligand: {id: M, ccd: BTN}\n")
+    monkeypatch.setattr(sl, "_ccd_table", lambda model: table if model == "mol1" else None)
+    assert sl.scan_ligand_atoms(q, "mol1") == 53 + 16
+    assert sl.scan_ligand_atoms(q, "protenix-v2") == sl.scan_ligand_atoms(q) == 16

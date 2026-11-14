@@ -1,0 +1,105 @@
+[tt_bio.bindcraft2] BindCraft 2 is the authors' software under their own licence, which restricts hosting it for others: https://github.com/PacesaLab/BindCraft2/blob/main/LICENSE
+perf/bc2_memory/boundary.py:138: FutureWarning: `torch.distributed.reduce_op` is deprecated, please use `torch.distributed.ReduceOp` instead
+  "trunks_alive": sum(isinstance(o, bindcraft2._Trunk) for o in gc.get_objects()),
+/home/ttuser/.coworker/wt/bci-memory/perf/bc2_memory/census.py:105: FutureWarning: `torch.distributed.reduce_op` is deprecated, please use `torch.distributed.ReduceOp` instead
+  if isinstance(r, ttnn.Tensor):
+[bc2_memory]   open traj 0: held 0.000 GiB, free 31.875 GiB, largest 4080.0 MB/bank, loads 0, _WT 0
+[tt_bio.bindcraft2] a trajectory is also ended mid-design by the per-stage gates, which the campaign's own `filters` line does not list: screen pLDDT >= 0 (min_plddt_screen), refine pLDDT >= 0 (min_plddt_refine), anneal i_pTM >= 0 (min_iptm_anneal), anneal pLDDT >= 0 (min_plddt_anneal), harden i_pTM >= 0 (min_iptm_harden), harden pLDDT >= 0 (min_plddt_harden), mutate i_pTM >= 0 (min_iptm_mutate), mutate pLDDT >= 0 (min_plddt_mutate), final i_pTM >= 0.7 (min_iptm_final), final monomer pLDDT >= 0.7 (min_monomer_plddt_final), final pLDDT >= 0.7 (min_plddt_final). A trajectory that misses one is charged against the budget and counted under `terminated`, and the rejection names the metric (i_pTM/monomer pLDDT/pLDDT), not the setting.
+BindCraft 2 v1.0.3
+campaign pdl1
+binder length 224
+target hPDL1 (target) | 115 residues | hotspots 54,56,66,115
+losses binder_contacts=1.0 binder_helicity=-0.3 binder_pae=0.4 compactness=0.5 interface_contacts=1.0 interface_pae=0.1 iptm_loss=0.05 plddt_loss=0.1
+filters Backbone_Clashes <= 0, Binder_RMSD <= 3.5, Interface_Residues >= 7, Unbound_Binder_pLDDT >= 0.7, i_pAE <= 0.35, i_pTM >= 0.7, pTM >= 0.55
+results /tmp/bc2mem_long | 3_Ranked/!_Ranked.csv rewritten as each design is accepted | summary.csv written when the campaign ends
+trajectory-only: no ProteinMPNN redesign, no design will be accepted; stopping at max_trajectories=8
+
+=== trajectory 1 | pdl1_denovo_l224_e4498621ca16ec5f | accepted 0/10 ===
+perf/bc2_memory/boundary.py:138: FutureWarning: `torch.distributed.reduce_op` is deprecated, please use `torch.distributed.ReduceOp` instead
+  "trunks_alive": sum(isinstance(o, bindcraft2._Trunk) for o in gc.get_objects()),
+/home/ttuser/.coworker/wt/bci-memory/perf/bc2_memory/census.py:105: FutureWarning: `torch.distributed.reduce_op` is deprecated, please use `torch.distributed.ReduceOp` instead
+  if isinstance(r, ttnn.Tensor):
+[bc2_memory] before traj 1: held 0.000 GiB, free 31.875 GiB, largest 4080.0 MB/bank, loads 0, _WT 0
+  passed screen design stage  i_pTM=0.84    pLDDT=0.88  
+  passed refine design stage  i_pTM=0.85    pLDDT=0.86  
+  passed anneal design stage  i_pTM=0.87    pLDDT=0.92  
+  passed harden design stage  i_pTM=0.73    pLDDT=0.72  
+  passed mutate design stage  i_pTM=0.78    pLDDT=0.7   
+  binder hallucination successful
+[bc2_memory]  after traj 1: held 1.155 GiB, free 30.720 GiB, largest 3755.0 MB/bank, loads 106, _WT 0
+
+=== trajectory 2 | pdl1_denovo_l224_8b6fb604f7518cd3 | accepted 0/10 ===
+[bc2_memory] before traj 2: held 1.155 GiB, free 30.720 GiB, largest 3755.0 MB/bank, loads 106, _WT 0
+  passed screen design stage  i_pTM=0.81    pLDDT=0.82  
+  passed refine design stage  i_pTM=0.83    pLDDT=0.85  
+  passed anneal design stage  i_pTM=0.83    pLDDT=0.87  
+  passed harden design stage  i_pTM=0.79    pLDDT=0.85  
+  passed mutate design stage  i_pTM=0.25    pLDDT=0.67  
+  trajectory rejected  i_pTM=0.25    pLDDT=0.67   due to [i_pTM, pLDDT]
+[bc2_memory]  after traj 2: held 1.657 GiB, free 30.218 GiB, largest 3755.0 MB/bank, loads 217, _WT 0
+
+=== trajectory 3 | pdl1_denovo_l224_923dde3c760edfc5 | accepted 0/10 ===
+[bc2_memory] before traj 3: held 1.657 GiB, free 30.218 GiB, largest 3755.0 MB/bank, loads 217, _WT 0
+  passed screen design stage  i_pTM=0.79    pLDDT=0.79  
+  passed refine design stage  i_pTM=0.86    pLDDT=0.74  
+  passed anneal design stage  i_pTM=0.86    pLDDT=0.78  
+  passed harden design stage  i_pTM=0.85    pLDDT=0.73  
+  passed mutate design stage  i_pTM=0.86    pLDDT=0.7   
+  binder hallucination successful
+[bc2_memory]  after traj 3: held 1.155 GiB, free 30.720 GiB, largest 3755.0 MB/bank, loads 333, _WT 0
+
+=== trajectory 4 | pdl1_denovo_l224_21141202533134cc | accepted 0/10 ===
+[bc2_memory] before traj 4: held 1.155 GiB, free 30.720 GiB, largest 3755.0 MB/bank, loads 333, _WT 0
+  passed screen design stage  i_pTM=0.82    pLDDT=0.82  
+  passed refine design stage  i_pTM=0.2     pLDDT=0.62  
+  passed anneal design stage  i_pTM=0.44    pLDDT=0.8   
+  passed harden design stage  i_pTM=0.69    pLDDT=0.77  
+  passed mutate design stage  i_pTM=0.17    pLDDT=0.7   
+  trajectory rejected  i_pTM=0.17    pLDDT=0.7    due to [i_pTM]
+[bc2_memory]  after traj 4: held 1.657 GiB, free 30.218 GiB, largest 3755.0 MB/bank, loads 446, _WT 0
+
+=== trajectory 5 | pdl1_denovo_l224_db7dd17875721d82 | accepted 0/10 ===
+[bc2_memory] before traj 5: held 1.657 GiB, free 30.218 GiB, largest 3755.0 MB/bank, loads 446, _WT 0
+  passed screen design stage  i_pTM=0.7     pLDDT=0.69  
+  passed refine design stage  i_pTM=0.6     pLDDT=0.5   
+  passed anneal design stage  i_pTM=0.58    pLDDT=0.63  
+  passed harden design stage  i_pTM=0.13    pLDDT=0.52  
+  passed mutate design stage  i_pTM=0.23    pLDDT=0.42  
+  trajectory rejected  i_pTM=0.23    pLDDT=0.42   due to [i_pTM, pLDDT]
+[bc2_memory]  after traj 5: held 1.406 GiB, free 30.469 GiB, largest 3726.7 MB/bank, loads 561, _WT 0
+
+=== trajectory 6 | pdl1_denovo_l224_2d8447c995348b64 | accepted 0/10 ===
+[bc2_memory] before traj 6: held 1.406 GiB, free 30.469 GiB, largest 3726.7 MB/bank, loads 561, _WT 0
+  passed screen design stage  i_pTM=0.83    pLDDT=0.71  
+  passed refine design stage  i_pTM=0.42    pLDDT=0.69  
+  passed anneal design stage  i_pTM=0.75    pLDDT=0.82  
+  passed harden design stage  i_pTM=0.64    pLDDT=0.76  
+  passed mutate design stage  i_pTM=0.71    pLDDT=0.79  
+  binder hallucination successful
+[bc2_memory]  after traj 6: held 1.406 GiB, free 30.469 GiB, largest 3725.7 MB/bank, loads 679, _WT 0
+
+=== trajectory 7 | pdl1_denovo_l224_ad34a16e4166467e | accepted 0/10 ===
+[bc2_memory] before traj 7: held 1.406 GiB, free 30.469 GiB, largest 3725.7 MB/bank, loads 679, _WT 0
+  passed screen design stage  i_pTM=0.89    pLDDT=0.85  
+  passed refine design stage  i_pTM=0.88    pLDDT=0.87  
+  passed anneal design stage  i_pTM=0.87    pLDDT=0.91  
+  passed harden design stage  i_pTM=0.86    pLDDT=0.59  
+  passed mutate design stage  i_pTM=0.87    pLDDT=0.6   
+  trajectory rejected  i_pTM=0.87    pLDDT=0.6    due to [pLDDT]
+[bc2_memory]  after traj 7: held 1.155 GiB, free 30.720 GiB, largest 3755.0 MB/bank, loads 787, _WT 0
+
+=== trajectory 8 | pdl1_denovo_l224_f3f089410478a1dd | accepted 0/10 ===
+[bc2_memory] before traj 8: held 1.155 GiB, free 30.720 GiB, largest 3755.0 MB/bank, loads 787, _WT 0
+  passed screen design stage  i_pTM=0.74    pLDDT=0.75  
+  passed refine design stage  i_pTM=0.7     pLDDT=0.64  
+  passed anneal design stage  i_pTM=0.81    pLDDT=0.76  
+  passed harden design stage  i_pTM=0.76    pLDDT=0.71  
+  passed mutate design stage  i_pTM=0.31    pLDDT=0.43  
+  trajectory rejected  i_pTM=0.31    pLDDT=0.43   due to [i_pTM, pLDDT]
+[bc2_memory]  after traj 8: held 1.155 GiB, free 30.720 GiB, largest 3755.0 MB/bank, loads 875, _WT 0
+
+campaign stopped: 8 trajectories ran and none were accepted, so the settings rather than the budget are what to change
+
+campaign done: 0 accepted design(s) after 8 trajectories, ranked by i_pDAE
+[bc2_memory]    end traj 8: held 1.155 GiB, free 30.720 GiB, largest 3755.0 MB/bank, loads 875, _WT 0
+[bc2_memory] end: gc.collect freed 0.270 GB, pair_mm.forget then freed 0.000 GB; completed; CLOCK: dev0 min 1281 / median 1350 / max 1350 MHz over 2437 samples, polled DURING the work

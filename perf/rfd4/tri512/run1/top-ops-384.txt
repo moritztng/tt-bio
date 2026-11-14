@@ -1,0 +1,16 @@
+tri_mult_in      GenericOpDeviceOperation                   3.744 s  floor  2.452  x1.53  186.2 GB/s 53.7 TF/s
+tri_mult_out     GenericOpDeviceOperation                   3.718 s  floor  2.452  x1.52  187.4 GB/s 54.04 TF/s
+pair_relu        GenericOpDeviceOperation                   1.725 s  floor  1.566  x1.1  88.4 GB/s 127.09 TF/s
+attention        SDPAOperation                              0.619 s  floor  0.034  x18.15  24.0 GB/s 1.85 TF/s
+pair_bias        GenericOpDeviceOperation                   0.465 s  floor  0.241  x1.93  226.3 GB/s None TF/s
+outer_residual   GenericOpDeviceOperation                   0.393 s  floor  0.349  x1.12  388.1 GB/s None TF/s
+token_transition MatmulDeviceOperation                      0.354 s  floor  0.133  x2.66  163.7 GB/s 38.68 TF/s
+attention        MatmulDeviceOperation                      0.209 s  floor  0.068  x3.07  142.0 GB/s 27.25 TF/s
+cast             TypecastDeviceOperation                    0.191 s  floor  0.146  x1.31  334.6 GB/s None TF/s
+recycle          MatmulDeviceOperation                      0.140 s  floor  0.063  x2.21  197.0 GB/s 37.78 TF/s
+pass_glue split 2.172 s
+  pair_relu       GenericOpDeviceOperation               1.725 s x7  floor  1.566  88.4 GB/s  input_0 1x384x384x384 BFLOAT8_B ; input_1 1x1x384x768 BFLOAT8_B ; input_2 1x1x768x384 BFLOAT8_B ; input_3 1x1x
+  outer_residual  GenericOpDeviceOperation               0.393 s x7  floor  0.349  388.1 GB/s  input_0 1x384x384x384 BFLOAT8_B ; input_1 1x1x384x384 BFLOAT16 ; input_2 1x1x384x384 BFLOAT16 ; input_3 1x384x
+  pair_factors    MatmulDeviceOperation                  0.029 s x14  floor  0.009  129.0 GB/s  input_0 1x1x384x768 BFLOAT16 ; input_1 1x1x768x384 BFLOAT16 ; output_0 1x1x384x384 BFLOAT16
+  pair_factors    LayerNormDeviceOperation               0.024 s x7  floor  0.003  61.1 GB/s  input_0 1x1x384x768 BFLOAT16 ; input_1 1x1x1x768 BFLOAT16 ; input_2 1x1x1x768 BFLOAT16 ; output_0 1x1x384x768 
+  pass_glue       LayerNormDeviceOperation               0.001 s x1  floor  0.000  63.3 GB/s  input_0 1x1x384x256 BFLOAT16 ; output_0 1x1x384x256 BFLOAT16

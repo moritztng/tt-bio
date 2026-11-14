@@ -1,0 +1,7 @@
+Linux 35adc7532965 6.8.0-139-generic #139-Ubuntu SMP PREEMPT_DYNAMIC Sat Aug  1 03:52:05 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux
+256
+               total        used        free      shared  buff/cache   available
+Mem:            1007         401          49          28         595         605
+Swap:              0           0           0
+Filesystem      Size  Used Avail Use% Mounted on
+overlay         200G   41G  160G  21% /

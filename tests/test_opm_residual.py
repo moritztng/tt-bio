@@ -1,7 +1,7 @@
 """`OuterProductMean(..., residual=z)` is `z + OuterProductMean(...)`, bit for bit, whole and blocked.
 
 The Protenix/OpenDDE MSA block adds the OPM update to z3 through the op itself, so a row-blocked
-update adds each block to its own rows and frees the old z3 at the join. At 1536 tokens and
+update writes each block into its own rows of z3, with no join. At 1536 tokens and
 c_z=384 the residual, a whole OPM output and their sum were three 1811939328 B buffers at once.
 """
 import pytest
@@ -50,7 +50,9 @@ def test_residual_is_the_callers_add(dev, rows, chunked):
         T._OPM_DRAM_ROW_CAP.clear()
     assert tuple(out.shape) == (1, N, N, C_Z)
     assert torch.equal(ttnn.to_torch(out), ref)
-    assert z.is_allocated() == (not rows)             # a blocked join consumes the residual
+    assert z.is_allocated()
+    if rows:                                          # a blocked join writes the sum into z itself
+        assert torch.equal(ttnn.to_torch(z), ref)
 
 
 def test_parked_chunks_are_the_device_chunks(dev):

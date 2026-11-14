@@ -32,6 +32,7 @@ _HEAD = f"version: 1\nsequences:\n  - protein:\n      id: A\n      sequence: {SE
 #: constraint refusal.
 INPUTS: dict[str, str] = {
     "ligand": _HEAD + "  - ligand:\n      id: B\n      ccd: ATP\n",
+    "ligand_file": _HEAD + "  - ligand:\n      id: B\n      file: /nonexistent/lig.sdf\n",
     "rna": _HEAD + "  - rna:\n      id: R\n      sequence: GAUC\n",
     "dna": _HEAD + "  - dna:\n      id: D\n      sequence: GATC\n",
     "cyclic": _HEAD + "      cyclic: true\n",
@@ -47,6 +48,8 @@ INPUTS: dict[str, str] = {
     "pocket": _HEAD + ("constraints:\n  - pocket:\n      binder: A\n"
                        "      contacts: [[A, 5]]\n"),
     "affinity": _HEAD + "properties:\n  - affinity:\n      binder: A\n",
+    "constraint": _HEAD + ("constraint:\n  contact:\n    - {entity1: 1, position1: 5, "
+                           "entity2: 1, position2: 9}\n"),
 }
 
 PLAIN = _HEAD
@@ -91,9 +94,13 @@ def test_every_shipped_model_has_a_row():
 def test_boltz2_honours_the_whole_input_language():
     """The negative control for the table: if every row were REFUSED the cross product below
     would still pass. Boltz-2 has the upstream parser, the constraint embedder, the template
-    pipeline and the affinity head. The one refusal is the per-chain template npz, which its
-    parser never reads; it takes the same template as a structure file."""
-    assert {f for f, v in CAPABILITY["boltz2"].items() if v != HONOURED} == {"templates"}
+    pipeline and the affinity head. It refuses the per-chain template npz, which its parser
+    never reads (it takes the same template as a structure file), and OpenDDE's guided
+    `constraint:` block; its own binding constraints are `constraints: pocket/contact`, not Mol-1-constraint's
+    `site`/`contact`/`exclusion` conditions. A ligand from a 3D file is upstream Protenix's `FILE_` input, which
+    only that featurizer reads."""
+    assert {f for f, v in CAPABILITY["boltz2"].items() if v != HONOURED} == \
+        {"templates", "constraint", "ligand_file", "condition"}
 
 
 @pytest.mark.parametrize("model", sorted(CAPABILITY))
@@ -221,6 +228,19 @@ def test_a_cyclic_refusal_says_what_was_measured():
             assert "1.33 A" in why, m
 
 
+def _path_source(name):
+    """Source of a predict path. OF3's host featurization lives in `openfold3_host_inputs`,
+    which `_predict_openfold3_one` calls and RFD4's beam-search oracle shares, so that is
+    where its input handling is read."""
+    from tt_bio import worker
+
+    if name == "_predict_openfold3_one":
+        assert "openfold3_host_inputs(path, cfg" in inspect.getsource(
+            worker._WorkerState._predict_openfold3_one), "OF3 stopped featurizing through the helper"
+        return inspect.getsource(worker.openfold3_host_inputs)
+    return inspect.getsource(getattr(worker._WorkerState, name))
+
+
 def test_every_predict_path_calls_check_capabilities():
     """A check a path does not call is not a guard, and a missing call is exactly how the
     ESMFold2 cyclic hole sat unnoticed."""
@@ -228,7 +248,7 @@ def test_every_predict_path_calls_check_capabilities():
 
     for method in ("_predict_esmfold2_one", "_predict_opendde_one", "_protenix_inputs",
                    "_predict_rf3_one", "_predict_openfold3_one", "_predict_af2ig_one"):
-        src = inspect.getsource(getattr(_WorkerState, method))
+        src = _path_source(method)
         assert "check_capabilities(path, chains," in src, f"{method} does not call check_input"
     # protenix-v1/v2 reach it one level down, through the shared input builder.
     assert "self._protenix_inputs(" in inspect.getsource(_WorkerState._predict_protenix_one)
@@ -271,7 +291,7 @@ def test_cyclic_and_bond_reach_every_path_that_honours_them():
              "_predict_openfold3_one": ("bonds=_read_bio_constraints(path), "
                                         "cyclic=_read_cyclic(path)",)}
     for method, needles in reads.items():
-        src = inspect.getsource(getattr(_WorkerState, method))
+        src = _path_source(method)
         for needle in needles:
             assert needle in src, f"{method} no longer reads {needle}"
     # af2ig is here for a different reason than the other two: it has no constraints reader
@@ -290,7 +310,7 @@ def test_modifications_reach_every_featurizer_that_honours_them():
     for name in ("_predict_opendde_one", "_protenix_inputs"):
         assert "modifications=[mods" in inspect.getsource(getattr(_WorkerState, name)), \
             f"{name} builds features without the chain's modifications"
-    of3 = inspect.getsource(_WorkerState._predict_openfold3_one)
+    of3 = _path_source("_predict_openfold3_one")
     assert '"non_canonical_residues": ({m["position"]' in of3, \
         "the OF3 query stopped carrying non_canonical_residues"
     assert '"seq": _rf3_sequence(cseq, mods)' in inspect.getsource(
@@ -350,7 +370,10 @@ def test_no_flag_is_reported_when_none_was_passed():
 
 
 def test_boltz2_reads_every_output_flag():
-    assert unread_flags("boltz2", ALL_FLAGS) == []
+    # --diffusion_precision is a Protenix build option and the TFG flags are OpenDDE sampler
+    # options, not output flags.
+    sampler = {"--diffusion_precision": False, "--use_tfg_guidance": False, "--trunk_cache": False}
+    assert unread_flags("boltz2", {**ALL_FLAGS, **sampler}) == []
 
 
 def test_every_reason_names_a_model_that_exists():
@@ -414,7 +437,7 @@ def test_the_cap_reaches_every_msa_path():
     assert 'cfg.get("msa_cap")' in inspect.getsource(worker._build_chain_specs), \
         "protenix/opendde chain specs no longer apply the cap"
     for name in ("_predict_rf3_one", "_predict_openfold3_one"):
-        assert 'cfg.get("msa_cap")' in inspect.getsource(getattr(_WorkerState, name)), \
+        assert 'cfg.get("msa_cap")' in _path_source(name), \
             f"{name} no longer applies the cap"
     assert 'cfg.get("msa_cap")' in inspect.getsource(worker._paired_a3ms), \
         "the protenix/opendde paired MSA is no longer capped"

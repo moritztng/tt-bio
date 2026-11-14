@@ -117,9 +117,18 @@ def test_single_sequence_conflicts_error(kwargs, tmp_path):
         resolve("protenix-v2", single_sequence=True, cache=str(tmp_path), **kwargs)
 
 
-def test_controller_skips_local_db(tmp_path, capsys):
-    """In --controller mode the submitter picks no DB for the workers, which resolve
-    their own: fall back online rather than auto-detecting a local DB."""
+@pytest.mark.parametrize("url", ["http://127.0.0.1:8765", "http://localhost:8765"])
+def test_a_controller_on_this_host_uses_the_local_db(url, tmp_path, capsys):
+    """The submitting process searches every MSA before a chip is leased, so a run on this
+    host's controller uses this host's DB; it used to skip it and send every sequence to the
+    online server."""
+    _ready_db(tmp_path)
+    assert resolve("boltz2", cache=str(tmp_path), controller=url) == (False, str(tmp_path / "msa_db"))
+    assert URL not in capsys.readouterr().out
+
+
+def test_a_controller_on_another_host_skips_local_db(tmp_path, capsys):
+    """Its workers may not have this path: fall back online, as before."""
     _ready_db(tmp_path)
     assert resolve("boltz2", cache=str(tmp_path), controller="http://host:8765") == (True, None)
     assert URL in capsys.readouterr().out

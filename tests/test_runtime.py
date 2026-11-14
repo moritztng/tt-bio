@@ -46,6 +46,18 @@ def test_num_devices_and_default(two_cards):
     assert runtime.detect_tenstorrent_devices(None, 0, max_workers=1) == [0]  # max_workers cap honored
 
 
+def test_ids_are_dense_umd_indices_when_nodes_have_holes(monkeypatch):
+    # .114 after a PCIe error: nodes 0-1 and 3 present, node 2 gone; UMD still numbers 0-2.
+    monkeypatch.setattr(runtime.glob, "glob", lambda pat: [
+        "/dev/tenstorrent/0", "/dev/tenstorrent/1", "/dev/tenstorrent/3"])
+    monkeypatch.setattr(runtime, "tt_bdf_to_index",
+                        lambda: {"0000:01:00.0": 0, "0000:02:00.0": 1, "0000:03:00.0": 2})
+    monkeypatch.setenv("TT_VISIBLE_DEVICES", "2")
+    assert runtime.detect_tenstorrent_devices(None, 0, max_workers=10) == [2]
+    monkeypatch.delenv("TT_VISIBLE_DEVICES")
+    assert runtime.detect_tenstorrent_devices(None, 0, max_workers=10) == [0, 1, 2]
+
+
 def test_duplicate_stem_inputs_rejected(tmp_path):
     (tmp_path / "target.fasta").write_text(">A|protein\nMK\n")
     (tmp_path / "target.yaml").write_text("sequences: []\n")

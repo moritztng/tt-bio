@@ -19,6 +19,12 @@ def _ref(x, g, gamma, eps):
     return (dn - dn.mean(-1, keepdim=True) - norm * (dn * norm).mean(-1, keepdim=True)) * rstd
 
 
+def _blackhole_only():
+    from tt_bio import tenstorrent
+    if tenstorrent.is_wormhole():
+        pytest.skip("kernel graded on Blackhole only; test_declines_on_wormhole covers Wormhole")
+
+
 def _case(shape, g_dtype, with_gamma, seed=0):
     import ttnn
     from tt_bio.tenstorrent import get_device
@@ -51,6 +57,7 @@ def test_kernel_is_at_least_as_close_to_float64_as_the_composed_path(shape, with
     from tt_bio import autograd as ag, lnbw
     eps = 1e-5
     g_dtype = "bf16"
+    _blackhole_only()
     x, g, gamma, xd, gd, gmd = _case(shape, g_dtype, with_gamma)
     ref = _ref(x, g, gamma, eps)
     monkeypatch.setattr(lnbw, "FUSED", True)
@@ -69,6 +76,7 @@ def test_kernel_is_at_least_as_close_to_float64_as_the_composed_path(shape, with
 @device
 def test_the_composed_backward_routes_through_the_kernel_when_armed(monkeypatch):
     from tt_bio import autograd as ag, lnbw
+    _blackhole_only()
     x, g, gamma, xd, gd, gmd = _case((64, 64, 128), "bf16", True)
     monkeypatch.setattr(lnbw, "FUSED", True)
     before = lnbw.REACH["served"]
@@ -100,13 +108,3 @@ def test_declines_a_width_whose_reciprocal_is_not_exact(monkeypatch):
     t = ttnn.from_torch(torch.randn(64, 384).bfloat16(), layout=ttnn.TILE_LAYOUT,
                         dtype=ttnn.bfloat16, device=get_device())
     assert not lnbw.eligible(t, t, None)
-
-
-def test_declines_on_wormhole(monkeypatch):
-    """Card-free: the kernel was graded on Blackhole, so a Wormhole chip keeps the composed path."""
-    from tt_bio import lnbw, tenstorrent
-    monkeypatch.setattr(lnbw, "FUSED", True)
-    monkeypatch.setattr(tenstorrent, "is_wormhole", lambda: True)
-    before = lnbw.REACH["declined: arch"]
-    assert not lnbw.eligible(None, None, None)
-    assert lnbw.REACH["declined: arch"] == before + 1

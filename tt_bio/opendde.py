@@ -17,10 +17,13 @@ device.
 import torch
 import ttnn
 
-from .protenix import _KeyedWeights
+from .protenix import (NORMAL_LEVERS as _FAMILY_NORMAL, BRES_NORMAL, T1_PSIG, T2_TAIL, TRIATT_K1, TRIATT_LN, TRIATT_LN_B8_FAST,
+                       WS_CHAIN, WS_FAST, _KeyedWeights)
+from . import hostlane
 from .envflags import env_flag
 from .opendde_data import STRUCTURAL_TOKEN_ROLES
-from .tenstorrent import _acc_concat, concat_host_bytes, dram_peak, get_device
+from . import tenstorrent as _T
+from .tenstorrent import _acc_concat, concat_host_bytes, dram_peak, get_device, under_levers
 
 _BACKBONE = (STRUCTURAL_TOKEN_ROLES["protein_bb"],
              STRUCTURAL_TOKEN_ROLES["dna_bb"],
@@ -114,7 +117,61 @@ class StructuralTokenExpander(_KeyedWeights):
             cache[(key, "emb_fp32")] = v
         return v
 
+    _PIB_TABLES = (("same_parent_embedding.weight", "same_parent_residue", 2),
+                   ("same_residue_twin_embedding.weight", "same_residue_twin", 2),
+                   ("prev_bb_chain_embedding.weight", "prev_bb_chain", 2),
+                   ("next_bb_chain_embedding.weight", "next_bb_chain", 2),
+                   ("role_pair_type_embedding.weight", "role_pair_type", 8))
+
+    @classmethod
+    def _pib_joint(cls, weights):
+        """(128, c_z) bf16: row j is the fp32 sum, in table order, of the five
+        rows that joint index j (`_pib_index`) selects, rounded once."""
+        acc = None
+        for w, (_, _, n) in zip(weights, cls._PIB_TABLES):
+            w = w.float()[:n]
+            acc = w if acc is None else (acc[:, None, :] + w[None, :, :]).reshape(-1, w.shape[-1])
+        return acc.to(torch.bfloat16)
+
+    @classmethod
+    def _pib_index(cls, pf):
+        idx = None
+        for _, ikey, n in cls._PIB_TABLES:
+            v = pf[ikey].long()
+            idx = v if idx is None else idx * n + v
+        return idx
+
     def _pair_init_bias(self, pf):
+        """Sum of the five additive pair-init embeddings as ONE row gather. The
+        five indices take 2*2*2*2*8 = 128 joint values, so the host sums the five
+        table rows of every joint value in fp32 in the old order and rounds once
+        to bf16 (the same IEEE fp32 adds + RNE cast as _pair_init_bias_where and
+        the host gather before it), and the device gathers rows of that (128, c_z)
+        bf16 table by one combined index per pair. Replaces 16 eq + 16 where +
+        4 fp32 adds over (clen, Ns, c_z) per chunk (fr 0.08 on WH, 15.4 ms/chunk
+        on the OpenDDE census). Gathered row-major and reshaped before tilize,
+        like the z gather in __call__; a TILE reshape on Ns=249 is what
+        corrupted 6c3f5ecaf."""
+        if _T.lever("pib_where"):
+            return self._pair_init_bias_where(pf)
+        cache = self.__dict__.setdefault("_wc", {})
+        tab = cache.get("pib_joint")
+        if tab is None:
+            tab = ttnn.from_torch(self._pib_joint([self._w[k] for k, _, _ in self._PIB_TABLES]),
+                                  layout=ttnn.ROW_MAJOR_LAYOUT,
+                                  device=get_device(), dtype=ttnn.bfloat16)
+            cache["pib_joint"] = tab
+        clen, Ns = pf["role_pair_type"].shape
+        idx = self._pib_index(pf)
+        g = ttnn.embedding(
+            ttnn.from_torch(idx.reshape(1, -1).to(torch.int32), layout=ttnn.ROW_MAJOR_LAYOUT,
+                            device=get_device(), dtype=ttnn.uint32),
+            tab, layout=ttnn.ROW_MAJOR_LAYOUT, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+        g = ttnn.to_layout(ttnn.reshape(g, (clen, Ns, self.c_z)), ttnn.TILE_LAYOUT)
+        dt = getattr(self, "dtype", ttnn.bfloat16)
+        return g if dt == ttnn.bfloat16 else ttnn.typecast(g, dt)
+
+    def _pair_init_bias_where(self, pf):
         """Sum of the five additive pair-init embeddings, on device. Each table
         lookup is a where-chain row select in fp32 (pure selection, no
         arithmetic, so the row comes through exactly), the five results add in
@@ -315,6 +372,8 @@ class StructuralTokenExpander(_KeyedWeights):
 # ---------------------------------------------------------------------------
 
 OPENDDE_REPO = "aurekaresearch/OpenDDE"
+# Alignment rows each recycling cycle reads (upstream config/data.py msa.msa_depth).
+MSA_DEPTH = 1280
 
 # Measured from opendde.pt (opendde_v1, 656M; config/model_base.py + weight shapes,
 # 2026-07-12). NOTE these correct the earlier "dims match Protenix-v2 exactly" note:
@@ -374,13 +433,198 @@ def route_opendde_weights(state_dict):
     return dict(expander=exp, refiner=refiner, refiner_blocks=nb, shared=shared)
 
 
+# --fast: the shared fast set (transition_ws included: OpenDDE fast grade PASS on Wormhole and Blackhole, 11-set)
+# without dit_b8. Wormhole 11-set, 44 paired cold folds at 1000 MHz (spd-fastmode ddb/ddc, 2026-10-13): fast vs exact
+# CA-lDDT -0.0248 [-0.0339, -0.0158], fast minus dit_b8 -0.0016 [-0.0035, +0.0005] (same-seed top pose 1.71 -> 0.79 A,
+# A/A floor 1.34 A); dropping each other diffusion lever left the drop in place. dit_b8 buys ~2.5 s of a 255 s fold.
+# trimul_b8in + trimul_t2w: Wormhole 11-set fast grade, fast vs fast+both, 44 paired folds (spd-gap-small gstk,
+# 2026-10-13): PASS, same-seed top pose median 0.327 A against the 0.60 A bar (A/A floor 1.316 A), CA-lDDT
+# +0.0016 [+0.0001, +0.0039]. OpenDDE WH fast 512 x 1 121.4 -> 106.1 s with ws_resid. Protenix-v2 and Boltz-2 fast
+# read null (their c256 / c128 pair shapes miss both routes), so they stay off the shared set.
+# Both modes take ws_chain (graded on Wormhole, see protenix.WS_CHAIN). Blackhole 11-set grades, shipped set vs
+# + ws_chain (spd-gap-small gwchbh, 2026-10-15): fast PASS, top pose median 0.369 A vs the 1.277 A A/A floor (39
+# paired folds); normal FAIL, DockQ worse with the CI excluding 0 ([-0.0286, -0.0012], 44 paired folds, docking 25 -> 24),
+# so Blackhole normal runs without it (`BH_NORMAL_LEVERS`).
+# Wormhole normal also takes the T2 tail (protenix.T2_TAIL). WH 11-set normal grade, shipped set vs + T2_TAIL
+# (spd-integrate gpsn, 2026-10-17, 8 seeds, 85 paired folds): PASS, same-seed top pose median 0.000 A (A/A floor
+# 1.201 A), CA-lDDT +0.0001 [-0.0003, +0.0006], DockQ -0.0022 [-0.0110, +0.0046], docking 50 -> 49 of 85. cdk2x2 512 x 1
+# at 1000 MHz: 112.17 -> 108.46 s (-3.3 %); trimul_t2 itself declines c_z 384, t2cm and t2w carry the saving.
+# Wormhole normal also takes ws_resid + ws_resid2: the transition adds z into its last hidden chunk's fp32 dest, so the
+# residual add_ pass goes. WH 11-set normal grade, shipped set vs + both (spd-m-opendde rr2g, 2026-10-18, seeds 109-112,
+# 44 paired folds): PASS, same-seed top pose median 0.183 A (A/A floor 1.320 A), CA-lDDT -0.0003 [-0.0007, +0.0001].
+# cdk2x2 x 1 at 1000 MHz: normal 512 -0.56 s, 576 -1.59 s.
+# Wormhole normal also takes trimul_bres (protenix.BRES_NORMAL), bit-exact: Galaxy chip, cdk2x2 x 1, 1000 MHz, paired
+# warm folds (spd-m-opendde bnab, 2026-10-19), CIFs identical on and off, 512 -0.72 s (3 of 3 pairs), 576 -0.94 s.
+# Both Wormhole modes take inproj_split: the trimul projects all its channel chunks in one split call instead of one
+# call per chunk, so the pair tensor is read once. Bit-exact (same full-K contraction per output tile; CIFs identical
+# on and off). Galaxy chip, cdk2x2 x 1, 1000 MHz, 2 paired warm folds (spd-m-opendde isp2, 2026-10-21): normal 256
+# 42.9 -> 36.6 s, fast 256 35.6 -> 33.6 s; 288 is null (the lever does not reach its trimuls).
+# Both Wormhole modes take trimul_t1_dram: below 352 tokens the trimul loop runs from L1 and T1 declined there; on the
+# DRAM path T1 serves those folds too. Galaxy chip, cdk2x2 x 1, 1000 MHz, 2 paired warm folds (spd-m-opendde t1f,
+# 2026-10-21): normal 256 35.2 -> 29.7 s, fast 256 -1.6 s (noisy). 256-token truth set, shipped set vs + the lever, seeds
+# 101-104, 44 paired folds each (t1h): normal PASS, same-seed top pose median 0.572 A (A/A floor 1.907 A), CA-lDDT
+# -0.0013 [-0.0032, +0.0001], docking 25 -> 24; fast PASS, top pose median 0.624 A (floor 2.240 A), CA-lDDT -0.0001
+# [-0.0010, +0.0007], docking 26 -> 26. The 11-set (515-791 tokens) never reaches it.
+# Wormhole normal runs the trunk's matmuls at HiFi2 (trunk_hifi2, over the family's trunk_hifi3); it reaches the pair
+# transition too, whose ws_swiglu takes the caller's fidelity. Galaxy chip, 1000 MHz, separate-process ABBA, 4 warm folds
+# per arm (spd-m-opendde th2p, 2026-10-21): normal 608 127.1 -> 124.6 s, 288 -0.33 s. WH 11-set normal grade, shipped set
+# vs + trunk_hifi2, seeds 109-112, 44 paired folds (th2g): PASS, same-seed top pose median 0.216 A (A/A floor 1.330 A),
+# CA-lDDT +0.0006 [+0.0002, +0.0013], DockQ +0.0033 [+0.0004, +0.0068], docking 26 -> 26; the confidence head reads ipTM
+# -0.018 [-0.048, -0.002] and pLDDT -0.0014. Wormhole fast takes it too. It was dropped 10-22 because the 608 fast set
+# hung 15 of 54 processes with it; the hang was bmm_res's transposed-a call at HiFi2, which fast now runs at HiFi3
+# (bres_ta_hifi3). With both, 0 of 12 processes hung (cold + 6 warm each) and fast 608 read 111.7 s against 114.2 s for
+# the set without them (Galaxy chips, 1000 MHz, spd-m-opendde bta, 2026-10-24). WH 11-set fast grade, shipped set vs +
+# both, seeds 109-112, 44 paired folds (bgf): PASS, same-seed top pose median 0.363 A (A/A floor 1.493 A), CA-lDDT -0.0004
+# [-0.0013, +0.0004], DockQ -0.0065 [-0.0172, +0.0008], docking 26 -> 26. Normal does not take bres_ta_hifi3: its grade
+# (bgn, 36 paired folds) FAILed on DockQ -0.030 [-0.078, -0.001], one 9TH6 flip (0.859 -> 0.005).
+# Wormhole normal runs the pair transition on bfp8 weights in one hidden chunk (transition_b8 + ws_b8_plain), as fast does:
+# trunk_hifi2 showed the four-chunk HiFi3 schedule, not its fidelity, was the cost. Galaxy chip, 1000 MHz, separate-process
+# ABBA, 2 warm folds per arm (spd-m-opendde tbp, 2026-10-21): normal 608 122.2 -> 115.7 s (-5.3 %), 288 32.2 -> 30.4 s
+# (-5.7 %). WH 11-set normal grade, shipped set vs + both, seeds 109-112, 44 paired folds (tbg): PASS, same-seed top pose
+# median 0.190 A (A/A floor 1.236 A), CA-lDDT -0.0003 [-0.0011, +0.0002], DockQ +0.0015 [-0.0023, +0.0057], iRMSD +0.058
+# [-0.498, +0.662], docking 26 -> 26.
+# Both Wormhole modes keep the diffusion-conditioned pair on the chip (pz_device: one device LN feeds the bf16 DiT and the
+# atom z term, no host round trip) and run the bf16 AdaLN modulation and the DiT's gated residuals as one addcmul each
+# (dit_mod16). Galaxy chip, separate-process, 3 on / 3 off warm folds, AICLK 1000 MHz (spd-m-opendde dsm / dsmf,
+# 2026-10-22): normal 608 -2.05 s (-1.7 %), fast 608 119.67 -> 117.59 s (-1.7 %). WH 11-set grades, seeds 109-112, 44
+# paired folds each (dsg): fast vs main 7c42f9778 PASS, same-seed top pose median 0.267 A (A/A floor 1.482 A), CA-lDDT
+# +0.0012 [+0.0006, +0.0018], docking 26 -> 26; normal PASS, top pose median 0.248 A (floor 1.410 A), CA-lDDT +0.0016
+# [+0.0003, +0.0037], DockQ +0.0138 [-0.0101, +0.0547], docking 26 -> 27. Blackhole is ungraded.
+DIT_SEAM = frozenset({"pz_device", "dit_mod16"})
+# Both Wormhole modes let padded triangle attention take a 10-tile q chunk at the k chunk the ranking already picks
+# (triatt_q10): at 608 tokens q320 x k640 replaces q256 x k640, 23.46 -> 20.58 ms per call, torch.equal. Galaxy chip,
+# 2 paired warm folds, AICLK 1000 MHz, CIFs identical (spd-m-opendde q10ab, 2026-10-22): normal 608 115.76 -> 112.51 s
+# (-2.8 %), fast 608 115.72 -> 112.63 s (-2.7 %). Bit-exact, so no grade. Blackhole is unmeasured.
+TRIATT_Q10 = frozenset({"triatt_q10"})
+# Wormhole normal also takes triatt_k1, as fast does: since k1q the one-k pick is offered in both modes, and normal still
+# chunked k at 320 (k64), 576 (k192) and 640 (k160). Per call at 1000 MHz, float64 rel_rms (spd-m-opendde k1op, 2026-10-22):
+# 320 6.24 -> 4.09 ms (0.0289 -> 0.0265), 576 19.84 -> 17.21 ms (0.0275 -> 0.0266), 640 28.74 -> 22.71 ms (0.0279 ->
+# 0.0269), so it is faster and closer to float64 at every size it reaches. Galaxy chip, 2 paired warm folds (k1n): normal
+# 640 133.10 -> 126.80 s (-4.7 %), 576 111.85 -> 109.76 s. The 10-18 normal grade (512-token set, before k1q) FAILed on iRMSD.
+# Graded on the shipped normal set (k1g, 11 complexes x 4 seeds, native size): PASS, same-seed top pose median 0.108 A
+# (A/A floor 1.273 A), iRMSD -0.145 [-0.359, -0.005], DockQ +0.003 [+0.000, +0.007], docking 27 -> 27 of 44.
+# Both chips take the two packer-thread levers, ws_psilu and T1_PSIG, bit-identical by construction. Wormhole, cdk2x2 512,
+# separate-process A/B x5 on Galaxy chips at 1000 MHz (spd-m-opendde-2 wl2, 2026-11-06), CIFs identical on every pair:
+# median of the four warm pairs -0.85 s normal (79.4 s), -0.69 s fast (73.6 s).
+PACKER = frozenset({"ws_psilu"}) | T1_PSIG
+# Wormhole normal takes apb_cat (the token attention's heads re-assembled by one concat). Galaxy chip at 1000 MHz, warm
+# fold A/B (spd-integrate apbcat, 2026-11-12): l384 77.52 -> 75.87 s, l448 90.47 -> 88.70 s (-2 %). WH 11-set normal grade
+# (gapb, 43 paired folds): PASS, same-seed top pose median 0.114 A (A/A floor 1.409 A), ipTM -0.0013, docking 24 -> 24.
+# Not graded on Blackhole, so BH_NORMAL_LEVERS drops it.
+WH_APB = frozenset({"apb_cat"})
+NORMAL_LEVERS = (_FAMILY_NORMAL | WS_CHAIN | T2_TAIL | TRIATT_LN | BRES_NORMAL | DIT_SEAM | TRIATT_Q10 | TRIATT_K1 | PACKER
+                 | {"ws_resid", "ws_resid2", "trimul_t1w8", "dit_bpad", "inproj_split", "trimul_t1_dram", "trunk_hifi2",
+                    "transition_b8", "ws_b8_plain"} | WH_APB)
+# Blackhole normal takes the Wormhole normal set without ws_chain (still graded FAIL on BH, above), plus the BH trimul
+# routes (trimul_bres_bh, trimul_t1_2g), ws_psilu and T1_PSIG. p150a, cdk2x2 512, one process per arm, 1 cold + 3 warm
+# folds, AICLK 1331-1350 MHz sampled during the folds (spd-m-opendde-2 l1, 2026-11-04): 52.09 -> 40.26 s (-22.7 %).
+# BH 11-set normal grade vs TT_BIO_LEVERS=none, seed 101 + 3 warm, 44 paired folds (spd-m-opendde-2, 2026-11-05):
+# PASS, same-seed top pose median 0.465 A (bar 0.60 A, A/A floor 1.241 A), CA-lDDT +0.0041 [+0.0017, +0.0068], DockQ
+# +0.025 [-0.003, +0.069], pLDDT -0.0003 [-0.0016, +0.0011], docking 24 -> 26 of 44.
+# Blackhole takes Mol-1's graded BH diffusion levers (BH_DIT, protenix.MOL1_DIT_BH plus the DiT and atom routes) and its
+# trunk routes (BH_TRUNK). p150a, cdk2x2 512, one process per arm, 1 cold + 3 warm, AICLK 1343-1350 MHz (spd-m-opendde-2
+# lad3, 2026-11-05): normal 40.55 -> 39.04 s (BH_DIT) and 39.57 s (BH_TRUNK); fast 36.92 -> 35.67 s and 35.44 s.
+# Both stacked (lad4, same window, 1343-1350 MHz): normal 40.45 -> 38.40 s, fast 36.38 -> 34.64 s. Graded vs
+# TT_BIO_LEVERS=none on the BH 11-set, seed 101 + 3 warm, 44 paired folds: normal PASS, same-seed top pose median 0.341 A
+# (bar 0.60 A, A/A floor 1.241 A), CA-lDDT +0.0051 [+0.0031, +0.0073], pLDDT -0.0006 [-0.0020, +0.0007], docking 24 -> 25
+# of 44; fast PASS, top pose 0.934 A, pLDDT -0.0136 [-0.0207, -0.0067] (tolerance 0.03), docking 24 -> 26 of 44.
+# Wormhole fast takes the part of BH_DIT that is a DiT route (WH_DIT). .110 Galaxy, cdk2x2 512, paired A/B x5 at
+# SHARE=8, AICLK median 1000 MHz every fold (spd-m-opendde-2 wl2, 2026-11-06): fast -2.01 s median of the warm pairs
+# (-2.06, -1.68, -1.97, -2.04). WH 11-set fast grade vs the shipped WH fast set, seed 101 + 3 warm, 44 paired folds
+# (gdf, 2026-11-07): PASS, same-seed top pose median 0.358 A (A/A floor 1.483 A), CA-lDDT +0.0019 [+0.0008, +0.0029],
+# pLDDT -0.0000, DockQ +0.0005, docking 26 -> 26 of 44. Normal with adaln_mod and atom_l1 read -0.14 s, inside noise.
+WH_DIT = frozenset({"dit_shoist", "atom_mm16", "dit_qbox", "dit_mask_chain", "dit_qkvf"})
+BH_DIT = WH_DIT | {"adaln_mod", "edm_device", "atom_l1"}
+BH_TRUNK = frozenset({"trimul_t1_part", "trimul_t1split", "ws_l1dest"})
+# triatt_ln_b8 stays fast-only on Blackhole: ~-0.8 s on this set (arms6), but the BH 11-set normal grade vs
+# TT_BIO_LEVERS=none (glg, 44 paired folds, 2026-11-06) FAILs, pLDDT -0.0070 [-0.0130, -0.0013] and top pose 0.634 A.
+BH_NORMAL_LEVERS = (NORMAL_LEVERS - WS_CHAIN - WH_APB) | {"trimul_bres_bh", "trimul_t1_2g"} | BH_DIT | BH_TRUNK
+FAST_LEVERS = (_T.FAST_LEVERS - {"dit_b8"}) | {"trimul_b8in", "trimul_t2w"} | WS_CHAIN
+# Wormhole fast also runs T1 on OpenDDE's c_z 384 pair (trimul_t1_c384). WH 11-set fast grade, FAST_LEVERS vs +
+# trimul_t1_c384 (spd-integrate gpsf, 2026-10-17, 44 paired folds): PASS, CA-lDDT -0.0005 [-0.0016, +0.0002], pLDDT
+# -0.0002, docking 25 -> 24 of 44. cdk2x2 512 x 1 at 1000 MHz: 104.16 -> 101.52 s (-2.5 %). Blackhole is ungraded.
+# Wormhole fast takes DIT_SEAM too (above).
+WH_FAST_LEVERS = (FAST_LEVERS | {"trimul_t1_c384", "ws_resid2", "trimul_t1w8", "dit_bpad", "inproj_split",
+                                   "trimul_t1_dram", "trunk_hifi2", "bres_ta_hifi3"}
+                  | TRIATT_LN | TRIATT_K1 | DIT_SEAM | TRIATT_Q10 | TRIATT_LN_B8_FAST | PACKER | WH_DIT)
+# Blackhole fast takes the Wormhole fast set plus WS_FAST, ws_lofi, the BH trimul routes and T1_PSIG. p150a, cdk2x2 512,
+# one process per arm, 1 cold + 3 warm folds, AICLK 1331-1350 MHz sampled during the folds (spd-m-opendde-2 l1,
+# 2026-11-04): 47.20 -> 36.32 s (-23.1 %).
+# Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds: PASS on the fast bar, same-seed top pose median 1.092 A
+# (A/A floor 1.241 A), pLDDT -0.0148 [-0.0212, -0.0091] (tolerance 0.03), CA-lDDT +0.0016, docking 24 -> 24 of 44.
+BH_FAST_LEVERS = WH_FAST_LEVERS | WS_FAST | {"ws_lofi", "trimul_bres_bh", "trimul_t1_2g"} | BH_DIT | BH_TRUNK
+# Wormhole fast writes triangle attention's q, k, v and gate bfp8 out of the fused LayerNorm (protenix.TRIATT_LN_B8_FAST),
+# now that the kernel does it on OpenDDE's two column groups. At fast's HiFi2 trunk the bf16 write was the cost: 640 x
+# c384 15.76 -> 11.05 ms per call (1000 MHz, spd-m-opendde lbg). Galaxy chip, separate-process ABBA, 2 warm folds per
+# arm, AICLK 1000 MHz (spd-m-opendde lbs, 2026-10-24): fast 608 111.26 -> 109.61 s, 640 124.71 -> 117.51 s (-5.8 %).
+# Fast grade vs the shipped WH fast set, 11 complexes x seeds 109-112, 44 paired folds (spd-m-opendde lbtg2, 2026-10-25):
+# PASS, CA-lDDT -0.0001 [-0.0014, +0.0013], DockQ +0.006, docking 26 -> 26, pLDDT -0.008, top pose median 0.86 A (A/A 1.17).
+# Both Wormhole modes fuse triangle attention's LayerNorm into its qkvgb projection (triatt_ln), now that the
+# kernel splits OpenDDE's 1.2 MB weight over column groups instead of declining. WH 11-set grades vs the model set
+# before T2_TAIL / trimul_t1_c384, 4 seeds, 44 paired folds each, 1000 MHz (spd-m-opendde tlng, 2026-10-17): normal PASS, same-seed top pose median
+# 0.127 A (A/A floor 1.295 A), CA-lDDT -0.0003 [-0.0007, +0.0001], docking 24 -> 24; fast PASS, top pose median
+# 0.372 A (floor 1.146 A), CA-lDDT -0.0010 [-0.0023, -0.0001], docking 25 -> 25. Warm fold median -1.05 % normal,
+# -1.13 % fast; ~-2 % at 600-800 aa, flat at 546-559 aa. Blackhole is ungraded.
+# They also take apb_ln, the same fused LayerNorm in front of the attention pair-bias projection (protenix.TRIATT_LN).
+# Galaxy chip, cdk2x2 x 1, 1000 MHz, 2 paired warm folds (spd-m-opendde apbab, 2026-10-18): normal 512 -1.23 s,
+# fast 512 -1.19 s, normal 576 -2.41 s. WH 11-set grades vs main 08fe51af7, seeds 109-112, 44 paired folds each
+# (spd-m-opendde apbg, 2026-10-18): normal PASS, same-seed top pose median 0.147 A (A/A floor 1.098 A), CA-lDDT
+# +0.0007 [+0.0000, +0.0017], docking 25 -> 26; fast PASS, top pose median 0.247 A (floor 1.476 A), CA-lDDT -0.0001
+# [-0.0005, +0.0003], docking 26 -> 26.
+# Wormhole fast also takes triatt_k1 (protenix.TRIATT_K1). 512-token truth set, WH_FAST_LEVERS vs + triatt_k1, 4 seeds,
+# 44 paired folds, every digest moved (spd-gap-small gk1os, 2026-10-18): PASS, same-seed top pose median 0.450 A vs the
+# 1.902 A A/A floor. cdk2x2 512 x 1 at 1000 MHz, 5 paired warm folds (k1o): fast 93.77 -> 92.44 s. Normal
+# took it later, once k1q had moved 512 to one k (NORMAL_LEVERS, above).
+# Wormhole fast also takes ws_resid2: the transition's last hidden chunk adds z and the chain's partial sum in its fp32
+# dest, so the residual add_ pass goes. Galaxy chip, cdk2x2 x 1, 1000 MHz, 2 paired warm folds (spd-m-opendde rr2ab,
+# 2026-10-18): fast 512 -1.03 s, fast 576 -1.36 s. WH 11-set fast grade vs the shipped fast set, seeds 109-112, 44
+# paired folds (rr2g): PASS, same-seed top pose median 0.211 A (A/A floor 1.318 A), CA-lDDT -0.0002 [-0.0008, +0.0004],
+# docking 26 -> 26. Normal takes it with ws_resid (NORMAL_LEVERS).
+# trimul_bres has sat in the family fast set since before acc_off; it fires there now that bmm_res takes an fp32 dest
+# of its own (einsum rel rms vs float64 at c384 x 512: 1.4e-2 -> 1.7e-3). WH 11-set fast grade, shipped fast set with
+# and without it firing, seeds 109-112, 44 paired folds (spd-m-opendde b32g, 2026-10-19): PASS, same-seed top pose median
+# 0.128 A (A/A floor 1.148 A), CA-lDDT +0.0003 [-0.0001, +0.0009], docking 26 -> 26. cdk2x2 x 1 at 1000 MHz, 2 paired
+# warm folds (b32): fast 512 -1.12 s, fast 576 -2.42 s. Blackhole fast is ungraded with it firing, so there bmm_res
+# keeps the bf16 dest and declines (tenstorrent._bres_ckc).
+# Both Wormhole modes run T1 on bfp8 resident weights (trimul_t1w8), so c_z 384 fits two channel groups instead of
+# three: one launch and one xn pass fewer. T1 at 512, HiFi4: 13.32 -> 12.23 ms, rel rms vs float64 0.005 -> 0.009 (the
+# bf16 ttnn chain reads 0.0038). Galaxy chip, cdk2x2 x 1, 1000 MHz, paired warm folds (spd-m-opendde w8ab, 2026-10-19):
+# fast 512 ~-1.8 s, normal 512 ~-1.4 s, normal 576 -1.3 s. WH 11-set grades, shipped set with and without it, seeds
+# 109-112, 44 paired folds each (w8f, w8n): fast PASS, same-seed top pose max 3.1 A, CA-lDDT +0.0000 [-0.0001, +0.0002],
+# docking 26 -> 26 (A/A floor 1.187 A); normal PASS, CA-lDDT -0.0002 [-0.0004, +0.0000], docking 26 -> 26 (floor
+# 1.333 A). T1 served only the five complexes at 515-559 tokens; the six at 611-791 were bit-identical on and off.
+# Wormhole fast also takes dit_bpad: the bf16 token DiT runs its whole token axis at dit_bias_pad_len, so a ragged
+# length (1216 tiles, no dit_chunk divisor) gets a chunk-friendly SDPA grid and the bias key tail is filled once per
+# fold, not every call. 9LLG (1199 DiT tokens, 5 samples), Galaxy chip, 1000 MHz, 2x2 paired warm folds (spd-m-opendde
+# bpab4, 2026-10-19): 175.9 -> 171.1 s (-2.7 %). WH 11-set fast grade, shipped fast set with and without it, seeds
+# 109-112, 44 paired folds (bpg): PASS, same-seed top pose median 0.083 A (A/A floor 1.447 A), CA-lDDT +0.0002
+# [-0.0000, +0.0004], docking 26 -> 26. Normal takes it too: OpenDDE's normal DiT is bf16, so dit_sdpa32 (fp32 DiT
+# only) is inert there. 9LLG x 5, 1000 MHz, 2x2 paired warm folds (bpn, 2026-10-20): ~-1.3 s. WH 11-set normal grade,
+# seeds 109-112, 44 paired folds (bpgn): PASS, same-seed top pose median 0.073 A (A/A floor 1.262 A), CA-lDDT +0.0000
+# [-0.0001, +0.0002], docking 26 -> 26.
+
+
 class OpenDDE:
     """OpenDDE co-folding on Tenstorrent: the Protenix-v2 trunk/diffusion/confidence stack
     (reused verbatim, ``tt_bio.protenix``) + the novel :class:`StructuralTokenExpander` +
     a 4-block structural-token refiner (a reused ``Pairformer``), on the structural-token
     axis. Ships co-folding only (no design/affinity)."""
 
-    def __init__(self, state_dict, compute_kernel_config, device=None):
+    def __init__(self, state_dict, compute_kernel_config, device=None, diffusion_fp32=None, levers=None):
+        """diffusion_fp32: the diffusion module's precision; None keeps the bf16 pin below
+        (OPENDDE_DIFFUSION_FP32=1 lifts it). Guided runs pass True (host_controller.diffusion_precision).
+        levers: the precision levers this model builds and folds under, the same switches
+        Protenix-v2 runs (`tenstorrent.LEVERS`); None takes the mode's set
+        (`tenstorrent.model_levers`): `NORMAL_LEVERS` (Protenix family set + ws_chain + T2 tail; `BH_NORMAL_LEVERS` on
+        Blackhole), or `WH_FAST_LEVERS` / `BH_FAST_LEVERS` under `--fast`."""
+        import tt_bio.tenstorrent as _TT
+        wh = _TT.is_wormhole()
+        self._levers = _TT.model_levers(NORMAL_LEVERS if wh else BH_NORMAL_LEVERS,
+                                        WH_FAST_LEVERS if wh else BH_FAST_LEVERS, spec=levers)
+        with _TT.levers(self._levers):
+            self._build(state_dict, compute_kernel_config, device, diffusion_fp32)
+
+    def _build(self, state_dict, compute_kernel_config, device, diffusion_fp32):
         from .tenstorrent import get_device, Pairformer, accurate_softmax_site
         from .protenix import Protenix
         self.dev = device or get_device()
@@ -388,6 +632,10 @@ class OpenDDE:
         C = OPENDDE_CONFIG
         routed = route_opendde_weights(state_dict)
         self._shared = routed["shared"]         # Protenix-v2-family graph (for step-2 trunk/diffusion)
+        # Content fingerprint of the checkpoint (opendde vs opendde_abag), for the trunk cache key.
+        import hashlib
+        self._weights_tag = hashlib.sha256(
+            self._shared["distogram_head.linear.weight"].float().numpy().tobytes()).hexdigest()[:16]
         # Shared Protenix-v2-family stack (input embedder, trunk, diffusion, confidence),
         # built at OpenDDE's c_z=384.
         # Reused verbatim -- no duplicated orchestration class. diffusion_fp32=False pins
@@ -403,8 +651,9 @@ class OpenDDE:
         # Diagnostic only: fp32 here is >60x slower on OpenDDE's atom-level tensors.
         self._protenix = Protenix(
             self._shared, compute_kernel_config, self.dev, c_z=C["c_z"], msa_update_first=True,
-            diffusion_fp32=env_flag("OPENDDE_DIFFUSION_FP32", False), gated_move=True,
-            softmax_scope="opendde")
+            diffusion_fp32=(env_flag("OPENDDE_DIFFUSION_FP32", False) if diffusion_fp32 is None
+                            else diffusion_fp32), gated_move=True,
+            softmax_scope="opendde", levers=self._levers)
         self.expander = StructuralTokenExpander(
             routed["expander"], compute_kernel_config, c_s=C["c_s"], c_z=C["c_z"],
             c_s_inputs=C["c_s_inputs"], n_roles=C["n_roles"], pair_chunk_size=C["pair_chunk_size"])
@@ -415,7 +664,8 @@ class OpenDDE:
             accurate_softmax=accurate_softmax_site("opendde.refiner", default=True))
 
     @classmethod
-    def load_from_checkpoint(cls, path=None, *, abag=False, compute_kernel_config=None, device=None):
+    def load_from_checkpoint(cls, path=None, *, abag=False, compute_kernel_config=None, device=None,
+                             diffusion_fp32=None, levers=None):
         """Fetch/load ``opendde.pt`` (or ``opendde_abag.pt`` when ``abag=True``) and build
         the model on ``device`` (card 0 by default)."""
         import ttnn
@@ -423,8 +673,9 @@ class OpenDDE:
         dev = device or get_device()
         ckc = compute_kernel_config or ttnn.init_device_compute_kernel_config(
             dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi4, fp32_dest_acc_en=True, packer_l1_acc=True)
-        return cls(load_opendde_checkpoint(path, abag=abag), ckc, dev)
+        return cls(load_opendde_checkpoint(path, abag=abag), ckc, dev, diffusion_fp32, levers=levers)
 
+    @under_levers
     def expand_and_refine(self, ifd, s_inputs_res, s_res, z_res, *,
                           extra_attn_bias=True, return_attn_bias=False):
         """The novel seam (opendde/model/opendde.py forward): residue-trunk (s_inputs, s, z)
@@ -464,9 +715,38 @@ class OpenDDE:
             return (*result, attn_bias)
         return result
 
+    def _residue_trunk(self, feats, n_cycles, seed, progress_fn):
+        """Protenix's trunk stage on the residue axis (input embedder, atom cache, trunk). Returns
+        fi and host (s_inputs, s_trunk, z_trunk, c_l, p_lm), and frees the device copies."""
+        P = self._protenix
+        # Each recycling cycle reads its own MSA_DEPTH random alignment rows, drawn from the seed
+        # as upstream's MSAModule does.
+        gen = torch.Generator()
+        gen.seed() if seed is None else gen.manual_seed(seed)
+        st = P._trunk_stage(feats, progress_fn=progress_fn, n_cycles=n_cycles, seed=seed,
+                            msa_sample=(MSA_DEPTH, gen))
+        fi, s_inputs, c_l, p_lm = st["fi"], st["s_inputs"], st["c_l"], st["p_lm"]
+        s_trunk_tt, z_tt = st["s_trunk_tt"], st["z_tt"]
+        NT = fi["NT"]
+        s_trunk = P._to_host(s_trunk_tt, (NT, s_trunk_tt.shape[-1]))
+        # The z_trunk host copy stays bf16 when `_SEAM_BF16` is on. Its two consumers both
+        # accept it: the expander re-uploads it as bf16 (`ttnn.from_torch(..., dtype=bfloat16)`,
+        # a no-op cast), and the confidence head only ever adds it to fp32 tensors, where torch
+        # promotes bf16 -> fp32 exactly. Deletes 402 MB of host fp32 writes per fold.
+        z_trunk = P._to_host(z_tt, (NT, NT, P.trunk.C_Z), fp32=not _SEAM_BF16)
+        # The residue-axis device tensors are never read from device again -- the
+        # expander, diffusion conditioning and confidence all consume the host copies
+        # above. Free them before the expander allocates the structural-scale pair
+        # tensor (~1.9x the residue axis): on 12 GiB Wormhole parts their holes are
+        # what the refiner's full-size concats squeeze into.
+        for _t in (s_trunk_tt, z_tt):
+            ttnn.deallocate(_t)
+        return fi, s_inputs, s_trunk, z_trunk, c_l, p_lm
+
+    @under_levers
     def fold(self, feats, *, n_step=20, n_cycles=2, seed=None, n_sample=1,
              return_confidence=False, progress_fn=None, trace=False, dump_fn=None,
-             max_parallel_samples=None):
+             max_parallel_samples=None, distogram=False, guidance=None, trunk_cache=None):
         """End-to-end residue-to-structure co-fold. feats: a tt_bio.protenix_data-style
         residue-token feature dict (as tt_bio.protenix.Protenix.fold consumes -- e.g.
         tt_bio.protenix_data.build_complex_features for a single protein chain).
@@ -488,60 +768,53 @@ class OpenDDE:
         assumed). Confidence is independent of the structural-token diffusion axis, so no
         structural-token distogram-rep-atom machinery is needed here.
 
-        --fast and multi-card fanout ride the existing Protenix-v2 machinery (the trunk
-        reads the global fast flag; the predict scheduler fans targets across --devices),
-        both apply unchanged to OpenDDE. trace=True replays a
+        --fast is the model's lever set (FAST_LEVERS, see __init__) and multi-card fanout is the
+        predict scheduler's, both shared with Protenix-v2. trace=True replays a
         captured ttnn trace of the shared denoise stream (lossless; faster on
         dispatch-bound diffusion, mirroring Protenix-v2.fold(trace=)); needs a device
         opened with get_device(trace="protenix"). Returns
         coords (n_sample, N_atom, 3) host tensor; if
         return_confidence, returns (coords, conf) where conf is a dict (n_sample==1) or a
         list of dicts (n_sample>1), same shape as tt_bio.protenix.Protenix.fold.
+
+        guidance (tt_bio.tfg.Guidance) applies constraint guidance inside the sampler
+        (OpenDDE 1.2.0's ``--use_tfg_guidance``); None samples exactly as before.
+        trunk_cache (tt_bio.cache.TrunkCache) reuses the residue trunk of an earlier fold of
+        the same features, so constraint variants of one input pay for one trunk.
         """
         import torch
         from .opendde_data import build_structural_token_features
         from .protenix import DEFAULT_MAX_PARALLEL_SAMPLES, edm_sample
+        from .protenix_data import place_ref_conformers
 
         if trace:
             import tt_bio.tenstorrent as _TTd
             _TTd.require_trace_region("fold(trace=True)")
         P = self._protenix
-        tt = P._tt
+        # Upstream centres every reference conformer and turns it by a seeded random rotation.
+        feats = place_ref_conformers(feats, seed)
         ifd = build_structural_token_features(feats)
         Ns = ifd["parent_residue_idx"].shape[0]
 
-        fi = P._atom_feat_inputs(feats)
-        N, NT, nb, nq, nk = fi["N"], fi["NT"], fi["nb"], fi["nq"], fi["nk"]
-        mt, S = fi["mt"], fi["S"]
-        Mmat = (S.t() / (S.t().sum(-1, keepdim=True) + 1e-6))
-        dm = feats["deletion_mean"]; dm = dm.reshape(-1, 1) if dm.dim() == 1 else dm
-
-        # 1) input embedder + trunk, residue axis (identical to Protenix.fold steps 1-3)
-        s_inputs_tt = P.input_aae(
-            tt(feats["ref_pos"]), tt(fi["ref_charge_asinh"]), tt(feats["ref_mask"].reshape(N, 1)),
-            tt(fi["f_in"]), tt(fi["d"]), tt(fi["v"]), tt(fi["invd"]), mt, tt(Mmat),
-            tt(feats["restype"]), tt(feats["profile"]), tt(dm))
-        s_inputs = P._to_host(s_inputs_tt)[:NT]
-        mt_dev = tt(mt.reshape(-1, 1).float())
-        c_l = P._to_host(P.diff_feat.c_l(tt(feats["ref_pos"]), tt(fi["ref_charge_asinh"]),
-                                         tt(feats["ref_mask"].reshape(N, 1)), tt(fi["f_in"])), (N, 128))
-        p_lm = P._to_host(P.diff_feat.p_lm(tt(fi["d"]), tt(fi["v"]), tt(fi["invd"]), mt_dev), (nb, nq, nk, 16))
-        relp = feats["relp"] if "relp" in feats else P._generate_relp(feats)
-        s_trunk_tt, z_tt = P.trunk(feats, s_inputs, relp, feats["token_bonds"],
-                                  n_cycles=n_cycles, progress_fn=progress_fn)
-        s_trunk = P._to_host(s_trunk_tt, (NT, s_trunk_tt.shape[-1]))
-        # The z_trunk host copy stays bf16 when `_SEAM_BF16` is on. Its two consumers both
-        # accept it: the expander re-uploads it as bf16 (`ttnn.from_torch(..., dtype=bfloat16)`,
-        # a no-op cast), and the confidence head only ever adds it to fp32 tensors, where torch
-        # promotes bf16 -> fp32 exactly. Deletes 402 MB of host fp32 writes per fold.
-        z_trunk = P._to_host(z_tt, (NT, NT, P.trunk.C_Z), fp32=not _SEAM_BF16)
-        # The residue-axis device tensors are never read from device again -- the
-        # expander, diffusion conditioning and confidence all consume the host copies
-        # above. Free them before the expander allocates the structural-scale pair
-        # tensor (~1.9x the residue axis): on 12 GiB Wormhole parts their holes are
-        # what the refiner's full-size concats squeeze into.
-        for _t in (s_inputs_tt, s_trunk_tt, z_tt, mt_dev):
-            ttnn.deallocate(_t)
+        # 1) input embedder + trunk, residue axis (Protenix.fold's own first stage)
+        key = hit = None
+        if trunk_cache is not None:
+            # The lever set, not `_FAST_MODE`: the flag is off inside a lever build, so it would
+            # give a fast and a normal fold of one input the same entry.
+            key = trunk_cache.key(feats, "opendde", n_cycles, seed, self._weights_tag, sorted(self._levers))
+            hit = trunk_cache.load(key)
+        if hit is None:
+            fi, s_inputs, s_trunk, z_trunk, c_l, p_lm = self._residue_trunk(feats, n_cycles, seed, progress_fn)
+            if key is not None:
+                trunk_cache.save(key, dict(s_inputs=s_inputs, s_trunk=s_trunk, z_trunk=z_trunk,
+                                           c_l=c_l, p_lm=p_lm))
+        else:
+            fi = P._atom_feat_inputs(feats)
+            s_inputs, s_trunk, z_trunk, c_l, p_lm = (
+                hit[k] for k in ("s_inputs", "s_trunk", "z_trunk", "c_l", "p_lm"))
+        N, NT, nb, nq, nk, mt = (fi[k] for k in ("N", "NT", "nb", "nq", "nk", "mt"))
+        z_base = (P._confidence_start(s_inputs, hostlane.done(z_trunk), NT)
+                  if return_confidence else None)
 
         # 2) the novel seam: residue -> structural-token axis
         s_inputs_st, s_st, z_st, structural_attn_bias = self.expand_and_refine(
@@ -562,19 +835,16 @@ class OpenDDE:
         })
         # The structural pair's only consumer, so the conditioning frees it (confidence runs
         # on the residue axis): at Ns=2113 it is 3.2 GiB the confidence pairformer needs back.
-        pair_z = P._diffusion_pair_cond(z_st, relp_struct).reshape(Ns, Ns, -1)
+        pz = P._diffusion_pair_cond(z_st, relp_struct, device=P._pz_device())
         dram_peak("structural pair conditioned")
         a2s = ifd["atom_to_structural_token_idx"]
         S_struct = torch.zeros(N, Ns); S_struct[torch.arange(N), a2s] = 1.0
-        p_lm = p_lm + P._plm_z_term(pair_z, a2s, nb, nq, nk)
+        z_term, pz_cond = P._pair_z_seam(pz, Ns, a2s, nb, nq, nk)
+        p_lm = p_lm + z_term
 
-        cond = {"s_trunk": s_struct, "s_inputs": s_inputs_struct, "pair_z": pair_z, "c_l": c_l,
+        cond = {"s_trunk": s_struct, "s_inputs": s_inputs_struct, "c_l": c_l,
                 "p_lm": p_lm, "S": S_struct, "mask_trunked": mt.float(),
-                "structural_pair_attn_bias": structural_attn_bias}
-        if P.diffusion.device_dit:
-            cond["dit_z"] = P.diffusion._dit_z_device(pair_z)
-        else:
-            cond["dit_biases"] = P.diffusion._dit_pair_biases(pair_z)
+                "structural_pair_attn_bias": structural_attn_bias, **pz_cond}
         # Multiplicity batching (see Protenix.fold): one batched trajectory when
         # P.diffusion.supports_multiplicity is on; else the per-sample loop (bit-exact).
         if n_sample > 1 and getattr(P.diffusion, "supports_multiplicity", False):
@@ -582,14 +852,15 @@ class OpenDDE:
             _df = (lambda step, x: dump_fn(step, step, x)) if dump_fn is not None else None
             coords = edm_sample(P.diffusion, cond, N, n_step=n_step, multiplicity=n_sample,
                                  max_parallel_samples=_mps, seed=seed, trace=trace,
-                                 progress_fn=progress_fn, dump_fn=_df)
+                                 progress_fn=progress_fn, dump_fn=_df, guidance=guidance)
         else:
             coords = []
             for k in range(n_sample):
                 sd_seed = None if seed is None else seed + k
                 _df = (lambda step, x, _k=k: dump_fn(_k, step, x)) if dump_fn is not None else None
                 coords.append(edm_sample(P.diffusion, cond, N, n_step=n_step, seed=sd_seed,
-                                         trace=trace, progress_fn=progress_fn, dump_fn=_df)[0])
+                                         trace=trace, progress_fn=progress_fn, dump_fn=_df,
+                                         guidance=guidance)[0])
             coords = torch.stack(coords, 0)
         # The conditioning is sampler-only state (dit_z alone is ~1.1 GiB at Ns=2113, and the
         # per-block DiT biases and the atom-pair track sit beside it); the residue-axis
@@ -602,7 +873,17 @@ class OpenDDE:
             # Residue-axis confidence (select_pair_output_branch(pair_output_space="residue")):
             # s_inputs/s_trunk/z_trunk are the step-1 pre-expansion tensors, `feats` the
             # original residue-level dict -- identical call shape to Protenix.fold's.
-            confs = [P.confidence_head.confidence(s_inputs, s_trunk, z_trunk, coords[k], feats)
-                     for k in range(n_sample)]
+            confs = P._confidences(s_inputs, s_trunk, hostlane.done(z_trunk), z_base, list(coords), feats)
+            if distogram:
+                # Upstream's DistogramHead on the same residue-axis trunk pair
+                # (compute_distogram_contact_probs reads select_pair_output_branch's pair_z):
+                # L(z) + L(z).T, one [N, N, 96] for every sample. It reads the trunk and writes
+                # nothing back, so no coordinate depends on whether it ran.
+                import torch.nn.functional as F
+                d = F.linear(z_trunk.float(), self._shared["distogram_head.linear.weight"].float(),
+                             self._shared["distogram_head.linear.bias"].float())
+                d = d + d.transpose(0, 1)
+                for c in confs:
+                    c["distogram"] = d
             return coords, (confs[0] if n_sample == 1 else confs)
         return coords

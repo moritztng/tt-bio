@@ -1,0 +1,10 @@
+== tri_mult_in: 28 calls, ops per call [3]
+   0 GenericOpDeviceOperation             1.387 ms cores  110 HiFi2  | 1x384x384x384 BFLOAT DEV_1_DRAM_I | 1x1x512x384 BFLOAT DEV_1_DRAM_I | 1x1x512x384 BFLOAT DEV_1_DRAM_I -> 1x384x384x384 BFLOAT DEV_1_DRAM_I
+   1 GenericOpDeviceOperation             0.432 ms cores  110 HiFi2  | 1x256x384x384 BFLOAT DEV_1_DRAM_I | 1x256x384x384 BFLOAT DEV_1_DRAM_I | 1x256x384x384 BFLOAT DEV_1_DRAM_I -> 1x256x384x384 BFLOAT DEV_1_DRAM_I
+   2 GenericOpDeviceOperation             1.150 ms cores  110 HiFi4  | 1x256x384x384 BFLOAT DEV_1_DRAM_I | 1x1x256x384 BFLOAT DEV_1_DRAM_I | 1x384x384x384 BFLOAT DEV_1_DRAM_I -> 1x384x384x384 BFLOAT DEV_1_DRAM_I
+  sum 2.969 ms/call
+== tri_mult_out: 28 calls, ops per call [3]
+   0 GenericOpDeviceOperation             1.387 ms cores  110 HiFi2  | 1x384x384x384 BFLOAT DEV_1_DRAM_I | 1x1x512x384 BFLOAT DEV_1_DRAM_I | 1x1x512x384 BFLOAT DEV_1_DRAM_I -> 1x384x384x384 BFLOAT DEV_1_DRAM_I
+   1 GenericOpDeviceOperation             0.414 ms cores  110 HiFi2  | 1x256x384x384 BFLOAT DEV_1_DRAM_I | 1x256x384x384 BFLOAT DEV_1_DRAM_I | 1x256x384x384 BFLOAT DEV_1_DRAM_I -> 1x256x384x384 BFLOAT DEV_1_DRAM_I
+   2 GenericOpDeviceOperation             1.149 ms cores  110 HiFi4  | 1x256x384x384 BFLOAT DEV_1_DRAM_I | 1x1x256x384 BFLOAT DEV_1_DRAM_I | 1x384x384x384 BFLOAT DEV_1_DRAM_I -> 1x384x384x384 BFLOAT DEV_1_DRAM_I
+  sum 2.950 ms/call

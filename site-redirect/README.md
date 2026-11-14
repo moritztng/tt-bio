@@ -8,3 +8,7 @@ The site itself is published to GitHub Pages by `.github/workflows/pages.yml`
 from `site/`. `scripts/deploy_site.sh` does both halves: it publishes the site
 and it re-asserts this shim, so a deploy can never quietly turn the redirect
 back into a second copy of the site.
+
+One path is not forwarded: `tt-bio.com/api/contact` is a Worker route (`site-contact/`), which
+Cloudflare runs ahead of this project, so the landing page's contact form has a backend on our
+own domain.

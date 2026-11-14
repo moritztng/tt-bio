@@ -53,7 +53,11 @@ class _Probe:
 
     _rows_after_refusal = E.SwiGLUFFN._rows_after_refusal
     __call__ = E.SwiGLUFFN.__call__
+    _call = E.SwiGLUFFN._call
     residual = E.SwiGLUFFN.residual
+
+    def _weight_stationary(self, x):
+        return None                         # transition_ws declines: the fake has no weights
 
     def _split_plan(self, x):
         return True, 0                      # split on, row block off: above the window
@@ -71,7 +75,12 @@ class _Probe:
 
 
 @pytest.fixture(autouse=True)
-def _clean_cache():
+def _clean_cache(monkeypatch):
+    # The window under test is where neither row tile applies. Wormhole's small-grid tiles would
+    # chunk these shapes first (and hand the fake tensor to ttnn.chunk), so pin both to "off".
+    from tt_bio import tenstorrent
+    monkeypatch.setattr(tenstorrent, "pair_row_tile", lambda L: 0)
+    monkeypatch.setattr(tenstorrent, "SMALL_GRID_SEQ_TILE", 0)
     E._UNBLOCKED_REFUSED.clear()
     E.WINDOW_FALLBACK_STATS[:] = [0, 0]
     yield

@@ -30,6 +30,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 ttnn = pytest.importorskip("ttnn")
 
 from tt_bio.main import ensure_p300_mesh_descriptor                 # noqa: E402
+from tt_bio import tenstorrent as T                                 # noqa: E402
 from tt_bio.train.optim import AdamW, round_to_device_dtype         # noqa: E402
 from tt_bio import autograd as ag                                   # noqa: E402
 from tt_bio.train.tensors import to_device, to_host                 # noqa: E402
@@ -62,7 +63,7 @@ def dev():
     try:
         yield d
     finally:
-        ttnn.close_device(d)
+        T._close_device_locked(d)
 
 
 def test_host_cast_matches_a_device_round_trip(dev):

@@ -1,0 +1,67 @@
+{
+ "stock": {
+  "arm": "stock",
+  "settings": [],
+  "xla": null,
+  "evidence": "/root/kc/bc2/arms/stock/runs.jsonl",
+  "n": 1,
+  "dropped_low_clock": 0,
+  "median": 0.7688,
+  "spread": [
+   0.7688,
+   0.7688
+  ],
+  "iterations": [
+   140
+  ],
+  "terminated": [
+   "None"
+  ],
+  "design_s": [
+   107.64
+  ],
+  "sm_mhz": 2670.0,
+  "gpu": "NVIDIA GeForce RTX 4090, 380.00 W, 595.91.07",
+  "jax": "0.11.2",
+  "bc2_sha": "7a2dfdb8a285232a6f881899fe135c6dc48679f1",
+  "cpu": "Intel(R) Core(TM) i9-14900KF",
+  "ncpu": 32,
+  "wall_s": 368.2,
+  "rc": 0
+ },
+ "_skipped": [],
+ "_ranking": [
+  "stock"
+ ],
+ "_winner": {
+  "arm": "stock",
+  "settings": [],
+  "xla": null,
+  "evidence": "/root/kc/bc2/winner/runs.jsonl",
+  "n": 1,
+  "dropped_low_clock": 0,
+  "median": 0.7687,
+  "spread": [
+   0.7687,
+   0.7687
+  ],
+  "iterations": [
+   140
+  ],
+  "terminated": [
+   "final"
+  ],
+  "design_s": [
+   107.61
+  ],
+  "sm_mhz": 2670.0,
+  "gpu": "NVIDIA GeForce RTX 4090, 380.00 W, 595.91.07",
+  "jax": "0.11.2",
+  "bc2_sha": "7a2dfdb8a285232a6f881899fe135c6dc48679f1",
+  "cpu": "Intel(R) Core(TM) i9-14900KF",
+  "ncpu": 32,
+  "wall_s": 279.5,
+  "rc": 0,
+  "stacked": null
+ }
+}

@@ -1,0 +1,133 @@
+{
+  "224": {
+    "arms": {
+      "native-compile": {
+        "sweep": {
+          "32": {
+            "status": "ok",
+            "n": 1,
+            "designs_s": 0.28216206683713957,
+            "spread": [
+              0.28216206683713957,
+              0.28216206683713957
+            ],
+            "batch": 32,
+            "sm_mhz_median": 1410
+          },
+          "64": {
+            "status": "ok",
+            "n": 1,
+            "designs_s": 0.2864816472694718,
+            "spread": [
+              0.2864816472694718,
+              0.2864816472694718
+            ],
+            "batch": 64,
+            "sm_mhz_median": 1410
+          },
+          "128": {
+            "status": "ok",
+            "n": 1,
+            "designs_s": 0.28670045849674886,
+            "spread": [
+              0.28670045849674886,
+              0.28670045849674886
+            ],
+            "batch": 128,
+            "sm_mhz_median": 1410
+          }
+        },
+        "start": 32,
+        "batch": 128,
+        "designs_s": 0.28670045849674886
+      },
+      "compile-cueq": {
+        "sweep": {
+          "32": {
+            "status": "ok",
+            "n": 1,
+            "designs_s": 0.2779273567371328,
+            "spread": [
+              0.2779273567371328,
+              0.2779273567371328
+            ],
+            "batch": 32,
+            "sm_mhz_median": 1410
+          },
+          "64": {
+            "status": "ok",
+            "n": 1,
+            "designs_s": 0.2849155047456239,
+            "spread": [
+              0.2849155047456239,
+              0.2849155047456239
+            ],
+            "batch": 64,
+            "sm_mhz_median": 1410
+          },
+          "128": {
+            "status": "ok",
+            "n": 1,
+            "designs_s": 0.2864130568552294,
+            "spread": [
+              0.2864130568552294,
+              0.2864130568552294
+            ],
+            "batch": 128,
+            "sm_mhz_median": 1410
+          },
+          "256": {
+            "status": "FAILED",
+            "error": "OutOfMemoryError: CUDA out of memory. Tried to allocate 24.50 GiB. GPU 0 has a total capacity of 79.25 GiB of which 20.82 GiB is free. Including non-PyTorch memory, this process has 58.43 GiB memory in use. Of the allocated memory 57.56 GiB is allocated by PyTorch, and 373.92 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)",
+            "n": 0
+          }
+        },
+        "start": 32,
+        "batch": 128,
+        "designs_s": 0.2864130568552294
+      },
+      "compile-reduce-overhead": {
+        "sweep": {
+          "32": {
+            "status": "ok",
+            "n": 1,
+            "designs_s": 0.27976674447679245,
+            "spread": [
+              0.27976674447679245,
+              0.27976674447679245
+            ],
+            "batch": 32,
+            "sm_mhz_median": 1410
+          },
+          "64": {
+            "status": "ok",
+            "n": 1,
+            "designs_s": 0.2782245794026866,
+            "spread": [
+              0.2782245794026866,
+              0.2782245794026866
+            ],
+            "batch": 64,
+            "sm_mhz_median": 1410
+          }
+        },
+        "start": 32,
+        "batch": 32,
+        "designs_s": 0.27976674447679245
+      }
+    },
+    "arm": "native-compile",
+    "batch": 128,
+    "final": {
+      "status": "ok",
+      "n": 5,
+      "designs_s": 0.28509128489305735,
+      "spread": [
+        0.2829905021312722,
+        0.2867627620630788
+      ],
+      "batch": 128,
+      "sm_mhz_median": 1410
+    }
+  }
+}

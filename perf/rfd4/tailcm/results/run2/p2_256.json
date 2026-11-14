@@ -1,0 +1,77 @@
+{
+ "n": 256,
+ "levers": {
+  "base": [
+   "pair_bf16z",
+   "pair_bias_rms",
+   "pair_block",
+   "pair_mm",
+   "pair_mm_tr",
+   "pair_tail",
+   "pair_tail_cm",
+   "pair_tail_small",
+   "pair_write_res",
+   "transition_b8",
+   "trimul_bres",
+   "trimul_bres_hifi2",
+   "trimul_gin",
+   "trimul_gin_hifi2",
+   "trimul_gin_w8",
+   "trimul_t1",
+   "trimul_t1_dram",
+   "trimul_t1_psig",
+   "trimul_t1w8"
+  ],
+  "stack": [
+   "pair_bf16z",
+   "pair_bias_rms",
+   "pair_block",
+   "pair_mm",
+   "pair_mm_tr",
+   "pair_tail",
+   "pair_tail_cm",
+   "pair_tail_small",
+   "pair_write_res",
+   "transition_b8",
+   "trimul_bres",
+   "trimul_bres_hifi2",
+   "trimul_gin",
+   "trimul_gin_hifi2",
+   "trimul_gin_w8",
+   "trimul_t1",
+   "trimul_t1_dram",
+   "trimul_t1_psig",
+   "trimul_t1w8"
+  ]
+ },
+ "base_set": "trimul_tail.T2CM_MIN_P=2",
+ "tt_bio": "/home/ttuser/scratch/rfd4-tailcm/tree-585ce27e6",
+ "load_start": 5.55419921875,
+ "z_rel_rms_stack_vs_base": 0.0,
+ "z_equal": true,
+ "t2cm_served_declined": [
+  84,
+  0
+ ],
+ "base": {
+  "pass_ms_median": 56.495,
+  "pass_ms_min": 56.363,
+  "trunk_s_per_design": 10.169
+ },
+ "stack": {
+  "pass_ms_median": 55.169,
+  "pass_ms_min": 55.079,
+  "trunk_s_per_design": 9.93
+ },
+ "paired_speedup_median": 1.0241,
+ "reps": 30,
+ "load_end": 5.59033203125,
+ "aiclk": {
+  "0": {
+   "min": 1306,
+   "max": 1350,
+   "median": 1350,
+   "n": 5
+  }
+ }
+}

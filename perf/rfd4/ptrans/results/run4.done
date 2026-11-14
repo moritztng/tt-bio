@@ -1,0 +1,14 @@
+start chip 0 main 288f1ed376b6f89febf58b0ed248ee6bede29f11 o b1df0278095565111d5202b132483dca57a848e7 py /home/ttuser/tt-bio-dev/env/bin/python 2026-10-23T01:02:07Z load 3.05
+512-main1 rc=0 /home/ttuser/scratch/ptrans/run4/main {'median': 625.718, 'min': 625.414, 'capture_s': 0.06} {'0': {'min': 1281, 'max': 1350, 'median': 1331, 'n': 19}} 2026-10-23T01:02:54Z load 3.97
+512-o1 rc=0 /home/ttuser/scratch/ptrans/run4/o {'median': 611.087, 'min': 610.521, 'capture_s': 0.06} {'0': {'min': 1293, 'max': 1350, 'median': 1343, 'n': 20}} 2026-10-23T01:03:40Z load 3.86
+identity /home/ttuser/scratch/ptrans/run4/512-o1.pt {'s': True, 'z': True, 'call_s': True, 'call_z': True}
+512-main2 rc=0 /home/ttuser/scratch/ptrans/run4/main {'median': 625.67, 'min': 624.577, 'capture_s': 0.06} {'0': {'min': 1281, 'max': 1350, 'median': 1337, 'n': 17}} 2026-10-23T01:04:24Z load 4.42
+512-o2 rc=0 /home/ttuser/scratch/ptrans/run4/o {'median': 611.142, 'min': 609.937, 'capture_s': 0.05} {'0': {'min': 1281, 'max': 1350, 'median': 1331, 'n': 16}} 2026-10-23T01:05:06Z load 3.44
+identity /home/ttuser/scratch/ptrans/run4/512-o2.pt {'s': True, 'z': True, 'call_s': True, 'call_z': True}
+256-main1 rc=0 /home/ttuser/scratch/ptrans/run4/main {'median': 191.619, 'min': 191.542, 'capture_s': 0.05} {'0': {'min': 1281, 'max': 1350, 'median': 1343, 'n': 10}} 2026-10-23T01:05:24Z load 3.45
+256-o1 rc=0 /home/ttuser/scratch/ptrans/run4/o {'median': 188.216, 'min': 188.151, 'capture_s': 0.05} {'0': {'min': 1287, 'max': 1350, 'median': 1350, 'n': 11}} 2026-10-23T01:05:42Z load 3.63
+identity /home/ttuser/scratch/ptrans/run4/256-o1.pt {'s': True, 'z': True, 'call_s': True, 'call_z': True}
+256-main2 rc=0 /home/ttuser/scratch/ptrans/run4/main {'median': 191.657, 'min': 191.577, 'capture_s': 0.05} {'0': {'min': 1287, 'max': 1350, 'median': 1350, 'n': 9}} 2026-10-23T01:05:59Z load 3.64
+256-o2 rc=0 /home/ttuser/scratch/ptrans/run4/o {'median': 188.267, 'min': 188.133, 'capture_s': 0.05} {'0': {'min': 1287, 'max': 1350, 'median': 1331, 'n': 9}} 2026-10-23T01:06:14Z load 3.75
+identity /home/ttuser/scratch/ptrans/run4/256-o2.pt {'s': True, 'z': True, 'call_s': True, 'call_z': True}
+end 2026-10-23T01:06:15Z load 3.75

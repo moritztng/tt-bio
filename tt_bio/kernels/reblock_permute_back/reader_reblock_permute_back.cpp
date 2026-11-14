@@ -109,8 +109,10 @@ void kernel_main() {
     // The scratch window is this RISC's private staging area, not a producer/consumer queue: the
     // same kernel writes it and reads it, so it is reserved ONCE and addressed directly, the way the
     // forward direction's writer holds its own staging CB.
+#ifndef RPB_SPLIT
     cb_reserve_back(scratch_cb_id, TILE_HEIGHT);
     const uint32_t group_l1_base = get_write_ptr(scratch_cb_id);
+#endif
 
     // Every gather read is local L1 -> L1 at exactly FACE_ROW_BYTES, so the coordinates and the
     // length are the same for all of them and go into the read command buffer once per GROUP rather
@@ -130,7 +132,9 @@ void kernel_main() {
     //     measured TRUE at exactly the shapes where no core owns two groups (N <= 320 at C = 32) and
     //     false beyond, which is the shape-dependent failure that makes this trap dangerous. The
     //     forward writer gets to set it once because a writer issues no reads but its own gather.
+#ifndef RPB_SPLIT
     const uint64_t gather_state_addr = get_noc_addr(group_l1_base);
+#endif
 
     uint32_t group = first_group;
     for (uint32_t gi = 0; gi < num_groups; ++gi) {
@@ -139,17 +143,29 @@ void kernel_main() {
         const uint32_t jt = rem / Ct;
         const uint32_t ct = rem - jt * Ct;
 
+#ifdef RPB_SPLIT
+        // RPB_SPLIT: the writer staged this group from DRAM into the stage ring (one group ahead).
+        (void)jt;
+        (void)ct;
+        cb_wait_front(scratch_cb_id, TILE_HEIGHT);
+        const uint32_t group_l1_base = get_read_ptr(scratch_cb_id);
+        const uint64_t gather_state_addr = get_noc_addr(group_l1_base);
+#else
         // 1) the group's 32 input tiles, as 32 aligned 2 KB DRAM reads into contiguous L1
         {
             uint32_t page = (ct * TILE_HEIGHT) * NtNt + it * Nt + jt;
             uint32_t dst = group_l1_base;
             for (uint32_t cl = 0; cl < TILE_HEIGHT; ++cl) {
+#ifdef RPB_NO_DRAM
+                break;  // bench ablation (reblock_permute.BACK_ABL & 1): no DRAM read
+#endif
                 noc_async_read_page(page, s, dst);
                 page += NtNt;
                 dst += tile_bytes;
             }
         }
         noc_async_read_barrier();
+#endif
         noc_async_read_one_packet_set_state(gather_state_addr, FACE_ROW_BYTES);
 
         // 2) T_il[cl, jl] = in_tile_cl[il, jl]: row `il` of every source tile becomes row `cl` of
@@ -164,6 +180,7 @@ void kernel_main() {
             const uint32_t src_il = group_l1_base
                                   + (il / FACE_HEIGHT) * NUM_FACES_W * FACE_BYTES
                                   + (il % FACE_HEIGHT) * FACE_ROW_BYTES;
+#ifndef RPB_NO_GATHER  // bench ablation (BACK_ABL & 2): tiles go to compute ungathered
             uint32_t s0 = src_il;                 // face_w = 0
             uint32_t s1 = src_il + FACE_BYTES;    // face_w = 1
             uint32_t d0 = dst_tile_base;
@@ -186,11 +203,15 @@ void kernel_main() {
                 d0 += FACE_ROW_BYTES;
                 d1 += FACE_ROW_BYTES;
             }
+#endif
             noc_async_read_barrier();  // drain the L1 -> L1 gather before handing the tile to compute
             cb_push_back(in_cb_id, 1);
         }
 
 
+#ifdef RPB_SPLIT
+        cb_pop_front(scratch_cb_id, TILE_HEIGHT);
+#endif
         group += group_stride;
         if (group == group_wrap_hi) {
             group = group_wrap_lo;

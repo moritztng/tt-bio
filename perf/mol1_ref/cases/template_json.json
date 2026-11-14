@@ -1,0 +1,41 @@
+[
+ {
+  "name": "nanobody",
+  "sequences": [
+   {
+    "proteinChain": {
+     "count": 1,
+     "sequence": "QLQLVESGGGSVQAGGSLTLSCTASESISKRIHGIGWFRQRRGEQREEIAYITTGGRPNLGDSVKDRFTISRDKSNGTVYLQMNSLKPEDTAVYYCHGMTAEYRVSAINHGWGQGTQVTVSS",
+     "templatesPath": "@MOL1@/examples/example_with_json_template/h_seq.json"
+    }
+   }
+  ],
+  "modelSeeds": [
+   101
+  ],
+  "assembly_id": "1"
+ },
+ {
+  "name": "nanobody_antigen",
+  "sequences": [
+   {
+    "proteinChain": {
+     "count": 1,
+     "sequence": "MKEPCFREENANFNKIFLPTIYSIIFLTGIVGNGLVILVMGYQKKLRSMTDKYRLHLSVADLLFVITLPFWAVDAVANWYFGNFLCKAVHVIYTVSLYSSVLILAFISLDRYLAIVHATNSQRPRKLLAEKVVYVGVWIPALLLTIPDFIFANVSEADDRYICDRFYPNDLWVVVFQFQHIMVGLILPGIVILSCYCIIISKLSHSKGHQKRKALKTTVILILAFFACWLPYYIGISIDSFILLEIIKQGCEFENTVHKWISITEALAFFHCCLNPILYAFLGA",
+     "templatesPath": "@MOL1@/examples/example_with_json_template/a_seq.json"
+    }
+   },
+   {
+    "proteinChain": {
+     "count": 1,
+     "sequence": "QLQLVESGGGSVQAGGSLTLSCTASESISKRIHGIGWFRQRRGEQREEIAYITTGGRPNLGDSVKDRFTISRDKSNGTVYLQMNSLKPEDTAVYYCHGMTAEYRVSAINHGWGQGTQVTVSS",
+     "templatesPath": "@MOL1@/examples/example_with_json_template/h_seq.json"
+    }
+   }
+  ],
+  "modelSeeds": [
+   101
+  ],
+  "assembly_id": "1"
+ }
+]

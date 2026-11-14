@@ -39,10 +39,19 @@ import math
 import torch
 import ttnn
 
-from .tenstorrent import _dtype, dram_peak, pad_dim
+from .envflags import env_flag
+from . import tenstorrent as _T
+from .tenstorrent import _dtype, dram_peak, pad_dim, trace_region_size
 from .openfold3_diffusion import OF3DiffusionConditioning
 from .openfold3_diffusion_module import OF3DiffusionModule
 from .openfold3_weights import _sub
+from .edm_device import edm_step_scalars, matmul_f32 as _matmul_f32  # noqa: F401 (tests import them here)
+from .runtime import serial_host
+from .sample_chunks import denoise_in_chunks, resolve_sample_chunk_width
+
+# Replay the rollout's per-step device work from a ttnn trace when the device reserved a region
+# (`_traceable`). OF3_DIFFUSION_TRACE=0 runs every step eagerly.
+TRACE = env_flag("OF3_DIFFUSION_TRACE", True)
 
 
 def _free_cached(obj):
@@ -68,6 +77,26 @@ def fourier_noise_emb(t: float, sigma_data: float, w: torch.Tensor, b: torch.Ten
     (``fourier_emb.w``/``b`` come from the checkpoint)."""
     n = 0.25 * math.log(t / sigma_data)
     return torch.cos(2.0 * math.pi * (n * w + b)).float()           # [256]
+
+
+def edm_device_step_reference(x, m, rot, trans, noise, scalars, denoise):
+    """Pure-torch mirror of one ``edm_device`` step, op for op in the device order.
+
+    ``x`` [NP, 3] (pad rows zero), ``m`` [NP] 0/1 mask, ``rot`` [3, 3], ``trans`` [3],
+    ``noise`` [NP, 3], ``scalars`` from `edm_step_scalars`, ``denoise(rl) -> rl_update``
+    [NP, 3]. Returns the next ``x``. The host path (`OF3SampleDiffusion._augment` + the EDM
+    step) is the same function up to the order of float operations: it divides where this
+    multiplies by a reciprocal and takes the mean as sum / count.
+    """
+    inv_s, c_skip, c_out, inv_t, h = scalars
+    mc = m[:, None]
+    mrow = (m / m.sum().clamp_min(1.0))[None, :]
+    mean = mrow @ x                                   # [1, 3]
+    xn = ((x - mean) @ rot.t() + trans) * mc + noise
+    xnm = xn * mc
+    ru = denoise(xnm * inv_s)
+    xd = (xnm * c_skip + ru * c_out) * mc
+    return xn + ((xn - xd) * inv_t) * h
 
 
 class OF3SampleDiffusion:
@@ -114,6 +143,7 @@ class OF3SampleDiffusion:
             dtype = self._act_dtype
         return ttnn.from_torch(x, layout=layout, device=self.device, dtype=dtype)
 
+    @serial_host()  # the per-step host math (augmentation, EDM step) is atom-sized
     def __call__(self, xl_init_dev, si_trunk_dev, si_input_dev, zij_trunk_dev, relpos_dev,
                  token_mask_dev, pair_mask_dev, tok_mask_dev, cl0_dev, plm0_dev,
                  atom_mask_col_dev, atom_mask_col_na_dev, atom_to_token_idx_tt,
@@ -122,15 +152,29 @@ class OF3SampleDiffusion:
                  token_mask_pad_tt, tok_mask_col_pad_tt,
                  n_atom, NP, nb, n_token, n_tok_pad,
                  noise_schedule, rots_list, trans_list, noise_list, t_list, c_tau_list,
-                 step_scale, progress_fn=None, dump_fn=None):
+                 step_scale, progress_fn=None, max_parallel_samples=None, dump_fn=None):
         """Run the rollout. Per-step host artefacts (rots/trans/noise/t/c_tau) are
         python lists of host tensors/floats from the golden. Returns final xl [1, n_atom, 3] device.
 
+        ``xl_init_dev`` may instead be a list, one start per sample, with ``rots_list``,
+        ``trans_list`` and ``noise_list`` lists of per-sample lists; the return is then a list
+        in the same order. The samples step together: a step's conditioning depends on ``t``
+        alone, so it is built once for all of them, and the samples go through the diffusion
+        module ``max_parallel_samples`` at a time, one token-DiT call per chunk
+        (``denoise_in_chunks``, which narrows the chunk if DRAM refuses it). Each sample keeps
+        its own draws, so the arithmetic of a sample does not depend on the chunk width.
+
         ``dump_fn(step, xl, xl_denoised)``, off by default, sees the sampler's real state after
-        every step as host [1, n_atom, 3] float32 (step -1 is the initial noise, with no
+        every step as host [S, n_atom, 3] float32 (step -1 is the initial noise, with no
         prediction). Each state sits in that step's random augmentation frame, as the reference
-        sampler's does. The hook reads tensors the loop already made and writes none, so a fold is
-        bit-identical with or without it; an exception raised by it aborts the fold."""
+        sampler's does. It needs both on the host every step, so with a hook the rollout takes
+        the host-EDM path even where the ``edm_device`` lever is on; without one nothing
+        changes."""
+        many = isinstance(xl_init_dev, (list, tuple))
+        if not many:
+            xl_init_dev, rots_list, trans_list, noise_list = (
+                [xl_init_dev], [rots_list], [trans_list], [noise_list])
+        S = len(xl_init_dev)
         pair_inputs = (zij_trunk_dev, relpos_dev)
         if self._act_dtype != ttnn.bfloat16:
             _c = self.to_act_dtype
@@ -146,9 +190,10 @@ class OF3SampleDiffusion:
             npe_zij_mask = _c(npe_zij_mask)
 
         atom_mask_host = ttnn.to_torch(atom_mask_col_na_dev).float().reshape(n_atom)  # [n_atom]
-        xl_host = ttnn.to_torch(xl_init_dev).float().reshape(n_atom, 3)               # [n_atom, 3]
+        xl_host = torch.stack([ttnn.to_torch(x).float().reshape(n_atom, 3)
+                               for x in xl_init_dev])                            # [S, n_atom, 3]
         if dump_fn is not None:
-            dump_fn(-1, xl_host.unsqueeze(0), None)
+            dump_fn(-1, xl_host, None)
 
         # Loop invariants. Only the single conditioning branch and the atom-level legs see
         # the noise level; the pair branch, its fp32 cast, and every value downstream that
@@ -167,54 +212,348 @@ class OF3SampleDiffusion:
             ttnn.deallocate(zij_dev)
         inv_cache: dict = {}
         dram_peak("of3 sampler: conditioning pair built")
+        width = resolve_sample_chunk_width(S, max_parallel_samples)
 
-        for tau in range(len(t_list)):
-            if progress_fn:
-                progress_fn("diffusion", step=tau, total=len(t_list))
-            rots = rots_list[tau].float()                # [3, 3]
-            trans = trans_list[tau].float()              # [3]
-            # centre_random_augmentation (host): centre -> rotate -> translate -> mask.
-            mean_xl = (xl_host * atom_mask_host[:, None]).sum(0) / atom_mask_host.sum().clamp_min(1.0)
-            xl_aug = (xl_host - mean_xl) @ rots.t() + trans
-            xl_aug = xl_aug * atom_mask_host[:, None]
-            # noise add (host).
-            noise = noise_list[tau].float()
-            t = float(t_list[tau])
-            xl_noisy = xl_aug + noise
-            # per-step conditioning: host n_emb(t) -> device single branch -> si.
-            # (the pair branch and zij_pad are loop-invariant and were hoisted above.)
-            n_emb = fourier_noise_emb(t, self.sigma_data, self.fourier_w, self.fourier_b)
-            si_dev = self.dc.single(si_trunk_dev, si_input_dev,
-                                    self._to_dev(n_emb.reshape(1, 1, 256)), tok_mask_dev)
-            si_pad = pad_dim(si_dev, self._act_dtype, n_token, n_tok_pad)
-            if si_pad is not si_dev:
-                ttnn.deallocate(si_dev)
-            # rl_noisy = xl_noisy * atom_mask / sqrt(t^2 + sigma_data^2) (host -> device).
-            rl_noisy = xl_noisy * atom_mask_host[:, None] / math.sqrt(t * t + self.sigma_data ** 2)
-            rl_noisy_dev = self._to_dev(self._pad_atoms_host(rl_noisy, n_atom, NP))
-            xl_noisy_masked = xl_noisy * atom_mask_host[:, None]
-            xl_noisy_dev = self._to_dev(xl_noisy_masked.unsqueeze(0))  # [1, n_atom, 3]
-            xl_denoised_dev = self.dm(
-                si_trunk_dev, si_pad, zij_pad, cl0_dev, plm0_dev, rl_noisy_dev, xl_noisy_dev,
-                atom_mask_col_dev, atom_mask_col_na_dev, atom_to_token_idx_tt,
-                npe_flat_idx_tt, npe_zij_mask, enc_key_block_idxs_tt, enc_valid_mask,
-                enc_mask_bias, enc_pair_mask, atom_to_token_mean_tt,
-                token_mask_pad_tt, tok_mask_col_pad_tt,
-                n_atom, NP, nb, n_token, n_tok_pad, t, self.sigma_data, cache=inv_cache)
-            xl_denoised = ttnn.to_torch(xl_denoised_dev).float().reshape(n_atom, 3)
-            ttnn.deallocate(si_pad)
-            ttnn.deallocate(rl_noisy_dev); ttnn.deallocate(xl_noisy_dev)
-            ttnn.deallocate(xl_denoised_dev)
-            # EDM step (host).
-            delta = (xl_noisy - xl_denoised) / t
-            dt = float(c_tau_list[tau]) - t
-            xl_host = xl_noisy + step_scale * dt * delta
-            if dump_fn is not None:
-                dump_fn(tau, xl_host.unsqueeze(0), xl_denoised.unsqueeze(0))
+        dm_args = (si_trunk_dev, None, zij_pad, cl0_dev, plm0_dev, None, None,
+                   atom_mask_col_dev, atom_mask_col_na_dev, atom_to_token_idx_tt,
+                   npe_flat_idx_tt, npe_zij_mask, enc_key_block_idxs_tt, enc_valid_mask,
+                   enc_mask_bias, enc_pair_mask, atom_to_token_mean_tt,
+                   token_mask_pad_tt, tok_mask_col_pad_tt,
+                   n_atom, NP, nb, n_token, n_tok_pad)
+        if self._traceable(S, width):
+            xl_host = self._rollout_traced(
+                xl_host, atom_mask_host, rots_list, trans_list, noise_list, t_list, c_tau_list,
+                step_scale, progress_fn, dm_args, inv_cache,
+                (si_trunk_dev, si_input_dev, tok_mask_dev), n_atom, NP, n_token, n_tok_pad,
+                dump_fn=dump_fn)
+        else:
+            for tau in range(len(t_list)):
+                if progress_fn:
+                    progress_fn("diffusion", step=tau, total=len(t_list))
+                t = float(t_list[tau])
+                xl_noisy = self._augment(xl_host, atom_mask_host, rots_list, trans_list,
+                                         noise_list, tau)
+                # per-step conditioning: host n_emb(t) -> device single branch -> si, one for every
+                # sample (the pair branch and zij_pad are loop-invariant and were hoisted above).
+                n_emb = fourier_noise_emb(t, self.sigma_data, self.fourier_w, self.fourier_b)
+                si_dev = self.dc.single(si_trunk_dev, si_input_dev,
+                                        self._to_dev(n_emb.reshape(1, 1, 256)), tok_mask_dev,
+                                        cache=inv_cache)
+                si_pad = pad_dim(si_dev, self._act_dtype, n_token, n_tok_pad)
+                if si_pad is not si_dev:
+                    ttnn.deallocate(si_dev)
+
+                def denoise(chunk, _w, t=t, si_pad=si_pad):
+                    # rl_noisy = xl_noisy * atom_mask / sqrt(t^2 + sigma_data^2) (host -> device);
+                    # the device returns rl_update and the EDM scaling stays on the host in fp32.
+                    rls = [self._to_dev(self._pad_atoms_host(
+                               x * atom_mask_host[:, None] / math.sqrt(t * t + self.sigma_data ** 2),
+                               n_atom, NP)) for x in chunk]
+                    outs = self.dm(*dm_args, None, self.sigma_data, cache=inv_cache, edm=False,
+                                   samples=[(si_pad, rl, None, None) for rl in rls])
+                    ru = torch.stack([ttnn.to_torch(o).float().reshape(n_atom, 3) for o in outs])
+                    for y in (*outs, *rls):
+                        ttnn.deallocate(y)
+                    return self._edm_host(chunk, ru, atom_mask_host, t, self.sigma_data)
+
+                xl_denoised, width = denoise_in_chunks(xl_noisy, width, denoise, tag="of3 diffusion")
+                ttnn.deallocate(si_pad)
+                # EDM step (host).
+                delta = (xl_noisy - xl_denoised) / t
+                dt = float(c_tau_list[tau]) - t
+                xl_host = xl_noisy + step_scale * dt * delta
+                if dump_fn is not None:
+                    dump_fn(tau, xl_host, xl_denoised)
 
         ttnn.deallocate(zij_pad)
         _free_cached(inv_cache.values())
-        return self._to_dev(xl_host.unsqueeze(0))
+        # Coordinates leave in fp32: the act dtype (bf16 under diffusion_bf16) would round every
+        # atom to a grid that coarsens with its distance from the origin (0.5 A at 64-128 A).
+        out = [self._to_dev(x.unsqueeze(0), ttnn.float32) for x in xl_host]
+        return out if many else out[0]
+
+    @staticmethod
+    def _edm_host(xl_noisy, rl_update, atom_mask_host, t, sigma_data):
+        """EDM output scaling on the host in fp32, ``(c_skip * x + c_out * rl_update)``, masked.
+        It combines absolute coordinates, so it never runs in the act dtype: bf16 there rounds
+        every atom to a grid that coarsens with its distance from the origin."""
+        mask = atom_mask_host[:, None]
+        sd2 = sigma_data ** 2
+        c_skip = sd2 / (sd2 + t * t)
+        c_out = sigma_data * t / math.sqrt(sd2 + t * t)
+        return ((xl_noisy * mask) * c_skip + rl_update * c_out) * mask
+
+    @staticmethod
+    def _augment(xl_host, atom_mask_host, rots_list, trans_list, noise_list, tau):
+        """centre_random_augmentation + the step's noise, on the host, each sample its own draws."""
+        xl_noisy = torch.empty_like(xl_host)
+        for k in range(xl_host.shape[0]):
+            x = xl_host[k]
+            rots = rots_list[k][tau].to(x.dtype)             # [3, 3]
+            trans = trans_list[k][tau].to(x.dtype)           # [3]
+            mean_xl = (x * atom_mask_host[:, None]).sum(0) / atom_mask_host.sum().clamp_min(1.0)
+            xl_aug = (x - mean_xl) @ rots.t() + trans
+            xl_aug = xl_aug * atom_mask_host[:, None]
+            xl_noisy[k] = xl_aug + noise_list[k][tau].to(x.dtype)
+        return xl_noisy
+
+    def _traceable(self, S, width):
+        """Replay one captured step instead of dispatching ~1,500 ops 200 times. Needs the trace
+        region reserved at device open and every sample in one call (a chunked step has a short
+        tail). Both the fp32 and the bf16 (`diffusion_bf16`) module pad atoms on device."""
+        return TRACE and trace_region_size() > 0 and width >= S
+
+    def _rollout_traced(self, xl_host, atom_mask_host, rots_list, trans_list, noise_list,
+                        t_list, c_tau_list, step_scale, progress_fn, dm_args, inv_cache,
+                        single_args, n_atom, NP, n_token, n_tok_pad, dump_fn=None):
+        """The rollout with the device half of every step replayed from one ttnn trace.
+
+        A step's device work is conditioning ``single`` -> diffusion module up to the decoder's
+        ``rl_update``; its only per-step inputs are the noise embedding and each sample's
+        scaled noisy coordinates, staged into persistent buffers before each replay. ``t``
+        enters only the EDM scaling, which runs here on the host in fp32 next to the update
+        it feeds. Step 0 runs eagerly (it compiles every program and fills the rollout cache),
+        the step is captured right behind step 0's dispatch (so the capture's host time overlaps
+        step 0 on the device) and every step from 1 on replays it (a capture that fails, e.g. on a
+        trace region too small for the step, leaves every step eager). Between replays nothing but
+        the staging copies and the output reads touch the device, and the trace is released
+        before the cache it reads is freed.
+        """
+        if _T.lever("edm_device") and dump_fn is None:
+            return self._rollout_edm_device(
+                xl_host, atom_mask_host, rots_list, trans_list, noise_list, t_list, c_tau_list,
+                step_scale, progress_fn, dm_args, inv_cache, single_args, n_atom, NP, n_token,
+                n_tok_pad)
+        S = xl_host.shape[0]
+        mask = atom_mask_host[:, None]
+        si_trunk_dev, si_input_dev, tok_mask_dev = single_args
+        dev = self.device
+        host = lambda x: ttnn.from_torch(x.float(), layout=ttnn.TILE_LAYOUT,
+                                         dtype=self._act_dtype)
+        n_buf = self._to_dev(torch.zeros(1, 1, 256))
+        rl_bufs = [self._to_dev(torch.zeros(1, NP, 3)) for _ in range(S)]
+
+        def step():
+            si = self.dc.single(si_trunk_dev, si_input_dev, n_buf, tok_mask_dev, cache=inv_cache)
+            si_pad = pad_dim(si, self._act_dtype, n_token, n_tok_pad)
+            if si_pad is not si:
+                ttnn.deallocate(si)
+            outs = self.dm(*dm_args, None, self.sigma_data, cache=inv_cache, edm=False,
+                           samples=[(si_pad, rl, None, None) for rl in rl_bufs])
+            ttnn.deallocate(si_pad)
+            return outs
+
+        tid = outs = None
+        traced = True
+        try:
+            for tau in range(len(t_list)):
+                if progress_fn:
+                    progress_fn("diffusion", step=tau, total=len(t_list))
+                t = float(t_list[tau])
+                xl_noisy = self._augment(xl_host, atom_mask_host, rots_list, trans_list,
+                                         noise_list, tau)
+                n_emb = fourier_noise_emb(t, self.sigma_data, self.fourier_w, self.fourier_b)
+                ttnn.copy_host_to_device_tensor(host(n_emb.reshape(1, 1, 256)), n_buf)
+                for k in range(S):
+                    rl = xl_noisy[k] * mask / math.sqrt(t * t + self.sigma_data ** 2)
+                    ttnn.copy_host_to_device_tensor(host(self._pad_atoms_host(rl, n_atom, NP)),
+                                                    rl_bufs[k])
+                if tid is not None:
+                    ttnn.execute_trace(dev, tid, cq_id=0, blocking=False)
+                    res = outs
+                else:                           # step 0, or the capture failed: the same program
+                    res = step()
+                if tid is None and traced and tau + 1 < len(t_list):
+                    # Record the replayed step now, behind step 0's eager dispatch and before
+                    # its read: capture is host work only (nothing executes), so it overlaps
+                    # the device still running step 0 instead of idling it. It reads the
+                    # staging buffers, which the next step refills after this step's read.
+                    tid = ttnn.begin_trace_capture(dev, cq_id=0)
+                    try:
+                        outs = step()
+                        ttnn.end_trace_capture(dev, tid, cq_id=0)
+                    except Exception as e:      # e.g. the step outgrew the trace region
+                        print(f"  [of3 diffusion] trace capture failed, steps run eagerly: {e}")
+                        try:
+                            ttnn.end_trace_capture(dev, tid, cq_id=0)
+                        except Exception:
+                            pass
+                        ttnn.release_trace(dev, tid)
+                        tid = outs = None
+                        traced = False
+                rl_update = torch.stack([ttnn.to_torch(o).float().reshape(n_atom, 3)
+                                         for o in res])
+                if res is not outs:
+                    for o in res:
+                        ttnn.deallocate(o)
+                xl_denoised = self._edm_host(xl_noisy, rl_update, atom_mask_host, t, self.sigma_data)
+                delta = (xl_noisy - xl_denoised) / t
+                xl_host = xl_noisy + step_scale * (float(c_tau_list[tau]) - t) * delta
+                if dump_fn is not None:
+                    dump_fn(tau, xl_host, xl_denoised)
+        finally:
+            if tid is not None:
+                ttnn.release_trace(dev, tid)
+            for o in (outs or ()):
+                ttnn.deallocate(o)
+            ttnn.deallocate(n_buf)
+            for b in rl_bufs:
+                ttnn.deallocate(b)
+        return xl_host
+
+    def _rollout_edm_device(self, xl_host, atom_mask_host, rots_list, trans_list, noise_list,
+                            t_list, c_tau_list, step_scale, progress_fn, dm_args, inv_cache,
+                            single_args, n_atom, NP, n_token, n_tok_pad):
+        """`_rollout_traced` with the coordinates resident on the card (lever ``edm_device``).
+
+        Every per-step host artefact -- each sample's rotation, translation and noise (drawn by
+        the caller, in the caller's order, so the random stream is the one the host path reads),
+        the fourier embedding of ``t`` and the step's scalars (`edm_step_scalars`) -- is built on
+        the host once before the loop. A captured step then does `edm_device_step_reference` in
+        fp32 on the card: masked mean, centre, rotate, translate, mask, add noise, scale to
+        ``rl``, conditioning + diffusion module, EDM output scaling and the EDM step, writing the
+        new coordinates back into a persistent buffer. Between replays the host only writes step
+        ``tau``'s inputs into the staging buffers the trace reads; nothing is read back until the
+        last step. A failed capture leaves every step eager, still on the card.
+        """
+        S = xl_host.shape[0]
+        T = len(t_list)
+        dev, f32, act = self.device, ttnn.float32, self._act_dtype
+        si_trunk_dev, si_input_dev, tok_mask_dev = single_args
+        sd = self.sigma_data
+        up = lambda x, dt=f32: ttnn.from_torch(x.float().contiguous(), layout=ttnn.TILE_LAYOUT,
+                                               device=dev, dtype=dt)
+        ckc = ttnn.init_device_compute_kernel_config(
+            dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi4, fp32_dest_acc_en=True,
+            packer_l1_acc=False)
+        m_np = self._pad_atoms_host(atom_mask_host[:, None], n_atom, NP)        # [1, NP, 1]
+        m_dev = up(m_np)
+        mrow_dev = up((m_np / atom_mask_host.sum().clamp_min(1.0)).transpose(1, 2))  # [1, 1, NP]
+        xl_bufs = [up(self._pad_atoms_host(xl_host[k], n_atom, NP)) for k in range(S)]
+        # Per-step inputs, built once on the host and written into the staging buffers the
+        # captured step reads, one step at a time. Holding all 200 steps on the card cost ~42 MB
+        # and 1,600 small buffers at 1,568 tokens, the headroom OpenBind-0's warm fold ran out of.
+        # The noise travels dense, row-major [1, NP/32, 96] fp32: a TILE [1, NP, 3] pads its 3
+        # columns to 32.
+        host = lambda x, dt=f32: ttnn.from_torch(x.float().contiguous(), layout=ttnn.TILE_LAYOUT,
+                                                 dtype=dt)
+        sc = [edm_step_scalars(float(t_list[i]), float(c_tau_list[i]), sd, step_scale)
+              for i in range(T)]
+        pre_sc = [[host(torch.tensor(v, dtype=torch.float64).reshape(1, 1, 1)) for v in row]
+                  for row in sc]
+        pre_emb = [host(fourier_noise_emb(float(t_list[i]), sd, self.fourier_w,
+                                          self.fourier_b).reshape(1, 1, 256), act)
+                   for i in range(T)]
+        pre_smp = [[(host(rots_list[k][i].float().t().reshape(1, 3, 3)),
+                     host(trans_list[k][i].float().reshape(1, 1, 3)),
+                     ttnn.from_torch(self._pad_atoms_host(noise_list[k][i].float(), n_atom, NP)
+                                     .reshape(1, NP // 32, 96).contiguous(),
+                                     layout=ttnn.ROW_MAJOR_LAYOUT, dtype=f32))
+                    for i in range(T)] for k in range(S)]
+        # Staging buffers the captured step reads (refilled before every replay).
+        st_sc = [ttnn.to_device(x, dev) for x in pre_sc[0]]
+        st_emb = ttnn.to_device(pre_emb[0], dev)
+        st_smp = [tuple(ttnn.to_device(x, dev) for x in pre_smp[k][0]) for k in range(S)]
+
+        def stage(i):
+            for src, dst in zip(pre_sc[i], st_sc):
+                ttnn.copy_host_to_device_tensor(src, dst)
+            ttnn.copy_host_to_device_tensor(pre_emb[i], st_emb)
+            for k in range(S):
+                for src, dst in zip(pre_smp[k][i], st_smp[k]):
+                    ttnn.copy_host_to_device_tensor(src, dst)
+
+        def step():
+            inv_s, c_skip, c_out, inv_t, h = st_sc
+            xns, rls = [], []
+            for k in range(S):
+                rt, tr, nz_rm = st_smp[k]
+                nz = ttnn.to_layout(ttnn.reshape(nz_rm, (1, NP, 3)), ttnn.TILE_LAYOUT)
+                x = xl_bufs[k]
+                mean = _matmul_f32(mrow_dev, x, ckc)                         # [1, 1, 3]
+                xc = ttnn.subtract(x, mean)
+                xr = _matmul_f32(xc, rt, ckc)                                # [1, NP, 3]
+                xa = ttnn.add(xr, tr)
+                xam = ttnn.multiply(xa, m_dev)
+                xn = ttnn.add(xam, nz)
+                xnm = ttnn.multiply(xn, m_dev)
+                rl = ttnn.multiply(xnm, inv_s)
+                rl_a = ttnn.typecast(rl, act) if act != f32 else rl
+                for y in (mean, xc, xr, xa, xam, nz):
+                    ttnn.deallocate(y)
+                if rl_a is not rl:
+                    ttnn.deallocate(rl)
+                xns.append((xn, xnm))
+                rls.append(rl_a)
+            si = self.dc.single(si_trunk_dev, si_input_dev, st_emb, tok_mask_dev, cache=inv_cache)
+            si_pad = pad_dim(si, act, n_token, n_tok_pad)
+            if si_pad is not si:
+                ttnn.deallocate(si)
+            outs = self.dm(*dm_args, None, sd, cache=inv_cache, edm=False,
+                           samples=[(si_pad, rl, None, None) for rl in rls])
+            ttnn.deallocate(si_pad)
+            for rl in rls:
+                ttnn.deallocate(rl)
+            for k, (o, (xn, xnm)) in enumerate(zip(outs, xns)):
+                ru = ttnn.typecast(o, f32) if o.dtype != f32 else o
+                if ru is not o:
+                    ttnn.deallocate(o)
+                if NP > n_atom:
+                    # Row-major pad: a TILE-layout ttnn.pad of a computed [1, n_atom, 3] at an
+                    # unaligned n_atom diverged the rollout on p300c (probe edm_probe2.py).
+                    rr = ttnn.to_layout(ru, ttnn.ROW_MAJOR_LAYOUT)
+                    ttnn.deallocate(ru)
+                    rp = ttnn.pad(rr, padding=[(0, 0), (0, NP - n_atom), (0, 0)], value=0.0)
+                    ttnn.deallocate(rr)
+                    ru = ttnn.to_layout(rp, ttnn.TILE_LAYOUT)
+                    ttnn.deallocate(rp)
+                a = ttnn.multiply(xnm, c_skip)
+                b = ttnn.multiply(ru, c_out)
+                xd0 = ttnn.add(a, b)
+                xd = ttnn.multiply(xd0, m_dev)
+                d0 = ttnn.subtract(xn, xd)
+                d = ttnn.multiply(d0, inv_t)
+                hd = ttnn.multiply(d, h)
+                xnew = ttnn.add(xn, hd)
+                ttnn.copy(xnew, xl_bufs[k])
+                for y in (ru, a, b, xd0, xd, d0, d, hd, xnew, xn, xnm):
+                    ttnn.deallocate(y)
+
+        tid = None
+        traced = True
+        try:
+            for tau in range(T):
+                if progress_fn:
+                    progress_fn("diffusion", step=tau, total=T)
+                stage(tau)
+                if tid is not None:
+                    ttnn.execute_trace(dev, tid, cq_id=0, blocking=False)
+                else:
+                    step()
+                if tid is None and traced and tau + 1 < T:
+                    tid = ttnn.begin_trace_capture(dev, cq_id=0)
+                    try:
+                        step()
+                        ttnn.end_trace_capture(dev, tid, cq_id=0)
+                    except Exception as e:
+                        print(f"  [of3 diffusion] edm_device trace capture failed, steps run "
+                              f"eagerly: {e}")
+                        try:
+                            ttnn.end_trace_capture(dev, tid, cq_id=0)
+                        except Exception:
+                            pass
+                        ttnn.release_trace(dev, tid)
+                        tid = None
+                        traced = False
+            out = torch.stack([ttnn.to_torch(b).float().reshape(NP, 3)[:n_atom]
+                               for b in xl_bufs])
+        finally:
+            if tid is not None:
+                ttnn.release_trace(dev, tid)
+            for y in [m_dev, mrow_dev, st_emb, *xl_bufs, *st_sc,
+                      *(x for st in st_smp for x in st)]:
+                ttnn.deallocate(y)
+        return out
 
     @staticmethod
     def _pad_atoms_host(x, n_atom, NP):

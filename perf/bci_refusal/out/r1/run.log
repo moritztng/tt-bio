@@ -1,0 +1,9 @@
+start=2026-10-07T20:27:46Z head=18f18b36d card=1
+locked=2026-10-07T21:31:49Z
+{"mode": "success", "tree": "/home/ttuser/.coworker/wt/bci-refusal", "pid": 1604492, "start": 1791408709.0915303, "returncode": 0, "wall_s": 149.5, "signals_sent": [], "exit_after_last_word_s": 4.99}
+{"mode": "refusal", "tree": "/home/ttuser/.coworker/wt/bci-refusal", "pid": 1626492, "start": 1791408858.6221006, "returncode": 1, "wall_s": 122.9, "signals_sent": [], "exit_after_last_word_s": 3.72}
+{"mode": "sigterm", "tree": "/home/ttuser/.coworker/wt/bci-refusal", "pid": 1638924, "start": 1791408981.5463574, "returncode": -15, "wall_s": 102.6, "signals_sent": [["SIGTERM", 101.8]], "exit_after_last_word_s": 0.78}
+fixed_rc=0
+{"mode": "success", "tree": "/home/ttuser/scratch/bci-refusal-before", "pid": 1644710, "start": 1791409084.1818497, "returncode": 0, "wall_s": 79.0, "signals_sent": [], "exit_after_last_word_s": 3.56}
+{"mode": "refusal", "tree": "/home/ttuser/scratch/bci-refusal-before", "pid": 1652515, "start": 1791409163.1565366, "returncode": 1, "wall_s": 87.1, "signals_sent": [], "exit_after_last_word_s": 3.34}
+before_rc=0 end=2026-10-07T21:40:50Z

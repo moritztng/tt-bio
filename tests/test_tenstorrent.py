@@ -37,7 +37,10 @@ def load(tt, ref, state, key, strict=False):
 
 
 def check(a, b, tol=0.1):
-    err = ((a - b).abs() / b.abs()).median().item()
+    # where a == b exactly the error is 0, not 0/0: a float32 reference can land on an exact
+    # 0.0 that the device matches, and one NaN turns the whole median into NaN. A NaN in
+    # either side still compares unequal and still fails.
+    err = torch.where(a == b, 0.0, (a - b).abs() / b.abs()).median().item()
     # printed, not just asserted: the number is what an A/B of a numerics change
     # reads, and `pytest -s` is the only place it was ever visible.
     print(f"[check] median rel err {err:.4e} (tol {tol})", flush=True)

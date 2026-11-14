@@ -623,6 +623,20 @@ def test_a_violated_version_bound_is_a_problem_not_a_pass(tmp_path):
     assert "ttnn 0.67.4 violates" in problems[0]
 
 
+def test_a_pin_split_by_python_version_binds_only_its_own_interpreter(tmp_path):
+    # tt-bio pins biotite 1.2.0 below Python 3.11 and 1.6.0 above. Reading both lines on every
+    # interpreter made each one violate the other's pin and refused every gate run.
+    import sys
+    g = _guard()
+    pj = tmp_path / "pyproject.toml"
+    pj.write_text('[project]\ndependencies = [\n    "biotite==1.2.0; python_version < \'3.11\'",\n'
+                  '    "biotite==1.6.0; python_version >= \'3.11\'",\n]\n')
+    mine, other = ("1.2.0", "1.6.0") if sys.version_info < (3, 11) else ("1.6.0", "1.2.0")
+    assert g.declared_dependency_problems(pj, (), env={"biotite": mine}) == []
+    problems = g.declared_dependency_problems(pj, (), env={"biotite": other})
+    assert len(problems) == 1 and f"biotite {other} violates the declared =={mine}" in problems[0]
+
+
 def test_an_unreadable_or_empty_pyproject_is_unverified_not_clean(tmp_path):
     # A reader that returns nothing must never read as "this interpreter is fine".
     g = _guard()

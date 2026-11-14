@@ -1,4 +1,5 @@
-from collections.abc import Callable
+import warnings
+from collections.abc import Callable, Mapping
 
 import biotite.structure as struc
 import numpy as np
@@ -11,9 +12,23 @@ from tt_bio._vendor.atomworks.ml.transforms.base import Transform
 from tt_bio._vendor.atomworks.ml.utils.token import apply_and_spread_token_wise
 
 
+def _validate_probability(p_atomize: float | Mapping[str, float], res_names: list[str] | None) -> None:
+    if not isinstance(p_atomize, Mapping):
+        warnings.warn(
+            "Scalar p_atomize is deprecated; pass a residue-name-to-probability mapping instead.",
+            DeprecationWarning,
+            stacklevel=3,
+        )
+    if isinstance(p_atomize, Mapping) and res_names is not None:
+        raise ValueError("res_names cannot be combined with per-residue probabilities")
+    values = p_atomize.values() if isinstance(p_atomize, Mapping) else (p_atomize,)
+    if any(not 0 <= p <= 1 for p in values):
+        raise ValueError("Atomization probabilities must be between 0 and 1")
+
+
 def random_atomize_residues(
     atom_array: AtomArray,
-    p_atomize: float,
+    p_atomize: float | Mapping[str, float],
     res_names: list[str] | None = None,
     *,
     rng: np.random.Generator | None = None,
@@ -22,15 +37,16 @@ def random_atomize_residues(
 
     Args:
         atom_array: Input AtomArray
-        p_atomize: Probability of atomizing each residue (float between 0 and 1)
+        p_atomize: Probability between 0 and 1, or a mapping from residue names to
+            probabilities. With a mapping, unlisted residues are not selected.
+            Scalar probabilities are deprecated.
         res_names: List of residue names to consider for atomization (e.g., ["ALA", "GLY"])
         rng: Random number generator for reproducibility
 
     Returns:
         AtomArray with updated atomization annotation
     """
-    if not 0 <= p_atomize <= 1:
-        raise ValueError("p_atomize must be between 0 and 1")
+    _validate_probability(p_atomize, res_names)
 
     res_names = res_names or STANDARD_AA + STANDARD_RNA + STANDARD_DNA
 
@@ -42,14 +58,19 @@ def random_atomize_residues(
     residue_res_names = atom_array.res_name[residue_starts]
 
     # Identify target residues and randomly select which to atomize
-    is_target_residue = np.isin(residue_res_names, res_names)
+    is_target_residue = np.isin(residue_res_names, list(p_atomize) if isinstance(p_atomize, Mapping) else res_names)
     residue_atomize_mask = np.zeros(len(residue_res_names), dtype=bool)
 
     if np.any(is_target_residue):
         # Randomly select target residues to atomize
         target_indices = np.where(is_target_residue)[0]
         random_values = rng.random(len(target_indices))
-        selected_targets = target_indices[random_values < p_atomize]
+        probabilities = (
+            np.array([p_atomize[name] for name in residue_res_names[target_indices]])
+            if isinstance(p_atomize, Mapping)
+            else p_atomize
+        )
+        selected_targets = target_indices[random_values < probabilities]
         residue_atomize_mask[selected_targets] = True
 
     # Spread residue-level mask to atom-level and update annotation
@@ -65,21 +86,24 @@ class RandomAtomizeResidues(Transform):
 
     def __init__(
         self,
-        p_atomize: float,
+        p_atomize: float | Mapping[str, float],
         res_names: list[str] | None = None,
         *,
         rng: np.random.Generator | None = None,
-    ):
+    ) -> None:
         """Initialize the transform.
 
         Args:
-            p_atomize: Probability of atomizing each residue (float between 0 and 1)
+            p_atomize: Probability between 0 and 1, or residue-name probabilities.
+                Unlisted residues in a mapping are not selected.
+                Scalar probabilities are deprecated.
             res_names: List of residue names to consider for atomization (e.g., ["ALA", "GLY"])
             rng: Random number generator for reproducibility
         """
-        self.p_atomize = p_atomize
+        _validate_probability(p_atomize, res_names)
+        self.p_atomize = dict(p_atomize) if isinstance(p_atomize, Mapping) else p_atomize
         self.res_names = res_names
-        self.rng = rng or np.random
+        self.rng = rng
 
     def check_input(self, data: dict) -> None:
         check_atom_array_annotation(data, ["res_name"])

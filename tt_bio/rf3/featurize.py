@@ -92,16 +92,26 @@ def read_inputs(
     ``template_selection`` and ``ground_truth_conformer_selection`` given here
     override any selection carried in the file itself.
     """
-    from tt_bio._vendor.rf3.utils.inference import prepare_inference_inputs_from_paths
+    from pathlib import Path
 
-    specs = prepare_inference_inputs_from_paths(
-        inputs=os.path.abspath(path),
-        existing_outputs_dir=None,
-        sharding_pattern=None,
-        template_selection=template_selection,
-        ground_truth_conformer_selection=ground_truth_conformer_selection,
-        add_missing_atoms=True,
-    )
+    from tt_bio._vendor.rf3.utils.inference import (_process_single_path,
+                                                     prepare_inference_inputs_from_paths)
+
+    path = Path(os.path.abspath(path))
+    if path.is_file():
+        # Upstream parses through a process pool sized to the file count, so one file still forks a
+        # worker and waits on it: 4.3 s of a 6.1 s featurize at 512 aa. The same parser, in process.
+        specs = _process_single_path(path, None, None, template_selection,
+                                     ground_truth_conformer_selection, True)
+    else:
+        specs = prepare_inference_inputs_from_paths(
+            inputs=path,
+            existing_outputs_dir=None,
+            sharding_pattern=None,
+            template_selection=template_selection,
+            ground_truth_conformer_selection=ground_truth_conformer_selection,
+            add_missing_atoms=True,
+        )
     if cyclic_chains:
         for spec in specs:
             spec.cyclic_chains = cyclic_chains

@@ -151,6 +151,10 @@ def main() -> int:
         t0 = time.perf_counter()
         write_npz_many(results, out_dir)
         t_par = time.perf_counter() - t0
+        # Flush the npz writeback now, outside every timed window. Left dirty, it drains during
+        # the next iteration's device call and adds 20-30 ms to 2-6 of 30 batches, which reads
+        # as +-25 % run-to-run on the ~50 ms ESM-C cells.
+        os.sync()
 
         if i >= args.warmup:
             dev_times.append(t_dev)

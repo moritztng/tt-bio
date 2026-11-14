@@ -19,8 +19,11 @@ grep '^>' "$1" | cut -c2- | while read -r n; do printf '>q\\nMK\\n' > "$out/$n.a
 SEARCH = textwrap.dedent("""
     import sys
     from pathlib import Path
+    import os
     from tt_bio import main as m
+    before = os.nice(0)
     m.compute_msa_offline({"s0": "MKTAYIAKQR"}, "s0", Path(sys.argv[1]), sys.argv[2], pair=False)
+    print(before, os.nice(0))
 """)
 
 
@@ -37,4 +40,16 @@ def test_a_search_runs_at_the_lowest_cpu_priority(tmp_path):
     assert r.returncode == 0, r.stdout + r.stderr
     assert (tmp_path / "log").read_text().split() == ["19"]
     assert (tmp_path / "msa" / "s0.a3m").exists()
-    assert os.nice(0) != 19           # the caller's own priority is untouched
+    before, after = r.stdout.split()[-2:]
+    assert before == after            # the caller's own priority is untouched
+
+
+def test_a_search_borrows_idle_cores_above_its_share(monkeypatch):
+    from tt_bio import main as m
+    monkeypatch.setattr(m.os, "cpu_count", lambda: 64)
+    monkeypatch.setenv("OMP_NUM_THREADS", "2")
+    for load, want in [(0.0, 8), (58.2, 5), (63.0, 2), (90.0, 2)]:
+        monkeypatch.setattr(m.os, "getloadavg", lambda load=load: (load, 0.0, 0.0))
+        assert m._search_threads() == want, load
+    monkeypatch.delenv("OMP_NUM_THREADS")
+    assert m._search_threads() == 64      # a plain CLI run gets every core

@@ -244,6 +244,17 @@ TOKEN_AXIS = {
         "The two routes a padded token could reach a real one are the DiT attention keys, "
         "closed by the structural_pair_attn_bias slot, and S, closed by zero columns",
     ),
+    "rfd4": (
+        BUCKETED, TOKEN_BUCKET,
+        "tt_bio/rfd4/trunk.py::Trunk.run_bucketed, the one host entry to the device trunk; the "
+        "autoencoder's own token pad is tt_bio/rfd4/autoencoder.py::AEHalf.__call__, which "
+        "pads to the tile",
+        "pad + mask + slice back. Padded tokens are masked tokens, the same thing upstream does to "
+        "the short sequence in a batch, so the pad goes through the model's own mask path rather "
+        "than a bias added for it. tests/test_rfd4_trunk_parity.py::"
+        "test_padding_does_not_touch_the_real_tokens pins the real rows unchanged under padding "
+        "and ::test_trunk_run_bucketed_ragged_length runs a ragged length end to end",
+    ),
     # AF2-IG runs RAGGED, and it is the one row here whose bucket is not a mechanical change.
     # Where it reduces: both triangle attentions and the MSA row attention go through
     # `tenstorrent._fp32_softmax_attention` (af2.py sets `fp32_softmax=True` on all three), the
@@ -296,6 +307,13 @@ TOKEN_AXIS = {
         "input",
     ),
     "saprot-650m": (BUCKETED, TOKEN_BUCKET, "saprot.py, sharing esmc.BUCKET", "same path as saprot-35m"),
+    "mol1": (
+        BUCKETED, TOKEN_BUCKET,
+        "the same protenix.py Trunk.__call__ pad and protenix.bucketed_pairformer as protenix-v2",
+        "censused on its own widths (c_z 448 PairMixer blocks, 320 Pairformer blocks) by "
+        "tests/test_mol1_bucket_hw.py: 98 tokens, ragged on purpose; bucket on 0 of 249 calls ragged and a "
+        "poison-inert trunk, bucket off 208 masked-ragged; qb2 chip 3",
+    ),
     "saprot-1.3b": (BUCKETED, TOKEN_BUCKET, "saprot.py, sharing esmc.BUCKET", "same path as saprot-35m"),
 }
 
@@ -478,8 +496,9 @@ def bucketed_pairformer(pf, s, z, dev, Np: int, extra_attn_bias=None):
     is 3.2 GiB for OpenDDE's refiner at 1088 residues (2113 structural tokens x 384 channels), and
     the refiner was refused on a 12 GiB Wormhole part with it live. At 1536 residues the pad
     itself is refused (6.95 GB beside its input), so the pad and the slice back fall to the host
-    through `replace_after_refusal`. `s` is left alone: the
-    confidence head passes a cached single representation it reuses per sample.
+    through `replace_after_refusal`. `s` is not copied: the
+    pairformer adds into it in place, so a caller that reuses its `s` (the confidence head, once
+    per sample) passes a copy.
     """
     import ttnn
     import torch.nn.functional as F

@@ -7,6 +7,7 @@ so they can be reused from both the CLI and the worker subprocess.
 
 from __future__ import annotations
 
+import contextlib
 import glob
 import os
 import subprocess
@@ -53,6 +54,20 @@ IDLE_THREADS_PARK = {"OMP_WAIT_POLICY": "PASSIVE", "GOMP_SPINCOUNT": "0", "KMP_B
 # and a tool that silently unsets someone's MPI configuration is worse than one that names it.
 MPI_UNSET_HINT = "unset OMPI_MCA_pml OMPI_MCA_plm OPAL_PREFIX LD_LIBRARY_PATH"
 
+# The one MPI setting tt-bio does make. The bundled build starts its tcp BTL at device open, and that
+# listener binds 0.0.0.0 on a port from 1024 up for the life of the process, whatever
+# btl_tcp_if_include says. One process per card on one host never sends a byte over it: a lone rank
+# talks to itself through "self" and to a sibling rank through "sm". So the tcp BTL is left out. It is
+# a default, not a scrub: an OMPI_MCA_btl already in the environment wins.
+LOCAL_MPI_ENV = {"OMPI_MCA_btl": "^tcp"}
+
+
+def keep_mpi_local(env: dict | None = None) -> None:
+    """Default the bundled MPI to on-host transports, so a fold opens no LAN listener."""
+    env = os.environ if env is None else env
+    for key, value in LOCAL_MPI_ENV.items():
+        env.setdefault(key, value)
+
 
 def _bundled_mpi_root() -> Path | None:
     """The ttnn package directory, whose libmpi is the one we want. None if ttnn is absent.
@@ -74,7 +89,7 @@ def conflicting_mpi_env(env: dict | None = None) -> list[str]:
     """Host OpenMPI settings in `env` that can abort tt-metal's bundled MPI, or []."""
     env = os.environ if env is None else env
     found = []
-    mca = sorted(k for k in env if k.startswith("OMPI_MCA_"))
+    mca = sorted(k for k in env if k.startswith("OMPI_MCA_") and env[k] != LOCAL_MPI_ENV.get(k))
     if mca:
         found.append(", ".join(f"{k}={env[k]}" for k in mca))
     if env.get("OPAL_PREFIX"):
@@ -162,6 +177,36 @@ def host_thread_cap_env(n_workers: int, host_threads: int | None = None) -> dict
     return env
 
 
+#: Whether serial_host() serializes. A switch for paired A/Bs in one process
+#: (perf/of3_4xpd/xmodel_ab.py --ab-attr tt_bio.runtime:SERIAL_HOST), not a user setting.
+SERIAL_HOST = True
+
+
+@contextlib.contextmanager
+def serial_host():
+    """Run a block of tiny host tensor math on one torch thread.
+
+    A diffusion sampler does a few atom-sized ops on the host every step (the random
+    augmentation, Boltz-2's rigid alignment). At 4117 atoms each is microseconds of work, and
+    fanning it out to every core costs more than the work: measured per step on a loaded qb1
+    (loadavg 11-16, 16 threads) 10-12 ms against 1.1 ms on one thread, and on qb2 at loadavg 6
+    0.9 ms against 0.4 ms. Two hundred steps a fold make that 2 s of a 15 s Boltz-2 fold on a
+    busy host. The thread count changes the summation order of the reductions, so the CIF
+    digest can move (it already depends on the host's core count); the accuracy does not.
+    """
+    import torch
+
+    n = torch.get_num_threads()
+    if not SERIAL_HOST or n == 1:
+        yield
+        return
+    torch.set_num_threads(1)
+    try:
+        yield
+    finally:
+        torch.set_num_threads(n)
+
+
 def bind_host_threads() -> None:
     """Bind torch's thread pools to the OMP_NUM_THREADS cap set by the launcher.
 
@@ -242,6 +287,9 @@ def discover_jobs(data: Path, structure_dir: Path, output_format: str, override:
 #: PAIR whose lone chip opens only with a 1x1 mesh descriptor; a p150a is one chip.
 P300_SUBSYSTEMS = frozenset({"0x0044", "0x0045", "0x0046"})
 P150_SUBSYSTEMS = frozenset({"0x0040"})
+#: Wormhole Galaxy chips publish 0x0035, the UPI tt-smi maps to ``tt-galaxy-wh``; every chip the
+#: kernel lists is PCIe-local, which tt-smi suffixes " L", so the board key is ``tt-galaxy-wh-l``.
+WH_GALAXY_SUBSYSTEMS = frozenset({"0x0035"})
 
 
 #: What a chip whose ARC firmware is dead answers from its ``tt_*`` sysfs telemetry, AICLK
@@ -515,7 +563,10 @@ def detect_tenstorrent_devices(device_ids: str | None, num_devices: int, max_wor
     on a two-card box) raises a clear error naming the available ids, instead of passing straight
     through and failing much later with an opaque low-level device-open error.
     """
-    all_devices = sorted(int(p.rsplit("/", 1)[-1]) for p in glob.glob("/dev/tenstorrent/[0-9]*"))
+    # Device ids are UMD indices, dense 0..n-1 over the cards present (tt_bdf_to_index), not
+    # /dev node numbers: a Galaxy that lost nodes 20, 24 and 25 after a PCIe error kept UMD
+    # 0-28, and a job pinned to UMD 20 was told the host had no cards.
+    all_devices = list(range(len(glob.glob("/dev/tenstorrent/[0-9]*"))))
     # Honor ambient TT_VISIBLE_DEVICES (the same env ttnn/tt-smi read at
     # device-open time): a job pinned to card N via the environment must fan out
     # only onto card N. Without this filter, a predict launched with
@@ -579,6 +630,8 @@ def build_local_workers(accelerator: str, jobs: list, devices: list[int]) -> lis
 # almost nothing left.
 
 M_ARENA_MAX = -8            # glibc malloc.h
+M_TRIM_THRESHOLD = -1
+M_MMAP_MAX = -4
 
 
 def _libc():
@@ -607,6 +660,22 @@ def cap_malloc_arenas(arenas: int) -> bool:
     if arenas <= 0 or libc is None:
         return False
     return libc.mallopt(M_ARENA_MAX, int(arenas)) == 1
+
+
+def reuse_freed_heap(trim_bytes: int = 1 << 30) -> bool:
+    """Serve large host tensors from memory the process already faulted in. True if it took.
+
+    glibc puts every allocation over its mmap threshold (at most 32 MiB) in a fresh mapping and
+    unmaps it on free, so each [1, N, N, 128] fp32 pair tensor (145 MB at 532 tokens) is paged in
+    from zero on every op. Host glue around a device trunk made that way ran 2.5x slower than
+    the same ops served from freed heap (Nesso-1 forward, +1.1 s per record at 512 aa). With
+    mmap off and the trim threshold raised, a freed tensor stays in the heap for the next one.
+    The cost is that up to ``trim_bytes`` of freed memory is kept rather than returned to the OS.
+    """
+    libc = _libc()
+    if libc is None:
+        return False
+    return libc.mallopt(M_MMAP_MAX, 0) == 1 and libc.mallopt(M_TRIM_THRESHOLD, int(trim_bytes)) == 1
 
 
 def address_space() -> tuple[int, int]:
@@ -649,3 +718,54 @@ def release_address_space() -> tuple[int, int]:
     if libc is not None:
         libc.malloc_trim(0)
     return address_space()
+
+
+def quiet_teardown_wanted(env=None) -> bool:
+    """Whether `end_after_teardown` drops the C-level stderr of the interpreter's last steps.
+
+    `--debug` sets ``TT_BIO_DEBUG_STDERR`` rather than being read from argv, because a
+    multiprocessing spawn inherits the environment and not the argv: a worker spawned by
+    ``tt-bio predict --debug`` has to keep its stderr too.
+    """
+    env = os.environ if env is None else env
+    return not env.get("TT_BIO_DEBUG_STDERR")
+
+
+def end_after_teardown() -> None:
+    """The last atexit hook: once tt-bio has closed its card, end the process without the
+    C++ static destructors of tt-metal and XLA.
+
+    After the device is closed and its lease released there is nothing left for those
+    destructors to do, and running them is where a finished BindCraft 2 campaign died
+    (issue #20): exit 139 after printing its final status, exit 139 four seconds after an
+    allocator refusal, or a hang with every thread in ``futex_do_wait``. They run inside
+    ``exit()``, after Python has finalised, alongside XLA and tt-metal worker threads that are
+    still alive. So this registers libc's own ``_exit`` with ``on_exit``. glibc calls it with
+    the real exit status, ahead of every handler registered before it, which is all of them:
+    a library registers its destructors when it loads. Whatever status Python chose, from
+    ``sys.exit(n)`` or an uncaught exception, is the one the caller sees.
+
+    It also points C's ``stderr`` at /dev/null for the rest of finalisation. What writes there
+    after this point is nanobind's report of the ttnn objects still alive at shutdown, dozens
+    of lines on every run that are noise to a user. Python's own ``sys.stderr`` writes fd 2
+    directly and is untouched, so a traceback, an "Exception ignored" and a faulthandler dump
+    still print. tt-bio used to drop the report with a filter process forked at import, which
+    is unsafe next to JAX's threads and lost the parent's last words when it crashed.
+    ``TT_BIO_DEBUG_STDERR=1`` (or ``--debug``) keeps the report.
+    """
+    import ctypes
+
+    try:
+        libc = ctypes.CDLL(None)
+        libc.fflush(None)
+        if quiet_teardown_wanted():
+            libc.fopen.restype = ctypes.c_void_p
+            libc.fopen.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
+            sink = libc.fopen(b"/dev/null", b"w")
+            if sink:
+                # The global, not its FILE: freopen would close fd 2 under Python's sys.stderr.
+                ctypes.c_void_p.in_dll(libc, "stderr").value = sink
+        libc.on_exit.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+        libc.on_exit(ctypes.cast(libc._exit, ctypes.c_void_p), None)
+    except (OSError, AttributeError, ValueError):
+        pass   # no glibc: exit the ordinary way

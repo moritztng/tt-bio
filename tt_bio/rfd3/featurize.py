@@ -1278,6 +1278,28 @@ def _token_matches_unsym(tk: "_Token", names: set[str]) -> bool:
     return f"{tk.chain}{tk.res_id}" in names
 
 
+def _run_first_indexed(comps: list, ci: int) -> "Indexed | None":
+    """The first indexed component of the comma-run that starts at ``comps[ci]``.
+
+    A comma in a contig is a within-chain separator and ``/0`` is the chain
+    break (``docs/rfd3-design.md``), so every component between two breaks
+    belongs to one output chain. A designed segment that opens such a run has
+    no preceding block to take that chain from and has to look ahead for it --
+    the scaffolding contig ``12-20,C33-59,18-28`` is designed-first, and
+    without this its leading 16 residues landed on their own synthetic chain,
+    11-13 A from the motif with no peptide bond (10 of 10 designs, 2026-11-10;
+    ``C33-59,25-35``, the same request motif-first, fused every time).
+    ``None`` when the run keeps nothing, which is the unconditional case that
+    does want a fresh chain.
+    """
+    for c in comps[ci:]:
+        if isinstance(c, ChainBreak):
+            return None
+        if isinstance(c, Indexed):
+            return c
+    return None
+
+
 def _plan_tokens_from_contig(spec: InputSpecification, residues: list[_Residue]) -> tuple[list[_Token], set]:
     """Map a parsed contig + the parsed structure's residues into an ordered
     token plan. Indexed components pull residues from the input structure
@@ -1310,7 +1332,7 @@ def _plan_tokens_from_contig(spec: InputSpecification, residues: list[_Residue])
     # from "A" whenever ANY part of the input structure used that letter,
     # even a part never referenced by `contig` at all.
     used_chains: set[str] = set()
-    for c in comps:
+    for ci, c in enumerate(comps):
         if isinstance(c, ChainBreak):
             break_before_next = True
             continue
@@ -1359,14 +1381,31 @@ def _plan_tokens_from_contig(spec: InputSpecification, residues: list[_Residue])
             # existing determinism -- there is no real reference VALUE this
             # gap needs to match, only a documented convention choice.
             n = c.length if isinstance(c, Designed) else (c.lo + c.hi) // 2
-            # A designed segment continues the preceding block's chain UNLESS
-            # a chain break (or nothing yet) precedes it, in which case it
-            # gets a brand-new synthetic chain (verified vs a real capture).
+            # A designed segment continues the preceding block's chain. When it
+            # OPENS a comma-run -- a chain break or the start of the contig
+            # precedes it -- there is no preceding block, so the run's chain is
+            # taken from the first indexed component still to come in the same
+            # run, and only a run that keeps nothing gets a brand-new synthetic
+            # chain (verified vs a real capture: dsDNA_basic's designed protein
+            # segment after a `/0` keeps nothing and is its own chain/entity).
             if break_before_next or not tokens:
-                chain = _fresh_chain_letter(used_chains)
+                kept = _run_first_indexed(comps, ci)
+                chain = kept.chain if kept else _fresh_chain_letter(used_chains)
+                if kept:
+                    used_chains.add(chain)
             else:
                 chain = tokens[-1].chain
-            base = (tokens[-1].res_id + 1) if tokens and tokens[-1].chain == chain else 1
+            if tokens and tokens[-1].chain == chain:
+                base = tokens[-1].res_id + 1
+            else:
+                # Opening a run: number backwards off the motif this segment
+                # runs into, so the chain's residue ids stay monotone and never
+                # collide with the motif's own (`start - n .. start - 1`).
+                # Designed res_ids never reach an output file -- the writer uses
+                # `residue_index`, a per-chain counter over token order -- they
+                # only have to stay distinct within the chain.
+                kept = _run_first_indexed(comps, ci)
+                base = (kept.start - n) if kept and kept.chain == chain else 1
             for k in range(n):
                 tokens.append(_Token(chain, base + k, "", False, True, False,
                                      break_before_next, None))

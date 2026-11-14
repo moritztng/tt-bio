@@ -119,9 +119,13 @@ echo "done: fixtures extracted under ${DEST}"
 # script and one whose references are genuinely absent from the asset look identical to
 # --verify-fixtures, and it told both of them "re-running the fetch cannot help" -- which
 # is false for the first and cost the 2026-09-12 boltz2 envelope pass a whole worker.
+# Written beside and renamed over, never in place: the Galaxies' tree dedupe hardlinks it
+# read-only across trees, and a second fetch into gate tree f2fd17ff358f on .103 died on
+# EACCES here (2026-10-22 21:09Z).
 printf '{\n  "tag": "%s",\n  "repo": "%s",\n  "sha256": "%s",\n  "fetched_utc": "%s"\n}\n' \
   "${TAG}" "${REPO}" "${got:-unverified}" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-  > "${DEST}/.fetch-stamp.json"
+  > "${DEST}/.fetch-stamp.json.tmp"
+mv -f "${DEST}/.fetch-stamp.json.tmp" "${DEST}/.fetch-stamp.json"
 
 # A fetch that reports success while a model's references are absent is worse than a fetch
 # that fails: the gate then reports that leg BLOCKED-REF-REGEN-NEEDED, which does not fail

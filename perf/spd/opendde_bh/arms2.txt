@@ -1,0 +1,2 @@
+f0 fast -
+fP fast triatt_ln,triatt_ln_b8,triatt_ln_b8g,trimul_bres_bh,trimul_sig6,trimul_t1_dram,trimul_t1w8,ws_ln,ws_lofi,ws_psilu,apb_ln,triatt_k1,inproj_split,trunk_hifi2,bres_ta_hifi3,ws_resid2,trimul_t1_c384,pz_device,dit_bpad,dit_mod16,triatt_q10,trimul_t1_psig,trimul_t1_2g

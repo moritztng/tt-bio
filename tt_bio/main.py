@@ -53,93 +53,19 @@ _os.environ.setdefault(
 )
 
 
-def _install_nanobind_leak_stderr_filter() -> None:
-    """Drop nanobind leak reports while forwarding other fd-level stderr."""
-    try:
-        read_fd, write_fd = _os.pipe()
-        original_stderr_fd = _os.dup(2)
-        ppid = _os.getpid()
-        pid = _os.fork()
-        if pid == 0:
-            try:
-                # Die with the parent: a surviving filter grandchild keeps the
-                # dup of fd 2 open, and when fd 2 is a dispatchers shard pipe
-                # the dispatcher never sees EOF and hangs after the run ends.
-                try:
-                    import ctypes
-                    ctypes.CDLL(None).prctl(1, 9)  # PR_SET_PDEATHSIG, SIGKILL
-                    if _os.getppid() != ppid:
-                        _os._exit(0)
-                except Exception:
-                    pass
-                # Keep only the two fds the filter uses. Anything else inherited here is held for
-                # the whole run, and an flock the parent held at the fork then outlives the
-                # parent's close: a second BindCraft 2 trajectory in one process hung forever on
-                # its compile lock. close-on-exec does not help, a fork is not an exec.
-                from multiprocessing.util import close_all_fds_except
-                close_all_fds_except((read_fd, original_stderr_fd))
-                suppressing_nanobind_leak = False
-                with _os.fdopen(read_fd, "rb", closefd=True) as pipe:
-                    for raw_line in pipe:
-                        line = raw_line.decode("utf-8", errors="replace")
-                        if line.startswith("nanobind: leaked "):
-                            suppressing_nanobind_leak = True
-                            continue
-                        if suppressing_nanobind_leak:
-                            if (
-                                line.startswith(" - ")
-                                or line.startswith("nanobind: this is likely caused")
-                                or line.startswith("See https://nanobind.")
-                            ):
-                                continue
-                            suppressing_nanobind_leak = False
-                        _os.write(original_stderr_fd, raw_line)
-            except Exception:
-                pass
-            finally:
-                _os._exit(0)
-
-        _os.close(read_fd)
-        _os.dup2(write_fd, 2)
-        _os.close(write_fd)
-        python_stderr = _os.fdopen(
-            _os.dup(original_stderr_fd),
-            "w",
-            buffering=1,
-            encoding=getattr(_sys.stderr, "encoding", None) or "utf-8",
-            errors=getattr(_sys.stderr, "errors", None) or "replace",
-        )
-        _sys.stderr = python_stderr
-        _sys.__stderr__ = python_stderr
-        _os.close(original_stderr_fd)
-    except Exception:
-        pass
-
-
-# `--debug` turns the filter off, and it has to travel to the SPAWNED WORKERS, not just to this
-# process. A multiprocessing spawn re-execs python with `-c from multiprocessing.spawn import
-# spawn_main`, so the child's `sys.argv` no longer carries `--debug` and an argv-only test
-# reinstalls the filter in exactly the process whose stderr you asked to see. The filter's
-# forwarding child holds PR_SET_PDEATHSIG SIGKILL, so when a worker dies the child is killed with
-# whatever is still in the pipe -- which is the worker's traceback. That is how OpenDDE's 992-
-# residue deep-MSA failure reported "SpawnProcess-1 exit 0 ... the worker's own traceback above
-# says why" with no traceback above it, twice, on two trees. The environment IS inherited by a
-# spawn, so decide once here and let the children read the decision.
-def _stderr_filter_wanted(argv, env) -> bool:
-    """Whether this process should install the filter. Pure, so it can be tested."""
-    return "--debug" not in argv and not env.get("TT_BIO_DEBUG_STDERR")
-
-
+# `--debug` keeps the C-level stderr that tt-bio otherwise drops at exit (nanobind's report of
+# the ttnn objects alive at shutdown; see runtime.end_after_teardown). It travels as an
+# environment variable because a multiprocessing spawn re-execs python without our argv, and the
+# spawned worker is exactly the process whose stderr `--debug` asked to see.
 if "--debug" in _sys.argv:
     _os.environ["TT_BIO_DEBUG_STDERR"] = "1"
-if _stderr_filter_wanted(_sys.argv, _os.environ):
-    _install_nanobind_leak_stderr_filter()
 
 
 import base64
 import hashlib
 import importlib.util
 import json
+import math
 import multiprocessing as mp
 import os
 import random
@@ -165,13 +91,15 @@ from tt_bio import __version__, size_limits, weights
 from tt_bio.data import const
 from tt_bio.data.mol import load_molecules
 from tt_bio.data.msa import run_mmseqs2
-from tt_bio.cache import EMPTY_MSA, cached, paired_msa_dir, publish_file, publish_text, seq_hash
+from tt_bio.cache import (EMPTY_MSA, cached, paired_msa_dir, publish_file, publish_text, seq_hash,
+                          single_flight)
 from tt_bio.data.parse import parse_a3m, parse_csv, parse_fasta, parse_yaml
 from tt_bio.data.pdb import write_atom_array
 from tt_bio.data.types import Coords, Input, Interface
 from tt_bio.data.write import to_mmcif, to_pdb
 from tt_bio.host_controller import (
     LEASE_S,
+    MAX_LEASES,
     ControllerClient,
     ControllerServer,
     connect_controller,
@@ -217,6 +145,7 @@ _MODEL_RESULTS_PREFIX = {
     "esmfold2-fast": "esmfold2_results",
     "protenix-v1": "protenix_results",
     "protenix-v2": "protenix_results",
+    "mol1": "mol1_results",
     "openfold3": "openfold3_results",
     "openbind": "openbind_results",
     "opendde": "opendde_results",
@@ -242,8 +171,29 @@ OF3_FAMILY = ("openfold3", "openbind")
 # protenix-v2 is a later release at c_z 256 with a 2-block template stack and N_cycle 10.
 # tt_bio.protenix reads every one of those off the weights -- Trunk._derive_c_z, n_blocks,
 # trunk_recycles -- so the two ids share the whole model path and differ only in what the
-# checkpoint says. Anything that means "either Protenix checkpoint" reads this tuple.
-PROTENIX_FAMILY = ("protenix-v1", "protenix-v2")
+# checkpoint says. Mol-1 (Molence, e6e64866) is a Protenix-v2 derivative: PairMixer blocks and
+# pair-width adapters in the same Pairformer, also read off its weights. Anything that means
+# "any Protenix-family checkpoint" reads this tuple.
+PROTENIX_FAMILY = ("protenix-v1", "protenix-v2", "mol1")
+
+
+def _upstream_search_options(f):
+    """Upstream ``mol pred``'s template and RNA MSA search options (tt_bio.protenix_json.search), same names."""
+    helps = {"hmmsearch_binary_path": "hmmsearch for template search (default: PATH)",
+             "hmmbuild_binary_path": "hmmbuild for template search (default: PATH)",
+             "seqres_database_path": "template search database (default: $MOL_ROOT_DIR/search_database/"
+                                     "pdb_seqres_20261001.fasta)",
+             "nhmmer_binary_path": "nhmmer for RNA MSA search (default: PATH)",
+             "hmmalign_binary_path": "hmmalign for RNA MSA search (default: PATH)",
+             "hmmbuild_rna_binary_path": "RNA hmmbuild (default: --hmmbuild_binary_path)",
+             "ntrna_database_path": "NT-RNA database (default: under $MOL_ROOT_DIR/search_database)",
+             "rfam_database_path": "Rfam database (default: under $MOL_ROOT_DIR/search_database)",
+             "rna_central_database_path": "RNAcentral database (default: under $MOL_ROOT_DIR/search_database)"}
+    f = click.option("--nhmmer_n_cpu", type=int, default=None, help="Upstream JSON input: nhmmer threads.")(f)
+    for name, h in reversed(helps.items()):
+        f = click.option(f"--{name}", default=None, type=click.Path(),
+                         help=f"Upstream JSON input with --use_template/--use_rna_msa: {h}.")(f)
+    return f
 
 # Single source of truth for the other two model-choice CLI surfaces (`embed`,
 # `saprot`), for the same reason: anything that needs "every model we ship"
@@ -258,7 +208,15 @@ SAPROT_MODELS = ("saprot-35m", "saprot-650m", "saprot-1.3b")
 # production binder-design pipeline, mirroring predict's boltz2 default); rfd3
 # is the lighter single-shot all-atom diffusion designer; pxdesign generates binder
 # backbones against a target structure, conditioned on a distogram of the target only.
-DESIGN_MODELS = ("boltzgen", "rfd3", "pxdesign")
+DESIGN_MODELS = ("boltzgen", "rfd3", "pxdesign", "rfd4")
+
+# `design --model rfd4 --recipe`: RFD4's shipped recycle schedules, which are its thinking
+# budget. Spelled out here rather than imported so `--help` does not pull in torch;
+# test_rfd4_cond_chem keeps the list equal to `tt_bio.rfd4.sampler.RECYCLE_SCHEDULES`.
+_RFD4_RECIPES = ("high/flat", "high/front_loaded", "high/midpeak",
+                 "low/flat", "low/front_loaded", "low/midpeak",
+                 "medium/flat", "medium/front_loaded", "medium/midpeak",
+                 "thinking_high", "thinking_low", "thinking_medium")
 
 # `affinity --model`: scalar-output affinity predictors. Separate from PREDICT_MODELS
 # because these fold nothing — no coordinates, no PAE, no confidence — so they do not
@@ -290,7 +248,7 @@ def download_mols(cache: Path) -> Path:
     return weights.fetch("mols", root=cache)
 
 
-def download_all(cache: Path, model: str = "boltz2") -> None:
+def download_all(cache: Path, model: str = "boltz2", checkpoint: str | None = None) -> None:
     """Fetch every artifact `model` needs, in the parent, before any worker starts.
 
     Fanning out first has N local workers each see the same multi-GB file missing and
@@ -298,8 +256,11 @@ def download_all(cache: Path, model: str = "boltz2") -> None:
     without another special case here; the hand-written version covered protenix-v2 and
     rf3 only, and downloaded the 4.2 GB of Boltz-2 checkpoints for every model whether
     or not they were needed. A row tt-bio does not download (protenix-v2) is checked
-    earlier, in `predict`, before the MSA search."""
-    weights.fetch_models(model, root=cache)
+    earlier, in `predict`, before the MSA search. A ``--checkpoint`` replaces the model's own
+    row, so that one is not fetched."""
+    for art in weights.artifacts_for(model):
+        if art.source != "manual" and not (checkpoint and art.key == model):
+            weights.fetch(art.key, root=cache)
 
 
 def ensure_pxdesign_weights(cache: Path) -> Path:
@@ -462,6 +423,15 @@ def _ensure_offline_tools(install_tools: bool) -> None:
         )
 
     pixi = _ensure_pixi()
+    # `pixi global install` puts aria2c and pigz in ~/.pixi/bin, which the pixi installer
+    # adds to ~/.bashrc and so to the NEXT shell, never to this process. Without it on
+    # PATH, the shutil.which() in the download and extract paths missed the tools this
+    # function had just installed: on a fresh host the 107 GB UniRef30 tarball came down
+    # over single-stream curl at 4 MB/s (~7 h) instead of aria2c at ~68 MB/s, and was
+    # unpacked by single-threaded gzip instead of pigz.
+    pixi_bin = str(Path(os.environ.get("PIXI_HOME", Path.home() / ".pixi")) / "bin")
+    if pixi_bin not in os.environ.get("PATH", "").split(os.pathsep):
+        os.environ["PATH"] = pixi_bin + os.pathsep + os.environ.get("PATH", "")
     _ensure_aria2(pixi)
     _ensure_pigz(pixi)
 
@@ -570,16 +540,45 @@ def _lowest_priority() -> None:
     os.nice(19)
 
 
+# More align threads stop paying past here: 8 took a served search from 22.2 s to 13.0 s with
+# the few-query align patch, a3m byte-identical at every thread count.
+_SEARCH_MAX_THREADS = 8
+
+
+def _search_threads() -> int:
+    """Threads for one search: the worker's share, plus cores the host leaves idle.
+
+    _spawn_worker_processes sets OMP_NUM_THREADS = cores // workers, 2 on a Galaxy, so
+    concurrent searches never oversubscribe a host. The search is niced, so an idle core it
+    borrows costs no fold anything. A plain CLI run leaves the env unset and gets every core.
+    """
+    cores = os.cpu_count() or 1
+    share = int(os.environ.get("OMP_NUM_THREADS") or 0)
+    if not share:
+        return cores
+    idle = cores - math.ceil(os.getloadavg()[0])
+    return max(share, min(idle, _SEARCH_MAX_THREADS))
+
+
 def compute_msa_offline(seqs: dict[str, str], target_id: str, msa_dir: Path,
                         db_path: str, use_env: bool = False,
-                        pairing_strategy: str = "greedy", pair: bool = True) -> None:
+                        pairing_strategy: str = "greedy", pair: bool = False,
+                        chain_cache: Path | None = None) -> None:
     """Generate MSAs locally via colabfold_search against a local database.
 
-    With multiple sequences and ``pair=True`` (default) the search also computes
-    paired alignments, treating the set as one complex's chains. Pass
-    ``pair=False`` to search many *independent* sequences in a single batched
-    call (one unpaired ``{name}.a3m`` each, no cross-pairing) — far faster than
-    one colabfold_search per sequence for large inputs.
+    By default every sequence is searched on its own in one batched call: one unpaired
+    ``{name}.a3m`` each. ``pair=True`` treats the sequences as one complex's chains and
+    writes each chain's species-paired rows instead, row j of every ``{name}.a3m`` from the
+    same genome, the shape the ColabFold server's pair endpoint returns.
+
+    colabfold_search pairs only the chains of ONE record, joined by ``:``. ``pair=True``
+    used to pass ``--pair-mode unpaired_paired`` over one record per chain, which pairs
+    nothing: each chain's "paired" file was its own unpaired hits, at its own depth. OpenBind
+    refused that (the depths differ), and ESMFold-2 and OpenDDE read row j of each as one
+    genome.
+
+    ``chain_cache`` lets a paired search reuse each chain's own search from an earlier complex
+    (:func:`_paired_by_chain`); the output is the same bytes either way.
     """
     click.echo(f"MSA for {target_id} ({len(seqs)} sequences, offline, "
                f"pairing={pairing_strategy if pair else 'none'})")
@@ -592,25 +591,32 @@ def compute_msa_offline(seqs: dict[str, str], target_id: str, msa_dir: Path,
     import threading
     tmp = msa_dir / f"_offline_tmp_{os.getpid()}_{threading.get_ident()}"
     tmp.mkdir(parents=True, exist_ok=True)
+    paired = pair and len(seqs) > 1
     try:
         fasta = tmp / "query.fasta"
         with open(fasta, "w") as f:
-            for name, seq in seqs.items():
-                f.write(f">{name}\n{seq}\n")
+            if paired:
+                f.write(">complex\n" + ":".join(seqs.values()) + "\n")
+            else:
+                for name, seq in seqs.items():
+                    f.write(f">{name}\n{seq}\n")
         a3m_out = tmp / "a3m"
         a3m_out.mkdir(exist_ok=True)
-        # Honor the per-worker thread cap (set by _spawn_worker_processes as
-        # OMP_NUM_THREADS = cores // workers) so many concurrent MSAs across a
-        # fleet share each host's cores instead of oversubscribing them. A
-        # plain single-run CLI leaves the env unset and gets all cores.
-        threads = int(os.environ.get("OMP_NUM_THREADS") or os.cpu_count() or 1)
+        threads = _search_threads()
+        if paired and chain_cache is not None:
+            msa = _paired_by_chain(list(seqs.values()), Path(db_path), mmseqs_bin, colabfold_bin,
+                                   tmp, Path(chain_cache), threads, strategy_val)
+            if msa is not None:
+                for name, text in zip(seqs, split_paired_a3m(msa, [len(q) for q in seqs.values()])):
+                    publish_text(msa_dir / f"{name}.a3m", text)
+                return
         cmd_base = [
             colabfold_bin, str(fasta), db_path, str(a3m_out),
             "--use-env", "1" if use_env else "0", "--use-templates", "0",
             "--db-load-mode", "2", "--threads", str(threads),
         ]
-        if pair and len(seqs) > 1:
-            cmd_base += ["--pair-mode", "unpaired_paired", "--pairing_strategy", strategy_val]
+        if paired:
+            cmd_base += ["--pair-mode", "paired", "--pairing_strategy", strategy_val]
 
         commands = []
         if mmseqs_bin:
@@ -632,6 +638,14 @@ def compute_msa_offline(seqs: dict[str, str], target_id: str, msa_dir: Path,
             raise RuntimeError(
                 f"colabfold_search failed (exit {result.returncode})\n{last_error}"
             )
+        if paired:
+            src = a3m_out / "complex.a3m"
+            if not cached(src):
+                raise RuntimeError(f"colabfold_search wrote no paired A3M for {target_id}")
+            for name, text in zip(seqs, split_paired_a3m(src.read_text(),
+                                                         [len(q) for q in seqs.values()])):
+                publish_text(msa_dir / f"{name}.a3m", text)
+            return
         for name in seqs:
             src = a3m_out / f"{name}.a3m"
             if cached(src):
@@ -640,6 +654,163 @@ def compute_msa_offline(seqs: dict[str, str], target_id: str, msa_dir: Path,
                 click.echo(f"  warning: no A3M for {name}")
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+
+
+#: The colabfold release whose ``mmseqs_search_pair`` :func:`_paired_by_chain` re-runs step by
+#: step. Any other release takes the stock colabfold_search path.
+PAIRED_BY_CHAIN_COLABFOLD = "1.6.3"
+
+
+def _colabfold_version(colabfold_bin: str) -> str | None:
+    root = Path(colabfold_bin).resolve().parent.parent
+    for d in root.glob("lib/python*/site-packages/colabfold-*.dist-info"):
+        return d.name[len("colabfold-"):-len(".dist-info")]
+    return None
+
+
+def _mmseqs_run(mmseqs: str, *args) -> str:
+    r = subprocess.run([mmseqs, *map(str, args)], capture_output=True, text=True,
+                       preexec_fn=_lowest_priority)
+    if r.returncode:
+        raise RuntimeError(f"mmseqs {args[0]} failed: {(r.stderr or r.stdout)[-500:]}")
+    return r.stdout
+
+
+def pair_rows(paired: list[str], lengths: list[int]) -> str:
+    """colabfold 1.6.3 ``msa_to_str(None, paired, ...)`` for unique chains: the length line,
+    then row i of every chain's paired a3m joined (headers by tabs)."""
+    rows = [""] * len(paired[0].splitlines())
+    for n, text in enumerate(paired):
+        for i, line in enumerate(text.splitlines()):
+            rows[i] += line.replace(">", "\t", 1) if n and line.startswith(">") else line
+    return "#" + ",".join(map(str, lengths)) + "\t" + ",".join("1" * len(lengths)) + "\n" + "\n".join(rows)
+
+
+def _paired_by_chain(seqs: list[str], dbbase: Path, mmseqs: str | None, colabfold_bin: str,
+                     tmp: Path, cache: Path, threads: int, strategy: str) -> str | None:
+    """``colabfold_search --pair-mode paired`` of one complex, byte for byte, with each chain's
+    search, expandaln and align cached by sequence.
+
+    colabfold 1.6.3's ``mmseqs_search_pair`` is per query until ``pairaln``: a chain's profile
+    search and its realigned expansion do not depend on its partners (graded byte-identical on
+    the served DB, state/spd-bet-clientwall.md). A binder campaign folds one target against
+    many binders, and stock re-searched the target every time, on one core per chain since
+    ``align`` threads over queries: ~26 of a served OpenDDE job's ~30 s before its chip. Here
+    only the chains not cached are searched, side by side, and the pairing runs on the merged
+    per-chain results. Returns the complex a3m text, or None to fall back to colabfold_search
+    (another colabfold, no index, an unexpected sequence, any mmseqs failure)."""
+    db = dbbase / "uniref30_2302_db"
+    if (not mmseqs or _colabfold_version(colabfold_bin) != PAIRED_BY_CHAIN_COLABFOLD
+            or not Path(f"{db}.idx").is_file() or os.environ.get("MMSEQS_IGNORE_INDEX")
+            or not all(s.isalpha() and s.isupper() for s in seqs)):
+        return None
+    try:
+        version = _mmseqs_run(mmseqs, "version").strip()
+        dbv = (dbbase / "VERSION").read_text().strip() if (dbbase / "VERSION").is_file() else ""
+        tag = f"{PAIRED_BY_CHAIN_COLABFOLD}|{version}|{dbbase.resolve()}|{dbv}"
+        keys = [hashlib.sha256(f"{tag}|{s}".encode()).hexdigest()[:24] for s in seqs]
+        idx, load, thr = f"{db}.idx", ("--db-load-mode", "2"), ("--threads", threads)
+
+        def chain(seq: str, key: str) -> Path:
+            done = got = cache / key
+
+            def run(_):
+                nonlocal got
+                got = search(seq, key, done)
+
+            single_flight(cache, [key], lambda _: not (done / "ok").is_file(), run)
+            return got
+
+        def search(seq: str, key: str, done: Path) -> Path:
+            c = tmp / f"chain_{key}"
+            c.mkdir(parents=True)
+            (c / "q.fas").write_text(f">101\n{seq}\n")
+            _mmseqs_run(mmseqs, "createdb", c / "q.fas", c / "qdb", "--shuffle", "0", "--dbtype", "1")
+            _mmseqs_run(mmseqs, "search", c / "qdb", db, c / "res", c / "tmp", *thr, "--num-iterations", "3",
+                        *load, "-a", "-e", "0.1", "--max-seqs", "10000", "--prefilter-mode", "0",
+                        "--k-score", "'seq:96,prof:80'")
+            _mmseqs_run(mmseqs, "mvdb", c / "tmp/latest/profile_1", c / "prof")
+            _mmseqs_run(mmseqs, "expandaln", c / "qdb", idx, c / "res", idx, c / "exp", *load, *thr,
+                        "--expansion-mode", "0", "-e", "inf", "--expand-filter-clusters", "0",
+                        "--max-seq-id", "0.95")
+            _mmseqs_run(mmseqs, "align", c / "prof", idx, c / "exp", c / "ral", *load,
+                        "--alignment-mode", "1", "-e", "0.001", "--max-accept", "1000000", *thr)
+            keep = c / "keep"
+            keep.mkdir()
+            for f in [*c.glob("prof*"), *c.glob("ral*")]:
+                f.rename(keep / f.name)
+            (keep / "ok").touch()
+            shutil.rmtree(done, ignore_errors=True)   # a half-pruned entry; we hold its lock
+            try:
+                keep.rename(done)
+            except OSError:                            # an engine without the lock published it first
+                return keep
+            return done
+
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(len(seqs)) as pool:
+            dirs = list(pool.map(chain, seqs, keys))
+
+        w = tmp / "pair"
+        w.mkdir()
+        (w / "query.fas").write_text("".join(f">{101 + j}\n{s}\n" for j, s in enumerate(seqs)))
+        _mmseqs_run(mmseqs, "createdb", w / "query.fas", w / "qdb", "--shuffle", "0", "--dbtype", "1")
+        (w / "qdb.lookup").write_text("".join(f"{j}\tcomplex\t0\n" for j in range(len(seqs))))
+        # concatdbs keeps the first DB's keys and moves the second's past them, so chain j ends up
+        # under key j, as in the joint query DB.
+        for name in ("prof", "ral"):
+            cur = dirs[0] / name
+            for j, d in enumerate(dirs[1:], 1):
+                _mmseqs_run(mmseqs, "concatdbs", cur, d / name, w / f"{name}{j}", "--threads", "1")
+                cur = w / f"{name}{j}"
+            _mmseqs_run(mmseqs, "cpdb" if len(dirs) == 1 else "mvdb", cur, w / name)
+        _mmseqs_run(mmseqs, "lndb", w / "qdb_h", w / "prof_h")
+        _mmseqs_run(mmseqs, "pairaln", w / "qdb", db, w / "ral", w / "pair", *load,
+                    "--pairing-mode", strategy, "--pairing-dummy-mode", "0", *thr)
+        _mmseqs_run(mmseqs, "align", w / "prof", idx, w / "pair", w / "pair_bt", *load, "-e", "inf", "-a", *thr)
+        _mmseqs_run(mmseqs, "pairaln", w / "qdb", db, w / "pair_bt", w / "final", *load,
+                    "--pairing-mode", strategy, "--pairing-dummy-mode", "1", *thr)
+        _mmseqs_run(mmseqs, "result2msa", w / "qdb", idx, w / "final", w / "pair.a3m", *load,
+                    "--msa-format-mode", "5", *thr, "--filter-msa", "0", "--filter-min-enable", "1000",
+                    "--diff", "3000", "--qid", "0.2,0.4,0.6,0.8,1.0", "--qsc", "0", "--max-seq-id", "0.95")
+        _mmseqs_run(mmseqs, "unpackdb", w / "pair.a3m", w / "out", "--unpack-name-mode", "0",
+                    "--unpack-suffix", ".paired.a3m")
+        return pair_rows([(w / "out" / f"{j}.paired.a3m").read_text() for j in range(len(seqs))],
+                         [len(s) for s in seqs])
+    except Exception as e:  # noqa: BLE001 -- the stock search below is always correct
+        click.echo(f"  per-chain paired search failed ({e}); running colabfold_search")
+        return None
+
+
+def split_paired_a3m(text: str, lengths: list[int]) -> list[str]:
+    """One chain's a3m per entry of ``lengths`` from colabfold_search's paired a3m of a complex.
+
+    That file (``msa_to_str`` with ``pair_msa``'s paired-only branch) has a ``#len,...`` line,
+    then each row's chains concatenated, query first. A chain's slice ends after its length in
+    match columns (upper case or ``-``); lower-case insertions ride with the column before them.
+    Row j of every chain stays row j, so the chains remain paired. Headers are tab-joined
+    descriptions that contain tabs themselves, so each row is renamed ``>{j}``; no reader keys
+    on a paired header (they pair by row index).
+    """
+    out = [[] for _ in lengths]
+    rows = [l for l in text.splitlines() if l and not l.startswith(("#", ">"))]
+    for j, row in enumerate(rows):
+        pos, k, n = 0, 0, 0
+        cuts = []
+        for limit in lengths:
+            n += limit
+            while k < n:
+                k += row[pos] == "-" or row[pos].isupper()
+                pos += 1
+            while pos < len(row) and row[pos].islower():
+                pos += 1
+            cuts.append(pos)
+        if cuts[-1] != len(row):
+            raise ValueError(f"paired a3m row {j} has {k} match columns past the "
+                             f"{sum(lengths)} the chains add up to")
+        for i, (a, b) in enumerate(zip([0] + cuts, cuts)):
+            out[i] += [f">{j}", row[a:b]]
+    return ["\n".join(chain) + "\n" for chain in out]
 
 
 def search_boltz2_msas(prot, target_id, msa_dir, *, use_msa, msa_db_path, use_envdb,
@@ -664,41 +835,29 @@ def search_boltz2_msas(prot, target_id, msa_dir, *, use_msa, msa_db_path, use_en
         to_gen = {h: q for h, q in prot.items()
                   if not cached(msa_dir / f"{h}.a3m") and not cached(msa_dir / f"{h}.csv")}
     if to_gen:
-        # Serialize MSA generation per sequence across all workers sharing this
-        # msa_dir: each sequence is searched once and reused, never redundantly
-        # re-searched in parallel (which both wasted CPU and raced on the shared
-        # a3m file). Locks are taken in sorted-hash order so concurrent
-        # multi-chain targets can't deadlock.
-        locks = []
-        try:
-            for h in sorted(to_gen):
-                lf = open(msa_dir / f".{h}.lock", "w")
-                fcntl.flock(lf, fcntl.LOCK_EX)
-                locks.append(lf)
-            # Re-check under the locks: another worker may have produced some of
-            # these while we waited, so only generate what is still missing.
-            if pdir is not None:
-                to_gen = prot if not all(cached(pdir / f"{h}.csv") for h in prot) else {}
-            else:
-                to_gen = {h: s for h, s in to_gen.items()
-                          if not cached(msa_dir / f"{h}.a3m")
-                          and not cached(msa_dir / f"{h}.csv")}
-            if to_gen and msa_db_path:
-                compute_msa_offline(to_gen, target_id, msa_dir, msa_db_path,
+        # One search per complex (paired) or per sequence across every worker sharing this
+        # msa_dir: a second job waits for the first and reads its files (cache.single_flight).
+        def search(todo):
+            gen = prot if pdir is not None else {h: to_gen[h] for h in todo}
+            if msa_db_path:
+                compute_msa_offline(gen, target_id, msa_dir, msa_db_path,
                                     use_env=use_envdb, pairing_strategy=msa_strategy)
-            elif to_gen and use_msa:
-                compute_msa(to_gen, target_id, msa_dir, msa_url, msa_strategy, msa_user, msa_pass, api_key)
-            elif to_gen:
+            elif use_msa:
+                compute_msa(gen, target_id, msa_dir, msa_url, msa_strategy, msa_user, msa_pass, api_key)
+            else:
                 raise RuntimeError(
                     "No MSA for this target and no source to search one with. Use:\n"
                     "  --use_msa_server        the online ColabFold server\n"
                     "  --msa_db_path <dir>     a local ColabFold DB (`tt-bio msa` downloads one)\n"
                     "  --single_sequence       fold without an MSA, at a large accuracy cost"
                 )
-        finally:
-            for lf in locks:
-                fcntl.flock(lf, fcntl.LOCK_UN)
-                lf.close()
+
+        if pdir is not None:
+            single_flight(pdir.parent, [pdir.name],
+                          lambda _: not all(cached(pdir / f"{h}.csv") for h in prot), search)
+        else:
+            single_flight(msa_dir, to_gen, lambda h: not cached(msa_dir / f"{h}.a3m")
+                          and not cached(msa_dir / f"{h}.csv"), search)
     return pdir
 
 
@@ -861,7 +1020,7 @@ def _atomic_write(path: Path, content: str):
 
 
 def write_result(pred, batch, input_struct, out_dir, fmt,
-                 write_pae=False, write_pde=False, write_embeddings=False):
+                 write_pae=False, write_pde=False, write_embeddings=False, contact_cutoff=8.0):
     """Write CIF/PDB structure files. Return (metrics_dict, best_structure).
 
     pLDDT embedded in B-factors. All confidence values returned in metrics dict.
@@ -961,7 +1120,12 @@ def write_result(pred, batch, input_struct, out_dir, fmt,
             return pae, (pred["plddt"][idx].cpu().numpy()[real] if "plddt" in pred else None)
 
         pae, plddt = _arrays(best_idx)
-        np.savez_compressed(out_dir / f"{record.id}_pae.npz", pae=pae)
+        from tt_bio import confidence_export
+        dist = pred.get("pdistogram")             # [1, N, N, 1, bins]: one trunk, every sample
+        confidence_export.write(out_dir, record.id, "boltz2", real=real, pae=pred["pae"][best_idx],
+                                pde=pred["pde"][best_idx] if "pde" in pred else None,
+                                distogram=None if dist is None else dist[0, :, :, 0],
+                                cutoff=contact_cutoff)
         if plddt is not None:
             np.savez_compressed(out_dir / f"{record.id}_plddt.npz", plddt=plddt)
         if fmt == "cif" and len(struct.chains) > 1:
@@ -982,7 +1146,11 @@ def write_result(pred, batch, input_struct, out_dir, fmt,
             metrics["interface_scores"] = samples[0]
             metrics["interface_score_distribution"] = interface_scores.distribution(samples)
     if write_pde and "pde" in pred:
-        np.savez_compressed(out_dir / f"{record.id}_pde.npz", pde=pred["pde"][best_idx].cpu().numpy())
+        pde = pred["pde"][best_idx].cpu().numpy()
+        if "token_pad_mask" in batch:             # the same real-token crop as the PAE
+            real = batch["token_pad_mask"][0].bool().cpu().numpy()
+            pde = pde[np.ix_(real, real)]
+        np.savez_compressed(out_dir / f"{record.id}_pde.npz", pde=pde)
     if write_embeddings and "s" in pred and "z" in pred:
         np.savez_compressed(out_dir / f"{record.id}_embeddings.npz",
                           s=pred["s"].cpu().numpy(), z=pred["z"].cpu().numpy())
@@ -1100,6 +1268,30 @@ def _visible_tt_devices() -> list[int]:
         from tt_bio.runtime import visible_device_indices
         return visible_device_indices(visible)
     return sorted(int(p.name) for p in Path("/dev/tenstorrent").glob("[0-9]*"))
+
+
+def _pin_one_card(devices: str | None, model: str) -> None:
+    """Make ``--devices N`` the only card this process can open, for a model that runs in-process
+    on one card.
+
+    get_device() opens and leases every visible chip, so choosing only which chip to compute on
+    still held the whole host: ``design --model rfd4 --devices 1`` opened all four nodes of a
+    4-card Blackhole box (issue #26). The id is validated against the cards present (and an
+    ambient TT_VISIBLE_DEVICES) before anything opens; more than one id is refused, since one
+    process runs on one card.
+    """
+    if not devices:
+        return
+    from tt_bio.runtime import detect_tenstorrent_devices
+
+    if "," in devices.strip(", "):
+        raise click.UsageError(f"--model {model} runs on one card per process; pass one id "
+                               "(e.g. --devices 1) and start one process per card.")
+    try:
+        (card,) = detect_tenstorrent_devices(devices, 0, 1)
+    except ValueError as e:
+        raise click.UsageError(str(e))
+    os.environ["TT_VISIBLE_DEVICES"] = str(card)
 
 
 def _p300_mesh_descriptor(device: int | None = None) -> str | None:
@@ -1242,7 +1434,8 @@ def _spawn_worker_processes(controller_url: str, workers: list, debug: bool) -> 
     _cap_worker_threads(len(workers))
     # So orphaned workers self-terminate (see run_worker_loop): spawn children
     # inherit this; workers of a `tt-bio worker` pool never see it.
-    os.environ["TT_BIO_PARENT_PID"] = str(os.getpid())
+    from tt_bio.device_lease import orphan_guard_env
+    os.environ.update(orphan_guard_env())
     procs = []
     for worker in workers:
         proc = ctx.Process(
@@ -1670,7 +1863,7 @@ def _dispatch_to_controller(controller_url: str, run_payload: dict, *, total: in
     return failed
 
 
-def _refuse_unfoldable_jobs(jobs, model: str, results_path: Path):
+def _refuse_unfoldable_jobs(jobs, model: str, results_path: Path, output_format=None):
     """Split ``jobs`` into the ones ``model`` can fold and the ones it refuses.
 
     A refused input is reported and recorded as a failed row in results.json, and the rest of
@@ -1693,7 +1886,7 @@ def _refuse_unfoldable_jobs(jobs, model: str, results_path: Path):
                 from tt_bio.af2ig_input import read_af2ig_input
 
                 read_af2ig_input(jp)
-            check_capabilities(jp, chains, model)
+            check_capabilities(jp, chains, model, output_format=output_format)
             keep.append(job)
         except (RuntimeError, ValueError, click.ClickException) as e:
             refused[job.id] = e.message if isinstance(e, click.ClickException) else str(e)
@@ -1702,6 +1895,7 @@ def _refuse_unfoldable_jobs(jobs, model: str, results_path: Path):
                     f"refuses; folding the other {len(keep)}:", fg="red", err=True)
         for job_id, why in refused.items():
             click.secho(f"  ✗ {job_id}: {why}", fg="red", err=True)
+    if refused:
         rows = {r["id"]: r for r in _load_results_resilient(results_path)
                 if isinstance(r, dict) and "id" in r}
         rows.update({j: {"id": j, "status": "failed", "error": why}
@@ -1710,11 +1904,31 @@ def _refuse_unfoldable_jobs(jobs, model: str, results_path: Path):
     return keep, refused
 
 
-def _exit_for_failed_jobs(failed: int, total: int) -> None:
+def _write_error_reports(results_path: Path) -> None:
+    """``<results>/ERR/<job>.txt`` for every job results.json records as failed, as Mol-1 and
+    Protenix write it: the reason a system could not be predicted, next to the outputs. A job
+    that has since folded loses its report, and an empty ERR/ is removed."""
+    err = results_path.parent / "ERR"
+    for r in _load_results_resilient(results_path):
+        if not (isinstance(r, dict) and "id" in r):
+            continue
+        report = err / f"{r['id']}.txt"
+        if r.get("status") == "failed":
+            err.mkdir(parents=True, exist_ok=True)
+            report.write_text(f"{r.get('error') or 'failed'}\n")
+        else:
+            report.unlink(missing_ok=True)
+    if err.is_dir() and not any(err.iterdir()):
+        err.rmdir()
+
+
+def _exit_for_failed_jobs(failed: int, total: int, results_path: Path | None = None) -> None:
     """Exit the CLI nonzero when a run lost targets: 1 when every job failed,
     2 when some succeeded and some failed. Callers (release gate, CI, fleet
     scripts) gate on the process exit status, so a run that lost targets must
-    not report success."""
+    not report success. With ``results_path`` the failures also get an ERR/ report."""
+    if results_path is not None:
+        _write_error_reports(results_path)
     if failed <= 0:
         return
     raise SystemExit(1 if failed >= total else 2)
@@ -1750,6 +1964,8 @@ def _write_job_outputs(client: ControllerClient, run_id: str, job_id: str,
             target.write_bytes(base64.b64decode(content_b64))
         except Exception:
             pass
+    from tt_bio.protenix_output import land
+    land(struct_dir)    # Mol-1's upstream layout ships inside the job outputs; its place is beside struct_dir
 
 
 @contextmanager
@@ -1929,6 +2145,35 @@ def score(structure, pae, plddt, confidence, pae_cutoff, dist_cutoff):
     click.echo(json.dumps(out, indent=2))
 
 
+@cli.command("evaluate")
+@click.argument("inputs", type=click.Path(exists=True, file_okay=False))
+@click.option("--model", type=click.Choice(["rfd4"]), default="rfd4", show_default=True,
+              help="Whose evaluation to run. rfd4: RFD4-Proteina's `rfd4-evaluate`.")
+@click.option("--metrics_tags", required=True,
+              help="Comma-separated tags that switch metrics on, as upstream's `metrics_tags`, "
+                   "e.g. design or design,ppi_refolding. Score two arms with the same tags.")
+@click.option("--out_dir", required=True, type=click.Path(file_okay=False),
+              help="Writes evaluation_metrics/per_example_metrics.csv here.")
+@click.option("--task_csv", default=None, type=click.Path(exists=True, dir_okay=False),
+              help="CSV mapping designed_structure_path to task. Without it every task is 'all'.")
+@click.option("--job_id", default=None, type=int, help="Shard index, with --gen_njobs.")
+@click.option("--gen_njobs", default=1, show_default=True, type=int, help="Number of shards.")
+def evaluate_cmd(inputs, model, metrics_tags, out_dir, task_csv, job_id, gen_njobs):
+    """Score existing designs the way upstream does, with no device.
+
+    INPUTS is a directory of generated structures, searched recursively. The output is upstream's
+    per-design CSV, same column names and rounding, so it can be diffed against a run of
+    upstream's own tool. A tag that switches on a metric tt-bio does not compute yet is refused
+    rather than silently left out; see docs/rfd4-evaluate.md for what is covered."""
+    from tt_bio.rfd4.evaluate import evaluate
+    try:
+        path = evaluate(inputs, metrics_tags, out_dir, task_csv=task_csv, job_id=job_id,
+                        gen_njobs=gen_njobs)
+    except (ValueError, NotImplementedError) as e:
+        raise click.ClickException(str(e))
+    click.echo(f"Done — {path}")
+
+
 @cli.command("install-deps")
 def install_deps():
     """Install system dependencies that match the installed ttnn wheel."""
@@ -1998,6 +2243,10 @@ def preflight_cmd(models, download, cache):
                        f"not downloadable ({need[0].artifact.licence}); put "
                        f"{need[0].artifact.filename} at {need[0].path} or set "
                        f"${need[0].artifact.env}")
+
+    if set(names) & set(PROTENIX_FAMILY) and not shutil.which("kalign"):
+        click.echo(f"  {click.style('note   ', fg='yellow')} --use_template with .a3m/.hhr hits needs kalign on "
+                   "PATH, and there is none (it is optional otherwise)")
 
     if sources:
         click.echo()
@@ -2194,6 +2443,8 @@ def worker_cmd(connect, accelerator, num_devices, device_ids, debug):
 @click.option("--lease-s", "lease_s", default=LEASE_S, type=float, show_default=True,
               help="Seconds a job stays with a worker that stops heartbeating before it is "
                    "handed to another. Workers heartbeat every 1/12 of it.")
+@click.option("--max-leases", "max_leases", default=MAX_LEASES, type=int, show_default=True,
+              help="Workers a job is handed to before a lapsed lease fails it instead.")
 @click.option("--accelerator", type=click.Choice(["gpu", "cpu", "tenstorrent"]), default="tenstorrent")
 @click.option("--num_devices", default=0, type=int, help="Local devices to serve with (0=all). Ignored with --no-local-workers.")
 @click.option("--device_ids", default=None, type=str, help="Comma-separated TT device IDs to use locally")
@@ -2203,7 +2454,7 @@ def worker_cmd(connect, accelerator, num_devices, device_ids, debug):
 @click.option("--state-dir", default=None, type=click.Path(),
               help="Where to keep the controller's SQLite state (default: a temp dir, discarded on exit).")
 @click.option("--debug", is_flag=True, help="Do not suppress local worker output")
-def controller_cmd(port, lease_s, accelerator, num_devices, device_ids, no_local_workers, state_dir, debug):
+def controller_cmd(port, lease_s, max_leases, accelerator, num_devices, device_ids, no_local_workers, state_dir, debug):
     """Run a persistent controller for this host's chips.
 
     Starts the scheduler on 127.0.0.1 and, unless --no-local-workers, a worker
@@ -2225,7 +2476,7 @@ def controller_cmd(port, lease_s, accelerator, num_devices, device_ids, no_local
         tmpdir = Path(tempfile.mkdtemp(prefix="tt-bio-controller-"))
         db_path = tmpdir / "controller.sqlite3"
 
-    server = ControllerServer(port, db_path, lease_s)
+    server = ControllerServer(port, db_path, lease_s, max_leases)
     server.serve_in_background()
     url = f"http://127.0.0.1:{server.port}"
 
@@ -2349,6 +2600,92 @@ def msa(db, path, install_tools):
     click.echo(f"  tt-bio predict input.yaml --msa_db_path {db_dir}")
 
 
+@cli.command("json")
+@click.argument("input_path", metavar="INPUT", type=click.Path(exists=True))
+@click.option("--out_dir", default="./output", type=click.Path(file_okay=False), show_default=True)
+@click.option("--altloc", default="first", show_default=True,
+              help="Alternate locations: the first of each residue, or a letter (A, B, ...).")
+@click.option("--assembly_id", default=None, help="Expand to this biological assembly (default: the asymmetric unit).")
+@click.option("--include_discont_poly_poly_bonds", is_flag=True,
+              help="Also write bonds between non-consecutive polymer residues (disulfides, cyclic peptides).")
+@click.option("--cache", default=None, type=click.Path(), help="Weight cache (default: $TT_BIO_CACHE or ~/.boltz).")
+def json_cmd(input_path, out_dir, altloc, assembly_id, include_discont_poly_poly_bonds, cache):
+    """Turn PDB / mmCIF structures into Protenix / Mol-1 job JSON (upstream's `mol json`).
+
+    \b
+        tt-bio json 7r6r.cif                 writes output/7r6r.json
+        tt-bio json structures/ --assembly_id 1
+
+    INPUT is a file or a directory searched for .pdb and .cif files. Each becomes one job:
+    every protein, DNA and RNA entity with its copy count and modified residues, ligands and
+    ions by CCD code, and the covalent bonds that attach them. Water, hydrogens and
+    crystallisation aids are dropped. This is upstream's converter, so the JSON is the one
+    Mol-1 writes. The first run downloads the Chemical Component Dictionary (520 MB)."""
+    from tt_bio import mol1_json
+
+    try:
+        comp = weights.fetch("mol1-components", root=Path(cache).expanduser() if cache else None)
+        written = mol1_json.convert(Path(input_path), Path(out_dir), comp, altloc=altloc, assembly_id=assembly_id,
+                                    include_discont_poly_poly_bonds=include_discont_poly_poly_bonds)
+    except (ValueError, RuntimeError) as e:
+        raise click.ClickException(str(e))
+    click.echo(f"Done: {len(written)} job JSON file(s) in {out_dir}")
+
+
+@cli.command("prep")
+@click.argument("input_path", metavar="INPUT", type=click.Path(exists=True, dir_okay=False))
+@click.option("--out_dir", default="./output", type=click.Path(file_okay=False), show_default=True,
+              help="Where the alignments go.")
+@click.option("--msa_db_path", default=None, type=click.Path(exists=True),
+              help="Search this local ColabFold DB instead of the ColabFold server.")
+@click.option("--use_envdb", is_flag=True, help="Also search the environmental DB (with --msa_db_path).")
+@click.option("--msa_endpoint", default=None, help="Fetch unpaired MSAs from a `tt-bio msa-server` at this URL.")
+@click.option("--msa_server_url", default="https://api.colabfold.com", show_default=True)
+@click.option("--msa_pairing_strategy", default="greedy", show_default=True)
+@click.option("--use_template", is_flag=True,
+              help="JSON input: also search templates for each protein chain (needs hmmer and the seqres database).")
+@click.option("--use_rna_msa", is_flag=True,
+              help="JSON input: also search MSAs for RNA chains that have none (needs hmmer and the RNA databases).")
+@_upstream_search_options
+def prep_cmd(input_path, out_dir, msa_db_path, use_envdb, msa_endpoint, msa_server_url, msa_pairing_strategy,
+             use_template, use_rna_msa, **search_tools):
+    """Search the MSAs (and templates) of a Protenix / Mol-1 job JSON or a FASTA ahead of the fold.
+
+    \b
+        tt-bio prep jobs.json                  writes jobs-update-msa.json beside it
+        tt-bio prep jobs.json --use_template   writes jobs-final-updated.json beside it
+        tt-bio prep seqs.fasta                 one directory per record + msa_index.json
+
+    A JSON job's protein chains without an MSA are searched and the updated JSON names the
+    files (upstream's `mol msa`); `tt-bio predict jobs-update-msa.json --model mol1` then folds
+    with them and searches nothing. --use_template and --use_rna_msa add upstream's template and
+    RNA MSA searches, which is what `mol prep` does. A FASTA's records are searched as one complex,
+    so several records also get a species-paired MSA. The ColabFold server is used unless
+    --msa_db_path or --msa_endpoint names another source. Needs no device."""
+    from tt_bio import protenix_json, protenix_prep
+
+    cfg = {"use_msa_server": not (msa_db_path or msa_endpoint), "msa_db_path": msa_db_path,
+           "use_envdb": use_envdb, "msa_endpoint": msa_endpoint, "msa_server_url": msa_server_url,
+           "msa_pairing_strategy": msa_pairing_strategy}
+    src, out = Path(input_path), Path(out_dir)
+    try:
+        if src.suffix.lower() in (".fasta", ".fa", ".faa"):
+            if use_template or use_rna_msa:
+                raise ValueError(f"{src}: template and RNA MSA search take a .json job list, as upstream's prep does")
+            dest = protenix_prep.prep_fasta(src, out, cfg)
+        elif src.suffix.lower() == ".json":
+            dest = protenix_prep.prep_json(src, out, cfg)
+            cur = dest or src
+            final = protenix_json.search(cur, out, use_template, use_rna_msa, **search_tools)
+            if final != cur:  # upstream writes <stem>-final-updated.json beside the MSA-updated JSON
+                dest = final.replace(cur.resolve().parent / final.name)
+        else:
+            raise ValueError(f"{src}: tt-bio prep reads a .json job list or a .fasta")
+    except (ValueError, KeyError, AssertionError, FileNotFoundError, RuntimeError) as e:
+        raise click.ClickException(str(e))
+    click.echo(f"Done: {dest}" if dest else f"Every chain in {src} already has what was asked; nothing to search.")
+
+
 @cli.command("msa-server")
 @click.option("--listen", default="8765", help="PORT or HOST:PORT to bind (default 8765).")
 @click.option("--msa_db_path", default=None, type=click.Path(),
@@ -2404,10 +2741,10 @@ _NA_HEADER_TYPES = {"rna": "rna", "rnasequence": "rna", "dna": "dna", "dnasequen
 #: complex one chain short, `constrains:` folded without the covalent bond, both status=ok.
 #: What a MODEL does with a key it cannot honour is a separate question, answered by the one
 #: table in tt_bio/capabilities.py.
-_DOC_KEYS = frozenset({"version", "sequences", "constraints", "properties", "templates"})
+_DOC_KEYS = frozenset({"version", "sequences", "constraints", "properties", "templates", "constraint"})
 _ENTRY_KEYS = frozenset({"protein", "rna", "dna", "ligand"})
 _POLYMER_KEYS = frozenset({"id", "sequence", "msa", "modifications", "cyclic", "templates"})
-_LIGAND_KEYS = frozenset({"id", "ccd", "smiles"})
+_LIGAND_KEYS = frozenset({"id", "ccd", "smiles", "file"})
 
 
 def _check_yaml_keys(doc: dict, path) -> None:
@@ -2480,7 +2817,11 @@ def _read_bio_chains(path, what="input"):
                     cid, buf, msa = parts[0].strip(), [], None
                     mt = "_ccd" if typ in ("ccd", "ion") else "ligand"
                 else:
-                    cid, buf = None, []
+                    # Refused, not skipped: skipping folded the rest of the complex without
+                    # this chain and reported success, and a UniProt header
+                    # (>sp|P69905|HBA_HUMAN) on a single-chain file ended in "no sequences".
+                    from tt_bio.data.parse import fasta_header_error
+                    raise click.ClickException(fasta_header_error(line[1:], path.name))
             elif line and cid is not None:
                 buf.append(line)
         flush()
@@ -2506,11 +2847,14 @@ def _read_bio_chains(path, what="input"):
                            else str(ids).split(","))
                 for c in id_list:
                     chains.append((c.strip(), str(sub.get("sequence") or "").upper(), m, mt, mods))
-            lig = entry.get("ligand")                       # {ccd: CODE|[CODE, ...]} or {smiles: STR}
-            if isinstance(lig, dict) and (lig.get("ccd") or lig.get("smiles")):
+            lig = entry.get("ligand")                       # {ccd: CODE|[CODE, ...]}, {smiles: STR} or {file: PATH}
+            if isinstance(lig, dict) and (lig.get("ccd") or lig.get("smiles") or lig.get("file")):
                 if lig.get("ccd"):
                     codes = lig["ccd"] if isinstance(lig["ccd"], (list, tuple)) else [lig["ccd"]]
                     spec = "CCD_" + ",".join(str(x).strip().upper() for x in codes)
+                elif lig.get("file"):                       # a 3D .sdf/.mol/.mol2/.pdb, relative to the input
+                    f = Path(str(lig["file"])).expanduser()
+                    spec = "FILE_" + str(f if f.is_absolute() else (path.parent / f).resolve())
                 else:
                     spec = str(lig["smiles"])
                 ids = lig.get("id", "L")
@@ -2520,6 +2864,14 @@ def _read_bio_chains(path, what="input"):
                     chains.append((c.strip(), spec, None, "ligand", None))
     else:
         raise click.ClickException(f"Unsupported input for {what}: {path.name}")
+    ids = [cid for cid, *_r in chains]
+    repeated = sorted({cid for cid in ids if ids.count(cid) > 1})
+    if repeated:
+        # every model folded two chains under one id as one merged chain, or crashed on it
+        raise click.ClickException(
+            f"{path.name}: chain id(s) {', '.join(map(repr, repeated))} are used more than "
+            f"once; every chain needs its own id (an entry without `id:` is A for a polymer, "
+            f"L for a ligand).")
     blank = [cid for cid, cseq, _sp, _mt, _mods in chains if not cseq or not cseq.strip()]
     if blank:
         raise click.ClickException(
@@ -2556,6 +2908,16 @@ def _read_modifications(sub: dict, key: str):
     return [dict(mod) for mod in mods]
 
 
+def _read_bio_constraint(path):
+    """The input's top-level ``constraint:`` block (OpenDDE 1.2.0 guided sampling), or None.
+    Its content is upstream's JSON ``constraint`` field unchanged; tt_bio.tfg.features
+    validates it."""
+    if path.suffix.lower() not in (".yml", ".yaml"):
+        return None
+    import yaml
+    return (yaml.safe_load(path.read_text()) or {}).get("constraint")
+
+
 def _read_bio_constraints(path):
     """Parse the `constraints:` block of a Protenix/bio input into covalent bonds.
 
@@ -2582,6 +2944,8 @@ def _read_bio_constraints(path):
                     "Bond constraint needs atom1 and atom2 as [chain, residue, atom].")
             bonds.append(((str(a1[0]), int(a1[1]), str(a1[2])),
                           (str(a2[0]), int(a2[1]), str(a2[2]))))
+        elif _is_mol1_condition(c):
+            continue                      # Mol-1-constraint, read by _read_mol1_constraints
         elif "pocket" in c or "contact" in c:
             kind = "pocket" if "pocket" in c else "contact"
             raise click.ClickException(
@@ -2591,6 +2955,37 @@ def _read_bio_constraints(path):
         else:
             raise click.ClickException(f"Unsupported constraint for Protenix: {c}")
     return bonds
+
+
+def _is_mol1_condition(item) -> bool:
+    """A `constraints:` list item in Mol-1-constraint's shape: `site`, `exclusion`, or a `contact` given as
+    `pairs` / `token_pairs` (a Boltz contact names token1 / token2 instead)."""
+    if "site" in item or "exclusion" in item:
+        return True
+    c = item.get("contact")
+    return isinstance(c, dict) and bool({"pairs", "token_pairs"} & set(c))
+
+
+def _read_mol1_constraints(path) -> dict | None:
+    """The input's Mol-1-constraint conditions (SITE / CONTACT / EXCLUSION), parsed by upstream's rules
+    (`mol1_constraint.parse`), or None when it names none. Each kind is one list item, as in upstream's
+    `constraints` object; an upstream JSON input is converted to the same items."""
+    if path.suffix.lower() not in (".yml", ".yaml"):
+        return None
+    import yaml
+    from tt_bio import mol1_constraint
+    doc = yaml.safe_load(path.read_text()) or {}
+    merged = {}
+    for c in doc.get("constraints", []) or []:
+        if isinstance(c, dict) and _is_mol1_condition(c):
+            for k, v in c.items():
+                if k in merged:
+                    raise click.ClickException(f"Give one '{k}' constraint per input; list all its residues in it.")
+                merged[k] = v
+    try:
+        return mol1_constraint.parse(merged or None)
+    except ValueError as e:
+        raise click.ClickException(str(e))
 
 
 def _read_cyclic(path) -> list[str]:
@@ -2699,8 +3094,22 @@ def _resolve_a3m_text(msa_spec, sequence, msa_dir, max_seqs=None):
 
 
 def _write_protenix_structure(coords, feats, aatype, outpath, output_format, b_factors=None,
-                              mod_names=None, chain_ids=None):
-    """Write a Protenix-v2 prediction (coords + atom metadata) as PDB/mmCIF via biotite.
+                              mod_names=None, chain_ids=None, mirror_carboxylates=False):
+    """Write a Protenix-v2 prediction as PDB/mmCIF via biotite: `protenix_atom_array` plus atom_site only."""
+    import biotite.structure.io.pdbx as _pdbx
+    outpath = Path(outpath)
+    arr = protenix_atom_array(coords, feats, outpath, b_factors=b_factors, mod_names=mod_names, chain_ids=chain_ids,
+                              mirror_carboxylates=mirror_carboxylates)
+    if output_format == "pdb":
+        write_atom_array(arr, outpath)
+    else:
+        from tt_bio import cif_text
+        cf = _pdbx.CIFFile(); _pdbx.set_structure(cf, arr); cif_text.write(cf, str(outpath))
+
+
+def protenix_atom_array(coords, feats, outpath, b_factors=None, mod_names=None, chain_ids=None,
+                        mirror_carboxylates=False):
+    """A Protenix-v2 prediction (coords + atom metadata) as a biotite AtomArray.
 
     Reconstructed entirely from the feature dict so it is modality- and chain-agnostic
     (proteins, complexes, nucleic acids, ligands): atom name from ref_atom_name_chars,
@@ -2716,9 +3125,13 @@ def _write_protenix_structure(coords, feats, aatype, outpath, output_format, b_f
 
     `chain_ids` is the reader's chain list, one id per asym_id in order. Without it the chains
     are written A, B, C..., so a ligand submitted as L came back as B and any script selecting
-    a chain by the id it submitted read the wrong one."""
+    a chain by the id it submitted read the wrong one.
+
+    A protein chain's terminal OXT that fails OpenDDE's geometry gates is rebuilt from the
+    CCD ideal carboxylate before writing (tt_bio.oxt), on a copy of `coords`. `mirror_carboxylates` applies
+    Mol-1's unconditional O/OXT mirror instead (tt_bio.oxt.mirror_terminal_carboxylates), as its writer does.
+    `outpath` only names the file in an OXT repair warning."""
     import biotite.structure as struc
-    import biotite.structure.io.pdbx as _pdbx
     import numpy as np
 
     from tt_bio.data import const
@@ -2749,19 +3162,25 @@ def _write_protenix_structure(coords, feats, aatype, outpath, output_format, b_f
     label = (lambda n: str(chain_ids[n])) if chain_ids else _chain_label
     # set, not assigned per atom: the default chain_id dtype is <U4 and truncates a longer id
     arr.set_annotation("chain_id", np.array([label(int(asym[t])) for t in a2t]))
-    for i in range(coords.shape[0]):
-        t = a2t[i]
-        arr.res_id[i] = int(resid[t])
-        mod = (mod_names or {}).get((int(asym[t]), int(resid[t])))
-        arr.res_name[i] = mod or ("LIG" if is_lig_tok[t] else resname[t])
-        arr.atom_name[i] = names[i]
-        arr.element[i] = z2sym.get(int(znum[i]), "C")
-        arr.hetero[i] = is_lig_tok[t] or mod is not None
-    outpath = Path(outpath)
-    if output_format == "pdb":
-        write_atom_array(arr, outpath)
+    # per token, then gathered to atoms (a per-atom loop cost ~0.5 s a fold at 1024 tokens, 10 calls)
+    mods = [(mod_names or {}).get((int(asym[t]), int(resid[t]))) for t in range(len(rt))]
+    tok_name = [m or ("LIG" if lig else n) for m, lig, n in zip(mods, is_lig_tok, resname)]
+    tok_het = [lig or m is not None for m, lig in zip(mods, is_lig_tok)]
+    a2t = np.asarray(a2t, dtype=np.int64)
+    arr.res_id[:] = np.asarray(resid, dtype=np.int64)[a2t]
+    arr.res_name[:] = np.array(tok_name)[a2t]
+    arr.atom_name[:] = names
+    arr.element[:] = [z2sym.get(int(z), "C") for z in znum]
+    arr.hetero[:] = np.array(tok_het, dtype=bool)[a2t]
+    # an OXT the diffusion left on O/C or detached is rebuilt from the CCD geometry
+    # (OpenDDE 6685cef); arr.coord is already a copy, the caller's coords are untouched
+    from tt_bio.oxt import mirror_terminal_carboxylates, repair_terminal_oxt_from_feats
+    if mirror_carboxylates:
+        arr.coord = mirror_terminal_carboxylates(arr.coord, arr.atom_name, arr.chain_id, arr.res_id)
     else:
-        cf = _pdbx.CIFFile(); _pdbx.set_structure(cf, arr); cf.write(str(outpath))
+        arr.coord, _ = repair_terminal_oxt_from_feats(arr.coord, feats, arr.atom_name, arr.res_name,
+                                                      where=outpath)
+    return arr
 
 
 def _write_structure(complex_obj, outpath, output_format):
@@ -2846,11 +3265,13 @@ def _generate_paired_a3m(seqs, target_id, msa_dir, msa_server_url,
     if not all(cached(pdir / f"{k}.a3m") for k in seqs):
         if not search:
             return None
-        pdir.mkdir(parents=True, exist_ok=True)
-        if msa_db_path:
-            compute_msa_offline(seqs, target_id, pdir, msa_db_path, use_env=use_envdb,
-                                pairing_strategy=msa_pairing_strategy, pair=True)
-        else:
+        def search_complex(_):
+            pdir.mkdir(parents=True, exist_ok=True)
+            if msa_db_path:
+                compute_msa_offline(seqs, target_id, pdir, msa_db_path, use_env=use_envdb,
+                                    pairing_strategy=msa_pairing_strategy, pair=True,
+                                    chain_cache=Path(msa_dir) / "paired-chain-v1")
+                return
             headers = ({"Content-Type": "application/json", "X-API-Key": api_key_value}
                        if api_key_value else None)
             keys = sorted(seqs, key=seqs.get)   # one order per complex, whatever the chain order
@@ -2861,6 +3282,9 @@ def _generate_paired_a3m(seqs, target_id, msa_dir, msa_server_url,
                               msa_server_password=msa_server_password, auth_headers=headers)
             for i, k in enumerate(keys):
                 publish_text(pdir / f"{k}.a3m", res[i])
+
+        single_flight(pdir.parent, [pdir.name],
+                      lambda _: not all(cached(pdir / f"{k}.a3m") for k in seqs), search_complex)
     return {k: (pdir / f"{k}.a3m").read_text() for k in seqs}
 
 
@@ -2872,6 +3296,7 @@ def _generate_paired_a3m(seqs, target_id, msa_dir, msa_server_url,
 #: `configs_inference.py` does not override it and `runner/inference.py::update_inference_configs`
 #: only touches `skip_amp`, so 4 is what that checkpoint ships with. protenix-v2 is a different
 #: release with its own 10. Giving v1 v2's 10 would run 2.5x the trunk the model was trained for.
+#: mol1 is 20, Mol-1's `model.N_cycle` and its `mol pred -c` default.
 #: opendde/opendde-abag keep 10. esmfold2/esmfold2-fast use 10, the ESMFold2 paper's benchmark
 #: protocol (A.2.10: "For all benchmark results ... ESMFold2 uses 10 loops"). rf3 uses 10, its own
 #: inference default (rf3.featurize DEFAULTS n_recycles), and the count is not free-standing
@@ -2884,6 +3309,7 @@ def _generate_paired_a3m(seqs, target_id, msa_dir, msa_server_url,
 RECYCLING_STEPS = {
     "protenix-v1": 4,
     "protenix-v2": 10,
+    "mol1": 20,
     "opendde": 10,
     "opendde-abag": 10,
     "esmfold2": 10,
@@ -2920,6 +3346,11 @@ SAMPLING_STEPS = {"esmfold2": 100, "esmfold2-fast": 100, "rf3": 50}
 SAMPLING_STEPS_DEFAULT = 200
 SAMPLING_STEPS_EXECUTED = {100: 68, 50: 49}
 
+#: Structures per fold when --diffusion_samples is unset. mol1 is 5, `mol pred -e`'s default, so a
+#: plain `tt-bio predict --model mol1` writes the same five ranked samples upstream does.
+DIFFUSION_SAMPLES = {"mol1": 5}
+DIFFUSION_SAMPLES_DEFAULT = 1
+
 
 def _grouped_defaults(table, default, models):
     """Render a per-model default table as "V: a, b; W: c", commonest value last."""
@@ -2928,53 +3359,6 @@ def _grouped_defaults(table, default, models):
         groups.setdefault(table.get(m, default), []).append(m)
     ordered = sorted(groups.items(), key=lambda kv: (len(kv[1]), kv[0]))
     return "; ".join(f"{v} for {', '.join(ms)}" for v, ms in ordered)
-
-
-def boltz2_kwargs(recycling_steps, sampling_steps, *, diffusion_samples=1, max_parallel_samples=5,
-                  step_scale=None, subsample_msa=False, num_subsampled_msa=1024, use_potentials=False,
-                  no_kernels=False, use_tt=True, trace=False, diffusion_trace=False,
-                  sampling_steps_affinity=200, diffusion_samples_affinity=5,
-                  affinity_mw_correction=False):
-    """Boltz-2's structure and affinity model arguments, as ``tt-bio predict`` builds them. The
-    keyword defaults are predict's own option defaults, so an in-process caller (the SC26 booth's
-    chip worker) loads the model exactly as the CLI does. Returns (conf_kwargs, aff_kwargs)."""
-    _diffusion = {"step_scale": step_scale or 1.5, "gamma_0": 0.8, "gamma_min": 1.0,
-                  "noise_scale": 1.003, "rho": 7, "sigma_min": 0.0001, "sigma_max": 160.0,
-                  "sigma_data": 16.0, "P_mean": -1.2, "P_std": 1.5,
-                  "coordinate_augmentation": True, "alignment_reverse_diff": True,
-                  "synchronize_sigmas": True}
-    _pairformer = {"num_blocks": 64, "num_heads": 16, "dropout": 0.0, "v2": True}
-    _msa = {"subsample_msa": subsample_msa, "num_subsampled_msa": num_subsampled_msa,
-            "use_paired_feature": True,
-            # Required by the non-tenstorrent (PyTorch reference) MSAModule path; the
-            # tenstorrent path builds tenstorrent.MSAModule(n_blocks=4,...) and ignores
-            # this dict, so adding these keys is a no-op for device runs. Values mirror
-            # the boltz2_conf/aff checkpoint hparams so the CPU/host path matches the
-            # reference implementation exactly.
-            "msa_s": 64, "msa_blocks": 4, "msa_dropout": 0.15, "z_dropout": 0.25,
-            "pairwise_head_width": 32, "pairwise_num_heads": 4,
-            "activation_checkpointing": True}
-    conf_kwargs = dict(
-        predict_args={"recycling_steps": recycling_steps, "sampling_steps": sampling_steps,
-                      "diffusion_samples": diffusion_samples, "max_parallel_samples": max_parallel_samples},
-        diffusion_process_args=_diffusion, pairformer_args=_pairformer, msa_args=_msa,
-        steering_args={"fk_steering": use_potentials, "physical_guidance_update": use_potentials,
-                       "contact_guidance_update": True, "num_particles": 3, "fk_lambda": 4.0,
-                       "fk_resampling_interval": 3, "num_gd_steps": 20},
-        use_kernels=not no_kernels, use_tenstorrent=use_tt, trace=trace,
-        diffusion_trace=diffusion_trace,
-    )
-    aff_kwargs = dict(
-        predict_args={"recycling_steps": 5, "sampling_steps": sampling_steps_affinity,
-                      "diffusion_samples": diffusion_samples_affinity, "max_parallel_samples": 1},
-        diffusion_process_args=_diffusion, pairformer_args=_pairformer, msa_args=_msa,
-        steering_args={"fk_steering": False, "physical_guidance_update": False,
-                       "contact_guidance_update": False, "num_particles": 3, "fk_lambda": 4.0,
-                       "fk_resampling_interval": 3, "num_gd_steps": 20},
-        affinity_mw_correction=affinity_mw_correction, use_tenstorrent=use_tt, trace=trace,
-        diffusion_trace=diffusion_trace,
-    )
-    return conf_kwargs, aff_kwargs
 
 
 def _resolve_recycling_steps(recycling_steps, model):
@@ -3019,7 +3403,7 @@ def _resolve_sampling_steps(sampling_steps, model):
 # single-sequence with an OPTIONAL MSA and esmfold2-fast ships no MSA encoder at all.
 # scripts/release_gate.py reads this so the accuracy gate folds each model the way it is
 # actually used, instead of hand-listing the same set a second time.
-MSA_DEFAULT_MODELS = ("boltz2", "protenix-v1", "protenix-v2", "openfold3", "openbind", "opendde", "opendde-abag",
+MSA_DEFAULT_MODELS = ("boltz2", "protenix-v1", "protenix-v2", "mol1", "openfold3", "openbind", "opendde", "opendde-abag",
                      "rf3")
 
 # The models whose worker path actually passes --msa_endpoint to its MSA search
@@ -3029,7 +3413,7 @@ MSA_DEFAULT_MODELS = ("boltz2", "protenix-v1", "protenix-v2", "openfold3", "open
 # is built from this tuple so the two cannot drift: the help used to omit rf3,
 # and passing the flag with --model boltz2 was accepted and then died mid-run
 # with "Missing MSAs", blaming the user for supplying no source.
-MSA_ENDPOINT_MODELS = ("esmfold2", "esmfold2-fast", "protenix-v1", "protenix-v2",
+MSA_ENDPOINT_MODELS = ("esmfold2", "esmfold2-fast", "protenix-v1", "protenix-v2", "mol1",
                        "openfold3", "openbind", "opendde", "opendde-abag", "rf3")
 
 
@@ -3087,12 +3471,18 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
     if explicit:
         return use_msa_server, msa_db_path
 
-    # No source given. Prefer a host-local DB (skip in --controller mode, where
-    # the controller's workers resolve MSAs themselves), else fall back online.
-    if not controller:
-        default_db = Path(cache).expanduser() / "msa_db"
-        if (default_db / "UNIREF30_READY").exists():
-            return use_msa_server, str(default_db)
+    # No source given. Prefer a host-local DB, else fall back online. With a controller on
+    # this host too: since 66e39622b the submitting process searches every MSA before a chip
+    # is leased (worker.prefetch_msas), so skipping the local DB there sent every sequence of
+    # a `--controller http://127.0.0.1:...` run to the online server on a host that had
+    # UniRef30 installed, and said so only in a notice. A controller on another host keeps
+    # the old rule: its workers may not have this path.
+    from urllib.parse import urlparse
+    local_controller = (not controller
+                        or urlparse(controller).hostname in ("127.0.0.1", "localhost", "::1"))
+    default_db = Path(cache).expanduser() / "msa_db"
+    if local_controller and (default_db / "UNIREF30_READY").exists():
+        return use_msa_server, str(default_db)
     if msa_dir:
         # A cached chain is never sent anywhere, so the unconditional notice reads as a
         # privacy claim the run does not make. Say what is actually true: the server is a
@@ -3117,7 +3507,8 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
 @click.option("--cache", default=lambda: os.environ.get("BOLTZ_CACHE", str(Path("~/.boltz").expanduser())))
 @click.option("--checkpoint", type=click.Path(exists=True, dir_okay=False), default=None,
               help="Weights to fold with instead of the shipped ones (boltz2, openfold3, "
-                   "openbind). For openfold3 this can be a checkpoint `tt-bio train` wrote.")
+                   "openbind, protenix-v1/v2, mol1). For openfold3 this can be a checkpoint "
+                   "`tt-bio train` wrote.")
 @click.option("--accelerator", type=click.Choice(["gpu", "cpu", "tenstorrent"]), default="tenstorrent")
 @click.option("--recycling_steps", default=None, type=int,
               help="Trunk recycling iterations. Default: "
@@ -3131,8 +3522,10 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
                    + ". A request of 100 executes 68 (the sigma_max=256 schedule clip) and 50 "
                      "executes 49 (the rollout consumes consecutive schedule pairs). Explicit "
                      "values are honored verbatim.")
-@click.option("--diffusion_samples", default=1, type=int,
-              help="Structures to generate. Samples are denoised in chunks, so device memory stops "
+@click.option("--diffusion_samples", default=None, type=int,
+              help="Structures to generate. Default: "
+                   + _grouped_defaults(DIFFUSION_SAMPLES, DIFFUSION_SAMPLES_DEFAULT, PREDICT_MODELS)
+                   + ". Samples are denoised in chunks, so device memory stops "
                    "growing once the count passes the chunk width and time grows linearly. See "
                    "docs/sample-scaling.md.")
 @click.option("--partial_t", default=0, type=int,
@@ -3158,7 +3551,19 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
 @click.option("--output_format", type=click.Choice(["pdb", "cif"]), default="cif")
 @click.option("--override", is_flag=True)
 @click.option("--seed", default=None, type=int,
-              help="Random seed for the diffusion sampler. Default: 0.")
+              help="Random seed for the diffusion sampler. Default: 0 (101 for an upstream Protenix/Mol-1 JSON "
+                   "input, upstream's default).")
+@click.option("--use_seeds_in_json", is_flag=True,
+              help="Upstream Protenix/Mol-1 JSON input: run every seed in each job's `modelSeeds` instead of "
+                   "--seed, one result per seed (upstream's flag of the same name).")
+@click.option("--use_template", is_flag=True,
+              help="Upstream Protenix/Mol-1 JSON input: use each protein chain's `templatesPath` (.a3m, .hhr or "
+                   ".json hits; kalign on PATH for .a3m/.hhr; mmCIFs under $MOL_ROOT_DIR/mmcif, fetched from PDBe "
+                   "when missing). Upstream's flag of the same name, off by default.")
+@click.option("--use_rna_msa", is_flag=True,
+              help="Upstream Protenix/Mol-1 JSON input: use each RNA chain's `unpairedMsa`/`unpairedMsaPath` "
+                   "(upstream's flag of the same name; off, an RNA chain is its query row only).")
+@_upstream_search_options
 @click.option("--use_msa_server", is_flag=True, help="Generate MSAs via ColabFold API (requires internet)")
 @click.option("--msa_db_path", default=None, type=click.Path(exists=True), help="Local ColabFold DB for offline MSA (default: auto-detect ~/.boltz/msa_db)")
 @click.option("--msa_dir", "msa_dir_opt", default=None, type=click.Path(),
@@ -3185,17 +3590,36 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
 @click.option("--subsample_msa", is_flag=True)
 @click.option("--num_subsampled_msa", default=1024, type=int)
 @click.option("--no_kernels", is_flag=True)
-@click.option("--trace", is_flag=True,
+@click.option("--trace/--no_trace", default=None,
               help="Replay a captured ttnn trace of the per-step diffusion device "
                    "stream (lossless; collapses per-step host dispatch). protenix-v1, "
-                   "protenix-v2 and opendde. Opt-in; reserves 0.2-0.3 GB of device memory.")
-@click.option("--diffusion_trace", is_flag=True,
+                   "protenix-v2 and opendde. Default on for protenix-v1/v2 on Blackhole, "
+                   "off elsewhere; reserves 0.2-0.3 GB of device memory.")
+@click.option("--diffusion_trace/--no_diffusion_trace", default=None,
               help="Replay a captured ttnn trace of the per-step diffusion DiT device "
                    "stream (lossless; collapses per-step host dispatch). boltz2 only. "
-                   "Opt-in; reserves 0.2-0.3 GB of device memory.")
-@click.option("--write_pae", is_flag=True, help="Write PAE matrix per target (not openfold3)")
+                   "Default on for Blackhole, off elsewhere; reserves 0.2 GB of device memory.")
+@click.option("--use_tfg_guidance", is_flag=True,
+              help="opendde and opendde-abag. Guided sampling (OpenDDE 1.2.0): apply the input's "
+                   "`constraint:` block (contact pairs or an epitope) by moving the movable "
+                   "chains as a rigid body during diffusion, plus physics restraints on every "
+                   "step. See docs/constraint-guidance.md.")
+@click.option("--trunk_cache", type=click.Path(file_okay=False), default=None,
+              help="opendde and opendde-abag. Directory that keeps each fold's trunk output, so "
+                   "inputs that differ only in their `constraint:` compute the trunk once.")
+@click.option("--write_pae", is_flag=True,
+              help="Write <name>_pae.npz per target: the full PAE matrix, PDE and contact "
+                   "probabilities wherever the model's heads compute them, with a "
+                   "<name>_pae.json sidecar naming every array (docs/confidence-outputs.md)")
+@click.option("--contact_cutoff", default=8.0, type=float, show_default=True,
+              help="Distance in Angstrom under which --write_pae counts two tokens in contact. "
+                   "The written cutoff is the largest distogram bin edge at or below it")
 @click.option("--write_pde", is_flag=True, help="Write PDE matrix per target")
 @click.option("--write_embeddings", is_flag=True, help="Write s/z embeddings per target")
+@click.option("--head", "heads", multiple=True, metavar="FILE.py:NAME",
+              help="Run your own output head on each fold's trunk outputs and write what it "
+                   "returns to <name>_<NAME>.npz. Repeatable. boltz2 and esmfold2; "
+                   "docs/extending.md.")
 @click.option("--affinity_mw_correction", is_flag=True)
 @click.option("--sampling_steps_affinity", default=200, type=int)
 @click.option("--diffusion_samples_affinity", default=5, type=int)
@@ -3212,6 +3636,11 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
                    "thread pools to every core and they would fight for the CPU. Use "
                    "cores//concurrent-predicts.")
 @click.option("--fast", is_flag=True, help="Use block-fp8 for some operations (slightly lower precision, faster)")
+@click.option("--diffusion_precision", type=click.Choice(["fp32", "bf16"]), default=None,
+              help="(Protenix) Precision of the diffusion module. fp32 (default) matches the "
+                   "reference; bf16 is ~9%% faster per fold on Wormhole but can pick a different binding "
+                   "mode where fp32 is uncertain "
+                   "(docs/protenix-diffusion-precision.md).")
 @click.option("--debug", is_flag=True, help="Debug mode: no Rich display, no output suppression")
 @click.option("--log", is_flag=True, help="With --debug: print per-device stage progress")
 @click.option("--report-energy", "report_energy", is_flag=True, help="Report TT device energy and write a power-vs-time plot (single-device TT runs)")
@@ -3243,13 +3672,13 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
 def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, sampling_steps,
             diffusion_samples, partial_t, partial_structure, early_stop_plddt,
             max_parallel_samples, step_scale, output_format, override,
-            seed, use_msa_server, msa_db_path, msa_dir_opt, msa_cache_only, use_envdb, single_sequence, msa_endpoint, msa_server_url, msa_pairing_strategy,
+            seed, use_seeds_in_json, use_template, use_rna_msa, use_msa_server, msa_db_path, msa_dir_opt, msa_cache_only, use_envdb, single_sequence, msa_endpoint, msa_server_url, msa_pairing_strategy,
             msa_server_username, msa_server_password, api_key_value, use_potentials,
             method, max_msa_seqs, subsample_msa, num_subsampled_msa, no_kernels, trace, diffusion_trace,
-            write_pae, write_pde, write_embeddings, affinity_mw_correction,
+            use_tfg_guidance, trunk_cache, write_pae, contact_cutoff, write_pde, write_embeddings, heads, affinity_mw_correction,
             sampling_steps_affinity, diffusion_samples_affinity, affinity_checkpoint,
-            num_devices, device_ids, host_threads, fast, debug, log,
-            report_energy, energy_sample_hz, energy_metric, controller, run_id, owner, model):
+            num_devices, device_ids, host_threads, fast, diffusion_precision, debug, log,
+            report_energy, energy_sample_hz, energy_metric, controller, run_id, owner, model, **search_tools):
     """Run structure prediction.
 
     DATA is a YAML/FASTA file or a directory of them.
@@ -3283,11 +3712,41 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
     # ahead of the model branch so both routes are covered by one call: past this point predict
     # forks into the scheduler path and the Boltz-2 path, and guarding each separately is how one
     # of them ends up unguarded. Only measured ceilings refuse — see tt_bio/size_limits.py.
+    # Upstream Protenix / Mol-1 JSON (a list of jobs) is expanded into one YAML input per job, plus a sidecar for
+    # what YAML cannot say, before anything else reads `data`: every route below then sees a directory of inputs.
+    # Like upstream's -i, `data` may also be a directory of such JSONs; its other inputs fold beside them.
+    from tt_bio import protenix_json
+    src = Path(data).expanduser()
+    lists = [src] if protenix_json.is_job_list(src) else (
+        sorted(p for p in src.iterdir() if protenix_json.is_job_list(p)) if src.is_dir() else [])
+    if lists:
+        staged = Path(out_dir).expanduser() / ".upstream_inputs" / src.stem
+        seen = set()
+        for f in lists:
+            try:
+                names = {j.name for j in protenix_json.read_jobs(f)}
+                if names & seen:
+                    raise ValueError(f"job names {sorted(names & seen)} repeat across the directory's JSON files")
+                seen |= names
+                f = protenix_json.search(f, staged, use_template, use_rna_msa, **search_tools)
+                if use_template:
+                    protenix_json.check_template_tools(f)
+                protenix_json.stage(f, staged, seeds=[seed] if seed is not None else None,
+                                    use_seeds_in_json=use_seeds_in_json)
+            except (ValueError, KeyError, AssertionError, FileNotFoundError, RuntimeError) as e:
+                raise click.ClickException(f"{f.name}: {e}") from e
+        if src.is_dir():
+            for p in src.iterdir():
+                if p.is_file() and p.suffix.lower() != ".json" and not (staged / p.name).exists():
+                    (staged / p.name).symlink_to(p.resolve())
+        data = str(staged)
     size_limits.check_input(data, model)
 
     # These are counts of things to generate; <1 crashes deep in the model
     # (e.g. "reshape tensor of 0 elements" / "Dimension size must be
     # non-negative"). Reject up front with a clear message.
+    if diffusion_samples is None:
+        diffusion_samples = DIFFUSION_SAMPLES.get(model, DIFFUSION_SAMPLES_DEFAULT)
     if diffusion_samples < 1:
         raise click.BadParameter("--diffusion_samples must be at least 1")
     if partial_t < 0:
@@ -3304,6 +3763,22 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
     if max_parallel_samples < 1:
         raise click.BadParameter("--max_parallel_samples must be at least 1")
     _check_recycling_steps(recycling_steps, model)
+    if heads:
+        # A head is the user's own code, so it runs where they run tt-bio and nowhere else.
+        from tt_bio.capabilities import FLAG_READERS
+        from tt_bio.heads import resolve as resolve_head
+
+        if model not in FLAG_READERS["--head"]:
+            raise click.BadParameter(f"--head is not available for --model {model}: only "
+                                     f"{', '.join(FLAG_READERS['--head'])} hands its trunk "
+                                     "outputs to the host. See docs/extending.md.")
+        if controller:
+            raise click.BadParameter("--head runs your code in a local worker; it cannot be "
+                                     "sent to a --controller")
+        try:
+            heads = [resolve_head(h) for h in heads]
+        except (ValueError, FileNotFoundError) as e:
+            raise click.BadParameter(str(e))
 
     # Per-model trunk-recycling default (see RECYCLING_STEPS): protenix-v2/opendde/esmfold2/rf3
     # -> 10, protenix-v1 -> 4, boltz2/openfold3 -> 3; --recycling_steps overrides any of them.
@@ -3329,7 +3804,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
     # without one is told in a second why not and what to use instead.
     if not controller:
         for art in weights.artifacts_for(model):
-            if art.source == "manual":
+            if art.source == "manual" and not (checkpoint and art.key == model):
                 try:
                     weights.fetch(art.key, root=Path(cache).expanduser())
                 except (FileNotFoundError, RuntimeError) as e:
@@ -3368,7 +3843,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
                 f"on the card; --model boltz2 is the one model with a CPU/GPU path."
             )
         for n, on in [("--use_potentials", use_potentials),
-                      ("--checkpoint", bool(checkpoint) and model not in OF3_FAMILY)]:
+                      ("--checkpoint", bool(checkpoint) and model not in (*OF3_FAMILY, *PROTENIX_FAMILY))]:
             if on:
                 click.secho(f"Note: --model {model} does not read {n}; ignoring it", fg="yellow")
         # --max_msa_seqs left at its default means "the depth this model already uses", not
@@ -3383,20 +3858,20 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         # already called out for the OF3 family and was a silent no-op everywhere else it is
         # unread: esmfold2 and rf3 accepted it and wrote nothing, --write_pde did nothing on
         # protenix (--write_pae writes both).
-        for note in unread_flags(model, {"--write_pae": write_pae, "--write_pde": write_pde,
+        # --contact_cutoff only when it was given: keyed on --write_pae it told every
+        # `--write_pae` Protenix user that a flag they never passed was ignored.
+        cutoff_given = (click.get_current_context().get_parameter_source("contact_cutoff")
+                        is not ParameterSource.DEFAULT)
+        for note in unread_flags(model, {"--write_pae": write_pae, "--contact_cutoff": cutoff_given,
+                                         "--write_pde": write_pde,
                                          "--write_embeddings": write_embeddings,
-                                         "--max_msa_seqs": msa_cap is not None}):
+                                         "--max_msa_seqs": msa_cap is not None,
+                                         "--diffusion_precision": diffusion_precision is not None,
+                                         "--use_tfg_guidance": use_tfg_guidance,
+                                         "--trunk_cache": trunk_cache is not None}):
             click.secho(note, fg="yellow")
-        # ESMFold2's ESMC-6B language model is ~12.8 GB resident in normal precision
-        # and does not fit a Wormhole chip's ~12 GB DRAM (OOM at every length). The
-        # --fast block-fp8 path halves it to ~6.4 GB and, with the grid-aware FFN
-        # tiling, folds the full L<=1024 range. So on Wormhole ESMFold2 runs fast-only.
-        if use_tt and model in ("esmfold2", "esmfold2-fast") and not fast:
-            from tt_bio.tenstorrent import is_wormhole
-            if is_wormhole():
-                fast = True
-                click.secho("Note: --model {} runs in --fast mode on Wormhole (normal "
-                            "precision needs >12 GB DRAM/chip); enabling --fast.".format(model), fg="yellow")
+        # On Wormhole ESMFold2's ESMC-6B is block-fp8 in both modes (esmfold2_runtime.load_ttnn_esmfold2):
+        # in bf16 it alone needs ~12.8 GB of a chip's 12 GiB. --fast still picks the fold's lever set.
         # AF2-IG is single-sequence on both chains by construction (ColabDesign's binder
         # protocol builds `msa_feat` from the one sequence, and the extra-MSA mask is all
         # zeros), and it samples nothing: no diffusion, no seed, the same input gives the
@@ -3432,6 +3907,13 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
             click.echo("All predictions complete" if done else "No input files found")
             return
 
+        # Mol-1 inputs that name a site / contact / exclusion fold on the Mol-1-constraint weights, as upstream's
+        # `mol cpred` does. The run takes one checkpoint, so an unconstrained input beside them folds on those weights
+        # too, with the conditions all zero; --checkpoint overrides the choice.
+        if model == "mol1" and not checkpoint and any(_read_mol1_constraints(j.path) for j in jobs):
+            checkpoint = str(weights.fetch("mol1-constraint", root=Path(cache).expanduser() if cache else None))
+            click.echo("Inputs carry Mol-1 constraints: folding with the Mol-1-constraint weights.")
+
         # Read every input NOW and refuse what this model cannot honour, before the weights
         # download and the first device open. The worker checks again -- that is the
         # authoritative point, because the platform submits jobs straight to the controller
@@ -3439,16 +3921,19 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         # minutes for a model load to be told the yaml key is unsupported.
         results_path = out / "results.json"
         total = len(jobs)
-        jobs, refused = _refuse_unfoldable_jobs(jobs, model, results_path)
+        jobs, refused = _refuse_unfoldable_jobs(jobs, model, results_path, output_format)
         if not jobs:
+            _write_error_reports(results_path)
             raise click.ClickException("\n".join(refused.values()))
 
         # MSA is optional here (single-sequence folding when no source is given), so
         # unlike Boltz-2 it never errors out.
         worker_cfg = {
             "model": model, "fast": fast, "output_format": output_format,
+            "diffusion_precision": diffusion_precision,
             "recycling_steps": recycling_steps, "sampling_steps": sampling_steps,
             "diffusion_samples": diffusion_samples, "seed": seed or 0, "trace": trace,
+            "use_rna_msa": use_rna_msa, "use_template": use_template,
             "partial_t": partial_t, "partial_structure": partial_structure,
             "early_stop_plddt": early_stop_plddt,
             # Without this key --max_parallel_samples is a silent no-op for every model that
@@ -3468,8 +3953,11 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
             # folds the depth each model's upstream reads.
             "msa_cap": msa_cap,
             "msa_cache_only": msa_cache_only,
-            "write_pae": write_pae,
+            "write_pae": write_pae, "contact_cutoff": contact_cutoff,
+            "use_tfg_guidance": use_tfg_guidance,
+            "trunk_cache": str(Path(trunk_cache).expanduser().resolve()) if trunk_cache else None,
             "checkpoint": str(Path(checkpoint).resolve()) if checkpoint else None,
+            "heads": list(heads),
         }
         run_payload = {"data": str(data), "out_dir": str(out_dir_path), "result_dir": str(out),
                        "jobs": job_payloads(jobs), "config": worker_cfg, "owner": owner}
@@ -3478,17 +3966,17 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         # Fetch this model's weights ONCE here, before fanning out. Skipped in
         # --controller mode: the controller's workers fetch their own.
         if not controller:
-            download_all(Path(cache).expanduser(), model)
+            download_all(Path(cache).expanduser(), model, checkpoint)
         if controller:
             failed = _dispatch_to_controller(controller, run_payload, total=len(jobs), results_path=results_path,
                                              struct_dir=struct_dir, model=model, debug=debug, log=log, run_id=run_id)
-            _exit_for_failed_jobs(failed + len(refused), total)
+            _exit_for_failed_jobs(failed + len(refused), total, results_path)
             return
         workers = _local_workers("tenstorrent", num_devices, device_ids, max_workers=max(len(jobs), 1))
         _cap_worker_threads(len(workers), host_threads)
         failed = _dispatch_run(run_payload, workers, total=len(jobs), results_path=results_path,
                                struct_dir=struct_dir, model=model, debug=debug, log=log)
-        _exit_for_failed_jobs(failed + len(refused), total)
+        _exit_for_failed_jobs(failed + len(refused), total, results_path)
         return
 
     os.environ.setdefault("CUEQ_DEFAULT_CONFIG", "1")
@@ -3536,14 +4024,45 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
     if method and method.lower() not in const.method_types_ids:
         raise ValueError(f"Unknown method: {method}")
 
-    conf_kwargs, aff_kwargs = boltz2_kwargs(
-        recycling_steps, sampling_steps, diffusion_samples=diffusion_samples,
-        max_parallel_samples=max_parallel_samples, step_scale=step_scale, subsample_msa=subsample_msa,
-        num_subsampled_msa=num_subsampled_msa, use_potentials=use_potentials, no_kernels=no_kernels,
-        use_tt=use_tt, trace=trace, diffusion_trace=diffusion_trace,
-        sampling_steps_affinity=sampling_steps_affinity,
-        diffusion_samples_affinity=diffusion_samples_affinity,
-        affinity_mw_correction=affinity_mw_correction)
+    _diffusion = {"step_scale": step_scale or 1.5, "gamma_0": 0.8, "gamma_min": 1.0,
+                  "noise_scale": 1.003, "rho": 7, "sigma_min": 0.0001, "sigma_max": 160.0,
+                  "sigma_data": 16.0, "P_mean": -1.2, "P_std": 1.5,
+                  "coordinate_augmentation": True, "alignment_reverse_diff": True,
+                  "synchronize_sigmas": True}
+    _pairformer = {"num_blocks": 64, "num_heads": 16, "dropout": 0.0, "v2": True}
+    _msa = {"subsample_msa": subsample_msa, "num_subsampled_msa": num_subsampled_msa,
+            "use_paired_feature": True,
+            # Required by the non-tenstorrent (PyTorch reference) MSAModule path; the
+            # tenstorrent path builds tenstorrent.MSAModule(n_blocks=4,...) and ignores
+            # this dict, so adding these keys is a no-op for device runs. Values mirror
+            # the boltz2_conf/aff checkpoint hparams so the CPU/host path matches the
+            # reference implementation exactly.
+            "msa_s": 64, "msa_blocks": 4, "msa_dropout": 0.15, "z_dropout": 0.25,
+            "pairwise_head_width": 32, "pairwise_num_heads": 4,
+            "activation_checkpointing": True}
+    conf_kwargs = dict(
+        predict_args={"recycling_steps": recycling_steps, "sampling_steps": sampling_steps,
+                      "diffusion_samples": diffusion_samples, "max_parallel_samples": max_parallel_samples,
+                      # Boltz's own hook for keeping a forward output: the distogram the
+                      # contact probabilities are read from, held only when they are written.
+                      **({"keys_dict_out": ["pdistogram"]} if write_pae else {})},
+        diffusion_process_args=_diffusion, pairformer_args=_pairformer, msa_args=_msa,
+        steering_args={"fk_steering": use_potentials, "physical_guidance_update": use_potentials,
+                       "contact_guidance_update": True, "num_particles": 3, "fk_lambda": 4.0,
+                       "fk_resampling_interval": 3, "num_gd_steps": 20},
+        use_kernels=not no_kernels and accelerator == "gpu", use_tenstorrent=use_tt, trace=bool(trace),
+        diffusion_trace=diffusion_trace,
+    )
+    aff_kwargs = dict(
+        predict_args={"recycling_steps": 5, "sampling_steps": sampling_steps_affinity,
+                      "diffusion_samples": diffusion_samples_affinity, "max_parallel_samples": 1},
+        diffusion_process_args=_diffusion, pairformer_args=_pairformer, msa_args=_msa,
+        steering_args={"fk_steering": False, "physical_guidance_update": False,
+                       "contact_guidance_update": False, "num_particles": 3, "fk_lambda": 4.0,
+                       "fk_resampling_interval": 3, "num_gd_steps": 20},
+        affinity_mw_correction=affinity_mw_correction, use_tenstorrent=use_tt, trace=bool(trace),
+        diffusion_trace=diffusion_trace,
+    )
 
     results_path = out / "results.json"
 
@@ -3554,6 +4073,8 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         "mol_dir": str(mol_dir), "msa_dir": str(msa_dir), "struct_dir": str(struct_dir),
         "method": method, "output_format": output_format,
         "write_pae": write_pae, "write_pde": write_pde, "write_embeddings": write_embeddings,
+        "heads": list(heads),
+        "contact_cutoff": contact_cutoff,
         "use_msa_server": use_msa_server, "msa_db_path": msa_db_path, "use_envdb": use_envdb,
         "msa_server_url": msa_server_url, "msa_pairing_strategy": msa_pairing_strategy,
         "msa_server_username": msa_server_username, "msa_server_password": msa_server_password,
@@ -3586,7 +4107,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
             click.echo("Energy profiling is unavailable in --controller mode (no local device); skipping")
         failed = _dispatch_to_controller(controller, run_payload, total=len(jobs), results_path=results_path,
                                          struct_dir=struct_dir, model=model, debug=debug, log=log, run_id=run_id)
-        _exit_for_failed_jobs(failed, len(jobs))
+        _exit_for_failed_jobs(failed, len(jobs), results_path)
         return
 
     workers = _local_workers(
@@ -3660,7 +4181,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         )
         click.echo(f"  power_plot:     {energy_plot_path}" if wrote_plot else "  power_plot:     failed (matplotlib not available)")
 
-    _exit_for_failed_jobs(failed, len(jobs))
+    _exit_for_failed_jobs(failed, len(jobs), results_path)
 
 
 @cli.command()
@@ -4031,11 +4552,7 @@ def affinity_cmd(data, model, out_dir, accelerator, trunk, recycling_steps, toke
 
     for yp in find_yamls(Path(data)):
         check_capabilities(yp, None, model)
-    if devices and "TT_VISIBLE_DEVICES" not in os.environ:
-        ids = [x for x in str(devices).split(",") if x.strip()]
-        if len(ids) > 1:
-            raise click.UsageError("--model nesso1 is batch-1 by construction; pass one card id")
-        os.environ["TT_VISIBLE_DEVICES"] = ids[0]
+    _pin_one_card(devices, "nesso1")
     _cap_worker_threads(1, host_threads)
     bind_host_threads()
     use_tt = accelerator == "tenstorrent"
@@ -4231,6 +4748,97 @@ def _run_pxdesign_cli(inputs: Path, out_dir, cache, num_designs, n_step, seed) -
                    f"over {r['conditioned_tokens']} conditioned tokens")
 
 
+def _rfd4_mode(sampling: dict) -> str:
+    """How a run that does not start from pure noise is reported on the first line."""
+    if sampling.get("inverse_folding"):
+        return "inverse folding (backbone held, sequence designed)"
+    frac = sampling.get("partial_trajectory_fraction_steps")
+    if frac is not None:
+        return f"partial diffusion from {frac:.4g} of the schedule"
+    bb, lat = sampling.get("partial_t_backbone"), sampling.get("partial_t_latent")
+    return f"partial diffusion from t_backbone={bb}, t_latent={lat}"
+
+
+def _rfd4_sampling(partial_fraction, partial_t_backbone, partial_t_latent, couple_partial_t,
+                   inverse_folding) -> dict:
+    """The partial-diffusion / inverse-folding arguments, absent when the run is from noise.
+
+    Upstream's own mutual exclusions are enforced in the sampler, which is where they are graded;
+    this only decides whether there is anything to pass at all.
+    """
+    args = {"partial_trajectory_fraction_steps": partial_fraction,
+            "partial_t_backbone": partial_t_backbone, "partial_t_latent": partial_t_latent,
+            "couple_partial_t": couple_partial_t, "inverse_folding": inverse_folding}
+    return args if any(v not in (None, False) for v in args.values()) else {}
+
+
+def _run_rfd4_cli(inputs: Path, out_dir, num_designs, backend, recipe, lora, nsteps, seed,
+                  spec_subset, annotated_cif: bool, validate: bool, fast: bool = False,
+                  controller: str | None = None, run_id: str | None = None, owner: str | None = None,
+                  sampling: dict | None = None, tsr_k: float | None = None,
+                  save_trajectory_every: int = 0) -> None:
+    """`tt-bio design --model rfd4`: a design spec to annotated-CIF designs.
+
+    The host path is RFD4's own (tt_bio/_vendor/rfd4_prep): the spec is built into an
+    annotated CIF per design, which is kept beside the output because it IS the model's
+    input, and a design that came out wrong is usually a spec that selected the wrong
+    atoms. `tt_bio.rfd4.design()` is this same call from Python.
+    """
+    from tt_bio import rfd4
+
+    only = [s.strip() for s in spec_subset.split(",") if s.strip()] if spec_subset else None
+    if annotated_cif and only:
+        raise click.UsageError("--spec selects designs from a spec file; "
+                               "--annotated_cif takes the CIF itself")
+    sampling = sampling or {}
+    click.echo(f"{Path(inputs).name}, seed {seed}"
+               + (f", {_rfd4_mode(sampling)}" if sampling else ""))
+    out_dir = Path(out_dir or "./designs")
+    if controller and (sampling or tsr_k is not None or save_trajectory_every):
+        raise click.UsageError(
+            "a fleet job carries the spec, the recipe and the seed; the sampling flags "
+            "(--partial*, --inverse_folding, --tsr_k, --save_trajectory_every) are a local run.")
+    if controller and lora:
+        raise click.UsageError(
+            "--lora is a local run: the adapter is not shipped to fleet workers. Merge it into a "
+            "checkpoint the workers can load, or drop --controller.")
+    if controller:
+        # Every design in the spec, times --num_designs, becomes one fleet job. The inputs are
+        # built here so a worker needs no view of this filesystem (tt_bio/rfd4/fleet.py).
+        from tt_bio.rfd4.fleet import design_via_controller
+
+        try:
+            design_via_controller(inputs, out_dir,
+                                  controller_url=controller, num_designs=num_designs,
+                                  backend=backend,
+                                  recipe=recipe, nsteps=nsteps, seed=seed, only=only,
+                                  validate=validate, annotated_cif=annotated_cif, fast=fast,
+                                  run_id=run_id, owner=owner)
+        except NotImplementedError as e:
+            raise click.ClickException(str(e))
+        except (ValueError, KeyError, FileNotFoundError) as e:
+            raise click.ClickException(f"{type(e).__name__}: {e}")
+        return
+    from tt_bio.tenstorrent import set_fast_mode
+
+    set_fast_mode(fast)   # the trunk picks its lever set (rfd4.trunk.FAST_LEVERS) when it is built
+    click.echo(f"Designing {Path(inputs).name} × {num_designs} design(s) → {out_dir} (seed {seed})")
+    try:
+        written = rfd4.design(inputs, out_dir, num_designs=num_designs, backend=backend,
+                              recipe=recipe, adapter=lora, tsr_k=tsr_k, nsteps=nsteps, seed=seed,
+                              only=only, validate=validate, annotated_cif=annotated_cif,
+                              sampling=sampling,
+                              save_trajectory_every=save_trajectory_every,
+                              on_design=lambda example_id, tokens, cif: click.echo(
+                                  f"  {example_id}: {tokens} tokens <- {cif}"),
+                              on_write=lambda path: click.echo(f"    -> {path}"))
+    except NotImplementedError as e:
+        raise click.ClickException(str(e))
+    except (ValueError, KeyError, FileNotFoundError) as e:
+        raise click.ClickException(f"{type(e).__name__}: {e}")
+    click.echo(f"Done — {len(written)} design(s) → {out_dir}")
+
+
 @cli.command("design")
 @click.argument("inputs", type=click.Path(exists=True, dir_okay=False))
 @click.option("--model", type=click.Choice(list(DESIGN_MODELS)), default="boltzgen", show_default=True,
@@ -4239,7 +4847,10 @@ def _run_pxdesign_cli(inputs: Path, out_dir, cache, num_designs, n_step, seed) -
                    "predict's boltz2 default). rfd3: RFdiffusion3, a lighter single-shot "
                    "all-atom diffusion designer (one CIF per spec). pxdesign: binder "
                    "backbones against a target structure, conditioned on a distogram of the "
-                   "target. Options marked boltzgen/rfd3/pxdesign apply to that model only.")
+                   "target. rfd4: RFD4-Proteina, all-atom flow matching over the same design "
+                   "spec RFD4 itself takes (motifs, hotspots, burial, hydrogen bonds, contigs); "
+                   "see below. Options marked for a model apply to that "
+                   "model only.")
 @click.option("--out_dir", default=None,
               help="Output directory. Default: ./<input name>/ (boltzgen, writes "
                    "final_ranked_designs/ under it) or ./designs (rfd3, one "
@@ -4258,7 +4869,9 @@ def _run_pxdesign_cli(inputs: Path, out_dir, cache, num_designs, n_step, seed) -
 @click.option("--devices", "--device_ids", "devices", default=None,
               help="Comma-separated physical TT card ids to fan the designs across, e.g. "
                    "'0,1,2,3' (data-parallel, the same pattern `tt-bio predict` uses). "
-                   "Default: all detected cards (boltzgen) or this machine's single card (rfd3).")
+                   "Default: all detected cards (boltzgen) or this machine's single card (rfd3). "
+                   "pxdesign and rfd4 run on one card: --devices N opens only card N, so one "
+                   "process per card packs a multi-card host.")
 # ---- rfd3-scoped options ----
 @click.option("--checkpoint", "checkpoint", default=None, metavar="DIR",
               help="rfd3 only. Directory of extracted RFD3 device weights. Default: "
@@ -4293,6 +4906,61 @@ def _run_pxdesign_cli(inputs: Path, out_dir, cache, num_designs, n_step, seed) -
 @click.option("--n_step", default=400, show_default=True, type=click.IntRange(min=1),
               help="pxdesign only. Diffusion denoising steps. 400 is what an upstream run "
                    "uses; lower is a fast smoke and moves the coordinates.")
+# ---- rfd4-scoped options ----
+@click.option("--backend", default="native", show_default=True,
+              help="rfd4 only. Inference backend, upstream's `inference_backend`. `native` runs "
+                   "the model on Tenstorrent. `bioir` is NVIDIA BioNeMo-IR and is declined here; "
+                   "it is CUDA-only and produces the same designs.")
+@click.option("--lora", "lora", default=None, type=click.Path(exists=True, file_okay=False),
+              help="rfd4 only. A PEFT LoRA adapter directory (adapter_config.json plus "
+                   "adapter_model.safetensors) merged into the weights at load, so a fine-tune "
+                   "costs nothing per design. Local runs only: an adapter is not shipped to "
+                   "fleet workers.")
+@click.option("--recipe", default=None, type=click.Choice(_RFD4_RECIPES),
+              help="rfd4 only. Thinking budget: how many trunk passes the trajectory spends and "
+                   "where. `thinking_low|medium|high` are the released recipes (medium is the "
+                   "default, 180 passes); `low|medium|high` crossed with "
+                   "`flat|front_loaded|midpeak` are upstream's per-family schedules, and "
+                   "upstream prescribes one per design task: medium/front_loaded for protein "
+                   "binders, medium/midpeak for enzymes, motifs and small-molecule binders, "
+                   "high/front_loaded for VHH, medium/flat for inverse folding and "
+                   "medium/front_loaded for DNA binders. More passes is more accuracy and more "
+                   "time.")
+@click.option("--nsteps", default=60, show_default=True, type=click.IntRange(min=1),
+              help="rfd4 only. Flow-matching integration steps (upstream's `generation.args."
+                   "nsteps` default).")
+@click.option("--annotated_cif", is_flag=True,
+              help="rfd4 only. INPUTS is already an annotated CIF (RFD4's `input_as_annotated_cif` "
+                   "form, e.g. one written by an earlier run), not a design spec, so it is "
+                   "featurized directly.")
+@click.option("--no_validate", is_flag=True,
+              help="rfd4 only. Skip the pre-save checks on each built structure. They are the "
+                   "slow part of preparing a large spec and they are what catches a selection "
+                   "that matched nothing.")
+@click.option("--tsr_k", default=None, type=float,
+              help="rfd4 only. Sequence temperature (upstream's local_latents tsr_k, default 4). "
+                   "Lower is hotter and gives more sequence diversity; mostly used with "
+                   "--inverse_folding.")
+@click.option("--partial", "partial_fraction", default=None, type=click.FloatRange(0, 1, min_open=True),
+              help="rfd4 only. Partial diffusion: re-noise INPUTS part-way and run that fraction "
+                   "of the step schedule, to refine or diversify a design you already have. "
+                   "0.42 is upstream's antibody refinement setting (25 of 60 steps). INPUTS "
+                   "should be a generated annotated CIF, which carries its own conditioning.")
+@click.option("--partial_t_backbone", default=None, type=float,
+              help="rfd4 only. Partial diffusion by explicit corruption time for the backbone, "
+                   "instead of --partial. Give --partial_t_latent too, or --couple_partial_t.")
+@click.option("--partial_t_latent", default=None, type=float,
+              help="rfd4 only. The same for the sequence latents.")
+@click.option("--couple_partial_t", is_flag=True,
+              help="rfd4 only. Derive the modality time you did not give from the one you did, "
+                   "by step index on a dense schedule.")
+@click.option("--inverse_folding", is_flag=True,
+              help="rfd4 only. Keep INPUTS' backbone exactly as given and design only the "
+                   "sequence. Excludes the partial-diffusion options.")
+@click.option("--save_trajectory_every", default=0, type=int, show_default=True,
+              help="rfd4 only. Write every Nth step of each design's trajectory to "
+                   "<out_dir>/<design>_trajectory.cif, CA only, one model per saved step. "
+                   "0 writes none.")
 @click.option("--host_threads", default=None, type=int,
               help="rfd3 only. Total host CPU threads this process may use, split across its "
                    "cards. Defaults to every core, which is right when this is the only tt-bio "
@@ -4318,12 +4986,13 @@ def _run_pxdesign_cli(inputs: Path, out_dir, cache, num_designs, n_step, seed) -
               help="boltzgen only. Reuse existing results in --out_dir and generate only as "
                    "many new designs as --num_designs still needs.")
 @click.option("--fast", is_flag=True,
-              help="boltzgen only. Use block-fp8 for some operations (slightly lower "
-                   "precision, faster).")
-@click.option("--diffusion_trace", is_flag=True,
+              help="boltzgen, rfd3 and rfd4. Faster, slightly lower-precision kernels (boltzgen: "
+                   "block-fp8 for some operations; rfd3: fused atom attention; rfd4: block-fp8 "
+                   "pair-track matmuls).")
+@click.option("--diffusion_trace/--no_diffusion_trace", default=None,
               help="boltzgen only. Replay a captured ttnn trace of the per-step diffusion "
-                   "DiT device stream (lossless; collapses per-step host dispatch). Opt-in; "
-                   "reserves 0.2-0.3 GB of device memory.")
+                   "DiT device stream (lossless; collapses per-step host dispatch; reserves "
+                   "0.2-0.3 GB of device memory). Default: on for Blackhole normal mode, else off.")
 @click.option("--debug", is_flag=True,
               help="boltzgen only. Debug mode: no Rich display, no output suppression.")
 @click.option("--log", is_flag=True,
@@ -4333,7 +5002,9 @@ def _run_pxdesign_cli(inputs: Path, out_dir, cache, num_designs, n_step, seed) -
               help="Submit to an existing controller at URL (e.g. http://HOST:8765) instead of "
                    "running locally; compute comes from that cluster's workers. boltzgen: the "
                    "pipeline's own fleet path (merge + filter here). rfd3: one shard per spec, "
-                   "each worker runs its shard in-process on its own card and ships CIFs back.")
+                   "each worker runs its shard in-process on its own card and ships CIFs back. "
+                   "rfd4: one job per design (spec entries times --num_designs), each carrying "
+                   "its own prepared input, with a metrics.json collecting what landed.")
 @click.option("--run-id", "run_id", default=None,
               help="Use this run id on the controller (lets the submitter cancel the run later). "
                    "Requires --controller.")
@@ -4343,7 +5014,10 @@ def _run_pxdesign_cli(inputs: Path, out_dir, cache, num_designs, n_step, seed) -
 @torch.no_grad()
 def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
                checkpoint, golden_dir, num_timesteps, seed, partial_t, fp32_residual,
-               spec_subset, from_pdb, batch_size, n_step, host_threads,
+               spec_subset, from_pdb, batch_size, n_step, backend, recipe, lora, nsteps,
+               annotated_cif, no_validate, tsr_k, partial_fraction, partial_t_backbone,
+               partial_t_latent, couple_partial_t, inverse_folding, save_trajectory_every,
+               host_threads,
                protocol, steps, configs, budget, reuse, fast, diffusion_trace, debug, log,
                controller, run_id, owner):
     """Run structure design on Tenstorrent: generate new protein binders, scaffolds,
@@ -4388,7 +5062,30 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
     chains it did not produce would be worse than saying so. Selecting designs (the
     Protenix and AF2-IG filters) is not on the CLI yet.
 
-    All three models auto-download their checkpoints on first use.
+    \b
+    --model rfd4: RFD4-Proteina all-atom flow-matching design. INPUTS is a condition
+    spec, the same YAML or JSON RFD4 takes: each top-level key is one design, naming
+    input structures, a contig and conditions:
+
+    \b
+    binder-1:
+      input: target.cif
+      contig: "60-60, /0, A17-131"
+      conditions:
+        C_CRDGRP: {1: [{select: "sel('A/*/*/[N,CA,C,O]')"}]}
+        C_HOT: {true: [{select: "sel('A/*/56/[CG,OH]')"}]}
+
+    Each design is built into an annotated CIF under <out_dir>/inputs/ -- the model's
+    actual input, kept because a design that comes out wrong is usually a selection that
+    matched the wrong atoms -- then featurized and designed. --recipe sets the thinking
+    budget, --lora loads a fine-tune, and docs/rfd4-design.md has the conditions a spec
+    can set with what each family costs.
+
+    A spec's designs fan across a fleet with --controller: every design becomes one job,
+    each shipping the input this host built for it, and <out_dir>/metrics.json collects
+    what landed. That is tt-bio's answer to upstream's SLURM --njobs sweeps.
+
+    All four models auto-download their checkpoints on first use.
     """
     # rfd3 and pxdesign carry measured ceilings in DIFFERENT denominators (motif+designed vs
     # target residues); size_limits sizes each spec in its own and refuses before any device open.
@@ -4405,7 +5102,16 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
                            ("--partial_t", "partial_t"), ("--fp32_residual", "fp32_residual"),
                            ("--spec", "spec_subset"), ("--from_pdb", "from_pdb"),
                            ("--batch_size", "batch_size"), ("--host_threads", "host_threads"),
-                           ("--n_step", "n_step")):
+                           ("--n_step", "n_step"),
+                           ("--backend", "backend"), ("--recipe", "recipe"), ("--lora", "lora"),
+                           ("--nsteps", "nsteps"), ("--annotated_cif", "annotated_cif"),
+                           ("--no_validate", "no_validate"),
+                           ("--tsr_k", "tsr_k"), ("--partial", "partial_fraction"),
+                           ("--partial_t_backbone", "partial_t_backbone"),
+                           ("--partial_t_latent", "partial_t_latent"),
+                           ("--couple_partial_t", "couple_partial_t"),
+                           ("--inverse_folding", "inverse_folding"),
+                           ("--save_trajectory_every", "save_trajectory_every")):
             if _explicit(name):
                 click.secho(f"Note: --model boltzgen does not use {flag}; ignoring.", fg="yellow")
         argv = ["run", str(inputs)]
@@ -4429,11 +5135,12 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
             argv += ["--seed", str(seed)]
         if _explicit("cache"):
             argv += ["--cache", cache]
-        for flag, on in (("--reuse", reuse), ("--fast", fast),
-                         ("--diffusion_trace", diffusion_trace), ("--debug", debug),
+        for flag, on in (("--reuse", reuse), ("--fast", fast), ("--debug", debug),
                          ("--log", log)):
             if on:
                 argv.append(flag)
+        if diffusion_trace is not None:
+            argv.append("--diffusion_trace" if diffusion_trace else "--no-diffusion_trace")
         if controller:
             argv += ["--controller", controller]
             if run_id:
@@ -4442,6 +5149,14 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
                 argv += ["--owner", owner]
         _run_boltzgen_cli("tt-bio design", argv)
         return
+
+    if model in ("pxdesign", "rfd4"):
+        # One card per local process: --devices names it, and nothing else is opened.
+        if not controller:
+            _pin_one_card(devices, model)
+        elif _explicit("devices"):
+            click.secho("Note: with --controller the fleet's workers pick the cards; "
+                        "ignoring --devices.", fg="yellow")
 
     if model == "pxdesign":
         for flag, name in (("--protocol", "protocol"), ("--steps", "steps"),
@@ -4453,7 +5168,15 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
                            ("--partial_t", "partial_t"), ("--fp32_residual", "fp32_residual"),
                            ("--spec", "spec_subset"), ("--from_pdb", "from_pdb"),
                            ("--batch_size", "batch_size"), ("--host_threads", "host_threads"),
-                           ("--devices", "devices")):
+                           ("--backend", "backend"), ("--recipe", "recipe"), ("--lora", "lora"),
+                           ("--nsteps", "nsteps"), ("--annotated_cif", "annotated_cif"),
+                           ("--no_validate", "no_validate"),
+                           ("--tsr_k", "tsr_k"), ("--partial", "partial_fraction"),
+                           ("--partial_t_backbone", "partial_t_backbone"),
+                           ("--partial_t_latent", "partial_t_latent"),
+                           ("--couple_partial_t", "couple_partial_t"),
+                           ("--inverse_folding", "inverse_folding"),
+                           ("--save_trajectory_every", "save_trajectory_every")):
             if _explicit(name):
                 click.secho(f"Note: --model pxdesign does not use {flag}; ignoring.", fg="yellow")
         if controller:
@@ -4480,12 +5203,45 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
         _run_pxdesign_cli(Path(inputs), out_dir, cache, num_designs, n_step, seed)
         return
 
+    if model == "rfd4":
+        for flag, name in (("--protocol", "protocol"), ("--steps", "steps"),
+                           ("--config", "configs"), ("--budget", "budget"),
+                           ("--reuse", "reuse"),
+                           ("--diffusion_trace", "diffusion_trace"), ("--debug", "debug"),
+                           ("--log", "log"), ("--checkpoint", "checkpoint"),
+                           ("--golden_dir", "golden_dir"), ("--num_timesteps", "num_timesteps"),
+                           ("--partial_t", "partial_t"), ("--fp32_residual", "fp32_residual"),
+                           ("--from_pdb", "from_pdb"), ("--batch_size", "batch_size"),
+                           ("--host_threads", "host_threads"), ("--n_step", "n_step"),
+                           ("--cache", "cache")):
+            if _explicit(name):
+                click.secho(f"Note: --model rfd4 does not use {flag}; ignoring.", fg="yellow")
+        _run_rfd4_cli(Path(inputs), out_dir,
+                      num_designs if num_designs is not None else 1,
+                      backend, recipe, lora, nsteps, seed, spec_subset, annotated_cif,
+                      not no_validate, fast,
+                      controller=controller, run_id=run_id, owner=owner,
+                      sampling=_rfd4_sampling(partial_fraction, partial_t_backbone,
+                                              partial_t_latent, couple_partial_t,
+                                              inverse_folding),
+                      tsr_k=tsr_k, save_trajectory_every=save_trajectory_every)
+        return
+
     # --model rfd3
     for flag, name in (("--protocol", "protocol"), ("--steps", "steps"),
                        ("--config", "configs"), ("--budget", "budget"),
-                       ("--reuse", "reuse"), ("--fast", "fast"),
+                       ("--reuse", "reuse"),
                        ("--diffusion_trace", "diffusion_trace"), ("--debug", "debug"),
-                       ("--log", "log"), ("--n_step", "n_step")):
+                       ("--log", "log"), ("--n_step", "n_step"),
+                       ("--backend", "backend"), ("--recipe", "recipe"), ("--lora", "lora"),
+                       ("--nsteps", "nsteps"), ("--annotated_cif", "annotated_cif"),
+                       ("--no_validate", "no_validate"),
+                       ("--tsr_k", "tsr_k"), ("--partial", "partial_fraction"),
+                       ("--partial_t_backbone", "partial_t_backbone"),
+                       ("--partial_t_latent", "partial_t_latent"),
+                       ("--couple_partial_t", "couple_partial_t"),
+                       ("--inverse_folding", "inverse_folding"),
+                       ("--save_trajectory_every", "save_trajectory_every")):
         if _explicit(name):
             click.secho(f"Note: --model rfd3 does not use {flag}; ignoring.", fg="yellow")
     if golden_dir is not None:
@@ -4531,7 +5287,7 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
                 specs, out_dir, controller_url=controller, num_timesteps=num_timesteps,
                 seed=seed, partial_t=partial_t, fp32_residual=fp32_residual,
                 num_designs=num_designs, batch_size=batch_size,
-                run_id=run_id, owner=owner, verbose=True,
+                run_id=run_id, owner=owner, fast=fast, verbose=True,
             )
         except (ValueError, TypeError, RuntimeError, NotImplementedError) as e:
             raise click.ClickException(str(e))
@@ -4560,7 +5316,7 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
             specs, out_dir, checkpoint_dir=gdir, from_pdb=from_pdb, num_timesteps=num_timesteps,
             seed=seed, partial_t=partial_t, fp32_residual=fp32_residual, num_designs=num_designs,
             batch_size=batch_size, devices=device_list, host_threads=host_threads,
-            verbose=True,
+            fast=fast, verbose=True,
         )
     except (ValueError, TypeError, NotImplementedError) as e:
         # RFD3 refuses a spec it cannot featurize with NotImplementedError, naming

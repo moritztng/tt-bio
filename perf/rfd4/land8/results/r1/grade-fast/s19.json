@@ -1,0 +1,32 @@
+{
+ "designed_chain": "B",
+ "target_chains": [
+  "A"
+ ],
+ "bar_a": 0.6,
+ "rmsd_a": 12.507001361338824,
+ "seed_floor_a": 38.131491508133756,
+ "cross_a": 43.57704224973661,
+ "pair": {
+  "designed_ca_rmsd_a": 12.507001361338824,
+  "target_ca_rmsd_a": 0.07421426474284973,
+  "designed_residues": 397,
+  "sequence_identity": 0.12342569269521411
+ },
+ "floor": {
+  "designed_ca_rmsd_a": 38.131491508133756,
+  "target_ca_rmsd_a": 0.10957530841594812,
+  "designed_residues": 397,
+  "sequence_identity": 0.09319899244332494
+ },
+ "cross": {
+  "designed_ca_rmsd_a": 43.57704224973661,
+  "target_ca_rmsd_a": 0.12261177223853532,
+  "designed_residues": 397,
+  "sequence_identity": 0.07052896725440806
+ },
+ "verdict": "FAIL",
+ "ours": "/home/ttuser/.coworker/wt/rfd4-land8/artifacts/land8/r1/sfast/pdl1_binder_512_s19_r20_generated.cif",
+ "upstream": "/home/ttuser/.coworker/wt/rfd4-land8/artifacts/land8/r1/smain/pdl1_binder_512_s19_r20_generated.cif",
+ "floor_cif": "/home/ttuser/.coworker/wt/rfd4-land8/artifacts/land8/r1/smain/pdl1_binder_512_s20_r21_generated.cif"
+}

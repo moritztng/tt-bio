@@ -15277,6 +15277,13 @@
 128,
 128
 ],
+"heads.distogram.half_logits.bias": [
+64
+],
+"heads.distogram.half_logits.weight": [
+64,
+128
+],
 "heads.pae.logits.bias": [
 64
 ],

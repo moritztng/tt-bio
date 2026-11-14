@@ -21,16 +21,19 @@ main on qb2, cards 1 and 3, fold this fixture to 9eee996d71653d1b and da9b4ed68f
 (perf/trimul_f1/census_openfold3_512_qb2c1.json against the page cell). Never compare a
 digest from this file to one recorded on another card.
 """
-import argparse, hashlib, json, os, statistics, sys, time
+import argparse, hashlib, importlib, json, os, shutil, statistics, sys, time
 from pathlib import Path
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", required=True,
-                    help="boltz2 | esmfold2 | protenix-v2 | opendde | openfold3")
+                    help="boltz2 | esmfold2 | protenix-v2 | mol1 | opendde | openfold3")
     ap.add_argument("--tree", type=Path, required=True, help="source tree to import tt_bio from")
     ap.add_argument("--size", type=int, default=512)
+    ap.add_argument("--target", default="cdk2x2",
+                    help="fixture stem under perf/size512/fixtures: <stem>_<size>.yaml + .a3m "
+                         "(cdk2x2 = the page cell; cdk2x2dimer = two copies of the half-size chain)")
     ap.add_argument("--repeat", type=int, default=3)
     ap.add_argument("--label", default="arm")
     ap.add_argument("--census", action="store_true")
@@ -50,6 +53,29 @@ def main():
     ap.add_argument("--steps", type=int, default=None)
     # Diffusion multiplicity. build_fold's `samples` reaches n_sample; the service offers up to 5.
     ap.add_argument("--samples", type=int, default=None)
+    # Per-fold host / device / transfer split from tt_baseline's whole-function brackets (no device
+    # sync added), recorded per fold beside the wall it splits. The cold fold's row is first.
+    ap.add_argument("--instrument", action="store_true")
+    # Replay the captured diffusion-step trace (the CLI's --trace for protenix-v2 / opendde,
+    # --diffusion_trace for boltz2).
+    # Unset folds at the shipped default (tt_bio.worker._trace_default: on for protenix-v1/v2
+    # and boltz2 on Blackhole); --no-trace forces the untraced fold.
+    ap.add_argument("--trace", action="store_const", const=True, default=None)
+    ap.add_argument("--no-trace", dest="trace", action="store_const", const=False)
+    # Paired trace A/B in ONE process: the region is reserved once, then each warm pair folds
+    # traced and untraced in alternating order. --repeat counts pairs. Host load on a shared
+    # box drifts by more than the trace saving, so only a paired delta can read it.
+    ap.add_argument("--ab-trace", action="store_true")
+    # The same pairing for any module-level bool, e.g. tt_bio.runtime:SERIAL_HOST.
+    ap.add_argument("--ab-attr", metavar="MODULE:NAME[=ON/OFF][,...]", default=None)
+    # The same pairing for one precision lever: NAME joins / leaves the `_levers` set of the loaded model
+    # (and of any attribute of it that carries one), which every model reads per fold.
+    ap.add_argument("--ab-lever", metavar="NAME[,NAME]", default=None)
+    # Stage split inside the fold: each MODULE:Class.method is wrapped in a device sync on both
+    # sides and its inclusive seconds summed per fold (nested stages each count their own time).
+    # The syncs cost overlap, so a --phases fold is slower than a plain one: read it as a split,
+    # never as a wall.
+    ap.add_argument("--phases", default=None, metavar="MODULE:[Class.]name,...")
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
 
@@ -59,7 +85,9 @@ def main():
 
     import tt_bio.tenstorrent as T
     import tt_baseline as B
-    from tt_bio.main import (_resolve_recycling_steps, _resolve_sampling_steps,
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # perf/ for clocksample
+    import clocksample
+    from tt_bio.main import (_resolve_sampling_steps, _resolve_recycling_steps,
                              _detect_p300_devices, _find_ttnn_mesh_graph_descriptor)
     assert Path(T.__file__).resolve().is_relative_to(tree), \
         f"tt_bio came from {T.__file__}, not {tree}"
@@ -70,10 +98,7 @@ def main():
         if mgd:
             os.environ["TT_MESH_GRAPH_DESC_PATH"] = mgd
 
-    B.RECYCLING_STEPS = _resolve_recycling_steps(None, a.model)
     B.SAMPLING_STEPS = _resolve_sampling_steps(None, a.model)
-    if a.recycles is not None:
-        B.RECYCLING_STEPS = a.recycles
     if a.steps is not None:
         B.SAMPLING_STEPS = a.steps
 
@@ -88,7 +113,8 @@ def main():
         sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "other512"))
         from fold_ab_multi import patch_boltz2_cfg
         sys.path[:] = snap
-        patch_boltz2_cfg()
+        B.RECYCLING_STEPS = _resolve_recycling_steps(a.recycles, a.model)   # the injector reads it
+        patch_boltz2_cfg(diffusion_trace=True if a.ab_trace else a.trace)   # None: shipped default
 
     # Reachability counters. Installed only for --census: they wrap a function the diffusion
     # rollout calls tens of thousands of times, so they are host cost inside the timed region.
@@ -108,29 +134,68 @@ def main():
                 return _terms(self, *args, **kw)
             AdaLN.s_terms = counted_terms
 
+    phase_s = {}
+    if a.phases:
+        import ttnn
+
+        def _sync():
+            d = T.get_device()
+            ttnn.synchronize_device(d)
+
+        def _timed(key, fn):
+            def w(*args, **kw):
+                _sync()
+                t0 = time.perf_counter()
+                try:
+                    return fn(*args, **kw)
+                finally:
+                    _sync()
+                    phase_s[key] = phase_s.get(key, 0.0) + time.perf_counter() - t0
+            return w
+        for spec in a.phases.split(","):
+            mod, path = spec.split(":")
+            owner = importlib.import_module(mod)
+            *cls, meth = path.split(".")        # Class.method, or a module-level function
+            for c in cls:
+                owner = getattr(owner, c)
+            setattr(owner, meth, _timed(path, getattr(owner, meth)))
+
     fixdir = tree / "perf" / "size512" / "fixtures"
-    tgt, a3m = fixdir / f"cdk2x2_{a.size}.yaml", fixdir / f"cdk2x2_{a.size}.a3m"
+    tgt, a3m = fixdir / f"{a.target}_{a.size}.yaml", fixdir / f"{a.target}_{a.size}.a3m"
     msa_dir = tree / f".msa_xmodel_{a.model}_{a.size}"
+    # The recycle count is build_fold's argument, not a tt_baseline global: setting B.RECYCLING_STEPS
+    # was a no-op, so --recycles folded at the default and the record named the request.
     _bf = {} if a.samples is None else {"samples": a.samples}
-    one_fold, meta = B.build_fold(a.model, msa_dir, tgt, a3m, fast=a.fast, **_bf)[:2]
+    _bf["recycling_steps"] = a.recycles
+    one_fold, meta, state = B.build_fold(a.model, msa_dir, tgt, a3m, fast=a.fast,
+                                          instrument=a.instrument, trace=True if a.ab_trace else a.trace,
+                                          **_bf)[:3]
     struct_dir = Path(meta["struct_dir"])
 
     import importlib.metadata as im
-    res = {"label": a.label, "model": a.model, "tree": str(tree), "size": a.size,
-           "census": a.census, "fast": a.fast, "ttnn": im.version("ttnn"),
+    res = {"label": a.label, "model": a.model, "tree": str(tree), "size": a.size, "target": a.target,
+           "census": a.census, "fast": a.fast, "trace": a.trace, "ab_trace": a.ab_trace, "ab_attr": a.ab_attr, "ab_lever": a.ab_lever, "ttnn": im.version("ttnn"),
            "host": os.uname().nodename,
            "card": os.environ.get("TT_VISIBLE_DEVICES"),
            "grid": [int(T.COMPUTE_GRID_MAIN[0]), int(T.COMPUTE_GRID_MAIN[1])],
-           "recycling_steps": B.RECYCLING_STEPS, "sampling_steps": B.SAMPLING_STEPS,
+           "recycling_steps": meta["recycling_steps"], "sampling_steps": B.SAMPLING_STEPS,
            "samples": a.samples or B.DIFFUSION_SAMPLES,
            "flags": {k: getattr(T, k, "absent") for k in
                      ("ADALN_S_HOIST", "FP32_SOFTMAX_BIAS_HOIST", "TRIMUL_TAIL_F1",
                       "TRANSPOSE_L1_HEADROOM")},
            "started": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
            "loadavg": open("/proc/loadavg").read().split()[:3], "folds": []}
+    a.out.parent.mkdir(parents=True, exist_ok=True)
 
+    # AICLK sampled during each fold: on Blackhole the clock sets the fold time, so a fold without
+    # its clock is not a measurement.
     def one(tag):
-        fold_s, m = one_fold()
+        phase_s.clear()
+        with clocksample.during(period=1.0) as clk:
+            fold_s, m = one_fold()
+        cs = clk.summary().get(0) or {}
+        for p in sorted(struct_dir.glob("*.cif")):  # the structure itself, for an RMSD between arms
+            shutil.copyfile(p, a.out.parent / f"{tag}_{p.name}")
         plddt = m.get("plddt")
         if plddt is None:
             plddt = m.get("complex_plddt")
@@ -140,19 +205,92 @@ def main():
                 "n_tokens": m.get("n_tokens"), "n_atoms": m.get("n_atoms"),
                 "cif_sha256": {p.name: hashlib.sha256(p.read_bytes()).hexdigest()[:16]
                                for p in sorted(struct_dir.glob("*")) if p.is_file()},
-                "loadavg": open("/proc/loadavg").read().split()[:3]}
+                "loadavg": open("/proc/loadavg").read().split()[:3],
+                "aiclk": {k: cs.get(k) for k in ("median", "min", "max", "n")},
+                **({"phases": {k: round(v, 3) for k, v in phase_s.items()}} if a.phases else {})}
 
     def flush():
-        a.out.parent.mkdir(parents=True, exist_ok=True)
         a.out.write_text(json.dumps(res, indent=1))
 
     cold = one("cold")
     res["cold"] = cold
+    # What the chip carries after the load, so a default-path run shows whether it can replay.
+    res["trace_region_bytes"] = T.trace_region_size()
     print(f"[{a.label}] cold {cold['fold_s']:.3f}s plddt={cold['plddt']} "
           f"cif={list(cold['cif_sha256'].values())}", flush=True)
     flush()
 
-    if not a.census:
+    if (a.ab_trace or a.ab_attr or a.ab_lever) and not a.census:
+        if a.ab_trace:
+            on, off, key = "trace", "plain", "ab_trace_s"
+
+            def arm_set(v):
+                meta["job_cfg"]["trace"] = v
+                if a.model == "boltz2":     # Boltz-2 reads its DiT trace flag off the model
+                    state.model.structure_module._diffusion_trace = v
+        elif a.ab_lever:
+            on, off, key = "on", "off", "ab_lever_s"
+            # One name or a comma list, A/B'd as one stack. An unknown name fails here, not as a silent null A/B.
+            ab = T.parse_levers(a.ab_lever)
+            holders = [o for o in [state.model, *vars(state.model).values()]
+                       if isinstance(getattr(o, "_levers", None), frozenset)]
+            if holders:
+                base = {id(o): o._levers - ab for o in holders}
+
+                def arm_set(v):
+                    for o in holders:
+                        o._levers = base[id(o)] | ab if v else base[id(o)]
+            else:
+                # ESMFold2 enters its lever set per fold (esmfold2_runtime.fold_scope), from TT_BIO_LEVERS when
+                # set, else the mode's set on this arch.
+                assert a.model in ("esmfold2", "esmfold2-fast"), "the loaded model carries no _levers set"
+                from tt_bio import esmfold2_runtime as ER
+                base_set = T.parse_levers(ER.fold_levers(a.fast)) - ab
+
+                def arm_set(v):
+                    os.environ["TT_BIO_LEVERS"] = ",".join(sorted(base_set | ab if v else base_set)) or "none"
+        else:
+            # MODULE:NAME toggles a bool; MODULE:NAME=ON/OFF sets two values instead, integers where they
+            # parse (tt_bio.trimul_tail:T1_ROWS=16/32), else strings (tt_bio.tenstorrent:_TRIMUL_EINSUM_FID=hifi2/):
+            # the "on" arm takes ON.
+            attrs = []
+            for x in a.ab_attr.split(","):
+                mod, name = x.split(":")
+                name, _, vals = name.partition("=")
+                attrs.append((mod, name, tuple(int(t) if t.lstrip("-").isdigit() else t for t in vals.split("/")) if vals else (True, False)))
+            on, off, key = "on", "off", "ab_attr_s"
+
+            def arm_set(v):
+                for mod, name, (von, voff) in attrs:
+                    setattr(importlib.import_module(mod), name, von if v else voff)
+        arm = {True: [], False: []}
+        for i in range(a.repeat):
+            for v in ((True, False) if i % 2 == 0 else (False, True)):
+                arm_set(v)
+                rec = one(f"warm{i}-{on if v else off}")
+                res["folds"].append(rec)
+                arm[v].append(rec["fold_s"])
+                print(f"[{a.label}] {rec['tag']} {rec['fold_s']:.3f}s "
+                      f"cif={list(rec['cif_sha256'].values())}", flush=True)
+                flush()
+        d = [round(x - y, 3) for x, y in zip(arm[True], arm[False])]
+        res[key] = {on: arm[True], off: arm[False], "delta": d,
+                    "median_delta": round(statistics.median(d), 3),
+                    **({"attr": a.ab_attr} if a.ab_attr else {}),
+                    **({"lever": a.ab_lever} if a.ab_lever else {})}
+        res["median_s"] = round(statistics.median(arm[True]), 3)
+        res["spread_s"] = round(max(arm[True]) - min(arm[True]), 3)
+        print(f"[{a.label}] {on} minus {off} {d} s, median {res[key]['median_delta']}",
+              flush=True)
+        # A lever read at build (weights rounded in __init__, dit_b8) is not toggled by `_levers` per fold: both arms
+        # fold the same model. Identical CIFs cannot tell that from a bit-exact lever, so say so in the record.
+        cifs = {v: {json.dumps(r["cif_sha256"], sort_keys=True) for r in res["folds"] if r["tag"].endswith(f"-{v}")}
+                for v in (on, off)}
+        res[key]["identical_cifs"] = cifs[on] == cifs[off]
+        if a.ab_lever and cifs[on] == cifs[off]:
+            print(f"[{a.label}] WARNING: CIFs identical on and off: a bit-exact lever, or one read only at build "
+                  "(then this A/B is null; build one model per arm instead)", flush=True)
+    elif not a.census:
         for i in range(a.repeat):
             rec = one(f"warm{i}")
             res["folds"].append(rec)
@@ -162,15 +300,19 @@ def main():
         w = sorted(f["fold_s"] for f in res["folds"])
         res["median_s"] = round(statistics.median(w), 3)
         res["spread_s"] = round(w[-1] - w[0], 3)
-        print(f"[{a.label}] median {res['median_s']:.3f}s spread {res['spread_s']:.3f}s",
-              flush=True)
+        clks = [f["aiclk"] for f in res["folds"] if f["aiclk"].get("median") is not None]
+        res["aiclk_mhz"] = statistics.median(c["median"] for c in clks) if clks else None
+        res["aiclk_min"] = min(c["min"] for c in clks) if clks else None
+        print(f"[{a.label}] median {res['median_s']:.3f}s spread {res['spread_s']:.3f}s "
+              f"aiclk median {res['aiclk_mhz']} min {res['aiclk_min']} MHz", flush=True)
 
+    if a.instrument:
+        res["phase_times"] = meta["phase_times"]
     res["reach"] = dict(reach)
     # Which fused kernels actually served a call, and why the declines. Every one of them is
     # gated on a constant fitted on a 130-core Blackhole grid, so "ships default-ON" says nothing
     # about whether it fired on an 8x9 Wormhole. These counters live inside the kernels, so
     # reading them is free -- unlike the --census wrappers above they are always on.
-    import importlib
 
     def _kern(name):
         try:
@@ -191,7 +333,29 @@ def main():
         return d
 
     res["kernels"] = {n: _kern(n) for n in
-                      ("triatt_sdpa", "trimul_tail", "reblock_permute", "rfd3_bias")}
+                      ("triatt_sdpa", "trimul_tail", "reblock_permute", "rfd3_bias", "triatt_ln")}
+    # Which trimul in-projection route fed the einsum (gin-ragged, gated-inproj-moved, gated-inproj,
+    # rowblock, ...), and the trimul_tail sub-counters STATS above lumps together.
+    res["trimul_routes"] = {"|".join(k): int(v) for k, v in getattr(T, "TRIMUL_MM_TRANSPOSE_STATS", {}).items()}
+    try:
+        from tt_bio import bmm_res as _BR
+        res["bmm_res"] = list(_BR.STATS)
+    except ImportError:
+        res["bmm_res"] = None
+    # g_out riding the in-projection is what lets T2 serve the tail without T1: its served/declined count and why.
+    res["trimul_gout"] = {"stats": list(getattr(T, "TRIMUL_GOUT_STATS", [])),
+                          "rejects": dict(getattr(T, "TRIMUL_GOUT_REJECTS", {}))}
+    try:
+        TT_ = importlib.import_module("tt_bio.trimul_tail")
+        res["trimul_tail_sub"] = {k: list(getattr(TT_, k)) for k in
+                                  ("GIN_MOVE_STATS", "RES_STATS", "T1_STATS", "T2_STATS", "T2CM_STATS", "MASK_STATS")
+                                  if hasattr(TT_, k)}
+    except Exception as e:
+        res["trimul_tail_sub"] = {"absent": repr(e)}
+    # Latched refusals: a lever that refuses on its first call and latches falls back silently, which reads as a
+    # bit-exact null A/B (dshab2: dit_shard, identical CIFs). Only the names that saw a call.
+    res["latches"] = {k: v for k, v in getattr(T, "LATCH_STATS", {}).items()
+                      if any(v.get(f) for f in ("served", "refused", "blocked", "declined"))}
     # The grid-derived thresholds in effect in this process. _apply_grid_thresholds runs at
     # device open, not at import, so this has to be read after a fold, not from the source.
     res["thresholds"] = {k: getattr(T, k, "absent") for k in (
@@ -201,12 +365,17 @@ def main():
         "SMALL_GRID_SEQ_TILE", "SMALL_GRID_PAIR_TILE_AREA", "SDPA_CHUNK_MAX",
         "PAIRFORMER_PAD_MULTIPLE", "TRIANGLE_MULT_CHUNK_SIZE")}
     res["fp32_softmax_stats"] = dict(T.FP32_SOFTMAX_STATS)
+    from tt_bio import addcmul_at as _aca
+    res["addcmul_at_stats"] = list(_aca.STATS)   # (served, declined): dit_shoist windows
+    res["atom_l1_stats"] = list(getattr(T, "ATOM_L1_STATS", ()))   # (L1, DRAM): atom transformer intermediates
     res["fp32_softmax_l1_row_caps"] = {str(k): v for k, v in T._FP32_SOFTMAX_L1_ROW_CAP.items()}
     res["transpose_l1_refused_keys"] = sorted(
         str(k) for k in getattr(T, "_TRANSPOSE_L1_REFUSED", ()))
     flush()
     print(f"[{a.label}] reach {res['reach']}", flush=True)
+    print(f"[{a.label}] latches {res['latches']}", flush=True)
     print(f"[{a.label}] FP32_SOFTMAX_STATS {res['fp32_softmax_stats']}", flush=True)
+    print(f"[{a.label}] TRIMUL_ROUTES {res['trimul_routes']} {res['trimul_tail_sub']} BMM_RES served/declined {res['bmm_res']}", flush=True)
     print("wrote", a.out, flush=True)
     T.cleanup()
 

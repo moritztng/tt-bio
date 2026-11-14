@@ -4,7 +4,7 @@
     "-m",
     "tt_bio.main",
     "affinity",
-    "/home/ttuser/.coworker/wt/cov-ladder-below-bar-all-bhp150a/perf/nesso1/inputs/ladder/aa1536/cdk2_1536.yaml",
+    "/home/ttuser/scratch/spd-rel/dry-6105e740d/tree/perf/nesso1/inputs/ladder/aa1536/cdk2_1536.yaml",
     "--model",
     "nesso1",
     "--trunk",
@@ -14,7 +14,7 @@
     "--tokens_budget",
     "256",
     "--out_dir",
-    "/home/ttuser/.coworker/wt/cov-ladder-below-bar-all-bhp150a/perf/sizegate/work-card3/out_nesso1-1536-rep0"
+    "/home/ttuser/scratch/spd-rel/dry-6105e740d/tree/perf/sizegate/work/out_nesso1-1536-rep0"
   ],
   "rc": 0,
   "processes": 1,
@@ -136,7 +136,7 @@
       "how": "wrap",
       "counter": null,
       "resolved": "True",
-      "served": 336,
+      "served": 480,
       "declined": 576,
       "rejects": {
         "l1_dest_is_faster:1568x32x128": 96,
@@ -237,19 +237,17 @@
       "how": "stats",
       "counter": "tt_bio.triatt_sdpa.STATS",
       "resolved": "True",
-      "served": 0,
-      "declined": 1633,
-      "rejects": {
-        "fill_preconditions": 1633
-      },
+      "served": 864,
+      "declined": 0,
+      "rejects": null,
       "gauges": null
     },
     {
       "flag": "SDPA_WIDE_K",
       "how": "stats",
       "counter": "tt_bio.tenstorrent.SDPA_K_CHUNK_STATS",
-      "resolved": "False",
-      "served": 0,
+      "resolved": "True",
+      "served": 384,
       "declined": 0,
       "rejects": null,
       "gauges": null
@@ -259,8 +257,18 @@
       "how": "stats",
       "counter": "tt_bio.tenstorrent.SDPA_FUSED_LARGE_S_STATS",
       "resolved": "True",
+      "served": 384,
+      "declined": 0,
+      "rejects": null,
+      "gauges": null
+    },
+    {
+      "flag": "SDPA_FUSED_PADDED",
+      "how": "stats",
+      "counter": "tt_bio.tenstorrent.SDPA_FUSED_PADDED_STATS",
+      "resolved": "True",
       "served": 0,
-      "declined": 384,
+      "declined": 0,
       "rejects": null,
       "gauges": null
     },
@@ -370,7 +378,7 @@
       "counter": null,
       "resolved": "1.25",
       "served": 576,
-      "declined": 336,
+      "declined": 288,
       "rejects": null,
       "gauges": null
     },
@@ -380,7 +388,7 @@
       "counter": "tt_bio.tenstorrent._SDPA_Q_CHUNK_OVER_L1",
       "resolved": "True",
       "served": 0,
-      "declined": 1,
+      "declined": 0,
       "rejects": null,
       "gauges": null
     },
@@ -410,6 +418,16 @@
       "counter": "tt_bio.tenstorrent.TRANSITION_H_CHUNK_STATS",
       "resolved": "16",
       "served": 288,
+      "declined": 0,
+      "rejects": null,
+      "gauges": null
+    },
+    {
+      "flag": "TRIATT_SDPA_HIFI",
+      "how": "stats-dict",
+      "counter": "tt_bio.tenstorrent.TRIATT_FUSED_HIFI_STATS:served,declined",
+      "resolved": "none",
+      "served": 0,
       "declined": 0,
       "rejects": null,
       "gauges": null

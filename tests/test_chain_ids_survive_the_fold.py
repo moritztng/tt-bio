@@ -150,6 +150,9 @@ class _AF2IGStub:
                 "structure": {"final_atom_positions": prev["prev_pos"],
                               "final_atom_mask": feats["atom37_atom_exists"]}}
 
+    def distogram_logits(self, pair):
+        return torch.zeros(*pair.shape[:2], 64)
+
 
 def _af2ig(tmp_path, model):
     """The committed fixture with its chains renamed, through the real front door."""
@@ -173,7 +176,7 @@ def _probe(model, tmp_path, monkeypatch):
         return _boltz2(tmp_path)
     if model in ("esmfold2", "esmfold2-fast"):
         return _fold(tmp_path, model, _ESMFold2Stub())
-    if model in ("protenix-v1", "protenix-v2", "opendde", "opendde-abag"):
+    if model in ("protenix-v1", "protenix-v2", "mol1", "opendde", "opendde-abag"):
         return _fold(tmp_path, model, _ProtenixStub())
     if model == "rf3":
         return _write_featurized(tmp_path, model, monkeypatch, "tt_bio.rf3.featurize",

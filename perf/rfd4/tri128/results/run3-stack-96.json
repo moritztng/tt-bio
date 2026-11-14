@@ -1,0 +1,57 @@
+{
+ "n": 96,
+ "levers": {
+  "base": [
+   "pair_bias_rms",
+   "pair_block",
+   "pair_mm",
+   "pair_mm_tr",
+   "pair_tail",
+   "pair_write_res",
+   "transition_b8",
+   "trimul_gin",
+   "trimul_gin_w8",
+   "trimul_t1",
+   "trimul_t1_dram"
+  ],
+  "stack": [
+   "pair_bias_rms",
+   "pair_block",
+   "pair_mm",
+   "pair_mm_tr",
+   "pair_tail",
+   "pair_tail_small",
+   "pair_write_res",
+   "transition_b8",
+   "trimul_gin",
+   "trimul_gin_w8",
+   "trimul_t1",
+   "trimul_t1_dram",
+   "trimul_xn_l1"
+  ]
+ },
+ "tt_bio": "/home/ttuser/scratch/rfd4-tri128/tree-4fbb1cf07",
+ "load_start": 12.576171875,
+ "z_rel_rms_stack_vs_base": 0.010479370705881601,
+ "base": {
+  "pass_ms_median": 20.852,
+  "pass_ms_min": 20.745,
+  "trunk_s_per_design": 3.753
+ },
+ "stack": {
+  "pass_ms_median": 20.357,
+  "pass_ms_min": 20.289,
+  "trunk_s_per_design": 3.664
+ },
+ "paired_speedup_median": 1.0234,
+ "reps": 30,
+ "load_end": 12.7705078125,
+ "aiclk": {
+  "0": {
+   "min": 1350,
+   "max": 1350,
+   "median": 1350,
+   "n": 2
+  }
+ }
+}

@@ -21,6 +21,8 @@ import dataclasses
 import logging
 import os
 import random
+import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 from collections.abc import Iterable
 from functools import lru_cache
@@ -190,25 +192,207 @@ def atom_array_from_mol(
 # all-canonical protein). 0 keeps the sequential path. 24 is where the scaling stops on a
 # 32-core host; a smaller box gets its own core count.
 CONFORMER_THREADS = min(24, os.cpu_count() or 1)
+# Template jobs (every canonical residue) go to worker PROCESSES. A thread pool is held to
+# the GIL: each residue carries 0.6-0.9 ms of python (mol copy, residue info, AddHs, the
+# timed embed hand-off, the annotations) around a 2-3 ms ETKDG embed, so 512 residues
+# never got under ~0.4 s on a 32-core p150a host however many threads ran. Workers fork
+# from a forkserver that preloaded this module, so each one costs its unshared pages only.
+# Starting them takes ~1 s, so the first build of a process runs on threads and starts the
+# workers in the background; later builds use them. They pay only on a wide host: on qb1
+# (EPYC 8124P, 32 threads) the 512-residue build went 0.51 -> 0.28 s, on pc (12 threads) it
+# broke even and on qb2 (Ryzen 9700X, 16 threads) the paired fold A/B read ~0.1 s slower. So
+# they start only when this process's share of the host (OMP_NUM_THREADS, which tt-bio sets
+# per worker: runtime.host_thread_cap) is 24 threads or more; 32 serving workers on a
+# 64-thread Galaxy host get 2 each and stay on threads. 0 keeps everything on threads; so
+# does any failure to start or run the pool.
+def _host_share() -> int:
+    first = os.environ.get("OMP_NUM_THREADS", "").split(",")[0].strip()  # may be a nested list
+    return int(first) if first.isdigit() and int(first) > 0 else (os.cpu_count() or 1)
 
 
-def _pooled_reference_molecules(jobs: list) -> list:
-    """Every job's reference molecule, computed on a thread pool.
+CONFORMER_PROCS = min(16, _host_share() // 2) if _host_share() >= 24 else 0
+# One pool for the process: starting 24 threads per fold cost 0.2 s on a loaded 32-core host.
+_CONFORMER_POOL = None
+_CONFORMER_PROCS_POOL = None   # set once every worker process runs
+_PROCS_STARTER = None          # the thread that starts them, once per process
 
-    The seeds are pre-drawn in residue order and handed out one per residue, so residue i
-    embeds with exactly the seed the sequential loop would have drawn for it, and a retry
-    inside residue i draws from that seed's own stream. No residue can reach another's
-    seed, so the pooled result is the sequential result.
+
+def _drop_conformer_pool():
+    # A forked child inherits the pools' objects but none of their threads or processes.
+    global _CONFORMER_POOL, _CONFORMER_PROCS_POOL, _PROCS_STARTER
+    _CONFORMER_POOL = _CONFORMER_PROCS_POOL = _PROCS_STARTER = None
+
+
+os.register_at_fork(after_in_child=_drop_conformer_pool)
+
+
+def _template_job(chunk):
+    """Reference molecules of a chunk of residues, in a worker process, from type templates."""
+    out = []
+    for seed, arr, leaving, key in chunk:
+        conformer_mod.pool_seed(seed)
+        out.append(_processed_reference_molecule_from_template(
+            _reference_mol_template(arr, key), arr, leaving))
+    return out
+
+
+def _procs_init(owner=None):
+    # A pickled Mol carries atom properties only when asked to (the annot_* properties are
+    # features: atom names, used-atom mask), and its coordinates as float32 unless asked
+    # for doubles.
+    Chem.SetDefaultPickleProperties(Chem.PropertyPickleOptions.AllProps
+                                    | Chem.PropertyPickleOptions.CoordsAsDouble)
+    if owner:
+        # These workers are children of the forkserver, not of the process that uses them, so
+        # nothing tells them when it dies. They used to outlive it: every `tt-bio predict --model
+        # openfold3` on a host where a worker gets >= 24 threads (one or two cards of a 64-thread
+        # box) left a forkserver, 16 of these and a resource tracker behind, holding each other's
+        # pipes open forever (and the caller's stdout, so `predict ... | tee log` never returned).
+        def _watch():
+            while True:
+                time.sleep(2.0)
+                try:
+                    os.kill(owner, 0)
+                except ProcessLookupError:
+                    os._exit(0)
+                except PermissionError:
+                    pass
+        threading.Thread(target=_watch, daemon=True, name="of3-conformer-owner").start()
+
+
+def _stop_procs(pool):
+    """At the owner's exit: stop the pool's processes and the forkserver that made them."""
+    procs = list((getattr(pool, "_processes", None) or {}).values())
+    try:
+        pool.shutdown(wait=False, cancel_futures=True)
+    except Exception:
+        pass
+    for p in procs:
+        try:
+            p.terminate()
+        except Exception:
+            pass
+    try:
+        from multiprocessing import forkserver
+        forkserver._forkserver._stop()
+    except Exception:
+        pass
+
+
+def _start_procs():
+    global _CONFORMER_PROCS_POOL
+    import multiprocessing as mp
+    import sys, time, types
+    from concurrent.futures import ProcessPoolExecutor
+    ctx = mp.get_context("forkserver")
+    ctx.set_forkserver_preload([__name__])
+    pool = ProcessPoolExecutor(CONFORMER_PROCS, mp_context=ctx, initializer=_procs_init,
+                               initargs=(os.getpid(),))
+    import atexit
+    atexit.register(_stop_procs, pool)
+    # submit() starts a worker whenever none is idle, so tasks that outlast the submits start
+    # all of them now and none later. A started worker re-imports the caller's __main__
+    # unless there is none to import, and an unguarded script (a perf harness) would run
+    # again in every worker, device open and all. The workers need only this module.
+    main = sys.modules["__main__"]
+    sys.modules["__main__"] = types.ModuleType("__main__")
+    try:
+        for _ in range(4):
+            busy = [pool.submit(time.sleep, 0.5) for _ in range(CONFORMER_PROCS)]
+            if len(pool._processes) >= CONFORMER_PROCS:
+                break
+    finally:
+        sys.modules["__main__"] = main
+    for f in busy:
+        f.result()
+    _CONFORMER_PROCS_POOL = pool
+
+
+def _starting_procs():
+    try:
+        _start_procs()
+    except Exception as e:  # no children allowed here, ...
+        logger.warning(f"conformer worker processes unavailable, using threads: {e!r}")
+
+
+def start_conformer_processes(wait: bool = False) -> bool:
+    """Start the conformer worker processes in the background, once per process.
+
+    Returns whether they run; ``wait`` blocks until the start has finished.
     """
-    seeds = [random.randint(0, 10**9) for _ in jobs]
+    global _PROCS_STARTER
+    if CONFORMER_PROCS > 1 and _PROCS_STARTER is None:
+        _PROCS_STARTER = threading.Thread(target=_starting_procs, daemon=True,
+                                          name="of3-conformer-procs")
+        _PROCS_STARTER.start()
+    if wait and _PROCS_STARTER is not None:
+        _PROCS_STARTER.join()
+    return _CONFORMER_PROCS_POOL is not None
 
-    def one(i):
-        conformer_mod.pool_seed(seeds[i])
-        arr, leaving = jobs[i]
-        return processed_reference_molecule_from_atom_array(arr, atoms_to_mask=leaving)
 
-    with ThreadPoolExecutor(max_workers=CONFORMER_THREADS) as ex:
-        return list(ex.map(one, range(len(jobs))))
+class _PooledReferenceMolecules:
+    """The residues' reference molecules, computed concurrently as the residue loop adds them.
+
+    Seeds are drawn in residue order as residues are added, so residue i embeds with exactly
+    the seed the sequential loop would have drawn for it, and a retry inside residue i draws
+    from that seed's own stream. No residue can reach another's seed, so the pooled result
+    is the sequential result. Template jobs go to the worker processes, once they run, in
+    chunks while the loop is still building the next residues; otherwise every job goes to
+    the thread pool at the end.
+    """
+
+    CHUNK = 8
+
+    def __init__(self):
+        self.jobs, self.seeds, self.futures, self.pending = [], [], [], []
+        self.procs = CONFORMER_PROCS > 1 and start_conformer_processes()
+
+    def add(self, arr, leaving, key):
+        seed = random.randint(0, 10**9)
+        self.jobs.append((arr, leaving, key))
+        self.seeds.append(seed)
+        if key is None:
+            self.procs = False
+        if self.procs:
+            self.pending.append((seed, arr, leaving, key))
+            if len(self.pending) == self.CHUNK:
+                self._flush()
+
+    def _flush(self):
+        global _CONFORMER_PROCS_POOL
+        try:
+            self.futures.append(_CONFORMER_PROCS_POOL.submit(_template_job, self.pending))
+        except Exception as e:  # a worker died, ...
+            logger.warning(f"conformer worker processes failed, using threads: {e!r}")
+            _CONFORMER_PROCS_POOL = None
+            self.procs = False
+        self.pending = []
+
+    def results(self) -> list:
+        global _CONFORMER_POOL, _CONFORMER_PROCS_POOL
+        if self.procs:
+            if self.pending:
+                self._flush()
+            try:
+                return [m for f in self.futures for m in f.result()]
+            except Exception as e:  # a worker died, ...
+                logger.warning(f"conformer worker processes failed, using threads: {e!r}")
+                _CONFORMER_PROCS_POOL = None
+        for f in self.futures:
+            f.cancel()
+
+        def one(i):
+            conformer_mod.pool_seed(self.seeds[i])
+            arr, leaving, key = self.jobs[i]
+            if key is not None:
+                return _processed_reference_molecule_from_template(
+                    _reference_mol_template(arr, key), arr, leaving)
+            return processed_reference_molecule_from_atom_array(arr, atoms_to_mask=leaving)
+
+        if _CONFORMER_POOL is None:
+            _CONFORMER_POOL = ThreadPoolExecutor(max_workers=CONFORMER_THREADS,
+                                                 thread_name_prefix="of3-conformer")
+        return list(_CONFORMER_POOL.map(one, range(len(self.jobs))))
 
 
 # One reference conformer per residue TYPE instead of one per residue. A 512-residue
@@ -219,7 +403,10 @@ def _pooled_reference_molecules(jobs: list) -> list:
 # `strategy.randomSeed = random.randint(0, 10**9)` per call, so today every one of the
 # 512 residues gets its own randomly seeded conformer and two ALA residues in the same
 # chain do not carry the same reference geometry. Serving them from one cached embedding
-# changes ref_pos, which is a model input. Off by default; the caller turns it on.
+# changes ref_pos, which is a model input. Off by default; the caller turns it on (the
+# OpenFold3 `ref_memo` lever). The cache lives for one structure_with_ref_mols_from_query
+# call, so a fold's conformers depend on its own input and seed, never on what the
+# process folded before.
 REF_MOL_MEMO = False
 _REF_MOL_CACHE: dict = {}
 
@@ -242,6 +429,48 @@ def _memo_processed_reference_molecule(res_array, leaving_atoms, key):
         permutations=None if hit.permutations is None
         else [np.array(p, copy=True) for p in hit.permutations],
         component_id=_copy.copy(hit.component_id))
+
+
+# The sanitized, conformer-less RDKit mol of a polymer residue TYPE. Building it (biotite
+# to_mol + sanitize, 0.35 ms of GIL-held python) depends only on the CCD entry, never on
+# the seed, so it is done once per type and every residue embeds a copy with its own seed.
+# Unlike REF_MOL_MEMO this is bit-exact: each residue still gets its own embedding. The
+# copy carries the template's residue number and chain in its PDB residue info, so those
+# are rewritten per residue to keep the mol identical to a freshly converted one.
+REF_MOL_TEMPLATES = True
+_REF_MOL_TEMPLATES: dict = {}
+
+
+def _reference_mol_template(atom_array: struc.AtomArray, key) -> Chem.Mol:
+    template = _REF_MOL_TEMPLATES.get(key)
+    if template is None:
+        template = to_mol(atom_array, kekulize=True)
+        Chem.SanitizeMol(template)
+        # Ligands take AssignStereochemistryFrom3D, which reads the residue's own coords.
+        assert not np.all(atom_array.molecule_type_id == MoleculeType.LIGAND)
+        template.RemoveConformer(0)
+        _REF_MOL_TEMPLATES[key] = template
+    return template
+
+
+def _processed_reference_molecule_from_template(
+    template: Chem.Mol, atom_array: struc.AtomArray, atoms_to_mask: Iterable[str]
+) -> ProcessedReferenceMolecule:
+    """``processed_reference_molecule_from_atom_array`` on a copy of the type template."""
+    atom_mask = ~np.isin(atom_array.atom_name, atoms_to_mask)
+    mol = Chem.Mol(template)
+    res_id = atom_array.res_id[0].item()
+    chain_id = atom_array.chain_id[0].item()
+    for atom in mol.GetAtoms():
+        info = atom.GetPDBResidueInfo()
+        info.SetResidueNumber(res_id)
+        info.SetChainId(chain_id)
+        atom.SetMonomerInfo(info)
+    return processed_reference_molecule_from_mol(
+        mol=mol,
+        atom_names=atom_array.atom_name,
+        atom_mask=atom_mask,
+    )
 
 
 def processed_reference_molecule_from_atom_array(
@@ -401,9 +630,9 @@ def structure_with_ref_mols_from_sequence(
     unk_res = MOLECULE_TYPE_TO_UKNOWN_RESIDUES_3[poly_type]
     base_leaving_atoms = MOLECULE_TYPE_TO_LEAVING_ATOMS[poly_type]
 
-    atom_array = None
+    res_arrays = []
     processed_reference_mols = []
-    pool_jobs = [] if CONFORMER_THREADS > 0 else None
+    pool_jobs = _PooledReferenceMolecules() if CONFORMER_THREADS > 0 and not REF_MOL_MEMO else None
 
     for res_id, resname_1 in enumerate(sequence, start=1):
         # Swap to non-standard residue if necessary
@@ -443,7 +672,10 @@ def structure_with_ref_mols_from_sequence(
 
         # Parse into RDKit mol and compute conformer
         if pool_jobs is not None:
-            pool_jobs.append((res_array, leaving_atoms))
+            # The type's template is built where the job runs (and cached there), so a
+            # process job ships its key, not a Mol.
+            pool_jobs.add(res_array, leaving_atoms,
+                          (resname_3, poly_type) if REF_MOL_TEMPLATES else None)
         else:
             if REF_MOL_MEMO:
                 processed_ref_mol = _memo_processed_reference_molecule(
@@ -462,15 +694,11 @@ def structure_with_ref_mols_from_sequence(
                 f"Residue {resname_3} at position {res_id} has no leaving atoms to "
                 "remove. This could cause issues with incorrect polymer linkage."
             )
-        res_array = res_array[~leaving_atom_mask]
+        res_arrays.append(res_array[~leaving_atom_mask])
 
-        # Initialize atom array
-        if atom_array is None:
-            atom_array = res_array
-
-        # Append to atom array
-        else:
-            atom_array += res_array
+    # One concatenation instead of `atom_array += res_array` per residue, which copied the
+    # growing array every time (quadratic in the chain length).
+    atom_array = struc.concatenate(res_arrays)
 
     # Auto-connect bonds
     atom_array.bonds = struc.connect_via_residue_names(atom_array)
@@ -478,8 +706,10 @@ def structure_with_ref_mols_from_sequence(
     # Force coordinates to 0 for consistency
     atom_array.coord[:] = 0.0
 
+    # Process jobs already run beside the loop; thread jobs start only now, because threads
+    # overlapping the loop fought it for the GIL and made the build 0.1 s slower on pc.
     if pool_jobs is not None:
-        processed_reference_mols = _pooled_reference_molecules(pool_jobs)
+        processed_reference_mols = pool_jobs.results()
     return StructureWithReferenceMolecules(
         atom_array=atom_array,
         processed_reference_mols=processed_reference_mols,
@@ -625,6 +855,7 @@ def structure_with_ref_mols_from_query(query: Query) -> StructureWithReferenceMo
     # Initialize eventually returned objects
     atom_array = None
     processed_reference_mols: list[ProcessedReferenceMolecule] = []
+    _REF_MOL_CACHE.clear()
 
     # Create entity mapping
     all_entities = set()
@@ -709,6 +940,14 @@ def structure_with_ref_mols_from_query(query: Query) -> StructureWithReferenceMo
 
             # Add processed reference molecules
             processed_reference_mols.extend(segment_ref_mols)
+
+            # tt-bio: the segment builders assign chain_id into biotite's default <U4, which
+            # truncates a longer id, and the MSA token mapper then matches no atom. Set it
+            # at full width; an id of 4 or fewer keeps <U4 and the identical array.
+            segment_atom_array.set_annotation(
+                "chain_id",
+                np.full(len(segment_atom_array), chain_id, f"<U{max(4, len(chain_id))}"),
+            )
 
             segment_atom_array.set_annotation(
                 "entity_id",

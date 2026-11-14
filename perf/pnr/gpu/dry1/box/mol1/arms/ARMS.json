@@ -1,0 +1,8 @@
+{
+ "512/cueq-cueq/k1": {
+  "predictions_per_s": 0.01528,
+  "n": 1,
+  "rc": 0,
+  "dir": "/root/kc/mol1/arms/512-cueq-cueq-k1"
+ }
+}

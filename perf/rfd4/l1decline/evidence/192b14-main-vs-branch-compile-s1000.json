@@ -1,0 +1,92 @@
+{
+ "a": "/home/ttuser/scratch/l1d-runs/main-192b14/run/b14/compile-s1000",
+ "b": "/home/ttuser/scratch/l1d-runs/branch-192b14/run/b14/compile-s1000",
+ "n": 14,
+ "equal": 14,
+ "rows": [
+  {
+   "design": 0,
+   "sha_a": "860fda70dcf08f89",
+   "sha_b": "860fda70dcf08f89",
+   "equal": true
+  },
+  {
+   "design": 1,
+   "sha_a": "aeae84d3fdf09eda",
+   "sha_b": "aeae84d3fdf09eda",
+   "equal": true
+  },
+  {
+   "design": 2,
+   "sha_a": "f61c9934de6db94b",
+   "sha_b": "f61c9934de6db94b",
+   "equal": true
+  },
+  {
+   "design": 3,
+   "sha_a": "4f877e447ed0d7b0",
+   "sha_b": "4f877e447ed0d7b0",
+   "equal": true
+  },
+  {
+   "design": 4,
+   "sha_a": "94709f2c171734ed",
+   "sha_b": "94709f2c171734ed",
+   "equal": true
+  },
+  {
+   "design": 5,
+   "sha_a": "ceb80f3f33bde2c5",
+   "sha_b": "ceb80f3f33bde2c5",
+   "equal": true
+  },
+  {
+   "design": 6,
+   "sha_a": "653fb11147234fc9",
+   "sha_b": "653fb11147234fc9",
+   "equal": true
+  },
+  {
+   "design": 7,
+   "sha_a": "0dea9eeb5b9446d1",
+   "sha_b": "0dea9eeb5b9446d1",
+   "equal": true
+  },
+  {
+   "design": 8,
+   "sha_a": "56aa323be1085c48",
+   "sha_b": "56aa323be1085c48",
+   "equal": true
+  },
+  {
+   "design": 9,
+   "sha_a": "ef22a40a7f8eacae",
+   "sha_b": "ef22a40a7f8eacae",
+   "equal": true
+  },
+  {
+   "design": 10,
+   "sha_a": "1c2253f1a306fa48",
+   "sha_b": "1c2253f1a306fa48",
+   "equal": true
+  },
+  {
+   "design": 11,
+   "sha_a": "e20474836ae9ef30",
+   "sha_b": "e20474836ae9ef30",
+   "equal": true
+  },
+  {
+   "design": 12,
+   "sha_a": "b2db7d1e71f65daa",
+   "sha_b": "b2db7d1e71f65daa",
+   "equal": true
+  },
+  {
+   "design": 13,
+   "sha_a": "e2c889b270926eb1",
+   "sha_b": "e2c889b270926eb1",
+   "equal": true
+  }
+ ]
+}

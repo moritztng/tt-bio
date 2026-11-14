@@ -1,0 +1,16 @@
+tri_mult_out     PermuteDeviceOperation                     1.361 s  floor  0.297  x4.58  95.1 GB/s None TF/s
+cast             TypecastDeviceOperation                    1.238 s  floor  1.079  x1.15  379.8 GB/s None TF/s
+tri_mult_out     MatmulDeviceOperation                      1.016 s  floor  0.509  x1.99  218.6 GB/s 37.73 TF/s
+tri_mult_in      GenericOpDeviceOperation                   1.005 s  floor  0.861  x1.17  374.1 GB/s 49.56 TF/s
+tri_mult_out     BinaryNgDeviceOperation                    0.859 s  floor  1.039  x0.83  528.2 GB/s None TF/s
+tri_mult_out     SliceDeviceOperation                       0.847 s  floor  1.485  x0.57  764.5 GB/s None TF/s
+tri_mult_out     MinimalMatmulDeviceOperation               0.790 s  floor  0.415  x1.9  228.7 GB/s 62.77 TF/s
+tri_mult_in      MatmulDeviceOperation                      0.598 s  floor  0.339  x1.76  247.3 GB/s 32.95 TF/s
+residual         BinaryNgDeviceOperation                    0.578 s  floor  0.544  x1.06  410.4 GB/s None TF/s
+pair_relu        GenericOpDeviceOperation                   0.508 s  floor  0.533  x0.95  191.4 GB/s 146.91 TF/s
+pass_glue split 0.651 s
+  pair_relu       GenericOpDeviceOperation               0.508 s x7  floor  0.533  191.4 GB/s  input_0 20x224x224x384 BFLOAT16 ; input_1 1x1x384x768 BFLOAT8_B ; input_2 1x1x768x384 BFLOAT8_B ; input_3 1x1x
+  outer_residual  GenericOpDeviceOperation               0.128 s x7  floor  0.119  406.7 GB/s  input_0 20x224x224x384 BFLOAT8_B ; input_1 1x20x224x384 BFLOAT16 ; input_2 1x20x224x384 BFLOAT16 ; input_3 20x
+  pair_factors    MatmulDeviceOperation                  0.011 s x14  floor  0.003  120.4 GB/s  input_0 1x20x224x768 BFLOAT16 ; input_1 1x1x768x384 BFLOAT16 ; output_0 1x20x224x384 BFLOAT16
+  pair_factors    LayerNormDeviceOperation               0.004 s x7  floor  0.002  196.7 GB/s  input_0 1x20x224x768 BFLOAT16 ; input_1 1x1x1x768 BFLOAT16 ; input_2 1x1x1x768 BFLOAT16 ; output_0 1x20x224x76
+  pass_glue       LayerNormDeviceOperation               0.000 s x1  floor  0.000  310.5 GB/s  input_0 1x20x224x256 BFLOAT16 ; output_0 1x20x224x256 BFLOAT16

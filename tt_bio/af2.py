@@ -40,12 +40,15 @@ all-ones mask still takes the None path, so every fold PXDesign runs today is un
 from __future__ import annotations
 
 import collections
+import functools
 import hashlib
+import os
 
 import torch
 import ttnn
 
 from .af2_reference import AF2Model, load_af2_model
+from .envflags import env_flag
 from .tenstorrent import (
     CORE_GRID_MAIN,
     PAIR_ROW_BLOCK,
@@ -56,9 +59,19 @@ from .tenstorrent import (
     Weights,
     _fp32_softmax_attention,
     _pair_bias_from_z,
+    _PAIR_L1_CONSUMER_RESERVE,
+    _l1_fits,
+    _padded_bytes,
+    _residual_update_memory_config,
+    capture_trace,
     host_f64_softmax_site,
     batched_matmul,
     get_device,
+    is_wormhole,
+    model_levers,
+    precise_fidelity,
+    trace_region_size,
+    under_levers,
 )
 
 # The pair-track shape constants of `model_1_ptm`, from the checkpoint's own config
@@ -100,7 +113,37 @@ PAIR_BIAS_ROWBLOCK_BYTES = 128 * 2 ** 20
 # `factor` is 4, so the hidden is 4 pair tensors; at 208 tokens that is 88 MB and fits, and the
 # block is row-local (LayerNorm over channels, two matmuls over channels), so blocking changes
 # nothing a row computes.
-TRANSITION_ROWBLOCK_BYTES = 256 * 2 ** 20
+# 128 MiB, not the 256 MiB this started at: at 480 tokens the hidden is 225 MiB and so ran as one
+# allocation, and that single request is what a 12 GiB Wormhole chip fails in the BindCraft 2
+# Evoformer backward while it still holds 12.49 of 12.885 GB (`state/spd-bc2.md`, the 480 rung of
+# the Wormhole size ladder). Tokens 352-512 block now; 224 and below are unchanged either way.
+TRANSITION_ROWBLOCK_BYTES = int(os.environ.get("TT_BIO_TRANSITION_ROWBLOCK_BYTES", 128 * 2 ** 20))
+# The transition's normed input and its 4x-wide hidden in L1 when the grid has room, so fc1 and fc2
+# read them on chip instead of a DRAM round trip. Same arithmetic, so bit-exact; never under a tape
+# (`_l1_fits` declines there), so a BindCraft 2 round is unchanged.
+TRANSITION_L1 = env_flag("TT_BIO_AF2_TRANSITION_L1", False)
+# The whole transition as one program (`pair_swiglu_ws.pair_relu`): LayerNorm, fc1 + bias, ReLU, fc2 + bias with
+# both weights resident in L1, so x is read once, the output written once, and the normed x and the 4x-wide hidden
+# never reach DRAM. Under a tape only with the `pair_relu` entry installed (TT_BIO_TAPED_KERNELS): the node saves x
+# alone and its backward is `pair_relu_bw` (pre-activation recomputed in L1) then `lnbw.layer_norm_bw`. AF2-IG at 195
+# tokens: Evoformer -0.12 s on Wormhole, -0.10 s on p150a, structure within 0.03 A of the composed path.
+TRANSITION_WS = env_flag("TT_BIO_AF2_TRANSITION_WS", True)
+# Hand the pair representation from the extra-MSA stack straight to the Evoformer stack as a
+# device tensor, instead of downloading it and uploading the same bytes back. `AF2Model.forward`
+# does not touch `pair` between the two calls -- it only concatenates the template torsion rows
+# onto the MSA -- so this moves no arithmetic and is bit-exact by construction. Device A/B on
+# .114 WH 2026-10-12 (off / on / off2 x 3 inputs, AICLK 1000): coords_sha16 identical on every
+# input, extra-MSA stage 0.41-0.44 -> 0.36 s and Evoformer 4.136 -> 4.09 s per fold.
+PAIR_ON_CARD = env_flag("TT_BIO_AF2_PAIR_ON_CARD", True)
+# The triangle multiplications' output tail with the dropped residual as one T2CM kernel in the
+# forwards a tape does not record (`AF2PairBlock._pair_op`). Off outside a BindCraft 2 round on
+# Blackhole (`bindcraft2._FAST_ROUND`): with it and GIN_BIASED on, AF2-IG's trunk misses its i_ptm bar.
+_AF2_T2CM = env_flag("TT_BIO_AF2_T2CM", False)
+# The MSA column attention at depth 2 in closed form (`AF2Attention._column_depth2`). With two keys
+# the softmax is a sigmoid of the logit gap, so the attention is elementwise in the MSA's own
+# [rows, n, c] layout: no permutes, and no 2-row axis padded to a 32-row tile. Depth 2 is every
+# BindCraft 2 round and every AF2-IG fold (the query row plus one template torsion row).
+COL_DEPTH2 = env_flag("TT_BIO_AF2_COL_DEPTH2", True)
 
 
 #: The op classes `scripts/af2_port/tap_gate.py --substitute` moves to host torch, one class per
@@ -118,6 +161,20 @@ SUBSTITUTION_CLASSES = {
 }
 SUBSTITUTION_CLASSES["all"] = tuple(
     name for names in list(SUBSTITUTION_CLASSES.values()) for name in names)
+
+
+def _to_card(t: torch.Tensor, device) -> ttnn.Tensor:
+    return ttnn.from_torch(t.unsqueeze(0).to(torch.bfloat16), layout=ttnn.TILE_LAYOUT,
+                           device=device, dtype=ttnn.bfloat16)
+
+
+def _to_host(t: ttnn.Tensor, dtype: torch.dtype, shape: tuple | None = None) -> torch.Tensor:
+    """Back to host torch, leading ones squeezed down to `shape`'s rank (to rank 3 without one)."""
+    x = torch.Tensor(ttnn.to_torch(t))
+    while x.dim() > (3 if shape is None else len(shape)) and x.shape[0] == 1:
+        x = x.squeeze(0)
+    assert shape is None or tuple(x.shape) == tuple(shape), f"device gave {tuple(x.shape)}, want {shape}"
+    return x.to(dtype)
 
 
 def _host_twins(block, msa_mask: torch.Tensor, pair_mask: torch.Tensor) -> dict:
@@ -185,12 +242,13 @@ def af2_pair_masks(mask_2d: torch.Tensor,
 
 
 def compute_kernel_config() -> ttnn.DeviceComputeKernelConfig:
-    """The repo's trunk kernel config: HiFi4 with an fp32 accumulator, per part."""
+    """The repo's trunk kernel config: HiFi4 (HiFi3 under `tenstorrent.PRECISE_HIFI3`) with an fp32
+    accumulator, per part."""
     device = get_device()
     cls = (ttnn.types.WormholeComputeKernelConfig
            if device.arch() == ttnn.Arch.WORMHOLE_B0
            else ttnn.types.BlackholeComputeKernelConfig)
-    return cls(math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,
+    return cls(math_fidelity=precise_fidelity(), math_approx_mode=False,
                fp32_dest_acc_en=True, packer_l1_acc=True)
 
 
@@ -209,21 +267,65 @@ class ReluTransition(Module):
         self.fc1_bias = self.torch_to_tt("fc1.bias")
         self.fc2_weight = self.torch_to_tt("fc2.weight")
         self.fc2_bias = self.torch_to_tt("fc2.bias")
+        self._ws_weights = self._ws_bw = None
+
+    def _ws(self, x: ttnn.Tensor) -> ttnn.Tensor | None:
+        """The transition as one `pair_relu` program, or None where it does not serve."""
+        from . import ops
+        from . import pair_swiglu_ws as W
+        if ops.declines_under_tape("pair_relu") and ops.recording():
+            return None
+        w = self.weights
+        if self._ws_weights is None:
+            self._ws_weights = W.relu_weights(w["fc1.weight"].t(), w["fc1.bias"], w["fc2.weight"].t(),
+                                              w["fc2.bias"], self.device)
+        if ops.recording() and self._ws_bw is None:
+            self._ws_bw = W.relu_bw_weights(w["fc1.weight"].t(), w["fc2.weight"].t(), self.device)
+        w1, b1, w2, b2 = self._ws_weights
+        ln = (self.norm_weight, self.norm_bias)
+        if not W.relu_eligible(x, w1, w2, ln):
+            return None
+        return W.pair_relu(x, w1, b1, w2, b2, fidelity=self.compute_kernel_config.math_fidelity,
+                           ln=ln + (1e-5,), bw_weights=self._ws_bw)
 
     def _rows(self, x: ttnn.Tensor) -> ttnn.Tensor:
+        if TRANSITION_L1:
+            from .size_limits import is_alloc_refusal
+            try:
+                return self._rows_at(x, True)
+            except RuntimeError as exc:
+                # A refusal, or circular buffers that clash with what L1 already holds: both
+                # throw before anything runs, so the DRAM form below recomputes cleanly.
+                if not (is_alloc_refusal(exc) or "clash" in str(exc)):
+                    raise
+        return self._rows_at(x, False)
+
+    def _rows_at(self, x: ttnn.Tensor, l1: bool) -> ttnn.Tensor:
+        shape = [int(d) for d in x.shape]
+        hidden = shape[:-1] + [int(self.fc1_weight.shape[-1])]
+        xn_mc = _residual_update_memory_config(shape, x.dtype) if l1 else None
+        h_mc = (_residual_update_memory_config(hidden, ttnn.bfloat16) if l1 else None) \
+            or ttnn.DRAM_MEMORY_CONFIG
         xn = ttnn.layer_norm(
             x, weight=self.norm_weight, bias=self.norm_bias, epsilon=1e-5,
-            compute_kernel_config=self.compute_kernel_config,
+            compute_kernel_config=self.compute_kernel_config, memory_config=xn_mc,
         )
-        h = self._lin(xn, self.fc1_weight, bias=self.fc1_bias, activation="relu",
-                      memory_config=ttnn.DRAM_MEMORY_CONFIG)
+        try:
+            h = self._lin(xn, self.fc1_weight, bias=self.fc1_bias, activation="relu",
+                          memory_config=h_mc)
+        except RuntimeError:
+            ttnn.deallocate(xn)
+            raise
         ttnn.deallocate(xn)
-        out = self._lin(h, self.fc2_weight, bias=self.fc2_bias,
-                        memory_config=ttnn.DRAM_MEMORY_CONFIG)
-        ttnn.deallocate(h)
-        return out
+        try:
+            return self._lin(h, self.fc2_weight, bias=self.fc2_bias,
+                             memory_config=ttnn.DRAM_MEMORY_CONFIG)
+        finally:
+            ttnn.deallocate(h)
 
     def __call__(self, x: ttnn.Tensor) -> ttnn.Tensor:
+        if TRANSITION_WS and (out := self._ws(x)) is not None:
+            return out
         shape = [int(d) for d in x.shape]
         hidden_bytes = 1
         for d in shape[:-1]:
@@ -338,16 +440,18 @@ class AF2PairBlock(Module):
     #: `tt_bio/rne_add.py` is graded bit-exact against `round_rne_bf16(exact_sum)` in float64 on
     #: random pairs, a 256x operand ratio and real ties -- at 6 B/element instead of 30, which is
     #: 398 GB and ~1.41 s of BindCraft 2's composed round (`state/perf10/bcx-CALLS.md` leg 3).
-    #: OFF by default and release-gated. Under a tape it also needs `rne_add`'s entry in
-    #: TT_BIO_TAPED_KERNELS; without it `rne_add.eligible` declines and the four calls run.
-    rne_kernel = False
+    #: AF2-IG on a Wormhole chip: digests identical on all three PD-L1 fixtures, 0.5-0.7 s less per
+    #: complex at 195 tokens. Under a tape it also needs `rne_add`'s entry in TT_BIO_TAPED_KERNELS;
+    #: without it `rne_add.eligible` declines and the four calls run.
+    rne_kernel = True
 
     #: Ride linear_g.bias inside the triangle attentions' gate matmul as well as linear_o.bias, one
-    #: rounding instead of a matmul then a 200 us row-broadcast add at 1x288x288x128. Read at call
-    #: time because the blocks are built before `bindcraft2.fast_round()` arms it, which is the
-    #: only place it is armed: AF2-IG's tap gate was scored with "o" alone, and RF3 measured the
-    #: same form with a sign that flips with sequence length (`tenstorrent._bias_in_matmul`).
-    tri_att_g_in_matmul = False
+    #: rounding instead of a matmul then a 225 us row-broadcast add at 1x195x195x128. Read at call
+    #: time because `bindcraft2.fast_round()` re-arms it per round (off on Wormhole, where the
+    #: gradient grade is unsettled). AF2-IG fold A/B off/on/off2 x 3 inputs (perf/spd/af2_flag_ab.sh):
+    #: Wormhole 4.258 -> 4.160 s, faster than both off arms on every input; Blackhole 2.754 -> 2.711 s;
+    #: CA RMSD to off <= 0.115 A. RF3 keeps its own separate add (`tenstorrent._bias_in_matmul`).
+    tri_att_g_in_matmul = env_flag("TT_BIO_AF2_G_BIAS_IN_MATMUL", True)
 
     #: `run(step, *inputs)` that every residual step goes through, or None to call each one
     #: directly. `tt_bio.autograd.substep` is the one runner there is: it checkpoints each step
@@ -418,19 +522,67 @@ class AF2PairBlock(Module):
         # pass, bit-exact, `structure_sha16 cd80f8e274306706` unchanged. Named here rather than
         # defaulted in the shared block because the pairformer stacks share this class and were
         # priced with the lever off (state/pxdesign-af2ig-land.md, D2).
+        # `ragged_m=True`: the swept qkv/gate matmul config at 195 tokens, -0.12 s/complex, CA RMSD
+        # 0.0000 A; it moves OpenFold3/OpenBind digests, so it is not the shared default.
         self.tri_att_start = TriangleAttention(
             head_dim, n_heads, False, self.scope("tri_att_start"), compute_kernel_config,
             scale_pair_bias=False, fp32_softmax=True, fused_hifi=fused_hifi,
-            bias_in_matmul="o", l1_padded_plan=True, softmax_site="af2.tri_att")
+            bias_in_matmul="o", l1_padded_plan=True, softmax_site="af2.tri_att",
+            ragged_m=True)
         self.tri_att_end = TriangleAttention(
             head_dim, n_heads, True, self.scope("tri_att_end"), compute_kernel_config,
             scale_pair_bias=False, fp32_softmax=True, fused_hifi=fused_hifi,
-            bias_in_matmul="o", l1_padded_plan=True, softmax_site="af2.tri_att")
+            bias_in_matmul="o", l1_padded_plan=True, softmax_site="af2.tri_att",
+            ragged_m=True)
         self.pair_transition = ReluTransition(
             self.scope("pair_transition"), compute_kernel_config)
 
+    @staticmethod
+    def _dropped(name: str, update, drop):
+        """AF2's dropout: the update, times its keep mask, before the residual add.
+
+        `drop` is `{op name: mask}` for this block, built by the caller; a name with no entry
+        has rate 0 and is left alone, which is every op outside the five AF2 draws for. The mask
+        already carries the `1 / keep_rate` rescale and is broadcast over the axis
+        `shared_dropout` shares it along, so this is one multiply rather than a full-sized mask:
+        `(1, n, c)` against `(n, n, c)` for a `per_row` draw and `(n, 1, c)` for `per_column`
+        (`modules.apply_dropout`, `broadcast_dim`).
+
+        Under a tape `ttnn` is the proxy, so the multiply tapes itself and the backward is the
+        same mask on the cotangent. The mask is a raw tensor and never a taped one, so it takes
+        no gradient and the broadcast needs no reduction.
+
+        The product lands where the update is unless that is L1 with no room for a second copy.
+        `_residual_update_memory_config` sizes an L1 update for one pair tensor, and a tape
+        keeps the update alive beside its masked copy, so at 576 tokens on a p300c (two 84.9 MB
+        copies against 160.8 MB of L1) the multiply refused in the extra-MSA stack.
+        """
+        mask = None if drop is None else drop.get(name)
+        if mask is None or update is None:
+            return update
+        if update.memory_config().buffer_type == ttnn.BufferType.L1 and not _l1_fits(
+                2 * _padded_bytes(update.shape, 4 if update.dtype == ttnn.float32 else 2),
+                1.0, _PAIR_L1_CONSUMER_RESERVE):
+            return ttnn.multiply(update, mask, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+        return ttnn.multiply(update, mask)
+
+    def _residual_dropped(self, x, name: str, update, drop):
+        """`_residual(x, _dropped(name, update, drop))`, in one kernel where `rne_add_masked`
+        serves the mask (`TT_BIO_RNE_MASK`): the update is read once and the masked update is
+        never written. Same function, rounded the way torch rounds each of the two steps."""
+        mask = None if drop is None or update is None else drop.get(name)
+        if mask is not None and self.rne_residual and self.rne_kernel:
+            from . import rne_add as K
+            config = x.memory_config()
+            if K.masked_eligible(x, update, mask, config):
+                out = K.rne_add_masked(x, update, mask, memory_config=config)
+                ttnn.deallocate(update)
+                ttnn.deallocate(x)
+                return out
+        return self._residual(x, self._dropped(name, update, drop))
+
     def _update(self, name: str, device, x: ttnn.Tensor,
-                *args: ttnn.Tensor) -> ttnn.Tensor | None:
+                *args: ttnn.Tensor, **kw) -> ttnn.Tensor | None:
         """One op's residual update: from the card, or from its host-torch twin if substituted.
 
         The residual add stays on card either way, so a substitution changes exactly one op's
@@ -444,42 +596,60 @@ class AF2PairBlock(Module):
         if name in self.skip:
             return None
         if name not in self.substitute:
-            return device(x, *args)
+            return device(x, *args, **kw)
         down, up, twins = self.host_ops
         return up(twins[name](*[down(t) for t in (x, *args)]))
 
     def __call__(self, z: ttnn.Tensor, mask: ttnn.Tensor | None = None,
-                 attn_mask: ttnn.Tensor | None = None) -> ttnn.Tensor:
+                 attn_mask: ttnn.Tensor | None = None, drop=None) -> ttnn.Tensor:
         self.tri_att_start.bias_in_matmul = self.tri_att_end.bias_in_matmul = (
             _G_O if self.tri_att_g_in_matmul else _O)
-        order = [("tri_mul_out", lambda t: self.tri_mul_out(t, mask)),
-                 ("tri_mul_in", lambda t: self.tri_mul_in(t, mask)),
+        order = [("tri_mul_out", lambda t, **kw: self.tri_mul_out(t, mask, **kw)),
+                 ("tri_mul_in", lambda t, **kw: self.tri_mul_in(t, mask, **kw)),
                  ("tri_att_start", lambda t: self.tri_att_start(t, attn_mask)),
                  ("tri_att_end", lambda t: self.tri_att_end(t, attn_mask))]
         if not self.evoformer_order:
             order = order[2:] + order[:2]
         for name, device in order + [("pair_transition", self.pair_transition)]:
-            z = self._step(lambda t, name=name, device=device:
-                           self._residual(t, self._update(name, device, t)), z)
+            z = self._step(lambda t, name=name, device=device: self._pair_op(t, name, device, drop), z)
         return z
+
+    def _pair_op(self, x, name: str, device, drop):
+        """One pair op and its dropped residual. Under `TT_BIO_AF2_T2CM` a triangle multiplication is
+        offered the residual (`TriangleMultiplication.fused_residual`); where its T2CM tail takes it,
+        the op returns `x + mask * update` and `x` is freed here, as `_residual_dropped` frees it."""
+        kw = {}
+        if _AF2_T2CM and name in ("tri_mul_out", "tri_mul_in"):
+            kw = {"fused_residual": (None if drop is None else drop.get(name),)}
+            getattr(self, name).took_residual = False
+        update = self._update(name, device, x, **kw)
+        if kw and update is not None and getattr(self, name).took_residual:
+            ttnn.deallocate(x)
+            return update
+        return self._residual_dropped(x, name, update, drop)
 class AF2DeviceTemplatePairStack:
     """The template's two `PairBlock`s in ttnn: host torch in, host torch out.
 
     `AF2PairBlock` with `evoformer_order=False` -- the template runs the attentions before the
     multiplications -- at the template's own widths. It takes the same `mask_2d` the trunk does,
     through the same `af2_pair_masks`; the template's pair stack is the same four ops.
+
+    It holds the device and the dtype, not the model's own `_up`/`_down`: a bound method here
+    closes a reference loop through the model (model -> stack -> method -> model), and a trunk
+    in a loop is freed only when the cyclic collector next runs, with all its device weights.
+    BindCraft 2 evicts trunks a hundred times a trajectory, so they piled up on the card.
     """
 
-    def __init__(self, blocks: list, up, down):
-        self.blocks, self._up, self._down = blocks, up, down
+    def __init__(self, blocks: list, device, dtype: torch.dtype):
+        self.blocks, self.device, self.dtype = blocks, device, dtype
 
     def __call__(self, act: torch.Tensor, mask_2d: torch.Tensor) -> torch.Tensor:
         masks = af2_pair_masks(mask_2d)
         shape = tuple(act.shape)
-        z = self._up(act)
+        z = _to_card(act, self.device)
         for block in self.blocks:
             z = block(z, *masks)
-        out = self._down(z, shape)
+        out = _to_host(z, self.dtype, shape)
         ttnn.deallocate(z)
         return out
 
@@ -558,6 +728,14 @@ class AF2Attention(Module):
         self.g_bias = self.torch_to_tt("linear_g.bias")
         self.o_weight = self.torch_to_tt("linear_o.weight")
         self.o_bias = self.torch_to_tt("linear_o.bias")
+        if column:
+            # Sums each head's channels and spreads the sum back over them, times the q scale:
+            # x @ head_sum is every channel's own head logit. A constant, not a weight.
+            width = n_heads * head_dim
+            self.head_sum = ttnn.from_torch(
+                torch.block_diag(*[torch.full((head_dim, head_dim), self.scale_inv)] * n_heads)
+                .reshape(width, width), layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16,
+                device=self.device)
         if pair_bias:
             self.pair_norm_weight = self.torch_to_tt("pair_norm.weight")
             self.pair_norm_bias = self.torch_to_tt("pair_norm.bias")
@@ -607,6 +785,56 @@ class AF2Attention(Module):
             ttnn.deallocate(t)
         return out
 
+    def _column_depth2(self, msa: ttnn.Tensor, mask_bias: ttnn.Tensor | None) -> ttnn.Tensor:
+        """The column attention over exactly two MSA rows, in the MSA's own [2, n, c] layout.
+
+        Each query row s sees two keys, so its softmax is `p = sigmoid(l_s0 - l_s1)` and
+        `1 - p`, and the attended value is `v1 + p * (v0 - v1)`. The logit gap is
+        `scale * q_s . (k0 - k1)` per head, plus the gap of the two keys' mask biases, which
+        `_mask_biases` builds as one [1, n, 1] column. The general path permutes to [n, 2, c],
+        where every tile carries 2 real rows of 32, and runs a [2, 2] softmax per column and
+        head. This one never leaves the row layout. The arithmetic is the same function: the
+        gap is taken before the dot product rather than after two rounded logits.
+        """
+        rows, n, c = (int(d) for d in msa.shape)
+        x = ttnn.layer_norm(
+            msa, weight=self.norm_weight, bias=self.norm_bias, epsilon=1e-5,
+            compute_kernel_config=self.compute_kernel_config,
+            memory_config=ttnn.DRAM_MEMORY_CONFIG,
+        )
+        qkv = self._lin(x, self.qkv_weight, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+        w = self.n_heads * self.head_dim
+        part = lambda r0, r1, j: ttnn.slice(qkv, (r0, 0, j * w), (r1, n, (j + 1) * w))
+        q = part(0, rows, 0)
+        k0, k1 = part(0, 1, 1), part(1, 2, 1)
+        v0, v1 = part(0, 1, 2), part(1, 2, 2)
+        ttnn.deallocate(qkv)
+        kd = ttnn.subtract(k0, k1)
+        vd = ttnn.subtract(v0, v1)
+        for t in (k0, k1, v0):
+            ttnn.deallocate(t)
+        qk = ttnn.multiply(q, kd)
+        ttnn.deallocate(q)
+        ttnn.deallocate(kd)
+        gap = self._lin(qk, self.head_sum, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+        ttnn.deallocate(qk)
+        if mask_bias is not None:
+            gap = ttnn.add(gap, mask_bias)
+        mixed = ttnn.multiply(gap, vd, input_tensor_a_activations=[ttnn.UnaryOpType.SIGMOID])
+        ttnn.deallocate(vd)
+        ttnn.deallocate(gap)
+        out = ttnn.add(mixed, v1)
+        ttnn.deallocate(mixed)
+        ttnn.deallocate(v1)
+        gate = self._lin(x, self.g_weight, bias=self.g_bias,
+                         memory_config=ttnn.DRAM_MEMORY_CONFIG)
+        ttnn.deallocate(x)
+        out = sigmoid_gate(out, gate, self.rne_sigmoid)
+        projected = self._lin(out, self.o_weight, bias=self.o_bias,
+                              memory_config=ttnn.DRAM_MEMORY_CONFIG)
+        ttnn.deallocate(out)
+        return projected
+
     def __call__(self, msa: ttnn.Tensor, pair: ttnn.Tensor | None = None,
                  mask_bias: ttnn.Tensor | None = None) -> ttnn.Tensor:
         """`mask_bias` is AF2's `1e9 * (msa_mask - 1)` already shaped for the softmax axis.
@@ -619,6 +847,8 @@ class AF2Attention(Module):
         assert (pair is not None) == self.pair_bias, "pair_bias and the pair argument disagree"
         if len(msa.shape) == 4:
             msa = ttnn.reshape(msa, tuple(msa.shape)[1:])
+        if self.column and COL_DEPTH2 and int(msa.shape[0]) == 2:
+            return self._column_depth2(msa, mask_bias)
         if self.column:
             msa = ttnn.permute(msa, (1, 0, 2))
         x = ttnn.layer_norm(
@@ -652,6 +882,16 @@ class AF2Attention(Module):
         return projected
 
 
+def rows_joined_blocks(o: torch.Tensor, S: int, C: int, D: int) -> torch.Tensor:
+    """`proj_o` ([C * D, c_z]) as `AF2MaskedOuterProductMean._rows_joined_weight` lays it out."""
+    c_z = int(o.shape[-1])
+    per_row = o.reshape(C, D, c_z).permute(2, 1, 0)
+    blocks = torch.zeros(c_z, S, D, S, C, dtype=o.dtype)
+    for s_i in range(S):
+        blocks[:, s_i, :, s_i, :] = per_row
+    return blocks.reshape(c_z * S * D, S * C)
+
+
 class AF2MaskedOuterProductMean(OuterProductMean):
     """AF2's outer product mean with a real MSA mask.
 
@@ -673,6 +913,52 @@ class AF2MaskedOuterProductMean(OuterProductMean):
     EPS = 1e-3
     # Rows joined along the contraction (`_sum_rows`), armed by `bindcraft2.fast_round`.
     rows_in_k = False
+    # `_rows_joined_weight` is S x S blocks of proj_o, so it grows with the square of the depth.
+    ROWS_JOINED_MAX = 4
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._o_joined: dict[tuple[int, int, int], ttnn.Tensor] = {}
+
+    def _rows_joined_weight(self, S: int, C: int, D: int) -> ttnn.Tensor:
+        """`proj_o` as [c_z * S * D, S * C], block diagonal over the rows: entry
+        `((k * S + s) * D + d, s * C + c)` is `W[c, d, k]` and every other entry is 0.
+
+        `this @ a^T` is every row's `sum_c a_sic W_cdk` at once as [c_z * S * D, I], which splits
+        to [c_z, S * D, I] without moving a byte (S * D is whole tiles), and the contraction with
+        `b` reads after one permute. Built from the device copy, so it holds exactly the bf16 values
+        `proj_o` holds; the zero blocks add exact zeros to the fp32 destination."""
+        w = self._o_joined.get((S, C, D))
+        if w is None:
+            w = ttnn.from_torch(rows_joined_blocks(ttnn.to_torch(self.o_weight), S, C, D),
+                                dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=self.device)
+            self._o_joined[(S, C, D)] = w
+        return w
+
+    def _sum_rows_joined(self, a, b, S, I, C, J, D):
+        """`_sum_rows` with the rows inside the contraction: [I, c_z, S*D] x [S*D, J] is one
+        product, accumulated in the fp32 destination, where S products and S-1 bf16 adds of
+        [J, I, c_z] would round each partial. The first product comes out as [c_z * S * D, I],
+        a tile view of [c_z, S * D, I], and one permute gives the operand the second reads.
+        The per-row form took a matmul, a row-major round trip and a permute per row and a
+        concat per operand; [I, c_z * S * D] would need a reshape that moves bytes at ~6 GB/s,
+        and `transpose_a` on a batched operand against a 2D one is refused by ttnn."""
+        w = self._rows_joined_weight(S, C, D)
+        c_z = int(w.shape[0]) // (S * D)
+        at = ttnn.reshape(ttnn.permute(a, (0, 2, 1)), (S * C, I))
+        T = ttnn.matmul(w, at, compute_kernel_config=self.compute_kernel_config,
+                        core_grid=CORE_GRID_MAIN)
+        A = ttnn.permute(ttnn.reshape(T, (c_z, S * D, I)), (2, 0, 1))
+        bt = ttnn.reshape(ttnn.permute(b, (0, 2, 1)), (S * D, J))
+        # ttnn plans a matmul on a.shape[-2] alone, so [I, c_z, S*D] ran as a 4-tile-tall product
+        # repeated I times. [1, I * c_z, S*D] is the same tiles in the same order, planned as one
+        # product I * c_z tall; rank 3 keeps the tape's VJP on its `_flat2d`/`_via2d` path.
+        A = ttnn.reshape(A, (1, I * c_z, S * D))
+        out = ttnn.matmul(A, bt, compute_kernel_config=self.compute_kernel_config,
+                          core_grid=CORE_GRID_MAIN)
+        out = ttnn.permute(ttnn.reshape(out, (I, c_z, J)), (0, 2, 1))
+        out = ttnn.add(out, self.o_bias)
+        return ttnn.reshape(out, (1, *tuple(out.shape)))
 
     def _sum_rows(self, a: ttnn.Tensor, b: ttnn.Tensor) -> ttnn.Tensor:
         """`sum_s a_sic b_sjd W_cdk + o_bias`, unscaled, without `ttnn.repeat`.
@@ -684,6 +970,8 @@ class AF2MaskedOuterProductMean(OuterProductMean):
         """
         S, I, C = (int(d) for d in a.shape)
         _, J, D = (int(d) for d in b.shape)
+        if self.rows_in_k and 1 < S <= self.ROWS_JOINED_MAX and self.o_weight.dtype == ttnn.bfloat16:
+            return self._sum_rows_joined(a, b, S, I, C, J, D)
         w = self._proj_o_folded(C, D)
         c_z = int(w.shape[1]) // D
         As, bts = [], []
@@ -698,9 +986,7 @@ class AF2MaskedOuterProductMean(OuterProductMean):
             b_s = ttnn.reshape(b if S == 1 else b[s_i:s_i + 1], (J, D))
             bts.append(ttnn.permute(b_s, (1, 0)))
         if self.rows_in_k and S > 1:
-            # The sum over rows is part of the contraction: [I, c_z, S*D] x [S*D, J] is one
-            # product, accumulated in the fp32 destination, where S products and S-1 bf16 adds
-            # of [J, I, c_z] round each partial. D is whole tiles, so both joins are tile-aligned.
+            # Past `ROWS_JOINED_MAX` or on a non-bf16 weight: the same join, by concat.
             out = ttnn.matmul(ttnn.concat(As, dim=-1), ttnn.concat(bts, dim=0),
                               compute_kernel_config=self.compute_kernel_config)
             out = ttnn.permute(out, (0, 2, 1))
@@ -877,8 +1163,14 @@ class AF2EvoformerBlock(AF2PairBlock):
         rows, n = (int(d) for d in msa_mask.shape)
         flat = ttnn.multiply(ttnn.subtract(msa_mask, 1.0), MASK_LOGIT_BIAS)
         row_bias = ttnn.fill_implicit_tile_padding(ttnn.reshape(flat, (rows, 1, 1, n)), 0.0)
-        transposed = ttnn.permute(flat, (1, 0))
-        col_bias = ttnn.fill_implicit_tile_padding(ttnn.reshape(transposed, (n, 1, 1, rows)), 0.0)
+        if rows == 2 and COL_DEPTH2:
+            # `_column_depth2` adds the gap between the two keys' biases, per column.
+            gap = ttnn.subtract(ttnn.slice(flat, (0, 0), (1, n)), ttnn.slice(flat, (1, 0), (2, n)))
+            col_bias = ttnn.reshape(ttnn.permute(gap, (1, 0)), (1, n, 1))
+        else:
+            transposed = ttnn.permute(flat, (1, 0))
+            col_bias = ttnn.fill_implicit_tile_padding(
+                ttnn.reshape(transposed, (n, 1, 1, rows)), 0.0)
         if cached is not None:
             cache.check((row_bias, col_bias), cached)
             return cached
@@ -888,9 +1180,11 @@ class AF2EvoformerBlock(AF2PairBlock):
 
     def _msa_track(self, msa: ttnn.Tensor, pair: ttnn.Tensor,
                    row_bias: ttnn.Tensor | None = None,
-                   col_bias: ttnn.Tensor | None = None) -> ttnn.Tensor:
+                   col_bias: ttnn.Tensor | None = None, drop=None) -> ttnn.Tensor:
         msa = self._step(lambda m, p: self._residual(
-            m, self._update("msa_row_attn", self.msa_row_attn, m, p, row_bias)), msa, pair)
+            m, self._dropped("msa_row_attn",
+                             self._update("msa_row_attn", self.msa_row_attn, m, p, row_bias),
+                             drop)), msa, pair)
         msa = self._step(lambda m: self._residual(
             m, self._update("msa_col_attn", self.msa_col_attn, m, None, col_bias)), msa)
         msa = self._step(lambda m: self._residual(
@@ -904,7 +1198,8 @@ class AF2EvoformerBlock(AF2PairBlock):
 
     def __call__(self, msa: ttnn.Tensor, z: ttnn.Tensor,
                  msa_mask: ttnn.Tensor | None = None, mask: ttnn.Tensor | None = None,
-                 attn_mask: ttnn.Tensor | None = None) -> tuple[ttnn.Tensor, ttnn.Tensor]:
+                 attn_mask: ttnn.Tensor | None = None,
+                 drop=None) -> tuple[ttnn.Tensor, ttnn.Tensor]:
         row_bias, col_bias = (self._mask_biases(msa_mask) if msa_mask is not None
                               else (None, None))
         if self.opm_first:
@@ -912,7 +1207,7 @@ class AF2EvoformerBlock(AF2PairBlock):
             # the row attention reads it as a bias. Same ops and same weights as the monomer
             # block; only this order differs, and it differs for all 52 blocks.
             z = self._step(lambda p, m: self._residual(p, self._opm_update(m, msa_mask)), z, msa)
-        msa = self._msa_track(msa, z, row_bias, col_bias)
+        msa = self._msa_track(msa, z, row_bias, col_bias, drop)
         # AF2 divides the outer product mean by `eps + norm`, and at an all-ones mask the norm
         # is the MSA depth everywhere. `eps` is 1e-3 and the trunk is bfloat16, whose spacing at
         # 2.0 is 0.0078, so `eps + norm` rounds back to the depth exactly -- at any depth, since
@@ -921,7 +1216,7 @@ class AF2EvoformerBlock(AF2PairBlock):
         # tensor, which is that divisor.
         if not self.opm_first:
             z = self._step(lambda p, m: self._residual(p, self._opm_update(m, msa_mask)), z, msa)
-        return msa, super().__call__(z, mask, attn_mask)
+        return msa, super().__call__(z, mask, attn_mask, drop)
 
 
 class AF2SingleActivations(Module):
@@ -977,6 +1272,12 @@ class AF2DeviceModel(AF2Model):
     #: sets it and never pays for any of it.
     block_tap = None
 
+    #: Keep the pair on card across the extra-MSA -> Evoformer seam (see `PAIR_ON_CARD`). The
+    #: two stacks are adjacent in `AF2Model.forward` with nothing between them that reads the
+    #: pair, so the download and the matching upload are both dead. Taken only on the eager
+    #: path and with no instrument installed -- `_pair_handoff` is where that is decided.
+    pair_on_card: bool = PAIR_ON_CARD
+
     #: True runs the four extra-MSA blocks in host torch instead of on card. That stack sets
     #: the pair representation the 48 Evoformer blocks start from, so this is the other half of
     #: the substitution instrument: it moves the block-0 input between the two arms without
@@ -1005,7 +1306,10 @@ class AF2DeviceModel(AF2Model):
     #: triangle attention too. Not bit-exact against the materialised path: an online softmax
     #: reduces over k in a different order, so a change here is an accuracy question, scored by
     #: `filter_flip_rate.py` over both design populations.
-    triatt_fused: frozenset | None = None
+    #: Default: every stack. AF2-IG on a Wormhole chip (three PD-L1 complexes, 195 tokens): all-atom
+    #: RMSD to the materialised softmax 0.05-0.38 A, ipTM within 0.0007, ~2 s less per complex.
+    #: Below `_TRIATT_FUSED_HIFI_MIN_S` tokens the materialised path still runs.
+    triatt_fused: frozenset | None = frozenset(TRIATT_FUSED_STACKS)
 
     #: Off recomputes the template every pass. It must change no number anywhere, which is what
     #: `tap_gate.py --device --no-template-cache` checks against the same reference taps. On, the
@@ -1013,6 +1317,18 @@ class AF2DeviceModel(AF2Model):
     #: invalidated by the next design rather than served to it. Only the monomer may take it --
     #: see `template_cacheable`.
     template_cached = True
+
+    #: Replay the extra-MSA and Evoformer stacks from a captured trace, which takes the host's
+    #: per-op dispatch off the critical path. The first call at a shape runs the stack eagerly,
+    #: the second runs it eagerly once more, captures it and replays it, and later calls only
+    #: replay (see `_replay` for why the capture waits a call). Needs a device opened with `get_device(trace="af2")`;
+    #: without the region, or under any instrument (`block_tap`, `substitute`, `skip`) or a real
+    #: mask, the stack runs eagerly as before. Same ops on the same buffers as the eager loop.
+    trace_stacks = False
+    #: Bisection knobs for the trace: replay only the first `trace_blocks` Evoformer blocks (the
+    #: rest run eagerly on clones of the trace's outputs) and execute the replay blocking.
+    trace_blocks: int | None = None
+    trace_blocking = False
 
     @property
     def template_cacheable(self) -> bool:
@@ -1044,7 +1360,20 @@ class AF2DeviceModel(AF2Model):
         self.opm_constant: list = []
         self._device = None
         self._template_cache = None
+        self._pair_card_shape: tuple | None = None
+        self._traces: dict = {}
+        self._opm_constant_tt: list = []
+        # triatt_tail_bias: the biased triangle-attention tail in one program, AF2's only lever (no
+        # other shared trunk lever fires at 195 tokens: biases, Kt = 7, its own kernel config).
+        # AF2-IG on Wormhole (chip 8, 1000 MHz, 12 folds per arm, off/on/off): 5.056 / 4.984 / 5.111 s,
+        # CA RMSD to the untouched fold 0.023 / 0.257 / 0.074 A on seeds 0-2, ipTM within 0.003.
+        # pair_mm: the pair-track linears on minimal_matmul, Wormhole only until Blackhole is timed.
+        # [1,195,195,128] x [128,512] + ReLU 1.17 -> 0.44 ms, 128 -> 128 0.39 -> 0.19 ms (.114,
+        # 1000 MHz, perf/spd/af2_pair_linear_sweep.py), float64 rel L2 unchanged at 0.0017.
+        own = frozenset({"triatt_tail_bias"}) | (frozenset({"pair_mm"}) if is_wormhole() else frozenset())
+        self._levers = model_levers(normal=own, fast=own)
 
+    @under_levers
     def to_device(self) -> "AF2DeviceModel":
         """Build the ttnn blocks from the parameters already loaded into the torch modules."""
         state = self.state_dict()
@@ -1072,7 +1401,7 @@ class AF2DeviceModel(AF2Model):
                              fused_hifi=self._fused_hifi("template"))
                 for i in range(len(self.template.pair_stack))]
             self._template_stack = AF2DeviceTemplatePairStack(
-                self.device_template, self._up, self._down)
+                self.device_template, self._device, self.trunk_dtype)
             self.set_template_host(self.template_host)
         self.device_single = AF2SingleActivations(scoped("single_activations."), ckc)
         zero = torch.zeros((), dtype=self.trunk_dtype)
@@ -1084,15 +1413,20 @@ class AF2DeviceModel(AF2Model):
     # ------------------------------------------------------------------ the boundary
 
     def _up(self, t: torch.Tensor) -> ttnn.Tensor:
-        return ttnn.from_torch(t.unsqueeze(0).to(torch.bfloat16), layout=ttnn.TILE_LAYOUT,
-                               device=self._device, dtype=ttnn.bfloat16)
+        return _to_card(t, self._device)
 
     def _down(self, t: ttnn.Tensor, shape: tuple) -> torch.Tensor:
-        x = torch.Tensor(ttnn.to_torch(t))
-        while x.dim() > len(shape) and x.shape[0] == 1:
-            x = x.squeeze(0)
-        assert tuple(x.shape) == tuple(shape), f"device gave {tuple(x.shape)}, want {shape}"
-        return x.to(self.trunk_dtype)
+        return _to_host(t, self.trunk_dtype, shape)
+
+    def _pair_handoff(self) -> bool:
+        """Whether the extra-MSA stack may hand the Evoformer stack a device pair.
+
+        Only on the plain eager path: an instrument (`block_tap`, `substitute`, `skip`) wants the
+        host tensor at the seam, `extra_msa_host` never produced a device one, and a traced stack
+        replays out of a buffer the next capture owns, so that one keeps the download.
+        """
+        return (self.pair_on_card and not self.extra_msa_host and self.block_tap is None
+                and not self.substitute and not self.skip and not self.trace_stacks)
 
     @property
     def _device_blocks(self) -> list:
@@ -1170,13 +1504,6 @@ class AF2DeviceModel(AF2Model):
         for block in self.device_extra_msa + self.device_evoformer:
             block.skip = self.skip
 
-    def _down_unshaped(self, t: ttnn.Tensor) -> torch.Tensor:
-        """`_down` for the substitution bridge, which knows the op but not the rank."""
-        x = torch.Tensor(ttnn.to_torch(t))
-        while x.dim() > 3 and x.shape[0] == 1:
-            x = x.squeeze(0)
-        return x.to(self.trunk_dtype)
-
     def _install_substitution(self, msa_mask: torch.Tensor, pair_mask: torch.Tensor) -> None:
         """Point every Evoformer block's substituted ops at their host-torch twins.
 
@@ -1186,7 +1513,9 @@ class AF2DeviceModel(AF2Model):
         """
         for block, host in zip(self.device_evoformer, self.evoformer):
             block.substitute = self.substitute
-            block.host_ops = (self._down_unshaped, self._up,
+            # Not bound methods: those would loop the blocks back to the model.
+            block.host_ops = (functools.partial(_to_host, dtype=self.trunk_dtype),
+                              functools.partial(_to_card, device=self._device),
                               _host_twins(host, msa_mask, pair_mask))
 
     def _tap(self, tag: str, **payload) -> None:
@@ -1195,6 +1524,56 @@ class AF2DeviceModel(AF2Model):
 
     # ------------------------------------------------------------------ the two stacks
 
+    def _traceable(self, *masks, name: str = "") -> bool:
+        stacks = self.trace_stacks
+        return (stacks and (stacks is True or name in stacks) and self.block_tap is None and not self.substitute
+                and not self.skip and all(m is None for m in masks)
+                and trace_region_size() > 0)
+
+    def _replay(self, name: str, run, *inputs: torch.Tensor) -> tuple | None:
+        """`run(*inputs on card)` from a trace keyed on `name` and the input shapes, or None.
+
+        None on the first call at a key: the caller runs its eager loop. A capture must come
+        after every program and every persistent buffer the fold allocates lazily exists. A
+        buffer first allocated after a capture can sit where the trace keeps an intermediate,
+        and each replay then overwrites it: capturing the extra-MSA stack before the Evoformer
+        had ever run, or one Evoformer block before the other 47, changed the fold's digest on
+        a p150a, while capturing all 48 after a whole eager pass reproduced it exactly.
+
+        The second call runs `run` once eagerly on the same clones and then captures it: a
+        capture must not compile or upload anything, and only the exact code it records is
+        sure to have compiled every program it dispatches (the `clone`s included). The trace
+        owns persistent input buffers that each replay overwrites, and `run` reads clones of
+        them, because the blocks deallocate their inputs as they go. The outputs are the
+        trace's own buffers: download them, never deallocate them.
+        """
+        key = (name, *(tuple(t.shape) for t in inputs))
+        if key not in self._traces:
+            self._traces[key] = None
+            return None
+        tr = self._traces[key]
+        if tr is None:
+            bufs = [self._up(t) for t in inputs]
+            for out in run(*[ttnn.clone(b) for b in bufs]):
+                ttnn.deallocate(out)
+            ttnn.synchronize_device(self._device)
+            tid, outs = capture_trace(self._device, lambda: run(*[ttnn.clone(b) for b in bufs]))
+            tr = self._traces[key] = (tid, bufs, outs)
+        else:
+            for t, buf in zip(inputs, tr[1]):
+                ttnn.copy_host_to_device_tensor(
+                    ttnn.from_torch(t.unsqueeze(0).to(torch.bfloat16), layout=ttnn.TILE_LAYOUT,
+                                    dtype=ttnn.bfloat16), buf)
+        ttnn.execute_trace(self._device, tr[0], cq_id=0, blocking=self.trace_blocking)
+        return tr[2]
+
+    def release_traces(self) -> None:
+        for tr in self._traces.values():
+            if tr is not None:
+                ttnn.release_trace(self._device, tr[0])
+        self._traces.clear()
+
+    @under_levers
     def extra_msa_stack(self, extra: torch.Tensor, pair: torch.Tensor,
                         extra_mask: torch.Tensor, pair_mask: torch.Tensor) -> torch.Tensor:
         if self.extra_msa_host:
@@ -1210,6 +1589,18 @@ class AF2DeviceModel(AF2Model):
             "collapses to under an all-zero mask; a real extra MSA needs the track written")
         shape = tuple(pair.shape)
         masks = af2_pair_masks(pair_mask, self._device)
+        if self._traceable(*masks, name="extra_msa"):
+            if len(self._opm_constant_tt) != len(self.opm_constant):
+                self._opm_constant_tt = [self._up(c.reshape(1, 1, -1)) for c in self.opm_constant]
+
+            def run(z):
+                for block, const in zip(self.device_extra_msa, self._opm_constant_tt):
+                    z = block(block._residual(z, ttnn.clone(const)), *masks)
+                return (z,)
+
+            out = self._replay("extra_msa", run, pair)
+            if out is not None:
+                return self._down(out[0], shape)
         z = self._up(pair)
         for index, block in enumerate(self.device_extra_msa):
             if self.block_tap is not None:
@@ -1222,21 +1613,54 @@ class AF2DeviceModel(AF2Model):
             z = block(block._residual(z, const), *masks)
             if self.block_tap is not None:
                 self._tap("extra_msa_stack", msa=extra, pair=self._down(z, shape))
+        if self._pair_handoff():
+            # The Evoformer stack takes it from here and deallocates it; `forward` only passes
+            # it along, so nothing on host ever looks at these bytes.
+            self._pair_card_shape = shape
+            return z
         out = self._down(z, shape)
         ttnn.deallocate(z)
         return out
 
+    @under_levers
     def evoformer_stack(self, msa: torch.Tensor, pair: torch.Tensor, msa_mask: torch.Tensor,
                         pair_mask: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         if self.substitute:
             self._install_substitution(msa_mask, pair_mask)
-        msa_shape, pair_shape = tuple(msa.shape), tuple(pair.shape)
+        # `extra_msa_stack` hands the pair over on card under `_pair_handoff`; its host shape
+        # comes with it, because a tiled device tensor is padded and no longer says it.
+        pair_tt = pair if isinstance(pair, ttnn.Tensor) else None
+        msa_shape = tuple(msa.shape)
+        pair_shape = self._pair_card_shape if pair_tt is not None else tuple(pair.shape)
+        assert pair_shape is not None
         # One set of mask tensors for all 48 blocks. `None` on an all-ones mask, which keeps
         # every fold PXDesign runs today on the arithmetic it ran before, bit for bit.
         pair_masks = af2_pair_masks(pair_mask, self._device)
         msa_mask_tt = (None if bool((msa_mask == 1).all())
                        else self._up(msa_mask.float()))
-        m, z = self._up(msa), self._up(pair)
+        if pair_tt is None and self._traceable(msa_mask_tt, *pair_masks, name="evoformer"):
+            n = len(self.device_evoformer) if self.trace_blocks is None else self.trace_blocks
+
+            def run(m, z):
+                for block in self.device_evoformer[:n]:
+                    m, z = block(m, z, None, *pair_masks)
+                return m, z
+
+            out = self._replay("evoformer", run, msa, pair)
+        else:
+            out = None
+        if out is not None:
+            m, z = out
+            if n < len(self.device_evoformer):
+                m, z = ttnn.clone(m), ttnn.clone(z)
+                for block in self.device_evoformer[n:]:
+                    m, z = block(m, z, None, *pair_masks)
+                out = self._down(m, msa_shape), self._down(z, pair_shape)
+                ttnn.deallocate(m)
+                ttnn.deallocate(z)
+                return out
+            return self._down(m, msa_shape), self._down(z, pair_shape)
+        m, z = self._up(msa), (pair_tt if pair_tt is not None else self._up(pair))
         for block in self.device_evoformer:
             m, z = block(m, z, msa_mask_tt, *pair_masks)
             if self.block_tap is not None:
@@ -1282,6 +1706,7 @@ class AF2DeviceModel(AF2Model):
 
         return tuple(digest(t) for t in parts)
 
+    @under_levers
     def template_embedding(self, pair: torch.Tensor, feats: dict, mask_2d: torch.Tensor,
                            multichain_mask: torch.Tensor) -> torch.Tensor:
         key = self._template_key(feats, mask_2d, multichain_mask)

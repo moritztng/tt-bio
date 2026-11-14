@@ -1,0 +1,6 @@
+target:
+  file: complex.pdb
+  chain: A
+binder:
+  sequence: AGVENVTELKKNFNRHLHFTLVKDRNVATPRDYYFALAHTVRDHLVGRWIRTQQHYYEKDPKRIYYLSLEFYMGRTLQNT
+  chain: B

@@ -1,0 +1,9 @@
+#!/bin/bash
+# upstream Mol-1 CPU fp32 per-PairformerBlock single track, 8fg6 s42 (mol1-whl3 bisect)
+cd /home/moritz/mol1-whl3/scr
+export MOL_ROOT_DIR=/home/moritz/mol1-upstream/io-data
+echo "start $(date -u +%FT%TZ)"
+nice -n 19 /home/moritz/mol1-upstream/io-venv/bin/python -I blk_probe.py probe43_8fg6.pt /home/moritz/mol1-whl3/wh111/layers_8fg6/layers.pt -- --input_json_path in_q_8fg6-assembly1.json \
+  --dump_dir out_p8fg6 --load_checkpoint_path /home/moritz/mol1-whl3/ckpt/mol-1-base.pt --seeds 42 --use_seeds_in_json false \
+  --device cpu --triangle_attention torch --triangle_multiplicative torch --sample_diffusion.N_step 2 --sample_diffusion.N_sample 1 > log_probe43_8fg6.txt 2>&1
+echo "rc=$? $(date -u +%FT%TZ)"; echo PROBE-EXIT

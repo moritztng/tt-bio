@@ -30,12 +30,26 @@ from tt_bio import esmc as E  # noqa: E402
 
 
 class _T:
-    """Enough of a tensor for the stubs to hand around."""
+    """Enough of a tensor for the stubs to hand around.
+
+    `_ffn` norms through `esmc._ln`, which offers the shape to `ln_split.layer_norm` first, and that
+    reads real tensor attributes off whatever it is handed (`ln_split.py:112`). A stand-in without
+    them raises `AttributeError: '_T' object has no attribute 'dtype'` there instead of declining.
+    So the stand-in declares itself as what it is, not a bf16 TILE DRAM tensor: the split declines,
+    `_ln` falls back to the stubbed `ttnn.layer_norm`, and these tests stay about the branch choice
+    in `_ffn` and nothing else.
+    """
+
+    dtype = None
+    layout = None
 
     def __init__(self, name):
         self.name = name
         self.shape = (1, 32, 1536, 256)
         self.padded_shape = self.shape
+
+    def memory_config(self):
+        return None
 
 
 def _stub_ttnn(monkeypatch):
@@ -60,6 +74,9 @@ class _Unsplit:
 
     _ffn = E.SwiGLUFFN._ffn
     _fc1_full = E.SwiGLUFFN._fc1_full
+
+    def _mm_gate(self, x_norm, l1_gated):   # the gated-matmul FFN declines: these tests read the plain split arm
+        return None
 
     def __init__(self):
         self.split_swiglu = False
@@ -106,3 +123,20 @@ def test_a_split_module_still_takes_the_split_path(monkeypatch):
     monkeypatch.setattr(E, "_PAIR_FFN_L1_FC1", False)   # the plain split arm, no L1 levers
     ffn._ffn(_T("block"), split=True, l1_gated=True)
     assert ffn.lins == ["fc1_a", "fc1_b", "fc2"], ffn.lins
+
+
+def test_a_split_module_below_the_split_threshold_builds_no_full_fc1(monkeypatch):
+    """Under SPLIT_SWIGLU_MIN_SEQ `_ffn` gets split=False. A split-built module must still multiply by its
+    halves: the concatenated fc1 it used to build stayed resident per block, 70.8 MB a layer for the ESMC-6B,
+    and OOMed the 6B on a 12 GB Wormhole chip for any sequence under 144 tokens (gate rel-2d65d109f)."""
+    _stub_ttnn(monkeypatch)
+    ffn = _Unsplit()
+    ffn.split_swiglu = True
+    ffn.fc1_weight = None
+    ffn.fc1_a_weight = _T("fc1_a")
+    ffn.fc1_b_weight = _T("fc1_b")
+    ffn._fc1_full = lambda: pytest.fail("built the full fc1 copy")
+    monkeypatch.setattr(E, "_SPLIT_SWIGLU", True)
+    ffn._ffn(_T("short"), split=False)
+    assert ffn.lins == ["fc1_a", "fc1_b", "fc2"], ffn.lins
+    assert ffn.fc1_weight is None

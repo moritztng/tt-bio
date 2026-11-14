@@ -124,3 +124,84 @@ def test_env_int_refuses_a_value_it_cannot_parse(monkeypatch):
     monkeypatch.setenv("TT_BIO_X_INT", "1o24")
     with pytest.raises(ValueError):
         env_int("TT_BIO_X_INT", 1024)
+
+
+def test_padded_pairs_at_736_lead_with_the_measured_best():
+    """736 is 23 tiles, prime: no dividing pair, so the ladder offers the padded route. On a
+    Wormhole 8x9 grid at Protenix-v2's 8 heads its first pick must be q256 k768, the whole row as
+    one even k chunk, the fastest padded pair measured (17.39 ms against 20.01 at q256 k384 and
+    20.10 at q192 k768, perf/spd_attn/opbench.py on .107 chip 8)."""
+    assert TS.fused_pairs(736, 8, HEAD_DIM, 72) == ()
+    pairs = TS.fused_pairs(736, 8, HEAD_DIM, 72, padded=True)
+    assert pairs[:2] == ((256, 768), (256, 384))
+
+
+def _clear_pair_memos():
+    for f in (TS.fused_pairs, getattr(TS, "_ranked_pairs", None)):
+        if f is not None:
+            f.cache_clear()
+
+
+def test_the_token_dit_is_priced_at_its_own_batch(monkeypatch):
+    """The token DiT's batch is its 5 samples, not the sequence. Priced at batch 5 on a Wormhole
+    8x9 grid at 16 heads and head dim 64, the first padded pair is the q192 split that lights 64
+    cores (0.532 ms against 0.693 ms for q384 k256, the seq-priced pick; perf/spd_ditsdpa/opbench.py
+    on .107 chips 3 and 11). The default batch is still the sequence, so triangle attention's order
+    is unchanged.
+
+    Priced at Wormhole's own L1 (`sdpa_generic.cb_budget`) whatever card runs the test: on Blackhole's
+    budget q384 k384 also fits and leads, on a Wormhole host it does not, and the test read the host."""
+    monkeypatch.setattr(SG, "cb_budget", lambda wormhole=None: SG.WH_CB_BUDGET)
+    _clear_pair_memos()
+    try:
+        assert TS.fused_pairs(736, 16, 64, 72, padded=True, batch=5)[0] == (192, 768)
+        assert TS.fused_pairs(736, 16, 64, 72, padded=True)[0] == (384, 256)
+    finally:
+        _clear_pair_memos()
+    assert TS.fused_pairs(736, 8, HEAD_DIM, 72, padded=True, batch=736) == \
+        TS.fused_pairs(736, 8, HEAD_DIM, 72, padded=True)
+
+
+@pytest.mark.parametrize("cores", (72, 110, 130))
+@pytest.mark.parametrize("seq", (544, 608, 736, 928, 992, 1184))
+def test_every_padded_pair_pads_fits_and_is_one_q_chunk_per_core(seq, cores):
+    for qc, kc in TS.fused_pairs(seq, 8, HEAD_DIM, cores, padded=True):
+        assert qc // SG.TILE in TS._PADDED_CHUNK_TILES
+        assert kc // SG.TILE in TS._PADDED_CHUNK_TILES or kc == TS._one_k_chunk(seq)
+        q_pf = TS.q_parallel_factor(seq, 8, qc, cores, cap=0)
+        p = SG.plan_for_shape(seq, 8, HEAD_DIM, qc, kc, grid=(cores, 1),
+                              split=(max(cores // (8 * q_pf), 1), 8, q_pf))
+        assert p["use_padded_mask"] and p["q_per_core"] == 1 and p["nh_per_core"] == 1
+        assert SG.cb_fits_l1(p, mask_cb_tiles=p["k_num_chunks"] * p["Sq_chunk_t"] * p["Sk_chunk_t"])
+
+
+def test_the_padded_route_is_offered_once_and_only_before_a_stock_rung():
+    """A length served fused today must never reach the padded route: it is called from the
+    ladder's `padded()` closure, which every stock rung and the gated exit go through first."""
+    import inspect
+
+    from tt_bio import tenstorrent as T
+    src = inspect.getsource(T._tri_att_sdpa_at)
+    assert src.count("_tri_att_fused_padded(") == 1
+    assert src.count("o = padded()") == 2
+    first_stock = src.index("fused_sdpa(")
+    assert src.index("o = padded()") < first_stock
+
+
+@pytest.mark.parametrize("cores", (64, 72, 110, 130))
+@pytest.mark.parametrize("seq", (288, 544, 576, 608, 736, 800, 928, 1184))
+def test_triatt_q10_keeps_the_k_chunk_and_offers_q320_at_608(seq, cores):
+    import tt_bio.tenstorrent as T
+    _clear_pair_memos()
+    try:
+        for heads in (4, 8, 12, 16):
+            off = TS.fused_pairs(seq, heads, HEAD_DIM, cores, padded=True)
+            with T.levers({"triatt_q10"}):
+                on = TS.fused_pairs(seq, heads, HEAD_DIM, cores, padded=True)
+            assert set(off) <= set(on) and (not off or on[0][1] == off[0][1])
+        if (seq, cores) == (608, 72):
+            assert TS.fused_pairs(608, 12, HEAD_DIM, 72, padded=True)[0] == (256, 640)
+            with T.levers({"triatt_q10"}):
+                assert TS.fused_pairs(608, 12, HEAD_DIM, 72, padded=True)[0] == (320, 640)
+    finally:
+        _clear_pair_memos()

@@ -1,0 +1,821 @@
+{
+ "run": {
+  "n": 512,
+  "batch": 1,
+  "cycles": 2,
+  "tok": 768,
+  "pair": 384,
+  "cond": 256,
+  "aiclk": {
+   "0": {
+    "min": 1350,
+    "max": 1350,
+    "median": 1350,
+    "n": 1
+   }
+  },
+  "load": 4.41845703125,
+  "card": "3"
+ },
+ "roof": {
+  "dram_gb_s": 436,
+  "tflop_s_hifi2": 140
+ },
+ "device_s_per_design": 19.782,
+ "top_ops": [
+  {
+   "family": "tri_mult_in",
+   "op": "GenericOpDeviceOperation",
+   "main_shapes": "input_0 1x512x512x384 BFLOAT8_B ; input_1 1x1x512x384 BFLOAT8_B ; input_2 1x1x512x384 BFLOAT8_B ; input_3 1x1x384x384 BFLOAT8_B ; input_4 1x1x1x384 BFLOAT16 ; input_5 1x1x1x384 BFLOAT16 ; input_6 1x256x512x512 BFLOAT8_B ; input_7 1x256x512x512 BFLOAT8_B ; input_8 1x512x512x384 BFLOAT8_B",
+   "device_s_per_design": 6.315,
+   "floor_s_per_design": 4.358,
+   "gap_s": 1.957,
+   "x_floor": 1.45,
+   "ms_per_recycled_pass": 35.101,
+   "ops_per_recycled_pass": 21,
+   "mb_per_recycled_pass": 6875.7,
+   "gb_s": 195.9,
+   "tflop_s": 56.53,
+   "cores": [
+    "110"
+   ]
+  },
+  {
+   "family": "tri_mult_out",
+   "op": "GenericOpDeviceOperation",
+   "main_shapes": "input_0 1x512x512x384 BFLOAT8_B ; input_1 1x1x512x384 BFLOAT8_B ; input_2 1x1x512x384 BFLOAT8_B ; input_3 1x1x384x384 BFLOAT8_B ; input_4 1x1x1x384 BFLOAT16 ; input_5 1x1x1x384 BFLOAT16 ; input_6 1x256x512x512 BFLOAT8_B ; input_7 1x256x512x512 BFLOAT8_B ; input_8 1x512x512x384 BFLOAT8_B",
+   "device_s_per_design": 6.263,
+   "floor_s_per_design": 4.358,
+   "gap_s": 1.905,
+   "x_floor": 1.44,
+   "ms_per_recycled_pass": 34.815,
+   "ops_per_recycled_pass": 21,
+   "mb_per_recycled_pass": 6875.7,
+   "gb_s": 197.5,
+   "tflop_s": 57.0,
+   "cores": [
+    "110"
+   ]
+  },
+  {
+   "family": "pair_relu",
+   "op": "GenericOpDeviceOperation",
+   "main_shapes": "input_0 1x512x512x384 BFLOAT8_B ; input_1 1x1x384x768 BFLOAT8_B ; input_2 1x1x768x384 BFLOAT8_B ; input_3 1x1x1x384 BFLOAT16 ; input_4 1x1x1x384 BFLOAT16 ; input_5 1x1x32x768 BFLOAT16 ; input_6 1x1x32x384 BFLOAT16 ; input_7 1x512x512x384 BFLOAT8_B",
+   "device_s_per_design": 2.992,
+   "floor_s_per_design": 2.783,
+   "gap_s": 0.208,
+   "x_floor": 1.07,
+   "ms_per_recycled_pass": 16.622,
+   "ops_per_recycled_pass": 7,
+   "mb_per_recycled_pass": 1502.3,
+   "gb_s": 90.4,
+   "tflop_s": 130.23,
+   "cores": [
+    "110"
+   ]
+  },
+  {
+   "family": "pair_bias",
+   "op": "GenericOpDeviceOperation",
+   "main_shapes": "input_0 1x512x512x384 BFLOAT8_B ; input_1 1x1x32x384 BFLOAT16 ; input_2 1x12x512x512 BFLOAT16 ; input_3 1x12x512x512 BFLOAT16",
+   "device_s_per_design": 0.773,
+   "floor_s_per_design": 0.429,
+   "gap_s": 0.344,
+   "x_floor": 1.8,
+   "ms_per_recycled_pass": 4.293,
+   "ops_per_recycled_pass": 8,
+   "mb_per_recycled_pass": 1038.3,
+   "gb_s": 241.9,
+   "tflop_s": null,
+   "cores": [
+    "110"
+   ]
+  },
+  {
+   "family": "outer_residual",
+   "op": "GenericOpDeviceOperation",
+   "main_shapes": "input_0 1x512x512x384 BFLOAT8_B ; input_1 1x1x512x384 BFLOAT16 ; input_2 1x1x512x384 BFLOAT16 ; input_3 1x512x512x384 BFLOAT8_B",
+   "device_s_per_design": 0.678,
+   "floor_s_per_design": 0.62,
+   "gap_s": 0.057,
+   "x_floor": 1.09,
+   "ms_per_recycled_pass": 3.769,
+   "ops_per_recycled_pass": 7,
+   "mb_per_recycled_pass": 1502.9,
+   "gb_s": 398.8,
+   "tflop_s": null,
+   "cores": [
+    "110"
+   ]
+  },
+  {
+   "family": "token_transition",
+   "op": "MatmulDeviceOperation",
+   "main_shapes": "input_0 1x1x512x768 BFLOAT16 ; input_1 1x1x768x3072 BFLOAT16 ; output_0 1x1x512x3072 BFLOAT16",
+   "device_s_per_design": 0.365,
+   "floor_s_per_design": 0.15,
+   "gap_s": 0.215,
+   "x_floor": 2.43,
+   "ms_per_recycled_pass": 2.028,
+   "ops_per_recycled_pass": 42,
+   "mb_per_recycled_pass": 363.3,
+   "gb_s": 179.1,
+   "tflop_s": 50.03,
+   "cores": [
+    "64",
+    "88"
+   ]
+  },
+  {
+   "family": "cast",
+   "op": "TypecastDeviceOperation",
+   "main_shapes": "input_0 1x512x512x384 BFLOAT8_B ; output_0 1x512x512x384 BFLOAT16",
+   "device_s_per_design": 0.328,
+   "floor_s_per_design": 0.248,
+   "gap_s": 0.08,
+   "x_floor": 1.32,
+   "ms_per_recycled_pass": 2.127,
+   "ops_per_recycled_pass": 39,
+   "mb_per_recycled_pass": 703.9,
+   "gb_s": 330.9,
+   "tflop_s": null,
+   "cores": [
+    "110"
+   ]
+  },
+  {
+   "family": "attention",
+   "op": "SDPAOperation",
+   "main_shapes": "input_0 1x12x512x64 BFLOAT16 ; input_1 1x12x512x64 BFLOAT16 ; input_2 1x12x512x64 BFLOAT16 ; input_3 1x12x512x512 BFLOAT16 ; output_0 1x12x512x64 BFLOAT16",
+   "device_s_per_design": 0.246,
+   "floor_s_per_design": 0.055,
+   "gap_s": 0.191,
+   "x_floor": 4.51,
+   "ms_per_recycled_pass": 1.366,
+   "ops_per_recycled_pass": 14,
+   "mb_per_recycled_pass": 132.1,
+   "gb_s": 96.8,
+   "tflop_s": 8.26,
+   "cores": [
+    "110"
+   ]
+  },
+  {
+   "family": "recycle",
+   "op": "MatmulDeviceOperation",
+   "main_shapes": "input_0 1x512x512x384 BFLOAT16 ; input_1 1x1x384x384 BFLOAT16 ; output_0 1x512x512x384 BFLOAT16",
+   "device_s_per_design": 0.244,
+   "floor_s_per_design": 0.112,
+   "gap_s": 0.132,
+   "x_floor": 2.19,
+   "ms_per_recycled_pass": 2.033,
+   "ops_per_recycled_pass": 2,
+   "mb_per_recycled_pass": 405.7,
+   "gb_s": 199.5,
+   "tflop_s": 38.32,
+   "cores": [
+    "110",
+    "64"
+   ]
+  },
+  {
+   "family": "attention",
+   "op": "MatmulDeviceOperation",
+   "main_shapes": "input_0 1x1x512x768 BFLOAT16 ; input_1 1x1x768x768 BFLOAT16 ; input_2 1x1x1x768 BFLOAT16 ; output_0 1x1x512x768 BFLOAT16",
+   "device_s_per_design": 0.224,
+   "floor_s_per_design": 0.08,
+   "gap_s": 0.144,
+   "x_floor": 2.81,
+   "ms_per_recycled_pass": 1.244,
+   "ops_per_recycled_pass": 70,
+   "mb_per_recycled_pass": 192.8,
+   "gb_s": 154.9,
+   "tflop_s": 33.97,
+   "cores": [
+    "64"
+   ]
+  }
+ ],
+ "all_ops": [
+  {
+   "family": "tri_mult_in",
+   "op": "GenericOpDeviceOperation",
+   "main_shapes": "input_0 1x512x512x384 BFLOAT8_B ; input_1 1x1x512x384 BFLOAT8_B ; input_2 1x1x512x384 BFLOAT8_B ; input_3 1x1x384x384 BFLOAT8_B ; input_4 1x1x1x384 BFLOAT16 ; input_5 1x1x1x384 BFLOAT16 ; input_6 1x256x512x512 BFLOAT8_B ; input_7 1x256x512x512 BFLOAT8_B ; input_8 1x512x512x384 BFLOAT8_B",
+   "device_s_per_design": 6.315,
+   "floor_s_per_design": 4.358,
+   "gap_s": 1.957,
+   "x_floor": 1.45,
+   "ms_per_recycled_pass": 35.101,
+   "ops_per_recycled_pass": 21,
+   "mb_per_recycled_pass": 6875.7,
+   "gb_s": 195.9,
+   "tflop_s": 56.53,
+   "cores": [
+    "110"
+   ]
+  },
+  {
+   "family": "tri_mult_out",
+   "op": "GenericOpDeviceOperation",
+   "main_shapes": "input_0 1x512x512x384 BFLOAT8_B ; input_1 1x1x512x384 BFLOAT8_B ; input_2 1x1x512x384 BFLOAT8_B ; input_3 1x1x384x384 BFLOAT8_B ; input_4 1x1x1x384 BFLOAT16 ; input_5 1x1x1x384 BFLOAT16 ; input_6 1x256x512x512 BFLOAT8_B ; input_7 1x256x512x512 BFLOAT8_B ; input_8 1x512x512x384 BFLOAT8_B",
+   "device_s_per_design": 6.263,
+   "floor_s_per_design": 4.358,
+   "gap_s": 1.905,
+   "x_floor": 1.44,
+   "ms_per_recycled_pass": 34.815,
+   "ops_per_recycled_pass": 21,
+   "mb_per_recycled_pass": 6875.7,
+   "gb_s": 197.5,
+   "tflop_s": 57.0,
+   "cores": [
+    "110"
+   ]
+  },
+  {
+   "family": "pair_relu",
+   "op": "GenericOpDeviceOperation",
+   "main_shapes": "input_0 1x512x512x384 BFLOAT8_B ; input_1 1x1x384x768 BFLOAT8_B ; input_2 1x1x768x384 BFLOAT8_B ; input_3 1x1x1x384 BFLOAT16 ; input_4 1x1x1x384 BFLOAT16 ; input_5 1x1x32x768 BFLOAT16 ; input_6 1x1x32x384 BFLOAT16 ; input_7 1x512x512x384 BFLOAT8_B",
+   "device_s_per_design": 2.992,
+   "floor_s_per_design": 2.783,
+   "gap_s": 0.208,
+   "x_floor": 1.07,
+   "ms_per_recycled_pass": 16.622,
+   "ops_per_recycled_pass": 7,
+   "mb_per_recycled_pass": 1502.3,
+   "gb_s": 90.4,
+   "tflop_s": 130.23,
+   "cores": [
+    "110"
+   ]
+  },
+  {
+   "family": "pair_bias",
+   "op": "GenericOpDeviceOperation",
+   "main_shapes": "input_0 1x512x512x384 BFLOAT8_B ; input_1 1x1x32x384 BFLOAT16 ; input_2 1x12x512x512 BFLOAT16 ; input_3 1x12x512x512 BFLOAT16",
+   "device_s_per_design": 0.773,
+   "floor_s_per_design": 0.429,
+   "gap_s": 0.344,
+   "x_floor": 1.8,
+   "ms_per_recycled_pass": 4.293,
+   "ops_per_recycled_pass": 8,
+   "mb_per_recycled_pass": 1038.3,
+   "gb_s": 241.9,
+   "tflop_s": null,
+   "cores": [
+    "110"
+   ]
+  },
+  {
+   "family": "outer_residual",
+   "op": "GenericOpDeviceOperation",
+   "main_shapes": "input_0 1x512x512x384 BFLOAT8_B ; input_1 1x1x512x384 BFLOAT16 ; input_2 1x1x512x384 BFLOAT16 ; input_3 1x512x512x384 BFLOAT8_B",
+   "device_s_per_design": 0.678,
+   "floor_s_per_design": 0.62,
+   "gap_s": 0.057,
+   "x_floor": 1.09,
+   "ms_per_recycled_pass": 3.769,
+   "ops_per_recycled_pass": 7,
+   "mb_per_recycled_pass": 1502.9,
+   "gb_s": 398.8,
+   "tflop_s": null,
+   "cores": [
+    "110"
+   ]
+  },
+  {
+   "family": "token_transition",
+   "op": "MatmulDeviceOperation",
+   "main_shapes": "input_0 1x1x512x768 BFLOAT16 ; input_1 1x1x768x3072 BFLOAT16 ; output_0 1x1x512x3072 BFLOAT16",
+   "device_s_per_design": 0.365,
+   "floor_s_per_design": 0.15,
+   "gap_s": 0.215,
+   "x_floor": 2.43,
+   "ms_per_recycled_pass": 2.028,
+   "ops_per_recycled_pass": 42,
+   "mb_per_recycled_pass": 363.3,
+   "gb_s": 179.1,
+   "tflop_s": 50.03,
+   "cores": [
+    "64",
+    "88"
+   ]
+  },
+  {
+   "family": "cast",
+   "op": "TypecastDeviceOperation",
+   "main_shapes": "input_0 1x512x512x384 BFLOAT8_B ; output_0 1x512x512x384 BFLOAT16",
+   "device_s_per_design": 0.328,
+   "floor_s_per_design": 0.248,
+   "gap_s": 0.08,
+   "x_floor": 1.32,
+   "ms_per_recycled_pass": 2.127,
+   "ops_per_recycled_pass": 39,
+   "mb_per_recycled_pass": 703.9,
+   "gb_s": 330.9,
+   "tflop_s": null,
+   "cores": [
+    "110"
+   ]
+  },
+  {
+   "family": "attention",
+   "op": "SDPAOperation",
+   "main_shapes": "input_0 1x12x512x64 BFLOAT16 ; input_1 1x12x512x64 BFLOAT16 ; input_2 1x12x512x64 BFLOAT16 ; input_3 1x12x512x512 BFLOAT16 ; output_0 1x12x512x64 BFLOAT16",
+   "device_s_per_design": 0.246,
+   "floor_s_per_design": 0.055,
+   "gap_s": 0.191,
+   "x_floor": 4.51,
+   "ms_per_recycled_pass": 1.366,
+   "ops_per_recycled_pass": 14,
+   "mb_per_recycled_pass": 132.1,
+   "gb_s": 96.8,
+   "tflop_s": 8.26,
+   "cores": [
+    "110"
+   ]
+  },
+  {
+   "family": "recycle",
+   "op": "MatmulDeviceOperation",
+   "main_shapes": "input_0 1x512x512x384 BFLOAT16 ; input_1 1x1x384x384 BFLOAT16 ; output_0 1x512x512x384 BFLOAT16",
+   "device_s_per_design": 0.244,
+   "floor_s_per_design": 0.112,
+   "gap_s": 0.132,
+   "x_floor": 2.19,
+   "ms_per_recycled_pass": 2.033,
+   "ops_per_recycled_pass": 2,
+   "mb_per_recycled_pass": 405.7,
+   "gb_s": 199.5,
+   "tflop_s": 38.32,
+   "cores": [
+    "110",
+    "64"
+   ]
+  },
+  {
+   "family": "attention",
+   "op": "MatmulDeviceOperation",
+   "main_shapes": "input_0 1x1x512x768 BFLOAT16 ; input_1 1x1x768x768 BFLOAT16 ; input_2 1x1x1x768 BFLOAT16 ; output_0 1x1x512x768 BFLOAT16",
+   "device_s_per_design": 0.224,
+   "floor_s_per_design": 0.08,
+   "gap_s": 0.144,
+   "x_floor": 2.81,
+   "ms_per_recycled_pass": 1.244,
+   "ops_per_recycled_pass": 70,
+   "mb_per_recycled_pass": 192.8,
+   "gb_s": 154.9,
+   "tflop_s": 33.97,
+   "cores": [
+    "64"
+   ]
+  },
+  {
+   "family": "adaln",
+   "op": "MatmulDeviceOperation",
+   "main_shapes": "input_0 1x1x512x256 BFLOAT16 ; input_1 1x1x256x768 BFLOAT16 ; input_2 1x1x1x768 BFLOAT16 ; output_0 1x1x512x768 BFLOAT16",
+   "device_s_per_design": 0.144,
+   "floor_s_per_design": 0.033,
+   "gap_s": 0.11,
+   "x_floor": 4.31,
+   "ms_per_recycled_pass": 0.798,
+   "ops_per_recycled_pass": 56,
+   "mb_per_recycled_pass": 80.8,
+   "gb_s": 101.3,
+   "tflop_s": 14.13,
+   "cores": [
+    "64"
+   ]
+  },
+  {
+   "family": "recycle",
+   "op": "BinaryNgDeviceOperation",
+   "main_shapes": "input_0 1x512x512x384 BFLOAT8_B ; input_1 1x512x512x384 BFLOAT16 ; output_0 1x512x512x384 BFLOAT8_B",
+   "device_s_per_design": 0.119,
+   "floor_s_per_design": 0.116,
+   "gap_s": 0.004,
+   "x_floor": 1.03,
+   "ms_per_recycled_pass": 0.995,
+   "ops_per_recycled_pass": 2,
+   "mb_per_recycled_pass": 420.0,
+   "gb_s": 422.2,
+   "tflop_s": null,
+   "cores": [
+    "110"
+   ]
+  },
+  {
+   "family": "outside",
+   "op": "TilizeDeviceOperation",
+   "main_shapes": "",
+   "device_s_per_design": 0.116,
+   "floor_s_per_design": 0.111,
+   "gap_s": 0.005,
+   "x_floor": 1.05,
+   "ms_per_recycled_pass": 0.0,
+   "ops_per_recycled_pass": 0,
+   "mb_per_recycled_pass": 0.0,
+   "gb_s": null,
+   "tflop_s": null,
+   "cores": []
+  },
+  {
+   "family": "attention",
+   "op": "LayerNormDeviceOperation",
+   "main_shapes": "input_0 1x1x512x768 BFLOAT16 ; input_1 1x1x1x768 BFLOAT16 ; output_0 1x1x512x768 BFLOAT16",
+   "device_s_per_design": 0.112,
+   "floor_s_per_design": 0.027,
+   "gap_s": 0.085,
+   "x_floor": 4.12,
+   "ms_per_recycled_pass": 0.623,
+   "ops_per_recycled_pass": 42,
+   "mb_per_recycled_pass": 66.1,
+   "gb_s": 106.1,
+   "tflop_s": null,
+   "cores": [
+    "16"
+   ]
+  },
+  {
+   "family": "ada_scale",
+   "op": "MatmulDeviceOperation",
+   "main_shapes": "input_0 1x1x512x256 BFLOAT16 ; input_1 1x1x256x768 BFLOAT16 ; input_2 1x1x1x768 BFLOAT16 ; output_0 1x1x512x768 BFLOAT16",
+   "device_s_per_design": 0.098,
+   "floor_s_per_design": 0.017,
+   "gap_s": 0.082,
+   "x_floor": 5.9,
+   "ms_per_recycled_pass": 0.547,
+   "ops_per_recycled_pass": 28,
+   "mb_per_recycled_pass": 40.4,
+   "gb_s": 73.9,
+   "tflop_s": 10.3,
+   "cores": [
+    "64"
+   ]
+  },
+  {
+   "family": "adaln",
+   "op": "BinaryNgDeviceOperation",
+   "main_shapes": "input_0 1x1x512x768 BFLOAT16 ; input_1 1x1x512x768 BFLOAT16 ; output_0 1x1x512x768 BFLOAT16",
+   "device_s_per_design": 0.094,
+   "floor_s_per_design": 0.055,
+   "gap_s": 0.039,
+   "x_floor": 1.72,
+   "ms_per_recycled_pass": 0.52,
+   "ops_per_recycled_pass": 56,
+   "mb_per_recycled_pass": 132.1,
+   "gb_s": 253.9,
+   "tflop_s": null,
+   "cores": [
+    "110"
+   ]
+  },
+  {
+   "family": "recycle",
+   "op": "LayerNormDeviceOperation",
+   "main_shapes": "input_0 1x512x512x384 BFLOAT8_B ; input_1 1x1x1x384 BFLOAT16 ; output_0 1x512x512x384 BFLOAT8_B",
+   "device_s_per_design": 0.086,
+   "floor_s_per_design": 0.06,
+   "gap_s": 0.026,
+   "x_floor": 1.44,
+   "ms_per_recycled_pass": 0.718,
+   "ops_per_recycled_pass": 2,
+   "mb_per_recycled_pass": 217.1,
+   "gb_s": 302.3,
+   "tflop_s": null,
+   "cores": [
+    "110",
+    "16"
+   ]
+  },
+  {
+   "family": "attention",
+   "op": "NlpCreateHeadsDeviceOperation",
+   "main_shapes": "input_0 1x1x512x2304 BFLOAT16 ; output_0 1x12x512x64 BFLOAT16 ; output_1 1x12x512x64 BFLOAT16 ; output_2 1x12x512x64 BFLOAT16",
+   "device_s_per_design": 0.082,
+   "floor_s_per_design": 0.027,
+   "gap_s": 0.055,
+   "x_floor": 3.01,
+   "ms_per_recycled_pass": 0.456,
+   "ops_per_recycled_pass": 14,
+   "mb_per_recycled_pass": 66.1,
+   "gb_s": 144.8,
+   "tflop_s": null,
+   "cores": [
+    "16"
+   ]
+  },
+  {
+   "family": "masked_copy",
+   "op": "TypecastDeviceOperation",
+   "main_shapes": "",
+   "device_s_per_design": 0.072,
+   "floor_s_per_design": 0.07,
+   "gap_s": 0.002,
+   "x_floor": 1.02,
+   "ms_per_recycled_pass": 0.0,
+   "ops_per_recycled_pass": 0,
+   "mb_per_recycled_pass": 0.0,
+   "gb_s": null,
+   "tflop_s": null,
+   "cores": []
+  },
+  {
+   "family": "adaln",
+   "op": "LayerNormDeviceOperation",
+   "main_shapes": "input_0 1x1x512x768 BFLOAT16 ; output_0 1x1x512x768 BFLOAT16",
+   "device_s_per_design": 0.063,
+   "floor_s_per_design": 0.018,
+   "gap_s": 0.045,
+   "x_floor": 3.45,
+   "ms_per_recycled_pass": 0.348,
+   "ops_per_recycled_pass": 28,
+   "mb_per_recycled_pass": 44.0,
+   "gb_s": 126.4,
+   "tflop_s": null,
+   "cores": [
+    "16"
+   ]
+  },
+  {
+   "family": "token_transition",
+   "op": "BinaryNgDeviceOperation",
+   "main_shapes": "input_0 1x1x512x3072 BFLOAT16 ; input_1 1x1x512x3072 BFLOAT16 ; output_0 1x1x512x3072 BFLOAT16",
+   "device_s_per_design": 0.06,
+   "floor_s_per_design": 0.055,
+   "gap_s": 0.006,
+   "x_floor": 1.11,
+   "ms_per_recycled_pass": 0.336,
+   "ops_per_recycled_pass": 14,
+   "mb_per_recycled_pass": 132.1,
+   "gb_s": 392.8,
+   "tflop_s": null,
+   "cores": [
+    "110"
+   ]
+  },
+  {
+   "family": "ada_scale",
+   "op": "BinaryNgDeviceOperation",
+   "main_shapes": "input_0 1x1x512x768 BFLOAT16 ; input_1 1x1x512x768 BFLOAT16 ; output_0 1x1x512x768 BFLOAT16",
+   "device_s_per_design": 0.049,
+   "floor_s_per_design": 0.027,
+   "gap_s": 0.022,
+   "x_floor": 1.81,
+   "ms_per_recycled_pass": 0.275,
+   "ops_per_recycled_pass": 28,
+   "mb_per_recycled_pass": 66.1,
+   "gb_s": 240.3,
+   "tflop_s": null,
+   "cores": [
+    "110"
+   ]
+  },
+  {
+   "family": "residual",
+   "op": "BinaryNgDeviceOperation",
+   "main_shapes": "input_0 1x1x512x768 FLOAT32 ; input_1 1x1x512x768 FLOAT32 ; output_0 1x1x512x768 FLOAT32",
+   "device_s_per_design": 0.044,
+   "floor_s_per_design": 0.027,
+   "gap_s": 0.017,
+   "x_floor": 1.63,
+   "ms_per_recycled_pass": 0.246,
+   "ops_per_recycled_pass": 14,
+   "mb_per_recycled_pass": 66.1,
+   "gb_s": 268.2,
+   "tflop_s": null,
+   "cores": [
+    "110"
+   ]
+  },
+  {
+   "family": "residual",
+   "op": "GenericOpDeviceOperation",
+   "main_shapes": "input_0 1x1x512x768 FLOAT32 ; input_1 1x1x512x768 BFLOAT16 ; input_2 1x1x512x768 BFLOAT16 ; input_3 1x1x512x768 FLOAT32",
+   "device_s_per_design": 0.039,
+   "floor_s_per_design": 0.027,
+   "gap_s": 0.011,
+   "x_floor": 1.41,
+   "ms_per_recycled_pass": 0.215,
+   "ops_per_recycled_pass": 14,
+   "mb_per_recycled_pass": 66.1,
+   "gb_s": 307.9,
+   "tflop_s": null,
+   "cores": [
+    "110"
+   ]
+  },
+  {
+   "family": "attention",
+   "op": "ConcatDeviceOperation",
+   "main_shapes": "input_0 1x1x512x768 BFLOAT16 ; input_1 1x1x512x768 BFLOAT16 ; input_2 1x1x512x768 BFLOAT16 ; output_0 1x1x512x2304 BFLOAT16",
+   "device_s_per_design": 0.033,
+   "floor_s_per_design": 0.027,
+   "gap_s": 0.006,
+   "x_floor": 1.2,
+   "ms_per_recycled_pass": 0.182,
+   "ops_per_recycled_pass": 14,
+   "mb_per_recycled_pass": 66.1,
+   "gb_s": 363.3,
+   "tflop_s": null,
+   "cores": [
+    "110"
+   ]
+  },
+  {
+   "family": "pair_factors",
+   "op": "MatmulDeviceOperation",
+   "main_shapes": "input_0 1x1x512x768 BFLOAT16 ; input_1 1x1x768x384 BFLOAT16 ; output_0 1x1x512x384 BFLOAT16",
+   "device_s_per_design": 0.032,
+   "floor_s_per_design": 0.01,
+   "gap_s": 0.022,
+   "x_floor": 3.17,
+   "ms_per_recycled_pass": 0.18,
+   "ops_per_recycled_pass": 14,
+   "mb_per_recycled_pass": 24.8,
+   "gb_s": 137.5,
+   "tflop_s": 23.47,
+   "cores": [
+    "48"
+   ]
+  },
+  {
+   "family": "outside",
+   "op": "CloneOperation",
+   "main_shapes": "",
+   "device_s_per_design": 0.031,
+   "floor_s_per_design": 0.03,
+   "gap_s": 0.002,
+   "x_floor": 1.05,
+   "ms_per_recycled_pass": 0.0,
+   "ops_per_recycled_pass": 0,
+   "mb_per_recycled_pass": 0.0,
+   "gb_s": null,
+   "tflop_s": null,
+   "cores": []
+  },
+  {
+   "family": "attention",
+   "op": "NLPConcatHeadsDeviceOperation",
+   "main_shapes": "input_0 1x12x512x64 BFLOAT16 ; output_0 1x1x512x768 BFLOAT16",
+   "device_s_per_design": 0.03,
+   "floor_s_per_design": 0.009,
+   "gap_s": 0.021,
+   "x_floor": 3.28,
+   "ms_per_recycled_pass": 0.166,
+   "ops_per_recycled_pass": 14,
+   "mb_per_recycled_pass": 22.0,
+   "gb_s": 132.5,
+   "tflop_s": null,
+   "cores": [
+    "16"
+   ]
+  },
+  {
+   "family": "pair_factors",
+   "op": "LayerNormDeviceOperation",
+   "main_shapes": "input_0 1x1x512x768 BFLOAT16 ; input_1 1x1x1x768 BFLOAT16 ; input_2 1x1x1x768 BFLOAT16 ; output_0 1x1x512x768 BFLOAT16",
+   "device_s_per_design": 0.025,
+   "floor_s_per_design": 0.005,
+   "gap_s": 0.02,
+   "x_floor": 5.38,
+   "ms_per_recycled_pass": 0.136,
+   "ops_per_recycled_pass": 7,
+   "mb_per_recycled_pass": 11.0,
+   "gb_s": 81.0,
+   "tflop_s": null,
+   "cores": [
+    "16"
+   ]
+  },
+  {
+   "family": "attention",
+   "op": "BinaryNgDeviceOperation",
+   "main_shapes": "input_0 1x1x512x768 BFLOAT16 ; input_1 1x1x512x768 BFLOAT16 ; output_0 1x1x512x768 BFLOAT16",
+   "device_s_per_design": 0.024,
+   "floor_s_per_design": 0.014,
+   "gap_s": 0.01,
+   "x_floor": 1.75,
+   "ms_per_recycled_pass": 0.132,
+   "ops_per_recycled_pass": 14,
+   "mb_per_recycled_pass": 33.0,
+   "gb_s": 249.5,
+   "tflop_s": null,
+   "cores": [
+    "110"
+   ]
+  },
+  {
+   "family": "pass_glue",
+   "op": "LayerNormDeviceOperation",
+   "main_shapes": "input_0 1x1x512x256 BFLOAT16 ; output_0 1x1x512x256 BFLOAT16",
+   "device_s_per_design": 0.001,
+   "floor_s_per_design": 0.0,
+   "gap_s": 0.001,
+   "x_floor": 5.37,
+   "ms_per_recycled_pass": 0.006,
+   "ops_per_recycled_pass": 1,
+   "mb_per_recycled_pass": 0.5,
+   "gb_s": 80.9,
+   "tflop_s": null,
+   "cores": [
+    "16"
+   ]
+  }
+ ],
+ "pass_glue_split": {
+  "families": [
+   "pass_glue",
+   "outer_residual",
+   "pair_factors",
+   "pair_relu"
+  ],
+  "device_s_per_design": 3.728,
+  "ops": [
+   {
+    "family": "pair_relu",
+    "op": "GenericOpDeviceOperation",
+    "shapes": "input_0 1x512x512x384 BFLOAT8_B ; input_1 1x1x384x768 BFLOAT8_B ; input_2 1x1x768x384 BFLOAT8_B ; input_3 1x1x1x384 BFLOAT16 ; input_4 1x1x1x384 BFLOAT16 ; input_5 1x1x32x768 BFLOAT16 ; input_6 1x1x32x384 BFLOAT16 ; input_7 1x512x512x384 BFLOAT8_B",
+    "device_s_per_design": 2.992,
+    "floor_s_per_design": 2.783,
+    "gap_s": 0.208,
+    "x_floor": 1.07,
+    "ms_per_recycled_pass": 16.622,
+    "ops_per_recycled_pass": 7,
+    "mb_per_recycled_pass": 1502.3,
+    "gb_s": 90.4,
+    "tflop_s": 130.23,
+    "cores": [
+     "110"
+    ]
+   },
+   {
+    "family": "outer_residual",
+    "op": "GenericOpDeviceOperation",
+    "shapes": "input_0 1x512x512x384 BFLOAT8_B ; input_1 1x1x512x384 BFLOAT16 ; input_2 1x1x512x384 BFLOAT16 ; input_3 1x512x512x384 BFLOAT8_B",
+    "device_s_per_design": 0.678,
+    "floor_s_per_design": 0.62,
+    "gap_s": 0.057,
+    "x_floor": 1.09,
+    "ms_per_recycled_pass": 3.769,
+    "ops_per_recycled_pass": 7,
+    "mb_per_recycled_pass": 1502.9,
+    "gb_s": 398.8,
+    "tflop_s": null,
+    "cores": [
+     "110"
+    ]
+   },
+   {
+    "family": "pair_factors",
+    "op": "MatmulDeviceOperation",
+    "shapes": "input_0 1x1x512x768 BFLOAT16 ; input_1 1x1x768x384 BFLOAT16 ; output_0 1x1x512x384 BFLOAT16",
+    "device_s_per_design": 0.032,
+    "floor_s_per_design": 0.01,
+    "gap_s": 0.022,
+    "x_floor": 3.17,
+    "ms_per_recycled_pass": 0.18,
+    "ops_per_recycled_pass": 14,
+    "mb_per_recycled_pass": 24.8,
+    "gb_s": 137.5,
+    "tflop_s": 23.47,
+    "cores": [
+     "48"
+    ]
+   },
+   {
+    "family": "pair_factors",
+    "op": "LayerNormDeviceOperation",
+    "shapes": "input_0 1x1x512x768 BFLOAT16 ; input_1 1x1x1x768 BFLOAT16 ; input_2 1x1x1x768 BFLOAT16 ; output_0 1x1x512x768 BFLOAT16",
+    "device_s_per_design": 0.025,
+    "floor_s_per_design": 0.005,
+    "gap_s": 0.02,
+    "x_floor": 5.38,
+    "ms_per_recycled_pass": 0.136,
+    "ops_per_recycled_pass": 7,
+    "mb_per_recycled_pass": 11.0,
+    "gb_s": 81.0,
+    "tflop_s": null,
+    "cores": [
+     "16"
+    ]
+   },
+   {
+    "family": "pass_glue",
+    "op": "LayerNormDeviceOperation",
+    "shapes": "input_0 1x1x512x256 BFLOAT16 ; output_0 1x1x512x256 BFLOAT16",
+    "device_s_per_design": 0.001,
+    "floor_s_per_design": 0.0,
+    "gap_s": 0.001,
+    "x_floor": 5.37,
+    "ms_per_recycled_pass": 0.006,
+    "ops_per_recycled_pass": 1,
+    "mb_per_recycled_pass": 0.5,
+    "gb_s": 80.9,
+    "tflop_s": null,
+    "cores": [
+     "16"
+    ]
+   }
+  ]
+ }
+}

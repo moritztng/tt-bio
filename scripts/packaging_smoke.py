@@ -40,6 +40,7 @@ UX gates. See the v0.3.4 changelog for the incident this prevents.
 """
 
 import argparse
+import os
 import shutil
 import subprocess
 import sys
@@ -83,10 +84,15 @@ def _build() -> tuple[Path, Path]:
     dist = REPO_ROOT / "dist"
     if dist.exists():
         shutil.rmtree(dist)
-    subprocess.run([sys.executable, "-m", "pip", "install", "--upgrade", "--quiet", "build"],
-                   check=True, timeout=PIP_TIMEOUT_S)
-    subprocess.run([sys.executable, "-m", "build", "--quiet"], cwd=REPO_ROOT,
-                   check=True, timeout=BUILD_TIMEOUT_S)
+    # `build` goes into a scratch dir, not this interpreter: installing it here changed the
+    # release gate's venv on one host, and the next gate refused the two hosts as different.
+    with tempfile.TemporaryDirectory() as tools:
+        subprocess.run([sys.executable, "-m", "pip", "install", "--quiet", "--target", tools,
+                        "build"], check=True, timeout=PIP_TIMEOUT_S)
+        env = {**os.environ, "PYTHONPATH": os.pathsep.join(
+            filter(None, [tools, os.environ.get("PYTHONPATH")]))}
+        subprocess.run([sys.executable, "-m", "build", "--quiet"], cwd=REPO_ROOT, env=env,
+                       check=True, timeout=BUILD_TIMEOUT_S)
     wheels = sorted(dist.glob("tt_bio-*.whl"))
     sdists = sorted(dist.glob("tt_bio-*.tar.gz"))
     if not wheels or not sdists:
@@ -177,9 +183,8 @@ _UNDECLARED_OK = {
     "ttnn": "installed out-of-band from Tenstorrent's index, never a PyPI dependency",
     "pygments": "provided by rich; reached only through atomworks' error formatter",
     "msgpack": "provided by msgpack-numpy; vendored esm serialization only",
-    "openbabel": "atomworks symmetry/rf2aa path, not reached by importing tt_bio.main or tt_bio.rf3",
     "py3Dmol": "atomworks notebook visualiser, not reached by importing tt_bio.main or tt_bio.rf3",
-    "sympy": "atomworks conditions path, not reached by importing tt_bio.main or tt_bio.rf3",
+    "ase": "atomworks ASE/materials dataset loaders, not reached by RF3 or RFD4",
     "redis": "tt_bio/boltzgen/data/parse/a3m.py is unreferenced; tt_bio/data/parse.py is the live a3m parser",
     # Not third-party at all: a committed sibling module, reached by the sys.path.insert directly
     # above its import. `intree` below is built from the top level of tt_bio/ only, so a module one

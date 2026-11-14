@@ -29,7 +29,7 @@ def _stubbed(monkeypatch, n_tok=7):
         k = float(x.sum())
         return {"pae_logits": torch.full((1, n_tok, n_tok, 64), k),
                 "plddt_logits": torch.full((1, n_tok, 50), -k)}
-    return types.SimpleNamespace(confidence_head=head, device=None)
+    return types.SimpleNamespace(confidence_head=head, device=None, _levers=frozenset())
 
 
 def test_per_sample_sees_what_the_stacked_path_indexes(monkeypatch):

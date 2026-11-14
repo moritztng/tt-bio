@@ -31,7 +31,12 @@ def shape(tokens: int) -> tuple[int, int]:
 
 
 @pytest.fixture(autouse=True)
-def clean_caps():
+def clean_caps(monkeypatch):
+    # A device test earlier in the same process may have swapped in the live grids (9x8 on a
+    # Wormhole Galaxy); these numbers are the fitted rectangle's on a p150a's 11x10.
+    monkeypatch.setattr(T, "_FP32_SOFTMAX_L1_GRID", T._FP32_SOFTMAX_L1_FITTED_GRID)
+    monkeypatch.setattr(T, "COMPUTE_GRID_MAIN", (11, 10))
+    T._fp32_softmax_l1_plan.cache_clear()
     saved = dict(T._FP32_SOFTMAX_L1_ROW_CAP), dict(T._FP32_SOFTMAX_L1_FREE_ROW_CAP)
     saved_refusals = dict(T._FP32_SOFTMAX_L1_REFUSALS)
     for d in (T._FP32_SOFTMAX_L1_ROW_CAP, T._FP32_SOFTMAX_L1_FREE_ROW_CAP,
@@ -46,7 +51,7 @@ def clean_caps():
 
 
 def test_grid_and_budget_are_the_calibration_these_numbers_came_from():
-    assert T._FP32_SOFTMAX_L1_GRID == (8, 8)
+    assert T._FP32_SOFTMAX_L1_FITTED_GRID == (8, 8)
     assert T._FP32_SOFTMAX_L1_BYTES_PER_CORE == 768 << 10
 
 

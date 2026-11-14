@@ -1,0 +1,8 @@
+{"dtype": "fp32", "case": "8f5n-assembly1", "set": "paired", "seed": 42, "recipe": "default", "rank": 0, "wall_s": 480.24, "status": "ok", "t": 1793656719.2403958}
+{"dtype": "fp32", "case": "8aok-assembly1", "set": "paired", "seed": 42, "recipe": "default", "rank": 0, "wall_s": 55.66, "status": "ok", "t": 1793656774.9015954}
+{"dtype": "fp32", "case": "8w4b-assembly1", "set": "paired", "seed": 42, "recipe": "default", "rank": 0, "wall_s": 328.28, "status": "ok", "t": 1793657103.180069}
+{"dtype": "fp32", "case": "8fo5-assembly1:nomsa", "set": "paired", "seed": 42, "recipe": "use_msa_false", "rank": 0, "wall_s": 268.73, "status": "ok", "t": 1793657371.909579}
+{"dtype": "fp32", "case": "8u12-assembly1", "set": "paired", "seed": 42, "recipe": "default", "rank": 0, "wall_s": 344.43, "status": "ok", "t": 1793657716.3381846}
+{"dtype": "fp32", "case": "7y37-assembly1", "set": "paired", "seed": 42, "recipe": "default", "rank": 0, "wall_s": 35.26, "status": "ok", "t": 1793657751.5972085}
+{"dtype": "fp32", "case": "7fxn-assembly1:nomsa", "set": "paired", "seed": 42, "recipe": "use_msa_false", "rank": 0, "wall_s": 170.53, "status": "ok", "t": 1793657922.1292362}
+{"dtype": "fp32", "case": "8f5n-assembly1", "set": "paired", "seed": 66, "recipe": "default", "rank": 0, "wall_s": 439.8, "status": "ok", "t": 1793658361.9254646}

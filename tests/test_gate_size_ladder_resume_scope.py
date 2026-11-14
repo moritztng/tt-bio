@@ -37,7 +37,7 @@ def _journal(tmp_path, members):
 def test_full_run_members_name_every_ladder():
     m = rg._arm_members("size-ladder", ["size-ladder"])
     assert m == sorted(f"size-ladder:{x}" for x in FULL)
-    assert len(m) == 9
+    assert len(m) == len(FULL)
 
 
 def test_subset_run_members_name_only_what_it_scored():

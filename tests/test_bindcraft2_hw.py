@@ -10,11 +10,13 @@ Run it pinned, which the session guard in `conftest.py` enforces:
     TT_VISIBLE_DEVICES=2 PYTHONPATH=/path/to/BindCraft2 python3 -m pytest \\
         tests/test_bindcraft2_hw.py -s
 """
+import gc
 import os
 import pathlib
 import subprocess
 import sys
 import time
+import weakref
 
 import numpy as np
 import pytest
@@ -257,3 +259,59 @@ def test_the_exact_instrument_reaches_a_real_backward_on_card(capsys):
             print(f"  {name:<7} exact={arm['exact']!s:<5} step {arm['seconds']:.1f} s "
                   f"loss {arm['loss']:.4f} counters {arm['moved']}")
             print(f"          {arm['clock']}  host load/core {arm['load']:.2f}")
+
+
+def test_switching_checkpoints_hands_the_last_one_back(capsys):
+    """Issue 18: under `resident=1` a campaign reloads a trunk whenever BindCraft 2 draws a
+    different design model, and every reload used to leave the evicted checkpoint's pair weights
+    on card, so held DRAM climbed round after round until the allocator refused. Alternating two
+    checkpoints does the same at the cost of a few rounds: once both have been loaded once,
+    every further round is identical work and the card must hold the same bytes after it.
+
+    The rounds run with the cycle collector off: an evicted trunk must be freed by its last
+    reference going away, not by whenever CPython's collector next runs, which is what a long
+    campaign sees between collections. Held DRAM is read after an explicit collection, because a
+    round's own tape is left to the collector and is not what this test is about."""
+    import ttnn
+    from bindcraft.af2 import MULTIMER_POOL
+
+    from tt_bio import pair_mm
+    from tt_bio.tenstorrent import get_device
+
+    params, protein_states, losses = _pdl1_draw()
+    names = MULTIMER_POOL[:2]
+    missing = [n for n in names if not (pathlib.Path(params) / f"params_{n}.npz").exists()]
+    if missing:
+        pytest.skip(f"no {missing} in {params}")
+
+    def held():
+        mv = ttnn.get_memory_view(get_device(), ttnn.BufferType.DRAM)
+        return int(mv.total_bytes_allocated_per_bank) * int(mv.num_banks)
+
+    served = pair_mm.STATS[0]
+    readings = []
+    with bindcraft2.predictor(trunk="device", checkpoints=params, resident=1) as build:
+        model = build(presets=names, models=names, data_dir=str(params), max_cache_size=1,
+                      num_recycle=1, length_bucket_size=32)
+        gc.collect()
+        gc.disable()
+        trunks, survived = [], []
+        try:
+            for i in range(6):
+                model.sequence_gradients(protein_states, losses, model=names[i % 2])
+                # The loop ran through the device model, not its `_Trunk` wrapper.
+                trunks.append(weakref.ref(build.pool._trunks[names[i % 2]].model))
+                survived += [(j, i) for j, t in enumerate(trunks[:-1]) if t() is not None]
+                gc.collect()
+                readings.append(held())
+        finally:
+            gc.enable()
+        loads = dict(build.pool.selections)
+    assert not survived, f"(evicted after round, still alive after round): {survived}"
+    # Without the lever there is nothing for the fix to release and this would pass for nothing.
+    assert pair_mm.STATS[0] > served, "pair_mm served no call, so this measured nothing"
+    growth = readings[-1] - readings[1]
+    with capsys.disabled():
+        print(f"\nheld DRAM after each round, GB: {[round(r / 1e9, 3) for r in readings]}; "
+              f"selections {loads}; growth over rounds 2-6 {growth / 1e6:.1f} MB")
+    assert growth < 32 * 2 ** 20, f"held DRAM grew {growth / 1e6:.1f} MB over four reloads"

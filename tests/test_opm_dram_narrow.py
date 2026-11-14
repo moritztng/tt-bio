@@ -173,3 +173,12 @@ class TestJoinRefusal:
         """The whole claim that sizes folding today keep their exact numbers rests on the
         counter: a fold that never refuses never increments it."""
         assert "join_split" in tt.OPM_ROW_STATS
+
+    def test_the_budget_grows_with_dram_but_not_on_wormhole(self):
+        """1/OPM_Z_DRAM_DEN of DRAM, never below the 256 MiB base: 12 GiB Wormhole keeps 128-row
+        blocks at 1024 tokens, a 32 GiB Blackhole (31.6 GiB usable) takes 256."""
+        per_row = 32 * 32 * 1024 * 2
+        budget = lambda total: max(tt.OPM_Z_BUDGET_BYTES, total // tt.OPM_Z_DRAM_DEN)
+        assert budget(12 << 30) == tt.OPM_Z_BUDGET_BYTES
+        assert tt.row_block(per_row, budget(12 << 30), cap=tt.OPM_CHUNK_SIZE) == 128
+        assert tt.row_block(per_row, budget(int(31.6 * (1 << 30))), cap=tt.OPM_CHUNK_SIZE) == 256

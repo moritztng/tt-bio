@@ -101,6 +101,7 @@ residue ladder that never saw a ligand would be a units substitution, not a meas
 
 from __future__ import annotations
 
+import functools
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -901,6 +902,44 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "shared trunk and not from the MSA path the esmfold2 entry names",
         ),
     },
+    # Mol-1 runs the protenix-v2 trunk at c_z 448 (PairMixer blocks) and 320, so v2's ceilings
+    # do not transfer: its own ladder stops two rungs lower.
+    "mol1": {
+        "wormhole_b0": Ceiling(
+            residues=1024, pass_at=1024, fail_at=1074, binds=MEMORY, mechanism=DRAM,
+            msa_rows=16384, ladder_ligand_atoms=0,
+            evidence="Capped at 1024 tokens although a single chain folds 1536, because the ladder is "
+                     "not the only wall. 1024 is the capacity gate's residency fixture (CDK2 tiled to "
+                     "1024 with its 8832-row alignment, 20 recycles, 1 sample), which needs a refused "
+                     "fold to restart one mode lighter (70e20bfa3, on main b73730028): .111 Galaxy "
+                     "(UF-EV-A6-GWH01) chip 1, 2026-11-03, ws:mol1-wh1024cap, PASS in 1380.7 s at "
+                     "AICLK 1000 MHz, every cycle host-cut at a 9.82 GiB DRAM peak, where the tree "
+                     "before it fails trunk 0 on 64 MiB (896 was the cap until then). fail_at is FoldBench "
+                     "7yzt-assembly1 (3 x 315 residues plus 3 CCD ligands, about 1074 tokens, paired "
+                     "7054-row alignment), which runs out of DRAM at trunk "
+                     "0 on every seed on main's Wormhole tree c5e5bc392 (72.2 MiB requested, 3.8 MiB "
+                     "free, chip 6 of the .107 Galaxy, 2026-11-01, ws:mol1-quality). Tokens and depth "
+                     "both sit inside the ladder, so nothing short of folding it says which homomer + "
+                     "ligand shapes fail; the cap refuses that one before a device opens and goes back "
+                     "up when it folds on Wormhole (D-moritz-1102c). The ladder: walked 2026-11-01 on the .107 Galaxy (UF-EV-A4-GWH01), "
+                     "tree c5e5bc392 (main with the MOL1_WH levers), perf/whceil/ladder.py, apo ubiquitin tiled to N residues with "
+                     "a 16384-row unpaired alignment, guard off, CLI defaults 20 recycles / 200 steps / "
+                     "5 samples (ws:mol1-serve-jf). 1280 PASS in 3261.3 s, chip 4, AICLK median 1000 MHz "
+                     "over 7024 in-fold samples, pLDDT 63.3-64.6 over 5 samples, 2 refusals recovered, "
+                     "the largest 7869235200 B. 1536 PASS in 5445.2 s, chip 28, AICLK median 1000 MHz "
+                     "over 10704 in-fold samples, pLDDT 62.9-63.6 over 5 samples, no clash, 3 refusals "
+                     "recovered, the largest 9443082240 B. The ladder's fail rung is from the earlier walk on "
+                     "tree 87224da42 (wk/mol1-port), which also passed 1024 and 1280: 1792 fails after "
+                     "416.7 s (chip 27) on one 2877292544 B DRAM request, 228.7 MiB per bank against "
+                     "94.6 MiB free and a 49.0 MiB largest block on a chip 90.8 percent full: "
+                     "cumulative residency, not fragmentation. 2048 fails the same way after 161.5 s "
+                     "(chip 20, 3758096384 B, 298.7 MiB per bank). The two requests stand in the ratio "
+                     "(1792/2048)^2 exactly, so the failing tensor is pair-shaped and the wall is on "
+                     "TOKENS, hence ladder_ligand_atoms=0",
+        ),
+        "blackhole": _unmeasured("no size ladder run for Mol-1 on Blackhole yet; the Wormhole row "
+                                 "does not carry over"),
+    },
     "protenix-v1": {
         "wormhole_b0": Ceiling(
             residues=2048, pass_at=2048, fail_at=None, binds=LADDER_TOP, mechanism=NO_FAILURE,
@@ -1026,6 +1065,13 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                 "sizes (0.121 and 0.040), so that half is the partial pipeline rather than the "
                 "size. scRMSD through the full pipeline is what settles whether the clashes "
                 "matter; until it lands, read this row as a fit, not as a quality claim"),
+    },
+    "rfd4": {
+        "blackhole": _unmeasured(
+            "nobody has walked a ladder. Designs on record are 128 tokens (thinking_medium, warm "
+            "17.96 s at AICLK 1350 MHz on a qb2 p300c chip, state/rfd4/census/e2e-128.json) and a "
+            "329-token antibody condition (ws:rfd4-cond-protein); ws:rfd4-size walks 256 and 512. "
+            "Nothing has failed, so there is no size to refuse", counts=DESIGN_TOTAL),
     },
     "esmc-300m": {
         "wormhole_b0": Ceiling(
@@ -1501,11 +1547,12 @@ def scan_residues(text: str, path=None) -> int:
     return total
 
 
-def _heavy_atoms(spec: str) -> int:
+def _heavy_atoms(spec: str, table=None) -> int:
     """Heavy atoms in one ligand spec: ``CCD_<code>[,<code>...]`` or a SMILES string.
 
-    The two sources the FEATURIZER tokenises, not a third: the CCD component's own Mol out of the
-    ``mols`` library, and RDKit's parse of a SMILES. Heavy atoms only, the same
+    The two sources the FEATURIZER tokenises, not a third: the CCD component's Mol through the
+    featurizer's own ``protenix_data.ccd_mols`` (the ``mols`` library, else the model's CCD
+    ``table`` for a code newer than the library), and RDKit's parse of a SMILES. Heavy atoms only, the same
     ``GetAtomicNum() > 1`` filter ``protenix_data.ligand_atom_features`` applies when it lays one
     token per atom. So this is the token count the model will build, not an estimate of it --
     checked against the two ligand counts already written into this file's own evidence: CCD STU
@@ -1513,11 +1560,13 @@ def _heavy_atoms(spec: str) -> int:
     """
     try:
         if spec.upper().startswith("CCD_"):
-            from .data.mol import load_molecules
-            from .protenix_data import _default_mol_dir
+            from .protenix_data import ccd_mols
             codes = [x.strip().upper() for x in spec[4:].split(",") if x.strip()]
-            mols = load_molecules(_default_mol_dir(), codes)
+            mols = ccd_mols(codes, table=table)
             return sum(sum(1 for a in mols[c].GetAtoms() if a.GetAtomicNum() > 1) for c in codes)
+        if spec.startswith("FILE_"):
+            from .protenix_data import _file_to_mol
+            return _file_to_mol(spec[5:]).GetNumHeavyAtoms()
         from rdkit import Chem
         mol = Chem.MolFromSmiles(spec)
         return mol.GetNumHeavyAtoms() if mol is not None else 0
@@ -1525,7 +1574,26 @@ def _heavy_atoms(spec: str) -> int:
         return 0
 
 
-def scan_ligand_atoms(path) -> int:
+@functools.cache
+def _ccd_table(model):
+    """The model's own CCD table (Mol-1's ccd_table.npz) when it is already on disk, else None. Never
+    downloads: a size gate runs before the fold and must not fetch 150 MB to size an input."""
+    if model is None:
+        return None
+    try:
+        from . import weights
+        from .protenix_data import load_conformer_table
+        for art in weights.artifacts_for(model):
+            if art.derived and art.derived.producer == "rdkit-conformers":
+                p = weights.cached_path(art.key)
+                if p is not None and (p / "ccd_table.npz").exists():
+                    return load_conformer_table(p / "ccd_table.npz")
+    except Exception:
+        pass
+    return None
+
+
+def scan_ligand_atoms(path, model=None) -> int:
     """Ligand heavy atoms in one predict input, summed over every ligand chain. 0 if it has none.
 
     Takes a PATH rather than text because it reads the chains through ``main._read_bio_chains`` --
@@ -1538,13 +1606,17 @@ def scan_ligand_atoms(path) -> int:
     library, an unparseable SMILES, a file the real parser will reject on its own terms. That is
     ``scan_residues``'s rule and it holds here: a size guard is the wrong place to learn that an
     input is malformed.
+
+    ``model`` names whose CCD table to read for a code newer than the ``mols`` library (Mol-1's),
+    so those atoms are counted instead of scoring 0.
     """
     try:
         from .main import _read_bio_chains
         chains = _read_bio_chains(Path(path))
     except Exception:
         return 0
-    return sum(_heavy_atoms(c[1]) for c in chains if len(c) > 3 and c[3] == "ligand")
+    table = _ccd_table(model)
+    return sum(_heavy_atoms(c[1], table) for c in chains if len(c) > 3 and c[3] == "ligand")
 
 
 _BARE_SEQUENCE = re.compile(r"^[A-Za-z]+$")
@@ -1947,8 +2019,61 @@ _DESIGN_SUFFIXES = (".json", ".yml", ".yaml")
 # model", and adding a third denominator silently gave every embed model the design suffix list, so
 # `.fasta` inputs were skipped and an oversized sequence was admitted. A proxy that happens to hold
 # for two cases is not a rule, and it fails silently in the permissive direction.
+def scan_rfd4_total(text: str, path=None) -> int:
+    """Held + designed residues in one RFD4 condition spec (DESIGN_TOTAL). 0 if it cannot be sized.
+
+    Same rule as ``scan_rfd3_total`` and for the same reason: the contig decides the size, not the
+    pasted structure, and the count comes from RFD4's OWN contig parser rather than a second copy
+    of the grammar. A variable-length segment (``20-30``) is counted at its MAXIMUM, because the
+    length is drawn per design and a guard that sized the minimum would pass an input the run then
+    exceeds.
+    """
+    try:
+        import json
+
+        import yaml
+
+        # The grammar module, not the assembler beside it: this guard reads a contig and
+        # builds nothing, and the assembler's atomworks import costs 1.2 s and ~376 MB.
+        from ._vendor.rfd4_prep._cif.contig_grammar import (
+            ExpandableSegment, PreservedSegment, chain_runs,
+        )
+    except Exception:
+        return 0
+    try:
+        data = yaml.safe_load(text)
+    except Exception:
+        try:
+            data = json.loads(text)
+        except Exception:
+            return 0
+    if not isinstance(data, dict):
+        return 0
+    # One top-level key per design, run one after another, so the cap applies to the LARGEST.
+    largest = 0
+    for spec in data.values():
+        if not isinstance(spec, dict):
+            continue
+        contig = spec.get("contig")
+        if not isinstance(contig, str) or not contig.strip():
+            continue
+        try:
+            n = 0
+            for run in chain_runs(contig):
+                for tok in run:
+                    if isinstance(tok, PreservedSegment):
+                        n += tok.end - tok.start + 1
+                    elif isinstance(tok, ExpandableSegment):
+                        n += tok.seg_max
+        except Exception:
+            continue
+        largest = max(largest, n)
+    return largest
+
+
 _SIZERS: dict[str, tuple] = {
     "rfd3": (DESIGN_TOTAL, scan_rfd3_total, _DESIGN_SUFFIXES),
+    "rfd4": (DESIGN_TOTAL, scan_rfd4_total, _DESIGN_SUFFIXES),
     "pxdesign": (DESIGN_TARGET, scan_pxdesign_target, _DESIGN_SUFFIXES),
     "boltzgen": (TARGET_ATOMS, scan_boltzgen_target_atoms, _DESIGN_SUFFIXES),
     # Every embed / saprot model: independent sequences, so the longest one binds, not their sum.
@@ -2012,7 +2137,7 @@ def check_input(data, model: str, *, arch: str | None = None, fast: bool = False
         except Exception:
             continue
         if n:
-            check(model, n, ligand_atoms=scan_ligand_atoms(q) if tokenwise else 0,
+            check(model, n, ligand_atoms=scan_ligand_atoms(q, model) if tokenwise else 0,
                   arch=arch, fast=fast, where=f"'{q.name}'")
 
 
@@ -2054,6 +2179,23 @@ def is_alloc_refusal(exc: BaseException) -> bool:
     ``describe_device_oom`` renders, so the two can never disagree about what a refusal is.
     """
     return describe_device_oom(str(exc)) is not None
+
+
+def restart_lighter(run, mode, lighter, step_down):
+    """``run(mode)``; while the device allocator refuses it, ``step_down(mode)`` and run again from
+    the start in ``lighter[mode]``. The result of the first run that fits.
+
+    A refusal in a mode with nothing lighter, or any other error, propagates. ``step_down`` runs
+    outside the handler, once the traceback that pins every tensor the refused run made is gone.
+    """
+    while True:
+        try:
+            return run(mode)
+        except RuntimeError as exc:
+            if mode not in lighter or not is_alloc_refusal(exc):
+                raise
+        step_down(mode)
+        mode = lighter[mode]
 
 
 # What the allocator's own numbers say happened. One decision, two renderings: the sentence a user

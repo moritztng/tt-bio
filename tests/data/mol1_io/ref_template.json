@@ -1,0 +1,44 @@
+[
+ {
+  "sequences": [
+   {
+    "proteinChain": {
+     "sequence": "MDVSILGTGLMGTALAQALIRSGTKVTVWNRTADRALPLAAAGATVAESPQSAIAASPLIVISLLNYEIAKDVVTEADSIAGKIIVNTATGTPEEANQFAEWIAGRGARYLDGAIAAYPEDIGTESSGINYSGDEDVWEDVQSLLTPIAAQSRYVGARPGAANVIDAAMAGAFFNVALGAFHEAAAYVRSEDVAIAEMRHSLHLWTDKLLELLHEALKAFESGEYETDQATLNVYAAAVEAWQQSMQRAGQRAALMTANLDNLQRACAAGHGDKGIFAQIETLSANPQSAI",
+     "count": 2,
+     "pairedMsaPath": "@MOL1@/examples/examples_with_template/9fm7/pairing.a3m",
+     "unpairedMsaPath": "@MOL1@/examples/examples_with_template/9fm7/non_pairing.a3m",
+     "templatesPath": "@MOL1@/examples/examples_with_template/9fm7/hmmsearch.a3m"
+    }
+   },
+   {
+    "ligand": {
+     "ligand": "CCD_ATR",
+     "count": 2
+    }
+   }
+  ],
+  "modelSeeds": [],
+  "assembly_id": "1",
+  "name": "9fm7"
+ },
+ {
+  "sequences": [
+   {
+    "proteinChain": {
+     "sequence": "MMKKKSVKLKDIAIQAEVSVATVSAALNGTGRIGDELRSRIMEVARQMNYEPNLAARLLKQKHCNDIGLVISDPPRRIAGSGFFQPMIYHFIQLCDEQGIRCQIEYHDPDVKDGQVPALMTGGFTGGVLYGGAVGTATRRWIKENPSFPIVTFEDRDFEYTIHSRYDLAAYRMVQHLAALGHRHVALLAGLPRYELQQGMREGFTRAVADFRLDAACWDREYAFRLENDADTMREGVEYCEKLFARTVRPTALVISDARLAKAALYTALKHGIDVPRDLSIFTCGNEYETEQVYPALSSIRWNAHEAIYKAYHLLRSLMEGRIPAEKVIEVEPVLTLRDSTARCS",
+     "count": 1,
+     "pairedMsaPath": "@MOL1@/examples/examples_with_template/MGYP004658859411/pairing.a3m",
+     "unpairedMsaPath": "@MOL1@/examples/examples_with_template/MGYP004658859411/non_pairing.a3m",
+     "templatesPath": "@MOL1@/examples/examples_with_template/MGYP004658859411/concat.hhr"
+    }
+   }
+  ],
+  "modelSeeds": [
+   1,
+   2,
+   3
+  ],
+  "assembly_id": "1",
+  "name": "MGYP004658859411"
+ }
+]

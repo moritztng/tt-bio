@@ -32,7 +32,7 @@ from __future__ import annotations
 
 import ttnn
 
-from .tenstorrent import Module, pair_row_blocks, row_block_after_refusal
+from .tenstorrent import Module, _cached, pair_row_blocks, row_block_after_refusal
 
 # Pair shapes whose single-pass conditioning DRAM refused, and the row block they settled at.
 _PAIR_ROWS_REFUSED: dict = {}
@@ -120,22 +120,29 @@ class OF3DiffusionConditioning(Module):
             z = ttnn.add(z, tr(z, pair_mask))
         return z
 
-    def single(self, si_trunk, si_input, n_emb, tok_mask):
+    def single(self, si_trunk, si_input, n_emb, tok_mask, cache=None):
         """Single branch: cat([si_trunk, si_input]) -> LN_s -> linear_s, plus the
-        Fourier noise embedding. This is the half that depends on the noise level."""
+        Fourier noise embedding. This is the half that depends on the noise level; the
+        projection before it does not, so a rollout's ``cache`` holds it (`_cached`)."""
         lin = self._lin
-        sc = ttnn.concat([si_trunk, si_input], dim=-1)       # [1, N, 833]
-        s = ttnn.layer_norm(sc, weight=self.ln_s, epsilon=1e-5,
-                            compute_kernel_config=self.compute_kernel_config)
-        ttnn.deallocate(sc)
-        s = lin(s, self.w_lin_s)                              # [1, N, 384]
+
+        def proj():
+            sc = ttnn.concat([si_trunk, si_input], dim=-1)   # [1, N, 833]
+            s = ttnn.layer_norm(sc, weight=self.ln_s, epsilon=1e-5,
+                                compute_kernel_config=self.compute_kernel_config)
+            ttnn.deallocate(sc)
+            return lin(s, self.w_lin_s)                       # [1, N, 384]
+        s = _cached(cache, (id(self), "single_proj"), proj)
         # Noise embedding: LN_n(n) -> linear_n, broadcast-added over the token dim.
         n_ln = ttnn.layer_norm(n_emb, weight=self.ln_n, epsilon=1e-5,
                                compute_kernel_config=self.compute_kernel_config)
         n_proj = lin(n_ln, self.w_lin_n)                      # [1, 1, 384]
         ttnn.deallocate(n_ln)
-        s = ttnn.add(s, n_proj)
+        s_t = ttnn.add(s, n_proj)
         ttnn.deallocate(n_proj)
+        if cache is None:
+            ttnn.deallocate(s)
+        s = s_t
         for tr in self.tr_s:
             s = ttnn.add(s, tr(s, tok_mask))
         return s

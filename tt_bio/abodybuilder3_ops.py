@@ -102,9 +102,10 @@ def kernel_config():
 
 @_dispatching
 def linear(x, w, bias=None, *, activation: Optional[str] = None, dtype=ttnn.float32,
-           core_grid=CORE_GRID_MAIN):
+           core_grid=None):
     """`x @ w (+ bias)`, with `w` in `(in, out)` layout -- tt-bio's convention throughout."""
-    return ttnn.linear(x, w, bias=bias, activation=activation, dtype=dtype, core_grid=core_grid,
+    return ttnn.linear(x, w, bias=bias, activation=activation, dtype=dtype,
+                       core_grid=core_grid or CORE_GRID_MAIN,
                        compute_kernel_config=kernel_config())
 
 

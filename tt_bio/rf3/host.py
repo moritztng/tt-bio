@@ -19,6 +19,7 @@ from dataclasses import dataclass
 import torch
 import ttnn
 
+from tt_bio import tenstorrent as T
 from tt_bio.boltz2 import get_indexing_matrix
 from tt_bio.rf3.atom_encoder import window_mask
 from tt_bio.rf3.atom_encoder_host import (ATOM_KEYS, ATOM_WINDOW,
@@ -38,8 +39,9 @@ C_PAIR_IN = 32
 
 
 def to_device(x: torch.Tensor, device) -> ttnn.Tensor:
-    return ttnn.from_torch(x.float(), layout=ttnn.TILE_LAYOUT, device=device,
-                           dtype=ttnn.bfloat16)
+    # Through the shared upload so the per-recycle MSA sample (64 MB in TILE at 512 aa) is tilized
+    # on the chip: tilized on a loaded Galaxy host, the 11 of them took 4.2 s of a 36.6 s fold.
+    return T.upload(x.float(), device=device)
 
 
 @dataclass
@@ -135,6 +137,11 @@ class HostInputs:
 
     def step_inputs(self, r_noisy: torch.Tensor, device
                     ) -> tuple[ttnn.Tensor, ttnn.Tensor]:
+        """`step_inputs_host`, on device."""
+        r_in, ch_in = self.step_inputs_host(r_noisy)
+        return to_device(r_in, device), to_device(ch_in, device)
+
+    def step_inputs_host(self, r_noisy: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """The two per-step atom-level tensors: scaled coordinates and chirality.
 
         The chirality gradient is autograd through the loss module's dihedral term at
@@ -153,7 +160,7 @@ class HostInputs:
                 self.chiral_dihedrals.float(), False).nan_to_num()
         ch_in = torch.zeros(1, Lp, 3)
         ch_in[0, :L] = ch.reshape(-1, 3)[:L]
-        return to_device(r_in, device), to_device(ch_in, device)
+        return r_in, ch_in
 
 
 def distance_onehot(x_pred: torch.Tensor, rep_atom_idxs: torch.Tensor,

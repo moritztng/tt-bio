@@ -11,7 +11,9 @@ row-local along the token axis, so past a size threshold they run in row blocks 
 intermediate that is not the input or the output. The peak then scales as three live pair
 tensors instead of four. The blocks are joined on the chip, and on the host only when the chip refuses the join. A deep alignment's MSA representation lives on the host and passes
 through the chip one depth chunk at a time instead of being held whole beside the pair
-tensors. ESMFold2's pair initialisation is row-tiled the same way.
+tensors. Protenix-v2 first keeps it on the chip when it is at most about 2 GiB and streams it only
+if the chip refuses a recycling cycle, which takes a 730-residue fold with 9947 alignment rows from
+620 s to 495 s on Wormhole with the same output. ESMFold2's pair initialisation is row-tiled the same way.
 
 Measured on the WH Galaxy (12 GiB chips) on the four targets the AbAg-XM campaign had to
 exclude:
@@ -128,10 +130,16 @@ single pair-sized allocation that no free block on the chip can hold:
   waits on the host. Before that it failed at 2048 on that bias, with enough memory free but no
   block large enough.
 - `protenix-v2` folds 2048, the top of the ladder, since the pair path row-blocks an allocation
-  the chip refuses and a refused outer product mean re-runs in alignment-depth chunks. Above 1792
-  the trunk joins its pair blocks on the host, so a fold takes 65 to 120 minutes. Before the depth
+  the chip refuses and a refused outer product mean re-runs in alignment-depth chunks. At 2048 its
+  pair is 2 GiB, so the triangle multiplication, outer product mean and confidence head work in row
+  blocks on the chip rather than holding a second pair, and a fold takes about 40 minutes in
+  fast, 47 in normal and 57 in exact on a Galaxy chip at 1000 MHz. Before the depth
   chunks it failed at 1920 in the outer product mean, and before the row blocking at 1792 in the
   diffusion pair conditioning.
+- `mol1` is capped at 1024 tokens. A single chain folds 1536 and fails at 1792 on one pair-sized
+  DRAM request with the chip 91 % full, but a 315-residue homotrimer with three hemes (about 1074
+  tokens, deep paired alignment) runs out of memory in the first trunk pass, so the cap stays at
+  1024 until that shape folds.
 - `rf3` folds 1600 and fails at 1664 in the diffusion atom encoder's pair permute, with enough
   memory free but no block large enough.
 - `opendde` and `opendde-abag` fold 1536. At 1664 the residue pair no longer fits as one

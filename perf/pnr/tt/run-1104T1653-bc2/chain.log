@@ -1,0 +1,17 @@
+start 2026-11-04T16:55:44Z pid=528834 owner=worker:pnr-tt-bc2 sha=6f8825cc6421973dcbe258eaaf4027144d60aad2 cells=bc2
+book bc2+: 1793825612 1793837012 2026-11-04T16:55:44Z
+stopped 2026-11-04T16:57:10Z: bc2 took the 20:53Z gap ahead of Mol-1; relaunching after Mol-1 rebooks
+start 2026-11-04T16:58:25Z pid=557537 owner=worker:pnr-tt-bc2 sha=6f8825cc6421973dcbe258eaaf4027144d60aad2 cells=bc2
+book bc2+: 1793842618 1793854018 2026-11-04T16:58:25Z
+stopped 2026-11-04T22:44:47Z: restart on run_cells.sh that drops the fleet-pnr-tt hold
+start 2026-11-04T22:44:47Z pid=3634927 owner=worker:pnr-tt-bc2 sha=6f8825cc6421973dcbe258eaaf4027144d60aad2 cells=bc2
+book bc2+: 1793905618 1793917018 2026-11-04T22:44:47Z
+stopped 2026-11-06T03:42:53Z: restart on run_cells.sh that re-books only after a lapse
+start 2026-11-06T03:42:54Z pid=768180 owner=worker:pnr-tt-bc2 sha=1712bdfba1121f489606fd1b55a724812e07d257 cells=bc2
+booked 2026-11-06T09:37:41Z
+locks held 2026-11-06T09:37:41Z
+wait quiet (holders: none; load 1.87) 2026-11-06T09:37:42Z
+quiet after 90s 2026-11-06T09:39:15Z load 1.34 1.59 1.61 1/931 157349
+cell bc2 start 2026-11-06T09:39:16Z
+cell bc2 end rc=0 2026-11-06T12:15:18Z load 13.97 14.95 12.82 3/931 1685764
+end 2026-11-06T12:15:18Z

@@ -229,8 +229,8 @@ def observe_axis():
     """
     inner = bindcraft2.EvoformerOnDevice._pad
 
-    def pad(m, z, mask, pair_mask):
-        out = inner(m, z, mask, pair_mask)
+    def pad(*args, **kw):
+        out = inner(*args, **kw)
         n = int(out[4])
         AXIS.setdefault("complex_residues", n)
         AXIS.setdefault("evoformer_axis", int(bindcraft2._pad32(n)))
@@ -415,6 +415,8 @@ def main():
                       # whether a lever went inert rather than leave it to arithmetic.
                       "levers": _safe(M.levers), "lever_stats": _safe(M.lever_stats),
                       "triatt_reach": _safe(M.reach),
+                      # StructureOnDevice's call counts; None where BindCraft 2's own module ran.
+                      "structure_calls": dict(built[0].calls) if built and built[0] else None,
                       "aiclk_run": M.CLOCK.window(t0, time.time()),
                       **peak_from_probe(probe), **peak.report(),
                       "mem_end": host_memory(), "loadavg_end": os.getloadavg(),
@@ -423,12 +425,14 @@ def main():
         print(json.dumps({k: v for k, v in stamp.items() if k != "per_round"}, indent=1),
               flush=True)
 
+    built = []
     try:
         with bindcraft2.campaign_predictor(trunk="device", validation=args.validation,
                                            checkpoints=args.params, extra_msa=True,
                                            template=True, exact=False,
                                            memory=args.memory) as build:
             stamp["fast"] = build.fast
+            built.append(getattr(build, "structure", None))
             stamp["memory_requested"] = args.memory
             stamp["memory_used"] = build.memory.used
             stamp["auto_card_open"] = auto_now()

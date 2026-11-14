@@ -1,0 +1,43 @@
+[
+    {
+        "sequences": [
+            {
+                "proteinChain": {
+                    "sequence": "SGFRKMAFPSGKVEGCMVQVTCGTTTLNGLWLDDVVYCPRHVICTSEDMLNPNYEDLLIRKSNHNFLVQAGNVQLRVIGHSMQNCVLKLKVDTANPKTPKYKFVRIQPGQTFSVLACYNGSPSGVYQCAMRPNFTIKGSFLNGSCGSVGFNIDYDCVSFCYMHHMELPTGVHAGTDLEGNFYGPFVDRQTAQAAGTDTTITVNVLAWLYAAVINGDRWFLNRFTTTLNDFNLVAMKYNYEPLTQDHVDILGPLSAQTGIAVLDMCASLKELLQNGMNGRTILGSALLEDEFTPFDVVRQCSGVTFQ",
+                    "count": 1
+                }
+            },
+            {
+                "proteinChain": {
+                    "sequence": "XAVLXX",
+                    "count": 1,
+                    "modifications": [
+                        {
+                            "ptmPosition": 1,
+                            "ptmType": "CCD_02J"
+                        },
+                        {
+                            "ptmPosition": 5,
+                            "ptmType": "CCD_PJE"
+                        },
+                        {
+                            "ptmPosition": 6,
+                            "ptmType": "CCD_010"
+                        }
+                    ]
+                }
+            }
+        ],
+        "covalent_bonds": [
+            {
+                "entity1": 1,
+                "position1": 145,
+                "atom1": "SG",
+                "entity2": 2,
+                "position2": 5,
+                "atom2": "C20"
+            }
+        ],
+        "name": "6lu7"
+    }
+]

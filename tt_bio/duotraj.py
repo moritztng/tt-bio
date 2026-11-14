@@ -283,6 +283,26 @@ def free_device_bytes() -> int:
         return 0
 
 
+def held_device_bytes() -> "int | None":
+    """DRAM this process holds on the open card, all banks: the allocator's own `allocated`.
+
+    The same quantity an allocator refusal prints, so a reading taken earlier subtracts from a
+    refusal's figure exactly. 0 with no card open, which is what is held then; None when the read
+    fails.
+    """
+    if "ttnn" not in sys.modules:
+        return 0
+    try:
+        import ttnn
+        from tt_bio import tenstorrent
+        if tenstorrent._device is None:
+            return 0
+        mv = ttnn.get_memory_view(tenstorrent._device, ttnn.BufferType.DRAM)
+        return int(mv.total_bytes_allocated_per_bank) * int(mv.num_banks)
+    except Exception:
+        return None
+
+
 def free_host_bytes() -> int:
     """MemAvailable, the kernel's own estimate of what a new allocation can have."""
     try:

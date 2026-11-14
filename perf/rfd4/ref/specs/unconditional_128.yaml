@@ -1,0 +1,3 @@
+monomer_short:
+  input: /home/moritz/rfd4-ref-env/src/RFD4-Proteina/data/benchmarks/monomer/monomer-short.cif.zst
+  input_as_annotated_cif: true

@@ -1,0 +1,18 @@
+2026-11-03T18:50:26Z credit $85.5875255097767 at start, gpu h200, cap 3 h
+2026-11-03T19:00:30Z created 59002201 on offer 55289456
+2026-11-03T19:01:36Z 59002201 up at 205.196.19.50:20301, power limit 700 W
+2026-11-03T19:01:39Z 59002201 download 431362541 B/s
+Welcome to vast.ai. If authentication fails, try again after a few seconds, and double check your ssh key.
+Have fun!
+Welcome to vast.ai. If authentication fails, try again after a few seconds, and double check your ssh key.
+Have fun!
+Welcome to vast.ai. If authentication fails, try again after a few seconds, and double check your ssh key.
+Have fun!
+Welcome to vast.ai. If authentication fails, try again after a few seconds, and double check your ssh key.
+Have fun!
+Welcome to vast.ai. If authentication fails, try again after a few seconds, and double check your ssh key.
+Have fun!
+2026-11-03T19:01:49Z 59002201 running box_pnr.sh (PNR_LABEL=h200-1 MIN_SM=1750 )
+2026-11-03T21:30:08Z 59002201 ended: done (setup-mol1 0 2026-11-03T19:08:41Z;setup-bc2 0 2026-11-03T19:08:41Z;setup-rfd4 0 2026-11-03T19:08:41Z;mol1 0 2026-11-03T19:19:31Z;bc2 0 2026-11-03T19:42:43Z;rfd4 0 2026-11-03T21:29:40Z;)
+2026-11-03T21:30:20Z DESTROYED 59002201 (session end: done); this instance over REST: gone; instances left: 3
+2026-11-03T21:30:20Z credit $56.0852275867785 at end

@@ -22,6 +22,7 @@ import torch
 from torch import Tensor, nn
 
 from tt_bio import tenstorrent
+from tt_bio.boltz2 import _device_conditioning, _device_zinit, _fuse_bias_stack
 from tt_bio.tenstorrent import (
     MiniformerModule as TTMiniformerModule,
     MSAModule as TTMSAModule,
@@ -51,6 +52,177 @@ from tt_bio.boltzgen.model.modules.inverse_fold import (
     InverseFoldingEncoder,
     InverseFoldingDecoder,
 )
+
+# BoltzGen's precision levers per mode (`tenstorrent.model_levers`). The device modules are built at
+# state-dict load and run in `forward`, both inside `lever_scope`, so the process-wide `--fast` switch
+# (`tenstorrent._FAST_MODE`: bfp8 activations and weights, narrower chunks) is off inside BoltzGen, as
+# in Boltz-2. At 512 aa that switch designed slower than normal mode (p150a 44.52 vs 38.40 s/design).
+# Fast is pinned by name so a lever added to tenstorrent.FAST_LEVERS later is not in BoltzGen's fast
+# mode ungraded. It is the shared fast set without dit_sdpa_pm (at 544 tokens its kernel loses to the
+# stock SDPA on the 768 pad: Wormhole 66.3 -> 61.7 s/design) plus adaln_mod and dit_cond_hifi2 (the
+# hoisted conditioning matmuls at HiFi2: 61.7 -> 60.4). Grade (Wormhole, bg_R3, 8 designs at each of
+# seeds 0, 1, 3-7 against exact normal at the same seed, floor = exact at the next seed,
+# perf/spd/bg_grade.py): 56 designs, filter pass 56 of 56 in both, every confidence CI covers 0
+# (design ipTM -0.020 [-0.047, +0.006], design pTM -0.011, complex pLDDT -0.001). Same-seed design CA
+# RMSD is no bar here: a design rollout decorrelates under any numeric change (floor median 11.8 A).
+# Normal is the shared normal set as of 2026-10-12, pinned by name for the same reason. Grade (same protocol,
+# seeds 0-7, on top of the device conditioning and fused bias stacks, against the exact normal stack): 64
+# designs, filter pass 64 of 64 in both, design ipTM +0.002 [-0.031, +0.035], design pTM -0.000 [-0.019,
+# +0.016], complex pLDDT +0.001. Wormhole 61.2 -> 58.0 s/design, all of it in the trunk (35.3 -> 31.5 s).
+LEVERS_NORMAL = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3", "dit_sdpa32", "silu_f32", "triatt_tail",
+                           "atom_k1", "dit_mm16", "dit_qkv16", "msa_sample", "dit_sdpa", "dit_chunk", "conf_bins"})
+LEVERS_FAST = frozenset({"acc_off", "diffusion_bf16", "dit_sdpa", "transition_b8", "opm_b8", "atom_sdpa",
+                         "trimul_ibw", "trimul_tail", "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32",
+                         "ln_f32", "triatt_tail", "transition_bw", "transition_shard", "dit_mm16", "atom_k1",
+                         "dit_b8", "dit_qkv16", "swiglu_fc12g", "msa_sample", "adaln_mod", "dit_cond_hifi2"})
+# Every arch set also featurizes the next design in a spawned process (bg_featproc) rather than a thread, so its Python
+# no longer takes the GIL from the thread dispatching the current design. Host-only, the designs are byte-identical
+# (bg_R3, seed 0, 6 designs, b,p,p,b on a p300 chip at AICLK mean 1312 MHz, 2026-10-31): fast 15.60 -> 15.08 s/design,
+# host pre 0.98 -> 0.38 s.
+HOST_LEVERS = frozenset({"bg_featproc"})
+# Wormhole adds placement-only levers that design byte-identical CIFs on bg_R3 (seed 0, 6 designs, b,l,l,b on a Galaxy
+# chip at 1000 MHz, spd-m-boltzgen lev 2026-10-26), so they need no grade: atom_l1 normal 57.58 -> 56.43 s/design,
+# fast 52.98 -> 51.84; trimul_bres fast 53.00 -> 51.40 (in normal it read +0.3 s, noise, and stays off).
+# Wormhole normal also takes the weight-stationary transition, the fused triangle-attention LN and dit_cond_steps,
+# graded as one stack by the normal protocol (bg_grade.py, bg_R3, seeds 0-3 x 8 designs vs exact WH normal,
+# 2026-10-26): design_ptm -0.008, complex_plddt +0.003, iptm +0.002, filter 32/32 vs 32/32. Galaxy chip at 1000 MHz:
+# 55.80 -> 53.26 s/design. The T1/T2 trimul kernels on top of that set pass the normal grade pooled over seeds 0-7
+# (64 designs; design_ptm -0.002 [-0.016, +0.012], iptm -0.007, complex_plddt -0.001, filter 64/64). An earlier
+# 4-seed grade of a five-lever stack failed on design_ptm alone; the 8-seed retest was pre-registered.
+# dit_pad_short stages the token DiT bias at 576 rather than 768 for the 544-token page design: normal grade over seeds
+# 0-7 (2026-10-27) design_ptm +0.002, iptm +0.013, complex_plddt -0.002, filter 64/64; 46.4 -> 45.2 s/design.
+# adaln_mod fuses each fp32 AdaLN modulation into one addcmul and so lets dit_cond_steps condition several DiT steps
+# ahead (without it dit_cond_steps does nothing in normal): 43.3 -> 40.9 s/design at 1000 MHz. Normal grade over seeds
+# 0-7 (2026-10-27, 64 designs): design_ptm +0.001 [-0.010, +0.012], iptm +0.014, complex_plddt -0.002.
+# Normal also takes the DiT linears and trunk four that fast carries (dit_qkvf, dit_bpad, dit_shard, dit_fc123g, apb_ln,
+# ws_l1dest, ws_resid, trimul_t2cm): 37.6 -> 33.9 s/design at 1000 MHz (whx2, 2026-10-31). trimul_bres and opm_jd on
+# top leave the CIFs byte-identical: 34.0 -> 33.0 (wnl, 2026-11-01). Normal grade vs exact WH normal over seeds 0-7 (64
+# designs, 2026-11-01): PASS, design_ptm +0.016 [+0.008, +0.025], iptm -0.019 [-0.041, +0.002], filter 64/64.
+WH_LEVERS_NORMAL = LEVERS_NORMAL | HOST_LEVERS | {"atom_l1", "transition_ws", "triatt_ln", "dit_cond_steps", "trimul_t1",
+                                    "trimul_t2", "dit_pad_short", "adaln_mod", "dit_qkvf", "dit_bpad", "dit_shard",
+                                    "dit_fc123g", "apb_ln", "ws_l1dest", "ws_resid", "trimul_t2cm", "trimul_bres",
+                                    "opm_jd", "dit_kl1", "adaln_at", "ws_psilu", "trimul_t1_psig"}
+# dit_kl1 (both Wormhole sets) keeps the token DiT attention at the full k chunk with the PV sums added in L1, so the
+# Wormhole fp32-dest erratum guard holds without the 32-key chunk: ~-1.2 ms a diffusion step at 1000 MHz (kl1ab,
+# 2026-11-03, b l l b). Graded as a stack with device z_init on Wormhole vs TT_BIO_LEVERS=none (seed-cluster bootstrap,
+# 2026-11-06): normal 8 seeds x 8 designs, design_iptm +0.009 [-0.014, +0.031], design_ptm +0.026 [+0.007, +0.045],
+# complex_plddt +0.007 [+0.002, +0.013]; fast 5 seeds, iptm +0.013 [-0.015, +0.040], ptm +0.023, plddt +0.008.
+# Wormhole fast also runs the trunk on the T1/T2 trimul kernels, the weight-stationary transition, the fused triangle-
+# attention LN and conditions several DiT steps ahead (dit_cond_steps). These move the CIFs, graded as one stack by the
+# fast protocol (perf/spd/bg_grade.py, bg_R3, seeds 0-3 x 8 designs vs exact normal, 2026-10-26): every confidence
+# metric within 0.03 of base (design_ptm -0.016, complex_plddt -0.007, iptm +0.031), filter 32/32 vs 32/32. Speed on a
+# Galaxy chip at 1000 MHz: 50.2 -> 42.1 s/design.
+# Fast also takes Blackhole's DiT linears (dit_qkvf, dit_chunk, dit_pad_short, dit_bpad, dit_shard, dit_fc123g) and its
+# trunk four (apb_ln, ws_l1dest, ws_resid, trimul_t2cm): 37.2 -> 33.2 s/design on a Galaxy chip at 1000 MHz (whx2,
+# 2026-10-31), 41.6 -> 35.0 ms a diffusion step. Fast grade vs exact WH normal (seeds 0-3, 32 designs): PASS,
+# design_ptm +0.016 [+0.001, +0.032], iptm -0.027 [-0.062, +0.004], complex_plddt +0.010, filter 32/32.
+# opm_jd (the outer-product mean's j-blocked matmul, as in Boltz-2) leaves the CIFs byte-identical: 33.7 -> 33.4
+# s/design at 1000 MHz (wnl, 2026-11-01).
+# dit_kc gives the token DiT attention the full k chunk on Wormhole (as Pxdesign and OpenFold3 do): 37.3 -> 34.2-34.7
+# ms a diffusion step, 34.1 -> 32.6 s/design at 1000 MHz (whf2, 2026-11-01, measured with dit_hifi2, which alone reads
+# nothing in fast). Fast grade vs exact WH normal (seeds 0-3, 32 designs): PASS, design_ptm +0.017 [+0.004, +0.029], iptm
+# -0.015 [-0.051, +0.021], complex_plddt +0.017. Normal fails its grade with dit_kc (iptm -0.028 [-0.050, -0.007]).
+# adaln_at runs the token DiT's AdaLN as one ln_split program reading the step's scale and shift windows, and the
+# conditioning computed steps ahead now takes the set's dit_cond_hifi2: 33.1 -> 31.9 ms a diffusion step, ~-0.8 s/design
+# at 1000 MHz (abwsf, 2026-11-01). Fast grade of the whole set vs TT_BIO_LEVERS=none (seed-cluster bootstrap, 7 seeds x 8
+# designs vs 8 x 8, 2026-11-05): design_iptm +0.003 [-0.024, +0.029], design_ptm +0.026 [+0.007, +0.046], complex_plddt
+# +0.004 [-0.002, +0.009]. Normal first failed with adaln_at against a base that was already a lever stack; graded
+# against TT_BIO_LEVERS=none (seed-cluster bootstrap, 8 seeds x 8 designs, 2026-11-07) it passes: design_iptm -0.008
+# [-0.030, +0.014], design_ptm +0.009 [-0.017, +0.035], complex_plddt +0.003 [-0.003, +0.010], so normal carries it too.
+# Fast also takes four trunk levers from the shared kernels (trimul_sig6, triatt_ln_b8 with triatt_ln_b8g, trimul_t1w8):
+# trunk loop 11.96 -> 11.48 s/design at 1000 MHz on both pairs of a b g a b g a A/B (trgab, 2026-11-07); five more
+# shared trunk levers leave the CIFs byte-identical in BoltzGen and stay out. Fast grade vs TT_BIO_LEVERS=none (5 seeds
+# x 8 designs, 2026-11-07): design_iptm +0.023 [-0.011, +0.063], design_ptm +0.026 [+0.008, +0.046], complex_plddt
+# +0.001 [-0.005, +0.008].
+# Both Wormhole sets run the transition's SwiGLU silu and T1's gate sigmoid on the packer thread (ws_psilu,
+# trimul_t1_psig, as OpenDDE does), overlapping the matmuls. The CIFs stay byte-identical; trunk loop 12.25 -> 11.97
+# s/design normal, 11.47 -> 11.34 fast, at 1000 MHz on both pairs of a b p b p A/B (psab, 2026-11-07).
+WH_LEVERS_FAST = LEVERS_FAST | HOST_LEVERS | {"atom_l1", "trimul_bres", "trimul_t1", "trimul_t2", "transition_ws", "triatt_ln",
+                                "dit_cond_steps", "dit_qkvf", "dit_chunk", "dit_pad_short", "dit_bpad", "dit_shard",
+                                "dit_fc123g", "apb_ln", "ws_l1dest", "ws_resid", "trimul_t2cm", "opm_jd", "dit_kc",
+                                "adaln_at", "dit_kl1", "trimul_sig6", "triatt_ln_b8",
+                                "triatt_ln_b8g", "trimul_t1w8", "ws_psilu", "trimul_t1_psig"}
+# Blackhole fast runs the same trunk kernels Boltz-2 uses on Blackhole (T1/T2 trimul with the column-major T2, banded
+# residual, two-buffer L1) plus atom_l1. Graded as one stack by the fast protocol (bg_grade.py, bg_R3, seeds 0-3 x 8
+# designs vs exact BH normal, 2026-10-26): design_ptm -0.000, complex_plddt -0.005, iptm +0.004, filter 32/32 vs 32/32.
+# Speed on a p300 chip (AICLK mean 1323 MHz): 23.93 -> 20.68 s/design. It replays the diffusion step from a trace, which
+# computes each step's own conditioning, so dit_cond_steps is not in the set: on a host-bound p300 box (qb1, ~1349 MHz)
+# the trace takes a fast design from 32.4 to 23.3 s.
+# Blackhole normal runs the T1/T2 trimul kernels with the column-major T2: normal grade PASS pooled over seeds 0-7 vs
+# plain BH normal (64 designs, 2026-10-26): design_ptm +0.019, iptm +0.025, complex_plddt -0.004 [-0.008, +0.001],
+# filter 64/64.
+# Both Blackhole sets also run the token DiT's attention as one fused q|k|v program (dit_qkvf), normal on the bias
+# staged at 576 rather than 768 for BoltzGen's 544 tokens (dit_pad_short). Graded per mode vs exact BH normal, bg_R3,
+# 2026-10-27: normal (seeds 0-7, with the 576 stage) design_ptm +0.001, iptm +0.011, complex_plddt -0.001, filter
+# 64/64; fast (seeds 0-3)
+# design_ptm +0.022, iptm +0.011, complex_plddt +0.002, filter 32/32. Speed on a p300 chip at ~1320 MHz: normal
+# 22.9 -> 21.2 s/design from dit_qkvf and -0.6 s from the stage, fast 21.3 -> 19.8.
+# Every Blackhole grade above was taken against "the default of that day", which was itself already a lever stack, so
+# the per-lever readings never measured the set as a whole. Graded against TT_BIO_LEVERS=none on 2026-11-02 (main
+# e11e990dc, bg_R3, 8 designs a seed) the whole shipped stack costs interface quality: normal (seeds 0,1,3,4,5)
+# design_iptm -0.0414 [-0.0780, -0.0071], fast (seeds 0-3) mean drop 0.0397, both outside the charter's bar, while
+# design_ptm and complex_plddt move the right way. Splitting it by group (unpaired seed-cluster bootstrap against all
+# seven none seeds, since any numeric change re-rolls a design trajectory): the trunk group -0.034 [-0.052, -0.016],
+# the diffusion group -0.024 [-0.052, +0.002], base + host alone -0.012 [-0.039, +0.017]. Re-running only the Boltz-2
+# refold on the none runs' own inverse-folded sequences (exact pairs) shows no arm losing design_iptm there, and the
+# trunk group is the one arm that moves the refolded backbone, bb_rmsd +2.71 A [+0.23, +5.65]. Two independent reads
+# name the trunk group, so it is OUT of both Blackhole defaults; Blackhole was at 0.81-0.84x of an A100 SXM4 80 GB and
+# can afford the trunk time. The levers themselves still work: TT_BIO_LEVERS=...+trimul_t1+trimul_t2+trimul_t2cm+
+# trimul_bres+triatt_ln+apb_ln+transition_ws+ws_l1dest+ws_resid+opm_jd puts them back (fast also had trimul_l1x2 and
+# triatt_ln_b8/triatt_ln_b8g, which only act on the kernels this drop removes).
+BH_LEVERS_NORMAL = LEVERS_NORMAL | HOST_LEVERS | {"dit_qkvf", "dit_pad_short", "dit_bpad", "dit_shard", "dit_fc123g",
+                                     "adaln_mod", "dit_shoist", "atom_l1"}
+# Blackhole fast also chunks the token DiT's fused SDPA and stages its bias at 576 (dit_chunk + dit_pad_short, the
+# pair normal already runs). On a p300 chip (AICLK mean 1321 MHz, 56 of 1152 samples below 1300): 18.28/18.46 -> 17.64/17.77
+# s/design (-0.6, -3.4 %), 19.9 -> 18.8 ms/diffusion step. Fast grade vs exact BH normal (bg_grade.py, bg_R3, seeds 0-3 x 8 designs,
+# 2026-10-29): PASS, design_ptm +0.014 [-0.006, +0.038], iptm +0.013, complex_plddt -0.002, filter 32/32 vs 32/32.
+# Both Blackhole sets run the token DiT's activations at the staged bias width (dit_bpad), which lets the transition
+# and attention linears shard over the token rows (dit_shard). On a p300 chip (AICLK mean 1334 MHz): fast 17.64 -> 17.32
+# s/design, normal 19.1 -> 18.74. Graded vs exact BH normal (bg_grade.py, bg_R3, 2026-10-29): normal seeds 0-7 PASS,
+# design_ptm +0.023 [+0.004, +0.045], iptm +0.005, complex_plddt +0.002, filter 64/64; fast seeds 0-3 PASS, design_ptm
+# +0.025 [+0.009, +0.044], iptm +0.005, complex_plddt +0.003, filter 32/32.
+# On top, dit_fc123g runs the sharded transition's three hidden products and both multiplies as one fc12g pass. On a
+# p300 chip (AICLK mean 1317 MHz): fast 17.30 -> 16.92 s/design, normal 18.94 -> 18.44. Graded as the whole Blackhole
+# stack vs exact BH normal (2026-10-29): normal seeds 0-7 PASS, design_ptm +0.021 [+0.004, +0.042], iptm -0.000,
+# complex_plddt -0.003, filter 64/64; fast seeds 0-3 PASS, design_ptm +0.018 [+0.003, +0.038], iptm -0.002, filter 32/32.
+# Both sets also run the trunk's triangle attention behind the fused LN (triatt_ln, apb_ln; fast writes q, k, v and the
+# gate bfp8 as Boltz-2 does). On a p300 chip (AICLK mean 1315-1325 MHz): fast 16.95 -> 16.42 s/design, normal 18.33 ->
+# 18.07, all of it in the trunk. Graded as the whole Blackhole stack vs exact BH normal (2026-10-30): normal seeds 0-7
+# PASS, design_ptm +0.024 [+0.006, +0.046], iptm +0.017, complex_plddt -0.000, filter 64/64; fast seeds 0-3 PASS,
+# design_ptm +0.012 [-0.007, +0.032], iptm +0.025, complex_plddt -0.006, filter 32/32.
+# Both sets run the pair transition weight-stationary (transition_ws). At 514 tokens the pair update fits L1 and the
+# pairformer asks for an L1 result, so ws_l1dest is what lets it serve; ws_resid folds the residual add in. On a p300
+# chip (AICLK mean 1330-1337 MHz): normal 17.91 -> 17.09 s/design, trunk 7.87 -> 6.99; fast 16.47 -> 15.9, trunk
+# 7.40 -> 6.59. Graded as the whole Blackhole stack vs exact BH normal (2026-10-30): normal seeds 0-7 PASS, design_ptm
+# +0.019 [+0.001, +0.041], iptm -0.003, complex_plddt +0.001, filter 64/64; fast seeds 0-3 PASS, design_ptm +0.024
+# [+0.004, +0.044], iptm +0.022, complex_plddt +0.026, filter 32/32.
+# Fast also runs the token DiT's conditioning as three wide linears a step that each layer reads in place (dit_shoist,
+# on fast's adaln_mod). On a p300 chip under the diffusion trace (~1315 MHz): 15.71 -> 14.91 s/design, 17.3 -> 15.9 ms
+# a diffusion step. Fast grade vs exact BH normal (seeds 0-3, 2026-10-31): PASS, design_ptm +0.023 [+0.005, +0.046],
+# iptm -0.002, complex_plddt -0.002, filter 32/32. Normal takes it with adaln_mod, which dit_shoist needs. On a p300
+# chip under the trace: 17.35 -> 16.29 s/design (qb2, ~1332 MHz) and 18.91/19.59 -> 18.48/17.80 (qb1, 1350 MHz, loaded
+# host); adaln_mod alone reads as noise. Normal grade vs exact BH normal (seeds 0-7, 2026-10-31): PASS, design_ptm
+# +0.022 [+0.003, +0.044], iptm -0.005, complex_plddt +0.002, filter 64/64.
+# opm_jd in both sets, and trimul_bres + atom_l1 in normal (fast had them), leave the CIFs byte-identical in both modes
+# (bpl, qb2 p300 chip at ~1330 MHz, 2026-11-01): trunk 6.70 -> 6.26 s normal, 6.25 -> 6.00 fast.
+BH_LEVERS_FAST = LEVERS_FAST | HOST_LEVERS | {"atom_l1", "dit_qkvf", "dit_chunk", "dit_pad_short",
+                                "dit_bpad", "dit_shard", "dit_fc123g", "dit_shoist"}
+
+
+def design_levers() -> frozenset:
+    """BoltzGen's lever set for this host's arch and the current mode (TT_BIO_LEVERS when a harness names one).
+    The arch is read from sysfs, so the featurizer can ask before the model is built or a card is open."""
+    return tenstorrent.model_levers(
+        *((WH_LEVERS_NORMAL, WH_LEVERS_FAST) if tenstorrent.is_wormhole() else (BH_LEVERS_NORMAL, BH_LEVERS_FAST)))
+
+
+def _under_levers(method):
+    import functools
+
+    @functools.wraps(method)
+    def run(self, *a, **kw):
+        return tenstorrent.under_lever_scope(method)(self, *a, **kw)
+    return run
 
 
 class Boltz(nn.Module):
@@ -111,9 +283,10 @@ class Boltz(nn.Module):
         inference_logging: bool = False,
         use_kernels: bool = False,
         use_resident_trunk: bool = True,
-        diffusion_trace: bool = False,
+        diffusion_trace: Optional[bool] = False,
     ) -> None:
         super().__init__()
+        self._levers = design_levers()
         """
         Module that does either:
         1. Design
@@ -121,6 +294,12 @@ class Boltz(nn.Module):
         3. Inverse folding
         4. Affinity prediction
         """
+        # None (the design step's default) replays the DiT trace on Blackhole, and the 1831-residue
+        # ceiling holds with the region reserved. Not under dit_cond_steps: the captured step computes
+        # its own conditioning, so it would drop that lever. Wormhole stays opt-in until its ceiling
+        # is re-walked.
+        if diffusion_trace is None:
+            diffusion_trace = not tenstorrent.is_wormhole() and "dit_cond_steps" not in self._levers
         # Reserve the DiT trace region BEFORE any module opens the device: the first
         # get_device() opens, so this must precede module construction.
         if diffusion_trace:
@@ -464,6 +643,16 @@ class Boltz(nn.Module):
             use_kernels=self.use_kernels,
         )
 
+    def _tt_zinit_module(self):
+        """The device z_init assembly. Built per call like the trunk driver above: BoltzGen
+        swaps checkpoints mid-run, and the assembly holds device copies of the weights."""
+        return tenstorrent.PairAssemblyDevice.for_trunk(self, self.msa_module.compute_kernel_config)
+
+    @_under_levers
+    def load_state_dict(self, *a, **kw):
+        return super().load_state_dict(*a, **kw)
+
+    @_under_levers
     def forward(
         self,
         feats: Dict[str, Tensor],
@@ -493,26 +682,38 @@ class Boltz(nn.Module):
                 # Initialize the sequence embeddings
                 s_init = self.s_init(s_inputs)
 
-                # Initialize pairwise embeddings
-                z_init = (
-                    self.z_init_1(s_inputs)[:, :, None]
-                    + self.z_init_2(s_inputs)[:, None, :]
-                )
-                relative_position_encoding = self.rel_pos(feats)
-                z_init = z_init + relative_position_encoding
-                z_init = z_init + self.token_bonds(feats["token_bonds"].float())
-                if self.bond_type_feature:
-                    z_init = z_init + self.token_bonds_type(feats["type_bonds"].long())
-                z_init = z_init + self.contact_conditioning(feats)
+                # Initialize pairwise embeddings. Boltz-2's `device_zinit`: the resident trunk
+                # builds z_init where it consumes it, so the [1, n, n, token_z] host sum and its
+                # 134 MB upload never happen. The host relative position encoding is then only
+                # built for the one reader that still needs it, the token-distance features.
+                device_zinit = self.use_resident_trunk and _device_zinit()
+                z_init = z_init_build = relative_position_encoding = None
+                if device_zinit:
+                    z_init_build = self._tt_zinit_module()
+                    if self.use_token_distances and (
+                            self.token_distance_module.use_token_distance_feats):
+                        relative_position_encoding = self.rel_pos(feats)
+                else:
+                    z_init = (
+                        self.z_init_1(s_inputs)[:, :, None]
+                        + self.z_init_2(s_inputs)[:, None, :]
+                    )
+                    relative_position_encoding = self.rel_pos(feats)
+                    z_init = z_init + relative_position_encoding
+                    z_init = z_init + self.token_bonds(feats["token_bonds"].float())
+                    if self.bond_type_feature:
+                        z_init = z_init + self.token_bonds_type(feats["type_bonds"].long())
+                    z_init = z_init + self.contact_conditioning(feats)
 
                 # Perform rounds of the pairwise stack
                 s = torch.zeros_like(s_init)
-                z = torch.zeros_like(z_init)
+                z = None if z_init is None else torch.zeros_like(z_init)
 
                 # Compute pairwise mask
                 mask = feats["token_pad_mask"].float()
                 pair_mask = mask[:, :, None] * mask[:, None, :]
 
+            device_z = None
             if not self.inverse_fold:
                 # Run the whole recycling loop resident on the Tenstorrent device
                 # (no per-iteration host round-trips for the recycle glue,
@@ -522,10 +723,17 @@ class Boltz(nn.Module):
                 # iteration); host loop kept as an explicit fallback.
                 if self.use_resident_trunk:
                     _trunk = self._tt_trunk_module()
+                    # Boltz-2's TT_BIO_DEVICE_CONDITIONING: the conditioning's pair track reads
+                    # the trunk's pair tensor where it already is (see the conditioning below).
+                    device_conditioning = (
+                        not self.checkpoint_diffusion_conditioning and _device_conditioning())
                     s, z = _trunk(
                         s_inputs, s_init, z_init, feats, recycling_steps,
-                        relative_position_encoding,
+                        relative_position_encoding, keep_device_z=device_conditioning,
+                        z_init_build=z_init_build,
                     )
+                    if device_conditioning:
+                        device_z = _trunk.pop_device_z()
                     # Its staged inputs are dead now; see the same call in boltz2.py.
                     _trunk.reset_static_cache()
                     _emit_progress("trunk", recycling_steps + 1, recycling_steps + 1)
@@ -567,6 +775,9 @@ class Boltz(nn.Module):
                 dict_out["pdistogram"] = pdistogram.float()
 
             if not self.inverse_fold:
+                if relative_position_encoding is None and device_z is None:
+                    # `device_zinit` skipped it; the host conditioning is the only other reader.
+                    relative_position_encoding = self.rel_pos(feats)
                 if self.checkpoint_diffusion_conditioning:
                     # TODO decide whether this should be with bf16 or not
                     (
@@ -583,6 +794,22 @@ class Boltz(nn.Module):
                         relative_position_encoding,
                         feats,
                     )
+                elif device_z is not None:
+                    # Built per call, like the trunk driver: BoltzGen swaps checkpoints mid-run.
+                    dc = self.diffusion_conditioning
+                    weight, bias, _shape, eps = _fuse_bias_stack(dc.token_trans_proj_z)
+                    cond = tenstorrent.PairConditioningDevice(
+                        dc.pairwise_conditioner, weight, bias, eps, dc.atom_encoder.z_to_p_trans,
+                        self.msa_module.compute_kernel_config,
+                    )
+                    z_to_p, token_trans_bias = cond(
+                        device_z[0], relative_position_encoding
+                        if relative_position_encoding is not None else (self.rel_pos, feats),
+                        z.shape[1], device_z[1])
+                    tenstorrent.free(device_z[0])
+                    device_z = None
+                    q, c, to_keys, atom_enc_bias, atom_dec_bias = dc.forward_atoms(
+                        s_trunk=s, z_to_p=z_to_p, feats=feats)
                 else:
                     (
                         q,

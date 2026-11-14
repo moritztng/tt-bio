@@ -1,0 +1,7 @@
+version: 1
+# Two copies of cdk2x2_256's chain: the page cell's 512 tokens as a two-chain homodimer, to read what a
+# multi-chain input costs beside the single chain at the same size. Same alignment for both copies.
+sequences:
+  - protein:
+      id: [A, B]
+      sequence: MENFQKVEKIGEGTYGVVYKARNKLTGEVVALKKIRLDTETEGVPSTAIREISLLKELNHPNIVKLLDVIHTENKLYLVFEFLHQDLKKFMDASALTGIPLPLIKSYLFQLLQGLAFCHSHRVLHRDLKPQNLLINTEGAIKLADFGLARAFGVPVRTYTHEVVTLWYRAPEILLGCKYYSTAVDIWSLGCIFAEMVTRRALFPGDSEIDQLFRIFRTLGTPDEVVWPGVTSMPDYKPSFPKWARQDFSKVVPPLD

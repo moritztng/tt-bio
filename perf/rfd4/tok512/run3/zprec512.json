@@ -1,0 +1,24 @@
+{
+ "tokens": 512,
+ "batch": 1,
+ "cycles": 2,
+ "bar": 0.05,
+ "floor": {
+  "s": 0.002808419984830704,
+  "z": 0.009780680625676613
+ },
+ "base": {
+  "pair_dtype": "DataType.BFLOAT8_B",
+  "s": 0.004443620389742166,
+  "z": 0.049584722957685776
+ },
+ "tok_recycle_mm,dit_sigf32,tok_w8": {
+  "pair_dtype": "DataType.BFLOAT8_B",
+  "s": 0.009150472296652423,
+  "z": 0.05196996430586982
+ },
+ "tok_recycle_mm,dit_sigf32,tok_w8_vs_base": {
+  "s": 0.00848979757135148,
+  "z": 0.02810308647374855
+ }
+}

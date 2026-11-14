@@ -26,6 +26,7 @@ import argparse
 import csv
 import json
 import math
+import os
 import sys
 import time
 from pathlib import Path
@@ -66,8 +67,12 @@ def spearman(xs, ys) -> float:
     return pearson(rank(xs), rank(ys))
 
 
-def select(davis: Path) -> list[tuple[str, list[dict]]]:
-    """The GPU arm's selection, verbatim in behaviour: a pure function of davis.csv."""
+def select(davis: Path, names: list[str] | None = None) -> list[tuple[str, list[dict]]]:
+    """The GPU arm's selection, verbatim in behaviour: a pure function of davis.csv.
+
+    `names` picks those DAVIS targets instead of the two largest, same ligand thinning. The GPU
+    arm's two are ~1170 aa, so a lever that only serves mid-size full passes (trimul T1/T2 at
+    ~500-600 tokens) never runs on them; LCK (509 aa) and BLK (599 aa) are where it does."""
     rows = []
     with open(davis, newline="") as fh:
         for r in csv.DictReader(fh):
@@ -89,7 +94,13 @@ def select(davis: Path) -> list[tuple[str, list[dict]]]:
         return math.sqrt(sum((x - m) ** 2 for x in ls) / len(ls))
 
     ranked = sorted(by_target.items(), key=lambda kv: (len(kv[1]), spread(kv[1])), reverse=True)
-    chosen = [t for t in ranked if len(t[1]) >= 8 and spread(t[1]) >= 0.4][:N_TARGETS]
+    if names:
+        missing = [n for n in names if n not in by_target]
+        if missing:
+            raise SystemExit("no non-censored DAVIS rows for %s" % missing)
+        chosen = [(n, by_target[n]) for n in names]
+    else:
+        chosen = [t for t in ranked if len(t[1]) >= 8 and spread(t[1]) >= 0.4][:N_TARGETS]
     if not chosen:
         raise SystemExit("no DAVIS target with >=8 non-censored measurements and log-spread >=0.4")
     out = []
@@ -147,18 +158,28 @@ def main() -> int:
                     default=Path("~/scratch/nesso1/davis/davis.csv").expanduser())
     ap.add_argument("--target-index", type=int, default=None,
                     help="run one target only (0 or 1); default runs both on this card")
+    ap.add_argument("--targets", default=None,
+                    help="comma-separated DAVIS target ids instead of the GPU arm's two, e.g. LCK,BLK")
     ap.add_argument("--scratch", type=Path, default=Path("~/scratch/nesso1/davis").expanduser())
     ap.add_argument("--weights", default="recursionpharma/nesso")
     ap.add_argument("--trunk", default="bf16", choices=("bf16", "fp32"),
                     help="fp32 cannot run these targets: 1167 aa asks for more DRAM than a bank has")
+    ap.add_argument("--affinity", default="fp32", choices=("fp32", "bf16"),
+                    help="the two affinity heads' pairformer precision (screen ships fp32)")
     ap.add_argument("--esm-cache", type=Path, default=None)
+    ap.add_argument("--esm", default="device", choices=("device", "cpu"),
+                    help="where the ESM-2 650M runs (screen() runs it on the card)")
     ap.add_argument("--out", type=Path, default=REPO / "perf/nesso1")
+    ap.add_argument("--seed", type=int, default=None,
+                    help="featurizer seed (default the screen's); a second seed is the A/A floor a "
+                         "lever grade compares against. Give each arm its own --scratch")
     args = ap.parse_args()
 
     from tt_bio.nesso1 import DEFAULT_SEED, REPORTED_SCALARS, Nesso1
+    seed = DEFAULT_SEED if args.seed is None else args.seed
     from tt_bio.nesso1_input import CLI_PREDICT_ARGS, collate, prepare
 
-    targets = select(args.davis)
+    targets = select(args.davis, args.targets.split(",") if args.targets else None)
     if args.target_index is not None:
         targets = [targets[args.target_index]]
     print("targets: %s" % [(t, len(r), len(r[0]["seq"])) for t, r in targets], flush=True)
@@ -170,7 +191,8 @@ def main() -> int:
               "metric": ("within-target Pearson of predicted pAffinity (= -affinity_pred_value) "
                          "against pKd = 9 - log10(Kd_nM)"),
               "control": "molecular weight alone (RDKit Descriptors.MolWt) vs pKd, same ligands",
-              "trunk": args.trunk, "seed": DEFAULT_SEED, "targets": []}
+              "trunk": args.trunk, "affinity": args.affinity, "seed": seed, "esm": args.esm,
+              "levers": os.environ.get("TT_BIO_LEVERS", ""), "targets": []}
 
     for target_id, recs in targets:
         tag = target_id.replace("/", "_")
@@ -182,7 +204,7 @@ def main() -> int:
 
         t0 = time.perf_counter()
         dataset, manifest, failed = prepare(
-            work / "yaml", work, num_workers=0, esm_cache=args.esm_cache)
+            work / "yaml", work, num_workers=0, esm_cache=args.esm_cache, esm_on_device=args.esm == "device")
         feat_s = time.perf_counter() - t0
         by_id = {p["record"]: p for p in pairs}
         row = {"target_id": target_id, "seq_len": len(recs[0]["seq"]),
@@ -194,7 +216,7 @@ def main() -> int:
         if model is None:
             model = Nesso1.from_pretrained(
                 args.weights, use_tenstorrent=True,
-                trunk_fp32=args.trunk == "fp32", affinity_fp32=True)
+                trunk_fp32=args.trunk == "fp32", affinity_fp32=args.affinity == "fp32")
             model.use_kernels = False
             model.predict_args.update(CLI_PREDICT_ARGS)
 
@@ -206,7 +228,7 @@ def main() -> int:
             if cached.exists():                       # resume: never recompute a prediction
                 got = json.loads(cached.read_text())
             else:
-                torch.manual_seed(DEFAULT_SEED)       # the featurizer's roto-translation draw
+                torch.manual_seed(seed)               # the featurizer's roto-translation draw
                 item = dataset[idx]
                 if item.get("exception"):
                     got = {"error": "featurizer raised"}

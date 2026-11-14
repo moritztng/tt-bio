@@ -1,0 +1,4 @@
+{
+ "7y37-assembly1": "upstream e6e64866 on CPU, the GPU arm's input bytes, seed 42: pLDDT fp32 87.0, fp32 + bf16 autocast (the GPU's policy) 66.7; GPU 66.1-67.0, TT BH 91.3-91.5 (mol1-plddt, qb1:~/mol1-plddt/ab.log, bf16.log)",
+ "7fxn-assembly1:nomsa": "upstream e6e64866 on CPU, seed 42: pLDDT fp32 70.9-71.3, bf16 autocast 93.8-94.2; GPU 90.5, TT BH 70 (mol1-plddt, qb1:~/mol1-plddt/ab.log, bf16.log)"
+}

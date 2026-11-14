@@ -1,0 +1,71 @@
+{
+ "fixture": "perf/dsfix/fixtures/rfd3_R4.json",
+ "steps": 200,
+ "warm_s": 79.55522369199025,
+ "plain_s": 76.69018414401216,
+ "census_s": 87.81524896899646,
+ "digests": {
+  "warm": "a8013adf80f6d4b7",
+  "plain": "a8013adf80f6d4b7",
+  "census": "a8013adf80f6d4b7"
+ },
+ "sync_inflation_s": 11.125064824984292,
+ "regions": {
+  "downcast_c": {
+   "ms_per_step": 0.2951199402741622,
+   "calls_per_step": 0.995,
+   "share_of_step": 0.0006727259055738156
+  },
+  "token_encoder": {
+   "ms_per_step": 146.4546714851167,
+   "calls_per_step": 1.99,
+   "share_of_step": 0.3338434245033174
+  },
+  "attn_indices": {
+   "ms_per_step": 46.104381735785864,
+   "calls_per_step": 2.985,
+   "share_of_step": 0.10509493843524896
+  },
+  "atom_block": {
+   "ms_per_step": 144.7140411419241,
+   "calls_per_step": 44.775,
+   "share_of_step": 0.3298756576258719
+  },
+  "encoder": {
+   "ms_per_step": 40.43451422032376,
+   "calls_per_step": 0.995,
+   "share_of_step": 0.09217047540073017
+  },
+  "downcast_q": {
+   "ms_per_step": 5.472282595001161,
+   "calls_per_step": 0.995,
+   "share_of_step": 0.012474068207177284
+  },
+  "dit": {
+   "ms_per_step": 121.43012621541857,
+   "calls_per_step": 1.99,
+   "share_of_step": 0.2767999734152904
+  },
+  "decoder": {
+   "ms_per_step": 50.56515074960771,
+   "calls_per_step": 1.99,
+   "share_of_step": 0.11526326142823666
+  },
+  "seq_head": {
+   "ms_per_step": 0.6925865153607447,
+   "calls_per_step": 1.99,
+   "share_of_step": 0.001578750965798639
+  },
+  "step": {
+   "ms_per_step": 438.69269464572426,
+   "calls_per_step": 0.995,
+   "share_of_step": 1.0
+  },
+  "glue (step - top regions)": {
+   "ms_per_step": 27.24386118883558,
+   "share_of_step": 0.062102381738626734
+  }
+ },
+ "card": "0",
+ "host": "tt-quietbox2"
+}

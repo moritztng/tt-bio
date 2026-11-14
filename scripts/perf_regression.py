@@ -87,9 +87,11 @@ against a P150a run — the P150 is a smaller chip and would read as a false 20-
 regression that is just the card, not the code. A baseline seeded on one physical
 p150a (e.g. ``pc``) must not be judged against a run on a different physical p150a
 (e.g. ``qb1``, ~30-36% slower on the same models) — the machine-id layer guards
-that within-card-type machine variance. If the detected card type has no
-recorded baseline at all, the gate FAILS loudly (every model NO BASELINE) rather
-than silently skipping or matching the wrong card's numbers. An intentional perf
+that within-card-type machine variance. If nothing is recorded for the detected
+card type and machine, there is no reference to regress against: the gate records
+this run as the first baseline and reports GATE SEEDED (exit 0, or 1 if a model
+failed to measure) instead of matching another card's numbers. Commit the file it
+wrote. An unidentified card ("unknown:...") still fails. An intentional perf
 change (landed optimization, deliberate accuracy/perf tradeoff) updates the
 baseline via ``--update-baseline --note "<why>"`` (writes to the detected
 machine's machine-specific block) — never silently. A regression the author
@@ -194,7 +196,7 @@ import time
 from datetime import date
 from pathlib import Path
 
-from tt_bio.runtime import P150_SUBSYSTEMS, P300_SUBSYSTEMS
+from tt_bio.runtime import P150_SUBSYSTEMS, P300_SUBSYSTEMS, WH_GALAXY_SUBSYSTEMS
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 BASELINE_FILE = REPO_ROOT / "docs" / "perf_baselines.json"
@@ -251,6 +253,9 @@ SPECS: dict[str, dict] = {
     "esmfold2":       dict(kind="fold", unit="structures/s", direction="higher"),
     "esmfold2-fast":  dict(kind="fold", unit="structures/s", direction="higher"),
     "protenix-v2":    dict(kind="fold", unit="structures/s", direction="higher"),
+    # mol1 runs the protenix-v2 class at its own widths (PairMixer blocks at c_z 448, Pairformer at
+    # 320) and its own MOL1_BH/MOL1_WH lever sets, so a regression can move it and not v2.
+    "mol1":           dict(kind="fold", unit="structures/s", direction="higher"),
     # protenix-v1 is upstream's own v0.5.0 base checkpoint, loaded by the SAME
     # tt_bio/protenix.py class as protenix-v2 but at half the pair width (c_z 128 vs
     # 256) and 4 trunk recycles instead of 10. That is exactly why it gets its own
@@ -430,6 +435,8 @@ SPECS_EXEMPT: dict[str, str] = {
                   "checkpoint, embed shape identical to saprot-650m)",
     "saprot-1.3b": "not yet seeded -- TODO: measure and add a SPECS entry (own "
                    "checkpoint, embed shape identical to saprot-650m)",
+    "rfd4": "not yet seeded -- TODO: measure and add a SPECS entry (design kind, "
+            "same designs/s protocol as rfd3) once the port is graded on card",
 }
 
 
@@ -513,7 +520,16 @@ def load_baselines() -> dict:
 
 def save_baselines(data: dict) -> None:
     BASELINE_FILE.parent.mkdir(parents=True, exist_ok=True)
-    BASELINE_FILE.write_text(json.dumps(data, indent=2) + "\n")
+    _replace_text(BASELINE_FILE, json.dumps(data, indent=2) + "\n")
+
+
+def _replace_text(path: Path, text: str) -> None:
+    """Write `path` as a new file renamed over the old one. The Galaxy hosts hardlink identical
+    files across checkouts and make them read-only, so an in-place write either fails (EACCES)
+    or, if it got through, would land in every checkout sharing the inode."""
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(text)
+    os.replace(tmp, path)
 
 
 def _sysfs_subsystem_device(device_id: str) -> str | None:
@@ -616,7 +632,9 @@ def detect_card_type() -> str:
               f"report 'unknown' (NO BASELINE). Add tt-smi to PATH (e.g. "
               f"export PATH=$HOME/.local/bin:$PATH) and re-run.",
               file=sys.stderr)
-    # Fallback: sysfs subsystem_device -> known Blackhole board types. An
+    # Fallback: sysfs subsystem_device -> known board types. tt-smi -s aborts for the
+    # whole box when any one chip reads 0xffffffff, which on a Galaxy with a dead chip is
+    # every call, so this path is how Wormhole Galaxy legs find their baseline. An
     # unrecognized subsystem returns a recognizable 'unknown:<sub>' key so the
     # gate fails loudly against a missing baseline instead of silently matching
     # the wrong one.
@@ -625,6 +643,8 @@ def detect_card_type() -> str:
         return "p300c"
     if sub in _P150_SUBSYSTEMS:
         return "p150a"
+    if sub in WH_GALAXY_SUBSYSTEMS:
+        return "tt-galaxy-wh-l"
     if sub:
         return f"unknown:{sub}"
     return "unknown"
@@ -673,6 +693,34 @@ def sample_host_load() -> dict:
 #: ``_update_baselines``), because a gated run only misreads one verdict while a
 #: seeded cell misreads every future one.
 CONTENDED_RATIO = 1.0
+
+# A chip whose clock never reached this during a measurement is clamped or latched (an
+# in-place firmware upgrade once held a Blackhole arbiter at 800 MHz), and a timing taken
+# there is an artifact of the clock. A busy Blackhole runs ~1350 MHz, a busy Wormhole Galaxy
+# chip 1000. The peak is compared, not the median: a single-shot harness spends most of its
+# wall loading the CLI with the chip idle (500 MHz on Wormhole), which says nothing.
+MIN_AICLK = {"blackhole": 1200, "wormhole_b0": 950}
+
+
+def hardware_of(card_type: str) -> str:
+    """Architecture of a detect_card_type() key: Wormhole boards are n150/n300 and the
+    tt-galaxy-wh-* Galaxy parts, everything else here is Blackhole (p150a, p300c, ...)."""
+    return "wormhole_b0" if "-wh-" in card_type or card_type.startswith("n") else "blackhole"
+
+
+def clock_during():
+    """perf/clocksample.py's sampler, or a no-op one where the tree has no perf/."""
+    try:
+        sys.path.insert(0, str(REPO_ROOT))
+        from perf.clocksample import during
+        return during()
+    except ImportError:
+        import contextlib
+
+        class _None(contextlib.nullcontext):
+            def summary(self):
+                return {}
+        return _None()
 
 
 def detect_stack() -> dict:
@@ -960,7 +1008,7 @@ def _measure_gen(model: str, spec: dict, out_path: Path) -> dict:
         kind=spec["kind"],
         unit=spec["unit"],
         direction=spec["direction"],
-        hardware="blackhole",
+        hardware=hardware_of(card),
         card_type=card,
         throughput=round(throughput, 6),
         latency_ms=round(latency_ms, 2),
@@ -1062,7 +1110,7 @@ def _measure_design(model: str, spec: dict, out_path: Path) -> dict:
         kind=spec["kind"],
         unit=spec["unit"],
         direction=spec["direction"],
-        hardware="blackhole",
+        hardware=hardware_of(card),
         card_type=card,
         throughput=round(throughput, 6),
         latency_ms=round(latency_ms, 2),
@@ -1175,7 +1223,7 @@ def _measure_affinity(model: str, spec: dict, out_path: Path) -> dict:
         kind=spec["kind"],
         unit=spec["unit"],
         direction=spec["direction"],
-        hardware="blackhole",
+        hardware=hardware_of(card),
         card_type=card,
         throughput=round(throughput, 6),
         latency_ms=round(latency_ms, 2),
@@ -1284,7 +1332,7 @@ def measure(model: str, out_path: Path) -> dict:
         # wipe between calls so saving stays inside the timed region but never
         # short-circuits on a stale output (predict_one overwrites anyway)
         for p in struct_dir.glob("*"):
-            p.unlink()
+            shutil.rmtree(p) if p.is_dir() else p.unlink()   # mol1 writes an upstream_layout/ dir
         t0 = time.perf_counter()
         metrics, _best, _feats = state.predict_one(input_path, job_cfg)
         return time.perf_counter() - t0
@@ -1455,8 +1503,10 @@ def _run_measure(model: str) -> dict | None:
     timeout = per_rep * reps + 300
     load_before = sample_host_load()
     proc = subprocess.Popen(cmd, env=env, start_new_session=True)
+    clk = clock_during()
     try:
-        rc = proc.wait(timeout=timeout)
+        with clk:
+            rc = proc.wait(timeout=timeout)
     except subprocess.TimeoutExpired:
         try:
             os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
@@ -1483,6 +1533,16 @@ def _run_measure(model: str) -> dict | None:
     ratios = [x for x in (load_before.get("ratio"), load_after.get("ratio")) if x is not None]
     row["host_load"] = {"before": load_before, "after": load_after,
                         "peak_ratio": max(ratios) if ratios else None}
+    # The clock is sampled in this parent for the whole child, so it covers the timed
+    # region; tt-smi reports the granted chip as index 0 under TT_VISIBLE_DEVICES.
+    row["aiclk_mhz"] = clk.summary().get(0)
+    top = (row["aiclk_mhz"] or {}).get("max")
+    floor = MIN_AICLK.get(row.get("hardware"))
+    if floor and top is not None and top < floor:
+        row["clock_low"] = True
+        print(f"[{model}] WARNING: AICLK peaked at {top} MHz during this measurement "
+              f"(< {floor}). The clock sets the fold time, so this number describes the "
+              f"clock arbiter, not the tree. Do not seed a baseline from it.", file=sys.stderr)
     peak = row["host_load"]["peak_ratio"]
     if peak is not None and peak > CONTENDED_RATIO:
         row["contended"] = True
@@ -1518,9 +1578,8 @@ def _print_table(rows: list[dict], baselines: dict, card_type: str, machine_id: 
     and a baseline seeded on one physical p150a (e.g. pc) must not be judged
     against a run on a different physical p150a (e.g. qb1, ~30-36% slower) —
     the machine-id layer under card type guards that within-type variance. If
-    no baseline exists at all for the detected card type, the gate FAILS loudly
-    (every model NO BASELINE) rather than silently skipping or matching the
-    wrong card's numbers."""
+    the detected card type has no baseline at all, every model reads NO BASELINE
+    and the table fails (cmd_gate seeds a first baseline instead of calling this)."""
     all_pass = True
     bm = card_baselines(baselines, card_type, machine_id)
     have_card = bm is not None
@@ -1542,7 +1601,7 @@ def _print_table(rows: list[dict], baselines: dict, card_type: str, machine_id: 
              f"| threshold ±{threshold:.0f}%  | {warm_desc}")
     print(f"\n{'#' * 78}\n{title}\n{'#' * 78}")
     hdr = (f"{'model':<16}{'metric':<16}{'baseline':>11}{'current':>11}"
-           f"{'delta':>10}{'verdict':>10}")
+           f"{'delta':>10}{'verdict':>10}{'aiclk MHz':>11}")
     print(hdr)
     print("-" * len(hdr))
     unbacked: list[str] = []
@@ -1575,8 +1634,9 @@ def _print_table(rows: list[dict], baselines: dict, card_type: str, machine_id: 
         if not ok:
             regressed.append(r["model"])
         verdict = "PASS" if ok else "FAIL"
+        clk = (r.get("aiclk_mhz") or {}).get("median", "unclocked")
         print(f"{r['model']:<16}{unit:<16}{base:>11.4g}{r['throughput']:>11.4g}"
-              f"{delta:>10}{verdict:>10}")
+              f"{delta:>10}{verdict:>10}{clk:>11}")
     print("-" * len(hdr))
     # card/machine/hardware/tt-bio really are table-wide (one host, one install), but the
     # input is not: folds read trpcage, esmc/saprot read batched ubiquitin, and boltzgen /
@@ -1589,7 +1649,7 @@ def _print_table(rows: list[dict], baselines: dict, card_type: str, machine_id: 
           f"|  tt-bio {rows[0].get('tt_bio_version', '?')}  |  input: {shown}")
     if not have_card:
         msg = (f"GATE FAIL — no baseline recorded for card type '{card_type}' in "
-               f"{BASELINE_FILE.relative_to(REPO_ROOT)}. Seed it on a {card_type} "
+               f"{BASELINE_FILE}. Seed it on a {card_type} "
                f"card with: python3 scripts/perf_regression.py --update-baseline "
                f"--note \"seed {card_type} baseline\"")
     elif all_pass:
@@ -1634,8 +1694,49 @@ def cmd_gate(args) -> int:
     baselines = load_baselines()
     card_type = detect_card_type()
     machine_id = detect_machine_id()
+    bm = card_baselines(baselines, card_type, machine_id)
+    if not bm and not card_type.startswith("unknown"):
+        return _seed_first(rows, args, card_type, machine_id)
+    # A model new to SPECS has nothing to regress from on this machine either (mol1, 11-03).
+    if new := [r for r in rows if bm and r["model"] not in bm and not r.get("failed")]:
+        _seed_first(new, args, card_type, machine_id)
+        baselines = load_baselines()
+    # A regression read on a contended host or a clamped clock describes the host, not the
+    # tree (_run_measure says so), yet grading it FAILed rel-2cca84e6a (protenix-v2, ratio
+    # 4.04) and rel-15ddbdf54 (rfd3, 1.25) and each cut waited on a hand waiver. Measure
+    # such a row once more and keep the better read: contention only ever slows a run.
+    for i, r in enumerate(rows):
+        b = (bm or {}).get(r["model"])
+        if not b or r.get("failed") or not (r.get("contended") or r.get("clock_low")) or \
+                _passes(float(b["value"]), r["throughput"], r["direction"], args.threshold):
+            continue
+        print(f"[{r['model']}] regressed on a contended read; measuring once more", file=sys.stderr)
+        again = _run_measure(r["model"])
+        base = float(b["value"])
+        if again and _delta_str(base, again["throughput"], r["direction"])[0] > \
+                _delta_str(base, r["throughput"], r["direction"])[0]:
+            rows[i] = dict(again, failed=False)
     ok = _print_table(rows, baselines, card_type, machine_id, args.threshold)
     return 0 if ok else 1
+
+
+def _seed_first(rows: list[dict], args, card_type: str, machine_id: str) -> int:
+    """Nothing is recorded for this card type and machine, so nothing can have regressed:
+    record this run as the first baseline. The contended and clamped-clock refusals guard
+    against overwriting a good reference; here there is none, and a lent Galaxy pool chip is
+    contended by design, so refusing would mean that card type never gets one. Each cell
+    keeps its host_load and aiclk_mhz, and the note says how it was taken."""
+    loaded = [r["model"] for r in rows if not r.get("failed") and (r.get("contended") or r.get("clock_low"))]
+    note = (f"first {card_type} baseline on {machine_id}, recorded by the perf gate"
+            + (f"; under host load or a low clock for {', '.join(loaded)}" if loaded else ""))
+    args.note, args.allow_contended = note, True
+    _update_baselines(rows, args)
+    failed = [r["model"] for r in rows if r.get("failed")]
+    print(f"{'#' * 78}\nGATE SEEDED — no baseline existed for {', '.join(r['model'] for r in rows)} "
+          f"on {card_type} @ {machine_id}; "
+          f"recorded {len(rows) - len(failed)} model(s) as the first one ({note})"
+          + (f"; failed to measure: {', '.join(failed)}" if failed else ""))
+    return 1 if failed else 0
 
 
 def _update_baselines(rows: list[dict], args) -> int:
@@ -1658,6 +1759,12 @@ def _update_baselines(rows: list[dict], args) -> int:
     models = m_entry.setdefault("models", {})
     any_ok = False
     measured: set[str] = set()
+    slow = [f"{r['model']} peak {r['aiclk_mhz']['max']} MHz" for r in rows
+            if not r.get("failed") and r.get("clock_low")]
+    if slow and not getattr(args, "allow_contended", False):
+        sys.exit(f"REFUSING to seed a baseline: AICLK never reached its busy floor during "
+                 f"{', '.join(slow)}. Reset the chip or wait for it to unclamp, or pass "
+                 f"--allow-contended and say so in --note.")
     contended = [r["model"] for r in rows
                  if not r.get("failed") and r.get("contended")]
     if contended and not getattr(args, "allow_contended", False):
@@ -1691,7 +1798,7 @@ def _update_baselines(rows: list[dict], args) -> int:
             num_designs=r.get("num_designs"),
             warmup=r["warmup"], repeat=r["repeat"],
             hardware=r["hardware"], card_type=r.get("card_type", card_type),
-            machine_id=machine_id, host_load=r.get("host_load"),
+            machine_id=machine_id, host_load=r.get("host_load"), aiclk_mhz=r.get("aiclk_mhz"),
             tt_bio_version=r["tt_bio_version"], date=r["date"], note=args.note,
         )
     # The machine block's own date/tt_bio_version/note describe the whole block, so
@@ -1714,7 +1821,7 @@ def _update_baselines(rows: list[dict], args) -> int:
     save_baselines(data)
     machine_names = {ct: sorted(ct_entry.get("machines", {})) for ct, ct_entry in cards.items()}
     machine_names = {ct: ms for ct, ms in machine_names.items() if ms}
-    print(f"\nWrote {BASELINE_FILE.relative_to(REPO_ROOT)}  "
+    print(f"\nWrote {BASELINE_FILE}  "
           f"(card {card_type} @ {machine_id}: {len(models)} models; "
           f"{len(cards)} card type(s) recorded: {', '.join(sorted(cards))}; "
           f"machines: " +
@@ -1739,6 +1846,10 @@ def main() -> int:
                          "number; say why in --note.")
     ap.add_argument("--note", default=None,
                     help="Required with --update-baseline: why this perf change is intended.")
+    ap.add_argument("--against", type=Path, default=None, metavar="TREE",
+                    help="A/B in one session: measure TREE (a checkout of the last release) on "
+                         "this card first, then gate against those numbers instead of the "
+                         "committed cells, which can be months old.")
     # internal: the per-model in-process measurement subprocess
     ap.add_argument("--measure", metavar="MODEL", help=argparse.SUPPRESS)
     ap.add_argument("--out", type=Path, default=None, help=argparse.SUPPRESS)
@@ -1758,7 +1869,34 @@ def main() -> int:
             print(f"[{args.measure}] measurement error: {e}", file=sys.stderr)
             return 1
 
+    if args.against:
+        _measure_reference(args)
     return cmd_gate(args)
+
+
+def _measure_reference(args) -> None:
+    """Run the reference tree's own perf_regression.py with --update-baseline on this card, in
+    this session and interpreter, then point the gate at the file it wrote. Its numbers land in
+    the reference tree's copy of docs/perf_baselines.json, never in this tree's."""
+    global BASELINE_FILE
+    tree = args.against.resolve()
+    argv = [sys.executable, str(tree / "scripts" / "perf_regression.py"), "--update-baseline",
+            "--allow-contended", "--note", f"A/B reference for {REPO_ROOT}, same card and session"]
+    for m in args.model or []:
+        argv += ["--model", m]
+    print(f"A/B reference: {tree}", flush=True)
+    # The reference is an older release whose save_baselines writes in place (v0.21.0 hit EACCES
+    # on a deduplicated tree, gate rel-624358ec2): give it a private, writable copy first.
+    ref_file = tree / "docs" / "perf_baselines.json"
+    if ref_file.exists():
+        _replace_text(ref_file, ref_file.read_text())
+    env = {**os.environ, "PYTHONPATH": os.pathsep.join(
+        [str(tree)] + [q for q in os.environ.get("PYTHONPATH", "").split(os.pathsep)
+                       if q and Path(q).resolve() != REPO_ROOT.resolve()])}
+    rc = subprocess.run(argv, cwd=tree, env=env).returncode
+    if rc:
+        sys.exit(f"GATE FAIL — the A/B reference run in {tree} exited {rc}")
+    BASELINE_FILE = tree / "docs" / "perf_baselines.json"
 
 
 if __name__ == "__main__":

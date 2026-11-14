@@ -77,6 +77,34 @@ def test_declines_under_tape_answers_the_three_cases(taping):
     assert ops.declines_under_tape("other") is True
 
 
+def test_a_gate_that_names_its_operands_serves_raw_ones_under_a_tape(taping):
+    """A raw operand under an open tape has no gradient to drop, so the kernel serves it."""
+    on_tape = []
+
+    def hook(*a, **kw):
+        return None
+    hook.on_tape = lambda args, kwargs: on_tape.append(args) or "taped" in args
+    ops.set_grad_hook(hook)
+    assert ops.declines_under_tape("probe", "raw") is False
+    assert ops.declines_under_tape("probe", "raw", "taped") is True
+    assert on_tape == [("raw",), ("raw", "taped")]
+    assert ops.declines_under_tape("probe") is True, "no operands keeps the blanket answer"
+    ops.set_kernel_entries({"probe": lambda *a: None})
+    assert ops.declines_under_tape("probe", "taped") is False
+
+
+def test_a_hook_that_cannot_answer_for_operands_keeps_declining(taping):
+    assert ops.declines_under_tape("probe", "raw") is True
+
+
+def test_autograd_answers_for_operands_with_the_shims_own_test(monkeypatch):
+    ag = pytest.importorskip("tt_bio.autograd")
+    seen = []
+    monkeypatch.setattr(ag, "_on_tape", lambda args, kwargs: seen.append((args, kwargs)) or True)
+    assert ag._hook.on_tape(("x",), {}) is True
+    assert seen == [(("x",), {})]
+
+
 def test_nothing_installs_by_default(monkeypatch):
     """The release gate. Empty is byte-identical to the behaviour before the registry."""
     monkeypatch.delenv("TT_BIO_TAPED_KERNELS", raising=False)
@@ -97,8 +125,8 @@ def test_the_registry_holds_exactly_the_kernels_that_declare_an_entry():
     """Pinned on purpose: a kernel that registers no entry declines under every tape, silently,
     and reads in an A/B as a lever that measured nothing."""
     assert set(TT.KERNELS) == {"reblock_permute", "reblock_permute_back", "tri_att_sdpa_hifi",
-                               "rne_add", "reblock_permute_gated", "pair_transpose",
-                               "triatt_qkv_heads"}
+                               "rne_add", "rne_add_masked", "reblock_permute_gated", "pair_transpose",
+                               "triatt_qkv_heads", "pair_relu"}
 
 
 def test_the_wide_adds_vjp_is_the_cotangent_to_both_operands(monkeypatch, taping):
@@ -122,6 +150,24 @@ def test_the_wide_adds_vjp_is_the_cotangent_to_both_operands(monkeypatch, taping
     assert (a.got, b.got) == ("cotangent", "cotangent")
     assert reduced == [[1, 2, 288, 256], [2, 288, 256]], \
         "each operand's cotangent is reshaped to that operand's own shape"
+
+
+def test_the_masked_residuals_vjp_is_the_dropout_multiply_and_the_sum(monkeypatch, taping):
+    """`rne(x + rne(u * m))` with `m` a constant mask: x gets the cotangent, u gets `g * m`, the
+    multiply the taped dropout ran, and neither operand is pinned."""
+    ag = pytest.importorskip("tt_bio.autograd")
+    monkeypatch.setattr(ag, "_tape", lambda out, parents, make, **kw: (out, parents, make(), kw))
+    monkeypatch.setattr(TT, "_wrap", lambda t: t)
+    monkeypatch.setattr(TT, "_raw", lambda args, kwargs: (args, kwargs))
+    monkeypatch.setattr(TT, "_reduce_to", lambda g, shape: g)
+    monkeypatch.setattr(TT.ttnn, "multiply", lambda g, m: (g, "times", m))
+    a, b = _Parent([1, 224, 224, 128]), _Parent([1, 224, 224, 128])
+    out, parents, bw, kw = TT.KERNELS["rne_add_masked"](
+        lambda *x, **k: "fused", (a, b, "mask"), {})
+    assert out == "fused" and parents == [a, b] and kw == {"reads": ()}
+    bw("g")
+    assert a.got == "g"
+    assert b.got == ("g", "times", "mask")
 
 
 def test_the_wide_add_declines_under_a_tape_with_no_entry_installed(monkeypatch, taping):
@@ -327,3 +373,32 @@ def test_nograd_inference_does_not_lift_l1_placement(monkeypatch):
     finally:
         ops.set_grad_hook(prev)
     assert tenstorrent._l1_fits(1, 1.0)
+
+
+def test_an_unrecorded_forward_skips_the_entry_too(monkeypatch):
+    """With an entry installed, an unrecorded forward still runs the kernel's inference path on raw
+    operands. The entry is for a node, and an entry that declines for want of its backward's state
+    (pair_relu before the block's first recording call) made a forward's program depend on whether
+    a backward had run yet, which a block trace then replayed into the other case."""
+    from tt_bio import autograd as ag, ops
+    seen, entered = [], []
+
+    @ops.fused_kernel("test_probe_kernel")
+    def probe(x):
+        seen.append(type(x))
+        return x
+
+    monkeypatch.setattr(ops, "_KERNEL_ENTRIES",
+                        {"test_probe_kernel": lambda shipped, a, k: entered.append(1)})
+    monkeypatch.setattr(ops, "NOGRAD_IS_INFERENCE", True)
+    prev = ops.set_grad_hook(ag._hook)
+    try:
+        class Raw:
+            pass
+        with ag.no_grad():
+            probe(ag.Tensor(Raw()))
+        assert seen == [Raw] and not entered
+        probe(ag.Tensor(Raw()))     # recording: the entry takes it
+        assert entered == [1]
+    finally:
+        ops.set_grad_hook(prev)

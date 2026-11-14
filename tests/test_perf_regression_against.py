@@ -1,0 +1,201 @@
+"""perf_regression.py --against: the reference tree measures itself first, then the gate reads
+the baseline file that run wrote, not the committed one."""
+import importlib.util
+import json
+import sys
+from argparse import Namespace
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parents[1]
+
+
+def _module():
+    spec = importlib.util.spec_from_file_location("perf_regression_t", REPO / "scripts" / "perf_regression.py")
+    m = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(m)
+    return m
+
+
+def test_against_measures_the_reference_tree_then_gates_on_its_file(tmp_path):
+    ref = tmp_path / "v0.13.1"
+    (ref / "scripts").mkdir(parents=True)
+    (ref / "scripts" / "perf_regression.py").write_text(
+        "import json, os, sys, pathlib\n"
+        "pathlib.Path('docs').mkdir(exist_ok=True)\n"
+        "pathlib.Path('docs/perf_baselines.json').write_text(json.dumps("
+        "{'argv': sys.argv[1:], 'pythonpath': os.environ['PYTHONPATH']}))\n")
+    m = _module()
+    m._measure_reference(Namespace(against=ref, model=["nesso1"]))
+    assert m.BASELINE_FILE == ref / "docs" / "perf_baselines.json"
+    got = json.loads(m.BASELINE_FILE.read_text())
+    assert got["argv"][:2] == ["--update-baseline", "--allow-contended"]
+    assert got["argv"][-2:] == ["--model", "nesso1"]
+    assert got["pythonpath"].split(":")[0] == str(ref)
+    assert json.loads((REPO / "docs" / "perf_baselines.json").read_text()) != got
+
+
+def test_a_failed_reference_run_fails_the_gate(tmp_path):
+    ref = tmp_path / "ref"
+    (ref / "scripts").mkdir(parents=True)
+    (ref / "scripts" / "perf_regression.py").write_text("import sys; sys.exit(3)\n")
+    m = _module()
+    try:
+        m._measure_reference(Namespace(against=ref, model=None))
+    except SystemExit as e:
+        assert "exited 3" in str(e)
+    else:
+        raise AssertionError("a failed reference run must fail the gate")
+
+
+class _Clock:
+    def __init__(self, median):
+        self.median = median
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def summary(self):
+        return {0: {"min": self.median, "max": self.median, "median": self.median, "n": 3}}
+
+
+def _fake_child(row):
+    class Popen:
+        def __init__(self, cmd, **kw):
+            Path(cmd[cmd.index("--out") + 1]).write_text(json.dumps(row))
+            self.pid = 0
+
+        def wait(self, timeout=None):
+            return 0
+    return Popen
+
+
+def test_a_measurement_carries_the_clock_and_a_clamped_one_cannot_seed(monkeypatch, tmp_path):
+    m = _module()
+    row = {"model": "boltz2", "hardware": "blackhole", "throughput": 0.8}
+    monkeypatch.setattr(m.subprocess, "Popen", _fake_child(row))
+    monkeypatch.setattr(m, "clock_during", lambda: _Clock(1350))
+    fast = m._run_measure("boltz2")
+    assert fast["aiclk_mhz"]["median"] == 1350 and not fast.get("clock_low")
+    monkeypatch.setattr(m, "clock_during", lambda: _Clock(800))
+    slow = m._run_measure("boltz2")
+    assert slow["clock_low"]
+    monkeypatch.setattr(m, "BASELINE_FILE", tmp_path / "b.json")
+    try:
+        m._update_baselines([slow], Namespace(note="x", allow_contended=False))
+    except SystemExit as e:
+        assert "boltz2 peak 800 MHz" in str(e)
+    else:
+        raise AssertionError("a baseline was seeded from an 800 MHz measurement")
+    assert not (tmp_path / "b.json").exists()
+
+
+def test_the_clock_floor_is_per_architecture(monkeypatch):
+    """A busy Wormhole Galaxy chip runs at 1000 MHz, under Blackhole's floor; only a peak under
+    Wormhole's own floor is clamped there."""
+    m = _module()
+    assert m.hardware_of("tt-galaxy-wh-l") == "wormhole_b0" and m.hardware_of("n300") == "wormhole_b0"
+    assert m.hardware_of("p150a") == "blackhole" and m.hardware_of("p300c") == "blackhole"
+    row = {"model": "boltzgen", "hardware": "wormhole_b0", "throughput": 0.01}
+    monkeypatch.setattr(m.subprocess, "Popen", _fake_child(row))
+    monkeypatch.setattr(m, "clock_during", lambda: _Clock(1000))
+    assert not m._run_measure("boltzgen").get("clock_low")
+    monkeypatch.setattr(m, "clock_during", lambda: _Clock(500))
+    assert m._run_measure("boltzgen")["clock_low"]
+
+
+def test_a_card_with_no_baseline_is_seeded_not_failed(monkeypatch, tmp_path, capsys):
+    """No baseline on this card and machine means nothing can have regressed: the gate records the
+    run, contended or not, and the next gate compares against it. An unidentified card still fails."""
+    m = _module()
+    row = {"model": "boltz2", "unit": "structures/s", "direction": "higher", "throughput": 0.88,
+           "latency_ms": 1133, "input": "trpcage", "warmup": 2, "repeat": 5, "hardware": "wormhole_b0",
+           "tt_bio_version": "0.15.1", "date": "2026-10-12", "contended": True}
+    monkeypatch.setattr(m, "_assert_full_model_coverage", lambda: None)
+    monkeypatch.setattr(m, "_run_measure", lambda model: dict(row))
+    monkeypatch.setattr(m, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(m, "BASELINE_FILE", tmp_path / "docs" / "perf_baselines.json")
+    monkeypatch.setattr(m, "detect_machine_id", lambda: "GWH02")
+    args = Namespace(model=["boltz2"], update_baseline=False, threshold=15.0, note=None,
+                     allow_contended=False)
+    monkeypatch.setattr(m, "detect_card_type", lambda: "unknown:0x0040")
+    assert m.cmd_gate(Namespace(**vars(args))) == 1
+    assert not m.BASELINE_FILE.exists()
+    monkeypatch.setattr(m, "detect_card_type", lambda: "tt-galaxy-wh-l")
+    assert m.cmd_gate(Namespace(**vars(args))) == 0
+    assert "\nGATE SEEDED" in capsys.readouterr().out
+    cell = m.card_baselines(m.load_baselines(), "tt-galaxy-wh-l", "GWH02")["boltz2"]
+    assert cell["value"] == 0.88 and "under host load" in cell["note"]
+    assert m.cmd_gate(Namespace(**vars(args))) == 0
+    assert "GATE PASS" in capsys.readouterr().out
+
+
+def test_a_model_new_to_a_seeded_machine_is_seeded_not_failed(monkeypatch, tmp_path, capsys):
+    """mol1 joined SPECS after qb1's p150a block was seeded: the gate records its first cell and
+    leaves the other models' cells alone, instead of failing it as NO BASELINE."""
+    m = _module()
+    rows = {k: {"model": k, "unit": "structures/s", "direction": "higher", "throughput": v,
+                "latency_ms": 500, "input": "trpcage", "warmup": 2, "repeat": 5, "hardware": "blackhole",
+                "tt_bio_version": "0.26.1", "date": "2026-11-03"} for k, v in (("boltz2", 1.0), ("mol1", 2.0))}
+    monkeypatch.setattr(m, "_assert_full_model_coverage", lambda: None)
+    monkeypatch.setattr(m, "_run_measure", lambda model: dict(rows[model]))
+    monkeypatch.setattr(m, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(m, "BASELINE_FILE", tmp_path / "docs" / "perf_baselines.json")
+    monkeypatch.setattr(m, "detect_machine_id", lambda: "tt-quietbox")
+    monkeypatch.setattr(m, "detect_card_type", lambda: "p150a")
+    args = Namespace(model=["boltz2"], update_baseline=False, threshold=15.0, note=None, allow_contended=False)
+    assert m.cmd_gate(Namespace(**vars(args))) == 0
+    capsys.readouterr()
+    args.model = ["boltz2", "mol1"]
+    assert m.cmd_gate(Namespace(**vars(args))) == 0
+    out = capsys.readouterr().out
+    assert "\nGATE SEEDED" in out and "for mol1 on p150a" in out and "GATE PASS" in out
+    cells = m.card_baselines(m.load_baselines(), "p150a", "tt-quietbox")
+    assert cells["mol1"]["value"] == 2.0 and cells["boltz2"]["value"] == 1.0
+
+def test_reference_run_writes_a_readonly_hardlinked_baseline_in_place(tmp_path):
+    """The Galaxy dedupe hardlinks identical files across trees and makes them read-only. An old
+    reference's in-place write must succeed on a private copy and leave the other link alone."""
+    import os
+    ref = tmp_path / "ref"
+    (ref / "scripts").mkdir(parents=True)
+    (ref / "docs").mkdir()
+    (ref / "scripts" / "perf_regression.py").write_text(
+        "import pathlib\npathlib.Path('docs/perf_baselines.json').write_text('{\"new\": 1}')\n")
+    other = tmp_path / "other.json"
+    other.write_text('{"old": 1}')
+    os.link(other, ref / "docs" / "perf_baselines.json")
+    other.chmod(0o444)
+    m = _module()
+    m._measure_reference(Namespace(against=ref, model=None))
+    assert json.loads(m.BASELINE_FILE.read_text()) == {"new": 1}
+    assert json.loads(other.read_text()) == {"old": 1}
+
+
+def test_save_baselines_replaces_a_readonly_file(tmp_path):
+    m = _module()
+    f = tmp_path / "docs" / "perf_baselines.json"
+    f.parent.mkdir()
+    f.write_text("{}")
+    f.chmod(0o444)
+    m.BASELINE_FILE = f
+    m.save_baselines({"cards": {}})
+    assert json.loads(f.read_text()) == {"cards": {}}
+
+
+def test_a_contended_regression_is_measured_once_more_and_the_better_read_graded(monkeypatch):
+    m = _module()
+    reads = iter([dict(model="rfd3", unit="designs/s", direction="higher", throughput=0.08, contended=True),
+                  dict(model="rfd3", unit="designs/s", direction="higher", throughput=0.124)])
+    monkeypatch.setattr(m, "_assert_full_model_coverage", lambda: None)
+    monkeypatch.setattr(m, "_run_measure", lambda model: next(reads))
+    monkeypatch.setattr(m, "load_baselines", lambda: {})
+    monkeypatch.setattr(m, "detect_card_type", lambda: "tt-galaxy-wh-l")
+    monkeypatch.setattr(m, "detect_machine_id", lambda: "g112")
+    monkeypatch.setattr(m, "card_baselines", lambda *a: {"rfd3": {"value": 0.1248}})
+    graded = []
+    monkeypatch.setattr(m, "_print_table", lambda rows, *a: graded.extend(rows) or True)
+    assert m.cmd_gate(Namespace(model=["rfd3"], update_baseline=False, threshold=15.0)) == 0
+    assert [r["throughput"] for r in graded] == [0.124]

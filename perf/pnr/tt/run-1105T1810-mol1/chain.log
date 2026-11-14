@@ -1,0 +1,21 @@
+start 2026-11-05T18:01:40Z pid=2550186 owner=worker:pnr-tt sha=5946c39d0cbd32e2726757cb4c158550cc20427b cells=mol1 mol1_fast
+book mol1+: 1793933218 1793938618 2026-11-05T18:01:41Z
+booked 2026-11-06T00:05:39Z
+locks held 2026-11-06T00:05:39Z
+wait quiet (holders: none; load 3.20) 2026-11-06T00:05:41Z
+wait quiet (holders: none; load 2.75) 2026-11-06T00:21:15Z
+wait quiet (holders: none; load 2.61) 2026-11-06T00:36:50Z
+wait quiet (holders: none; load 2.48) 2026-11-06T00:52:25Z
+quiet after 2850s 2026-11-06T00:55:01Z load 1.46 2.21 2.46 2/957 2724447
+cell mol1 start 2026-11-06T00:55:02Z
+cell mol1 end rc=0 2026-11-06T01:00:29Z load 5.58 4.18 3.25 3/950 2793072
+book mol1_fast+: 1793933445 1793936145 2026-11-06T01:00:29Z
+stopped 2026-11-06T03:42:54Z: restart on run_cells.sh that re-books only after a lapse
+start 2026-11-06T03:42:54Z pid=768181 owner=worker:pnr-tt sha=1712bdfba1121f489606fd1b55a724812e07d257 cells=mol1_fast
+booked 2026-11-06T16:47:42Z
+locks held 2026-11-06T16:47:42Z
+wait quiet (holders: none; load 1.63) 2026-11-06T16:47:43Z
+quiet after 90s 2026-11-06T16:49:16Z load 1.33 1.94 3.27 2/915 458425
+cell mol1_fast start 2026-11-06T16:49:17Z
+cell mol1_fast end rc=0 2026-11-06T16:58:18Z load 2.77 2.75 3.11 3/937 544355
+end 2026-11-06T16:58:18Z

@@ -147,13 +147,24 @@ def kernel_entry(name):
     return None
 
 
-def declines_under_tape(name) -> bool:
+def declines_under_tape(name, *operands) -> bool:
     """Does the kernel called `name` have to decline this call for want of a backward?
 
     What a fused kernel's gate asks instead of `taping()`. True is the old unconditional
     answer; False means either no tape at all, or a tape with an entry for this kernel.
+
+    A gate that passes its `operands` also gets False when none of them is on the tape: such
+    a call has no gradient to drop, and the stock op it would fall back to passes the same raw
+    values straight through the tape (`taped_ttnn._taped_verb`). BC2's raw forwards under an
+    open tape ran the trimul's channel move as a 1.2 ms stock permute against the kernel's
+    0.1 ms for exactly this reason.
     """
-    return taping() and _KERNEL_ENTRIES.get(name) is None
+    if not taping() or _KERNEL_ENTRIES.get(name) is not None:
+        return False
+    if not operands:
+        return True
+    on_tape = getattr(grad_hook(), "on_tape", None)
+    return on_tape is None or on_tape(operands, {})
 
 
 @contextlib.contextmanager
@@ -179,13 +190,17 @@ def fused_kernel(name):
     """
     def register(fn):
         def call(*args, **kwargs):
+            if taping() and not recording():
+                # Nothing to differentiate: the kernel's inference path, on raw operands, with or
+                # without an entry. An entry may decline for state its backward needs (pair_relu's
+                # backward weights are built at the block's first recording call), and a forward
+                # that falls back to the composed ops until then runs a different program before
+                # the first backward than after it (bc4-bet-dispatch c14).
+                args, kwargs = grad_hook().raw(args, kwargs)
+                with untaped_kernel():
+                    return fn(*args, **kwargs)
             entry = kernel_entry(name)
             if entry is None:
-                if taping() and not recording():
-                    # Nothing to differentiate: the kernel's inference path, on raw operands.
-                    args, kwargs = grad_hook().raw(args, kwargs)
-                    with untaped_kernel():
-                        return fn(*args, **kwargs)
                 return fn(*args, **kwargs)
 
             def shipped(*a, **k):
@@ -263,6 +278,7 @@ def recycle_region(cyc, last):
 # configs it builds, so they stay in tenstorrent.py and are resolved on first use -- a
 # module-level import here would be circular, since tenstorrent.py imports this module.
 _NARROW_PROJ = None
+_SILU_CKC = None
 _L1_NORM = None
 
 
@@ -292,14 +308,15 @@ def linear(x, w, bias=None, *, activation=None, compute_kernel_config=None, dtyp
         out = _NARROW_PROJ(x, w, compute_kernel_config, dtype, l1_out=in_l1)
         if out is not None:
             return out
-    if _pair_mm.PAIR_MM_FUSED and set(kw) <= {"memory_config"}:
-        out = _pair_mm.matmul(x, w, bias, compute_kernel_config, dtype,
-                              memory_config=kw.get("memory_config"), activation=activation)
-        if out is not None:
-            return out
-    return ttnn.linear(x, w, bias=bias, activation=activation,
-                       compute_kernel_config=compute_kernel_config, dtype=dtype,
-                       core_grid=core_grid, **kw)
+    if activation == "silu":
+        global _SILU_CKC
+        if _SILU_CKC is None:
+            from .tenstorrent import silu_ckc
+            _SILU_CKC = silu_ckc
+        compute_kernel_config = _SILU_CKC(compute_kernel_config)
+    return _pair_mm.or_linear(ttnn.linear, x, w, bias, activation=activation,
+                              compute_kernel_config=compute_kernel_config, dtype=dtype,
+                              core_grid=core_grid, **kw)
 
 
 @_dispatching

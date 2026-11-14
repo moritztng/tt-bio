@@ -1,0 +1,25 @@
+2026-11-03T18:51:54Z credit $85.54000272977669 at start, gpu a100, cap 3.5 h
+2026-11-03T18:51:56Z created 59001467 on offer 54677825
+2026-11-03T18:53:33Z 59001467 up at 92.96.154.105:43180, power limit 275 W
+2026-11-03T18:53:45Z DESTROYED 59001467 (power limit 275 W outside 390-400); this instance over REST: gone; instances left: 2
+2026-11-03T18:53:48Z created 59001629 on offer 29019379
+2026-11-03T18:54:51Z 59001629 up at 80.188.223.202:11462, power limit 300 W
+2026-11-03T18:55:04Z DESTROYED 59001629 (power limit 300 W outside 390-400); this instance over REST: gone; instances left: 0
+2026-11-03T18:55:07Z created 59001717 on offer 53572340
+2026-11-03T18:56:13Z 59001717 up at 216.249.100.66:23785, power limit 400 W
+2026-11-03T18:56:26Z 59001717 download 51126063 B/s
+Welcome to vast.ai. If authentication fails, try again after a few seconds, and double check your ssh key.
+Have fun!
+Welcome to vast.ai. If authentication fails, try again after a few seconds, and double check your ssh key.
+Have fun!
+Welcome to vast.ai. If authentication fails, try again after a few seconds, and double check your ssh key.
+Have fun!
+Welcome to vast.ai. If authentication fails, try again after a few seconds, and double check your ssh key.
+Have fun!
+Welcome to vast.ai. If authentication fails, try again after a few seconds, and double check your ssh key.
+Have fun!
+2026-11-03T18:56:36Z 59001717 running box_pnr.sh (PNR_LABEL=a100-2 MIN_SM=1250 )
+2026-11-03T21:31:45Z resumed watching 59001717
+2026-11-03T22:30:48Z 59001717 ended: done (setup-mol1 0 2026-11-03T19:05:06Z;setup-bc2 0 2026-11-03T19:05:06Z;setup-rfd4 0 2026-11-03T19:05:06Z;mol1 0 2026-11-03T19:25:31Z;bc2 0 2026-11-03T20:09:47Z;rfd4 0 2026-11-03T22:10:46Z;bc2-rerun 0 2026-11-03T22:28:54Z;)
+2026-11-03T22:31:00Z DESTROYED 59001717 (session end: done); this instance over REST: gone; instances left: 1
+2026-11-03T22:31:01Z credit $47.724396646778814 at end

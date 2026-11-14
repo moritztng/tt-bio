@@ -1,0 +1,20 @@
+[
+ {
+  "name": "extras",
+  "sequences": [
+   {"rnaSequence": {"sequence": "ACCAGGAUGGCCGAGUGGUUAAGGCGUUGGACUUAAGAUCCAAUGGACAUAUGUCCGCGUGGGUUCGAACCCCACUCCUGGUACCA",
+                    "count": 1, "modifications": [{"modificationType": "CCD_5MC", "basePosition": 2},
+                                                  {"modificationType": "CCD_2MG", "basePosition": 5}],
+                    "unpairedMsaPath": "@MOL1@/examples/examples_with_rna_msa/9gmw/9gmw_2_all.a3m"}},
+   {"dnaSequence": {"sequence": "TGTAATC", "count": 1,
+                    "modifications": [{"modificationType": "CCD_6MA", "basePosition": 4}]}},
+   {"proteinChain": {"sequence": "GCRGDFCAGP", "count": 1}},
+   {"proteinChain": {"sequence": "MKQLEDKVEELLSKNYHLENEVARLKKLVGER", "count": 2, "id": ["H", "L"]}},
+   {"ligand": {"ligand": "CCD_ATP", "count": 2}}
+  ],
+  "covalent_bonds": [
+   {"entity1": 3, "position1": 1, "atom1": "N", "entity2": 3, "position2": 10, "atom2": "C"},
+   {"entity1": 3, "position1": 2, "atom1": "SG", "entity2": 3, "position2": 7, "atom2": "SG"}
+  ]
+ }
+]

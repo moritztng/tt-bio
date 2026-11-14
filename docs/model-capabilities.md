@@ -9,19 +9,20 @@ The one exception is `properties: affinity`, which only omits an extra output ra
 changing the structure. That prints a warning and the fold runs.
 
 <!-- BEGIN CAPABILITY TABLE (generated: python3 -m tt_bio.capabilities) -->
-| model | ligand | RNA | DNA | no protein chain | cyclic | modifications | template npz | template cif | bond constraint | residue-residue bond | pocket/contact | affinity |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| `boltz2` | yes | yes | yes | yes | yes | yes | refused | yes | yes | yes | yes | yes |
-| `esmfold2` | yes | yes | yes | refused | yes | yes | refused | refused | yes | yes | refused | ignored, warns |
-| `esmfold2-fast` | yes | yes | yes | refused | yes | yes | refused | refused | yes | yes | refused | ignored, warns |
-| `protenix-v1` | yes | yes | yes | yes | refused | yes | refused | refused | yes | yes | refused | ignored, warns |
-| `protenix-v2` | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | refused | ignored, warns |
-| `openfold3` | refused | yes | yes | yes | yes | yes | yes | yes | yes | refused | refused | ignored, warns |
-| `openbind` | yes | yes | yes | yes | yes | yes | yes | yes | yes | refused | refused | ignored, warns |
-| `opendde` | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | refused | ignored, warns |
-| `opendde-abag` | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | refused | ignored, warns |
-| `rf3` | yes | yes | yes | yes | refused | yes | yes | yes | yes | refused | refused | ignored, warns |
-| `af2ig` | refused | refused | refused | refused | refused | refused | refused | refused | refused | refused | refused | ignored, warns |
+| model | ligand | ligand file | RNA | DNA | no protein chain | cyclic | modifications | template npz | template cif | bond constraint | residue-residue bond | pocket/contact | affinity | guided constraint | site/contact/exclusion |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| `boltz2` | yes | refused | yes | yes | yes | yes | yes | refused | yes | yes | yes | yes | yes | refused | refused |
+| `esmfold2` | yes | refused | yes | yes | refused | yes | yes | refused | refused | yes | yes | refused | ignored, warns | refused | refused |
+| `esmfold2-fast` | yes | refused | yes | yes | refused | yes | yes | refused | refused | yes | yes | refused | ignored, warns | refused | refused |
+| `protenix-v1` | yes | yes | yes | yes | yes | refused | yes | refused | refused | yes | yes | refused | ignored, warns | refused | refused |
+| `protenix-v2` | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | refused | ignored, warns | refused | refused |
+| `mol1` | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | refused | ignored, warns | refused | yes |
+| `openfold3` | refused | refused | yes | yes | yes | yes | yes | yes | yes | yes | refused | refused | ignored, warns | refused | refused |
+| `openbind` | yes | refused | yes | yes | yes | yes | yes | yes | yes | yes | refused | refused | ignored, warns | refused | refused |
+| `opendde` | yes | refused | yes | yes | yes | yes | yes | yes | yes | yes | yes | refused | ignored, warns | yes | refused |
+| `opendde-abag` | yes | refused | yes | yes | yes | yes | yes | yes | yes | yes | yes | refused | ignored, warns | yes | refused |
+| `rf3` | yes | refused | yes | yes | yes | refused | yes | yes | yes | yes | refused | refused | ignored, warns | refused | refused |
+| `af2ig` | refused | refused | refused | refused | refused | refused | refused | refused | refused | refused | refused | refused | ignored, warns | refused | refused |
 <!-- END CAPABILITY TABLE -->
 
 `boltz2` is the fallback for anything the others refuse: it takes the whole input language,
@@ -147,10 +148,12 @@ file, so the names you submitted are still in it. A structure whose names alread
 unchanged and carries no remark. A PDB holds at most 62 chains; past that, use `cif`, which has no
 width limit and never renames anything.
 
-`--write_pae` adds a token-token PAE and PDE matrix as `<name>_pae.npz` on `boltz2`,
-`protenix-v1`, `protenix-v2` and `opendde`. `rf3` writes pTM, ipTM and chain-pair PAE into
-`<name>_summary_confidences.json` instead. `openfold3` and `openbind` compute PAE logits but
-their fold does not return the matrices, and `esmfold2` has no PAE head.
+`--write_pae` writes `<name>_pae.npz` beside each structure on every folding model, with a
+`<name>_pae.json` sidecar listing what is in it. It always holds the full PAE matrix; PDE and
+contact probabilities are there when the model has the head (all but `af2ig` for PDE; all but
+`protenix-v1` and `protenix-v2` for contacts). `--contact_cutoff` sets the contact
+distance, 8 A by default. Arrays, units and the cutoff rule are in
+[confidence-outputs.md](confidence-outputs.md). Boltz-2 also keeps its separate `--write_pde` file.
 
 An output flag a model does not read prints a note saying which model does read it, so it is
 never silently accepted: `--write_pde` on Protenix (`--write_pae` already writes both) and
@@ -160,7 +163,8 @@ never silently accepted: `--write_pde` on Protenix (`--write_pae` already writes
 model reads what its upstream reads: Boltz-2 keeps its shipped 8192 default; `esmfold2`,
 `protenix-v1`, `protenix-v2`, `opendde`, `opendde-abag`, `openfold3` and `openbind` read up to
 16384 rows, paired rows first, as their upstream featurizers do (`esmfold2` then draws 1024 of
-them per trunk loop, as upstream does); `rf3` loads up to 10000 and draws 1024 per recycle. Set it and all of them cap. Every fold writes the depth it actually
+them per trunk loop, and `protenix-v2` a random number between one and all of them per recycling
+cycle, as their upstreams do); `rf3` loads up to 10000 and draws 1024 per recycle. Set it and all of them cap. Every fold writes the depth it actually
 used as `msa_depth` in `results.json`.
 
 ## Keeping this honest

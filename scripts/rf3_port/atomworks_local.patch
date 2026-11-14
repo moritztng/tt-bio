@@ -1,0 +1,410 @@
+--- ml/transforms/af3_reference_molecule.py
++++ ml/transforms/af3_reference_molecule.py
+@@ -19,6 +19,7 @@
+ from tt_bio._vendor.atomworks.ml.transforms.base import Transform
+ from tt_bio._vendor.atomworks.ml.transforms.rdkit_utils import (
+     ccd_code_to_rdkit_with_conformers,
++    ccd_codes_to_rdkit_with_conformers,
+     sample_rdkit_conformer_for_atom_array,
+ )
+ from tt_bio._vendor.atomworks.ml.utils.geometry import masked_center, random_rigid_augmentation
+@@ -91,6 +92,23 @@
+         `AF3 Supplementary Information <https://static-content.springer.com/esm/art%3A10.1038%2Fs41586-024-07487-w/MediaObjects/41586_2024_7487_MOESM1_ESM.pdf>`_
+     """
+     ref_mols = {}
++    jobs = [
++        (res_name, min(count, max_conformers_per_residue) if max_conformers_per_residue is not None else count)
++        for res_name, count in res_stochiometry.items()
++        if res_name in get_known_ccd_codes()
++    ]
++    # tt-bio: one forked child per CCD code, run concurrently (4.6 s -> about 1 s of a 512-residue featurize)
++    if (
++        len(jobs) > 1
++        and timeout is not None
++        and timeout_strategy == "subprocess"
++        and not {"seed", "skip_rdkit_conformer_generation"} & generate_conformers_kwargs.keys()
++    ):
++        mols = ccd_codes_to_rdkit_with_conformers(jobs, timeout=timeout, **generate_conformers_kwargs)
++        if mols is not None:
++            got = dict(zip((r for r, _ in jobs), mols))
++            return {res_name: got.get(res_name) for res_name in res_stochiometry}
++
+     for res_name, count in res_stochiometry.items():
+         if res_name not in get_known_ccd_codes():
+             ref_mols[res_name] = None  # placeholder so that the unknown CCD codes are still counted later on
+--- ml/transforms/conformer_helper.py
++++ ml/transforms/conformer_helper.py
+@@ -0,0 +1,28 @@
++"""tt-bio: serve `rdkit_utils._conformers_here` over pickles on stdin/stdout (see `_conformers_in_helper`)."""
++import pickle
++import sys
++
++from rdkit import Chem
++
++from tt_bio._vendor.atomworks.ml.transforms.rdkit_utils import _conformers_here
++
++
++def main():
++    inp, out = sys.stdin.buffer, sys.stdout.buffer
++    sys.stdout = sys.stderr  # nothing but replies on the pipe
++    while True:
++        try:
++            props, jobs, seeds, timeout, kwargs = pickle.load(inp)
++        except EOFError:
++            return
++        Chem.SetDefaultPickleProperties(props)
++        try:
++            reply = (True, _conformers_here(jobs, seeds, timeout, kwargs))
++        except Exception as e:  # noqa: BLE001 -- raised again in the caller
++            reply = (False, e)
++        pickle.dump(reply, out)
++        out.flush()
++
++
++if __name__ == "__main__":
++    main()
+--- ml/transforms/rdkit_utils.py
++++ ml/transforms/rdkit_utils.py
+@@ -1,4 +1,8 @@
+ import logging
++import pickle
++import subprocess
++import sys
++import threading
+ import time
+ from typing import Any, ClassVar, Literal
+ 
+@@ -507,6 +511,10 @@
+                 f"Failed to generate {n_conformers} conformers for {ccd_code=}. Falling back to idealized conformer from the CCD. Error message: {e}"
+             )
+ 
++    return _fill_idealized(mol, idealized_conformer, n_conformers)
++
++
++def _fill_idealized(mol: Chem.Mol, idealized_conformer: Chem.Conformer, n_conformers: int) -> Chem.Mol:
+     # ... if conformer generation fails or is incomplete, return the idealized conformer (set `count` conformers)
+     missing_conformers = n_conformers - mol.GetNumConformers()
+     if missing_conformers > 0:
+@@ -516,6 +524,84 @@
+     return mol
+ 
+ 
++def _conformers_here(jobs, seeds, timeout, kwargs):
++    """(mols, warnings) for (ccd_code, n_conformers) jobs on given seeds, one forked child per code."""
++    prepared, calls = [], []
++    for (ccd_code, n), seed in zip(jobs, seeds):
++        mol = ccd_code_to_rdkit(ccd_code, hydrogen_policy="remove")
++        prepared.append((ccd_code, n, mol, Chem.Conformer(mol.GetConformer(0))))
++        t = _auto_timeout_policy(n, *timeout) if isinstance(timeout, tuple) else timeout
++        calls.append((t, generate_conformers, (mol,), dict(kwargs, n_conformers=n, seed=seed)))
++    mols, warnings = [], []
++    for (ccd_code, n, mol, ideal), (ok, value) in zip(prepared, timer.run_in_subprocesses(calls)):
++        if ok:
++            mol = value
++        elif isinstance(value, (TimeoutError, RuntimeError, Chem.MolSanitizeException)):
++            warnings.append(
++                f"Failed to generate {n} conformers for {ccd_code=}. Falling back to idealized conformer from the CCD. Error message: {value}"
++            )
++        else:
++            raise value
++        mols.append(_fill_idealized(mol, ideal, n))
++    return mols, warnings
++
++
++_HELPER = []
++_HELPER_LOCK = threading.Lock()
++
++
++def _conformers_in_helper(jobs, seeds, timeout, kwargs):
++    """`_conformers_here` in a small long-lived helper process. Forking the serving process costs its page
++    tables per child (about 0.4 s each with 12 GiB resident, 18 s for the 20 amino acids of a 512-residue
++    RF3 fold); the helper holds only RDKit and atomworks, so its children fork in milliseconds. One request
++    at a time on its pipe."""
++    with _HELPER_LOCK:
++        if not _HELPER or _HELPER[0].poll() is not None:
++            _HELPER[:] = [subprocess.Popen(
++                [sys.executable, "-m", "tt_bio._vendor.atomworks.ml.transforms.conformer_helper"],
++                stdin=subprocess.PIPE, stdout=subprocess.PIPE,
++            )]
++        proc = _HELPER[0]
++        try:
++            pickle.dump((Chem.GetDefaultPickleProperties(), jobs, seeds, timeout, kwargs), proc.stdin)
++            proc.stdin.flush()
++            ok, value = pickle.load(proc.stdout)
++        except BaseException:
++            proc.kill()  # a half-read reply leaves the pipe out of step: start a fresh helper next time
++            _HELPER.clear()
++            raise
++    if not ok:
++        raise value
++    return value
++
++
++def ccd_codes_to_rdkit_with_conformers(
++    jobs: list[tuple[str, int]],
++    *,
++    timeout: float | tuple[float, float] = (3.0, 0.15),
++    **generate_conformers_kwargs,
++) -> list[Chem.Mol] | None:
++    """tt-bio: `ccd_code_to_rdkit_with_conformers` with the subprocess timeout for several (ccd_code,
++    n_conformers) at once. Seeds come off the global numpy RNG in the same order as one call per code, and
++    the children run concurrently instead of one after the other (timer.run_in_subprocesses), from a small
++    helper process when it starts, so the molecules are the ones the serial calls return. Returns None,
++    with the RNG untouched, when a drawn seed is 0: a single call would draw again inside the child, which
++    the batch cannot reproduce."""
++    state = np.random.get_state()
++    seeds = [_get_random_seed() for _ in jobs]
++    if not all(seeds):
++        np.random.set_state(state)
++        return None
++    try:
++        mols, warnings = _conformers_in_helper(jobs, seeds, timeout, generate_conformers_kwargs)
++    except (OSError, EOFError, pickle.UnpicklingError) as e:
++        logger.warning(f"conformer helper unavailable ({e!r}); generating in this process")
++        mols, warnings = _conformers_here(jobs, seeds, timeout, generate_conformers_kwargs)
++    for w in warnings:
++        logger.warning(w)
++    return mols
++
++
+ # -------------------------------------------------------------------------------------------------
+ # ---------------------  RDKit related transforms  ------------------------------------------------
+ # -------------------------------------------------------------------------------------------------
+--- ml/utils/timer.py
++++ ml/utils/timer.py
+@@ -6,6 +6,7 @@
+ """
+ 
+ import multiprocessing
++import os
+ import queue as _queue
+ import signal
+ import time
+@@ -147,52 +148,80 @@
+     def decorator(func: Callable) -> Callable:
+         @wraps(func)
+         def wrapped_func(*args, **kwargs):  # noqa: ANN202
+-            # NOTE: 'fork' context is useful to speed up the timeout handling,
+-            #  as using 'spawn' instead will re-trigger imports that are needed to run the function
+-            #  and understand the context in which it is used in, which can be slow.
+-            ctx = multiprocessing.get_context("fork")
+-            queue = ctx.Queue()
+-
+-            # ... create subprocess to run the function
+-            proc = ctx.Process(target=_timeout_handler, args=(queue, func, args, kwargs), daemon=True)
+-            # ... start the subprocess (ensure it is not a daemon to allow doing this in multiprocessing)
+-            with _AllowSubprocessForDeamonicProcess():
+-                proc.start()
+-
+-            # ... wait for the subprocess to finish and check if it timed out
+-            proc.join(timeout=float(timeout))
+-
+-            # ... if the subprocess is still running, terminate it and raise a TimeoutError
+-            if proc.is_alive():
+-                proc.terminate()
+-                proc.join()
+-                raise TimeoutError(f"Function {func} timed out after {timeout} seconds")
+-
+-            # ... try retrieving the result, if available
+-            try:
+-                status, value = queue.get(timeout=0.1)  # short timeout to prevent hang
+-                # NOTE: Hang can happen when the child process dies unexpectedly
+-                #       and the main process is waiting for the result in the queue.
+-                # See Issue(https://bugs.python.org/issue43805)
+-            except _queue.Empty:
+-                raise ChildProcessError("Child process died unexpectedly")  # noqa: B904
+-
+-            match status:
+-                case _TimeoutHandlerStatus.SUCCESS:
+-                    # ... return the result of the function
+-                    return value
+-                case _TimeoutHandlerStatus.EXCEPTION:
+-                    # ... raise the exception caught in the child process
+-                    raise value
+-                case _:
+-                    # ... this code should be unreachable, if reached raise an error
+-                    raise ValueError(f"Invalid status: {status}. Must be 'SUCCESS' or 'EXCEPTION'.")
++            proc, queue = _start_in_subprocess(func, args, kwargs)
++            return _finish_in_subprocess(proc, queue, func, timeout, float(timeout))
+ 
+         return wrapped_func
+ 
+     return decorator
+ 
+ 
++def _start_in_subprocess(func: Callable, args: Any, kwargs: Any):
++    # NOTE: 'fork' context is useful to speed up the timeout handling,
++    #  as using 'spawn' instead will re-trigger imports that are needed to run the function
++    #  and understand the context in which it is used in, which can be slow.
++    ctx = multiprocessing.get_context("fork")
++    queue = ctx.Queue()
++
++    # ... create subprocess to run the function
++    proc = ctx.Process(target=_timeout_handler, args=(queue, func, args, kwargs), daemon=True)
++    # ... start the subprocess (ensure it is not a daemon to allow doing this in multiprocessing)
++    with _AllowSubprocessForDeamonicProcess():
++        proc.start()
++    return proc, queue
++
++
++def _finish_in_subprocess(proc, queue, func: Callable, timeout: float, wait: float) -> Any:
++    # ... wait for the subprocess to finish and check if it timed out
++    proc.join(timeout=max(wait, 0.0))
++
++    # ... if the subprocess is still running, terminate it and raise a TimeoutError
++    if proc.is_alive():
++        proc.terminate()
++        proc.join()
++        raise TimeoutError(f"Function {func} timed out after {timeout} seconds")
++
++    # ... try retrieving the result, if available
++    try:
++        status, value = queue.get(timeout=0.1)  # short timeout to prevent hang
++        # NOTE: Hang can happen when the child process dies unexpectedly
++        #       and the main process is waiting for the result in the queue.
++        # See Issue(https://bugs.python.org/issue43805)
++    except _queue.Empty:
++        raise ChildProcessError("Child process died unexpectedly")  # noqa: B904
++
++    match status:
++        case _TimeoutHandlerStatus.SUCCESS:
++            # ... return the result of the function
++            return value
++        case _TimeoutHandlerStatus.EXCEPTION:
++            # ... raise the exception caught in the child process
++            raise value
++        case _:
++            # ... this code should be unreachable, if reached raise an error
++            raise ValueError(f"Invalid status: {status}. Must be 'SUCCESS' or 'EXCEPTION'.")
++
++
++def run_in_subprocesses(calls: list[tuple[float, Callable, tuple, dict]]) -> list[tuple[bool, Any]]:
++    """tt-bio: `timeout_using_subprocess` for several calls at once. Every child is forked from the calling
++    thread, in order, before any is waited on (forking from worker threads can hand a child a lock another
++    thread holds); each keeps its own timeout from its own start. At most one child per usable CPU runs at a
++    time, so no child is slower than it would be alone. Returns (ok, value or exception) per call."""
++    width = max(1, len(os.sched_getaffinity(0)))
++    out = []
++    for i in range(0, len(calls), width):
++        started = []
++        for timeout, func, args, kwargs in calls[i : i + width]:
++            t0 = time.monotonic()
++            started.append((t0, timeout, func, *_start_in_subprocess(func, args, kwargs)))
++        for t0, timeout, func, proc, queue in started:
++            try:
++                out.append((True, _finish_in_subprocess(proc, queue, func, timeout, t0 + timeout - time.monotonic())))
++            except Exception as e:  # noqa: BLE001 -- handed back to the caller like the decorator raises it
++                out.append((False, e))
++    return out
++
++
+ # TODO: This is dangerous: revert once the underlying problem in rdkit is fixed
+ # RDKit Issue(https://github.com/rdkit/rdkit/discussions/7289)
+ class _AllowSubprocessForDeamonicProcess:
+--- __init__.py
++++ __init__.py
+@@ -17,24 +17,6 @@
+     __version__ = "unknown"
+ 
+ 
+-# Hard-enforce biotite version compatibility by importing biotite directly.
+-# Atomworks monkey-patches several private biotite internals that are sensitive to exact version alignment
+-_REQUIRED_BIOTITE_VERSION = "1.6.0"
+-try:
+-    import biotite as _biotite_check
+-except ImportError:
+-    raise ImportError(
+-        f"atomworks requires biotite=={_REQUIRED_BIOTITE_VERSION}, but biotite is not installed.\n"
+-        f"    pip install 'biotite=={_REQUIRED_BIOTITE_VERSION}'"
+-    ) from None
+-if _biotite_check.__version__ != _REQUIRED_BIOTITE_VERSION:
+-    raise ImportError(
+-        f"atomworks requires biotite=={_REQUIRED_BIOTITE_VERSION}, "
+-        f"but biotite {_biotite_check.__version__!r} is installed.\n"
+-        f"    pip install 'biotite=={_REQUIRED_BIOTITE_VERSION}'"
+-    )
+-del _biotite_check
+-
+ # Global logging configuration
+ logger = logging.getLogger("atomworks")
+ _log_level = os.environ.get("ATOMWORKS_LOG_LEVEL", "WARNING").upper()
+@@ -43,15 +25,16 @@
+ # Ensure that deprecation warnings are not repeated
+ warnings.filterwarnings("once", category=DeprecationWarning)
+ 
+-# Enforce strict biotite version — atomworks patches biotite internals
++# Enforce a supported biotite version — atomworks patches biotite internals
+ import biotite  # noqa: E402
+ 
+-_REQUIRED_BIOTITE_VERSION = "1.6.0"
+-if biotite.__version__ != _REQUIRED_BIOTITE_VERSION:
++# Upstream pins biotite 1.6.0, which needs Python >= 3.11. On Python 3.10 the newest biotite is
++# 1.2.0; biotite_patch backports the three 1.6 behaviours atomworks relies on that 1.2.0 lacks.
++_SUPPORTED_BIOTITE_VERSIONS = ("1.2.0", "1.6.0")
++if biotite.__version__ not in _SUPPORTED_BIOTITE_VERSIONS:
+     raise RuntimeError(
+-        f"atomworks requires biotite=={_REQUIRED_BIOTITE_VERSION}, "
+-        f"but found biotite=={biotite.__version__}. "
+-        f"Install the correct version: pip install biotite=={_REQUIRED_BIOTITE_VERSION}"
++        f"atomworks supports biotite {' or '.join(_SUPPORTED_BIOTITE_VERSIONS)}, "
++        f"but found biotite=={biotite.__version__}."
+     )
+ 
+ # Apply monkey patching to extend AtomArray functionality
+--- biotite_patch.py
++++ biotite_patch.py
+@@ -11,6 +11,7 @@
+ import functools
+ from collections.abc import Callable
+ 
++import biotite
+ import biotite.structure as struc
+ import numpy as np
+ from biotite.structure import Atom, AtomArray, AtomArrayStack
+@@ -347,6 +348,38 @@
+     struc.concatenate = concatenate
+ 
+ 
++@apply_if_version_lt(biotite.__version__, "1.3.0")
++def _backport_biotite_1_3() -> None:
++    """Give biotite 1.2.0 (the newest on Python 3.10) the three 1.3+ behaviours atomworks uses:
++    ``get_all_residue_positions``, ``BondList.convert_bond_type``, and ``coord()`` accepting
++    AtomArray subclasses such as ``AtomArrayPlus`` (1.2 checks the exact type)."""
++    import sys
++
++    def get_all_residue_positions(array):
++        starts = struc.residues.get_residue_starts(array, add_exclusive_stop=True)
++        return np.repeat(np.arange(len(starts) - 1), np.diff(starts))
++
++    def convert_bond_type(self, original_bond_type, new_bond_type):
++        mask = self._bonds[:, 2] == original_bond_type
++        self._bonds[mask, 2] = new_bond_type
++
++    original_coord = struc.atoms.coord
++
++    def coord(item):
++        if isinstance(item, (Atom, AtomArray, AtomArrayStack)):
++            return item.coord
++        return original_coord(item)
++
++    struc.get_all_residue_positions = get_all_residue_positions
++    struc.BondList.convert_bond_type = convert_bond_type
++    # every biotite module holding the 1.2 function by reference (celllist binds it as to_coord)
++    for name, module in list(sys.modules.items()):
++        if name.startswith("biotite."):
++            for attr, value in list(vars(module).items()):
++                if value is original_coord:
++                    setattr(module, attr, coord)
++
++
+ def _update_set_inter_residue_bonds() -> None:
+     """Patch ``_set_inter_residue_bonds`` to add custom ``transformation_id`` fields to struct_conn."""
+     import biotite.structure.io.pdbx.convert as pdbx_convert
+@@ -419,6 +452,7 @@
+     _enable_lean_atom_array_repr()
+     _enable_segment_slices_in_atom_arrays()
+     _update_get_residue_starts()
++    _backport_biotite_1_3()
+     _update_array()
+     _concatenate()
+     _update_set_inter_residue_bonds()

@@ -1,0 +1,8 @@
+# Mol-1's graded Blackhole levers (protenix.MOL1_BH) that OpenDDE's BH sets lack. Diffusion first, then trunk.
+n0 normal -
+nD normal dit_shoist,atom_mm16,adaln_mod,dit_qbox,dit_mask_chain,dit_qkvf
+nE normal dit_shoist,atom_mm16,adaln_mod,dit_qbox,dit_mask_chain,dit_qkvf,edm_device,atom_l1
+nT normal trimul_t1_part,trimul_t1split,ws_l1dest
+f0 fast -
+fD fast dit_shoist,atom_mm16,dit_qbox,dit_mask_chain,dit_qkvf,edm_device,atom_l1
+fT fast trimul_t1_part,trimul_t1split,ws_l1dest

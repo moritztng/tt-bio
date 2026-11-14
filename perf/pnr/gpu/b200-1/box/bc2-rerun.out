@@ -1,0 +1,3 @@
+2026-11-03T21:30:49Z bc2_rerun: holding PNR-DONE until box_pnr.sh exits
+2026-11-03T22:02:06Z bc2_rerun: attn-stock --warm 9 alone on the GPU
+2026-11-03T22:13:29Z bc2_rerun: rerun rc=0; PNR-DONE

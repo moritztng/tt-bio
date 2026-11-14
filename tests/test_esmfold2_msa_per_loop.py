@@ -69,3 +69,71 @@ def test_lm_dropout_is_upstreams_training_mode_dropout_and_follows_the_seed():
     assert torch.allclose(a, ref)  # same draw, same 1/(1-p) scale as torch's own dropout
     assert torch.allclose(a.unique(), torch.tensor([0.0, 4.0 / 3.0]))
     assert abs(float((a == 0).float().mean()) - 0.25) < 0.02
+
+
+def _unpack(w, rows):
+    """`_unpack_keep_dev` on the host: 16-bit words or `_fold_words`' pairs back to `rows` rows, slab by slab."""
+    from tt_bio.esmfold2_runtime import _KEEP_BITS, _keep_rows
+
+    assert w.dtype == torch.int32
+    W = w.shape[1]
+    halves = _keep_rows(rows) // (_KEEP_BITS * W)
+    slabs = [(w >> (j + k * _KEEP_BITS)) & 1 for j, k in (divmod(i, halves) for i in range(-(-rows // W)))]
+    return torch.cat(slabs, dim=1)[:, :rows].to(torch.bfloat16)
+
+
+def test_packed_keep_round_trips_rows_in_order():
+    from tt_bio.esmfold2_runtime import _fold_words, _pack_keep
+
+    keep = torch.rand(1, 96, 40, 8) >= 0.25  # 6 words a column: folds to 3
+    w = _pack_keep(keep)
+    assert w.shape == (1, 6, 40, 8) and int(w.max()) < 2 ** 16
+    assert torch.equal(_unpack(w, 96), keep.to(torch.bfloat16))
+    f = _fold_words(w)
+    assert f.shape == (1, 3, 40, 8) and int(f.min()) < 0  # bit 31 set somewhere: the sign bit carries a row
+    assert torch.equal(_unpack(f, 96), keep.to(torch.bfloat16))
+    odd = _pack_keep(torch.rand(1, 48, 4, 2) >= 0.5)
+    assert _fold_words(odd) is odd
+
+
+def test_packed_keep_pads_a_length_off_the_16_grid():
+    from tt_bio.esmfold2_runtime import _keep_rows, _packed_keep
+
+    assert _keep_rows(512) == 512 and _keep_rows(528) == 528 and _keep_rows(748) == 768 and _keep_rows(20) == 32
+    for L in (20, 40, 748):
+        keep = torch.rand(1, L, 12, 4) >= 0.25
+        w = _packed_keep(keep)
+        assert w.shape == (1, _keep_rows(L) // 32, 12, 4)  # folded: 32 rows a word
+        assert torch.equal(_unpack(w, L), keep.to(torch.bfloat16))
+
+
+@pytest.mark.parametrize("L", [64, 72])  # 72: off the 16 grid, packed over 96 rows
+def test_prefetched_keep_masks_follow_the_seed_and_keep_one_minus_p(L):
+    from tt_bio.esmfold2_runtime import _KeepDraws
+
+    def draws(seed):
+        torch.manual_seed(seed)
+        d = _KeepDraws((1, L, 64, 8), 0.25, 3)
+        return [_unpack(d.take(), L) for _ in range(3)]
+
+    a, b, c = draws(5), draws(5), draws(6)
+    assert all(torch.equal(x, y) for x, y in zip(a, b))
+    assert not torch.equal(a[0], c[0])
+    assert not torch.equal(a[0], a[1])  # a fresh mask every loop
+    for m in a:
+        assert m.dtype == torch.bfloat16 and set(m.unique().tolist()) == {0.0, 1.0}
+        assert abs(float(m.float().mean()) - 0.75) < 0.02
+
+
+def test_packed_keep_draw_keeps_one_minus_p_per_bit_for_dyadic_p():
+    from tt_bio.esmfold2_runtime import _draw_packed_keep, _dyadic
+
+    assert _dyadic(0.25) == (1, 2) and _dyadic(0.375) == (3, 3)
+    assert _dyadic(0.1) is None and _dyadic(0.0) is None and _dyadic(1.0) is None
+    for p in (0.25, 0.375, 0.5):
+        m = _unpack(_draw_packed_keep((1, 256, 64, 32), p, torch.Generator().manual_seed(3)), 256)
+        assert m.shape == (1, 256, 64, 32) and set(m.unique().tolist()) == {0.0, 1.0}
+        assert abs(float(m.float().mean()) - (1 - p)) < 0.005
+        # every bit position of the word carries the same law (no row block biased)
+        rows = m.float().mean(dim=(0, 2, 3)).view(16, 16).mean(dim=1)
+        assert float((rows - (1 - p)).abs().max()) < 0.01

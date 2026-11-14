@@ -6,6 +6,747 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 ## [Unreleased]
 
 ### Changed
+- **OpenDDE reads the same reference conformers as upstream OpenDDE 1.2.0.** It used the CCD ideal coordinates,
+  up to 2.8 A off in intra-residue distances for amino acids and 4.1 A for nucleotides; it now downloads OpenDDE's own
+  conformer table (143 MB, once). Glycans, modified residues and cyclic peptides are also linked the way upstream
+  links them. Accuracy is unchanged within seed noise on 11 complexes and 7 ligand complexes.
+- **OpenDDE on Wormhole folds about 2 % faster in the default mode** (384 tokens 77.5 -> 75.9 s on a Galaxy chip at
+  1000 MHz). Structures agree with the previous release to 0.11 A median on 11 complexes, well inside seed noise.
+- **Jobs that share an MSA cache search each sequence once.** When several jobs in a burst need the same chain, the
+  first one searches and the others wait and read its result, for every MSA model, paired and unpaired. Before, only
+  Boltz-2 did this; the rest repeated the search in every job. Same search, same output.
+
+### Fixed
+- **A killed `tt-bio` command no longer leaves a stuck worker holding its card.** When `timeout` or a
+  `kill` ended the CLI while a worker was stuck opening its chip, the worker kept the card until someone killed it
+  by hand. It now gets SIGTERM as before and, if still alive 90 s later, SIGKILL. Embedding shards and BoltzGen
+  per-chip workers are covered too.
+- **OpenFold3 returns its coordinates in full precision.** The sampler rounded every final atom position to bfloat16,
+  0.125 A at 16-32 A from the origin and 0.5 A at 64-128 A, which distorted backbone bond lengths in large complexes.
+
+## [0.32.0] - 2026-11-12
+
+### Added
+- **Mol-1 can be guided by what you already know about the binding.** A job that carries a `constraints` object folds
+  on Molence's Mol-1-constraint weights: `site` names the residues in the binding site, `contact` the pairs that
+  should touch, `exclusion` the regions to keep clear, in any combination
+  ([docs/mol1.md](docs/mol1.md#guiding-a-prediction-mol-1-constraint)). The weights download on first use, and only
+  for a job that names a condition; a job without one folds on the base weights exactly as before. Thanks to
+  [Molence Bio](https://github.com/molence/Mol-1) for releasing the model and the weights under Apache-2.0.
+
+## [0.31.0] - 2026-11-12
+
+### Changed
+- **Mol-1 `--fast` is faster than the default mode.** It used to drop Mol-1's tuned kernels and ran about 1.5x slower.
+  It now keeps them and adds bfp8 pair-stack weights (Wormhole) or the shared fast precision set (Blackhole): 9DBP
+  (791 tokens) folds in 502 s instead of 596 s on Wormhole and 195 s instead of 210 s on Blackhole, same recycles,
+  steps and samples, and the same docking results on 11 post-cutoff complexes.
+
+## [0.30.1] - 2026-11-11
+
+### Fixed
+- **An RFD3 contig that starts with a designed segment now builds one chain.** In a contig such as
+  `12-20,C33-59,18-28` the leading designed run came back as a separate chain, 11-13 A from the motif with no
+  peptide bond. It now joins the motif's chain, as a comma means; contigs that start with the motif are unchanged.
+- **Release wheels are built with a hash-locked toolchain**, so the wheel on PyPI no longer depends on whichever
+  `build`, `twine` and `setuptools` PyPI served on release day. The package contents are unchanged.
+
+## [0.30.0] - 2026-11-09
+
+### Changed
+- **tt-bio no longer opens a network listener during a fold.** tt-metal's bundled OpenMPI listened on every interface
+  for the whole run; tt-bio now defaults `OMPI_MCA_btl=^tcp`, since one host needs only `self` and `sm`.
+  A value you set yourself wins; set it if you run tt-metal across hosts. Outputs are unchanged.
+- **BoltzGen designs start each stage faster.** The featurizer process is spawned without waiting on its imports and
+  one imported spare is kept ahead, removing ~3 s of serial wait per stage, and the refold's confidence heads run
+  on the device with the per-sample pair terms built once. Same results.
+
+## [0.29.0] - 2026-11-08
+
+### Added
+- **BindCraft 2 on the benchmarks page.** 352 s per 140-iteration design trajectory against PD-L1 on one Blackhole
+  p150a, against 44.4 s on a B200, 52.0 s on an H200 and 119 s on an A100, each NVIDIA card on BindCraft 2's fastest
+  shipped option. A Galaxy Blackhole delivers 1.8x a DGX B200's designs per dollar of purchase price.
+
+## [0.28.0] - 2026-11-07
+
+### Added
+- **A PPI grade says when it could not score the binder's pose.** The two binder-pose RMSDs under
+  `ppi_refolding` align on the target's absolute conditioned coordinates, so a design whose target was pinned with
+  `C_CRDGRP` (an internal coordinate group, RFD4's recommended binder recipe) has nothing to align on and the `ppi`
+  criterion comes back `pass = 0` with `all_metrics_present = 0`. That is upstream's behaviour and it reads exactly
+  like a design that was scored and failed. `tt-bio evaluate` now names those designs and the columns it could not
+  compute, and `docs/rfd4-design.md` says which conditioning to use if you intend to grade a binder's pose.
+### Fixed
+- **An RFD4 grade scores the designed chain again.** Every metric defined on the chain of interest
+  (`refolded_target_aligned_binder_rmsd`, `refolded_target_backbone_aligned_binder_rmsd`) was computed over an
+  empty atom subset, because the evaluate path matched the oracle's chain label against a chain instance id it
+  synthesised itself: `B_1` against the `B` the oracle wrote. The subset is no longer empty, and a confidence JSON
+  written with either spelling now resolves to the same chain. A refold also inherits its design's `C_CRD` and
+  `SA_CRDSRC` masks, which an oracle's plain output structure does not carry, so metrics aligned on them are
+  scored rather than dropped.
+
+## [0.27.1] - 2026-11-07
+
+### Fixed
+- **OpenDDE and ESMFold2 no longer hang Wormhole chips.** On Wormhole, OpenDDE (normal and `--fast`) and ESMFold2
+  `--fast` ran the trunk's matmuls at HiFi2. Under sustained load one core of such a matmul could stall and the chip
+  stopped answering: on two JapanFold Galaxies this hit about 8-11 % of OpenDDE antibody-antigen targets. The
+  Wormhole trunk runs at HiFi3 again, the fidelity it used before 0.21.0; Blackhole is unchanged. HiFi3 is the more
+  precise setting and costs OpenDDE about 2 % at 608 tokens on Wormhole.
+
+## [0.27.0] - 2026-11-06
+
+### Added
+- **Mol-1 on the benchmarks page.** 49.6 s per 512-residue fold (20 recycles, 200 sampling steps) on one Blackhole
+  p150a, against 18.0 s on a B200, 24.0 s on an H200 and 50.1 s on an A100, each NVIDIA card on Mol-1's fastest shipped
+  option. A Galaxy Blackhole delivers 5.1x a DGX B200's folds per dollar of purchase price.
+- **RFD4-Proteina on the benchmarks page.** 3.74 s per design on one Blackhole p150a at batch 40, against 1.12 s on
+  a B200, 1.48 s on an H200 and 3.50 s on an A100, each NVIDIA card at its own best batch. A Galaxy Blackhole
+  delivers 4.2x a DGX B200's designs per dollar of purchase price.
+- **Mol-1 (`--model mol1`).** Molence Bio's Protenix-derived structure model folds protein, DNA, RNA, ligand and ion
+  complexes on the Protenix engine. It reads upstream's job-list JSON unchanged, writes upstream's per-seed output
+  layout with its summary and full-data confidence files, and defaults to upstream's 20 recycles, 200 steps and 5
+  samples. For Protenix and Mol-1 job JSON, `--use_seeds_in_json` runs every seed in a job's
+  `modelSeeds` instead of `--seed`, one result per seed. The weights download on first use; Molence has not stated a
+  licence for them yet. On a Wormhole Galaxy chip it takes up to 1024 tokens and refuses larger inputs before
+  opening a device. See `docs/mol1.md`.
+- Mol-1's mmCIF now carries upstream's `_entry`, `_chem_comp`, `_entity`, `_entity_poly`, `_entity_poly_seq` and
+  `_struct_conn` and groups the copies of one input entry into one entity, as Mol-1's does. DockQ v2 read no
+  interface of the old atom_site-only file.
+- **`tt-bio json`** turns PDB and mmCIF structures into Protenix / Mol-1 job JSON with Mol-1's own converter
+  (`mol json`), so the output is identical to upstream's. `--altloc` picks the alternate location, `--assembly_id`
+  expands to a biological assembly and `--include_discont_poly_poly_bonds` keeps bonds between non-consecutive polymer
+  residues (disulfides, cyclic peptides), as upstream's options of the same names do. The first run downloads the
+  Chemical Component Dictionary.
+- **`tt-bio prep`** searches the MSAs of a Protenix / Mol-1 job JSON or a FASTA ahead of the fold and writes them
+  where upstream's `mol msa` does, so a prepared job folds without searching. With `--use_template` and
+  `--use_rna_msa` it also runs upstream's template and RNA MSA searches, which is `mol prep`. Needs no device.
+- **Failed inputs get a report.** Every input `predict` could not fold or refused now leaves `ERR/<name>.txt` beside
+  `results.json` with the reason, as Protenix and Mol-1 do. The exit status is unchanged.
+- **`--checkpoint` works for Protenix-v1, Protenix-v2 and Mol-1**, and the shipped checkpoint it replaces is no longer
+  downloaded (OpenFold3 and OpenBind-0 too).
+
+### Fixed
+- `tt-bio predict --use_template` on Protenix/Mol-1 job JSON refuses up front when `.a3m`/`.hhr` template hits
+  need `kalign` and none is on PATH, instead of failing each job once a worker reaches it.
+- Mol-1 accepts every ligand and modification CCD code in its own Chemical Component Dictionary. A code newer than
+  the shared CCD library (A1A5U, YKX, A1EKL and about 6,100 others) used to be refused as unknown; upstream folds it.
+  Mol-1's CCD table is rebuilt once on the next run (its pickle downloads again, 150 MB). Other models are unchanged.
+- `tt-bio preflight mol1` no longer reports Mol-1 ready on a machine without the CCD molecule library it folds with.
+
+### Changed
+- **RoseTTAFold3 featurizes faster, with identical features.** Reference conformers come from
+  worker processes that stay up between inputs, and each residue type is converted once instead of once per residue.
+  A 512-residue RF3 input featurizes in 1.32 s instead of 1.96 s on a Wormhole Galaxy host, which comes straight off
+  every fold on Wormhole and Blackhole.
+- **ESMFold2 on Blackhole runs the MSA outer product's output projection on the shared pair-projection path.** A
+  748-residue fold with a deep MSA on a p150a drops about 0.7 s in both modes (36.04 -> 35.36 s normal, 34.09 -> 33.36 s
+  --fast), and the 512-residue page fold about 0.3 s. Graded over 44 paired folds per mode: normal CA-lDDT -0.0005
+  [-0.0042, +0.0037], --fast +0.0024 [+0.0001, +0.0057]. Wormhole is unchanged.
+- **ESMFold2 and ESMFold2-Fast send a smaller language-model dropout mask for lengths off the 16-residue grid.** The
+  mask now crosses to the device bit-packed at every length (at 748 residues 18 MB a loop instead of 286 MB). A
+  748-residue fold on a Blackhole p150a drops about 0.5 s (ESMFold2 normal 0.47 s, ESMFold2-Fast normal 0.57 s).
+  Off-grid lengths draw a different dropout mask, so their structures change at the seed level: graded over 44 paired
+  folds in normal mode, accuracy and docking success unchanged. Lengths on the grid are unchanged.
+- **ESMFold2 folds with deep MSAs run faster.** When the MSA is deeper than 1024 rows, ESMFold2 re-encodes it every
+  recycle, and those encoder transitions now run on the same fused kernel as the trunk's. A 748-residue complex with a
+  4096-row MSA drops about 7 s on Blackhole `--fast` (40.9 -> 33.9 s); a 512-residue fold with the same MSA drops about
+  3.5 s on a Wormhole chip, normal mode (36.9 -> 33.3 s), and 2.9 s with `--fast`. Blackhole normal mode is unchanged.
+- **ESMFold2 and ESMFold2-Fast normal mode on Wormhole build the pair representation on the device.** A 512-residue
+  fold drops about 1 s (ESMFold2 24.6 -> 23.5 s, ESMFold2-Fast 14.7 -> 13.7 s); `--fast` already did this.
+  Structures stay within the accuracy bar for both changes.
+
+### Added
+- **`tt-bio predict jobs.json --use_template` and `--use_rna_msa` search what the JSON leaves out, as Mol-1 does.** A
+  protein chain with an MSA directory but no `templatesPath` gets hmmsearch hits against the PDB seqres database, an RNA
+  chain without `unpairedMsaPath` an nhmmer MSA. The binaries and databases take upstream's option names.
+- **`--model mol1` writes the C-terminal O/OXT the way Mol-1 does**: the oxygen nearer C stays, OXT becomes its mirror
+  across the C-CA axis. Other models keep the gated OpenDDE rebuild.
+
+## [0.26.1] - 2026-10-29
+
+### Fixed
+- **ESMFold2 no longer runs out of device memory on a worker that has folded many different inputs.** A worker keeps
+  its chip open across jobs, and the compiled programs for every input shape it has folded stay in device memory.
+  After about ten hours of mixed lengths a Wormhole chip had too little room left for a 722-residue fold, and JapanFold
+  failed up to 65 % of such tasks with "Ran out of device memory". A fold that is refused memory while programs are
+  cached now drops them and runs again; folds that fit are unchanged. Seen on JapanFold with 0.25.0 and 0.26.0.
+
+## [0.26.0] - 2026-10-29
+
+### Changed
+- **ESMFold2 and ESMFold2-Fast normal mode on Wormhole run the token attention as one fused program.** A 512-residue
+  fold on a Wormhole Galaxy chip drops about 0.85 s (ESMFold2 25.9 -> 25.0 s, ESMFold2-Fast 16.0 -> 15.1 s). Structures
+  change at the precision level: graded over 44 paired folds per model in normal mode, accuracy and docking success
+  unchanged. Blackhole and `--fast` already ran it.
+- **BoltzGen normal mode on Wormhole conditions its diffusion steps ahead of time.** A 514-token design on a
+  Galaxy chip at 1000 MHz drops from 43.3 to 40.9 s. Designs change at the precision level: graded over 64 paired
+  designs, design pTM, ipTM and complex pLDDT unchanged within the seed-to-seed spread.
+
+## [0.25.0] - 2026-10-28
+
+### Changed
+- **BoltzGen's token diffusion transformer does less attention work.** In normal mode its pair bias was padded to
+  768 tokens for a 544-token design; it now pads to 576, and on Blackhole the attention runs as one fused program
+  in both modes. A 514-token design drops about 1.2 s on a Wormhole Galaxy chip (46 -> 45 s) and on a Blackhole
+  chip about 2 s in normal mode (22.9 -> 21 s) and 1.5 s with `--fast`. Designs change at the precision level:
+  graded over 64 paired designs per arch in normal mode and 32 with `--fast`, confidence metrics and filter pass
+  counts unchanged. Other models keep their padding.
+- **BoltzGen normal mode on Blackhole replays the diffusion step from a device trace by default.** Output is
+  identical, the 1831-residue size ceiling holds, and with the triangle-multiplication change above a 514-token
+  design on a p300 chip drops from 25.2 to 23.0 s. `--no_diffusion_trace` restores the eager step. `--fast` replays it too, and
+  computes each step's conditioning inside the trace instead of several steps ahead: a 514-token fast design on a
+  p300 chip drops from 32.4 to 23.3 s on a host-bound machine.
+
+## [0.24.0] - 2026-10-27
+
+### Changed
+- **RoseTTAFold3 on Wormhole runs the fast triangle and transition kernels in normal mode.** A 512-residue fold
+  on a Galaxy chip drops from 55.2 to 38.1 s. Structures change at the precision level: over 66 paired folds the
+  top pose moves 0.23 A median, against 3.0 A between two seeds, with docking success unchanged. `--fast` on
+  Wormhole takes the same kernels: 48.1 to 36.1 s, top pose 0.23 A median over 44 paired folds.
+- **RoseTTAFold3 on Blackhole runs the same trunk kernels, normal and `--fast`.** A 512-residue fold on a p150a
+  drops from 27.5 to 22.2 s in normal mode. The top pose moves 0.21 A median in normal mode and 0.25 A in `--fast`,
+  against 2.5 A between two seeds, with docking success unchanged.
+- **A paired MSA search against a local database reuses chains it has searched before.** Folding one
+  target against many binders used to search the target again for every complex; now only the new
+  chains are searched, so a repeat target's paired search drops from ~40 s to 2-12 s. A complex with
+  no cached chain is also about 2x faster. The alignments are byte-identical to `colabfold_search`'s
+  (graded with `scripts/paired_msa_by_chain_check.py`); this applies to colabfold 1.6.3, and any
+  other release runs the search as before.
+- **ESMFold2 and ESMFold2-Fast replay the diffusion step from a device trace by default.** Short
+  chains fold up to 1.6x faster (64 residues on Blackhole, ESMFold2-Fast `--fast`: 2.03 -> 1.25 s)
+  with identical output; at 512 residues the gain is 0 to 0.5 s. `TT_BIO_ESMFOLD2_DIFFUSION_TRACE=0`
+  restores the eager step.
+- **BoltzGen `--fast` on Wormhole runs the faster triangle-multiplication and transition kernels.** A 514-token
+  design on a Galaxy chip drops from about 50 to 42 s. Designs change at the precision level; graded over 32
+  designs against normal mode, every confidence metric stays within 0.03 and the filter passes the same number.
+- **BoltzGen `--fast` on Blackhole runs the same faster triangle-multiplication kernels.** A 514-token design on
+  a p300 chip drops from 23.9 to 20.7 s. Graded the same way as Wormhole `--fast`: over 32 designs against normal
+  mode, every confidence metric stays within 0.01 and the filter passes the same number.
+- **BoltzGen normal mode on Wormhole runs the weight-stationary transition and fused triangle-attention LayerNorm.**
+  A 514-token design on a Galaxy chip drops from 55.8 to 53.3 s. Over 32 designs graded against the previous normal
+  mode, every confidence metric stays within 0.01 and the filter passes the same number.
+- **BoltzGen normal mode runs the faster triangle-multiplication kernels on both Wormhole and Blackhole.** A
+  514-token design on a Galaxy chip drops from 51.6 to 45.6 s. Designs change at the precision level; over 64
+  designs graded against the previous normal mode, every confidence metric stays within 0.03 and the filter passes
+  the same number on both archs.
+- **BoltzGen normal mode on Blackhole replays the diffusion step from a device trace by default.** Output is
+  identical, the 1831-residue size ceiling holds, and with the triangle-multiplication change above a 514-token
+  design on a p300 chip drops from 25.2 to 23.0 s. `--no_diffusion_trace` restores the eager step. Fast mode keeps
+  the eager step: its per-step conditioning is computed ahead, which the captured step cannot replay.
+
+## [0.23.0] - 2026-10-26
+
+### Added
+- **RFD4 evidence proves what it used to assume.** A fair cell now counts the trunk passes and
+  trunk-block forwards that actually ran (`DesignEngine.counted`) and fails if the count is not the
+  recipe's, instead of deriving the number from the schedule; every evidence line carries a sha256 of
+  each design's decoded output, so a cell can be rerun and checked. The quality grade gained a second,
+  paired leg (exact sign test on a frozen holdout, equivalence returning INCONCLUSIVE by design) beside
+  the existing KS leg, and re-derives every headline number from the CIF it claims to come from,
+  rejecting an arm whose numbers disagree with its artifacts, that counts a design twice, or whose
+  source commit is not on main. Method credit: Magnus Bauer (see NOTICE #13).
+- **`tt-bio evaluate --model rfd4` writes `aggregated_metrics.csv`** beside the per-example CSV:
+  per-dataset medians or means as upstream configures them, `frac_under_1/1.5/2` on `min_ipae_coi`
+  and per-target solve rates. Credit: Magnus Bauer (see NOTICE #13).
+### Fixed
+- **An RFD4 beam no longer keeps survivors by arrival order when a metric is NaN or infinite.** Such
+  a candidate is now invalid, ranks last and says which metric and value made it so; a non-numeric
+  metric no longer crashes the search. Rewards rank as float32, as upstream does, so values equal at
+  float32 tie and the earlier candidate wins. Credit: Magnus Bauer (see NOTICE #14).
+- **RFD4 refuses a checkpoint with a missing or unused weight.** The host-side heads loaded without
+  a key check, so a renamed or absent weight kept its initial value and designs came out plausible
+  but wrong. Credit: Magnus Bauer (see NOTICE #14).
+
+## [0.22.0] - 2026-10-25
+
+### Added
+- **RFD4-Proteina (`tt-bio design --model rfd4`).** Binders, motif scaffolds, enzymes around a
+  ligand, antibody and nanobody CDRs and unconditional monomers, designed through a latent flow at
+  the shipped `thinking_medium` budget (60 steps, 180 trunk passes). Input is a design YAML with
+  contig strings and conditioning blocks, the grammar `rfd3` uses; each design is a CIF in the
+  input's frame. `--nsteps` changes the integration steps (a different model, not a faster one),
+  `--annotated_cif` designs from an annotated CIF instead of a spec, and `--no_validate` skips the
+  per-structure checks when building a large spec. A 128-token binder design takes 13.2 s on one
+  Blackhole p300 chip at 1350 MHz. See [rfd4-design](docs/rfd4-design.md).
+- **RFD4-Proteina designs from Python in one call.** `tt_bio.rfd4.design(spec, out_dir, ...)` takes a
+  design spec to annotated-CIF designs with the same arguments and defaults as `tt-bio design --model
+  rfd4`, which now runs that same call. `rfd4.DesignEngine.from_pretrained()` keeps the weights on the
+  card across a sweep. See [rfd4-design](docs/rfd4-design.md).
+- **RFD4 designs fan across the fleet.** `tt-bio design --model rfd4 --controller URL` makes one job
+  per design, each carrying the input the submitting host prepared, and writes a `metrics.json`
+  with every design that landed. See [rfd4-design](docs/rfd4-design.md).
+- **RFD4 loads a LoRA fine-tune.** `rfd4.DesignEngine(adapter=...)` merges a PEFT adapter directory
+  into the weights at load, so it costs nothing per design. Merging the released bundle's own
+  adapter onto its own base reproduces NVIDIA's merged checkpoint to 3e-08. `--lora DIR` on the
+  CLI; local runs only, and asking for it with `--controller` says so.
+- **`--backend` on `--model rfd4`.** `native` runs the model; `bioir` is declined with the reason
+  (it is NVIDIA BioNeMo-IR, CUDA-only) instead of being ignored.
+- **`--recipe` picks RFD4's thinking budget.** Upstream runs each design family at its own recycle
+  schedule, and only the released `thinking_medium` was reachable from the CLI; all twelve are now.
+  An unknown name is refused before a spec is built or a device is opened.
+- **An RFD4 design can be watched, steered and scored against off-targets.** `tt-bio design
+  --model rfd4 --save_trajectory_every N` writes every Nth step as `<design>_trajectory.cif`,
+  CA only, one model per saved step. At the API level `engine.design` takes per-replicate
+  sampling transforms (`tt_bio.rfd4.replicates`, so a batch covers a target's surface rather
+  than repeating one patch of it) and metric gradient guidance (`tt_bio.rfd4.guidance`), and
+  `tt_bio.rfd4.pre_oracle` folds one design against listed off-targets with the variants' scores
+  namespaced apart. Upstream's classifier-free guidance weight and its dependency-bound
+  evaluate metrics (tmol, PyRosetta, Foldseek) are refused by name with the reason, instead of
+  being silently ignored. See [rfd4-steering](docs/rfd4-steering.md).
+- **An RFD4 run can start from a structure instead of noise.** `tt-bio design --model rfd4`
+  takes `--partial` (re-noise the input part-way and run that fraction of the schedule, upstream's
+  antibody refinement is 0.42), `--partial_t_backbone` and `--partial_t_latent` for explicit
+  corruption times, `--couple_partial_t` to derive the time you did not give, and
+  `--inverse_folding` to hold the backbone and design only the sequence. `--tsr_k` sets the
+  sequence temperature, which is what inverse folding is tuned with. Upstream's mutual exclusions
+  are enforced and these are local runs, refused with `--controller`. See
+  [rfd4-steering](docs/rfd4-steering.md).
+- **`tt-bio evaluate --model rfd4` scores designs you already have, with no device.** It writes
+  upstream's `per_example_metrics.csv`, same column names and rounding. `--metrics_tags` picks the
+  metrics, `--task_csv` maps each structure to a task, and `--job_id` with `--gen_njobs` splits the
+  inputs into shards. See [rfd4-evaluate](docs/rfd4-evaluate.md).
+
+## [0.21.1] - 2026-10-23
+
+### Fixed
+- **A job that hangs its worker no longer walks the whole fleet.** If two workers in turn stop heartbeating
+  on the same job, the controller fails it with an error saying so instead of handing it to a third
+  chip, which the same input would hang too. One dead chip is still retried. `tt-bio controller
+  --max-leases` changes the limit (default 2). See [multi-host](docs/multi-host.md).
+
+## [0.21.0] - 2026-10-21
+
+### Fixed
+- **Chain ids.** A repeated chain id is refused on every model instead of folding two chains as one.
+  OpenFold3 and OpenBind-0 accept ids longer than four characters (they crashed in MSA
+  featurization). ESMFold-2 keeps ids longer than 16 characters in mmCIF instead of truncating them.
+  RF3, OpenFold3 and OpenBind-0 write `--output_format pdb` with a multi-character id, relabelled with
+  a `REMARK 999` like the other models, instead of failing after the fold. RF3 refuses whitespace in
+  an id before it starts, and AF2-IG refuses the same chain as target and binder.
+
+### Changed
+- **A local-database MSA search for a complex runs its unpaired and paired searches at the same time.**
+  On a 64-core host a new two-chain OpenDDE input reaches its first fold about 10 s sooner (22.4 s to
+  12.8 s of search), with byte-identical alignments. Applies to OpenDDE, Protenix, ESMFold-2 and OpenBind-0.
+
+## [0.20.1] - 2026-10-20
+
+### Fixed
+- **Boltz-2 on Wormhole no longer hangs on some protein lengths.** Every fold of exactly 584 or 644
+  residues stalled while reading the confidence heads back from the chip and never finished; 583, 585,
+  642 and 645 folded. The confidence result is now read whole and cut on the host, as on Blackhole,
+  which costs about 15 ms at 512 tokens. Blackhole is unchanged.
+
+## [0.20.0] - 2026-10-18
+
+### Changed
+- **OpenFold3 and OpenBind-0 `--fast` run the diffusion transformer's linears at a lower math fidelity on
+  Wormhole.** A 512-residue fast fold on a Galaxy chip at 1000 MHz takes 0.16 s (OpenFold3) and 0.28 s
+  (OpenBind-0) less; CA-lDDT and docking success are unchanged on 11 complexes. Blackhole is unchanged.
+
+## [0.19.0] - 2026-10-17
+
+### Changed
+- **Nesso-1's normal mode runs the fused triangle kernels** (triangle multiplication, including the
+  256-token crops, the triangle attention tail and the fused pair transition). A 532-token forward on a
+  Wormhole chip at 1000 MHz takes 7.1-7.2 s instead of 9.8-10.3 s. Graded on four DAVIS targets (30
+  ligands each): the 90th-percentile prediction change stays under the reseeded floor on every target.
+  `TT_BIO_LEVERS=none` restores the previous path.
+- **`--fast` runs the pair transition as one weight-stationary kernel on Boltz-2,
+  RFdiffusion3, OpenDDE and Protenix.** The kernel keeps its weights on chip and never writes the hidden
+  activations out; the c_z 128 transition takes 2.2 ms instead of 4.1 ms on Blackhole. A 685-residue
+  RFdiffusion3 fast design drops from 61.3 to 56.3 s on a p150a at 1350 MHz and from 114.7 to 100.1 s on
+  a Wormhole chip at 1000 MHz. Boltz-2, OpenDDE and Protenix-v2 pass the fast accuracy bar on both architectures; a
+  512-token Protenix-v2 fast fold on a Wormhole chip saves 2.8 s. OpenFold3 and ESMFold2 keep their
+  previous fast path until their own grades read.
+
+## [0.16.1] - 2026-10-14
+
+Fixes wrong ESMC-300M/600M embeddings, again. Upgrade if you embed with ESMC.
+
+### Fixed
+- **ESMC embeddings could be wrong after the model had traced two sequence lengths.** 0.16.0 was cut from a
+  tree that predates the 0.15.2 fix and shipped the defect again. ESMC-300M and ESMC-600M capture a device
+  trace the second time they see a padded sequence length and replay it after that. With more than one trace
+  alive, replaying one could overwrite the buffers of another, and the next replay of that length returned
+  wrong embeddings without an error. It needs a process that embeds sequences of at least two padded
+  lengths, each at least twice: a `tt-bio embed` batch with repeated lengths, or a long-running
+  `tt-bio serve` worker. The model now keeps one trace at a time. Affected: 0.6.1 through 0.15.1 and 0.16.0;
+  0.15.2 is not. ESMC-6B, SaProt and the ESMFold2 language model are not traced this way.
+
+## [0.16.0] - 2026-10-13
+
+### Changed
+- **BoltzGen's normal mode runs the shared normal lever set** (HiFi3 trunk matmuls, fused triangle
+  multiplication and attention tails, fused diffusion attention). A 512-aa design on a Wormhole chip at
+  1000 MHz takes 58.0 s instead of 61.2 s. Graded on 64 designs over 8 seeds against the exact path: filter
+  pass 64 of 64 and every confidence change inside its 95 % interval. `TT_BIO_LEVERS=none` restores it.
+- **BoltzGen builds its diffusion conditioning on the chip.** The pair track's conditioning and bias stacks
+  run on the card as in Boltz-2 (`TT_BIO_DEVICE_CONDITIONING`, `TT_BIO_FUSE_BIAS_STACKS`), and the token
+  distance features are computed once per target instead of once per design. On a Wormhole chip at 1000 MHz
+  the fused stacks save about 5 % of a 512-aa design and the device conditioning about 8 % (measured one at a
+  time); on a Blackhole p150a both are inside the run-to-run spread. Designs change at a fixed seed; over 64 designs on 8 seeds the
+  filter pass rate and every confidence metric are unchanged within their 95 % intervals.
+- **BoltzGen `--fast` swaps one attention kernel and lowers the precision of two conditioning matmuls.** At 544
+  tokens the stock attention on the padded sequence beats the per-head kernel, and the hoisted conditioning
+  matmuls run at HiFi2. A Wormhole design in `--fast` takes 60.4 s instead of 66.3 s at 1000 MHz. Graded on
+  56 designs over 7 seeds: filter pass 56 of 56 and every confidence change inside its 95 % interval.
+- **OpenFold3 and OpenBind-0 `--fast` are faster on Wormhole.** The triangle multiplication's input and output
+  each run as one kernel, as they already do on Blackhole. On a Galaxy chip at 1000 MHz the median fold of the
+  11-complex benchmark set drops from 77 to 72 s (OpenFold3) and from 104 to 90 s (OpenBind-0); the fast-mode
+  accuracy grade passes.
+- **OpenFold3 and OpenBind-0 compute PAE and PDE on the chip.** The confidence heads reduce each 64-bin
+  distribution to its expected value on the card, so the full logits no longer travel to the host. About 0.3 s
+  less per sample on a Blackhole p150a at 1350 MHz. Structures are unchanged; ipTM moves by about 0.002 on
+  average, inside the confidence tolerance.
+- **Protenix-v2 spends less time waiting on the host between recycling cycles.** The alignment goes to the
+  chip once per fold and each cycle picks its rows there, so the host no longer cuts and uploads them every cycle.
+  On the 730-token fold this saves about 6 s in normal mode and 5 s in `--fast` on Wormhole (1000 MHz), and
+  4 s and 3 s on Blackhole p150a (1350 MHz). The rows and every value computed from them are unchanged. On
+  Wormhole the extra 0.5 GB of device memory can make a long-running process switch a deep alignment to its
+  streamed path a fold sooner than before, which changes that fold's output within seed-to-seed variation.
+- **AF2-IG is up to 2.5x faster.** Three changes. With an MSA of 8 rows or fewer the outer product mean no longer
+  builds the full outer product (`TT_BIO_OPM_SMALL_DEPTH=0` restores it; any single-sequence fold takes this path).
+  Triangle attention runs on the fused attention kernel from 128 tokens up. Residual adds run as one kernel, with
+  identical output. Per complex at 195 tokens on a Wormhole Galaxy chip at 1000 MHz: 6.41 s instead of 16.16 s.
+  On a p150a at 1350 MHz the outer product change alone takes it from 5.63 s to 4.54 s. Against the previous
+  release, structures move by 0.05 to 0.20 A and ipTM by at most 0.0007.
+- **RFdiffusion3 designs take about 30 % less time, and `--fast` now exists for it.** On a Blackhole p150a at
+  1350 MHz a 685-residue design (200 steps) takes 76.1 s instead of 106.8 s before the DiT attention change
+  below; the attention-index overlap, fused atom attention, sigmoid fold and a step that stays on the card did
+  that. The token transformer's attention is now one fused kernel too (72.7 to 61.4 s on a p300c). `--fast`
+  adds 8-bit pair-transition activations and a collapsed pair projection, about 13 % more. Every change was
+  graded on Blackhole and Wormhole over four seeds at 685 and 418 residues: designs move within seed-to-seed
+  variation and design quality matches the exact chain.
+- **Protenix-v1 and Protenix-v2 replay the diffusion step from a device trace on Blackhole by default**,
+  with identical output. On a p150a at 1350 MHz the 512-token single-sample fold takes 1.0 s less in normal
+  mode and 1.0-1.4 s less in `--fast` (Protenix-v2 35.1-35.4 s instead of 36.2-36.3 s fast). `--no_trace`
+  turns it off; Wormhole keeps it opt-in with `--trace`.
+- **Boltz-2 replays its diffusion DiT step from a device trace on Blackhole by default**, with identical output.
+  On a p150a at 1350 MHz the 512-token single-sample `--fast` fold takes about 0.3 s less (14.5 s instead of
+  14.85 s). `--no_diffusion_trace` turns it off; Wormhole keeps it opt-in with `--diffusion_trace`.
+- **OpenFold3 and OpenBind-0 replay the diffusion step from a device trace**, with identical output. On a
+  Blackhole p150a at 1350 MHz the 512-aa fold takes 15.1 to 15.8 s instead of 17.8 to 18.9 s. If the trace
+  cannot be captured the fold runs the old step-by-step path; `OF3_DIFFUSION_TRACE=0` forces it.
+- **BindCraft 2 runs its fused gradient kernels on Wormhole too**: 7.20 s per design iteration instead of
+  9.33 s at 1000 MHz, graded on 12 seeds (11 accepted designs against 6).
+- **RoseTTAFold3 and BoltzGen `--fast` are no longer slower than normal mode.** The old block-fp8 path is gone
+  for both. BoltzGen `--fast` runs the shared lower-precision set (39.3 s per design at 512 aa on a Blackhole p150a,
+  against 43.9 s in normal mode and 44.5 s on the old path; no confidence metric drops by more than 0.01 over 8
+  same-seed designs). RoseTTAFold3 `--fast` runs a graded lower-precision set (0.30 A median top-pose change over 40 paired
+  folds) and takes 35.8 s instead of 46.8 s, against 37.6 s in normal mode.
+- **BoltzGen's diffusion attention no longer pays ttnn's internal padding** when the sequence does not split into
+  256-token chunks (a 512-aa page design runs at 544 tokens). The attention bias is padded once per design and the
+  op runs 4.5x faster per call, with identical designs at a fixed seed; on a Wormhole chip a design takes 66 s
+  instead of 73 s. Normal mode only, where Boltz-2 takes the same path at such lengths; `--fast` keeps its own
+  attention kernel unchanged.
+- **RoseTTAFold3 replays its denoising step from a captured device trace**, with identical output. The 49 steps of a
+  512-aa fold take 1.6 s instead of 3.6 s and the fold 28.0 s instead of 30.1 s on a Blackhole p150a at 1350 MHz.
+  `TT_BIO_RF3_DIFFUSION_TRACE=0` runs the steps eagerly.
+- **RoseTTAFold3 featurizes a 512-aa input in 6 s instead of 21 s**, with identical output. Reference conformers
+  are generated concurrently in a small helper process instead of one fork of the serving process per residue
+  type. The normal-mode fold takes 29.6 s instead of 45.8 s on a Blackhole p150a at 1350 MHz; `--fast` uses the
+  same featurizer.
+### Fixed
+- **Protenix-v2 on Wormhole returns the same structure for an input however many folds the process has run.**
+  From about the fourth fold in one process the outer product mean could fall back to a narrowed path and
+  return structures up to 20 A away from a fresh run. It now splits its work by size up front, which gives
+  identical values. OpenFold3 and Boltz-2 output is unchanged.
+- **A device open that never returns no longer blocks the host.** A chip left dirty by a killed process used to
+  hang every later open on the machine; the process now exits after 10 minutes with a stack dump. Reset that chip.
+
+## [0.15.2] - 2026-10-13
+
+Fixes wrong ESMC-300M/600M embeddings. Upgrade if you embed with ESMC.
+
+### Fixed
+- **ESMC embeddings could be wrong after the model had traced two sequence lengths.** ESMC-300M and
+  ESMC-600M capture a device trace the second time they see a padded sequence length and replay it after
+  that. With more than one trace alive, replaying one could overwrite the buffers of another, and the next
+  replay of that length returned wrong embeddings without an error (relative L2 error 1.6 against the
+  untraced forward on a 300-residue sequence after a 544-residue one). It needs a process that embeds
+  sequences of at least two padded lengths, each at least twice: a `tt-bio embed` batch with repeated
+  lengths, or a long-running `tt-bio serve` worker. The model now keeps one trace at a time, so a length
+  change costs a new capture. Releases 0.6.1 through 0.15.1 carry the defect. ESMC-6B, SaProt and the
+  ESMFold2 language model are not traced this way and are not affected.
+
+## [0.15.1] - 2026-10-12
+
+Protenix-v2 is 2.2x faster on Wormhole than 0.13.1, OpenFold3 2.7x and Boltz-2 1.3x faster than 0.14.0, and
+OpenDDE gains constraint guidance. There is no 0.15.0; it was superseded before it was cut.
+
+### Changed
+- **Protenix-v2 is 2.2x faster on Wormhole** than 0.13.1, up from 1.6x in 0.14.0. A warm 730-token fold
+  (deep MSA, 5 samples, 10 recycles) takes 233 s on a Galaxy chip at 1000 MHz, against 307 s in 0.14.0 and
+  501 s in 0.13.1, and 121 s on a Blackhole p150a at 1350 MHz. Structures stay inside seed-to-seed variation
+  (11 complexes, median same-seed top-pose deviation 0.58 A on Wormhole and 0.55 A on Blackhole, against 0.75 A
+  between two seeds of the reference path). `--fast`: 178 s on Wormhole, 99 s on Blackhole.
+  [`docs/tuning-flags.md`](docs/tuning-flags.md#tt_bio_levers).
+- **OpenFold3 is 2.7x faster on Wormhole.** The 730-token fold takes 117 s on a Galaxy chip at 1000 MHz,
+  against 317 s in 0.14.0, with structures inside seed-to-seed variation (11 complexes x 4 seeds).
+  `--fast` now runs the same configuration as normal mode; the old fast set was slower (431 s).
+- **Boltz-2 is 1.3x faster on Wormhole and 1.4x on Blackhole.** The 730-token fold takes 132 s on a Galaxy
+  chip at 1000 MHz (172 s before) and 69 s on a Blackhole p150a at 1350 MHz (98 s before). `--fast` takes
+  123 s and 64 s. Normal-mode coordinates for a given seed change: on 11 complexes the median top-pose
+  deviation is 0.90 A, against 1.78 A between two seeds, and docking success is unchanged.
+  `TT_BIO_LEVERS=none` restores the previous path. (This entry first read "structures are unchanged";
+  that was wrong, see [#23](https://github.com/moritztng/tt-bio/issues/23).)
+- **Triangle multiplication's gate sigmoid is a polynomial inside the fused kernels**, max error 3e-4. On
+  Wormhole at 1000 MHz the 730-token Protenix-v2 fold spends 1.3 s less on the device in normal mode and 4.0 s
+  less in `--fast`. Protenix-v2 passes the accuracy grade on Wormhole and Blackhole in both modes. This change
+  leaves Boltz-2 normal output unchanged; Boltz-2 `--fast` moves within seed-to-seed variation. OpenFold3 and OpenDDE are unchanged.
+- **Protenix-v2 `--fast` keeps the sharded Transition and the fused SwiGLU kernel**, about 8 s on the 730-token
+  fold on Wormhole. They had been taken out because fast folds at 1536 tokens collapsed; the cause was a
+  program-cache collision between two ttnn slices, which the Transition now avoids. Fast folds at 1536 tokens
+  score like reference ones again.
+- **Protenix-v2 `--fast` diffusion attention reads its pair bias once per head instead of once per sample.**
+  The 730-token fold is about 1.3 s faster on Wormhole and 0.9 s on Blackhole. Fast outputs for a given
+  seed change and stay inside seed-to-seed variation; normal mode is unchanged.
+- **OpenDDE seeds now give different trunks, as upstream's do.** Each recycling cycle reads its own 1280
+  random alignment rows and every reference conformer is centred and turned by a seeded rotation, both
+  drawn from the seed. Before, every seed of a target shared one trunk, so five seeds were one trunk with
+  five noise draws. Outputs for a given seed change; candidate diversity across seeds now matches upstream.
+- **Protenix-v2 draws its alignment rows per recycling cycle, as upstream v2.0.0 does**, in normal and
+  `--fast` mode: each cycle reads a random number of random rows, seeded from the fold seed. Before, every
+  cycle read the whole alignment. Outputs for a given seed change and stay inside seed-to-seed variation;
+  deep alignments fold up to 25 % faster on Wormhole (a 9,947-row target: 556 to 419 s).
+  Confidence on homo-oligomers can read 0.01 to 0.05 pLDDT lower, as upstream's does; structures are unchanged
+  within the accuracy bar.
+
+### Added
+- **OpenDDE constraint guidance** (upstream 1.2.0 Test-Time Structure-Space Search). A `constraint:`
+  block with contact pairs or an epitope, plus `--use_tfg_guidance`, moves the antibody as a rigid body
+  during sampling (refine, search, refine) and applies OpenDDE's physics restraints. Output matches
+  upstream's dense functions exactly on the tested complexes. `--trunk_cache DIR` reuses the trunk
+  across inputs that differ only in their constraint. Without the flag folds are bit-identical to
+  before. On 32 held-out antibody-antigen complexes the unguided model gets wrong, top-1 success
+  goes from 0.16 to 0.81 with five true contact pairs and to 0.31 with five epitope residues (upstream reports
+  0.78 and 0.33). Guided folds run the diffusion module in fp32, also under `--fast`, as upstream does: in
+  bf16 guidance compressed the movable chains in 9 of 90 samples against upstream's 1 of 90, in fp32 2 of 90.
+  A guided fold therefore takes longer than an unguided one.
+  `examples/tfg/` carries upstream's four cases (Fv, VHH, two Fabs) in contact, pocket and unconstrained form.
+  [`docs/constraint-guidance.md`](docs/constraint-guidance.md).
+- protenix-v2 and opendde rebuild a C-terminal OXT that the diffusion left on C or O, or detached,
+  from the CCD ideal geometry before writing (upstream OpenDDE 6685cef).
+
+### Fixed
+- A cold fold whose outer-product-mean call ran short of device memory retried from an operand it had
+  already freed and could collapse the structure (Protenix-v2 9DBP pLDDT 0.94 to 0.67). Warm folds were
+  not affected. Present in 0.14.0.
+- **ESMFold2 and ESMFold2-Fast are back near their earlier speed.** Since the per-loop LM dropout fix, each of
+  the 11 trunk loops re-ran the MSA encoder on the same input and did the injection projection on the host. The
+  encoder now runs once per fold and the projection on the device: 30.2 s at 512 residues on a Blackhole p300c
+  (was 48.0 s), 182 s on Wormhole (was 221 s); Fast 19.5 s and 57 s. The dropout masks come from a different
+  random stream, so a given seed's structure moves slightly (0.11 A CA-RMSD at 512 residues).
+- **Ethernet dispatch on Blackhole is on by default only on p150a.** On a p300c board repeated folds under it
+  were not identical; set `TT_BIO_BH_ETH_DISPATCH=1` to use it there anyway.
+- **OpenDDE at 1536 tokens is back to its old trunk speed** on Wormhole (3:44 per recycle, from about 10 to
+  12 minutes). Each recycle's 1280 alignment rows were padded to 2048 before the MSA module; they no longer are.
+  Outputs are unchanged.
+- **BindCraft 2 applies dropout on the card** (#17), the known issue since 0.13.1. A design stage with
+  `design_dropout` on now drops the same updates in the on-card Evoformer, extra-MSA and template stacks
+  that BindCraft 2 drops on host JAX, drawn from the same key, so a trajectory takes the same dropout
+  path on either. `design_dropout: false` and the `harden` stage are unchanged.
+
+### Known issues
+- On Blackhole, `--fast` Protenix-v2 can return non-finite coordinates for one complex in the graded set
+  (9W89) when it folds after other large complexes in the same process; normal mode is unaffected.
+  0.14.0 has the same issue.
+## [0.14.0] - 2026-10-09
+
+Protenix-v2 is 1.6x faster on Wormhole and OpenDDE 1.3x, with structures inside seed-to-seed variation.
+
+### Changed
+- **Protenix-v2 is 1.6x faster on Wormhole.** A warm 730-token fold (deep MSA, 5 samples, 10 recycles)
+  takes 307 s on a Galaxy chip at 1000 MHz, against 501 s before. A graded set of cheaper numerics is on by
+  default; structures stay inside seed-to-seed variation on Wormhole and Blackhole (11 complexes x 4
+  seeds, median top-pose deviation 0.38 / 0.32 A against a 0.8 A re-seed). `TT_BIO_LEVERS=none` restores
+  the reference numerics. `--fast` now runs a larger graded set: 246 s on the same fold on Wormhole.
+  [`docs/tuning-flags.md`](docs/tuning-flags.md#tt_bio_levers).
+- **OpenDDE is 1.3x faster on Wormhole**, because it runs Protenix-v2's trunk and inherits those levers.
+  A warm 730-token fold (5 samples) takes 594 s on a Galaxy chip at 1000 MHz, against 763 s before; 256 tokens
+  103 s against 134 s, 1024 tokens 1161 s against 1286 s. OpenFold3 and Boltz-2 do not run these levers.
+- **The MSA module sums pair-weighted averaging's heads in one fp32 accumulator** instead of adding eight
+  bf16 head outputs (`TT_BIO_PWA_FUSED_HEADS`). This applies to every model that uses the shared MSA module,
+  Boltz-2 included, in both modes. It is closer to a float64 reference (relative error 3.8e-3 against 6.0e-3 at
+  Boltz-2's head shape) but not byte-identical, so Boltz-2 coordinates for a given seed change. `TT_BIO_PWA_FUSED_HEADS=0`
+  turns it off. (This entry was missing when 0.14.0 shipped, see
+  [#23](https://github.com/moritztng/tt-bio/issues/23).)
+- Blackhole kernels split DRAM reads larger than 2 KiB, the tt-metal#59622 workaround for a NoC hang
+  (`TT_BIO_BH_DRAM_READ_SPLIT`, same bytes).
+- Protenix-v2 runs its confidence head on the card by default (`TT_PROTENIX_CONF_DEVICE`, `0` turns it
+  off). A warm 730-token fold on Wormhole drops from 384 to 368 s; coordinates are unchanged and
+  pLDDT, pTM and ipTM match the host heads to 2e-4. OpenDDE keeps the host heads unless asked.
+- **`--diffusion_precision bf16` documentation corrected.** Graded on eleven complexes, bf16 matches
+  fp32 on nine, but on two where fp32 misses the interface it picks a different binding mode, once
+  right and once a confidently wrong fold that ranks first. The default stays fp32.
+  [`docs/protenix-diffusion-precision.md`](docs/protenix-diffusion-precision.md).
+
+### Added
+- **OpenDDE constraint guidance** (upstream 1.2.0 Test-Time Structure-Space Search). A `constraint:`
+  block with contact pairs or an epitope, plus `--use_tfg_guidance`, moves the antibody as a rigid body
+  during sampling (refine, search, refine) and applies OpenDDE's physics restraints. Output matches
+  upstream's dense functions exactly on the tested complexes. `--trunk_cache DIR` reuses the trunk
+  across inputs that differ only in their constraint. Without the flag folds are bit-identical to
+  before. On 32 held-out antibody-antigen complexes the unguided model gets wrong, top-1 success
+  goes from 0.16 to 0.81 with five true contact pairs and to 0.31 with five epitope residues (upstream reports
+  0.78 and 0.33). Guidance adds 1 to 3 % to a fold on Wormhole and 2 to 3 % on Blackhole, on top of
+  the fp32 diffusion guided folds use.
+  `examples/tfg/` carries upstream's four cases (Fv, VHH, two Fabs) in contact, pocket and unconstrained form.
+  [`docs/constraint-guidance.md`](docs/constraint-guidance.md).
+- protenix-v2 and opendde rebuild a C-terminal OXT that the diffusion left on C or O, or detached,
+  from the CCD ideal geometry before writing (upstream OpenDDE 6685cef).
+
+### Fixed
+- The device confidence path read pair distances from a bf16 expansion that put a 3.8 A neighbour
+  anywhere from 0 to 5 A, started every sample's pairformer from the previous sample's output, and
+  left the fold's resident tensors on the card for the next fold.
+
+### Known issues
+- On Wormhole, a bf16 matmul at HiFi3 with fp32 accumulation whose K block is wider than one tile puts about
+  one output element in 10^9 off by exactly 1, 2 or 4. This is in ttnn's default matmul plan, not in TT-Bio's
+  levers, and it is far below what a structure grade can see. Reproducer: a [23552, 9984] x [23552, 9984]^T
+  product with `torch.manual_seed(2000)` gets elements (6828, 8513) and (23180, 5313) wrong by 2.0 on every
+  run and chip.
+- On Blackhole, Protenix-v2 `--fast` can return non-finite coordinates for most samples of one complex
+  (9W89) when it folds after other large complexes in the same process; the same complex folded alone is
+  finite. Normal mode is not affected. A fix is in progress.
+
+## [0.13.1] - 2026-10-08
+
+Fixes for the BindCraft 2 issues reported against 0.12.0. A campaign on a Tenstorrent card scores its
+designs correctly again, keeps its device memory flat from one trajectory to the next, says what
+filled the card when it does refuse, and exits when it is done.
+
+### Added
+
+- **`--diffusion_precision bf16` for Protenix.** Runs the diffusion module in bf16, about 9 %
+  faster per fold on Wormhole with structures inside seed-to-seed variation. The default stays
+  `fp32`. [`docs/protenix-diffusion-precision.md`](docs/protenix-diffusion-precision.md).
+
+### Fixed
+
+- **BindCraft 2 validation scores the complex it designed, so it no longer rejects every design
+  (#21).** Validation is meant to refold each design on BindCraft 2's own JAX model, but only
+  the Evoformer was kept off the card: the extra-MSA stack and the template embedder still ran on
+  the card with the design model's weights. Every design came back with `Target_pLDDT` near 0.3
+  and `Interface_Residues` equal to the binder length, and nothing passed the filters. Validation
+  now runs every stack on the host and returns the same `Target_pLDDT`, `pLDDT`,
+  `Interface_Residues`, `Binder_RMSD` and i_pTM as BindCraft 2 alone, so a design passes or fails
+  the filters on its own merits. The design loop is unchanged. This was also why on-card
+  campaigns accepted fewer designs than host JAX (#17): their redesigns carried the same signature,
+  and with this fix an on-card campaign accepted 1 of 3 trajectories where host JAX accepted 0 of 3
+  on the same seeds. Three trajectories cannot rank the two, so read that as no measurable gap
+  left, not as a lead.
+- **Device memory no longer grows across BindCraft 2 trajectories (#18).** With `resident=1`,
+  each time the campaign switched design model it left the previous model's pair weights on the
+  card, about 60 MB per switch and over a hundred switches per trajectory, so a 352-token campaign
+  on a p300c was refused after about four trajectories. Those weights are now released when the
+  model is evicted, and held memory stays flat across trajectories: about 1.2 to 1.7 GiB at each
+  boundary over an eight-trajectory campaign, depending on which model is resident.
+- **A BindCraft 2 out-of-memory refusal says how much of the card the failing trajectory
+  allocated.** It used to call everything allocated on the card "held by this fold", and in one
+  reported campaign three quarters of that had been held before the trajectory started. A
+  campaign now reads the card at each trajectory boundary and the refusal prints both parts; when
+  most of it was inherited it points at `resume=true` instead of at the fold's size (#19).
+- **A process that used a Tenstorrent card exits on its own, with its own status.** A BindCraft 2
+  campaign could finish its work and then exit 139, or hang with SIGTERM ignored after an
+  out-of-memory refusal, in teardown after Python was done. tt-bio now ends the process once it
+  has closed the card, with the status the program chose, before the C++ destructors of tt-metal
+  and XLA run. The stderr filter that tt-bio forked at import is gone; the nanobind leak report it
+  dropped is still dropped, and `--debug` (or `TT_BIO_DEBUG_STDERR=1`) shows it (#20).
+
+### Known issues
+
+- **The on-card Evoformer applies no dropout.** BindCraft 2 designs with dropout on
+  (`design_dropout`, default true, off for the `harden` stage); when the Evoformer runs on the card
+  it runs without dropout in every stage. Host JAX trajectories keep it.
+
+### The release gate itself
+
+Run on qb1 (`tt-quietbox`), a four-card Blackhole p150a box, from a venv holding the built release
+wheel with `[tenstorrent,test]`, which resolves the `pyproject.toml` ttnn pin (0.68.0). Every arm
+scores the release code: `tt_bio/`, `scripts/` and `pyproject.toml` at 3d3f923ff, identical in the
+tagged commit. The arms were split over cards 0, 2 and 3 to
+fit in a day, so the host was never idle: load 7 to 28 on 32 cores. Timed folds ran at AICLK
+1350 MHz except where noted.
+
+**Implementation parity: PASS.** 44 legs, 39 PASS, 4 GAP, 1 PASS-caveated. The four GAP legs
+reproduce the deviation already committed for them.
+
+**Accuracy against ground truth: PASS.** All 21 per-model release-gate arms cleared their floors,
+including the L1-budget, batch-position, NESSO-1 and RF3 1024-residue arms.
+
+**UX: PASS.** Every surface cleared progress, parse and results shape.
+
+**BindCraft 2 on a card: PASS.** A campaign on the release code held 1.16 to 1.45 GiB at each of
+six trajectory boundaries and exited on its own with status 0. After publishing, the same campaign
+run from `pip install tt-bio[tenstorrent]==0.13.1` in a clean environment held 1.41 and 1.21 GiB
+after its two trajectories and exited 0.
+
+**On-device test suite: 9281 passed, 3 failed.** Two are abb3 timing records taken before 0.13.0,
+re-recorded in this release. The third is the opt-in Protenix device confidence path
+(`TT_PROTENIX_CONF_DEVICE`), whose PAE correlation reads 0.9807 against its floor with the same
+digits since 0.6.7; the default path computes confidence on the host.
+
+**Capacity: matches the baseline.** 13 pass, 6 skip, and the two refusals are OpenDDE and
+OpenDDE-abag at 1536 tokens, above the recorded p150a ceiling of 1024.
+
+**Performance: no change against 0.13.0.** The arm failed 8 of 21 models against the recorded
+baselines at load 22.7, so it was settled by pairing 0.13.1 with 0.13.0 on card 0 in interleaved
+rounds. Per-round delta against the baseline, 0.13.1 / 0.13.0: OpenFold3 +0.5, +5.3, +16.5 /
+-14.9, +3.1, +14.6 %; OpenDDE-abag -20.2, -4.8, +9.1 / -16.5, -3.5, +12.3 %; RF3 -13.2, -1.5,
++0.2 / -7.9, -2.8, +0.2 %; ESMC-300M -2.8, -3.5 / -3.3, +0.2 %; BoltzGen -9.8, +18.0 / +8.1,
++17.3 %; Boltz-2 affinity -54.1, -35.7 / -61.0, -41.5 %. 0.13.1 is inside 0.13.0's round spread on
+every model. NESSO-1 ran with the card at 800 MHz in both arms, so its numbers compare the two
+releases and nothing else.
+
+**Supported sizes: no change against 0.13.0.** Boltz-2, ESMFold-2, Protenix-v2, OpenFold3 and
+RF3 passed the full ladder, 256 to 1536 tokens. OpenBind-0 failed on its first rung only (256
+tokens, 37.0 s against 11.4 s recorded) and NESSO-1 read 1.08 to 2.46x slower on every rung,
+smallest rungs most, which is what host load does to a dispatch-bound fold; the release changes
+no code either model runs. Protenix-v1 at 896 tokens and OpenDDE at 768 timed out in warm-up once
+each. Rerun three times per release, interleaved, both folded every time on both: Protenix-v1 in
+76, 104, 99 s on 0.13.1 against 71, 97, 65 s on 0.13.0, OpenDDE in 319, 220, 255 s against 233,
+216, 234 s. The rungs above those two were not re-measured for either model. No baseline was
+re-recorded.
+
+## [0.13.0] - 2026-10-08
+
+Your own objective and your own outputs, on the models tt-bio already ships. BindCraft 2's design
+loss takes terms you write, every structure model writes its full confidence matrices, and a fold
+can carry an output head of your own.
+
+### Added
+
+- **A BindCraft 2 loss you can change.** `bindcraft2.loss_terms` adds a term of your own,
+  reweights or switches off any of BindCraft 2's 37, or replaces what one computes, from ordinary
+  Python with the settings file untouched. A term reaches the gradient, the mutation and
+  acceptance scoring and `losses.csv` alike, on the card and on BindCraft 2's own JAX trunk.
+  `bindcraft2.check_gradient` grades a term against float64 central differences, and a term whose
+  gradient is silently zero is refused by name before a campaign spends on it. With no custom term
+  the design loop is unchanged. Worked example: `examples/bindcraft2_custom_loss.py`; reference:
+  [`docs/bindcraft2.md`](docs/bindcraft2.md#custom-loss).
+- **Confidence exports for every structure model.** `--write_pae` now writes `<name>_pae.npz` with
+  the full PAE matrix, the PDE matrix and contact probabilities from the model's own distogram,
+  plus a JSON sidecar naming each array's shape and units, for Boltz-2, OpenDDE, OpenFold3,
+  OpenBind-0, ESMFold-2, RF3, Protenix and AF2-IG. ESMFold-2 and AF2-IG compute a full PAE matrix
+  for the first time, and OpenFold3, OpenBind-0, RF3 and AF2-IG report the chain-pair ipTM matrix
+  in `results.json`. `--contact_cutoff` sets the contact distance. Protenix has no contact
+  probabilities and AF2-IG no PDE, and the sidecar says so.
+  [`docs/confidence-outputs.md`](docs/confidence-outputs.md).
+- **An extension surface.** `tt-bio predict --head FILE.py:NAME` runs your own output head on a
+  Boltz-2 fold (Tenstorrent, CPU or GPU) or an ESMFold-2 fold (Tenstorrent) and writes what it
+  returns beside the structure; the structure itself is unchanged. Boltz-2 and ESMFold-2 also expose an optional
+  per-step trajectory hook, off by default. [`docs/extending.md`](docs/extending.md) says which
+  change to a model takes which route, [`docs/porting-a-model.md`](docs/porting-a-model.md) covers
+  a full port, and `examples/custom_head` trains a contact head with its own loss and folds a
+  protein it never saw.
+
+### Changed
 
 - **tt-bio no longer downloads the Protenix-v2 weights.** The Protenix code is Apache-2.0, and
   the [Protenix README](https://github.com/bytedance/Protenix)'s general licence section says the
@@ -30,11 +771,52 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ### Fixed
 
+- **Boltz-2 folds on a CPU-only install again.** Since 0.10.0 every Boltz-2 fold on a host without
+  ttnn failed after its confidence step with `No module named 'ttnn'`.
+- **An offline paired MSA search now pairs.** `compute_msa_offline(pair=True)` searched each chain
+  on its own, so every "paired" alignment was that chain's unpaired hits: OpenBind-0 refused every
+  protein heteromer on its depth check, and ESMFold-2 and OpenDDE read rows of two unrelated
+  alignments as one organism. Paired results are cached under a new directory, so no old file is
+  served.
 - **A BindCraft 2 out-of-memory refusal no longer tells a one-trajectory run to pass
   `trajectories_per_card=1`.** Under a board's measured ceiling the message blamed interleaved
   trajectories even when the campaign already ran one, so following it changed nothing. It now
   gives that advice only when trajectories are interleaved; otherwise it names the slower memory
   mode and the smaller size that fit.
+
+### The release gate itself
+
+Run on qb2 (`tt-quietbox2`), a four-chip Blackhole p300c box, on chip 3 alone, from a venv holding
+the built release wheel with `[tenstorrent,test]`, which resolves the `pyproject.toml` ttnn pin
+(0.68.0). Every arm scores the release code tree (`tt_bio/`, `scripts/` and `pyproject.toml` at
+3e1b569b6, identical in the tagged commit). Chips 0 and 1 served a live demo throughout, so the
+host was never idle: load 6 to 49 on 16 cores. Every timed fold reached AICLK 1350 MHz.
+
+**Implementation parity: PASS.** 44 legs, 39 PASS, 4 GAP, 1 PASS-caveated. The four GAP legs
+reproduce the deviation already committed for them.
+
+**Accuracy against ground truth: PASS.** All 21 per-model release-gate arms cleared their floors,
+including the L1-budget, batch-position, NESSO-1 and RF3 1024-residue arms. Boltz-2 reads 1.52 A,
+TM 0.941.
+
+**UX: PASS.** Every surface cleared progress, parse and results shape.
+
+**Capacity: matches the baseline.** 13 pass, 6 skip, and the two refusals are OpenDDE and
+OpenDDE-abag at 1536 tokens, above the recorded p300c ceiling of 1024.
+
+**Performance: no change against 0.12.0.** The arm failed 10 of 21 models against the recorded
+p300c baselines, but 0.12.0 fails the same baselines on the same box, so it was settled by pairing
+0.13.0 with 0.12.0 on chip 3 in four interleaved rounds. Mean delta against the baseline, 0.13.0 /
+0.12.0: ESMFold-2 fast -24.1 / -31.7 %, OpenDDE -24.8 / -20.6 %, OpenDDE-abag -20.4 / -21.6 %,
+Protenix-v1 -13.7 / -15.5 %, Protenix-v2 -20.4 / -16.6 %, RF3 -24.4 / -25.9 %. Rounds spread by
++-5 points, so the two releases are equal within noise. The absolute numbers are not clean
+measurements of either release, only the comparison is.
+
+**Supported sizes: no change against 0.12.0.** The size ladder passed 7 of 9 models. Protenix-v2 at
+768 tokens timed out in warm-up at load 40-49; on a quieter host it then folded in 156.4 s cold and
+103.2 s warm (0.12.0: 111.5 s). RF3 read 1.23-2.70x slower than its recorded ladder at every rung,
+and 0.12.0 reads the same on this box: 256, 512 and 768 tokens took 48.5, 68.8 and 101.8 s warm,
+against 48.3, 67.4 and 100.9 s for 0.12.0, run in ABBA order. No baseline was re-recorded.
 
 ## [0.12.0] - 2026-10-02
 

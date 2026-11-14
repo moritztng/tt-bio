@@ -1,0 +1,77 @@
+[
+ {
+  "name": "copies",
+  "sequences": [
+   {
+    "proteinChain": {
+     "sequence": "MKQLEDKVEELLSKNYHLENEVARLKKLVGER",
+     "count": 2,
+     "id": [
+      "A",
+      "B"
+     ]
+    }
+   },
+   {
+    "ligand": {
+     "ligand": "CCD_NAG",
+     "count": 2
+    }
+   },
+   {
+    "ligand": {
+     "ligand": "CCD_NAG",
+     "count": 2
+    }
+   },
+   {
+    "dnaSequence": {
+     "sequence": "GATTACA",
+     "count": 2
+    }
+   },
+   {
+    "rnaSequence": {
+     "sequence": "GGAUCC",
+     "count": 2
+    }
+   },
+   {
+    "ion": {
+     "ion": "MG",
+     "count": 2
+    }
+   }
+  ],
+  "covalent_bonds": [
+   {
+    "entity1": 1,
+    "copy1": 1,
+    "position1": 15,
+    "atom1": "ND2",
+    "entity2": 2,
+    "copy2": 2,
+    "position2": 1,
+    "atom2": "C1"
+   },
+   {
+    "entity1": 1,
+    "copy1": 2,
+    "position1": 15,
+    "atom1": "ND2",
+    "entity2": 2,
+    "copy2": 1,
+    "position2": 1,
+    "atom2": "C1"
+   },
+   {
+    "entity1": 1,
+    "position1": 13,
+    "atom1": "OG",
+    "entity2": 3,
+    "position2": 1,
+    "atom2": "C1"
+   }
+  ]
+ }
+]

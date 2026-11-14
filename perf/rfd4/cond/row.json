@@ -1,0 +1,191 @@
+{
+  "row": "rfd4-cond-protein",
+  "status": "done",
+  "branch": "wk/rfd4-cond-protein",
+  "repo": "tt-bio",
+  "features": [
+    "unconditional",
+    "binder",
+    "antibody_cdr",
+    "nanobody_cdr",
+    "enzyme",
+    "motif_scaffold",
+    "partial_diffusion",
+    "inverse_folding",
+    "structure_prediction_folding"
+  ],
+  "designs_run": {
+    "families": 9,
+    "designs_per_family": 2,
+    "total_designs": 18,
+    "host": "tt-quietbox2",
+    "card": 3,
+    "board": "p300c",
+    "aiclk_mhz_median": 1350,
+    "clock_artifacts": 0,
+    "full_recipe": true,
+    "shortened_schedule": false,
+    "record": "perf/rfd4/cond/runs.jsonl",
+    "grades_json": "perf/rfd4/cond/grades.json",
+    "date": "2026-10-21"
+  },
+  "grades": {
+    "unconditional": {
+      "tokens": 100,
+      "recipe": "thinking_medium",
+      "s_per_design": 66.93,
+      "aiclk_mhz": 1350,
+      "clock_artifact": false,
+      "held_by": "nothing",
+      "seed_floor_ca_rmsd_a": 15.679,
+      "seed_floor_sequence_identity": 0.23,
+      "verdict": "PASS"
+    },
+    "binder": {
+      "tokens": 225,
+      "recipe": "medium/front_loaded",
+      "s_per_design": 73.77,
+      "aiclk_mhz": 1350,
+      "clock_artifact": false,
+      "held_by": "spec",
+      "seed_floor_ca_rmsd_a": 19.401,
+      "seed_floor_sequence_identity": 0.318,
+      "verdict": "PASS",
+      "fixed_part_rmsd_a": 0.171,
+      "fixed_part_atoms": 460,
+      "fixed_part_ca_rmsd_a": 0.151,
+      "upstream_paired": {
+        "rmsd_a": 3.315,
+        "seed_floor_a": 5.378,
+        "size": 128,
+        "recipe": "thinking_medium",
+        "source": "state/rfd4/parity/e2e.json",
+        "note": "rfd4-e2e's 128-token run, the only full upstream design any of these families has"
+      }
+    },
+    "antibody_cdr": {
+      "tokens": 329,
+      "recipe": "high/front_loaded",
+      "s_per_design": 231.02,
+      "aiclk_mhz": 1350,
+      "clock_artifact": false,
+      "held_by": "spec",
+      "seed_floor_ca_rmsd_a": 33.09,
+      "seed_floor_sequence_identity": 0.861,
+      "verdict": "PASS",
+      "fixed_part_rmsd_a": 0.295,
+      "fixed_part_atoms": 424,
+      "fixed_part_ca_rmsd_a": 0.262
+    },
+    "nanobody_cdr": {
+      "tokens": 224,
+      "recipe": "high/front_loaded",
+      "s_per_design": 79.96,
+      "aiclk_mhz": 1350,
+      "clock_artifact": false,
+      "held_by": "spec",
+      "seed_floor_ca_rmsd_a": 29.902,
+      "seed_floor_sequence_identity": 0.831,
+      "verdict": "PASS",
+      "fixed_part_rmsd_a": 0.085,
+      "fixed_part_atoms": 400,
+      "fixed_part_ca_rmsd_a": 0.059
+    },
+    "enzyme": {
+      "tokens": 223,
+      "recipe": "medium/midpeak",
+      "s_per_design": 61.17,
+      "aiclk_mhz": 1350,
+      "clock_artifact": false,
+      "held_by": "spec",
+      "seed_floor_ca_rmsd_a": 15.762,
+      "seed_floor_sequence_identity": 0.056,
+      "verdict": "PASS",
+      "fixed_part_rmsd_a": 0.092,
+      "fixed_part_atoms": 22
+    },
+    "motif_scaffold": {
+      "tokens": 82,
+      "recipe": "medium/midpeak",
+      "s_per_design": 25.7,
+      "aiclk_mhz": 1350,
+      "clock_artifact": false,
+      "held_by": "spec",
+      "seed_floor_ca_rmsd_a": 9.186,
+      "seed_floor_sequence_identity": 0.146,
+      "verdict": "PASS",
+      "fixed_part_rmsd_a": 0.082,
+      "fixed_part_atoms": 28,
+      "fixed_part_ca_rmsd_a": 0.018
+    },
+    "partial_diffusion": {
+      "tokens": 225,
+      "recipe": "medium/front_loaded",
+      "s_per_design": 33.59,
+      "aiclk_mhz": 1350,
+      "clock_artifact": false,
+      "held_by": "spec",
+      "seed_floor_ca_rmsd_a": 0.401,
+      "seed_floor_sequence_identity": 0.945,
+      "verdict": "PASS",
+      "fixed_part_rmsd_a": 0.163,
+      "fixed_part_atoms": 460,
+      "fixed_part_ca_rmsd_a": 0.141,
+      "partial_start_t": {
+        "bb_ca": 0.97,
+        "local_latents": 0.5034
+      },
+      "partial_steps_remaining": 25
+    },
+    "inverse_folding": {
+      "tokens": 59,
+      "recipe": "medium/flat",
+      "s_per_design": 25.54,
+      "aiclk_mhz": 1350,
+      "clock_artifact": false,
+      "held_by": "sampler",
+      "seed_floor_ca_rmsd_a": 0.0,
+      "seed_floor_sequence_identity": 0.339,
+      "verdict": "PASS",
+      "fixed_part_rmsd_a": 0.687,
+      "fixed_part_atoms": 351,
+      "fixed_part_ca_rmsd_a": 0.0
+    },
+    "structure_prediction_folding": {
+      "tokens": 138,
+      "recipe": "thinking_medium",
+      "s_per_design": 53.4,
+      "aiclk_mhz": 1350,
+      "clock_artifact": false,
+      "held_by": "prediction_target",
+      "seed_floor_ca_rmsd_a": 10.331,
+      "seed_floor_sequence_identity": 1.0,
+      "verdict": "PASS",
+      "fixed_part_rmsd_a": 1.534,
+      "fixed_part_atoms": 982,
+      "fixed_part_ca_rmsd_a": 0.839,
+      "accuracy_ca_rmsd_a_per_seed": [
+        0.839,
+        10.551
+      ]
+    }
+  },
+  "tests": {
+    "path": "tests/test_rfd4_families.py",
+    "serving_path": "every family drives `tt-bio design --model rfd4` through the CLI",
+    "passed": 54,
+    "failed": 0,
+    "suites": [
+      "tests/test_rfd4_families.py",
+      "tests/test_rfd4_io.py",
+      "tests/test_rfd4_sampler.py"
+    ],
+    "regression": "test_two_designs_in_one_invocation_write_two_cifs (writer defect e6240569d)"
+  },
+  "open": {
+    "structure_prediction_folding": "seed 0 reproduces 7HIY at 0.839 A CA, seed 1 at 10.551 A. Both return the pinned sequence exactly, so the conditioning lands; what varies is whether the fold converges. Two samples cannot separate the model's own spread from a port defect and there is no upstream 7HIY design to pair against. For rfd4-quality's distributional bar.",
+    "upstream_designs": "only the binder has one (rfd4-e2e, 128 tokens). The other eight are graded on reproduced conditioning plus seed floor, which is what rfd4-ref captured."
+  },
+  "verdict": "PASS -- nine families generate on Blackhole through the CLI at the full recipe, every spec pin is reproduced within 0.295 A (bar 1.0 A), every family designs something new between seeds, and all nine are covered by a CLI test. Folding's seed-to-seed spread is recorded, not resolved.",
+  "deliverable": "state/rfd4/FAMILIES-PROTEIN.md"
+}

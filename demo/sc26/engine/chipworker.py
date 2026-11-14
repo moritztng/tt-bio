@@ -178,14 +178,15 @@ class boltz2_runner:
 
 
 class openfold3_runner:
-    """OpenFold3 kept warm on this chip, its inputs built exactly as `tt-bio predict` builds them
-    (tt_bio.worker._WorkerState._openfold3_inputs), with no output files written. One diffusion
-    sample, predict's default."""
+    """OpenFold3 kept warm on this chip, folded through the same two halves `tt-bio predict` uses
+    (tt_bio.worker.openfold3_host_inputs, then openfold3_device_fold), with no output files
+    written. One diffusion sample, predict's default."""
 
     def __init__(self, args, emit):
         from tt_bio import main as M
         from tt_bio import weights
-        from tt_bio.worker import _WorkerState, _template_structure_dir
+        from tt_bio.worker import _WorkerState, _template_structure_dir, openfold3_device_fold, openfold3_host_inputs
+        self.host_inputs, self.device_fold = openfold3_host_inputs, openfold3_device_fold
         self.M, self.msa_dir = M, Path(args.msa_dir)
         args.loops = args.loops if args.loops is not None else M._resolve_recycling_steps(None, "openfold3")
         args.steps = args.steps or M._resolve_sampling_steps(None, "openfold3")
@@ -209,25 +210,28 @@ class openfold3_runner:
             y.write_text(yaml or f"version: 1\nsequences:\n  - protein:\n      id: A\n      sequence: {seq}\n")
             prot = [c[1] for c in _read_bio_chains(y) if c[3] == "protein"]
             searched = [(self.msa_dir / f"{self.M.seq_hash(p)}.a3m").is_file() for p in prot]
-            kwargs, features, _, _ = self.st._openfold3_inputs(
-                y, dict(self.cfg, seed=seed, single_sequence=not all(searched)))
-        aa = features["atom_array"]
+            host = self.host_inputs(y, dict(self.cfg, seed=seed, single_sequence=not all(searched)),
+                                    levers=tuple(getattr(self.model, "_levers", ())))
+        aa = host.features["atom_array"]
         # One index per residue (a ligand is one residue), the way the structure file numbers them.
         new = np.ones(len(aa), dtype=bool)
         new[1:] = (aa.chain_id[1:] != aa.chain_id[:-1]) | (aa.res_id[1:] != aa.res_id[:-1])
         res = torch.as_tensor(np.cumsum(new) - 1)
         atoms = {"element": [str(e).capitalize() for e in aa.element], "name": [str(n) for n in aa.atom_name],
                  "residue": res.tolist(), "chain": [str(c) for c in aa.chain_id]}
-        return {"kwargs": kwargs, "mask": torch.ones(len(aa), dtype=torch.bool), "atoms": atoms,
+        return {"host": host, "mask": torch.ones(len(aa), dtype=torch.bool), "atoms": atoms,
                 "res": res, "msa": all(searched)}
 
     def fold(self, prep, seed, progress, dump):
+        import dataclasses
         import torch
         own = self.model.dump_fn
         self.model.dump_fn = dump
         try:
             with torch.no_grad():
-                res = self.model.fold(**dict(prep["kwargs"], seed=seed, progress_fn=progress))
+                res = self.device_fold(self.model, dataclasses.replace(prep["host"], seed=seed),
+                                       sampling_steps=self.cfg["sampling_steps"], diffusion_samples=1,
+                                       progress_fn=progress)
         finally:
             self.model.dump_fn = own
         conf = res.confidence[res.best_index]
@@ -295,7 +299,8 @@ def main():
     from tt_bio._vendor.esm.models.esmfold2.processor import _seed_context
 
     import ttnn
-    device = get_device()
+    # OpenFold3 replays a captured diffusion step, whose trace region is reserved only at open.
+    device = get_device(trace="openfold3" if args.model == "openfold3" else None)
     if args.model in RUNNERS:
         run = RUNNERS[args.model](args, emit)
     else:

@@ -1,0 +1,80 @@
+// SPDX-FileCopyrightText: (c) 2026 Tenstorrent USA, Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
+// trimul tail, weights resident: writes this core's output rows, one block of Mb x Nt tiles.
+// With SPLIT = 2 the Nt columns go to two tensors of Nt / 2 columns each (the gated in-projection's
+// a and b); SPLIT = 1 passes the same tensor twice. T2_RES32 (SPLIT 1): c_2 is the float32 sum, written to o0,
+// and c_21 its bfloat16 copy, written to the same pages of o1.
+#include "api/dataflow/dataflow_api.h"
+
+void kernel_main() {
+    constexpr uint32_t Nt = get_compile_time_arg_val(0);
+    constexpr uint32_t Mb = get_compile_time_arg_val(1);
+    constexpr uint32_t SPLIT = get_compile_time_arg_val(2);
+    constexpr uint32_t Ns = Nt / SPLIT;
+    // T2_ABL bit 32 (bench only): blocks are popped without writing them.
+    constexpr bool NOWRITE = get_compile_time_arg_val(3) & 32;
+    constexpr auto o0_args = TensorAccessorArgs<4>();
+    constexpr auto o1_args = TensorAccessorArgs<o0_args.next_compile_time_args_offset()>();
+    const auto o0 = TensorAccessor(o0_args, get_common_arg_val<uint32_t>(0));
+    const auto o1 = TensorAccessor(o1_args, get_common_arg_val<uint32_t>(1));
+    const uint32_t m0 = get_arg_val<uint32_t>(0);
+    const uint32_t nblocks = get_arg_val<uint32_t>(1);
+
+    constexpr uint32_t out_cb = tt::CBIndex::c_2;
+    const uint32_t tb = get_tile_size(out_cb);
+#ifdef T2_ZW
+    // T2's z read moved off the reader (reader_ln.cpp T2_ZW): z of block b + 1 is read into c_7 (two blocks deep)
+    // while compute works on block b, from o0, the tensor this writer then writes in place. Block b + 1's rows are
+    // not block b's, so the read never sees a written row.
+    constexpr uint32_t z_cb = tt::CBIndex::c_7;
+    const uint32_t tz = get_tile_size(z_cb);
+    auto read_z = [&](uint32_t m) {
+        cb_reserve_back(z_cb, Mb * Nt);
+        uint32_t w = get_write_ptr(z_cb);
+        for (uint32_t t = 0; t < Mb * Nt; ++t, w += tz) noc_async_read_page(m * Nt + t, o0, w);
+    };
+    if (nblocks) {
+        read_z(m0);
+        noc_async_read_barrier();
+        cb_push_back(z_cb, Mb * Nt);
+    }
+#endif
+    for (uint32_t b = 0; b < nblocks; ++b) {
+        const uint32_t m = m0 + b * Mb;
+#ifdef T2_ZW
+        const bool more = b + 1 < nblocks;
+        if (more) read_z(m + Mb);
+#endif
+        cb_wait_front(out_cb, Mb * Nt);
+        uint32_t r = get_read_ptr(out_cb);
+        for (uint32_t i = 0; i < Mb; ++i) {
+            const uint32_t row = (m + i) * Ns;
+            if constexpr (NOWRITE) continue;
+            for (uint32_t c = 0; c < Ns; ++c, r += tb) noc_async_write_page(row + c, o0, r);
+            if constexpr (SPLIT == 2) {
+                for (uint32_t c = 0; c < Ns; ++c, r += tb) noc_async_write_page(row + c, o1, r);
+            }
+        }
+#ifdef T2_RES32
+        constexpr uint32_t copy_cb = tt::CBIndex::c_21;
+        const uint32_t tc = get_tile_size(copy_cb);
+        cb_wait_front(copy_cb, Mb * Nt);
+        uint32_t rc = get_read_ptr(copy_cb);
+        for (uint32_t t = 0; t < (NOWRITE ? 0 : Mb * Nt); ++t, rc += tc) noc_async_write_page(m * Nt + t, o1, rc);
+#endif
+#ifdef T2_ZW
+        if (more) {
+            noc_async_read_barrier();
+            cb_push_back(z_cb, Mb * Nt);
+        }
+#endif
+        noc_async_writes_flushed();
+        cb_pop_front(out_cb, Mb * Nt);
+#ifdef T2_RES32
+        cb_pop_front(copy_cb, Mb * Nt);
+#endif
+    }
+    noc_async_write_barrier();
+}

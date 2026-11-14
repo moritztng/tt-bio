@@ -84,3 +84,21 @@ def test_a_taped_call_never_reaches_the_ladder_or_the_ragged_pad(ladder, monkeyp
     ladder["taping"] = False
     assert T._tri_att_sdpa_hifi(_Q(), _Q(), _Q(), None, 1.0) == "served"
     assert reached == ["tri_att_hifi"], "an untaped call must still take the whole path"
+
+
+class _B8(_Q):
+    dtype = "bfp8"
+
+
+def test_a_mixed_dtype_decline_does_not_retire_the_uniform_config(ladder, monkeypatch):
+    """triatt_sdpa declines bfp8 q/k/v with a bf16 bias on dtype. Keyed on q.dtype alone, that
+    decline retired the config for the all-bfp8 calls after it, which the kernel serves."""
+    def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, **kw):
+        ladder["calls"] += 1
+        return None if bias.dtype != q.dtype else "served"
+
+    monkeypatch.setattr(T, "_triatt_sdpa", types.SimpleNamespace(sdpa=sdpa))
+    monkeypatch.setattr(T, "_tri_att_hifi_pad_up", lambda *a, **kw: None)  # the device pad after a decline
+    b8 = _B8()
+    assert T._tri_att_sdpa_hifi_inner(b8, b8, b8, _Q(), 1.0) is None
+    assert T._tri_att_sdpa_hifi_inner(b8, b8, b8, _B8(), 1.0) == "served"

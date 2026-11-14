@@ -50,6 +50,16 @@ ALLOWED = {
     # one in `ag.Tensor` itself, so they enter the tape as constants. A module-scope import
     # would hand it the shim and change what the gradient-parity result was measured on.
     "train/openfold3.py",
+    # `af2_structure.Card` uploads its leaves with the raw `from_torch` and tapes its own VJPs
+    # (`sqrt`, `reciprocal` on `.value`, then `autograd._tape`), so the shim would tape them
+    # twice. It defers the import for the same `pin_card()` reason as `bindcraft2.py`, which
+    # imports it.
+    "af2_structure.py",
+    # RFD4 is inference only and nothing tapes it. The engine defers the import so the package
+    # imports without the wheel, and reads only `ttnn.float32` from it. `pair.py` holds the
+    # host-side `PairSplit` that the ttnn-free `network.py` imports beside the card's
+    # `PairOnCard`, so it defers for the same reason.
+    "rfd4/engine.py", "rfd4/pair.py",
     # A kernel-source patcher, not a model path.
     "kernels/trimul_tail/patch_trimul_tail.py",
     # `bindcraft2.py` defers the import because `pin_card()` has to set TT_VISIBLE_DEVICES

@@ -17,57 +17,95 @@ move against the accuracy bar and the seed-to-seed spread.
 | flag | default | scope | output with the flag on |
 |---|---|---|---|
 | [`BOLTZ2_TOKEN_DIT_SDPA`](#boltz2_token_dit_sdpa) | on | Boltz-2 | moves, inside the 298-residue bar |
-| [`TT_BIO_AF2_G_BIAS_IN_MATMUL`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2, Blackhole | gradients only |
+| [`OF3_DIFFUSION_TRACE`](#of3_diffusion_trace) | on | OpenFold3, OpenBind-0 | identical |
+| [`TT_BIO_AF2_G_BIAS_IN_MATMUL`](#bindcraft-2-round-kernels) | on; off in a BindCraft 2 round on Wormhole | AF2-IG, BindCraft 2 on Blackhole | within 0.12 A |
 | [`TT_BIO_AF2_OPM_ROWS_IN_K`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2 | moves the forward, closer to float64 |
+| [`TT_BIO_AF2_TRANSITION_WS`](#bindcraft-2-round-kernels) | on | AF2-IG, BindCraft 2 | within 0.03 A for AF2-IG |
+| [`TT_BIO_AF2_COL_DEPTH2`](#bindcraft-2-round-kernels) | on | AF2-IG, BindCraft 2 | within 0.30 A for AF2-IG; BindCraft 2 design metrics not worse |
+| [`TT_BIO_AF2_T2CM`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round on Blackhole | BindCraft 2 on Blackhole | moves, design metrics not worse |
+| [`TT_BIO_TRIMUL_GIN_BIASED`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round on Blackhole | BindCraft 2 on Blackhole | moves, design metrics not worse |
 | [`TT_BIO_ATOM_AXIS_BUCKET`](#tt_bio_atom_axis_bucket) | on | | identical at 298 residues, not guaranteed at 512 |
 | [`TT_BIO_ATOM_SHIFT_GATHER`](#tt_bio_atom_shift_gather) | on | | identical |
-| [`TT_BIO_DEVICE_CONDITIONING`](#tt_bio_device_conditioning) | on | Boltz-2 | moves, closer to the experimental structure |
+| [`TT_BIO_ATOM_KV_WINDOW`](#tt_bio_atom_tile_heads-tt_bio_atom_kv_window) | on | Protenix-v2, OpenDDE, PXDesign | identical |
+| [`TT_BIO_ATOM_SDPA32`](#tt_bio_atom_sdpa32) | on | fp32 atom attention (normal mode) | moves, closer to float64 |
+| [`TT_BIO_ATOM_SUPERSET_WINDOW`](#tt_bio_atom_superset_window) | on | Protenix-v2, OpenDDE, PXDesign | moves, inside the bar |
+| [`TT_BIO_ATOM_TILE_HEADS`](#tt_bio_atom_tile_heads-tt_bio_atom_kv_window) | on | Protenix-v2, OpenDDE, PXDesign | identical |
+| [`TT_BIO_BC2_IPA_DIST_REMAT`](#tt_bio_bc2_ipa_einsum-tt_bio_bc2_ipa_dist_remat) | on | BindCraft 2 | identical |
+| [`TT_BIO_BC2_IPA_EINSUM`](#tt_bio_bc2_ipa_einsum-tt_bio_bc2_ipa_dist_remat) | on | BindCraft 2 | gradients move, designs graded |
+| [`TT_BIO_BH_DRAM_READ_SPLIT`](#tt_bio_bh_dram_read_split) | on | Blackhole | identical |
+| [`TT_BIO_BH_ETH_DISPATCH`](#tt_bio_bh_eth_dispatch) | on for p150a where the installed ttnn supports it | Blackhole | unchanged on p150a (graded) |
+| [`TT_BIO_DEVICE_CONDITIONING`](#tt_bio_device_conditioning) | on | Boltz-2, BoltzGen | moves, closer to the experimental structure |
 | [`TT_BIO_DEVICE_CONFIDENCE`, `TT_BIO_DEVICE_CONF_HEADS`](#tt_bio_device_confidence-tt_bio_device_conf_heads) | on | Boltz-2 | coordinates identical, confidence scores move |
-| [`TT_BIO_DEVICE_ZINIT`](#tt_bio_device_zinit) | on | Boltz-2 | moves, flat against the experimental structure |
+| [`TT_BIO_DEVICE_TILIZE`](#tt_bio_device_tilize) | on | Protenix-v2, OpenDDE, PXDesign | identical |
+| [`TT_BIO_DEVICE_ZINIT`](#tt_bio_device_zinit) | on | Boltz-2, BoltzGen | moves, flat against the experimental structure |
 | [`TT_BIO_DIT_COND_HOIST`](#tt_bio_dit_cond_hoist) | on | Boltz-2, RF3 token DiT | moves, inside the 298-residue bar |
-| [`TT_BIO_FANIN_CAST_FUSED`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2, Blackhole | gradients only |
-| [`TT_BIO_FUSE_BIAS_STACKS`](#tt_bio_fuse_bias_stacks) | on | Boltz-2 | moves, inside the 298-residue bar |
+| [`TT_BIO_DIT_SHARED_COND`](#tt_bio_dit_shared_cond) | on | Boltz-2, BoltzGen | identical |
+| [`TT_BIO_ESMC_MM`](#tt_bio_esmc_mm) | on for Wormhole | ESMC 300M / 600M | identical at the page batch |
+| [`TT_BIO_ESMC_QKV_SPLIT`](#tt_bio_esmc_qkv_split) | on | ESMC 300M / 600M | identical |
+| [`TT_BIO_ESMFOLD2_DEVICE_CONF`](#tt_bio_esmfold2_device_conf) | on | ESMFold2 | moves, inside the bar |
+| [`TT_BIO_ESMFOLD2_DEVICE_TAIL`](#tt_bio_esmfold2_device_tail) | on | ESMFold2 | moves, inside the bar |
+| [`TT_BIO_ESMFOLD2_DIFFUSION_TRACE`](#tt_bio_esmfold2_diffusion_trace) | on | ESMFold2 | identical |
+| [`TT_BIO_ESMFOLD2_BIT_DRAW`, `TT_BIO_ESMFOLD2_PAIR_INIT`, `TT_BIO_ESMFOLD2_LM_COMBINE`, `TT_BIO_ESMFOLD2_OPM`, `TT_BIO_ESMFOLD2_ATOM_FFN_SPLIT`, `TT_BIO_ESMFOLD2_RELPOS_LOOKUP`](#esmfold2---fast-stack) | on with `--fast` on Blackhole | ESMFold2 | moves, inside the fast bar |
+| [`TT_BIO_ESMFOLD2_SWA_WINDOW`](#tt_bio_esmfold2_swa_window) | on | ESMFold2 | moves, inside the bar |
+| [`TT_BIO_FANIN_CAST_FUSED`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2 | gradients only |
+| [`TT_BIO_FUSE_BIAS_STACKS`](#tt_bio_fuse_bias_stacks) | on | Boltz-2, BoltzGen | moves, inside the 298-residue bar |
 | [`TT_BIO_FUSE_MASK_ADD`](#tt_bio_fuse_mask_add) | on | | identical |
 | [`TT_BIO_FUSE_NORM_RESIDUAL`](#tt_bio_fuse_norm_residual) | on | | identical |
 | [`TT_BIO_FUSE_SCALE_ADD`](#tt_bio_fuse_scale_add) | on | fp32 operands | identical |
-| [`TT_BIO_GATED_BW_FUSED`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2, Blackhole | gradients only |
-| [`TT_BIO_GATED_GRAD_PACKED`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2, Blackhole | gradients only |
-| [`TT_BIO_GATE_BW_FUSED`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2, Blackhole | gradients only |
+| [`TT_BIO_GATED_BW_FUSED`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2 | gradients only |
+| [`TT_BIO_GATED_GRAD_PACKED`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2 | gradients only |
+| [`TT_BIO_GATE_BW_FUSED`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2 | gradients only |
 | [`TT_BIO_GATE_GRANULARITY`](#tt_bio_gate_granularity) | 2 | | identical at every value |
+| [`TT_BIO_HOST_LANE`](#tt_bio_host_lane) | on | Protenix-v2 | identical |
 | [`TT_BIO_HOST_LEVERS`](#tt_bio_host_levers) | on | Boltz-2 | switches two other flags together |
-| [`TT_BIO_LEAD_SUM_FUSED`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2, Blackhole | gradients only |
-| [`TT_BIO_LNBW_FUSED`](#tt_bio_lnbw_fused) | on in a BindCraft 2 round, off elsewhere | BindCraft 2, Blackhole | gradients only |
+| [`TT_BIO_LEAD_SUM_FUSED`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2 | gradients only |
+| [`TT_BIO_LEVERS`](#tt_bio_levers) | each model's graded set | Protenix-v2, Boltz-2 | moves, inside the seed-to-seed spread |
+| [`TT_BIO_LNBW_FUSED`](#tt_bio_lnbw_fused) | on in a BindCraft 2 round, off elsewhere | BindCraft 2 | gradients only |
 | [`TT_BIO_MM_LAYOUT`](#tt_bio_mm_layout) | off | training | moves |
 | [`TT_BIO_MSA_LADDER`](#tt_bio_msa_ladder) | on | Boltz-2, BoltzGen | moves, closer to the experimental structure |
-| [`TT_BIO_NOGRAD_INFERENCE`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2, Blackhole | gradients only |
+| [`TT_BIO_NOGRAD_INFERENCE`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2 | gradients only |
+| [`TT_BIO_OPM_JOIN_PARTS`, `TT_BIO_OPM_PROJ_BATCH`](#msa-module-flags) | on | MSA models; graded on Protenix-v2 | join moves, inside the bar; projection batch identical |
 | [`TT_BIO_OPM_LEGACY_LAYOUT`](#tt_bio_opm_legacy_layout) | off | | moves, inside the seed spread |
+| [`TT_BIO_OPM_SMALL_DEPTH`](#tt_bio_opm_small_depth) | on | MSA depth 8 or less (AF2-IG, single-sequence folds) | moves, inside the bar |
+| [`TT_BIO_OPM_SMALL_DEPTH_BMM`](#tt_bio_opm_small_depth) | on | same | identical |
 | [`TT_BIO_PAIR_FFN_L1_FC1`](#tt_bio_pair_ffn_l1_fc1) | on | ESMFold2 | identical |
 | [`TT_BIO_PAIR_INPLACE`, `TT_BIO_TRIMUL_INPROJ_ROWBLOCK_NORM`](#tt_bio_pair_inplace-tt_bio_trimul_inproj_rowblock_norm) | on | large pair tensors | identical |
-| [`TT_BIO_PAIR_MM`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2, Blackhole | gradients only |
-| [`TT_BIO_PAIR_TRANSPOSE_FUSED`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2, Blackhole | gradients only |
+| [`TT_BIO_PAIR_MM`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round; on for AF2 on Wormhole | BindCraft 2, AF2 and AF2-IG | moves, far inside the bar |
+| [`TT_BIO_PAIR_LINEAR`](#bindcraft-2-round-kernels) | on, acts on Wormhole only | where `TT_BIO_PAIR_MM` acts | moves BindCraft 2, identical for AF2-IG |
+| [`TT_BIO_PAIR_TRANSPOSE_FUSED`](#tt_bio_pair_transpose_fused) | on | pair tensors, forward and backward | identical |
+| [`TT_BIO_PWA_FUSED_HEADS`, `TT_BIO_PWA_UNPADDED`](#msa-module-flags) | on | MSA models; graded on Protenix-v2 | moves, inside the bar |
 | [`TT_BIO_PWA_BATCH_HEAD_WEIGHTS`](#tt_bio_pwa_batch_head_weights) | on | | identical |
+| [`TT_BIO_PWA_FULL_HEADS_FUSED`](#tt_bio_pwa_full_heads_fused) | on | Boltz-2 (32-wide heads) | identical |
+| [`TT_BIO_QKV_MM_RAGGED_M`](#tt_bio_qkv_mm_ragged_m) | on | AF2-IG's triangle attention at token counts that are not a multiple of 32 | identical for AF2-IG |
 | [`TT_BIO_REBLOCK_PERMUTE_GATED`](#tt_bio_reblock_permute_gated) | on | | identical |
+| [`TT_BIO_RF3_DIFFUSION_TRACE`](#tt_bio_rf3_diffusion_trace) | on | RoseTTAFold3 | identical |
 | [`TT_BIO_RESIDUAL_L1`](#tt_bio_residual_l1) | on | | identical |
+| [`TT_BIO_RNE_MASK`](#bindcraft-2-round-kernels) | on | BindCraft 2 (AF2 dropout) | identical |
 | [`TT_BIO_SDPA_ADD_GRANULARITY`](#tt_bio_sdpa_add_granularity) | auto | | identical at every value |
 | [`TT_BIO_SDPA_BAND_DIV_K`](#tt_bio_sdpa_band_div_k) | on | Blackhole | moves, inside the bar |
 | [`TT_BIO_SDPA_FUSED_LARGE_S`](#tt_bio_sdpa_fused_large_s) | on | above 1024 tokens | moves, inside the seed spread |
+| [`TT_BIO_SDPA_FUSED_PADDED`](#tt_bio_sdpa_fused_padded) | on | lengths with no dividing chunk (736, 928, 992 ...) | moves |
 | [`TT_BIO_SDPA_GRID_Q_CHUNK`](#tt_bio_sdpa_grid_q_chunk) | on | | identical |
 | [`TT_BIO_SDPA_WIDE_K`](#tt_bio_sdpa_wide_k) | on | twenty padded lengths | moves, inside the seed spread |
 | [`TT_BIO_SOFTMAX_BW_FP32`](#tt_bio_softmax_bw_fp32) | on | training | gradients only |
+| [`TT_BIO_SWIGLU_GATE_LEGACY`](#tt_bio_swiglu_gate_legacy) | on (Blackhole) | ESMFold2 | moves, inside the bar |
 | [`TT_BIO_TOKEN_BUCKET`](#tt_bio_token_bucket) | on | | switches every model's token bucket |
 | [`TT_BIO_TRANSITION_L1_ROWS`](#tt_bio_transition_l1_rows) | on | Blackhole | identical on the measured shapes |
 | [`TT_BIO_TRIATT_B8`](#tt_bio_triatt_b8) | off | | moves, and depends on the core grid |
-| [`TT_BIO_TRIATT_BW_EXP_21F`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2, Blackhole | gradients only |
+| [`TT_BIO_TRIATT_BW_EXP_21F`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2 | gradients only |
 | [`TT_BIO_TRIATT_BW_FUSED`](#tt_bio_triatt_bw_fused) | on in a BindCraft 2 round, off elsewhere | BindCraft 2 | gradients only |
-| [`TT_BIO_TRIATT_BW_QKV_PACKED`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2, Blackhole | gradients only |
+| [`TT_BIO_TRIATT_BW_QKV_PACKED`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2 | gradients only |
 | [`TT_BIO_TRIATT_DIVIDING_K`](#tt_bio_triatt_dividing_k) | on | OpenFold3 at 832 tokens | moves, inside the bar |
 | [`TT_BIO_TRIATT_FUSED_QKVG`](#tt_bio_triatt_fused_qkvg) | on | | identical |
 | [`TT_BIO_TRIATT_FUSED_QKVGB`](#tt_bio_triatt_fused_qkvgb) | on | | identical |
+| [`TT_BIO_TRIATT_QK_MASK_PRELOAD`](#tt_bio_triatt_qk_mask_preload) | on | fused triangle attention | moves, inside the bar |
 | [`TT_BIO_TRIMUL_FUSED_GOUT`](#tt_bio_trimul_fused_gout) | on | | identical |
 | [`TT_BIO_TRIATT_GATE_EPILOGUE`](#tt_bio_triatt_gate_epilogue) | off | | identical |
 | [`TT_BIO_TRIATT_HIFI_PAD_UP`](#tt_bio_triatt_hifi_pad_up) | on | BindCraft 2, and OpenFold3 at 544 and 608 tokens | moves, far inside the bar |
 | [`TT_BIO_TRIATT_NARROW_Q_FALLBACK`](#tt_bio_triatt_narrow_q_fallback) | on | | identical on RoseTTAFold3, moves on OpenBind |
 | [`TT_BIO_TRIATT_SDPA_HIFI_AB`](#tt_bio_triatt_sdpa_hifi_ab) | on at `openfold3.trunk` | OpenFold3 | moves, inside the seed spread |
+| [`TT_BIO_TRIMUL_GIN_RAGGED`](#tt_bio_trimul_gin_ragged) | on for Wormhole | AF2-IG | moves, far inside the bar |
+| [`TT_BIO_TRIMUL_PER_CHANNEL`](#tt_bio_trimul_per_channel) | on | up to 256 tokens | identical |
 | [`TT_BIO_TRIMUL_GP_BANK_SPLIT`](#tt_bio_trimul_gp_bank_split) | on | | identical |
 | [`TT_BIO_TRIMUL_MASK_AFTER_MOVE`](#tt_bio_trimul_mask_after_move) | on | | identical |
 | [`TT_BIO_TRIMUL_MASK_L1`](#tt_bio_trimul_mask_l1) | on | | identical |
@@ -75,7 +113,7 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_TRIMUL_TAIL_F1`](#tt_bio_trimul_tail_f1) | on | | identical |
 | [`TT_BIO_TRIMUL_TAIL_F1_L1_OUT`](#tt_bio_trimul_tail_f1_l1_out) | on | | identical |
 | [`TT_BIO_UNFUSED_SILU`](#tt_bio_unfused_silu) | off | | moves, and costs Protenix-v2 accuracy |
-| [`TT_PROTENIX_CONF_DEVICE`](#tt_protenix_conf_device) | off | Protenix-v2, OpenDDE | coordinates identical, pLDDT moves |
+| [`TT_PROTENIX_CONF_DEVICE`](#tt_protenix_conf_device) | on | Protenix-v2, OpenDDE | coordinates identical, confidence within 1e-4 |
 
 A blank scope means the flag names no model: it applies wherever a model reaches the code it
 changes, and its section says which ones do. The OpenMP thread settings tt-bio fills in for per-card
@@ -84,14 +122,32 @@ workers are not flags of ours; they are covered at the end, under
 
 ## BindCraft 2 round kernels
 
-Default: on inside a BindCraft 2 round on Blackhole, off elsewhere.
+Default: on inside a BindCraft 2 round, off elsewhere. `TT_BIO_AF2_G_BIAS_IN_MATMUL` is the exception: it is
+on for every AF2 fold (AF2-IG on Wormhole 4.26 -> 4.16 s per complex, structures within 0.12 A), and a round
+keeps it on Blackhole and turns it off on Wormhole.
 
 Kernels that delete DRAM round trips from the AlphaFold 2 Evoformer's gradient. Each is armed by
 `bindcraft2.predictor(exact=False)` through `fast_round`, alongside
 [`TT_BIO_LNBW_FUSED`](#tt_bio_lnbw_fused) and [`TT_BIO_TRIATT_BW_FUSED`](#tt_bio_triatt_bw_fused).
-Outside a BindCraft 2 round every one keeps the composed path, and so do the first eleven on
-Wormhole, where they have not been graded. Setting a flag to `0` turns that kernel off even inside
+Outside a BindCraft 2 round every one keeps the composed path. On Wormhole
+`TT_BIO_AF2_G_BIAS_IN_MATMUL` keeps it too: on three input seeds of the float64 gradient grade it
+reads worse than the composed path on one seed and better on two, which does not settle it. Setting a flag to `0` turns that kernel off even inside
 the round; `bindcraft2.predictor(fast=False)` turns all of them off together.
+
+`TT_BIO_PAIR_MM` is now on in the round on both architectures. Its Wormhole round, six campaign
+seeds against PD-L1 at binder length 80, accepted 11 designs of 30 trajectories where the composed
+path accepted 12 (Fisher p=1.00), with mean pLDDT 0.893 against 0.885 and last-iteration ipTM 0.624
+against 0.571. One iteration goes from 7.81 to 7.45 s on a Wormhole chip at 1000 MHz.
+
+AF2 itself (AF2-IG, and the AF2 filter inside PXDesign) takes the `TT_BIO_PAIR_MM` path for its pair-track
+linears on Wormhole, through its own lever set rather than the round. On one Wormhole chip at 1000 MHz
+AF2-IG goes from 4.51 to 4.27 s per complex (three complexes, with a trailing control arm). Across three PD-L1 complexes ipTM moves by at most 0.0004 and the
+structures by 0.02 to 0.06 A, and 0.45 A on the complex that does not bind (ipTM 0.10).
+
+`TT_BIO_PAIR_LINEAR` saves 0.07 to 0.10 s per BindCraft 2 iteration on a Wormhole chip at 1000 MHz (about
+5.41 to 5.34 s). It is not bit-exact in the round. PD-L1 campaigns at binder length 80 accepted designs at
+the same rate with it as without (8 of 25 trajectories against 9 of 30), with mean ipTM 0.808 against 0.807
+and pLDDT 0.897 against 0.901. AF2-IG structures are bit-identical with it on.
 
 | flag | what it replaces |
 |---|---|
@@ -106,7 +162,13 @@ the round; `bindcraft2.predictor(fast=False)` turns all of them off together.
 | `TT_BIO_FANIN_CAST_FUSED` | A gradient with several consumers is summed and cast in one pass instead of two. |
 | `TT_BIO_PAIR_TRANSPOSE_FUSED` | The pair tensor's i/j swap as one move kernel, forward and backward. |
 | `TT_BIO_PAIR_MM` | Pair-track linears and their input gradients on `minimal_matmul` with a per-shape block table, ReLU fused at pack. |
+| `TT_BIO_PAIR_LINEAR` | On Wormhole, the bias-free pair linears and their input gradients, including the pair-bias projection to the head count, run on a kernel that keeps the whole weight in L1 on every core, so all cores work instead of the 32 of 72 `minimal_matmul` uses at 128 output channels. |
 | `TT_BIO_AF2_OPM_ROWS_IN_K` | The outer product mean sums its MSA rows inside one contraction instead of one product per row. Acts only with more than one MSA row, which a BindCraft 2 round has. Both boards. |
+| `TT_BIO_RNE_MASK` | The dropout keep-mask multiply and the residual add after it as one kernel, so the masked update is never written. On by default, not only in the round: only a round draws dropout masks. |
+| `TT_BIO_AF2_TRANSITION_WS` | AF2's pair Transition (LayerNorm, fc1, ReLU, fc2) as one program with both weights in L1, so the normed input and the 4x-wide hidden never reach DRAM. In a round its backward is two programs (`pair_relu` in `TT_BIO_TAPED_KERNELS`). On for every AF2 fold, not only in the round. |
+| `TT_BIO_AF2_COL_DEPTH2` | The MSA column attention over two MSA rows in closed form: with two keys the softmax is a sigmoid of the logit gap, so it runs in the MSA's own layout instead of a transposed one where each 32-row tile holds 2 real rows. On for every AF2 fold, not only in the round. |
+| `TT_BIO_AF2_T2CM` | In the forwards a round does not record, the triangle multiplication's output tail and the residual add after it as one kernel, so the update is never written. Blackhole only. |
+| `TT_BIO_TRIMUL_GIN_BIASED` | In the same forwards, the triangle multiplication's biased input projection, its gate and the channel move as one kernel per channel chunk, so the projection is never written whole. Blackhole only. |
 
 **Accuracy.** Each was graded on its own against a float64 reference of an Evoformer block's VJP
 at 288 tokens, blocks 0, 3 and 7. The largest move any of them makes is 6e-4 rel L2 (pair_mm on
@@ -115,10 +177,31 @@ and the kernels that replace eltwise chains are closer to float64 than the chain
 (the fused gate gradient reads 1.66e-3 against 2.2e-3 to 4.2e-3). With a float32 cotangent the
 composed gate gradient came back bfloat16 at 0.117 rel L2; the fused one keeps float32.
 
+On Wormhole the set was graded as a stack, with the fused layer-norm backward, on the whole
+4 + 48 block design gradient against float64 (`perf/spd/bc2_stack_grade.py`, 128 tokens). Over
+three input seeds dL/dlogits reads 0.167, 0.350 and 0.943 rel L2 with them on, 0.174, 0.346 and
+0.940 with them off, and the forward loss is identical. The seeds move the grade far more than the
+kernels do.
+
 **Speed.** On a BindCraft 2 round at 288 tokens, three trajectories on one p300c chip, the eleven
 together take the round from 5.70 to 4.50 s (1.27x; arm means of three, 5.48-5.81 against 4.40-4.64), arms alternated in one
 sitting at AICLK 1350 sampled during every arm. The host was shared with other campaigns
 (load1 8 to 13), which slows both arms; a second sitting under the same load read 1.275x.
+
+`TT_BIO_RNE_MASK` rounds the multiply and the add exactly as the two separate calls do. On a
+Wormhole chip at 1000 MHz a BindCraft 2 round writes the same gradient digest with it on and off,
+in 648 fewer calls, and one iteration goes from 5.70 to 5.64 s (two arms each, alternated on one
+chip, PD-L1 at binder length 80). On a p150a the kernel alone is 0.18 against 0.21 ms at the
+round's 195 tokens.
+
+`TT_BIO_AF2_TRANSITION_WS` is on for AF2-IG too. At 195 tokens it takes the Evoformer from 2.88 to
+2.75 s on a Wormhole chip at 1000 MHz and from 1.76 to 1.66 s on a p150a at 1350 MHz; the structure
+moves 0.030 A all-atom and ipTM 0.8077 to 0.8096. Against float64 the fused Transition reads 4.34e-3
+rel RMS where the composed one reads 4.35e-3. In a BindCraft 2 round on Wormhole one iteration goes
+from 5.40 to 5.20 s (two arms each, alternated on one chip at 1055 MHz, PD-L1 at binder length 80).
+It does not change what BindCraft 2 designs: over six full PD-L1 campaigns per arm on Wormhole it
+accepted 9 binders against 8 without it, completed 11 of 30 trajectories against 14 (Fisher p = 0.60),
+and the last-iteration i_pTM per trajectory averaged 0.52 against 0.56 (permutation p = 0.57).
 
 **Sizes.** With all of them on, a p300c chip runs 192, 352, 576 and 864 tokens to a completed
 gradient round; 864 peaks at 27.04 GB resident with 7.19 GB free.
@@ -130,6 +213,17 @@ were; on the teacher-forced float64 block VJP with two MSA rows no block moves b
 it takes the 288-token round on a p300c from 4.055 to 3.946 s, 1.028x, six arms alternated at
 AICLK 1350 with disjoint ranges.
 
+`TT_BIO_AF2_T2CM` and `TT_BIO_TRIMUL_GIN_BIASED` came later still and were graded together. They act on
+the forwards a round does not record (recycles and validation folds), and take one PD-L1 iteration on a
+p150a from 2.323 to 2.201 s, 1.055x (A/B/A at AICLK 1350, nine warm trajectories per arm, A arms 2.338
+and 2.308). Against float64 at 224 tokens the fused tail reads 0.0072 rel L2 where the composed ops read
+0.0048, and the biased projection 0.0029 to 0.0031 against 0.0029. On designs, 30 PD-L1 trajectories on a
+p300c chip accepted 9 binders where the stock B200 reference accepted 10 of 34 and the TT reference 8 of
+30, with no design metric significantly different (Holm over 17 tests). That run detects only a shift of
+about 0.7 SD, so it rules out a gross regression rather than proving the designs equivalent. Both stay
+off on Wormhole, where they were not graded, and outside the round: with both on, AF2-IG's trunk moves
+ipTM by 0.006 against its 0.005 bar.
+
 ## `BOLTZ2_TOKEN_DIT_SDPA`
 
 Default: on, Boltz-2 only.
@@ -139,6 +233,18 @@ The token-level DiT attention ran as an explicit score matrix: materialise 16x51
 **Accuracy: not bit-exact.** The kernel holds its exponentiated scores in bf16 where the explicit path held fp32. A 298-residue control moves 0.1775 Å CA and 0.3837 Å all-atom, inside its 0.35 Å CA bar, and pLDDT goes up rather than down, 0.909487 to 0.913597.
 
 **Speed: 1.105x on the fold** with `TT_BIO_ATOM_AXIS_BUCKET` (22.195 s to 20.079 s at 512 residues on Blackhole) and 1.400x on the diffusion sampler. On its own it is worth 1.100 s.
+
+## `OF3_DIFFUSION_TRACE`
+
+Default: on. OpenFold3 and OpenBind-0 capture one diffusion step as a device trace and replay it for every
+step, so the host stops dispatching the step's ops one at a time. If the trace cannot be captured, the fold
+runs the step-by-step path. `OF3_DIFFUSION_TRACE=0` forces that path.
+
+**Accuracy: identical.** Traced and step-by-step folds give the same output digest on a Blackhole p150a and
+a p300c.
+
+**Speed:** the 512-aa OpenFold3 fold on a Blackhole p150a at 1350 MHz takes 15.1 to 15.8 s traced against
+17.8 to 18.9 s step by step (same card, arms interleaved, medians of three warm folds per run).
 
 ## `TT_BIO_ATOM_AXIS_BUCKET`
 
@@ -185,9 +291,132 @@ windows wrong, and still wrote the identical structure, because the attention ma
 same matrix and discards exactly the entries the selection got wrong. Nothing the model outputs
 distinguishes the two, at any size. The matrix comparison does.
 
+## `TT_BIO_ATOM_SUPERSET_WINDOW`
+
+Default: on.
+
+The Protenix atom transformer attends each block of 32 atoms over a 128-atom key window that starts
+48 atoms to its left, so the window never lines up with the device's 32-row tiles. tt-bio built
+every window by copying rows one at a time (a gather in bf16, a loop of slices in fp32), and that
+copy was most of the module's time. With this flag each block attends over the five whole tiles
+around it instead (160 keys). The 32 extra keys and every key the window mask excludes get a bias
+of -1e9, folded once per fold into the per-block pair bias, so they carry zero weight and the
+attention is the same function. The windows become five aligned slices and one concat.
+
+**Accuracy: the same attention up to rounding.** In float64 the superset output matches the
+128-key window to 1e-12 at 33 to 5,919 atoms and one to five samples
+(`tests/test_atom_superset_window.py`). On the device the softmax and attn@v reduce over 160 keys
+instead of 128, so the result is not bit-exact. It was graded together with
+`TT_BIO_ATOM_TILE_HEADS` and the triangle-attention flags `TT_BIO_SDPA_FUSED_PADDED` and
+`TT_BIO_TRIATT_QK_MASK_PRELOAD` on Protenix-v2, 11 complexes x 4 seeds: the same-seed top-pose deviation
+has a median of 0.31 A on Wormhole and 0.10 A on Blackhole against the 0.60 A bar, while re-running
+with another seed moves it 0.8 A. Docking success and every confidence score are unchanged within
+their confidence intervals.
+
+**Speed** of that set on the Protenix-v2 730-token fold: 505.85 to 454.98 s on a Wormhole Galaxy
+chip at 1000 MHz (1.11x), 247.98 to 213.89 s on a Blackhole p150a at 1350 MHz (1.16x). The atom
+attention module alone goes from 29.1 to 9.9 ms per call on Wormhole and 15.4 to 4.7 ms on Blackhole.
+`TT_BIO_ATOM_SUPERSET_WINDOW=0` restores the windowed path.
+
+## `TT_BIO_ATOM_TILE_HEADS`, `TT_BIO_ATOM_KV_WINDOW`
+
+Default: on. Both write the identical structure.
+
+`TT_BIO_ATOM_TILE_HEADS` splits the superset path's query, key and value heads and merges the
+output without leaving tile layout, instead of a row-major pad and permute each way.
+`TT_BIO_ATOM_KV_WINDOW` acts when the atom attention runs as one fused kernel (`TT_BIO_ATOM_SDPA32`
+in normal mode, `atom_sdpa` under `--fast`): the kernel reads each block's keys, values and queries
+straight from the head tensor as sliding windows, so the five slices and the concat are gone.
+On a Wormhole chip it halves the fused call: 6.28 to 3.03 ms in fp32 and 3.08 to 1.46 ms in bf16.
+
+## `TT_BIO_ATOM_SDPA32`
+
+Default: on.
+
+Normal mode runs the atom attention in fp32 as four device calls: scores, scale plus bias, softmax,
+and the weighted sum of values. This flag runs all four as one fused fp32 attention kernel, the same
+recipe the diffusion transformer uses. It is inert in bf16, where `--fast` already fuses this site.
+
+**Accuracy: moves, closer to float64.** Against a float64 evaluation of the same operands the fused
+kernel reads rel_rms 0.0217, the four calls 0.0265. On Protenix-v2, 11 complexes x 4 seeds on
+Wormhole, the same-seed top-pose deviation has a median of 0.05 A against the 0.60 A bar and every
+paired metric's confidence interval covers zero.
+
+**Speed: 1.03x on the fold**, 450.58 to 436.39 s on the Protenix-v2 730-token fold on a Wormhole
+Galaxy chip at 1000 MHz (n=3 each, same chip). The atom attention call goes from 9.93 to 3.03 ms
+with `TT_BIO_ATOM_KV_WINDOW`. `TT_BIO_ATOM_SDPA32=0` restores the four calls.
+
+## `TT_BIO_BC2_IPA_EINSUM`, `TT_BIO_BC2_IPA_DIST_REMAT`
+
+Default: both on, BindCraft 2 only. They rewrite two statements of BindCraft 2's own
+`InvariantPointAttention.__call__`, which runs on the host CPU under JAX, not on the device.
+
+`TT_BIO_BC2_IPA_EINSUM` replaces the attended-point reduction
+`jnp.sum(attn[..., None] * x, axis=-3)`, run once per coordinate, with one einsum over the
+concatenated x/y/z. It is the same contraction written as a batched matmul, and it stops three
+`[N, N, heads, points]` f32 products being materialised in the forward and again in the backward.
+
+`TT_BIO_BC2_IPA_DIST_REMAT` wraps the point term of the IPA logits in `jax.checkpoint`. The q - k
+differences it builds are what the backward of `x*x + y*y + z*z` needs, so BindCraft 2's gradient
+stacks them through the structure module's `hk.scan`: about 51 MB a layer at 211 tokens. With the
+checkpoint only q, k and the head weights are kept and the differences are recomputed.
+
+**Speed: -0.42 s/iter on Blackhole**, 9.221 / 8.873 / 9.366 s/iter off/on/off against a 9.294 s
+off-mean, one p150a card at a 1350 MHz mean over 230 in-run samples, 30,343 ttnn calls in every arm.
+On a Wormhole Galaxy chip at 1000 MHz the grading pool read a 7.28 s/iter median off against 6.44 on.
+
+**Accuracy: the remat is bit-exact** (same operations on the same inputs). The einsum changes the
+summation order, so gradients move by 2e-7 to 1.5e-6 rel L2 and designs are graded, not compared:
+over three 30-trajectory batches of PD-L1 binder-80 campaigns the stack accepted 30/80 trajectories
+against 22/90 for the default, with last-trajectory i_pTM 0.574 against 0.518.
+
+## `TT_BIO_BH_DRAM_READ_SPLIT`
+
+Default: on, Blackhole only.
+
+A device kernel's DRAM read larger than 2 KiB is issued as reads of at most 2 KiB. On Blackhole a
+large DRAM read next to other cores' DRAM writes can lose its response and hang the chip; newer
+tt-metal releases work around it the same way (tenstorrent/tt-metal#59622), and the ttnn wheels
+tt-bio runs on predate the fix. tt-bio applies it by compiling kernels from a private copy of ttnn's
+headers with that one function patched, so the installed package is never edited.
+
+**Accuracy: identical.** The same bytes arrive, only in smaller pieces.
+
+`TT_BIO_BH_DRAM_READ_SPLIT=0` compiles against the stock headers. A `TT_METAL_RUNTIME_ROOT` you set
+yourself is respected and the patch is not applied.
+
+## `TT_BIO_BH_ETH_DISPATCH`
+
+Default: on when the installed ttnn supports it, on single-chip Blackhole boards (p150a) only. Stock ttnn
+does not support it, so after a plain `pip install` this flag does nothing.
+
+A Blackhole chip normally gives one column of Tensix cores to the command queue, so tt-bio computes on
+11x10 cores. With Ethernet dispatch the command queue runs on idle Ethernet cores and tt-bio gets all
+12 columns, 120 cores (+9.1 %). Stock ttnn 0.68.0 cannot fit the dispatch kernels in an Ethernet core's
+firmware region. A ttnn built with [`scripts/ttnn_bh_eth/build_wheel.sh`](../scripts/ttnn_bh_eth/build_wheel.sh)
+can: it builds tt-metal v0.68.0 with one patch, using the release wheel's toolchain, and labels the
+wheel `0.68.0+bh.eth2`, which tt-bio's `ttnn==0.68.0` pin accepts. At startup tt-bio reads the
+installed ttnn's Ethernet-kernel limit and uses Ethernet dispatch only when it is large enough.
+
+**Accuracy: unchanged on p150a.** With 120 cores some matmuls split differently, so a fold can come out
+slightly different from Tensix dispatch (Protenix-v2 at 730 tokens is byte-identical on 4 seeds; at 256,
+1024 and 1536 tokens it is not). Graded against ground truth on 11 complexes x 4 seeds, Ethernet and
+Tensix dispatch score the same: DockQ, lDDT, TM and pLDDT deltas all within noise, 32 of 44 docked with
+either. Repeated folds of the same input on p150a match exactly. On a p300c board it is not run-to-run
+deterministic: repeated normal-mode folds of one input differed on both chips (worst 0.73 A RMSD, over
+the 0.60 A bar), while Tensix dispatch matched 8 of 8. So on p300c it stays off unless you set
+`TT_BIO_BH_ETH_DISPATCH=1`.
+
+**Speed: 1.036x normal, 1.045x fast** on the Protenix-v2 730-token fold on a Blackhole p150a at
+1350 MHz: 130.46 to 125.89 s normal, 109.68 to 104.96 s fast (n=3 warm each, same chip). On a p300c
+chip, forced on: 1.030x normal, 1.057x fast. Wormhole is unaffected: a single Wormhole chip already
+dispatches on Ethernet.
+
+`TT_BIO_BH_ETH_DISPATCH=0` keeps Tensix dispatch.
+
 ## `TT_BIO_DEVICE_CONDITIONING`
 
-Default: on, Boltz-2 only.
+Default: on, Boltz-2 and BoltzGen.
 
 Boltz-2's diffusion conditioning reads the trunk's pair tensor three times, and upstream does all
 three on the host: the pairwise conditioner, the 24-layer token bias stack, and the atom encoder's
@@ -219,9 +448,14 @@ every host fold in it. Spread is 0.90 % on the device arm
 
 `TT_BIO_DEVICE_CONDITIONING=0` restores the host path and the previous coordinates.
 
-BoltzGen shares Boltz-2's `TrunkModule` but does not get this flag: it never asks the trunk to keep
-the pair tensor on the device, so it takes the same deallocate it always did. No other model
-reaches the pair track at all.
+BoltzGen runs the same device module: its trunk keeps the pair tensor on the card, and the rest of
+its atom conditioning reads the device's `[n, n, 16]` projection. Graded together with
+`TT_BIO_FUSE_BIAS_STACKS` as BoltzGen's design bar asks (confidence and filter metrics, since a
+design rollout decorrelates under any numeric change): 64 designs over 8 seeds on a Wormhole chip,
+filter pass 64 of 64 in both arms and every confidence change inside its 95 % interval around zero
+(design ipTM -0.005 [-0.030, +0.021], design pTM -0.006 [-0.025, +0.010]). A 512-residue design takes
+70.0 s instead of 76.2 s on a Wormhole chip at 1000 MHz; on a Blackhole p150a the change is inside
+the run-to-run spread. No other model reaches the pair track at all.
 
 ## `TT_BIO_DEVICE_CONFIDENCE`, `TT_BIO_DEVICE_CONF_HEADS`
 
@@ -293,9 +527,23 @@ work is a larger fraction of it.
 Setting either to `0` restores the host path for that half. No other model reaches the Boltz-2
 confidence head.
 
+## `TT_BIO_DEVICE_TILIZE`
+
+Default: on. Protenix-v2, and OpenDDE and PXDesign through the modules they share with it.
+
+A tensor between 4 MiB and 1 GiB that goes to or comes from the chip once per fold (the template
+and MSA features, the trunk pair, the confidence head's logits) is converted between row-major and
+tile layout on the chip instead of on the host. ttnn's host conversion is single-threaded and
+holds Python's GIL, so the chip used to sit idle through it. The conversion is a permutation either
+way, so the output is identical byte for byte. The chip briefly holds a second copy of the tensor,
+which is why larger tensors keep the host path.
+
+Measured together with `TT_BIO_HOST_LANE`; see that section for the numbers.
+`TT_BIO_DEVICE_TILIZE=0` converts every tensor on the host.
+
 ## `TT_BIO_DEVICE_ZINIT`
 
-Default: on, Boltz-2 only.
+Default: on for Boltz-2 and BoltzGen.
 
 Boltz-2 starts the trunk from `z_init`, a `[1, n, n, token_z]` pair tensor built by summing five
 per-`(i, j)` terms: two broadcasts of a `[1, n, c]` projection, the relative-position tables,
@@ -309,9 +557,12 @@ It is the same construction the confidence head does with different weights, so 
 through one `PairAssemblyDevice` and there is no second copy of the assembly.
 
 The flag declines rather than diverging: the device path needs the resident trunk to be the
-consumer, and it needs nothing else on the host to want the relative-position encoding it skips.
-BoltzGen's token-distance recycle does want it, so BoltzGen takes the host path and says so on
-stdout. Boltz-2 has no such module and templates do not read it.
+consumer. BoltzGen uses it on Blackhole too, through the same relative-position class; its
+token-distance recycle still builds the host encoding for its own features. Graded on Blackhole over
+eight seeds of the bg_R3 page fixture against exact normal mode: design pTM +0.025, ipTM +0.008,
+complex pLDDT -0.002, every design through the filter. On Wormhole it was graded with the rest of
+BoltzGen's normal set against `TT_BIO_LEVERS=none`, eight seeds: design ipTM +0.009 [-0.014, +0.031],
+design pTM +0.026, complex pLDDT +0.007.
 
 **Accuracy: not identical.** The device sums in bf16 where the host summed in fp32, and it sums in
 a different order. `cdk2x2_298` moves 0.264577 Å all-atom (CA 0.107924) against a 0.000000 Å A/A
@@ -377,9 +628,163 @@ token DiT inherits this default and has not been scored for it.
 Scope: RF3's token DiT builds this same block, so the default applies to RF3 as well as Boltz-2.
 The atom-level transformers take a different path and do not read the flag.
 
+## `TT_BIO_DIT_SHARED_COND`
+
+Default: on. Boltz-2 and BoltzGen.
+
+All diffusion samples of a fold share the noise level and the trunk output, so the token conditioning
+and every projection the diffusion transformer derives from it are one row repeated per sample. With
+equal times and one trunk row the step computes them once and broadcasts. **Accuracy: identical** (fold
+digest unchanged on 4 seeds). **Speed:** 158.0 to 152.1 s on the Boltz-2 730-token fold, Wormhole,
+1000 MHz. `0` restores the per-sample path.
+
+## `TT_BIO_ESMFOLD2_DEVICE_CONF`
+
+Default: on. ESMFold2 and ESMFold2-Fast.
+
+The confidence head's pair part (the pair norm, the outer product, its trunk, row pooling and the
+PAE/PDE logits) runs on the device from the trunk's resident pair, so the 512 x 512 pair is never
+downloaded and the head's float32 host work goes away: about 0.9 s off a 512-residue fold on
+Blackhole and 3 to 5 % of the fold on Wormhole. The [L, c]-sized inputs and the final softmax stay on the host.
+
+**Accuracy: moves, inside the bar.** The pair part runs in bf16 instead of host float32. Graded
+together with the device tail on 11 complexes x 4 seeds on Blackhole: ESMFold2 (normal bar)
+same-seed top-pose deviation median 0.48 A against a seed spread of 1.12 A, CA-lDDT -0.0000
+[-0.0008, +0.0009], docking success 30/41 in both arms; ESMFold2-Fast --fast (fast bar) median
+0.62 A against 1.40 A, docking success 24/44 in both arms. On Wormhole, 11 complexes x 4 seeds,
+both models pass the fast and the normal bar (ESMFold2 CA-lDDT +0.0034, docking 33/44 with and
+without it). `TT_BIO_ESMFOLD2_DEVICE_CONF=0` restores the host head.
+
+## `TT_BIO_ESMC_MM`
+
+Default: on for Wormhole, off for Blackhole. ESMC 300M and 600M embeddings.
+
+ESMC's bf16 projections over 2048 rows (a batch of 7 at 544 tokens) run on `minimal_matmul`
+instead of the core-grid linear. On a Galaxy chip a batch of 7 drops from 177.8 to 171.8 ms (300M)
+and from 272.0 to 253.3 ms (600M), with embeddings equal to the linear's. `--fast` loads block-fp8
+weights and keeps the linear; so does the ESMC-6B inside ESMFold2, whose projections stay under 2048 rows.
+A projection whose L1 destination `minimal_matmul` cannot place falls back to the linear. The SwiGLU's first
+half carries its SiLU as the matmul's fused activation, as the linear did, so it takes `minimal_matmul` too.
+
+## `TT_BIO_ESMC_QKV_SPLIT`
+
+Default: on. ESMC 300M and 600M embeddings.
+
+Attention computes q, k and v as three projections instead of one projection whose output is then
+copied three ways. Embeddings are identical. A batch of 7 at 544 tokens on a Galaxy chip: 300M
+176.9 -> 172.4 ms (--fast 168.2 -> 161.2), 600M 254.5 -> 252.0 ms; on a p150a 300M 74.5 -> 70.9 ms.
+The ESMC-6B inside ESMFold2 keeps the single projection: the three slices are a second copy of its
+weights. `TT_BIO_ESMC_QKV_SPLIT=0` restores the single projection.
+
+## `TT_BIO_ESMFOLD2_DEVICE_TAIL`
+
+Default: on. ESMFold2 and ESMFold2-Fast.
+
+The folding trunk's pair output stays on the device through the readout, the distogram
+symmetrisation and the diffusion conditioning; with `TT_BIO_ESMFOLD2_DEVICE_CONF` the confidence head
+reads it there too, otherwise it is downloaded once for the head.
+That removes one 512 x 512 pair download and three uploads per fold: 0.7 s off ESMFold2 and
+1.0 s off ESMFold2-Fast --fast at 512 residues (p300c, 1350 MHz); on Wormhole 4-6 s off a 5-sample fold.
+
+**Accuracy: moves, inside the bar.** The readout and the residual add run in bf16 instead of host
+float32. On 11 complexes x 4 seeds on Blackhole: ESMFold2 (normal bar) same-seed top-pose deviation
+median 0.48 A against a seed spread of 1.12 A, CA-lDDT -0.0023 [-0.0066, +0.0001], docking success
+30/41 in both arms; ESMFold2-Fast --fast (fast bar) median 0.62 A against 1.40 A, CA-lDDT +0.0014,
+docking success 24/44 in both arms. On Wormhole: ESMFold2 (folds --fast there, fast bar) median 0.26 A
+against 1.34 A, CA-lDDT +0.0002, docking 29/44 in both arms; ESMFold2-Fast (normal bar) median 0.27 A
+against 1.27 A, CA-lDDT +0.0000, docking 25 vs 24/44. `TT_BIO_ESMFOLD2_DEVICE_TAIL=0` restores the host
+tail.
+
+## `TT_BIO_ESMFOLD2_DIFFUSION_TRACE`
+
+Default: on. ESMFold2 and ESMFold2-Fast, both modes, both arches.
+
+The structure module's diffusion step is captured once per draw as a device trace and replayed for
+the remaining steps, so the host stops dispatching the step's ~930 ops one at a time. If the capture
+fails (the step outgrew the trace region), that draw runs every step eagerly.
+`TT_BIO_ESMFOLD2_DIFFUSION_TRACE=0` always runs eagerly.
+
+**Accuracy: identical.** Traced and eager folds write the same CIF.
+
+**Speed:** it pays where the step is bound by host dispatch, which is short chains. On a Blackhole
+p150a at 1350 MHz, warm median of 4 at 64 residues: ESMFold2-Fast `--fast` 2.03 -> 1.25 s, ESMFold2
+normal 2.65 -> 2.21 s. At 512 residues the step is bound by the device: 0 to 0.5 s saved on
+Blackhole, none on Wormhole (256 and 512 residues, 1000 MHz).
+
+## ESMFold2 `--fast` stack
+
+Default: on with `--fast` on Blackhole, off otherwise. ESMFold2 and ESMFold2-Fast. Setting any of
+the variables to `1` / `0` (or `TT_BIO_ESMFOLD2_OPM` to `kq` / `tile`) forces it either way.
+
+- `TT_BIO_ESMFOLD2_BIT_DRAW`: the LM-encoder dropout keep mask is drawn directly as packed bits on the
+  host instead of as floats that are then packed. Same keep probability, a different random stream.
+- `TT_BIO_ESMFOLD2_PAIR_INIT`: the initial pair representation is summed on the chip from its row,
+  column and relative-position parts, instead of built on the host in float32 and uploaded.
+  0.27-0.55 s per 512-residue fold.
+- `TT_BIO_ESMFOLD2_LM_COMBINE`: the ESMC-6B combines its per-layer states on the chip and hands over one
+  state instead of 81.
+- `TT_BIO_ESMFOLD2_OPM`: the outer product mean contracts with its output weights first (`kq`), which
+  avoids two tile reshapes per call. Used for MSAs up to 64 rows.
+- `TT_BIO_ESMFOLD2_ATOM_FFN_SPLIT`: the atom transformer's SwiGLU up-projection runs as two matmuls,
+  one per half of the weight, instead of one matmul and a split.
+- `TT_BIO_ESMFOLD2_RELPOS_LOOKUP`: relative positions come from a float32 table lookup on the host
+  instead of one-hot features through a device matmul.
+
+Together at 512 residues on Blackhole p300c (1350 MHz): ESMFold2 `--fast` 16.92 s, ESMFold2-Fast
+`--fast` 10.14 s.
+
+On Blackhole `--fast` also folds with the pair SwiGLU adding its residual inside the last matmul's
+float32 accumulator (lever `ws_resid`): 0.44 s off ESMFold2 and 0.19 s off ESMFold2-Fast at 512
+residues, graded inside the fast bar on 11 complexes x 4 seeds. Wormhole `--fast` takes it too, together
+with `trimul_gin_hifi2` (the gated trimul in-projection at HiFi2): graded as a pair on the fast bar on a
+Galaxy chip, 11 complexes x 4 seeds per model, ESMFold2 CA-lDDT -0.0004 [-0.0032, +0.0025] and
+ESMFold2-Fast -0.0002 [-0.0015, +0.0008], docking unchanged. On ESMFold2 at 512 residues they take
+1.1 s and 0.8 s off a Wormhole fold. Blackhole `--fast` takes `trimul_gin_hifi2` as well, plus
+`ws_lofi` (the pair SwiGLU at LoFi), graded as a pair on the fast bar, 11 complexes x 4 seeds per model:
+ESMFold2 CA-lDDT +0.0003 [-0.0012, +0.0023], ESMFold2-Fast +0.0016 [+0.0001, +0.0034], docking
+unchanged. At 512 residues on p150a (1350 MHz) `ws_lofi` takes 1.0 s off ESMFold2 and 0.24 s off
+ESMFold2-Fast, `trimul_gin_hifi2` another 0.28 s and 0.20 s. Wormhole leaves `ws_lofi` off (not graded
+there). Blackhole `--fast` also runs the triangle multiplication as T1 + T2 (`trimul_t1`, `trimul_t1_c256`,
+`trimul_t2`, `trimul_t2cm`), graded on the fast bar on 11 complexes x 4 seeds per model: ESMFold2 CA-lDDT
++0.0006 [-0.0001, +0.0014], ESMFold2-Fast -0.0009 [-0.0021, +0.0000], docking unchanged. It takes 0.26 s off
+ESMFold2 and 0.25 s off ESMFold2-Fast at 512 residues on p150a. Wormhole leaves it off, where it is 2.4 s slower. With
+`trimul_t1w8` (T1's weights held as bfp8, one launch at c_z 256) and `trimul_t1_2g` (T1 serves up to ~1152
+tokens) it takes another 1.04 s off ESMFold2 and 0.76 s off ESMFold2-Fast at 512 residues, graded on the same
+fast bar: ESMFold2 CA-lDDT -0.0006 [-0.0032, +0.0025], ESMFold2-Fast -0.0002 [-0.0007, +0.0001], docking unchanged.
+Blackhole normal mode runs the same six trimul levers, graded on the normal bar on 11 complexes x 4 seeds per
+model: ESMFold2 CA-lDDT -0.0009 [-0.0051, +0.0019], ESMFold2-Fast -0.0014 [-0.0033, +0.0002], top-pose deviation
+0.54 A and 0.58 A against 1.85 A and 1.64 A between seeds. At 512 residues on p150a it takes 1.68 s off ESMFold2 and
+0.96 s off ESMFold2-Fast, 2.3 s off ESMFold2-Fast at 1024.
+
+**Accuracy: moves, inside the fast bar.** On 11 complexes x 4 seeds on Blackhole, ESMFold2-Fast
+`--fast` against the same mode without the stack: CA-lDDT -0.0000 [-0.0003, +0.0002], TM-score
++0.0013, docking success 24/44 in both arms. ESMFold2 with the stack in normal mode clears the fast
+bar but not the normal one (CA-lDDT -0.0019 [-0.0050, -0.0001]), so normal mode does not take it.
+Wormhole does not take it yet (not graded there).
+
+## `TT_BIO_ESMFOLD2_SWA_WINDOW`
+
+Default: on. ESMFold2 and ESMFold2-Fast.
+
+The atom transformer attends over its 160-key sliding window with one windowed attention call
+instead of a dense band mask over every atom pair. Keys outside the window carry zero weight on
+both paths, so it is the same attention computed over about 26x fewer scores at 512 residues. A
+fold whose atom list has padding inside a window falls back to the dense band. It saves 0.82 s
+per 512-residue fold on ESMFold2 and 1.05 s on ESMFold2-Fast (Blackhole p300c at 1350 MHz).
+
+**Accuracy: moves, inside the bar.** The softmax reduces over fewer keys, so values round
+differently. On 11 complexes x 4 seeds on Blackhole: ESMFold2 same-seed top-pose deviation median
+0.83 A (seed spread 1.12 A), TM-score -0.012 [-0.030, +0.002], docking success 29/41 vs 30/41;
+ESMFold2-Fast TM-score -0.003 [-0.008, +0.001], docking success 24/44 in both arms. Both pass
+the normal and the fast bar. On a Wormhole Galaxy chip (11 complexes x 4 seeds): ESMFold2-Fast
+passes the normal bar (TM-score +0.001 [-0.003, +0.005], docking success 24/44 vs 23/44) and saves
+11.0 s per 5-sample fold; ESMFold2, which runs only in `--fast` on Wormhole, passes the fast bar
+(TM-score -0.004 [-0.012, +0.002], docking success 30/44 vs 31/44, ligand RMSD +3.1 A on average).
+`TT_BIO_ESMFOLD2_SWA_WINDOW=0` restores the dense band.
+
 ## `TT_BIO_FUSE_BIAS_STACKS`
 
-Default: on, Boltz-2 only.
+Default: on, Boltz-2 and BoltzGen.
 
 Boltz-2's diffusion conditioning builds a per-layer bias stack with one call per layer. This flag
 builds all of them in one pass instead.
@@ -388,6 +793,10 @@ builds all of them in one pass instead.
 control rather than on an algebraic argument. `cdk2x2_298` moves 0.218 Å all-atom against a 0.000 Å
 A/A floor and a 0.35 Å bar, and pLDDT moves 0.0026. `TT_BIO_FUSE_BIAS_STACKS=0` restores the
 per-layer stack and the previous coordinates.
+
+BoltzGen's three bias stacks (atom encoder, atom decoder, token transformer) take the same path and
+are graded with `TT_BIO_DEVICE_CONDITIONING` (see there). A Wormhole design takes 65.0 s instead of
+68.6 s.
 
 **Speed: 1.0085x on the fold.**
 
@@ -448,6 +857,32 @@ without losing much on the other. Worth 0.014 s on a 512 aa Blackhole fold, unde
 floor. It ships because it is free and bit-exact, not because the fold moves. Capped at 4: above
 that the kernel's multiply stage would need more DST slots than a 16-bit DST has to give it.
 
+## `TT_BIO_HOST_LANE`
+
+Default: on, Protenix-v2.
+
+Moves the host work the chip used to wait for onto one background thread, so the main thread keeps
+the chip fed: the trunk's host-only inputs (padding, template and MSA features, masks) are built
+while the chip runs the input embedder, the pair tensor the confidence head starts from is built
+during the diffusion, and each confidence sample's post-processing (expected PAE and PDE, pLDDT,
+pTM and ipTM) runs while the chip computes the next sample. The arithmetic and its order do not
+change, so the output is identical.
+
+**Speed, with `TT_BIO_DEVICE_TILIZE`:** a 730-token complex, warm folds, base and stack interleaved
+on one chip.
+
+| | normal | `--fast` |
+|---|---|---|
+| Wormhole, AICLK 1000 MHz | 274.5 s to 271.5 s (6 pairs) | 226.1 s to 220.0 s (4 pairs) |
+| Blackhole p150a, AICLK 1350 MHz | 135.2 s to 131.5 s (4 pairs) | 113.9 s to 110.5 s (4 pairs) |
+
+Outputs were compared fold by fold against the same tree with both flags off: eleven inputs at four
+seeds on Wormhole and twelve inputs on Blackhole. Every completed fold wrote the same structure. JapanFold serves one diffusion sample, which keeps the
+one-off savings (trunk inputs, confidence entry) and loses most of the per-sample overlap, so a
+served fold gains a little less than the table.
+
+`TT_BIO_HOST_LANE=0` runs every job inline, where it used to run.
+
 ## `TT_BIO_HOST_LEVERS`
 
 Default: on, Boltz-2 only.
@@ -455,6 +890,189 @@ Default: on, Boltz-2 only.
 Not an optimization of its own. It gates `TT_BIO_FUSE_BIAS_STACKS` and `TT_BIO_HOST_BLOCK_PAIRWISE` together, so `0` takes the pre-lever host path for both in one variable. Each flag still answers to its own name; this one is the AND in front of them.
 
 Bisecting a host-side result is what it is for: turn the group off, confirm the result moves, then put the members back one at a time.
+
+## `TT_BIO_LEVERS`
+
+Default: the graded set for the run's mode. Protenix-v2 and Boltz-2, each graded on its own.
+
+Protenix-v2 runs a few of its kernels with cheaper numerics than its reference path: the triangle
+multiplication's contraction in one block with its residual folded into the epilogue, the trunk's
+matmuls at HiFi3 instead of HiFi4, the diffusion transformer's fp32 attention as one fused kernel, and
+the transitions' SiLU as a shorter fp32 kernel accurate to a few float32 ulp, fused into the matmul,
+triangle attention's gate, output projection and residual add as one kernel, and on Wormhole the MSA
+outer product mean's contraction in K blocks of up to 6 tiles.
+Each was graded on its own and then all together, and only the combination that passed is on.
+`--fast` uses a larger set. `TT_BIO_LEVERS=none` runs the reference numerics; a comma list of names
+picks a set by hand (the names are listed in `tt_bio/tenstorrent.py`).
+
+**Accuracy: moves, inside the seed-to-seed spread.** On 11 post-cutoff complexes the same-seed top-pose
+deviation from the reference path has a median of 0.58 A on Wormhole (20 seeds, 220 pairs) and 0.55 A on
+Blackhole (4 seeds, 44 pairs), against a 0.60 A bar and a 0.75 to 0.76 A median between two seeds of the
+reference path itself. DockQ, CA-lDDT, TM, lRMSD, iRMSD, pLDDT and ipTM have confidence intervals
+reaching zero on both, and docking success goes from 165 to 169 of 220 on Wormhole and 32 to 35 of 44 on
+Blackhole.
+
+**Speed: 2.16x on the fold**, 501.4 to 232.6 s on the Protenix-v2 730-token fold (deep MSA, 5 samples,
+10 recycles) on a Wormhole Galaxy chip at 1000 MHz, warm folds; 121.4 s on a Blackhole p150a at
+1350 MHz. `--fast` takes 178.2 s on Wormhole and 99.1 s on Blackhole. These figures also contain
+the lossless changes shipped alongside the set.
+
+**Boltz-2** runs the same five normal-mode levers (triangle multiplication in one block with its lean
+epilogue, HiFi3 trunk matmuls, fused fp32 diffusion attention, the fp32 SiLU kernel), graded on its own
+11 complexes: on Wormhole the same-seed top pose moves 0.90 A median (4 seeds, 44 pairs) against a 1.78 A
+median between two seeds of the reference path, every paired confidence interval reaches zero and
+docking success is 24 of 44 on both. On the 730-token fold at 1000 MHz it takes 158.0 to 147.2 s.
+A lever graded only on Protenix-v2 does not reach Boltz-2.
+
+**RFD4** runs its trunk's pair transition and triangle-multiplication input projection with block-fp8
+weights and a bf16 matmul kernel, and runs the pair transition (`pair_block`) and the triangle
+multiplication's output (`pair_tail`) as one program each with the residual add into the fp32 pair stream,
+and forms each block's pair biases (`pair_bias_rms`) and writes the pair update (`pair_write_res`) as one
+program each, by default (`rfd4.trunk.NORMAL_LEVERS`). On 30 seed-matched 512-token binder designs against fp32 numerics
+the designed chain moves 7.2 A median against a 37.2 A seed-to-seed spread, with radius of gyration, bond
+outliers and clashes unchanged. The trunk takes 44.1 s a 512-token design on a Blackhole chip at 1331 MHz,
+against 57.9 s without the two fused programs and 64.3 s in fp32; the fused programs are 1.05x at 128 tokens
+and 1.24x at 256. The pair-bias and pair-write programs are a further 1.10x at 512 tokens (43.6 to 39.8 s,
+1337 MHz) and 1.06x at 256 in a paired measurement on one chip, graded on 31 designs with radius of gyration,
+bond outliers and clashes unchanged. The triangle multiplication's input kernel runs as one launch with block-fp8
+resident weights at HiFi2 and its gate sigmoid on the packer (`trimul_t1_psig`, `trimul_gin_hifi2`, `trimul_t1w8`):
+a further 1.09x at 512 tokens (40.6 to 37.2 s, 1318 MHz) and 1.08-1.13x from 160 to 640 tokens, paired on one
+chip; on 31 seed-matched 512-token designs the designed chain moves 7.3 A median against a 38.2 A seed-to-seed
+spread, with radius of gyration, bond outliers and clashes unchanged. Below 160 tokens, where that input kernel does
+not run, the output program still serves (`pair_tail_small`): 1.05x on the trunk at 128 tokens and 1.02x at 96, and a
+128-token design takes 5.40 s instead of 5.66 s (1347-1350 MHz). On 30 seed-matched 128-token designs the designed
+chain moves 0.03 A median against a 5.4 A seed-to-seed spread, with radius of gyration, bond outliers and clashes
+unchanged. From 288 tokens the triangle contraction runs on `bmm_res` at HiFi2 (`trimul_bres`,
+`trimul_bres_hifi2`, RFD4's set only): a 512-token design takes 39.8 s instead of 41.3 s (1.04x, 1331 MHz, 31 paired
+designs), the 384-token trunk 1.09x, 256 unchanged; the designed chain moves 2.2 A median against a 38.1 A seed-to-seed
+spread and the binder grade passes. The pair stream itself is bf16 between sublayers (`pair_bf16z`): outer_residual,
+`pair_tail` and `pair_block` read it and write it in place, rounding once per write, which takes a 512-token design
+from 37.6 to 30.3 s (1287-1325 MHz) with the trunk pass 1.22x faster at 512 tokens and 1.15x at 256; on 31
+seed-matched 512-token designs the designed chain moves 2.8 A median against a 38.6 A seed-to-seed spread and the
+binder grade passes. At 384 and 512 tokens `pair_tail` reads the contraction's channel-major output itself
+(`pair_tail_cm`), so the triangle no longer moves it back to the pair layout: bit-identical, the trunk pass 1.015x
+faster (1325-1350 MHz). At sizes whose tiles spread unevenly over the chip's cores (256, 288, 320, 352 and 448 tokens
+on a 110-core chip) it measured 1-6 % slower or no faster, so it steps aside there.
+The input kernel also writes its two projections in block-fp8 so the
+contraction reads half the bytes (`trimul_t1b8`, RFD4's set only): 26.48 to 25.76 s a 512-token design on the trunk
+(1.028x, 1350 MHz, paired), 1.018x at 384, 256 unchanged; the designed chain moves 2.24 A median against a 38.8 A
+seed-to-seed spread and the binder grade passes.
+With several designs a step (`pair_batch`), the triangle multiplication takes the whole sample batch in one call and
+picks its route on the batch's pair rows, so 16 designs of 128 tokens run the route one 512-token design runs, where
+they ran one call per design. At one design a step nothing changes. 128 tokens at width 16 goes from 4.34 to 2.27 s a
+design and 256 at width 4 from 12.25 to 7.82 s (1306-1331 MHz); the designed chain moves 0.07 A median at 128 and 1.9 A
+at 256 against 5.4 A and 24 A seed-to-seed, and the binder grade passes.
+The pair transition's two matmuls run at HiFi2 (`pair_block_hifi2`, RFD4's set only): the block-fp8 weights keep
+every bit and the bf16 activation loses its last mantissa bit. The 512-token trunk goes from 25.87 to 24.32 s a
+design (1.064x, 1350 MHz, paired) and 256 1.041x; the designed chain moves 5.1 A median against a 38.8 A
+seed-to-seed spread and the binder grade passes.
+The triangle multiplication's input kernel writes its gate in block-fp8 for the output kernel to read
+(`trimul_t1g8`), and the output kernel's projection runs at HiFi2 (`trimul_tail_hifi2`), both RFD4's set only. The
+512-token trunk goes from 23.84 to 23.17 s a design (1.029x, 1350 MHz, paired), 384 1.024x and 256 1.032x; the
+designed chain moves 2.45 A median against a 37.7 A seed-to-seed spread and the binder grade passes.
+The pair stream is stored in block-fp8 between sublayers (`pair_bfp8z`, RFD4's set only): every kernel that writes it
+rounds its fp32 sum to nearest into 16-value blocks sharing one exponent, so each read or write of the stream moves
+1088 bytes a tile instead of 2048. The 512-token trunk goes from 23.30 to 22.09 s a design (1.055x, 1318 MHz, paired),
+384 1.047x and 256 1.073x. This one trades precision for bytes: the pair stream's error against a float64 reference
+goes from 0.029 to 0.053 (relative RMS), and the designed chain moves 8.9 A median against a 37.5 A seed-to-seed
+spread with the binder grade passing. It applies when the design length is a multiple of 32; a padded length keeps
+the bf16 stream.
+The triangle multiplication's input kernel forms its gated projections in one matmul block and multiplies by the
+gate's sigmoid before rounding (`trimul_t1_fgate`, RFD4's set only). The 512-token trunk goes from 22.15 to 21.71 s a
+design (1.021x, 1350 MHz, paired), 384 1.022x and 256 1.036x; the pair stream's error against float64 is unchanged,
+and the designed chain moves 2.50 A median against a 39.1 A seed-to-seed spread with the binder grade passing.
+When several designs run as one batch, the triangle multiplication writes its contraction in block-fp8, the move
+back to channel-last order reads it so and writes block-fp8 too, and the output kernel reads that (`pair_x8`,
+`pair_x8t`, RFD4's set only). The 224-token trunk at batch 10 goes from 3.98 to 3.72 s a design (1.069x, paired,
+1293 MHz median), 192 1.064x and 256 1.076x; 384 and 512 run unbatched and do not change. The pair stream's error
+against float64 goes from 0.0536 to 0.0541, and the designed chain moves 2.46 A median against a 20.9 A seed-to-seed
+spread with the binder grade passing.
+A padded design (a length that is not a multiple of 32) masks only where tokens mix: the attention over keys and the
+triangle multiplication's two projections (`mask_at_mix`, RFD4's set only). Every other trunk op works per token or
+per token pair, so a pad cannot reach a real token through it, and the pads are zeroed once when the trunk returns.
+The padded call then runs the same fused kernels as an unpadded one. 620 real tokens in the 640 bucket go from 382 to
+202 ms a design per trunk pass (1.89x) and a whole design from 71.8 to 39.5 s (1.82x, 1250-1331 MHz); an unpadded
+length does not change. The pair stream's error against float64 goes from 0.0175 to 0.0195, and over 31 designs at
+620 tokens the designed chain moves 3.93 A median against a 25.7 A seed-to-seed spread with the binder grade passing.
+`TT_BIO_LEVERS=trimul_t1` restores fp32 numerics. The pair-transition matmul keys are reached
+only through RFD4's set, so no other model's linear changes kernel.
+
+Boltz-2's `--fast` is the shared fast set run on the normal path. The older block-fp8 fast path is off
+for Boltz-2 because it was slower than normal mode (159.7 s against 135.5 s on the 730-token fold). The
+fast set folds the same input in 123.4 s, and 168.3 s instead of 181.6 s at 1024 tokens (Wormhole,
+1000 MHz). Graded against normal mode on the same 11 complexes and 4 seeds: CA-lDDT +0.0018, pLDDT
+-0.0002, DockQ -0.004 with its interval reaching zero, docking success 24 of 44 in both modes, and a
+median same-seed top-pose deviation of 1.29 A against 1.70 A between two seeds of normal mode.
+
+**RoseTTAFold3 and BoltzGen** take a lever set per mode too, pinned by name in each model so a lever added to the
+shared sets later does not reach them ungraded. RoseTTAFold3 runs the trunk kernels OpenFold3 graded (same
+Pairformer) in both modes on both archs, with one difference per arch in how the triangle multiplication moves its
+channels (`tt_bio/rf3/model.py`). On Wormhole, over 66 paired folds of 11 complexes, normal mode moves the top pose
+0.23 A median (a different seed moves it 3.0 A), CA-lDDT and docking success are unchanged, and a 512-aa fold on a
+Galaxy chip at 1000 MHz drops from 55.2 to 38.1 s. On Blackhole, over 32 paired folds of 8 complexes, the top pose
+moves 0.21 A median (2.5 A between seeds), CA-lDDT and docking success are unchanged, and a 512-aa fold on a p150a
+at 1350 MHz drops from 27.5 to 22.2 s. `--fast` adds the shared fast set's precision levers without the three
+triangle-multiplication ones. Against that set alone, the trunk kernels move the Wormhole top pose 0.23 A median
+over 44 paired folds (2.8 A between seeds) and take a 512-aa fold from 48.1 to 36.1 s; on Blackhole 0.25 A over 32
+paired folds (2.6 A between seeds), CA-lDDT and docking unchanged. BoltzGen's normal
+mode runs the shared normal set and its `--fast` set is the shared fast set without `dit_sdpa_pm`, plus
+`adaln_mod` and `dit_cond_hifi2`. Design outputs at a fixed seed decorrelate under any numeric change, so BoltzGen
+is graded on design confidence and filters, 8 designs per seed against the exact normal path: normal over 64
+designs (8 seeds) keeps every confidence change inside its 95 % interval with 64 of 64 passing the filters,
+`--fast` the same over 56 designs. On a Wormhole chip at 1000 MHz the normal set takes a 512-aa design from
+61.2 to 58.0 s. Their older block-fp8 fast path was slower than normal mode at 512 aa
+(Blackhole p150a, 1350 MHz: RoseTTAFold3 54.4 s against 45.2 s, BoltzGen 44.5 against 38.4 s per
+design), because the fused triangle-attention and channel-move kernels refuse block-fp8 operands and
+the fold fell back to the stock ops.
+
+**ESMFold2 and ESMFold2-Fast** with `--fast` keep only the ESMC-6B language model's weights in block-fp8,
+which halves its resident memory (12.8 to 6.4 GB) and is what lets it stay loaded on a 12 GB Wormhole
+chip. The fold runs under the normal lever set (`tenstorrent.NORMAL_LEVERS`) plus `trimul_b8in`, which writes the
+triangle multiplication's in-projection in block-fp8. That addition was graded against `none` on the fast bar on
+Blackhole (11 complexes x 4 seeds): ESMFold2 CA-lDDT +0.0021 [-0.0006, +0.0061], median same-seed
+top-pose deviation 0.44 A where a different seed moves it 1.12 A, docking success 30/41 in both arms; ESMFold2-Fast
+CA-lDDT +0.0012 [-0.0026, +0.0059], 0.92 A against 1.40 A, 24/44 in both. It takes about 1 s off ESMFold2's 512 aa
+`--fast` fold (p300c, 1350 MHz: 27.8 against 28.8 s). Normal mode ships that set without
+`trunk_hifi3`, so the trunk matmuls stay HiFi4: against `none` on ESMFold2-Fast (44 paired folds) it moves CA-lDDT
+by -0.0006 [-0.0022, +0.0006] and TM-score by +0.0007, docking success 24/44 on both, median same-seed top-pose
+deviation 0.93 A where a different seed moves it 1.40 A, and the 11 folds take 9 % less time. The full set fails
+the normal bar on ESMFold2-Fast (TM-score -0.005, 95 % CI excludes zero), while against the fast bar it passes (11 complexes x 4 seeds, 44 paired folds against `none`: CA-lDDT +0.0009
+[-0.0019, +0.0044], pLDDT +0.0007, docking success 25/44 against 24/44, median same-seed top-pose deviation
+0.61 A where a different seed moves it 1.40 A). On a p300c chip at 1350 MHz it takes 2.6 s off ESMFold2's
+512 aa fold and 1.1 s off ESMFold2-Fast's. The older path also ran the
+trunk in block-fp8, where the triangle multiplications lost their fused in-projection: at 512 aa on a
+Blackhole p150a (1350 MHz) ESMFold2-Fast took 30.2 s with `--fast` against 25.7 s without. It now takes
+24.5 s, and on a p300c chip `--fast` and normal mode fold within 0.7 s of each other.
+On Wormhole both models keep the older `--fast` path and fold under the normal set (without `trunk_hifi3`) in
+both modes. Graded against no lever set on a Galaxy chip
+(11 complexes x 4 seeds): ESMFold2-Fast passes the normal bar, CA-lDDT +0.0014 [-0.0007, +0.0045], TM-score
++0.008, docking success 24 -> 25 of 44, median same-seed top-pose deviation 0.73 A where a different seed moves it
+1.40 A; ESMFold2, which runs only in `--fast` on Wormhole, passes the fast bar, CA-lDDT -0.0050 [-0.0101,
+-0.0010], pLDDT -0.005, docking success 30 -> 29 of 43, median same-seed top-pose deviation 0.64 A where a different
+seed moves it 1.26 A. A 512-residue ESMFold2-Fast fold takes about 50 s instead of 53 s at 1000 MHz.
+
+**OpenFold3 and OpenBind-0** run the normal set without the two transition levers, plus the trunk kernels of
+their `--fast` set: `trimul_t1`, `trimul_t2`, `transition_ws`, `ws_l1dest`, `triatt_ln` and `edm_device`
+(`trimul_t2cm` on Blackhole, `trimul_bres` and `atom_l1` on Wormhole). Graded against the normal set before them on
+11 complexes x 4 seeds, both models pass the normal bar on both parts. On Blackhole (p300c) OpenFold3's median
+same-seed top-pose deviation is 0.69 A where a different seed moves it 1.21 A, docking success 18 -> 20 of 44, and
+OpenBind-0's 0.52 A against 1.90 A, 26 -> 28 of 44; a 512-residue fold at 1350 MHz takes 9.7 s instead of 11.4 s
+(OpenFold3) and 11.5 s instead of 12.7 s (OpenBind-0). On a Wormhole Galaxy chip at 1000 MHz both go from 25.2 to
+20.0 s.
+
+OpenFold3's normal mode also runs the diffusion transformer in bf16 (`dit_s16`, `diffusion_bf16`), fused and with its
+per-step tensors in L1 (`dit_fuse`, `dit_l1`). It passes the normal bar on both parts: 0.43 A against a 0.98 A seed
+floor on Wormhole; on Blackhole 0.81 A against 1.21 A for the bf16 step and 0.29 A against 1.58 A for the fused one,
+docking success unchanged or better. The fused step cuts a Blackhole fold by 10-13 % up to about 610 tokens; above
+that the chip has no L1 room for it and the gain is within a few percent.
+OpenBind-0 failed the same grade on Wormhole (CA-lDDT -0.0012 [-0.0020, -0.0006]) and keeps the fp32 diffusion
+transformer in normal mode.
+
+Their `--fast` set adds the bf16 diffusion transformer for OpenBind-0, lower-precision diffusion-transformer kernels
+for both and LoFi transition matmuls on Blackhole. The bf16 step alone, graded against normal mode on Blackhole (44
+paired folds per model): OpenFold3's median same-seed top-pose deviation is 0.40 A where a different seed moves it
+1.02 A, CA-lDDT -0.0019, docking success 18 -> 19 of 44; OpenBind-0 moves 0.21 A against 1.90 A, CA-lDDT -0.0017,
+docking success 26 of 44 in both.
 
 ## `TT_BIO_LNBW_FUSED`
 
@@ -477,8 +1095,9 @@ gradient kernels its round is measured with. The gradient is closer to float64 t
 path's: dx rel L2 1.81e-3 against 3.84e-3 on the same bf16 operands, and nearer float64 on every
 block of the teacher-forced float64 VJP (`perf/bcx_afgrad/vjp_n288_bcp_lnbw_{off,on}.json`). A
 float32 cotangent declines, because there the composed path is exact float32 (1.5e-4) and the
-kernel's FPU stages read TF32 (1.3e-3). On Wormhole it declines (reason `arch`): it was graded
-and device-tested on Blackhole only. `TT_BIO_LNBW_FUSED=0` is the way back. At the BindCraft 2
+kernel's FPU stages read TF32 (1.3e-3). On Wormhole it was graded with the round kernels, as a
+stack (see [BindCraft 2 round kernels](#bindcraft-2-round-kernels)), and passes its device test on a
+Galaxy chip. `TT_BIO_LNBW_FUSED=0` is the way back. At the BindCraft 2
 round it is worth 5.969 to 5.186 s on a qb2 p300c chip (1.151x, six arms alternated, AICLK 1350).
 
 ## `TT_BIO_MM_LAYOUT`
@@ -554,6 +1173,77 @@ this flag is worth more on the reference fixture than on a deep-MSA target.
 
 Boltz-2's MSA module and trunk read the ladder, and BoltzGen reaches it through the trunk it shares.
 Protenix-v2, OpenFold3 and RF3 have their own MSA modules and do not read it.
+
+## MSA module flags
+
+`TT_BIO_OPM_JOIN_PARTS`, `TT_BIO_OPM_PROJ_BATCH`, `TT_BIO_PWA_FUSED_HEADS`, `TT_BIO_PWA_UNPADDED`. Default: on.
+
+These four make the MSA module do the same arithmetic in fewer, larger device calls.
+
+* `TT_BIO_OPM_JOIN_PARTS`: when the MSA arrives in depth chunks, the outer product mean used to
+  contract each chunk separately and add the partial pair tensors in bf16. It now joins the chunks'
+  projections and runs one contraction over the full depth, accumulated in fp32. If the joined
+  projections do not fit in device memory it falls back to the per-chunk sum.
+* `TT_BIO_OPM_PROJ_BATCH`: the outer product mean's output projection runs as a batch of row blocks
+  instead of one matmul with several hundred thousand rows. Same bytes out.
+* `TT_BIO_PWA_FUSED_HEADS`: pair-weighted averaging projects, averages and gates all heads at once
+  and sums the heads inside the output projection, instead of looping over heads and adding their
+  outputs in bf16. Against a float64 reference on random inputs the fused sum's relative error is
+  3.8e-3 and the loop's 6.0e-3 for Boltz-2's 8 heads of width 32, 3.8e-3 and 5.7e-3 for Protenix-v2's
+  (`tests/test_pwa_fused_heads_accuracy.py`). Boltz-2 runs this path too, so its output moves as well.
+* `TT_BIO_PWA_UNPADDED`: the fused heads without padding each head to a full 32-wide tile, which
+  matters for narrow heads (Protenix-v2 uses 8 heads of width 8).
+
+**Accuracy: moves, inside the normal-mode bar.** The join and the fused heads round the sums
+differently (once in fp32 rather than repeatedly in bf16), so the structure is not byte-identical.
+The projection batch alone is byte-identical. Graded on Protenix-v2 on a Wormhole Galaxy chip
+against the exact build: 11 complexes with deposited structures, 4 seeds each, 43 of 43 folds
+finite. Median top-pose deviation from the exact build 0.209 A, against a 0.60 A bar and 0.81 A
+between two exact runs at different seeds. DockQ, lDDT, TM-score, pLDDT and ipTM differences all
+have confidence intervals covering zero; 32 of 43 folds dock in each build. One complex (9W89)
+lands in either of two binding poses that are both wrong (DockQ under 0.07); over eight seeds the
+exact build picks the far one 2 times and the flagged build 4 times (Fisher p = 0.61), which is
+what moves its ligand RMSD.
+
+**Speed, Protenix-v2, 730 tokens, MSA depth 9,947, warm folds:**
+
+| | flags off | flags on | |
+|---|---|---|---|
+| Wormhole Galaxy chip, 1000 MHz | 506.91 s | 462.31 s | 1.096x |
+| Blackhole p150a, 1350 MHz | 242.92 s | 231.19 s | 1.051x |
+
+Wormhole gains more because its MSA module is a larger share of the fold. Boltz-2 and OpenFold3
+build the same pair-weighted averaging and outer product mean and reach these flags; their structures
+move by the same kind of rounding but have not been graded separately here.
+
+## `TT_BIO_PWA_FULL_HEADS_FUSED`
+
+Default: on. Boltz-2.
+
+The 32-wide-head case of the pair-weighted averaging above, Boltz-2's 8 heads of 32. There is
+no padding to drop, so the fused path moves the same bytes with a tile transpose where the unpadded
+path pays two general permutes. Its row blocks sit on whole tiles. Bit for bit; together with
+`TT_BIO_DIT_SHARED_COND` the Boltz-2 730-token fold goes from 158.0 to 146.0 s on a Wormhole Galaxy
+chip at 1000 MHz, and the whole-tile row blocks took it from 174.9 to 158.0 s before that.
+
+## `TT_BIO_OPM_SMALL_DEPTH`
+
+Default: on. `TT_BIO_OPM_SMALL_DEPTH_MAX` sets the depth limit (default 8).
+
+With an MSA of 8 rows or fewer, the outer product mean folds its output projection into one of its
+two inputs and never builds the full outer product. At depth 1 that is 32x less arithmetic and
+skips a pair-sized intermediate. Deeper alignments keep the original form, which is cheaper there.
+
+**Accuracy: moves, inside the bar.** The sum is reassociated, so the output is not byte-identical.
+Against a float64 evaluation of the same operands its error is 1.02x the original's. On AF2-IG
+(three PD-L1 binder complexes, 195 tokens) the all-atom deviation from the original form is
+0.02 to 0.25 A and ipTM moves by at most 0.0005. Per complex it saves 1.1 s on a p150a
+(5.63 to 4.54 s at 1350 MHz) and 6.4 s on a Wormhole Galaxy chip (16.16 to 9.73 s at 1000 MHz).
+Set `TT_BIO_OPM_SMALL_DEPTH=0` to get the original form.
+
+`TT_BIO_OPM_SMALL_DEPTH_BMM` (default on) spreads the per-row contraction of this form over the
+whole core grid. The output is identical. On AF2-IG it saves 0.12 s per complex on Wormhole (4.15
+to 4.04 s at 1000 MHz) and 0.04 s on a p150a (2.63 to 2.59 s at 1350 MHz).
 
 ## `TT_BIO_OPM_LEGACY_LAYOUT`
 
@@ -709,6 +1399,18 @@ past about 2500 tokens: Nesso-1 affinity at 3072 tokens runs the same speed with
 and at 3584 tokens it takes 741 s instead of 5166 s, with the same affinity. `0` on either flag
 restores the host join for that part.
 
+## `TT_BIO_PAIR_TRANSPOSE_FUSED`
+
+Default: on. Writes the identical structure.
+
+Swapping the i and j axes of a pair tensor, which the ending-node triangle ops do, went through a
+row-major round trip. This flag does it as one move kernel. On Protenix-v2's [736, 736, 256] bf16
+pair it takes 9.66 to 3.16 ms on a Wormhole chip at 1000 MHz and 5.16 to 1.82 ms on a Blackhole
+p150a at 1350 MHz, and saves 7.7 s on the 730-token fold on Wormhole (458.21 to 450.52 s, same
+chip, same digests). `TT_BIO_PAIR_TRANSPOSE_SPLIT` sets how many output tiles per unit the reader
+rearranges (default 8, the fastest on both architectures; 0 is the unsplit kernel).
+`TT_BIO_PAIR_TRANSPOSE_FUSED=0` restores the round trip.
+
 ## `TT_BIO_PWA_BATCH_HEAD_WEIGHTS`
 
 Default: on.
@@ -749,6 +1451,23 @@ consistent with the optimization never having run. Every fold is recorded with t
 and per-head projections it actually made: 16 on Boltz-2, 30 on Protenix-v2, 12 on OpenFold3, and
 zero in every arm that had the flag off.
 
+## `TT_BIO_QKV_MM_RAGGED_M`
+
+Default: on.
+
+The swept block configs for the attention projections are only applied when the activation and the
+weight divide evenly into the block they were swept at. The row guard is the one that costs
+something: a token count that is not a multiple of 32 declines the config and runs the op's own
+default, which folds a 4-tile contraction in blocks of 8. AF2-IG's 195 tokens is the case that hits
+it, and on Wormhole it cost 473 us on the qkv projection and 324 us on the gate, 416 times per fold.
+The flag drops that one guard for AF2's two triangle attentions and nowhere else.
+
+**Accuracy: identical for AF2-IG.** A/B/A over three PD-L1 binder complexes reads CA RMSD 0.0000 A
+on both parts. It saves 0.12 s per complex on both parts: Wormhole 4.32 to 4.19 s at 1000 MHz,
+p150a 2.54 to 2.42 s at 1350 MHz. It is not identical everywhere: OpenFold3 and OpenBind-0 also fold
+some targets at a ragged token count, and with the guard dropped their structures moved, so they
+keep it.
+
 ## `TT_BIO_REBLOCK_PERMUTE_GATED`
 
 Default: on.
@@ -758,6 +1477,19 @@ A triangle multiplication moves its pair tensor into a channel-blocked layout, t
 **Accuracy: bit for bit.**
 
 Every triangle multiplication opts in rather than being switched on by model name, so a model whose shapes the fused reader cannot address keeps the separate ops instead of failing.
+
+On Wormhole the fused move also covers pair tensors in DRAM below 256 tokens (BindCraft 2 and AF2-IG at 195 and 224), which takes BindCraft 2's on-card iteration from 5.34 to 5.02 s with bit-identical gradients. On Blackhole the plain moves open at 224 tokens too, the size BindCraft 2 runs at, where they are up to 2.9x faster than the stock ops and bit for bit the same. `TT_BIO_REBLOCK_DRAM_FILL_GATED=0` (fused leg) and `TT_BIO_REBLOCK_DRAM_FILL=0` (plain moves) restore the 256-token edge.
+
+## `TT_BIO_RF3_DIFFUSION_TRACE`
+
+Default: on. RoseTTAFold3 captures its denoising step as a device trace and replays it for each of the 49
+steps, so the host stops dispatching the step's ~1,600 ops one at a time. `TT_BIO_RF3_DIFFUSION_TRACE=0` runs
+the steps eagerly.
+
+**Accuracy: identical.** Traced and eager folds give the same output.
+
+**Speed:** on a Blackhole p150a at 1350 MHz the 49 steps of a 512-aa fold take 1.6 s instead of 3.6 s, and the
+fold 28.0 s instead of 30.1 s.
 
 ## `TT_BIO_RESIDUAL_L1`
 
@@ -889,6 +1621,28 @@ Nesso-1 run their trunk at 4 heads and get the full reach. Sites that run triang
 fp32 (`Fp32TriangleAttention`, and the `fp32_softmax` branch that reaches `_tri_att_sdpa_hifi`)
 never consult this flag.
 
+## `TT_BIO_SDPA_FUSED_PADDED`
+
+Default: on.
+
+Some token counts have no chunk size the fused triangle-attention kernel can split them into. 736
+padded tokens is 23 tiles, a prime, so every dividing chunk is either one tile or the whole
+sequence, and neither fits. Those calls fell to the stock attention, which re-reads the pair bias
+once per row of the pair tensor. The fused kernel can also run a chunk that leaves a padded tail,
+filling the tail with -inf exactly as the stock op does, and then reads the bias once per core.
+This flag offers that pair once per call, right before the first stock rung, so a length that is
+served fused today never reaches it.
+
+**Speed: 2.16x on the attention op** at Protenix-v2's 730-token call on a Wormhole chip at
+1000 MHz, 41.72 to 19.36 ms, measured per op. With the mask preload and one even key chunk the call
+takes 15.45 ms on Wormhole and 6.91 ms on Blackhole (stock 21.42 ms). The fold-level number is under
+`TT_BIO_ATOM_SUPERSET_WINDOW`, which was measured and graded together with this flag.
+
+**Accuracy: not bit-exact**, because the chunking sets the online-softmax order. Against an fp32
+evaluation of the same bf16 operands the padded pair reads rel_rms 0.0226 against the stock op's
+0.0223. The fold-level grade is under `TT_BIO_ATOM_SUPERSET_WINDOW` (passed on both
+architectures). `TT_BIO_SDPA_FUSED_PADDED=0` restores the stock rungs.
+
 ## `TT_BIO_SDPA_GRID_Q_CHUNK`
 
 Default: on.
@@ -982,6 +1736,24 @@ set the memory limit: 576 aa runs out of memory at the same allocation with it o
 `perf/of3t_p10exact/smbw32_off_is_main.py` asserts that the off path reaches `ttnn.sum` with
 exactly the arguments the pre-flag backward used, so `=0` is the old behaviour and not an
 approximation of it.
+
+
+## `TT_BIO_SWIGLU_GATE_LEGACY`
+
+Default: on for Blackhole, off for Wormhole. ESMFold2 only.
+
+The gate of ESMFold2's pair transition, `silu(h1) * h2`, runs on ttnn's older binary multiply,
+which applies the SiLU without re-initialising the op for every tile. It costs 0.101 ms per
+32-row block at 512 residues instead of 0.144 ms, and folds 1.1 s faster on ESMFold2 and 0.7 s
+faster on ESMFold2-Fast (p150a at 1350 MHz). ESMC's own language-model blocks keep the default
+multiply: there it measured no faster and further from float32.
+
+**Accuracy: moves, inside the bar.** The two multiplies round differently. On 11 complexes x 4
+seeds on Blackhole, against the shipped normal set: ESMFold2 same-seed top-pose deviation median
+0.35 A (seed spread 1.40 A), CA-lDDT -0.0027 [-0.0075, +0.0002]; ESMFold2-Fast CA-lDDT +0.0021,
+TM-score +0.0010, docking success 24/44 in both arms. It has not been graded on Wormhole, so
+Wormhole keeps the default multiply unless `TT_BIO_SWIGLU_GATE_LEGACY=1` is set.
+`TT_BIO_SWIGLU_GATE_LEGACY=0` restores the default multiply on Blackhole.
 
 ## `TT_BIO_TOKEN_BUCKET`
 
@@ -1110,7 +1882,7 @@ the forward and the backward: `fast` (checkpoint each block), `lean` (also each 
 inside a block, so every block's forward runs once more a round) and `offload` (`lean`, with the
 pinned block inputs in host memory between forward and backward). `auto` keeps every fold that
 fits in `fast` there and moves to a slower mode only where `fast` would refuse, from a measured
-ladder per board: on a p150a it runs `fast` up to 672 tokens and `lean` from 704 to 864, and on
+ladder per board: on a p150a it runs `fast` up to 672 tokens, `lean` from 704 to 1184 and `offload` from 1216 to 1536, and on
 one Wormhole Galaxy chip it is what carries 544 to 864 tokens. The modes compute the same values: `lean` and `offload` are bit-identical to each
 other and 0.0035 rel L2 from `fast`. On Wormhole, `lean` costs 10.6 % a round at a fixed axis and
 `offload` rounds run 3.3-4.4x the 512-token `fast` round at 768 to 864 tokens, AICLK 1000. 896
@@ -1221,6 +1993,55 @@ a performance case. It declines nothing at the sizes that matter: 560 fused call
 `perf/b2z2_size_ladder/out/ladder_guard_bh_c0.json`).
 
 **Speed:** the largest of the three. 1.02491x on the pairformer block by itself.
+
+## `TT_BIO_TRIATT_QK_MASK_PRELOAD`
+
+Default: on.
+
+The fused triangle-attention kernel adds the pair bias to the scores in a separate pass over the
+score block, after the QK^T matmul has written it. With this flag the kernel copies the bias tiles
+into the destination registers first and lets the matmul accumulate onto them, so the scores are
+written once with the bias already in. That pass cost 1.17 ms of a 6.55 ms op in an ablation. Only
+the persistent-mask kernel uses it, and only where the add would run on every key chunk.
+
+**Accuracy: not bit-exact.** The score plus bias is rounded once instead of twice. Graded on the
+fold together with the other attention flags, see `TT_BIO_ATOM_SUPERSET_WINDOW`.
+
+**Speed:** 8-11 % on the triangle-attention op on Wormhole at every length measured (736 tokens:
+17.17 to 15.85 ms at 1000 MHz); nothing measurable on Blackhole (6.85 vs 6.83 ms).
+
+## `TT_BIO_TRIMUL_GIN_RAGGED`
+
+Default: on for Wormhole, off for Blackhole until it is graded there.
+
+AF2's triangle multiplication has a biased input projection and a pair grid that is not a whole
+number of tiles (195 tokens for AF2-IG). This flag runs the projection, its gate and the channel move
+as one kernel per channel chunk instead of a biased matmul followed by two gated moves. It only
+applies in normal mode on such grids, so models that pad their token axis to 32 never take it.
+
+**Speed:** AF2-IG on one Wormhole chip, 5.04 to 4.77 s per complex (12 folds per arm, with a
+trailing control arm).
+
+**Accuracy: moves, far inside the bar.** The bias is added in fp32 before the result is packed.
+Across three PD-L1 complexes ipTM moves by at most 0.002 and pLDDT by at most 0.0005.
+
+## `TT_BIO_TRIMUL_PER_CHANNEL`
+
+Default: on, up to 256 tokens, on both Wormhole and Blackhole.
+
+At up to 8 sequence tiles (256 tokens) the triangle multiplication's channel product gives every
+core a single output tile and loops it over all channels, which leaves part of the chip idle. This
+flag gives each core whole channels instead. The K blocking is unchanged, so the output is
+bit-identical. If the larger blocks do not fit beside what is already in L1, that length falls back
+to the old plan.
+
+**Speed:** the product at 195 tokens takes a quarter of the time (0.40 to 0.10 ms per 64-channel
+chunk). AF2-IG on one Wormhole chip, 4.65 to 4.45 s per complex at 1000 MHz.
+On Blackhole the 128-channel product at 224 tokens drops from 0.25 to 0.11 ms. At 288 and 320
+tokens it is no faster there, so the default stops at 256; `TT_BIO_TRIMUL_PER_CHANNEL=1` takes it
+wherever it fits.
+
+**Accuracy: identical.** Same coordinates, bit for bit, on three PD-L1 complexes.
 
 ## `TT_BIO_TRIMUL_FUSED_GOUT`
 
@@ -1600,11 +2421,11 @@ neither reads this flag.
 
 ## `TT_PROTENIX_CONF_DEVICE`
 
-Default: off, Protenix-v2 and OpenDDE.
+Default: on. `TT_PROTENIX_CONF_DEVICE=0` runs the heads on the host.
 
 The sample-invariant pair base is built once on device and only the pae/pde/pLDDT logits come back, so per sample the host uploads coordinates rather than a pair tensor. On a many-sample run that is most of the confidence head's host time.
 
-**Off by default because pLDDT is the precision-sensitive output here.** The host path already sits at PCC ~0.93 against the reference and the device einsum runs bf16, so this is a lever that spends accuracy on the one number least able to give it. The coordinates do not change either way, so turn it on when confidence time matters and the confidence scores do not.
+It matches the host path: on a 730-token Protenix-v2 fold on Wormhole every sample's pLDDT agrees to 1e-4 and pTM and ipTM to 2e-4, and a warm fold is 16 s shorter (368 against 384 s at 1000 MHz). On the 11-complex benchmark set at four seeds each, per-complex pLDDT moves by at most 0.003 and docking success is unchanged (33 of 44 both ways). Coordinates do not change either way. OpenDDE graded the same way: coordinates unchanged, CA-lDDT +0.0009 and docking success 25 to 26 of 44, and a warm 256-residue fold is 3.3 s shorter (81.5 against 84.8 s).
 
 It feature-detects the ops it needs and stays off on a ttnn that lacks one, so setting it on an older runtime is a no-op rather than a crash.
 

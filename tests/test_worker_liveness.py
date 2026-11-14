@@ -241,3 +241,77 @@ def test_arm_orphan_guard_ignores_a_stale_var(monkeypatch):
     dl.arm_orphan_guard()
     assert dl._ARMED is False
     assert signal.getsignal(signal.SIGTERM) is before, "guard must not touch SIGTERM disposition"
+
+
+_WEDGED_WORKER_PARENT = """
+import multiprocessing as mp, os, signal, sys, time
+sys.path.insert(0, {repo!r})
+
+
+def worker(armed):
+    from tt_bio.device_lease import install_parent_death_guard
+    install_parent_death_guard(int(os.environ["TT_BIO_PARENT_PID"]), kill_after_s=1.0)
+    # A worker's handler, as run_worker_loop installs it, and then the wedge: a call stuck
+    # in C never returns to the interpreter, so a pending SIGTERM never takes effect.
+    signal.signal(signal.SIGTERM, lambda *a: sys.exit(0))
+    signal.pthread_sigmask(signal.SIG_BLOCK, {{signal.SIGTERM, signal.SIGINT}})
+    with open(armed, "w") as f:
+        f.write(str(os.getpid()))
+    time.sleep(120)
+
+
+if __name__ == "__main__":
+    from tt_bio.device_lease import orphan_guard_env
+    os.environ.update(orphan_guard_env())
+    mp.get_context("spawn").Process(target=worker, args=({armed!r},)).start()
+    time.sleep(120)     # `timeout` kills us here
+"""
+
+
+def test_wedged_worker_dies_after_timeout_kills_its_cli(tmp_path):
+    """2026-11-13: `timeout ... tt-bio predict` killed the CLI; its spawn worker, wedged in
+    the bring-up dispatch probe, ignored the SIGTERM and held card 3 for 1 h 48 min."""
+    armed = tmp_path / "armed"
+    script = tmp_path / "parent.py"
+    script.write_text(_WEDGED_WORKER_PARENT.format(
+        repo=str(Path(__file__).resolve().parents[1]), armed=str(armed)))
+    proc = subprocess.Popen(["timeout", "-s", "TERM", "4", sys.executable, str(script)])
+    try:
+        assert proc.wait(30) == 124, "timeout should have killed the parent"
+        assert armed.exists(), "worker never armed the guard"
+        child = int(armed.read_text())
+        deadline = time.time() + 10
+        while time.time() < deadline and _alive(child):
+            time.sleep(0.1)
+        alive = _alive(child)
+        if alive:
+            os.kill(child, signal.SIGKILL)
+        assert not alive, f"wedged worker {child} outlived its killed CLI; it would hold its card"
+    finally:
+        proc.kill()
+
+
+def test_reaper_leaves_with_the_process_it_guards(tmp_path):
+    """The reaper must not outlive a guarded process that finishes normally."""
+    src = (f"import os, sys; sys.path.insert(0, {str(Path(__file__).resolve().parents[1])!r})\n"
+           "from tt_bio import device_lease as dl\n"
+           "dl.install_parent_death_guard(os.getppid())\n"
+           "print(dl._REAPER.pid, flush=True)\n")
+    out = subprocess.run([sys.executable, "-c", src], capture_output=True, text=True,
+                         timeout=30, check=True).stdout
+    reaper = int(out.split()[0])
+    deadline = time.time() + 5
+    while time.time() < deadline and _alive(reaper):
+        time.sleep(0.05)
+    assert not _alive(reaper), f"reaper {reaper} outlived the process it guarded"
+
+
+def test_device_spawning_children_get_the_parent_pid():
+    """Every spawner whose child opens a device must hand it TT_BIO_PARENT_PID, or the
+    child's arm_orphan_guard sees no parent and never arms."""
+    from tt_bio.device_lease import orphan_guard_env
+
+    assert orphan_guard_env() == {"TT_BIO_PARENT_PID": str(os.getpid())}
+    root = Path(__file__).resolve().parents[1] / "tt_bio"
+    for rel in ("esmc.py", "saprot.py", "boltzgen/cli/boltzgen.py", "main.py"):
+        assert "orphan_guard_env()" in (root / rel).read_text(), rel

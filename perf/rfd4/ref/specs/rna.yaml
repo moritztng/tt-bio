@@ -1,0 +1,3 @@
+rna_pseudoknot:
+  input: /home/moritz/rfd4-ref-env/src/RFD4-Proteina/data/benchmarks/rna/pseudoknot/Q20.cif.gz
+  input_as_annotated_cif: true

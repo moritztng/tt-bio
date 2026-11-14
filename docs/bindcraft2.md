@@ -45,6 +45,9 @@ box has the memory for, and prints the count it chose with the reason. That is w
 completed trajectory and 1.22x on a round. [Several trajectories on one
 card](#several-trajectories-on-one-card) below is how to read that line and how to turn it off.
 
+It returns the number of trajectories the campaign has spent, not a status. A campaign that fails
+raises, so a runner that passes the return value to `sys.exit` exits non-zero on success.
+
 `card` has to be set before ttnn is imported, because that is when ttnn reads the pin. Leave it
 out to accept whatever `TT_VISIBLE_DEVICES` already says; pass it and `bindcraft2` raises rather
 than silently running on the wrong chip.
@@ -229,6 +232,10 @@ would then misattribute.
 The design loop runs on card. **The validation ensemble runs on BindCraft 2's own JAX trunk by
 default**, and that is the setting any accepted count should be quoted from.
 
+Dropout follows BindCraft 2's own setting. A stage with `design_dropout` on drops the same updates
+on the card as on host JAX, drawn from the same key, in the Evoformer, extra-MSA and template stacks;
+`harden` and `design_dropout: false` run without it on both.
+
 Validation is what decides whether a design is accepted. Folding it on card would put device
 numerics inside the instrument that grades the device; on the host trunk that stage is bit-for-bit
 BindCraft 2's own, so the thing being measured stays the gradient loop. Validation is a few
@@ -281,6 +288,26 @@ card ran them.
 BindCraft 2 feeds an all-zero extra-MSA mask, so there is no gradient into the extra MSA to lose:
 it measures exactly zero on BindCraft 2's own JAX, and the card's path returns zero by
 construction and refuses a mask that is not all-zero.
+
+### Block traces
+
+`trace=True` replays each Evoformer, extra-MSA and template block from a captured device trace
+instead of issuing its ttnn calls from Python one by one. The output is bit-identical to the
+default path. A round drops from 60,851 ttnn calls to 2,602, and the host time spent issuing them
+from 1.88 s to 0.20 s per round on a Blackhole p300c chip at AICLK 1350.
+
+```python
+# TT_BIO_TRACE_REGION_MB=2048 in the environment before the device opens
+with bindcraft2.predictor(card=0, trace=True) as build:
+    ...
+```
+
+The card bounds a round today, so on a quiet host the round time does not change (2.647 against
+2.651 s per iteration on PD-L1 at 80 residues). It pays on a busy host, where the default path
+waits on Python and the traced one does not (2.647 against 3.149 to 3.680 s), and it will pay
+everywhere once card time per round falls below the host's. Thirty PD-L1 trajectories with
+traces on pass the same design-quality grade as the default path. It is off by default because
+it needs a 2 GiB trace region at 224 tokens.
 
 ### The exact-training instrument
 
@@ -539,19 +566,20 @@ On BindCraft 2's own examples that gives 320 for `pdl1.json` and `pdl1_homotrime
 
 | | Blackhole p150a (34.226 GB) | One chip of a Wormhole Galaxy (12.885 GB) |
 |---|---|---|
-| supported | **192 to 864 tokens** with no flag: up to 672 in `fast`, 704 to 864 in `lean`, which the default picks for you | **192 to 864 tokens**: up to 512 in `fast`, 544 to 864 in the slower [memory modes](#large-complexes-the-memory-modes) the default picks for you |
-| first size that refuses | not measured: 864 is the documented top | 896, in `offload`, on the third gradient round, twice out of two; the default refuses it before the first round |
-| where it refuses | | fragmentation: 4.386 GB free, largest block 67.8 MB against a 68.5 MB request a bank |
-| held at the top | 31.39 GB of 34.226 at 864 | 10.324 GB at 864, 2.56 GB still free |
-| peak inside the range | 2.63 GB at 192 to 31.39 GB at 864 | 12.7 GB at 512 in `fast`, 7.5 to 10.3 GB from 544 up |
-| one gradient round | 58.7 s at 864 in `lean`, AICLK 1350 | 60.2 s at 512 in `fast`; 222.9 s at 800 and 262.5 s at 864 in `offload`, 3.70x and 4.36x the 512 round; AICLK 1000 |
+| supported | **192 to 1536 tokens** with no flag: up to 672 in `fast`, 704 to 1184 in `lean`, 1216 to 1536 in `offload`, which the default picks for you | **192 to 864 tokens**: up to 512 in `fast`, 544 to 864 in the slower [memory modes](#large-complexes-the-memory-modes) the default picks for you |
+| first size that refuses | 1568, in `offload`, in the first gradient round, twice out of two | 896, in `offload`, on the third gradient round, twice out of two; the default refuses it before the first round |
+| where it refuses | fragmentation: 4.873 GB free, largest block 144.1 MB against a 157.4 MB request a bank | fragmentation: 4.386 GB free, largest block 67.8 MB against a 68.5 MB request a bank |
+| held at the top | not recorded at 1536; 31.39 GB of 34.226 at 864 | 10.324 GB at 864, 2.56 GB still free |
+| peak inside the range | 2.63 GB at 192 to 31.39 GB at 864, not recorded above | 12.7 GB at 512 in `fast`, 7.5 to 10.3 GB from 544 up |
+| one gradient round | 58.7 s at 864 in `lean`, about 625 s at 1536 in `offload`; AICLK 1350 | 60.2 s at 512 in `fast`; 222.9 s at 800 and 262.5 s at 864 in `offload`, 3.70x and 4.36x the 512 round; AICLK 1000 |
 | the 768 axis | runs at the default, 42.4 s in `lean`; 0.11.0 crashes there | runs, in `offload` |
 | AICLK ceiling | 1350 MHz | 1000 MHz, the part's own ceiling and not a throttle |
 
 Every number in that table was measured on the tree this release ships, each rung run to completed
 gradient rounds with the card's AICLK sampled during the fold: the Blackhole column on a p150a, the
 Wormhole column on one chip of a Galaxy, except the Wormhole 544 peak, which is from the tree
-before it.
+before it. The Blackhole figures above 864 come from a p300c chip, which reports a p150a's DRAM
+([the ladder](#blackhole-past-864-tokens)).
 
 Blackhole's ladder, every rung run to a completed gradient round on qb1 card 0 with the card's
 AICLK sampled during each fold. Its round column was measured on v0.11.0 and was not re-measured
@@ -603,6 +631,37 @@ for not refusing.
 | 832 | hHSA 578 + 210 | 103.0 s |
 | 864 | hHSA 578 + 240 | 112.6 s |
 
+#### Blackhole past 864 tokens
+
+The same p300c chip at the default, one trajectory, AICLK 1350 median sampled during every round.
+A three-round rung shows its steady round (the second and third); a one-round rung includes
+compilation and reads high. Every rung completed; 1568 was refused twice on fragmentation.
+
+| tokens at the seam | mode | one round | rounds run |
+|---|---|---|---|
+| 864 | `lean` | 49.4 s | 3 |
+| 896 | `lean` | 55.7 s | 3 |
+| 928 | `lean` | 62.5 s | 3 |
+| 960 | `lean` | 64.2 s | 3 |
+| 992 | `lean` | 71.1 s | 3 |
+| 1056 | `lean` | 83.5 s | 3 |
+| 1120 | `lean` | 147.2 s with compile | 1 |
+| 1184 | `lean` | 323.4 s with compile | 1 |
+| 1248 | `offload` | 356.1 s with compile | 1 |
+| 1312 | `offload` | 421.7 s with compile | 1 |
+| 1376 | `offload` | 481.3 s with compile | 1 |
+| 1440 | `offload` | 484.3 s | 3 |
+| 1504 | `offload` | 636.4 s | 3 |
+| 1536 | `offload` | 625.0 s | 3 |
+| 1568 | `offload` | refused | |
+
+`offload` holds the Evoformer's block inputs in host memory, and the process peaked at 59 GB of
+host RAM at 1440 and 66 GB at 1536, so budget the host as well as the card at these sizes.
+
+Trees before this release crash from 896 tokens up on Blackhole with `Shape of Output tensor
+Shape([1, 8, 896, 896]) provided does not match the broadcasted output shape` in the MSA attention.
+If you see that error, update.
+
 0.11.0 crashes at 768 tokens on Blackhole with a circular-buffer error in the gradient ("CBs grow
 to 1864192 B which is beyond max L1 size"), even though 736 and 800 run there. If you see that
 error, update: on this release the same rung runs at the default, and a fold too big for the card
@@ -610,14 +669,16 @@ refuses with a message naming the size instead of crashing.
 
 In residues, which is how a target arrives: the fusion costs 18 to 28, so a Wormhole chip's 512
 tokens at full speed is about 484 to 494 residues of target plus binder, and 864 tokens, the top
-of both boards, about 836 to 846. With a binder in BindCraft 2's default 60-180 draw range that is
+of Wormhole, about 836 to 846. With a binder in BindCraft 2's default 60-180 draw range that is
 a target of roughly 300 to 430 residues on Wormhole at full speed, and 655 to 785 on either board
-at 864, in `offload` on Wormhole and at the default on Blackhole. Read `design_tokens` rather than trusting the
+at 864, in `offload` on Wormhole and at the default on Blackhole. Blackhole goes on to 1536
+tokens, about 1508 to 1518 residues, in `offload`. Read `design_tokens` rather than trusting the
 arithmetic; it is there because this sum is one or two buckets low often enough to matter.
 
 **The card is the limit, and only at the top of the range.** At 512 tokens a p150a holds 38 % of
-the board. At 864 it is 92 % with the largest free block down to 291 MB, so the next rung is a
-board question rather than a software one. On a Wormhole chip in `fast` the top is 97 % of a card
+the board. At 864 it is 92 % with the largest free block down to 291 MB, which is why the default
+moves to `lean` there and to `offload` from 1216; `offload` ends at 1536, where 1568 is refused on
+fragmentation with 4.9 GB still free. On a Wormhole chip in `fast` the top is 97 % of a card
 a third the size, and nothing that keeps the round's speed moves it: padding the forward serves 544 and
 608 there, and 544 then refuses in the backward instead, where the L1 gate is a size gate rather
 than a divisor gate and a pad-up asks for more L1, not less. Spending time does move it, which is
@@ -650,6 +711,18 @@ and what it costs:
 This fold ran in the 'lean' memory mode. The 'offload' mode should hold 768 tokens on this
 card, slower: ... Pass memory='offload', or leave memory='auto' and it is picked for you.
 ```
+
+In `fast` mode the room a fold leaves on the card goes to speed. The last Evoformer blocks keep
+their whole tape from the forward, so the backward does not run their forward again. On a
+Blackhole chip all 48 blocks stay resident up to 224 tokens (a 96-residue binder on a 115-residue
+target), 36 at 256 and 22 at 320, and at 224 tokens the Evoformer backward drops from 0.99 s to
+0.64 s an iteration, about 0.34 s off a whole iteration on a p150a. The count is sized from the
+card for each token axis. Wormhole keeps every block checkpointed for now, because no whole
+trajectory has run there with resident blocks; `TT_BIO_BC2_RESIDENT_BLOCKS=0` turns it off and
+an integer pins it on any board. A resident block runs the
+taped kernels where a checkpointed one runs the untaped ones, so trajectories are not
+bit-identical with it on. Its designs were graded against stock BindCraft 2 on a B200 (30
+trajectories against 34) and no metric differed.
 
 Measured on one chip of a dev Wormhole Galaxy, AICLK 1000 MHz throughout:
 
@@ -718,12 +791,15 @@ estimate built from the round time misses.
 
 **A Blackhole p150a has the modes too, and `auto` picks them from a measured ladder.** `fast` is
 not monotone in the axis on that board: 704, 768 and 832 refuse in `fast` while 736 and 864
-fit. So `auto` runs `fast` up to 672 tokens and `lean` from 704 to 864, and every 32-token axis
-from 576 to 864 completed at the default, AICLK 1350 with no sample under 1200. The steady round
-in `lean` is 34.6 s at 704, 42.4 s at 768, 51.1 s at 832 and 58.7 s at 864. You need no flag.
+fit. So `auto` runs `fast` up to 672 tokens, `lean` from 704 to 1184 and `offload` from 1216 to
+1536, and every 32-token axis from 576 to 864 completed at the default, AICLK 1350 with no sample
+under 1200, as did every rung run above it up to 1536. The steady round in `lean` is 34.6 s at
+704, 42.4 s at 768, 51.1 s at 832 and 58.7 s at 864; in `offload` it is 484 s at 1440 and 625 s
+at 1536 ([the ladder](#blackhole-past-864-tokens)). You need no flag.
 
 `memory='offload'` is a device-memory escape bought with host memory, so it needs a host with room
-to spend: on a 30 GB p150a box every `offload` rung was killed by the kernel rather than refused by the card.
+to spend: on a 30 GB p150a box every `offload` rung was killed by the kernel rather than refused by the card,
+and at 1536 tokens the process holds 66 GB of host RAM.
 `lean` costs no host memory.
 
 ### What a refusal looks like
@@ -735,14 +811,25 @@ A refusal distinguishes a full card from a fragmented one, because the remedies 
 card means run something smaller:
 
 ```
-The card is full: 243.0 MB free against a 277.1 MB request, with 33.9 GB of 34.2 GB already
-held by this fold.
+The card is full: 243.0 MB free against a 277.1 MB request. 33.9 GB of 34.2 GB is held.
 ```
 
 ```
-The card is full: 12.707 GB of 12.885 GB is held by this fold, and the 177.5 MB left is in
-pieces of at most 4.0 MB a bank against the 12.6 MB a bank this 151.5 MB request needs.
+The card is full: 12.707 GB of 12.885 GB is held. The 177.5 MB left is in pieces of at most
+4.0 MB a bank against the 12.6 MB a bank this 151.5 MB request needs.
 ```
+
+What is held is everything allocated on the card, which is not the same as what the failing fold
+allocated. A campaign reads the card as each trajectory starts, and the refusal splits the two:
+
+```
+33.272 GB of 34.226 GB is held: 24.703 GB was already held when this trajectory started and
+8.569 GB was allocated since.
+```
+
+When most of the card was held before the trajectory began, the size of the fold is not what
+filled it, and the refusal says so: rerun on the same folder with `resume=true`, which starts a
+new process on an empty card and keeps every design accepted so far.
 
 Fragmentation means a real share of the card is free and the fold could not get a contiguous run
 of it, so a smaller buffer may still go through:
@@ -920,6 +1007,159 @@ So if you are budgeting a campaign above 288 tokens, use the 0.226 rate for plan
 the usual spread, but do not treat acceptance at those sizes as measured. The memory modes change
 what fits and what it costs; they do not touch the filters, the gradient grades against a float64
 reference, and `offload` is bit-identical to `lean`.
+
+## Custom loss
+
+BindCraft 2's design objective is a set of named, weighted terms, not one scalar: `plddt_loss`,
+`interface_contacts`, `iptm_loss` and 34 others, each with a `weights_<name>` setting. tt-bio lets
+you reweight them, switch them off, replace what one computes, and add your own, from ordinary
+Python:
+
+```python
+from tt_bio import bindcraft2
+
+with bindcraft2.campaign_predictor(card=0), \
+     bindcraft2.loss_terms(add={"hotspot_contacts": (hotspot_contacts, 0.8)},
+                           weight={"interface_contacts": 0.5, "binder_helicity": 0.0},
+                           replace={"plddt_loss": softer_plddt}):
+    campaign.run_campaign(settings, project, af2_weights=params, mpnn_weights=mpnn)
+```
+
+Your settings file does not change, and BindCraft 2 is put back exactly as it was when the block
+exits. A term you add participates in **both** places a loss is used: it is differentiated and
+reaches the optimiser, it is scored in the mutation and acceptance stages, and its value is logged
+per step in the trajectory's `losses.csv` next to BindCraft 2's own terms.
+
+A term is a function of the model's own intermediates:
+
+```python
+def hotspot_contacts(protein_states, predictions, prediction_state="complex",
+                     binder="binder", target="target", cutoff=8.0):
+    metrics = predictions[prediction_state].metrics
+    rows = chain_residue_slices(protein_states[prediction_state])
+    edges = distogram_bin_distances(metrics["distogram"].shape[-1])[1:]
+    contact = jax.nn.softmax(metrics["distogram"], -1)[..., 1:][..., edges <= cutoff].sum(-1)
+    binder_rows = jnp.zeros(contact.shape[0], bool).at[rows[binder]].set(True)
+    hotspot = has_residue_flag(protein_states[prediction_state][target].flags,
+                               ResidueFlags.HOTSPOT)
+    target_rows = jnp.zeros(contact.shape[0], bool).at[rows[target]].set(hotspot)
+    pairs = (binder_rows[:, None] & target_rows[None, :]).astype(contact.dtype)
+    return 1.0 - (contact * pairs).sum() / (pairs.sum() + 1e-8)
+```
+
+The first two arguments are mandatory and everything after them needs a default; return a scalar.
+[`examples/bindcraft2_custom_loss.py`](https://github.com/moritztng/tt-bio/blob/main/examples/bindcraft2_custom_loss.py)
+is this term plus a reweight, a replacement and a grade. The pip package carries `tt_bio` only, so
+take the file from the repository:
+
+```
+curl -O https://raw.githubusercontent.com/moritztng/tt-bio/main/examples/bindcraft2_custom_loss.py
+PYTHONPATH=/path/to/BindCraft2 python3 bindcraft2_custom_loss.py \
+    --settings /path/to/BindCraft2/examples/pdl1_denovo.json
+```
+
+It runs on CPU in about 17 seconds, with no card and no AlphaFold 2 weights.
+
+### What you can read
+
+`predictions[state].metrics`, where `N` is the state's token count, chains concatenated in
+`sorted()` order (`bindcraft.loss.chain_residue_slices` gives you each chain's rows):
+
+| key | shape | what it is |
+|---|---|---|
+| `distogram` | `[N, N, 64]` | pair distance logits; bin edges from `distogram_bin_distances(64)` |
+| `pae` | `[N, N]` | predicted aligned error, 0 to 31 Å (BindCraft 2's terms divide by 31) |
+| `plddt` | `[N]` | per-token confidence, 0 to 1 |
+| `ptm`, `iptm` | scalar | predicted and interface TM-score, 0 to 1 |
+| `experimentally_resolved_ca` | `[N]` | probability the CA is resolved |
+
+`protein_states[state][chain]` is the design and template that went in; the same chain under
+`predictions[state].protein_complex` is what AlphaFold 2 returned. Both carry `sequence`
+`[L, 20]` (the logits the optimiser updates), `atoms` `[L, 37, 3]` in Å, `atom_mask`, `flags`
+(a `ResidueFlags` bitfield: `DESIGN`, `HOTSPOT`, `COLDSPOT`, `PADDING` and the rest) and
+`residue_index`. Compare the two and you have an induced-fit term; `bindcraft2.INTERMEDIATES`
+is the same table in the package.
+
+Mask, do not slice. The token axis is padded to the campaign's bucket, so a bare `.mean()` averages
+your term over padding and the target chain as well; `real_residue_mask(flags)` is the mask to use.
+
+### What you can compute with
+
+Your term runs inside BindCraft 2's `jax.jit`, so the rules are JAX's: `jax.numpy` and
+`jax.nn` throughout, no NumPy, no `.item()`, no `if` on a value that depends on the model. tt-bio's
+own tape sits *underneath* your term, serving the Evoformer's backward pass, and never sees it.
+There is no list of supported operations to check against and no operation that silently has no
+derivative.
+
+What does go wrong is a gradient that is quietly **zero**. `argmax`, `round`, `floor`, a `>`
+comparison, a cast to int, an `argsort` index and `stop_gradient` all differentiate to 0.0 without
+complaining, so a term built on them runs for a full campaign and changes nothing. tt-bio screens
+every term you add or replace when the block opens and refuses one like that by name:
+
+```
+DeadGradient: loss term 'dead_on_arrival' returns 31.5747 but its gradient is exactly zero
+with respect to every intermediate it could read (21 arrays). It would run, cost a full
+forward and backward, and change nothing. [...] Use a soft form instead: softmax for argmax,
+a sigmoid for a threshold, a soft-ranked mean for a top-k.
+```
+
+It also refuses a term that returns something other than a scalar, one that returns a non-finite
+value, one whose gradient is NaN where the value is not, and a signature BindCraft 2 could not
+bind. If the screen cannot run your term at all, because it needs a chain layout the small
+synthetic design does not have, it says so and installs it anyway rather than guessing.
+
+A term can be inactive rather than broken: one that selects on a residue flag nothing set, or a
+hinge sitting on its flat side, has a zero gradient for an honest reason. Nine of BindCraft 2's own
+terms read that way on the synthetic design, so that case is a warning, not a refusal.
+
+### Pick a term the campaign can actually move
+
+Two things make an added term invisible, and both look like "the hook did nothing". It can restate
+a term that is already in the objective, so the control run is minimising it for you: a radius-of-
+gyration penalty next to `compactness` ends up fighting it, not adding to it. Or it can target a
+quantity that is already saturated: `experimentally_resolved_ca` sits at 0.95 within a handful of
+steps whatever you do, and a term pushing on it moves the design by less than the step-to-step
+spread. A composition term on the binder's own sequence logits has neither problem, because none of
+the default terms reads amino-acid identity.
+
+Weight it against what is already there, not against your intuition. Each default term contributes
+roughly 0.05 to 3 to a total near 4.5, so a term valued 0 to 1 needs a weight around 1 to count and
+around 5 to lead. Far above that it takes the optimiser over and oscillates. A term on the binder's
+W/F/Y content, 24 gradient steps from the same start: the run with no added term ends at 0.152, the
+same run at weight 1.0 ends at 0.265 and at weight 5.0 at 0.375. The eight default terms end worse
+in step with it, which is the trade you are making.
+
+### Grade it before you spend a campaign on it
+
+```python
+rows, worst, dtype = bindcraft2.check_gradient(hotspot_contacts)
+```
+
+Takes `jax.grad` in float64 and compares it against central differences on the entries where the
+gradient is non-zero, sweeping the step size. **Read the number against the dtype it returns.**
+A term written in plain `jax.numpy` over `plddt`, `pae` or the distogram stays in float64 and
+agrees to around 1e-10:
+
+```
+complex/metrics/distogram   n=8  |g|max=4.955e-03  max|d|=1.19e-12  rel=2.40e-10  at h=1e-05
+worst 2.40e-10 relative, the term's own forward in float64
+```
+
+BindCraft 2's helpers (`pairwise_atom_distances`, `_masked_mean`, `kabsch`) compute in float32, so
+a term built on them has a float32 forward and 1e-4 is as close as a finite difference gets, by
+arithmetic rather than by anything being wrong. Its own terms grade the same way: `iptm_loss`
+6.0e-15, `compactness` 5.4e-05, `plddt_loss` 6.1e-05, `target_rmsd` 2.9e-04, `sequence_entropy`
+6.4e-04, `interface_pae` 9.7e-04, `distogram_cce` 5.6e-03.
+
+With no custom loss nothing about the design loop changes, including the numbers: the default path
+is bit-identical whether this module is imported or not.
+
+### This is yours to run
+
+Everything in this section lives in the tt-bio you `pip install` and runs on your own hardware. It
+needs nothing from Tenstorrent and no access to our machines, which is exactly why it is here while
+a hosted BindCraft 2 is not: running BindCraft 2 yourself is covered by its own licence, and
+offering it as a service to others is not. See below.
 
 ## Licence
 

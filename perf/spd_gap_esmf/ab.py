@@ -1,0 +1,105 @@
+#!/usr/bin/env python3
+"""In-process A/B of one ESMFold2 lever on the GAP-table workload (cdk2x2_512, shipped steps, 1 sample).
+
+Builds the model once through tt_baseline.build_fold (the path perf/of3_4xpd/xmodel_ab.py times), then
+alternates a module global between folds: one cold fold per arm first (discarded), then --repeat rounds
+of arm A, arm B interleaved, so both arms see the same clock and host load. Every fold records its wall,
+pLDDT, CIF digest, the opened node's AICLK median during the fold, and loadavg.
+
+    python perf/spd_gap_esmf/ab.py --model esmfold2-fast --alt tt_bio.esmfold2.DIFFUSION_TRACE --out r.json
+    python perf/spd_gap_esmf/ab.py --model esmfold2 --alt tt_bio.esmfold2_runtime.LEVERS_NORMAL --a normal --b none ...
+"""
+import argparse, hashlib, importlib, json, os, statistics, sys, threading, time
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT)); sys.path.insert(0, str(ROOT / "scripts" / "gpu_vs_tt"))
+ap = argparse.ArgumentParser()
+ap.add_argument("--model", default="esmfold2", choices=("esmfold2", "esmfold2-fast"))
+ap.add_argument("--fast", action="store_true")
+ap.add_argument("--alt", required=True, help="module.ATTR flipped between arms; arm A = True, arm B = False. "
+                "Several, comma-separated, flip together. "
+                "env:NAME sets the environment variable to --a in arm A and to --b (unset when absent) in arm B")
+ap.add_argument("--a", help="string value of ATTR in arm A instead of True (e.g. a lever spec)")
+ap.add_argument("--b", help="string value of ATTR in arm B instead of False")
+ap.add_argument("--repeat", type=int, default=3)
+ap.add_argument("--size", type=int, default=512)
+ap.add_argument("--a3m", type=Path, help="fold this alignment instead of the page fixture's (e.g. one deeper than max_depth)")
+ap.add_argument("--out", type=Path, required=True)
+a = ap.parse_args()
+
+import tt_bio.tenstorrent as T
+import tt_bio.trimul_tail as TL
+import tt_baseline as B
+from tt_bio.main import (_resolve_recycling_steps, _resolve_sampling_steps,
+                         _detect_p300_devices, _find_ttnn_mesh_graph_descriptor)
+assert Path(T.__file__).resolve().is_relative_to(ROOT), f"tt_bio from {T.__file__}"
+if _detect_p300_devices() and not os.environ.get("TT_MESH_GRAPH_DESC_PATH"):
+    mgd = _find_ttnn_mesh_graph_descriptor("p150_mesh_graph_descriptor.textproto")
+    if mgd: os.environ["TT_MESH_GRAPH_DESC_PATH"] = mgd
+B.RECYCLING_STEPS = _resolve_recycling_steps(None, a.model)
+B.SAMPLING_STEPS = _resolve_sampling_steps(None, a.model)
+if a.alt.startswith("env:"):
+    class _Env:
+        def __setattr__(self, k, v):
+            if v is False: os.environ.pop(k, None)
+            else: os.environ[k] = str(v)
+    alts = [(_Env(), a.alt[4:])]
+else:
+    alts = [(importlib.import_module(m), attr) for m, attr in (x.rsplit(".", 1) for x in a.alt.split(","))]
+
+fix = ROOT / "perf" / "size512" / "fixtures"
+a3m = a.a3m or fix / f"cdk2x2_{a.size}.a3m"
+tag = "" if a.a3m is None else "_" + a3m.stem
+one_fold, meta = B.build_fold(a.model, ROOT / f".msa_ab_{a.model}_{a.size}{tag}", fix / f"cdk2x2_{a.size}.yaml",
+                              a3m, fast=a.fast)[:2]
+sdir = Path(meta["struct_dir"])
+nodes = sorted({int(os.readlink(f"/proc/self/fd/{fd}").rsplit("/", 1)[1]) for fd in os.listdir("/proc/self/fd")
+                if os.path.realpath(f"/proc/self/fd/{fd}").startswith("/dev/tenstorrent/")} or {-1})
+clk = []
+def sampler():
+    while True:
+        try: clk.append((time.monotonic(), int(Path(f"/sys/class/tenstorrent/tenstorrent!{nodes[0]}/tt_aiclk").read_text().split()[0])))
+        except Exception: pass
+        time.sleep(0.5)
+threading.Thread(target=sampler, daemon=True).start()
+
+res = {"model": a.model, "fast": a.fast, "alt": a.alt, "a": a.a, "b": a.b, "nodes": nodes, "trace_region": T.trace_region_size(),
+       "card": os.environ.get("TT_VISIBLE_DEVICES"), "host": os.uname().nodename, "folds": []}
+def fold(arm, tag):
+    for mod, attr in alts:
+        setattr(mod, attr, (a.a if a.a is not None else True) if arm == "A" else (a.b if a.b is not None else False))
+    before = {k: dict(v) for k, v in T.LATCH_STATS.items()}
+    t2_before, rej_before = list(TL.T2_STATS), dict(TL.REJECTS)
+    t0 = time.monotonic(); s, m = one_fold(); t1 = time.monotonic()
+    c = sorted(v for t, v in clk if t0 <= t <= t1)
+    rec = {"arm": arm, "tag": tag, "fold_s": round(s, 3), "plddt": m.get("plddt"),
+           "cif": [hashlib.sha256(p.read_bytes()).hexdigest()[:16] for p in sorted(sdir.glob("*.cif"))],
+           "aiclk_median": c[len(c) // 2] if c else None, "aiclk_min": c[0] if c else None,
+           "loadavg": open("/proc/loadavg").read().split()[0],
+           # which kernels this fold actually served: a lever arm that only declines is not an arm
+           "latches": {k: d for k, v in T.LATCH_STATS.items()
+                       if (d := {f: v.get(f, 0) - before.get(k, {}).get(f, 0)
+                                 for f in ("served", "refused", "blocked", "declined")
+                                 if v.get(f, 0) != before.get(k, {}).get(f, 0)})},
+           # trimul T2 / T2m / T2CM output tail: served, declined, and why (a declining lever arm is no arm)
+           "t2": [TL.T2_STATS[0] - t2_before[0], TL.T2_STATS[1] - t2_before[1]],
+           "t2_rejects": {f"{k[0]}@{k[1]}": v - rej_before.get(k, 0) for k, v in TL.REJECTS.items()
+                          if v != rej_before.get(k, 0) and str(k[0]).startswith("t2")}}
+    swa = getattr(sys.modules.get("tt_bio.esmfold2"), "SWA_STATS", None)
+    if swa is not None:
+        rec["swa_stats"] = list(swa)  # cumulative (windowed, dense) atom masks built
+    res["folds"].append(rec); print(json.dumps(rec), flush=True)
+    a.out.write_text(json.dumps(res, indent=1))
+fold("A", "cold"); fold("B", "cold")
+for i in range(a.repeat):
+    fold("A", f"warm{i}"); fold("B", f"warm{i}")
+for arm in "AB":
+    w = sorted(f["fold_s"] for f in res["folds"] if f["arm"] == arm and f["tag"] != "cold")
+    res[f"median_{arm}"], res[f"spread_{arm}"] = statistics.median(w), round(w[-1] - w[0], 3)
+import tt_bio.esmfold2 as E, tt_bio.esmfold2_runtime as R
+for m, name in ((E, "DIFFUSION_TRACE_STATS"), (R, "DEVICE_TAIL_STATS"), (R, "DEVICE_CONF_STATS"), (R, "INJECTION_STATS")):
+    res[name] = list(getattr(m, name, []))
+a.out.write_text(json.dumps(res, indent=1))
+print(f"A {res['median_A']:.3f}  B {res['median_B']:.3f}  delta {res['median_B'] - res['median_A']:+.3f} s", flush=True)
+T.cleanup()

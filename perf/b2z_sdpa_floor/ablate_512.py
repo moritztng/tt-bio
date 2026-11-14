@@ -31,16 +31,21 @@ import ttnn
 from tt_bio import tenstorrent as T
 from tt_bio import triatt_sdpa as TS
 
-S, H, D = 512, 8, 32
-ARMS = (("full", ()), ("no_exp", ("EXP",)), ("no_maskadd", ("MASKADD",)),
-        ("no_exp_no_maskadd", ("EXP", "MASKADD")))
+S, D = 512, 32
+# An arm is (name, ablations, levers). MASKADD is inert while QK_MASK_PRELOAD (default on) folds the add into DST;
+# the lofi arms price the matmul share through the shipped triatt_lofi lever.
+ARMS = (("full", (), ()), ("no_exp", ("EXP",), ()), ("no_maskadd", ("MASKADD",), ()),
+        ("no_exp_no_maskadd", ("EXP", "MASKADD"), ()), ("lofi", (), ("triatt_lofi",)),
+        ("lofi_no_exp", ("EXP",), ("triatt_lofi",)))
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default="perf/b2z_sdpa_floor/ablate_512.json")
     ap.add_argument("--reps", type=int, default=15)
+    ap.add_argument("--heads", type=int, default=8, help="Boltz-2 4, Protenix-v2 8, OpenDDE 12")
     args = ap.parse_args()
+    H = args.heads
 
     dev = T.get_device()
     res = {"doc": __doc__, "meta": {
@@ -58,25 +63,26 @@ def main():
     bias = dram(torch.randn(1, H, S, S).to(torch.bfloat16))
     scale = D ** -0.5
 
-    def run(abl):
+    def run(abl, lev):
         TS._ABLATE = abl
-        o = T._tri_att_sdpa_at(q, k, v, bias, scale)
+        with T.levers(set(lev)):
+            o = T._tri_att_sdpa_at(q, k, v, bias, scale)
         assert o is not None
         return o
 
     # compile + warm every arm before any of them is timed, so the first timed rep of arm 0 is
     # not paying a JIT the later arms have already amortised
-    for _, abl in ARMS:
+    for _, abl, lev in ARMS:
         for _ in range(3):
-            ttnn.deallocate(run(abl))
+            ttnn.deallocate(run(abl, lev))
     ttnn.synchronize_device(dev)
 
-    acc = {name: [] for name, _ in ARMS}
+    acc = {name: [] for name, _, _ in ARMS}
     for _ in range(args.reps):
-        for name, abl in ARMS:
+        for name, abl, lev in ARMS:
             ttnn.synchronize_device(dev)
             t0 = time.perf_counter()
-            o = run(abl)
+            o = run(abl, lev)
             ttnn.synchronize_device(dev)
             acc[name].append((time.perf_counter() - t0) * 1e3)
             ttnn.deallocate(o)
@@ -86,7 +92,7 @@ def main():
     full = med["full"]
     res["arms"] = {n: {"ms": med[n], "all_ms": acc[n],
                        "removed_ms": full - med[n], "removed_frac": (full - med[n]) / full}
-                   for n, _ in ARMS}
+                   for n, _, _ in ARMS}
     res["additivity"] = {
         "exp_plus_maskadd_ms": (full - med["no_exp"]) + (full - med["no_maskadd"]),
         "both_together_ms": full - med["no_exp_no_maskadd"]}

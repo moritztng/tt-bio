@@ -14,6 +14,11 @@
 // calls at a fixed shape, which is what lets the host cache the whole ProgramDescriptor and
 // rewrite two scalars per call (the same trick `reblock_permute` uses; its header has the cost).
 //
+// MASKED (compile-time, after the genq block): a third operand, AF2's per-row dropout keep mask, one
+// [n, c] slab of MT tiles shared by every row of the pair. It is read ONCE per core into c_2 and
+// stays there; compute indexes it by page % MT. Without a mask the host passes b's accessor args
+// again so every compile-time index exists, and nothing is read.
+//
 // IMPORTANT: use the api/-prefixed include path (bare dataflow_api.h is a known device-wedge
 // cause in this codebase).
 #include "api/dataflow/dataflow_api.h"
@@ -51,6 +56,23 @@ void kernel_main() {
     } else {
         first_tile = get_arg_val<uint32_t>(0);
         num_tiles = get_arg_val<uint32_t>(1);
+    }
+
+    constexpr uint32_t MASKED = get_compile_time_arg_val(G + 8);
+    constexpr uint32_t MT = get_compile_time_arg_val(G + 9);
+    constexpr auto m_args = TensorAccessorArgs<G + 10>();
+    if constexpr (MASKED) {
+        constexpr uint32_t cb_m = 2;  // c_2
+        const auto sm = TensorAccessor(m_args, get_common_arg_val<uint32_t>(2));
+        const uint32_t tile_m = get_tile_size(cb_m);
+        cb_reserve_back(cb_m, MT);
+        uint32_t wm = get_write_ptr(cb_m);
+        for (uint32_t t = 0; t < MT; ++t) {
+            noc_async_read_page(t, sm, wm);
+            wm += tile_m;
+        }
+        noc_async_read_barrier();
+        cb_push_back(cb_m, MT);
     }
 
     // One size per operand: `widen_add` reads a float32 accumulator beside a bfloat16

@@ -11,6 +11,8 @@ tests/test_protenix*.py). No protenix import -- pure torch.cat/rename on tensors
 
 from __future__ import annotations
 
+import re
+
 import torch
 
 
@@ -90,6 +92,20 @@ def remap_pairformer_block(sd: dict) -> dict:
         out[f"attention.{k}"] = v
     for k, v in remap_transition(sub("single_transition")).items():
         out[f"transition_s.{k}"] = v
+    return out
+
+
+def remap_pair_adapters(sd: dict, prefix: str, n_blocks: int) -> dict:
+    """Mol-1 PairformerStack width adapters -> tt-bio Pairformer `adapters.<i>.weight`.
+
+    Upstream names an adapter by the block it precedes (`adapters.before_block_<i>`) or
+    `adapters.after_blocks`; tt-bio keys both by block index, n_blocks meaning after the last.
+    Empty for every checkpoint whose stack runs at one width."""
+    out = {}
+    for k, v in sd.items():
+        m = re.fullmatch(re.escape(prefix) + r"adapters\.(before_block_(\d+)|after_blocks)\.pair_adapter\.weight", k)
+        if m:
+            out[f"adapters.{int(m.group(2)) if m.group(2) else n_blocks}.weight"] = v
     return out
 
 

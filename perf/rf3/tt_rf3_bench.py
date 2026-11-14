@@ -125,7 +125,7 @@ def instrument_denoiser(tt, host, tm: Timer):
     tm.wrap(dm, "transformer", "dn.dit")
     tm.wrap(dm, "decoder", "dn.decoder")
     tm.wrap(dm, "process_s", "dn.process_s")
-    tm.wrap(host, "step_inputs", "dn.step_inputs_host")
+    tm.wrap(host, "step_inputs_host", "dn.step_inputs_host")
 
 
 def one_fold(tt, f, rep_atom_idxs, device, tm: Timer, *, n_recycles: int,

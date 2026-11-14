@@ -54,8 +54,8 @@ def compute_random_augmentation(
     return R, random_trans
 
 
-def randomly_rotate(coords, return_second_coords=False, second_coords=None):
-    R = random_rotations(len(coords), coords.dtype, coords.device)
+def randomly_rotate(coords, return_second_coords=False, second_coords=None, generator=None):
+    R = random_rotations(len(coords), coords.dtype, coords.device, generator)
 
     if return_second_coords:
         return torch.einsum("bmd,bds->bms", coords, R), torch.einsum(
@@ -73,6 +73,7 @@ def center_random_augmentation(
     centering=True,
     return_second_coords=False,
     second_coords=None,
+    generator=None,
 ):
     """Algorithm 19"""
     if centering:
@@ -87,9 +88,11 @@ def center_random_augmentation(
 
     if augmentation:
         atom_coords, second_coords = randomly_rotate(
-            atom_coords, return_second_coords=True, second_coords=second_coords
+            atom_coords, return_second_coords=True, second_coords=second_coords, generator=generator
         )
-        random_trans = torch.randn_like(atom_coords[:, 0:1, :]) * s_trans
+        random_trans = torch.randn(
+            atom_coords[:, 0:1, :].shape, dtype=atom_coords.dtype, device=atom_coords.device, generator=generator
+        ) * s_trans
         atom_coords = atom_coords + random_trans
 
         if second_coords is not None:
@@ -186,7 +189,7 @@ def quaternion_to_matrix(quaternions: torch.Tensor) -> torch.Tensor:
 
 
 def random_quaternions(
-    n: int, dtype: Optional[torch.dtype] = None, device: Optional[Device] = None
+    n: int, dtype: Optional[torch.dtype] = None, device: Optional[Device] = None, generator=None
 ) -> torch.Tensor:
     """
     Generate random quaternions representing rotations,
@@ -203,14 +206,14 @@ def random_quaternions(
     """
     if isinstance(device, str):
         device = torch.device(device)
-    o = torch.randn((n, 4), dtype=dtype, device=device)
+    o = torch.randn((n, 4), dtype=dtype, device=device, generator=generator)
     s = (o * o).sum(1)
     o = o / _copysign(torch.sqrt(s), o[:, 0])[:, None]
     return o
 
 
 def random_rotations(
-    n: int, dtype: Optional[torch.dtype] = None, device: Optional[Device] = None
+    n: int, dtype: Optional[torch.dtype] = None, device: Optional[Device] = None, generator=None
 ) -> torch.Tensor:
     """
     Generate random rotations as 3x3 rotation matrices.
@@ -224,5 +227,5 @@ def random_rotations(
     Returns:
         Rotation matrices as tensor of shape (n, 3, 3).
     """
-    quaternions = random_quaternions(n, dtype=dtype, device=device)
+    quaternions = random_quaternions(n, dtype=dtype, device=device, generator=generator)
     return quaternion_to_matrix(quaternions)

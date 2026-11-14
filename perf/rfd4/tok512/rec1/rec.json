@@ -1,0 +1,49 @@
+{
+ "rows": [
+  {
+   "shape": "1x512",
+   "us": {
+    "linear": 2071.537349911523,
+    "mm": 1415.8967500407016
+   },
+   "mm_declined": false,
+   "equal": false
+  },
+  {
+   "shape": "10x224",
+   "us": {
+    "linear": 3909.612650022609,
+    "mm": 2715.5574502103264
+   },
+   "mm_declined": false,
+   "equal": false
+  },
+  {
+   "shape": "4x256",
+   "us": {
+    "linear": 2067.298550173291,
+    "mm": 1412.2186497843359
+   },
+   "mm_declined": false,
+   "equal": false
+  },
+  {
+   "shape": "16x128",
+   "us": {
+    "linear": 2068.7548498244723,
+    "mm": 1406.0221503314096
+   },
+   "mm_declined": false,
+   "equal": false
+  }
+ ],
+ "aiclk": {
+  "0": {
+   "min": 1350,
+   "max": 1350,
+   "median": 1350,
+   "n": 2
+  }
+ },
+ "load": 0.12762451171875
+}

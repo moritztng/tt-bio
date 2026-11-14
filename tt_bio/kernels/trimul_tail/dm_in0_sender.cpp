@@ -18,6 +18,30 @@
 #ifndef TRIMUL_TAIL_SKIP_SIGMOID
 #define TRIMUL_TAIL_SKIP_SIGMOID 0
 #endif
+// The epilogue. 0 is production's order, bit-exact: fp32 accumulator -> bf16 copy per pass, a
+// sigmoid copy, the SFPU multiply and the integer rounding. 1 packs each pass straight out of DST
+// into its bf16 CB (the sigmoid applied in DST on the gate pass) and gates with the FPU multiply:
+// four unpack/pack round trips and two SFPU ops fewer per output tile, at one bf16 ULP on ties.
+// 1 needs exactly one K block, which `trimul_tail.eligible` already requires. 2 is 1 plus the
+// residual: the output tensor IS the pair being updated, the non-writer DM kernel reads each
+// block's z tiles through the output accessor before the writer overwrites them, and the compute
+// adds them to the gated product in DST, so the trailing `add_` (2P read, 1P write) is gone.
+#ifndef TRIMUL_TAIL_EPI
+#define TRIMUL_TAIL_EPI 0
+#endif
+// Both passes read the same activation (the in-projection's p and g of one x): pass 1 reuses pass
+// 0's in0 block, which compute pops only after pass 1, so each activation block is read and
+// forwarded down the in0 chain once instead of twice.
+#ifndef TRIMUL_TAIL_SHARED_IN0
+#define TRIMUL_TAIL_SHARED_IN0 0
+#endif
+// Diagnostic only, never set in production: a stage ablation that keeps every CB handshake and
+// the in0 chain but drops one stage's work, so a timing says which stage binds. Bit 1: the in0
+// injector skips its DRAM read. Bit 2: compute skips the matmul. Bit 4: the writer skips its
+// DRAM writes. Bit 8: the in1 sender skips its DRAM read. The output is garbage under any bit.
+#ifndef TRIMUL_TAIL_ABL
+#define TRIMUL_TAIL_ABL 0
+#endif
 // SPDX-FileCopyrightText: © 2026 Tenstorrent AI ULC
 //
 // SPDX-License-Identifier: Apache-2.0
@@ -238,7 +262,7 @@ void kernel_main() {
                         // write_block_sync_split is more generic (support multiple output tensors)
                         // But for N_chunks == 1 (non-split minimal_matmul), write_block_sync should be faster
                         if constexpr (N_chunks == 1) {
-                            write_block_sync<M_block_tiles, N_block_tiles>(
+                            if (!(TRIMUL_TAIL_ABL & 4)) write_block_sync<M_block_tiles, N_block_tiles>(
                                 std::get<0>(outputs_tuple),
                                 out_shape,
                                 out_read_ptr,
@@ -248,7 +272,7 @@ void kernel_main() {
                                 defer_write_n_tile,
                                 defer_write_n_tile_end);
                         } else {
-                            write_block_sync_split<M_block_tiles, N_block_tiles, N_chunks, N_tiles_per_chunk>(
+                            if (!(TRIMUL_TAIL_ABL & 4)) write_block_sync_split<M_block_tiles, N_block_tiles, N_chunks, N_tiles_per_chunk>(
                                 outputs_tuple,
                                 out0_shape,
                                 out_read_ptr,
@@ -262,6 +286,9 @@ void kernel_main() {
                     }
                 }
 
+                if (TRIMUL_TAIL_SHARED_IN0 && pass == 1) {
+                    continue;  // pass 0's block is still in c_0
+                }
                 if (reuse_block && pass == 0 && k_block_iter == 0) {
                     // We strided an N block and this is the first k block, so we get reuse and do not need to read in0
                     reuse_block = false;
@@ -278,7 +305,7 @@ void kernel_main() {
                             fused_op_receiver.compute_actual_k_block_iter(n_block_iter == 0, k_block_iter, k_forward);
                     }
 #endif
-                    read_in0_block_sync<M_block_tiles, K_block_tiles>(
+                    if (!(TRIMUL_TAIL_ABL & 1)) read_in0_block_sync<M_block_tiles, K_block_tiles>(
                         pass == 0 ? in0_reader : in0b_reader,
                         in0_shape,
                         in0_start_address,
@@ -324,6 +351,30 @@ void kernel_main() {
                 }
             }
             }
+#if TRIMUL_TAIL_EPI == 2
+            // TRIMUL_TAIL: the residual. The output IS the pair tensor being updated (written in
+            // place), so this block's z tiles are read through the output accessor before the
+            // writer overwrites them: same tile ids as write_block_sync_granular, one row of
+            // N_block_tiles per M tile, into c_7.
+            if constexpr (!is_output_writer) {
+                constexpr uint32_t cb_id_resid = tt::CBIndex::c_7;
+                cb_reserve_back(cb_id_resid, M_block_tiles * N_block_tiles);
+                const uint32_t resid_wp = get_write_ptr(cb_id_resid);
+                for (uint32_t m_id = 0; m_id < M_block_tiles; m_id++) {
+                    const uint32_t mt = m_tile + m_id;
+                    if (mt >= m_tile_end || mt >= out_shape.logical_d0) {
+                        break;
+                    }
+                    uint32_t wp = resid_wp + m_id * N_block_tiles * out_tile_size;
+                    for (uint32_t nt = n_tile; nt < n_tile_end && nt < out_shape.logical_d1; nt++) {
+                        noc_async_read_tile(mt * out_shape.logical_d1 + nt, std::get<0>(outputs_tuple), wp);
+                        wp += out_tile_size;
+                    }
+                }
+                noc_async_read_barrier();
+                cb_push_back(cb_id_resid, M_block_tiles * N_block_tiles);
+            }
+#endif
 #ifdef FUSE_BIAS
             if constexpr (!is_output_writer) {
                 cb_reserve_back(cb_id_in2, N_block_tiles);
@@ -376,7 +427,12 @@ void kernel_main() {
                     // write_block_sync_granular_split is more generic (support multiple output tensors)
                     // But for N_chunks == 1 (non-split minimal_matmul), write_block_sync_granular should be faster
                     if constexpr (N_chunks == 1) {
-                        write_block_sync_granular<M_block_tiles, N_block_tiles>(
+                        if (TRIMUL_TAIL_ABL & 4) {
+                            for (uint32_t m_id = 0; m_id < M_block_tiles; m_id++) {
+                                cb_wait_front(cb_id_out, N_block_tiles);
+                                cb_pop_front(cb_id_out, N_block_tiles);
+                            }
+                        } else write_block_sync_granular<M_block_tiles, N_block_tiles>(
                             std::get<0>(outputs_tuple),
                             out_shape,
                             cb_id_out,
@@ -386,7 +442,12 @@ void kernel_main() {
                             n_tile,
                             n_tile_end);
                     } else {
-                        write_block_sync_granular_split<M_block_tiles, N_block_tiles, N_chunks, N_tiles_per_chunk>(
+                        if (TRIMUL_TAIL_ABL & 4) {
+                            for (uint32_t m_id = 0; m_id < M_block_tiles; m_id++) {
+                                cb_wait_front(cb_id_out, N_block_tiles);
+                                cb_pop_front(cb_id_out, N_block_tiles);
+                            }
+                        } else write_block_sync_granular_split<M_block_tiles, N_block_tiles, N_chunks, N_tiles_per_chunk>(
                             outputs_tuple,
                             out0_shape,
                             cb_id_out,

@@ -1,0 +1,12 @@
+{"form": "plain128", "n": 256, "K": 128, "N": 128, "base": "c53717fcd36183ff", "grow": "c53717fcd36183ff", "grow_taken": true, "equal": true}
+{"form": "plain256", "n": 256, "K": 256, "N": 256, "base": "3b5aea951f840b8f", "grow": "3b5aea951f840b8f", "grow_taken": true, "equal": true}
+{"form": "plain384_t2w", "n": 256, "K": 384, "N": 384, "declined": {"t2cm:parts:1x384x256x256": 1}, "equal": false}
+{"form": "rfd4_stream16", "n": 256, "K": 256, "N": 384, "base": "f95962e8c2a5500f", "grow": "f95962e8c2a5500f", "grow_taken": false, "equal": true}
+{"form": "af2_gate", "n": 256, "K": 128, "N": 128, "base": "402e9f40600be864", "grow": "402e9f40600be864", "grow_taken": true, "equal": true}
+{"form": "af2_gate_prev64", "n": 256, "K": 128, "N": 128, "base": "c39b4f06553997db", "grow": "c39b4f06553997db", "grow_taken": true, "equal": true}
+{"form": "plain128", "n": 1024, "K": 128, "N": 128, "base": "949f066fe6a2e044", "grow": "949f066fe6a2e044", "grow_taken": true, "equal": true}
+{"form": "plain256", "n": 1024, "K": 256, "N": 256, "base": "7741a4453eb360a9", "grow": "7741a4453eb360a9", "grow_taken": true, "equal": true}
+{"form": "plain384_t2w", "n": 1024, "K": 384, "N": 384, "declined": {"t2cm:parts:1x384x256x256": 1, "t2cm:parts:1x384x1024x1024": 1}, "equal": false}
+{"form": "rfd4_stream16", "n": 1024, "K": 256, "N": 384, "base": "ea2ed622272870a2", "grow": "ea2ed622272870a2", "grow_taken": false, "equal": true}
+{"form": "af2_gate", "n": 1024, "K": 128, "N": 128, "base": "a66c9b5c9c11afb9", "grow": "a66c9b5c9c11afb9", "grow_taken": true, "equal": true}
+{"form": "af2_gate_prev64", "n": 1024, "K": 128, "N": 128, "base": "24192692379e5389", "grow": "24192692379e5389", "grow_taken": true, "equal": true}

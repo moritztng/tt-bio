@@ -1,0 +1,7 @@
+{
+  "2PTN_b80": {
+    "input": "perf/dsfix/targets/2PTN_A.pdb",
+    "contig": "A69-125,80",
+    "length": "80"
+  }
+}

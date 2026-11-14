@@ -1,0 +1,38 @@
+{
+ "contact_probs": {
+  "vs_upstream": {
+   "max": 0.3535,
+   "mean": 0.0029,
+   "pearson": 0.99728
+  },
+  "upstream_seed_floor": {
+   "max": 0.0771,
+   "mean": 0.0007,
+   "pearson": 0.99984
+  }
+ },
+ "pae": {
+  "vs_upstream": {
+   "max": 7.6465,
+   "mean": 1.2476,
+   "pearson": 0.98471
+  },
+  "upstream_seed_floor": {
+   "max": 6.909,
+   "mean": 1.1628,
+   "pearson": 0.97973
+  }
+ },
+ "pde": {
+  "vs_upstream": {
+   "max": 6.4612,
+   "mean": 0.5916,
+   "pearson": 0.92619
+  },
+  "upstream_seed_floor": {
+   "max": 9.9313,
+   "mean": 0.7861,
+   "pearson": 0.87046
+  }
+ }
+}

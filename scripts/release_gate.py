@@ -276,6 +276,11 @@ MODELS = {
     # not a run-to-run wobble. Floor = ~2x measured, same discipline as boltz2 (1.55 -> 3.0),
     # protenix-v2 (3.87 -> 6.0) and openfold3 (1.775 -> 3.5).
     "protenix-v1":   {"max_rmsd": 5.0, "min_tm": 0.60},
+    # Mol-1, shipped as `predict --model mol1`: a Protenix-v2 variant (PairMixer trunk at pair widths 448 and
+    # 320, 20 recycles) through the same tt_bio/protenix.py class. Its port grade folded 1UBQ at 0.68-1.06 A CA-RMSD
+    # on Blackhole and Wormhole (state/mol1). Until this gate has measured it on 7ROA it carries protenix-v2's floor,
+    # the family's loosest, which a correct fold clears.
+    "mol1":          {"max_rmsd": 6.0, "min_tm": 0.50},
     "opendde":       {"max_rmsd": 6.0, "min_tm": 0.50},
     # OpenFold3 (polymer-only port; protenix-v2 is the 1:1 architectural analogue).
     # Measured on this gate 2026-08-07 (qb2 p150a, MSA on): RMSD 1.775 A / TM 0.890.
@@ -732,6 +737,7 @@ SIZE_LADDER_KNOWN_GAP: dict[str, tuple[str, str]] = {}
 _LADDER_NOT_A_FOLD = "not a predict/affinity model — %s; covered by its own release-gate arm"
 SIZE_LADDER_EXEMPT.update({
     m: _LADDER_NOT_A_FOLD % what for m, what in (
+        ("rfd4",        "condition-spec design, no fold path; no design-arm rungs recorded yet"),
         ("esmc-300m",   "protein-LM embeddings, gated by the ESMC embed-parity leg"),
         ("esmc-600m",   "protein-LM embeddings, gated by the ESMC embed-parity leg"),
         ("esmc-6b",     "protein-LM embeddings, opt-in embed leg"),
@@ -791,6 +797,9 @@ SIZE_LADDER_EXTRA_RUNGS = {"rf3": (1088,)}
 # 850 and 1100 residues (docs/large-targets.md). Two rungs rather than four: 1536 is the bar,
 # and 1280 is what says where a model that folds 1024 but not 1536 stops. Every other board
 # pays for them only if it adds them here.
+#: This release_gate checks one PART of a ladder (--size-ladder-part); gate_fanout.py splits a
+#: ladder into rung-group legs only when the tree under test sets it.
+SIZE_LADDER_PARTS = True
 SIZE_LADDER_CARD_RUNGS = {"p150a": (1152, 1280, 1408, 1536),
                           "tt-galaxy-wh-l": (1280, 1536)}
 # Every rung any board's ladder walks. This is the `rungs` key in the shared json, which
@@ -821,6 +830,13 @@ SIZE_LADDER_EXP_MAX_TOL = 1.40
 # running pass is about to read. Give each card its own.
 SIZE_LADDER_WORKDIR = Path(os.environ.get("RELEASE_GATE_SIZE_WORKDIR")
                                    or REPO_ROOT / "perf" / "sizegate" / "work")
+# Where every arm writes its run outputs (<model>_results_prot/, rfd3_gate_designs/, ...). The repo
+# root by default; gate_fanout gives each leg its own, because all legs on a host fold in one shared
+# tree and two arms can share an output name. On 2026-10-13 rg:protenix-v2 rmtree'd
+# protenix_results_prot/ (v1 and v2 share it) on qb1 card 3 while rg:protenix-v1 on card 1 was
+# parsing it, and v1 failed "predict wrote no CIF output" after a clean fold.
+RUN_DIR = Path(os.environ.get("RELEASE_GATE_RUN_DIR") or REPO_ROOT)
+
 # Record mode keeps the per-rung census artifacts here as the evidence behind
 # docs/size_ladder_baseline.json — the first thing to diff when the arm goes red.
 SIZE_LADDER_PROVENANCE = REPO_ROOT / "perf" / "sizegate" / "baseline"
@@ -987,6 +1003,15 @@ L1_BUDGET_HIDDEN = (128, 256)
 # that died on his p300c. Cheap enough for a default arm (~15 s a grid).
 L1_BUDGET_DATA = REPO_ROOT / "examples" / "affinity_fkg.yaml"
 L1_BUDGET_MODEL = "protenix-v2"
+# fkg is ~130 tokens, too small for the trimul T1 path and most grid-derived chunk choices to engage.
+# So the leg also folds the size ladder's 512-token input at the native grid and at every other real
+# part grid of the same chunk regime, and those digests must agree. The regime is the line
+# tenstorrent._apply_grid_thresholds draws (fewer than 11x10 cores retunes every chunk size for
+# Wormhole's L1), so a grid across it takes different chunk widths by design: 8x8 forced on a
+# Blackhole card folded cdk2x2_512 differently from native (0.07-0.36 A on 9TY2_512, the same split
+# on v0.21.0 with every lever off), and no Blackhole part runs 8x8. A card-dependent fold within one
+# regime (p150a 13x10 vs p300c 11x10, Galaxy 8x9 vs n300 8x8) is what this half catches.
+L1_BUDGET_WIDE_DATA = REPO_ROOT / "perf" / "size512" / "fixtures" / "cdk2x2_512.yaml"
 # --- nesso1 correctness leg ------------------------------------------------------
 # Nesso-1 folds nothing, so it cannot join MODELS: there is no structure to Kabsch and no
 # TM to score. Its output is eleven scalars, and the only comparison available is against
@@ -1134,7 +1159,14 @@ RFD3_FUSION_TIMEOUT_S = int(os.environ.get("RELEASE_GATE_RFD3_FUSION_TIMEOUT", "
 # `resolved` gate the default as well. A flag already set in the environment WINS over this, so
 # `RFD3_SOFTMAX_PV_FUSED=0 release_gate.py --model rfd3-fusion` is the arm's own negative control
 # and must fail (`negative-control-must-break-what-check-reads`).
-RFD3_FUSION_ENV = {"RFD3_SOFTMAX_PV_FUSED": "1", "RFD3_FC1_SPLIT_SILU": "1"}
+# Since RFD3_ATOM_SDPA and RFD3_DIT_SDPA ship on, no R4 attention reaches the softmax + PV pair at
+# all: both sites run fused SDPA, so region 1 censuses 0 served and 0 declined (rel-f477095f6). The
+# guard still decides every fold run with either SDPA lever off, so the arm turns both off for its
+# own folds and keeps gating the predicate where it still runs. RFD3_PAIR_WS (on since 14db1c230)
+# takes every rank-4 pair Transition ahead of the row-chunked path, so region 4 read 0 served and
+# 0 declined on every gate from 50bcbd42c; the arm turns it off for the same reason.
+RFD3_FUSION_ENV = {"RFD3_SOFTMAX_PV_FUSED": "1", "RFD3_FC1_SPLIT_SILU": "1",
+                   "RFD3_ATOM_SDPA": "0", "RFD3_DIT_SDPA": "0", "RFD3_PAIR_WS": "0"}
 RFD3_FUSION_PV_DECLINE = "softmax kernel does not engage at this shape @ key 704"
 RFD3_FUSION_PV_SERVED_KEY = "@ key 6080"
 RFD3_FUSION_FC1_DECLINE = "tensor_rows=685 w=704 hidden=512 chunk-height-would-move 64->63"
@@ -1654,6 +1686,19 @@ def _run_fold(cmd: list, timeout: float, **popen_kw) -> tuple:
     proc = subprocess.Popen(cmd, start_new_session=True, **popen_kw)
     try:
         rc = proc.wait(timeout=timeout)
+    except KeyboardInterrupt:
+        # Its own session also hides the fold from the SIGINT that stops this gate (a terminal,
+        # or `timeout -s INT` at gate_fanout's leg budget). Leaving it running orphaned a census
+        # fold on .107 chip 17 on 2026-10-09, holding the device after the chip's flock was
+        # released. Pass the SIGINT on so the fold closes the chip itself, then escalate.
+        import signal
+        try:
+            os.killpg(proc.pid, signal.SIGINT)
+            proc.wait(timeout=gate_guard.REAP_GRACE_S)
+        except Exception:
+            pass
+        _kill_group(proc)
+        raise
     except subprocess.TimeoutExpired:
         _kill_group(proc)
         # The kill is only half the recovery. A killed fold leaves the card un-reinitialisable,
@@ -1669,6 +1714,7 @@ def _run_fold(cmd: list, timeout: float, **popen_kw) -> tuple:
                 f"({verdict}). Opening it again is what hard-resets this host. Free the board "
                 f"pair's sibling, run `tt-smi -r`, and resume with --resume.")
         return None, True
+    gate_guard.stop_if_stopped_outside(rc)   # a recalled chip: raises, so no next rung or arm starts
     if rc == CONTENDED_EXIT_CODE:
         # Label it by what was run: "-m tt_bio.main predict ..." -> "tt-bio predict", a bare
         # script -> its filename. Legs sharing a CLI collapse to one label, which is fine --
@@ -1792,7 +1838,7 @@ def _predict_geometry(cifs: list, geom) -> dict:
 def run_model(model: str, harness, keep: bool) -> dict:
     """Fold, parse, and ground-truth-score one model. Returns a result row."""
     from tt_bio.main import predict_results_dir_name
-    out = REPO_ROOT / predict_results_dir_name(model, NAME)
+    out = RUN_DIR / predict_results_dir_name(model, NAME)
     if out.exists():
         shutil.rmtree(out)  # never score a stale run if this predict crashes
 
@@ -1803,7 +1849,7 @@ def run_model(model: str, harness, keep: bool) -> dict:
         "--diffusion_samples", str(DIFFUSION_SAMPLES),
         "--seed", str(SEED),
         *_msa_args(model),
-        "--out_dir", str(REPO_ROOT),
+        "--out_dir", str(RUN_DIR),
     ] + ((["--fast"] if FAST else [])
           + (["--diffusion_trace"] if (DIFFUSION_TRACE and model == "boltz2") else []))
     print(f"\n{'='*70}\n[{model}] folding {DATA.name} "
@@ -1867,7 +1913,7 @@ def run_model(model: str, harness, keep: bool) -> dict:
 
 def run_boltzgen(bg, keep: bool) -> dict:
     """Design, parse, and designability-score BoltzGen. Returns a result row."""
-    out = REPO_ROOT / "boltzgen_gate_binder"
+    out = RUN_DIR / "boltzgen_gate_binder"
     if out.exists():
         shutil.rmtree(out)  # never score a stale run if this design run crashes
 
@@ -2004,7 +2050,7 @@ def _rfd3_atom_digest(cif: Path) -> str:
 
 def run_rfd3(keep: bool) -> dict:
     """Design, parse, and structurally score RFD3. Returns a result row."""
-    out = REPO_ROOT / "rfd3_gate_designs"
+    out = RUN_DIR / "rfd3_gate_designs"
     if out.exists():
         shutil.rmtree(out)  # never score a stale run if this design run crashes
 
@@ -2081,7 +2127,7 @@ def run_rfd3(keep: bool) -> dict:
     # single-run geometry number is blind to.
     digests = []
     for rep in (1, 2):
-        rep_out = REPO_ROOT / f"rfd3_gate_determinism_{rep}"
+        rep_out = RUN_DIR / f"rfd3_gate_determinism_{rep}"
         shutil.rmtree(rep_out, ignore_errors=True)
         rc, timed_out = _run_fold(_rfd3_design_cmd(rep_out, 1, RFD3_DET_TIMESTEPS),
                                   FOLD_TIMEOUT_S, cwd=REPO_ROOT)
@@ -2147,12 +2193,12 @@ def _pxdesign_child(out: Path, js: Path) -> int:
 
 def run_pxdesign(keep: bool) -> dict:
     """Design one binder through the shipped CLI path, parse it, and score the conditioning."""
-    out = REPO_ROOT / "pxdesign_gate_designs"
+    out = RUN_DIR / "pxdesign_gate_designs"
     if out.exists():
         shutil.rmtree(out)  # never score a stale run if this design run crashes
-    js = REPO_ROOT / "pxdesign_gate.json"
+    js = RUN_DIR / "pxdesign_gate.json"
     js.unlink(missing_ok=True)
-    log = REPO_ROOT / "pxdesign_gate.log"
+    log = RUN_DIR / "pxdesign_gate.log"
 
     print(f"\n{'='*70}\n[pxdesign] designing against {PXDESIGN_SPEC.name} "
           f"({PXDESIGN_NUM_DESIGNS} design, {PXDESIGN_N_STEP} steps)\n{'='*70}", flush=True)
@@ -2226,7 +2272,7 @@ def run_opendde_abag(keep: bool) -> dict:
     data = OPENDDE_ABAG_DATA
     from tt_bio.main import predict_results_dir_name
     name = data.stem  # "1ahw_abag" -> opendde_results_1ahw_abag/
-    out = REPO_ROOT / predict_results_dir_name("opendde-abag", name)
+    out = RUN_DIR / predict_results_dir_name("opendde-abag", name)
     if out.exists():
         shutil.rmtree(out)  # never score a stale run if this predict crashes
 
@@ -2237,7 +2283,7 @@ def run_opendde_abag(keep: bool) -> dict:
         "--diffusion_samples", str(DIFFUSION_SAMPLES),
         "--seed", str(SEED),
         *_msa_args("opendde-abag"),
-        "--out_dir", str(REPO_ROOT),
+        "--out_dir", str(RUN_DIR),
     ]
     print(f"\n{'='*70}\n[opendde-abag] docking {data.name} "
           f"({SAMPLING_STEPS} steps, {DIFFUSION_SAMPLES} samples)\n{'='*70}", flush=True)
@@ -2328,6 +2374,27 @@ def _fold_log_text(log: Path) -> str:
                 f"the run and the fold's own error is unrecoverable: {log} ({e})")
 
 
+def _exception_after(lines: list[str], start: int) -> str:
+    """The exception a traceback starting at lines[start] ends in, or "".
+
+    The frames are indented; the first unindented "Name: message" after them is the
+    exception. A tt-metal TT_THROW ends that line at "tt::exception" and puts its message
+    between "info:" and "backtrace:", so that message is appended.
+    """
+    for i in range(start + 1, len(lines)):
+        ln = lines[i]
+        if not ln[:1].isspace() and ": " in ln:
+            if ln.endswith("tt::exception") and lines[i + 1:i + 2] == ["info:"]:
+                info = []
+                for nxt in lines[i + 2:]:
+                    if nxt == "backtrace:":
+                        break
+                    info.append(nxt.strip())
+                return f"{ln}: {' '.join(info)}"
+            return ln
+    return ""
+
+
 def _fold_error(text: str) -> str:
     """A failed fold's OWN error line, not whatever happened to print last.
 
@@ -2349,11 +2416,18 @@ def _fold_error(text: str) -> str:
     tb = [i for i, ln in enumerate(lines)
           if ln.startswith("Traceback (most recent call last)")]
     if tb:
-        # The frames are indented; the first unindented "Name: message" after them
-        # is the exception.
-        for ln in lines[tb[-1] + 1:]:
-            if not ln[:1].isspace() and ": " in ln:
-                return ln[:400]
+        last = _exception_after(lines, tb[-1])
+        # The dispatcher's "every local worker exited" names no cause: the worker printed
+        # its own fatal in an earlier traceback. .108 chip 5 died opening the device on
+        # 2026-10-17 ("failed to initialize FW") and the ladder leg reported only the
+        # dispatcher sentence, so gate_fanout's dirty-chip retry, which reads the leg log,
+        # never saw an init death and recorded a FAIL. The worker's fatal goes first.
+        if last and "every local worker exited" in last and len(tb) > 1:
+            first = _exception_after(lines, tb[-2])
+            if first:
+                return f"{first} / {last}"[:400]
+        if last:
+            return last[:400]
     # No explicit failure line. Prefer any line that at least mentions a fault over a
     # blind tail; origin/main solved the same problem that way and it beats the tail
     # whenever the wrapper outlives the fold.
@@ -2375,7 +2449,7 @@ def run_nesso1(keep: bool) -> dict:
 
     # perf/nesso1/, not the repo root: measurement artifacts belong under perf/ (the 08-13
     # run_*.sh lesson), and --keep leaves this file behind on purpose.
-    out_json = REPO_ROOT / "perf" / "nesso1" / "gate_parity.json"
+    out_json = RUN_DIR / "perf" / "nesso1" / "gate_parity.json"
     out_json.parent.mkdir(parents=True, exist_ok=True)
     # Clear the previous run's report first, the way every other arm rmtree's its output dir. On
     # 2026-09-18 gate2's nesso1 leg exited 75 on device contention and wrote nothing, and this arm
@@ -2440,7 +2514,7 @@ def run_rf3_1024aa(keep: bool) -> dict:
 
     # perf/rf3/, not the repo root: measurement artifacts belong under perf/, and --keep
     # leaves the device coordinates and the report behind on purpose.
-    work = REPO_ROOT / "perf" / "rf3" / "gate_1024aa"
+    work = RUN_DIR / "perf" / "rf3" / "gate_1024aa"
     if work.exists():
         shutil.rmtree(work)  # a cached rollout here would score a previous tree
     work.mkdir(parents=True, exist_ok=True)
@@ -2495,6 +2569,99 @@ def run_rf3_1024aa(keep: bool) -> dict:
     return row
 
 
+# RFD4's parity leg: the two device-vs-reference trunk suites the port was validated with. The
+# float64 transcription (tests/rfd4_reference.py, committed) grades every trunk module at random
+# weights; the golden suite grades the same modules at the real checkpoint against upstream's own
+# CPU fp32 activations. The golden suite skips on a host without the captures, and a skip here is
+# NO-DATA, never a pass: a leg that silently drops the real-weights half grades nothing upstream wrote.
+RFD4_PARITY_TESTS = ("tests/test_rfd4_trunk_parity.py", "tests/test_rfd4_trunk_golden.py")
+RFD4_PARITY_TIMEOUT_S = 3600
+
+
+def run_rfd4_trunk(keep: bool) -> dict:
+    """Run the RFD4 trunk parity suites on the pinned card and count their outcomes. Returns a row."""
+    import xml.etree.ElementTree as ET
+    work = RUN_DIR / "perf" / "rfd4" / "gate_parity"
+    if work.exists():
+        shutil.rmtree(work)
+    work.mkdir(parents=True, exist_ok=True)
+    junit = work / "junit.xml"
+    cmd = [sys.executable, "-m", "pytest", "-q", "-rs", "-p", "no:cacheprovider",
+           f"--junitxml={junit}", *RFD4_PARITY_TESTS]
+    print(f"\n{'='*70}\n[rfd4] trunk parity vs float64 and vs upstream fp32 goldens "
+          f"({', '.join(RFD4_PARITY_TESTS)})\n{'='*70}", flush=True)
+    row = {"model": "rfd4", "seconds": None, "tests": None, "failed": None, "skipped": None,
+           "gate": False, "error": None}
+    t0 = time.monotonic()
+    rc, timed_out = _run_fold(cmd, RFD4_PARITY_TIMEOUT_S, cwd=REPO_ROOT)
+    row["seconds"] = time.monotonic() - t0
+    if timed_out:
+        row["error"] = f"pytest timed out after {RFD4_PARITY_TIMEOUT_S}s"
+        return row
+    if not junit.exists():
+        row["error"] = f"pytest exited {rc} and wrote no junit report"
+        return row
+    s = ET.parse(junit).getroot()
+    s = s if s.tag == "testsuite" else s.find("testsuite")
+    n, fail, err, skip = (int(s.get(k, 0)) for k in ("tests", "failures", "errors", "skipped"))
+    row.update(tests=n, failed=fail + err, skipped=skip)
+    row["gate"] = n > 0 and fail + err == 0 and skip == 0
+    if not row["gate"]:
+        row["error"] = f"{fail + err} failed, {skip} skipped of {n} (log above; a skip is a missing golden)"
+    if not keep:
+        shutil.rmtree(work, ignore_errors=True)
+    return row
+
+
+# BindCraft 2's parity leg: the float64 grade of one design-gradient round, the harness BC4 graded
+# every lever with (perf/spd/bc2_stack_grade.py over perf/bcx_afgrad's `stack --ckpt`). The device's
+# dL/dlogits through the whole 4 + 48 block stack is compared with float64 autograd on the same
+# stack, next to plain torch bf16 on the CPU as the precision envelope. Bars: the device no further
+# from float64 than BC2_MAX_OVER_BF16 x torch bf16 (the committed record, qb2 2026-10-01, reads
+# 0.1998 vs 0.1846, 1.08x), the float64 finite difference along the device gradient agreeing
+# inside BC2_FD_BAND (record 1.030), and the device deterministic (record repeat diff 0.0).
+BC2_STACK_GRADE = REPO_ROOT / "perf" / "spd" / "bc2_stack_grade.py"
+BC2_STACK_TIMEOUT_S = 3600
+BC2_MAX_OVER_BF16 = 1.25
+BC2_FD_BAND = (0.9, 1.1)
+
+
+def run_bc2_stack(keep: bool) -> dict:
+    """Grade BindCraft 2's device gradient round against float64. Returns a row."""
+    arm = "gate"
+    work = REPO_ROOT / "perf" / "bcx_afgrad" / f"spd_bc2_{arm}_s0"
+    if work.exists():
+        shutil.rmtree(work)  # a previous run's report here would be scored as this one's
+    params = os.environ.get("AF2IG_PARAMS") or str(Path.home() / ".boltz/af2/params/params_model_1_ptm.npz")
+    cmd = [sys.executable, str(BC2_STACK_GRADE), "--arm", arm, "--params", params]
+    print(f"\n{'='*70}\n[bindcraft2] gradient round vs float64 autograd (n 128, 4 + 48 blocks, "
+          f"bars: <= {BC2_MAX_OVER_BF16}x torch bf16, fd ratio {BC2_FD_BAND})\n{'='*70}", flush=True)
+    row = {"model": "bindcraft2", "seconds": None, "rel_l2": None, "bf16_rel_l2": None,
+           "fd_ratio": None, "repeat": None, "gate": False, "error": None}
+    t0 = time.monotonic()
+    rc, timed_out = _run_fold(cmd, BC2_STACK_TIMEOUT_S, cwd=REPO_ROOT)
+    row["seconds"] = time.monotonic() - t0
+    rep = work / f"stack_n128_e4_v48_ckpt_spd_bc2_{arm}.json"
+    if timed_out:
+        row["error"] = f"bc2_stack_grade timed out after {BC2_STACK_TIMEOUT_S}s"
+        return row
+    if not rep.exists():
+        row["error"] = f"bc2_stack_grade exited {rc} and wrote no report"
+        return row
+    d = json.loads(rep.read_text())
+    row["rel_l2"] = d["device_vs_f64"]["rel_l2"]
+    row["bf16_rel_l2"] = d["torch_bf16_vs_f64"]["rel_l2"]
+    row["fd_ratio"] = (d.get("fd_best") or {}).get("ratio_fd_over_device")
+    row["repeat"] = d.get("device_repeat_max_abs_diff")
+    lo, hi = BC2_FD_BAND
+    row["gate"] = (row["rel_l2"] <= BC2_MAX_OVER_BF16 * row["bf16_rel_l2"]
+                   and row["fd_ratio"] is not None and lo <= row["fd_ratio"] <= hi
+                   and row["repeat"] == 0)
+    if not keep:
+        shutil.rmtree(work, ignore_errors=True)
+    return row
+
+
 def run_capacity(keep: bool, leg) -> dict:
     """Fold one capacity leg (large target, campaign-scale sample count) and check the
     peak device DRAM against its budget. Also checks the per-sample output contract,
@@ -2504,7 +2671,7 @@ def run_capacity(keep: bool, leg) -> dict:
     yaml_rel, model, _tokens, samples, mps, budget = leg
     data = REPO_ROOT / yaml_rel
     name = data.stem
-    out = REPO_ROOT / predict_results_dir_name(model, name)
+    out = RUN_DIR / predict_results_dir_name(model, name)
     if out.exists():
         shutil.rmtree(out)
 
@@ -2517,7 +2684,7 @@ def run_capacity(keep: bool, leg) -> dict:
         "--seed", str(SEED),
         "--single_sequence",
         "--write_pae",          # the per-sample PAE files this leg counts are opt-in
-        "--out_dir", str(REPO_ROOT),
+        "--out_dir", str(RUN_DIR),
     ]
     print(f"\n{'='*70}\n[capacity] {data.name} on {model}, "
           f"{samples} samples / {mps} per batch, "
@@ -2910,8 +3077,27 @@ def _load_cell(clk) -> dict:
     return {"max": round(xs[-1], 2), "median": round(xs[len(xs) // 2], 2), "n": len(xs)}
 
 
+#: A size-ladder fold may take this many times its recorded runtime before it counts as hung.
+#: FOLD_TIMEOUT_S alone is a floor, not a budget: opendde's 1536 rung on a Wormhole Galaxy is
+#: recorded at 3992 s, so a flat 1800 s timed out every pass at that rung, and a rung recorded
+#: at 1522 s (esmfold2/1536 on the same box) was one loaded host away from the same.
+SIZE_LADDER_TIMEOUT_X = 3
+
+
+#: {(model, rung): seconds}, filled from the baseline before a model's rungs are folded.
+SIZE_LADDER_FOLD_TIMEOUTS: dict = {}
+
+
+def _size_ladder_fold_timeouts(model: str, runtime_s: dict) -> dict:
+    """Set and return {rung: seconds} a census fold of `model` may take at each rung."""
+    out = {int(r): max(FOLD_TIMEOUT_S, math.ceil(SIZE_LADDER_TIMEOUT_X * float(t)))
+           for r, t in (runtime_s or {}).items() if t}
+    SIZE_LADDER_FOLD_TIMEOUTS.update({(model, r): t for r, t in out.items()})
+    return out
+
+
 def _run_census_fold(model: str, rung: int, workdir: Path, tag: str,
-                     need_runtime: bool = True) -> dict:
+                     need_runtime: bool = True, tree: Path | None = None) -> dict:
     """One lever-census-wrapped fold of the cdk2x2_<rung> fixture. Returns
     {"levers": {flag: {resolved, served, declined, frac, how}}, "runtime_s": ...,
     "wall": ...} or {"error": ...}.
@@ -2922,12 +3108,15 @@ def _run_census_fold(model: str, rung: int, workdir: Path, tag: str,
     (single-sequence, 6 steps, 1 sample, seed 0) — enough to resolve every guard
     without paying for a production fold. runtime_s comes from the fold's own
     results.json, which excludes model load and process startup.
+
+    `tree` folds another checkout's tt_bio instead (the A/B reference, see
+    SIZE_LADDER_AB_BAND) through the census's own `--pythonpath`, on the same fixture.
     """
     from tt_bio.main import predict_results_dir_name
     fixture = _size_ladder_fixture(model, rung)
     if not fixture.exists():
         return {"error": f"missing size-ladder fixture {fixture}"}
-    label = f"{model}-{rung}-{tag}"
+    label = f"{model}-{rung}-{tag}" + ("-ref" if tree else "")
     census_json = workdir / f"census_{label}.json"
     out_dir = workdir / f"out_{label}"
     log = workdir / f"{label}.log"
@@ -2935,7 +3124,7 @@ def _run_census_fold(model: str, rung: int, workdir: Path, tag: str,
     workdir.mkdir(parents=True, exist_ok=True)
     census = ([sys.executable, str(REPO_ROOT / "scripts" / "lever_census.py"),
                "--tt-bio", sys.executable, "--label", label, "--out", str(census_json)]
-              + _census_pythonpath_args() + ["--"])
+              + (["--pythonpath", str(tree)] if tree else _census_pythonpath_args()) + ["--"])
     if model == "nesso1":
         # `tt-bio affinity`, not `predict` — see the SIZE_LADDER_NESSO_* block. The census hook
         # runs in every process the CLI starts, launcher included, and this model folds in the
@@ -2976,12 +3165,13 @@ def _run_census_fold(model: str, rung: int, workdir: Path, tag: str,
         env = {**os.environ, **runtime.host_thread_cap_env(1, HOST_THREADS)}
     t0 = time.monotonic()
     with open(log, "w") as fp, _clock_during() as clk:
-        rc, timed_out = _run_fold(cmd, FOLD_TIMEOUT_S, cwd=REPO_ROOT, env=env,
+        timeout_s = SIZE_LADDER_FOLD_TIMEOUTS.get((model, int(rung)), FOLD_TIMEOUT_S)
+        rc, timed_out = _run_fold(cmd, timeout_s, cwd=tree or REPO_ROOT, env=env,
                                   stdout=fp, stderr=subprocess.STDOUT)
     wall = time.monotonic() - t0
     aiclk, load = _aiclk_cell(clk), _load_cell(clk)
     if timed_out:
-        return {"error": f"census fold timed out after {FOLD_TIMEOUT_S}s"
+        return {"error": f"census fold timed out after {timeout_s}s"
                          f" ({_keep_failed_fold_log(log, label)})"}
     if rc != 0:
         text = _fold_log_text(log)
@@ -3230,7 +3420,7 @@ def _rfd3_fusion_census_fold(spec: Path, label: str, workdir: Path) -> dict:
 
 def run_rfd3_fusion(keep: bool) -> dict:
     """Census both fusion fixtures and assert the opposite verdict on each. Returns a result row."""
-    workdir = REPO_ROOT / "rfd3_fusion_gate"
+    workdir = RUN_DIR / "rfd3_fusion_gate"
     if workdir.exists() and not keep:
         shutil.rmtree(workdir)
     row = {"model": "rfd3-fusion", "seconds": None, "gate": False, "error": None,
@@ -3326,8 +3516,11 @@ def _size_ladder_compare_levers(base: dict, cur: dict, where: str) -> list:
         elif _size_ladder_clause_finding(b, c, flag, where):
             findings.append(_size_ladder_clause_finding(b, c, flag, where))
         elif abs(fc - fb) > SIZE_LADDER_FRAC_TOL:
+            # Upward is a lever reaching more calls (a staging widened it), downward is
+            # partial darkness; release_next re-records the first and fixes the second.
             findings.append(f"{where} {flag}: frac {fb:.3f} -> {fc:.3f} exceeds the "
-                            f"{SIZE_LADDER_FRAC_TOL} band (partial darkness)")
+                            f"{SIZE_LADDER_FRAC_TOL} band "
+                            f"({'fires more' if fc > fb else 'partial darkness'})")
     for flag in cur:
         if flag not in base:
             if cur[flag].get("resolved") == "not-imported":
@@ -3370,8 +3563,13 @@ def _size_ladder_model_rungs(model: str, want=None, card: str | None = None) -> 
 
 
 def _size_ladder_measure_model(model: str, rungs, workdir: Path,
-                               reps_sigma: int, reps_other: int) -> dict:
+                               reps_sigma: int, reps_other: int, prior: dict | None = None) -> dict:
     """Census-fold every rung, discarding the first fold AT EACH RUNG, then report.
+
+    `prior` is {rung: [fold, ...]}, the "runs" an earlier call on this card returned. A rung in it
+    is warm and its folds count as reps, so a re-measure at more reps folds only the missing ones.
+    Re-folding them cost rf3 on a Wormhole chip four folds a rung where two would do, about 85 min,
+    and the record leg ran out of budget (rec-c2b4b898e, 10-14).
 
     Returns {"levers": {rung: ...}, "runtime_s": {rung: median}, "sigma": relative
     runtime noise at the sigma rung | None, "census_jsons": {rung: path}} or
@@ -3400,12 +3598,12 @@ def _size_ladder_measure_model(model: str, rungs, workdir: Path,
     sigmas = {}
     sigma_rung = _size_ladder_sigma_rung(model)
     sigma_rungs = _size_ladder_sigma_rungs(model)
-    sigmas = {}
+    sigmas, folds = {}, {}
     for rung in rungs:
         reps = reps_sigma if rung in sigma_rungs else reps_other
-        runs = []
+        runs = list((prior or {}).get(str(rung), ()))[:reps]
         guard = None
-        for rep in range(reps + 1):
+        for rep in range(len(runs) + 1 if runs else 0, reps + 1):
             r = _run_census_fold(model, rung, workdir,
                                  "warmup" if rep == 0 else f"rep{rep - 1}")
             if r.get("refused"):
@@ -3448,6 +3646,7 @@ def _size_ladder_measure_model(model: str, rungs, workdir: Path,
                                                  f"{model}/{rung} rep0 vs rep{i}"):
                 if f not in drift:
                     drift.append(f)
+        folds[str(rung)] = runs
         levers[str(rung)] = runs[0]["levers"]
         census_jsons[str(rung)] = runs[0]["census_json"]
         if runs[0].get("structure"):
@@ -3481,7 +3680,7 @@ def _size_ladder_measure_model(model: str, rungs, workdir: Path,
             "runtime_src": runtime_src, "runtime_reps_s": reps_s, "aiclk": aiclk,
             "load": load, "structure": structure,
             "census_jsons": census_jsons, "grid": grid, "drift": drift,
-            "refused": refused}
+            "refused": refused, "runs": folds}
 
 
 def _size_ladder_record_refusal(meas: dict) -> str | None:
@@ -3895,25 +4094,80 @@ def _size_ladder_fill_reasons(levers: dict, old_levers: dict, inherited=()) -> i
     return todo
 
 
-def _size_ladder_check_model(model: str, rungs, base_model: dict, workdir: Path) -> dict:
+def _size_ladder_check_model(model: str, rungs, base_model: dict, workdir: Path,
+                             timings_differ: str | None = None, part: bool = False) -> dict:
     pre = _size_ladder_precondition(model)
     if pre:
         return {"model": model, "gate": False, "error": pre, "findings": [pre]}
     reps = base_model.get("reps", 1)
+    _size_ladder_fold_timeouts(model, base_model.get("runtime_s"))
     meas = _size_ladder_measure_model(model, rungs, workdir, reps, reps)
+    if part and meas.get("refused") and meas.get("error") and not meas.get("runtime_s"):
+        # A part above the model's ceiling, e.g. opendde's 1152-1280 group on a p150a capped at
+        # 1024. Whole, the ladder folds the rungs below and these refusals are cells the
+        # comparator checks against the baseline's; split off, they are all this part has, so
+        # hand them to the comparator instead of failing a ceiling the baseline agrees with.
+        meas = {"levers": {}, "runtime_s": {}, "refused": meas["refused"], "drift": []}
     if meas.get("error"):
         return {"model": model, "gate": False, "error": meas["error"],
                 "findings": [meas["error"]],
                 "runtime_s": meas.get("runtime_s") or {}, "partial": True}
-    return _size_ladder_compare(base_model, meas, model, rungs)
+    ab = None
+    if SIZE_LADDER_AGAINST and meas["runtime_s"]:
+        got = _size_ladder_ab(model, [int(r) for r in meas["runtime_s"]], workdir,
+                              SIZE_LADDER_AGAINST)
+        ab = got.get("ab")
+        if ab is None:
+            print(f"  [size-ladder] {model}: no A/B ({got['error']}); timing against the "
+                  f"recorded baseline", flush=True)
+    return _size_ladder_compare(base_model, meas, model, rungs, timings_differ, ab)
 
 
-def _size_ladder_compare(base_model: dict, meas: dict, model: str, rungs) -> dict:
+def _size_ladder_split_intervals(base_model: dict, rungs) -> list:
+    """Baseline exponent intervals with exactly one end among `rungs`."""
+    have = {int(r) for r in rungs}
+    return [iv for iv in (base_model.get("exponents") or {})
+            if len(have & {int(x) for x in iv.split("->")}) == 1]
+
+
+def _size_ladder_threads_differ(baseline_path: Path, card: str, model: str) -> str | None:
+    """Why this run's timings cannot be scored against the card's baseline, or None.
+
+    A fold's host-side work scales with its thread cap, and the small rungs are mostly host
+    work. On 2026-10-10 the sharded gate ran three uncapped ladder legs on qb2 (16 cores, each
+    fold taking all 16): boltz2's 256 aa rung read 12.9 s against a baseline of 4.2 s timed
+    alone, 1024 aa reproduced at 0.97x, and the exponents failed on CPU contention. Pinning
+    the cap removes the contention, and a baseline timed at another cap is a different
+    measurement, so it is a finding, not a tolerance.
+
+    The cap is read from the model's own fragment when it has one: the merged view keeps the
+    first card stamp it meets, and each fragment is recorded on its own pass.
+    """
+    frag = _size_ladder_fragment_dir(baseline_path) / f"{model}.json"
+    src = json.loads(frag.read_text()) if frag.exists() else \
+        json.loads(baseline_path.read_text()) if baseline_path.exists() else {}
+    block = (src.get("cards") or {}).get(card)
+    if block is None or model not in (block.get("models") or {}):
+        return None                      # rows live elsewhere; their absence is reported there
+    base = block.get("host_threads")
+    if base == HOST_THREADS:
+        return None
+    return (f"baseline timed at host threads {base or 'all'}, this run at "
+            f"{HOST_THREADS or 'all'}: timings are not comparable, re-record at this cap "
+            f"(--size-ladder-record --host-threads {HOST_THREADS or '<N>'})")
+
+
+def _size_ladder_compare(base_model: dict, meas: dict, model: str, rungs,
+                         timings_differ: str | None = None, ab: dict | None = None) -> dict:
     """Score a measured ladder against its baseline. Pure: no device, no folds.
 
     Split out from _size_ladder_check_model so the arm's verdicts can be tested, and
     reproduced from a past run's numbers, without a card. Every ladder red row this campaign
     argued about was adjudicated by hand out of the log and the baseline fragment dir.
+
+    `ab` (from _size_ladder_ab) replaces the recorded runtimes as the timing reference: the
+    rungs are judged against the last release folded beside them, and the recorded exponents,
+    timed in another session, are only reported. The lever census is judged the same either way.
     """
     findings = []
     b_grid, c_grid = base_model.get("grid"), meas.get("grid")
@@ -3961,7 +4215,11 @@ def _size_ladder_compare(base_model: dict, meas: dict, model: str, rungs) -> dic
                                                     where))
     measured_k, void = {}, {}
     drifted = False
-    for interval, be in (base_model.get("exponents") or {}).items():
+    if ab is not None:
+        findings.extend(_size_ladder_ab_findings(model, ab))
+    elif timings_differ:
+        findings.append(f"{model}: {timings_differ}")
+    for interval, be in ({} if timings_differ else base_model.get("exponents") or {}).items():
         n1, n2 = (int(x) for x in interval.split("->"))
         t1 = meas["runtime_s"].get(str(n1))
         t2 = meas["runtime_s"].get(str(n2))
@@ -3974,7 +4232,7 @@ def _size_ladder_compare(base_model: dict, meas: dict, model: str, rungs) -> dic
             continue
         k = math.log(t2 / t1) / math.log(n2 / n1)
         measured_k[interval] = round(k, 3)
-        if abs(k - be["k"]) > be["tol"]:
+        if ab is None and abs(k - be["k"]) > be["tol"]:
             drifted = True
             findings.append(f"{model} {interval}: exponent {be['k']:.2f} -> {k:.2f} "
                             f"outside ±{be['tol']:.2f}")
@@ -3985,6 +4243,7 @@ def _size_ladder_compare(base_model: dict, meas: dict, model: str, rungs) -> dic
             "error": "; ".join(findings) or None, "findings": findings,
             "runtime_s": meas["runtime_s"], "exponents": measured_k,
             **({"exponents_void": void} if void else {}),
+            **({"ab": ab} if ab is not None else {}),
             "baseline_from": " ".join(str(base_model.get(k)) for k in
                                       ("recorded", "host", "commit") if base_model.get(k))}
 
@@ -4066,6 +4325,88 @@ def _size_ladder_rung_localisation(model: str, base_rt: dict, meas_rt: dict) -> 
         note += (f" -- no rung moved more than {SIZE_LADDER_RUNG_MOVED:.0%}: the exponent "
                  f"tolerance is tighter than the per-rung noise it is built from")
     return note
+
+
+#: The A/B reference: a checkout of the last release (gate_fanout's `perf_against` tree). When set,
+#: a check run times its exponent rungs against it on this chip, in this session, and the
+#: recorded runtimes stop being the timing reference. --size-ladder-against.
+SIZE_LADDER_AGAINST: Path | None = None
+#: A rung fails when its fastest candidate fold is more than this much slower than the reference's
+#: fastest. Rung times on the gate pools are bimodal: across 14 gates (2026-10-14..20) about 30 % of
+#: single folds on every host, qb2 included, read 1.1-3.4x the clean level, in bursts that hit one
+#: fold and spare the next (openbind 256 aa on g110 read 9.4..22.7 s on near-identical code). A
+#: fold can only be slowed by a co-tenant, never sped up, so the minimum over a few folds is the
+#: code's speed, and the two minima on one chip in one session differ by the clean rep spread,
+#: which the recorded quiet-box reps put at 3 % median and 14 % p90 (57 cells, max/min of 3-5
+#: reps). 1.15 sits above that and below the 1.3x a real regression has to clear.
+SIZE_LADDER_AB_BAND = 1.15
+#: Interleaved candidate/reference pairs per rung, and the most an unsettled rung may grow to
+#: (_size_ladder_ab_settled). A clean rung pays three. A real slowdown stays slow at any count; a
+#: burst has to land on every candidate fold to survive six.
+SIZE_LADDER_AB_REPS, SIZE_LADDER_AB_MAX_REPS = 3, 6
+#: Two folds within this of each other read the same clean level (quiet reps: max/min 1.033 median,
+#: 1.137 p90). 1.05 bought 0.8 points of catch rate in the replay for a quarter more folds.
+SIZE_LADDER_AB_SAME = 1.10
+
+
+def _size_ladder_ab_ratio(cell: dict) -> float:
+    """Fastest candidate fold over fastest reference fold."""
+    return min(cell["cand"]) / min(cell["ref"])
+
+
+def _size_ladder_ab_settled(cell: dict) -> bool:
+    """A rung needs no more pairs once it reads inside the band and each side's fastest fold has
+    been reproduced within SIZE_LADDER_AB_SAME by another. A minimum seen once can be a burst on
+    every fold of that side, and on the reference side that hides a regression."""
+    def seen_twice(ts):
+        return sum(t <= min(ts) * SIZE_LADDER_AB_SAME for t in ts) >= 2
+    return (_size_ladder_ab_ratio(cell) <= SIZE_LADDER_AB_BAND
+            and seen_twice(cell["cand"]) and seen_twice(cell["ref"]))
+
+
+def _size_ladder_ab_findings(model: str, ab: dict) -> list:
+    """The A/B rungs that read slower than SIZE_LADDER_AB_BAND. Pure, so a past run's folds can
+    be re-judged without a card."""
+    out = []
+    for rung, cell in sorted(ab.items(), key=lambda kv: int(kv[0])):
+        r = _size_ladder_ab_ratio(cell)
+        if r > SIZE_LADDER_AB_BAND:
+            out.append(f"{model}/{rung} A/B: {r:.2f}x the reference ({min(cell['ref']):.1f} -> "
+                       f"{min(cell['cand']):.1f} s fastest of {len(cell['cand'])}; candidate "
+                       f"{cell['cand']}, reference {cell['ref']}) beyond {SIZE_LADDER_AB_BAND}x")
+    return out
+
+
+def _size_ladder_ab(model: str, rungs, workdir: Path, tree: Path) -> dict:
+    """Time `model` at its exponent rungs against `tree` on this chip, folds interleaved.
+
+    The same-session A/B the perf leg runs (perf_regression.py --against), one level finer: per
+    rung, a reference warm-up, then candidate and reference folds alternating in ABBA order so a
+    slow stretch of the session lands on both sides. Returns {"ab": {rung: {"cand": [s],
+    "ref": [s]}}} or {"error": ...} when the reference cannot fold this model.
+    """
+    ab = {}
+    for rung in (r for r in _size_ladder_exp_rungs(model) if r in rungs):
+        warm = _run_census_fold(model, rung, workdir, "abwarm", tree=tree)
+        if warm.get("refused") or warm.get("error"):
+            return {"error": f"reference {tree.name} at {rung}: "
+                             f"{warm.get('refused') or warm.get('error')}"}
+        cell = {"cand": [], "ref": []}
+        while len(cell["cand"]) < SIZE_LADDER_AB_REPS or (
+                len(cell["cand"]) < SIZE_LADDER_AB_MAX_REPS
+                and not _size_ladder_ab_settled(cell)):
+            i = len(cell["cand"])
+            for side in (("cand", "ref") if i % 2 == 0 else ("ref", "cand")):
+                r = _run_census_fold(model, rung, workdir, f"ab{i}",
+                                     tree=tree if side == "ref" else None)
+                if r.get("refused") or r.get("error"):
+                    return {"error": f"{side} at {rung} A/B pair {i}: "
+                                     f"{r.get('refused') or r.get('error')}"}
+                cell[side].append(round(r["runtime_s"], 2))
+        print(f"  [size-ladder] {model}/{rung} A/B vs {tree.name}: candidate {cell['cand']}, "
+              f"reference {cell['ref']} -> {_size_ladder_ab_ratio(cell):.2f}x", flush=True)
+        ab[str(rung)] = cell
+    return {"ab": ab}
 
 
 def run_size_ladder_fill_reasons(baseline_path: Path, models=None) -> dict:
@@ -4181,8 +4522,20 @@ def run_size_ladder_add_lever(flags, keep: bool, baseline_path: Path,
         if pre:
             legs.append({"model": m, "gate": False, "error": pre, "findings": [pre]})
             continue
+        # A rung that already holds every flag is done: a release gate records levers for every
+        # ladder model at once, and on 2026-10-10 seven of its record legs failed rung by rung on
+        # models a sibling row had already spliced.
+        todo = [rung for rung in ladders[m]
+                if not all(f in (base_model.get("levers", {}).get(str(rung)) or {})
+                           for f in flags)]
+        if not todo:
+            legs.append({"model": m, "gate": True, "error": None, "findings": [], "added": {}})
+            print(f"[size-ladder] {m}: {', '.join(flags)} already recorded at every rung",
+                  flush=True)
+            continue
         measured, clauses, findings, grid = {}, {}, [], None
-        for rung in ladders[m]:
+        _size_ladder_fold_timeouts(m, base_model.get("runtime_s"))
+        for rung in todo:
             # need_runtime=False: this mode compares census counts and writes one lever's
             # row. It never reads a timing, so a fold whose results.json is not readable the
             # instant the subprocess exits must not refuse the splice — openfold3 writes its
@@ -4222,10 +4575,10 @@ def run_size_ladder_add_lever(flags, keep: bool, baseline_path: Path,
         if grid and b_grid and grid != b_grid:
             findings.append(f"{m}: baseline recorded on a {b_grid} grid, this card presents "
                             f"{grid} — lever verdicts are grid-dependent, re-record instead")
-        if findings or len(measured) != len(ladders[m]):
+        if findings or len(measured) != len(todo):
             legs.append({"model": m, "gate": False, "findings": findings,
                          "error": "; ".join(findings) or
-                                  f"{m}: only {len(measured)}/{len(ladders[m])} rungs "
+                                  f"{m}: only {len(measured)}/{len(todo)} rungs "
                                   f"measured"})
             continue
         n_clauses = 0
@@ -4399,7 +4752,11 @@ def _size_ladder_write_fragment(baseline_path: Path, card: str, stamp: dict,
     # Recorded here rather than as a second field in the monolith: a model whose ceiling
     # reaches past the shared rungs is a fact about that model, and writing it into the one
     # file every branch shares is the merge conflict fragments exist to avoid.
-    frag["rungs"] = list(_size_ladder_model_rungs(model))
+    # The union over every board, as SIZE_LADDER_CONTRACT_RUNGS is for the shared json: writing
+    # only the recording board's ladder let a p300c pass drop the 1152-1536 rungs the p150a and
+    # Galaxy cells in the same file are walked at.
+    frag["rungs"] = sorted(set().union(*(_size_ladder_model_rungs(model, card=c)
+                                         for c in (None, *SIZE_LADDER_CARD_RUNGS))))
     block = frag.setdefault("cards", {}).setdefault(card, {})
     block.update(stamp)
     block.setdefault("models", {})[model] = entry
@@ -4463,7 +4820,7 @@ def _size_ladder_arg_rungs(spec: str | None) -> tuple | None:
 
 
 def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
-                    models=None, rungs=None, fragment: bool = False) -> dict:
+                    models=None, rungs=None, fragment: bool = False, part: bool = False) -> dict:
     """The size-generality arm (see the SIZE_LADDER comment block and the module
     docstring for the standing rule it enforces).
 
@@ -4481,7 +4838,9 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
     # carries an extra top rung (SIZE_LADDER_EXTRA_RUNGS).
     want = tuple(rungs) if rungs else None
     rungs = want or _size_ladder_every_rung()
-    if not record and rungs != _size_ladder_every_rung():
+    # A PART is one rung group of a ladder whose other groups run as their own legs
+    # (gate_fanout.py): the gate's verdict needs every part, so no rung goes unread.
+    if not record and not part and rungs != _size_ladder_every_rung():
         return {"model": "size-ladder", "seconds": 0, "gate": False,
                 "card": _size_ladder_card_type(), "rungs": list(rungs),
                 "error": "--size-ladder-rungs is a RECORD-mode resume aid, not a way to "
@@ -4640,6 +4999,7 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
             # the box is serving 23 production workers -- and a one-draw rung on that spread
             # can fake an exponent step of more than 1.
             reps_other = max(1, int((old_models.get(m) or {}).get("reps") or 1))
+            _size_ladder_fold_timeouts(m, (old_models.get(m) or {}).get("runtime_s"))
             meas = _size_ladder_measure_model(m, ladders[m], workdir,
                                               SIZE_LADDER_SIGMA_REPS, reps_other)
             all_refused = None
@@ -4669,7 +5029,8 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
                              if r not in _size_ladder_sigma_rungs(m)]
                     print(f"  [size-ladder] {m}: sigma needs a median of {reps}, re-measuring "
                           f"{','.join(map(str, again))} at {reps} reps", flush=True)
-                    m2 = _size_ladder_measure_model(m, again, workdir, reps, reps)
+                    m2 = _size_ladder_measure_model(m, again, workdir, reps, reps,
+                                                    prior=meas.get("runs"))
                     err = _size_ladder_record_refusal(m2)
                     if err is None:
                         for k in ("levers", "runtime_s", "census_jsons",
@@ -4781,8 +5142,19 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
                 legs.append({"model": m, "gate": False, "error": err,
                              "findings": [err]})
                 continue
-            legs.append(_size_ladder_check_model(m, ladders[m], base_model,
-                                                 workdir))
+            # A part reads only its own rungs, so an exponent interval with one end in another
+            # part would be skipped by every part. Refuse it before any fold instead.
+            split = part and _size_ladder_split_intervals(base_model, ladders[m])
+            if split or (part and not ladders[m]):
+                err = (f"{m}: exponent interval(s) {', '.join(split)} span two ladder parts, so no "
+                       f"part reads them; run the ladder whole or regroup the parts" if split else
+                       f"{m}: none of rungs {','.join(map(str, want))} is on its {card} ladder, "
+                       f"so this part would pass without a fold")
+                legs.append({"model": m, "gate": False, "error": err, "findings": [err]})
+                continue
+            legs.append(_size_ladder_check_model(
+                m, ladders[m], base_model, workdir,
+                _size_ladder_threads_differ(baseline_path, card, m), part=part))
 
     gate = bool(legs) and all(l["gate"] for l in legs)
     row = {"model": "size-ladder", "seconds": time.monotonic() - t0, "gate": gate,
@@ -4971,9 +5343,15 @@ def _l1_budget_physical_grid() -> tuple:
     raise RuntimeError(f"could not read the compute grid: {out.stdout[-500:]} {out.stderr[-500:]}")
 
 
-def _l1_budget_fold(label: str, grid, cap: int, keep: bool) -> dict:
-    """One fkg fold at a forced grid and/or a forced trimul chunk width."""
-    out = REPO_ROOT / f"l1_budget_gate_{label}"
+def _l1_budget_small_grid(grid) -> bool:
+    """True when tenstorrent._apply_grid_thresholds puts `grid` on the small-part chunk sizes."""
+    import tt_bio.tenstorrent as tt
+    return grid[0] * grid[1] < tt.COMPUTE_GRID_X_11 * tt.COMPUTE_GRID_Y
+
+
+def _l1_budget_fold(label: str, grid, cap: int, keep: bool, data: Path = L1_BUDGET_DATA) -> dict:
+    """One fold of `data` (fkg unless given) at a forced grid and/or a forced trimul chunk width."""
+    out = RUN_DIR / f"l1_budget_gate_{label}"
     if out.exists():
         shutil.rmtree(out)
     env = os.environ.copy()
@@ -4984,7 +5362,7 @@ def _l1_budget_fold(label: str, grid, cap: int, keep: bool) -> dict:
         env["TT_BIO_TRIMUL_CHUNK_CAP"] = str(cap)
     else:
         env.pop("TT_BIO_TRIMUL_CHUNK_CAP", None)
-    cmd = [sys.executable, "-m", "tt_bio.main", "predict", str(L1_BUDGET_DATA),
+    cmd = [sys.executable, "-m", "tt_bio.main", "predict", str(data),
            "--model", L1_BUDGET_MODEL, "--single_sequence",
            "--sampling_steps", str(L1_BUDGET_STEPS), "--diffusion_samples", "1",
            "--seed", str(SEED), "--out_dir", str(out), "--debug"]
@@ -4997,13 +5375,13 @@ def _l1_budget_fold(label: str, grid, cap: int, keep: bool) -> dict:
     # behaviour is unchanged until somebody decides this should always run.
     if os.environ.get("C14_L1BUDGET_FAST") == "1":
         cmd.append("--fast")
-    print(f"\n{'='*70}\n[l1-budget] folding {L1_BUDGET_DATA.name} on {L1_BUDGET_MODEL}, "
+    print(f"\n{'='*70}\n[l1-budget] folding {data.name} on {L1_BUDGET_MODEL}, "
           f"grid {'native' if grid is None else f'{grid[0]}x{grid[1]}'}"
           f"{f', trimul width capped at {cap}' if cap else ''}\n{'='*70}", flush=True)
 
-    row = {"model": f"l1-budget:{label}", "grid": grid, "cap": cap, "seconds": None,
+    row = {"model": f"l1-budget:{label}", "target": data.stem, "grid": grid, "cap": cap, "seconds": None,
            "clashes": None, "md5": None, "gate": False, "error": None}
-    log = REPO_ROOT / f"l1_budget_gate_{label}.log"
+    log = RUN_DIR / f"l1_budget_gate_{label}.log"
     t0 = time.monotonic()
     with open(log, "wb") as fh:
         rc, timed_out = _run_fold(cmd, FOLD_TIMEOUT_S, cwd=REPO_ROOT, env=env,
@@ -5021,13 +5399,13 @@ def _l1_budget_fold(label: str, grid, cap: int, keep: bool) -> dict:
         row["error"] = (f"predict exited {rc}"
                         + (f" — an L1/CB clash escaped: {tail[-1][-160:]}" if tail else ""))
         return row
-    results = out / _l1_budget_results_dir()
+    results = out / _l1_budget_results_dir(data)
     cifs = sorted((results / "structures").glob("*.cif")) if (results / "structures").exists() else []
     if not cifs:
         row["error"] = f"predict wrote no CIF under {results}"
         return row
     try:
-        _parse_gate(cifs, name=L1_BUDGET_DATA.stem)
+        _parse_gate(cifs, name=data.stem)
     except Exception as e:
         row["error"] = f"CIF parse failed: {e}"
         return row
@@ -5042,9 +5420,9 @@ def _l1_budget_fold(label: str, grid, cap: int, keep: bool) -> dict:
     return row
 
 
-def _l1_budget_results_dir() -> str:
+def _l1_budget_results_dir(data: Path) -> str:
     from tt_bio.main import predict_results_dir_name
-    return predict_results_dir_name(L1_BUDGET_MODEL, L1_BUDGET_DATA.stem)
+    return predict_results_dir_name(L1_BUDGET_MODEL, data.stem)
 
 
 def run_l1_budget_fold(keep: bool) -> list:
@@ -5070,6 +5448,11 @@ def run_l1_budget_fold(keep: bool) -> list:
         legs.append((f"{grid[0]}x{grid[1]}", grid, 0))
     legs.append(("narrow", None, L1_BUDGET_CAP))
     rows = [_l1_budget_fold(label, grid, cap, keep) for label, grid, cap in legs]
+    small = _l1_budget_small_grid
+    wide = [g for _lbl, g, _c in legs if g is not None and small(g) == small(phys)]
+    if wide:
+        rows += [_l1_budget_fold(f"512-{label}", grid, 0, keep, data=L1_BUDGET_WIDE_DATA)
+                 for label, grid in [("native", None)] + [(f"{g[0]}x{g[1]}", g) for g in wide]]
 
     # Neutrality: the clash-and-narrow fold must match the never-clashed one byte for byte.
     cold = next((r for r in rows if r["model"] == "l1-budget:native"), None)
@@ -5122,7 +5505,7 @@ def run_batch_position(keep: bool) -> dict:
     if not BATCH_POSITION_SCRIPT.exists():
         row["error"] = f"missing {BATCH_POSITION_SCRIPT}"
         return row
-    out = REPO_ROOT / "batch_position_gate"
+    out = RUN_DIR / "batch_position_gate"
     if out.exists():
         shutil.rmtree(out)
     js = out / "probe.json"
@@ -5134,7 +5517,7 @@ def run_batch_position(keep: bool) -> dict:
     print(f"\n{'='*70}\n[batch-position] {BATCH_POSITION_N} identical "
           f"{BATCH_POSITION_AA} aa targets + one {BATCH_POSITION_EXTRA_AA} aa control, "
           f"one process\n{'='*70}", flush=True)
-    log = REPO_ROOT / "batch_position_gate.log"
+    log = RUN_DIR / "batch_position_gate.log"
     # Each target is a full structure + affinity fold, so this leg needs N+1 of them.
     timeout = FOLD_TIMEOUT_S * (BATCH_POSITION_N + 1)
     t0 = time.monotonic()
@@ -5197,6 +5580,10 @@ def main() -> int:
                          "of checking against it. Explicit human action after an "
                          "intentional size-affecting change; runs all rungs and "
                          "measures the runtime noise floor. Never automatic.")
+    ap.add_argument("--size-ladder-against", type=Path, default=None, metavar="TREE",
+                    help="A/B in one session: time each model's exponent rungs against TREE (a "
+                         "checkout of the last release) on this card, folds interleaved, "
+                         "instead of against the recorded runtimes. Check runs only.")
     ap.add_argument("--size-ladder-baseline", default=str(SIZE_LADDER_BASELINE),
                     help="Baseline JSON path (default docs/size_ladder_baseline.json).")
     ap.add_argument("--size-ladder-models", default=None,
@@ -5218,6 +5605,10 @@ def main() -> int:
                          "core grid, and dropped with a printed reason when it was not — a "
                          "1024-rung ladder is hours of device time per model and has to be "
                          "resumable a rung at a time, not just a model at a time.")
+    ap.add_argument("--size-ladder-part", action="store_true",
+                    help="Check only the --size-ladder-rungs subset, as one part of a ladder "
+                         "whose other parts run as separate legs (gate_fanout.py's rung groups, "
+                         "which together cover every rung). Alone it is not a size-ladder check.")
     ap.add_argument("--fast", action="store_true",
                     help="Fold with --fast so the gate exercises the block-fp8 trunk path "
                          "(bf8 weights + bf8 matmul output). Defaults off (full precision).")
@@ -5249,6 +5640,7 @@ def main() -> int:
     ap.add_argument("--pxdesign-out", default=None, help=argparse.SUPPRESS)
     ap.add_argument("--pxdesign-json", default=None, help=argparse.SUPPRESS)
     args = ap.parse_args()
+    RUN_DIR.mkdir(parents=True, exist_ok=True)
 
     if args.pxdesign_child:
         return _pxdesign_child(Path(args.pxdesign_out), Path(args.pxdesign_json))
@@ -5259,9 +5651,10 @@ def main() -> int:
         print("\n".join(default_arms()))
         return 0
 
-    global FAST, DIFFUSION_TRACE, HOST_THREADS
+    global FAST, DIFFUSION_TRACE, HOST_THREADS, SIZE_LADDER_AGAINST
     FAST = args.fast
     HOST_THREADS = args.host_threads
+    SIZE_LADDER_AGAINST = args.size_ladder_against.resolve() if args.size_ladder_against else None
     DIFFUSION_TRACE = args.diffusion_trace
 
     # This gate is single-card by construction: every leg folds one yaml, which selects one
@@ -5629,7 +6022,7 @@ def main() -> int:
                              args.size_ladder_models.split(",")
                              if args.size_ladder_models else None,
                              rungs=_size_ladder_arg_rungs(args.size_ladder_rungs),
-                             fragment=args.size_ladder_fragment)
+                             fragment=args.size_ladder_fragment, part=args.size_ladder_part)
         all_pass &= sl["gate"]
         rungs = sl.get("rungs") or list(_size_ladder_every_rung())
         design = [l["model"] for l in sl["legs"] if l["model"] in SIZE_LADDER_DESIGN]
@@ -5700,16 +6093,19 @@ def main() -> int:
                       "if this change is intentional, re-record with --size-ladder-record")
 
     if want_l1_budget:
-        if not L1_BUDGET_DATA.exists():
-            sys.exit(f"missing l1-budget gate target {L1_BUDGET_DATA}")
+        for data in (L1_BUDGET_DATA, L1_BUDGET_WIDE_DATA):
+            if not data.exists():
+                sys.exit(f"missing l1-budget gate target {data}")
         ar = run_l1_budget_static()
         frows = run_l1_budget_fold(args.keep)
-        md5s = {r["md5"] for r in frows if r["md5"]}
-        if len(md5s) > 1:
-            for r in frows:
-                r["gate"] = False
-                r["error"] = r["error"] or (
-                    f"grid/width ladder is NOT numerics-neutral: {sorted(md5s)}")
+        for target in {r["target"] for r in frows}:
+            group = [r for r in frows if r["target"] == target]
+            md5s = {r["md5"] for r in group if r["md5"]}
+            if len(md5s) > 1:
+                for r in group:
+                    r["gate"] = False
+                    r["error"] = r["error"] or (
+                        f"grid/width ladder is NOT numerics-neutral on {target}: {sorted(md5s)}")
         print(f"\n{'#'*78}\nRELEASE GATE — L1 budgets vs part "
               f"({L1_BUDGET_DATA.name} on {L1_BUDGET_MODEL}, "
               f"{len(L1_BUDGET_PARTS)} part classes)\n{'#'*78}")

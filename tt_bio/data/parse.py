@@ -81,6 +81,54 @@ from tt_bio.data.types import (
 
 
 
+def _row_tokens_py(line: str) -> tuple[list[int], list[tuple[int, int]]]:
+    """One aligned MSA row as (residue tokens, (res_idx, count) deletions): lowercase letters are
+    insertions counted against the next residue, and unknown characters (a malformed MSA, stray
+    whitespace) map to UNK instead of raising."""
+    residue = []
+    deletion = []
+    count = 0
+    res_idx = 0
+    for c in line:
+        if c != "-" and c.islower():
+            count += 1
+            continue
+        token = const.prot_letter_to_token.get(c, const.unk_token["PROTEIN"])
+        residue.append(const.token_ids[token])
+        if count > 0:
+            deletion.append((res_idx, count))
+            count = 0
+        res_idx += 1
+    return residue, deletion
+
+
+_ROW_LUT = np.array([const.token_ids[const.prot_letter_to_token.get(chr(i), const.unk_token["PROTEIN"])]
+                     for i in range(128)], dtype=np.int8)
+
+
+def _row_tokens(line: str):
+    """`_row_tokens_py` with numpy for an ASCII row, identical output. A served alignment is 8192
+    rows of ~750 columns, and the per-character loop took 2.5 s of the 3.3 s Boltz-2 spent
+    preparing a 748-residue input on qb1. A non-ASCII row (where `str.islower` is not just a-z)
+    keeps the loop."""
+    try:
+        b = np.frombuffer(line.encode("ascii"), dtype=np.uint8)
+    except UnicodeEncodeError:
+        return _row_tokens_py(line)
+    low = (b >= 97) & (b <= 122)
+    pos = np.flatnonzero(~low)
+    count = np.diff(np.cumsum(low)[pos], prepend=0)     # insertions just before each residue
+    idx = np.flatnonzero(count)
+    return _ROW_LUT[b[pos]], list(zip(idx.tolist(), count[idx].tolist()))
+
+
+def _residue_array(rows: list) -> np.ndarray:
+    out = np.zeros(sum(len(r) for r in rows), dtype=MSAResidue)
+    if rows:
+        out["res_type"] = np.concatenate([np.asarray(r, dtype=np.int8) for r in rows])
+    return out
+
+
 def _parse_a3m(  # noqa: C901
     lines: TextIO,
     taxonomy: Optional[dict[str, str]],
@@ -107,6 +155,7 @@ def _parse_a3m(  # noqa: C901
     sequences = []
     deletions = []
     residues = []
+    n_res = 0
 
     seq_idx = 0
     for line in lines:
@@ -134,33 +183,16 @@ def _parse_a3m(  # noqa: C901
         else:
             continue
 
-        # Process sequence
-        residue = []
-        deletion = []
-        count = 0
-        res_idx = 0
-        for c in line:
-            if c != "-" and c.islower():
-                count += 1
-                continue
-            # Unknown / non-residue characters (a malformed MSA, stray
-            # whitespace, etc.) map to UNK instead of crashing with a KeyError.
-            token = const.prot_letter_to_token.get(c, const.unk_token["PROTEIN"])
-            token = const.token_ids[token]
-            residue.append(token)
-            if count > 0:
-                deletion.append((res_idx, count))
-                count = 0
-            res_idx += 1
-
-        res_start = len(residues)
+        residue, deletion = _row_tokens(line)
+        res_start = n_res
         res_end = res_start + len(residue)
+        n_res = res_end
 
         del_start = len(deletions)
         del_end = del_start + len(deletion)
 
         sequences.append((seq_idx, taxonomy_id, res_start, res_end, del_start, del_end))
-        residues.extend(residue)
+        residues.append(residue)
         deletions.extend(deletion)
 
         seq_idx += 1
@@ -169,7 +201,7 @@ def _parse_a3m(  # noqa: C901
 
     # Create MSA object
     msa = MSA(
-        residues=np.array(residues, dtype=MSAResidue),
+        residues=_residue_array(residues),
         deletions=np.array(deletions, dtype=MSADeletion),
         sequences=np.array(sequences, dtype=MSASequence),
     )
@@ -248,6 +280,7 @@ def parse_csv(
     sequences = []
     deletions = []
     residues = []
+    n_res = 0
 
     seq_idx = 0
     for line, key in zip(data["sequence"], data["key"]):
@@ -268,33 +301,16 @@ def parse_csv(
         else:
             continue
 
-        # Process sequence
-        residue = []
-        deletion = []
-        count = 0
-        res_idx = 0
-        for c in line:
-            if c != "-" and c.islower():
-                count += 1
-                continue
-            # Unknown / non-residue characters (a malformed MSA, stray
-            # whitespace, etc.) map to UNK instead of crashing with a KeyError.
-            token = const.prot_letter_to_token.get(c, const.unk_token["PROTEIN"])
-            token = const.token_ids[token]
-            residue.append(token)
-            if count > 0:
-                deletion.append((res_idx, count))
-                count = 0
-            res_idx += 1
-
-        res_start = len(residues)
+        residue, deletion = _row_tokens(line)
+        res_start = n_res
         res_end = res_start + len(residue)
+        n_res = res_end
 
         del_start = len(deletions)
         del_end = del_start + len(deletion)
 
         sequences.append((seq_idx, taxonomy_id, res_start, res_end, del_start, del_end))
-        residues.extend(residue)
+        residues.append(residue)
         deletions.extend(deletion)
 
         seq_idx += 1
@@ -303,7 +319,7 @@ def parse_csv(
 
     # Create MSA object
     msa = MSA(
-        residues=np.array(residues, dtype=MSAResidue),
+        residues=_residue_array(residues),
         deletions=np.array(deletions, dtype=MSADeletion),
         sequences=np.array(sequences, dtype=MSASequence),
     )
@@ -315,6 +331,23 @@ def parse_csv(
 
 
 
+
+
+def fasta_header_error(header: str, path) -> str:
+    """The refusal for a FASTA record whose header is not ``CHAIN|TYPE[|MSA]``.
+
+    The common case is a header pasted from UniProt or NCBI (``>sp|P69905|HBA_HUMAN ...``),
+    whose second field is an accession rather than an entity type. The message says what
+    the header was read as and the one-line fix, because "Invalid entity type: P69905" left
+    a first-time user guessing which part of the file was wrong."""
+    parts = header.split("|")
+    typ = parts[1].split()[0] if len(parts) > 1 and parts[1].split() else ""
+    return (f"{path}: FASTA header '>{header[:80]}' is not in tt-bio's '>CHAIN|TYPE' form: "
+            f"its second field '{typ}' is not an entity type (protein, dna, rna, ccd, smiles). "
+            "Every record in one FASTA file is a chain of ONE complex. For a protein from "
+            "UniProt, write the header as '>A|protein' (and '>B|protein' for a second chain); "
+            "to fold several separate proteins, put each in its own file in one directory and "
+            "pass the directory.")
 
 
 def parse_fasta(  # noqa: C901, PLR0912
@@ -370,8 +403,7 @@ def parse_fasta(  # noqa: C901, PLR0912
 
         chain_id, entity_type = header[:2]
         if entity_type.lower() not in {"protein", "dna", "rna", "ccd", "smiles"}:
-            msg = f"Invalid entity type: {entity_type}"
-            raise ValueError(msg)
+            raise ValueError(fasta_header_error(seq_record.description, path.name))
         if chain_id == "":
             msg = "Empty chain id in input fasta!"
             raise ValueError(msg)
@@ -2553,6 +2585,50 @@ def parse_ccd_residue(
     )
 
 
+def _polymer_residue_atoms(res_corrected: str, components: dict[str, Mol], mol_dir: Path,
+                           unk_chirality: int) -> tuple[ParsedAtom, ...]:
+    """`parse_polymer`'s atoms of standard residue `res_corrected`, in const.ref_atoms order."""
+    ref_mol = get_mol(res_corrected, components, mol_dir)
+    ref_mol = AllChem.RemoveHs(ref_mol, sanitize=False)
+    ref_conformer = get_conformer(ref_mol)
+
+    # Only use reference atoms set in constants
+    ref_name_to_atom = {a.GetProp("name"): a for a in ref_mol.GetAtoms()}
+    ref_atoms = [ref_name_to_atom[a] for a in const.ref_atoms[res_corrected]]
+
+    # Iterate, always in the same order
+    atoms: list[ParsedAtom] = []
+
+    for ref_atom in ref_atoms:
+        # Get atom name
+        atom_name = ref_atom.GetProp("name")
+        idx = ref_atom.GetIdx()
+
+        # Get conformer coordinates
+        ref_coords = ref_conformer.GetAtomPosition(idx)
+        ref_coords = (ref_coords.x, ref_coords.y, ref_coords.z)
+
+        # Set 0 coordinate
+        atom_is_present = True
+        coords = (0, 0, 0)
+
+        # Add atom to list
+        atoms.append(
+            ParsedAtom(
+                name=atom_name,
+                element=ref_atom.GetAtomicNum(),
+                charge=ref_atom.GetFormalCharge(),
+                coords=coords,
+                conformer=ref_coords,
+                is_present=atom_is_present,
+                chirality=const.chirality_type_ids.get(
+                    str(ref_atom.GetChiralTag()), unk_chirality
+                ),
+            )
+        )
+    return tuple(atoms)
+
+
 def parse_polymer(
     sequence: list[str],
     raw_sequence: str,
@@ -2595,6 +2671,10 @@ def parse_polymer(
 
     # Get coordinates and masks
     parsed = []
+    # A standard residue's atoms are the same frozen records wherever it sits, so each type is
+    # built from its reference molecule once per chain, not once per residue (RemoveHs and the
+    # conformer walk were ~0.18 s of a 512-residue Boltz-2 fold on the host).
+    templates: dict[str, tuple[ParsedAtom, ...]] = {}
     for res_idx, res_name in enumerate(sequence):
         # Check if modified residue
         # Map MSE to MET
@@ -2612,45 +2692,10 @@ def parse_polymer(
             parsed.append(residue)
             continue
 
-        # Load ref residue
-        ref_mol = get_mol(res_corrected, components, mol_dir)
-        ref_mol = AllChem.RemoveHs(ref_mol, sanitize=False)
-        ref_conformer = get_conformer(ref_mol)
-
-        # Only use reference atoms set in constants
-        ref_name_to_atom = {a.GetProp("name"): a for a in ref_mol.GetAtoms()}
-        ref_atoms = [ref_name_to_atom[a] for a in const.ref_atoms[res_corrected]]
-
-        # Iterate, always in the same order
-        atoms: list[ParsedAtom] = []
-
-        for ref_atom in ref_atoms:
-            # Get atom name
-            atom_name = ref_atom.GetProp("name")
-            idx = ref_atom.GetIdx()
-
-            # Get conformer coordinates
-            ref_coords = ref_conformer.GetAtomPosition(idx)
-            ref_coords = (ref_coords.x, ref_coords.y, ref_coords.z)
-
-            # Set 0 coordinate
-            atom_is_present = True
-            coords = (0, 0, 0)
-
-            # Add atom to list
-            atoms.append(
-                ParsedAtom(
-                    name=atom_name,
-                    element=ref_atom.GetAtomicNum(),
-                    charge=ref_atom.GetFormalCharge(),
-                    coords=coords,
-                    conformer=ref_coords,
-                    is_present=atom_is_present,
-                    chirality=const.chirality_type_ids.get(
-                        str(ref_atom.GetChiralTag()), unk_chirality
-                    ),
-                )
-            )
+        if res_corrected not in templates:
+            templates[res_corrected] = _polymer_residue_atoms(res_corrected, components, mol_dir,
+                                                              unk_chirality)
+        atoms = list(templates[res_corrected])
 
         atom_center = const.res_to_center_atom_id[res_corrected]
         atom_disto = const.res_to_disto_atom_id[res_corrected]

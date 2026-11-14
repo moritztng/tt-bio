@@ -55,6 +55,9 @@ class _Op:
 def _clean(monkeypatch):
     monkeypatch.setattr(T, "_HOST_ACC_KEYS", set())
     monkeypatch.setattr(T, "_CONCAT_HOST_BYTES", T.CONCAT_HOST_BYTES_BASE)
+    # The host join is bf16 only (`_host_concat`), so pin the device dtype to bf16.
+    monkeypatch.setattr(T, "_FAST_MODE", False)
+    monkeypatch.setattr(T, "_DTYPE_OVERRIDE", None)
     yield
     assert T._DEVICE_ACC_TRIAL == [False], "the trial flag outlived its call"
 

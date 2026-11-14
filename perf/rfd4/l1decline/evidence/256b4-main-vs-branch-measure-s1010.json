@@ -1,0 +1,32 @@
+{
+ "a": "main-256b4/run/b4/measure-s1010",
+ "b": "branch-256b4/run/b4/measure-s1010",
+ "n": 4,
+ "equal": 4,
+ "rows": [
+  {
+   "design": 0,
+   "sha_a": "85b26c3b00dd7ee8",
+   "sha_b": "85b26c3b00dd7ee8",
+   "equal": true
+  },
+  {
+   "design": 1,
+   "sha_a": "cd5b858a55f9427f",
+   "sha_b": "cd5b858a55f9427f",
+   "equal": true
+  },
+  {
+   "design": 2,
+   "sha_a": "f97808f4c47ab006",
+   "sha_b": "f97808f4c47ab006",
+   "equal": true
+  },
+  {
+   "design": 3,
+   "sha_a": "d69f27aeab2ca978",
+   "sha_b": "d69f27aeab2ca978",
+   "equal": true
+  }
+ ]
+}

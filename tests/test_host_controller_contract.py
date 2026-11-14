@@ -92,6 +92,23 @@ def test_a_result_settles_once_and_only_from_the_lease_holder(tmp_path, clock):
     assert store.results(run) == [{"id": "x", "status": "ok"}]
 
 
+def test_a_job_that_outlives_two_leases_fails_instead_of_hanging_a_third_chip(tmp_path, clock):
+    """A Boltz-2 input that hung the device was handed to ~10 chips in turn until JapanFold's
+    25 min cap (10-19). The second lapse now ends it, and the run with it."""
+    store = H.ControllerStore(tmp_path / "c.sqlite3")
+    run = _run(store, "x")
+    for wid in ("a", "b"):
+        assert [j["id"] for j in store.lease({"worker": _worker(wid)})["jobs"]] == ["x"]
+        clock[0] += H.LEASE_S + 1
+    assert store.lease({"worker": _worker("c")})["jobs"] == []
+    assert store.run_status(run) == {"status": "failed"}
+    [result] = store.results(run)
+    assert result["status"] == "failed" and "2 workers" in result["error"]
+    assert [e["event"] for e in store.events(run, 0)["events"]].count("run_done") == 1
+    store.complete_job({"run_id": run, "worker_id": "b", "result": {"id": "x", "status": "ok"}})
+    assert store.run_status(run) == {"status": "failed"}     # a late answer reopens nothing
+
+
 def test_a_worker_asking_for_work_gives_back_what_it_still_held(tmp_path, clock):
     """Its completion never arrived; without this its heartbeats renewed the job forever."""
     store = H.ControllerStore(tmp_path / "c.sqlite3")
@@ -112,6 +129,23 @@ def test_a_canceled_run_is_not_reopened_by_a_completion(tmp_path, clock):
     assert store.run_status(run) == {"status": "canceled"}
 
 
+def test_a_run_created_again_under_its_id_runs_its_jobs_again(tmp_path, clock):
+    """JapanFold passes its job id as the run id, so a retry that lands on the same host re-creates
+    the run. The first attempt's rows and events must not answer for it (job 9c1aec9f, 10-11: the
+    retry found its job already `ok`, nothing leased it, and it stalled out after 10 minutes)."""
+    store = H.ControllerStore(tmp_path / "c.sqlite3")
+    payload = {"run_id": "job1", "data": "d", "out_dir": "o", "result_dir": "r",
+               "config": {"model": "opendde"}, "jobs": [{"id": "x", "name": "x.yaml"}]}
+    store.create_run(payload)
+    store.lease({"worker": _worker("a")})
+    store.complete_job({"run_id": "job1", "worker_id": "a", "result": {"id": "x", "status": "ok"}})
+    assert store.run_status("job1") == {"status": "ok"}
+    store.create_run(payload)
+    assert store.run_status("job1") == {"status": "running"}
+    assert [e["event"] for e in store.events("job1", 0)["events"]] == ["run"]
+    assert [j["id"] for j in store.lease({"worker": _worker("b")})["jobs"]] == ["x"]
+
+
 def test_the_controller_serves_loopback_only(tmp_path):
     server = H.ControllerServer(0, tmp_path / "c.sqlite3")
     try:
@@ -127,3 +161,55 @@ def test_no_command_offers_to_bind_another_interface():
         out = CliRunner().invoke(cli, [cmd, "--help"]).output
         assert "--listen" not in out, cmd
     assert "--lease-s" in CliRunner().invoke(cli, ["controller", "--help"]).output
+
+
+
+def test_no_lease_heartbeat_or_poll_scans_a_table_that_grows_all_day(tmp_path):
+    # A store keeps every job and event for its agent's life. A lease that scanned jobs took 50 ms after 18 h on a
+    # JapanFold agent, 32 workers saturated the lock and served folds slowed by a third. Each lookup must reach its
+    # rows through an index, including on a store opened on a file written before the indexes existed.
+    path = tmp_path / "c.sqlite3"
+    H.ControllerStore(path)
+    with H.sqlite3.connect(path) as conn:
+        for name in ("jobs_worker_status", "jobs_status_lease", "events_run_seq"):
+            conn.execute(f"DROP INDEX {name}")
+    store = H.ControllerStore(path)
+    run_id = _run(store, "x")
+    lookups = {
+        "SELECT 1 FROM jobs j WHERE j.worker_id = ? AND j.status = 'running' AND j.lease_until >= ?": ("w", 0),
+        "UPDATE jobs SET lease_until=? WHERE worker_id=? AND status='running'": (0, "w"),
+        "SELECT run_id, job_id FROM jobs WHERE status='running' AND lease_until < ? AND attempts >= ?": (0, 2),
+        "SELECT job_id FROM jobs WHERE status = 'pending' OR (status = 'running' AND lease_until < ?)": (0,),
+        "SELECT seq, event_json FROM events WHERE run_id=? AND seq>? ORDER BY seq LIMIT 500": (run_id, 0),
+    }
+    with store._connect() as conn:
+        for sql, args in lookups.items():
+            plan = " ".join(r[3] for r in conn.execute("EXPLAIN QUERY PLAN " + sql, args))
+            assert "SCAN" not in plan, (sql, plan)
+    assert [e["event"] for e in store.events(run_id, 0)["events"]] == ["run"]
+
+
+def test_a_worker_reloading_its_model_puts_the_task_in_prepare(tmp_path, clock):
+    """The worker announces a model reload with a bare ``loading`` event, before
+    ``start``. It used to set no phase, so a task waiting minutes on a reload
+    showed none, and JapanFold's stall watchdog read it as wedged."""
+    store = H.ControllerStore(tmp_path / "c.sqlite3")
+    run = _run(store, "x")
+    store.lease({"worker": _worker("a")})
+    assert store.run_jobs(run) == [{"id": "x", "status": "running", "stage": None}]
+    store.record_event({"run_id": run, "worker_id": "a", "event": {"event": "loading"}})
+    assert store.run_jobs(run)[0]["stage"] == "prepare"
+
+
+def test_the_largest_input_of_a_submission_is_leased_first(tmp_path, clock):
+    """Jobs of one run share a timestamp, so the file name used to pick the order and the
+    biggest protein of a batch could start last and run alone while the other chips idled."""
+    import base64
+    store = H.ControllerStore(tmp_path / "c.sqlite3")
+    seqs = {"a": "M" * 110, "b": "M" * 585, "c": "M" * 263}
+    store.create_run({"data": "d", "out_dir": "o", "result_dir": "r", "config": {"model": "esmfold2"},
+                      "jobs": [{"id": i, "name": f"{i}.fasta",
+                                "input_b64": base64.b64encode(f">A|protein\n{s}\n".encode()).decode()}
+                               for i, s in seqs.items()]})
+    order = [store.lease({"worker": _worker(f"w{n}")})["jobs"][0]["id"] for n in range(3)]
+    assert order == ["b", "c", "a"]

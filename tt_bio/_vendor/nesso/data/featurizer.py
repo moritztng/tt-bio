@@ -30,7 +30,10 @@ from tt_bio._vendor.nesso.data.types import Record, Tokenized
 if hasattr(Chem, "SetDefaultPickleProperties") and hasattr(
     Chem, "PropertyPickleOptions"
 ):
-    Chem.SetDefaultPickleProperties(Chem.PropertyPickleOptions.AtomProps)
+    # tt-bio: widen, never narrow. The option is process-wide and atomworks asserts AllProps.
+    Chem.SetDefaultPickleProperties(
+        Chem.GetDefaultPickleProperties() | Chem.PropertyPickleOptions.AtomProps
+    )
 
 
 ####################################################################################################

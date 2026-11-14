@@ -38,6 +38,12 @@ import time
 import numpy as np
 import torch
 
+
+def _capturing() -> bool:
+    from tt_bio.tenstorrent import CAPTURING
+    return CAPTURING[0] > 0
+
+
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 from perf.hallgrad.e2e_distogram import ClockTrace, make_weights, tt_chain  # noqa: E402
@@ -148,7 +154,8 @@ class Recorder:
         ttnn, rec = self.ttnn, self
 
         def w(*args, **kwargs):
-            if not rec.active or rec.depth:
+            # Inside a trace capture the op is only recorded, and a synchronize there is fatal.
+            if not rec.active or rec.depth or _capturing():
                 return fn(*args, **kwargs)
             rec.depth += 1
             try:
@@ -159,7 +166,7 @@ class Recorder:
                 ttnn.synchronize_device(rec.device)
                 t1 = time.perf_counter()
                 rep = None
-                if name not in NO_REPLAY and not name.endswith("_"):
+                if rec.replay and name not in NO_REPLAY and not name.endswith("_"):
                     t2 = time.perf_counter()
                     for _ in range(rec.replay):
                         o = fn(*args, **kwargs)
@@ -195,6 +202,49 @@ class Recorder:
         wrapped = self._wrap("getitem", gi)
         self.ttnn.Tensor.__getitem__ = lambda self_, key: wrapped(self_, key)
         return self
+
+    # Ops outside WRAP (the fused SDPA, ttnn.experimental kernels, to_torch/from_torch) dispatch
+    # async; their device time lands inside the NEXT wrapped call's leading sync, before its clock
+    # starts, so a census that does not wrap them cannot see them at all.
+    SKIP = ("_", "get_", "set_", "open_", "close_", "enable", "disable", "is_", "synchronize",
+            "Read", "Dump", "manage", "register", "dump", "load_", "create_", "query", "device",
+            "num_", "list_")
+
+    def install_all(self):
+        """`install`, then every other public callable in ttnn, ttnn.experimental, ttnn.transformer."""
+        self.install()
+        done = set()
+        for mod_name in ("", "experimental", "transformer"):
+            mod = getattr(self.ttnn, mod_name) if mod_name else self.ttnn
+            for n in dir(mod):
+                fn = getattr(mod, n, None)
+                if (not callable(fn) or isinstance(fn, type) or n.startswith(self.SKIP)
+                        or getattr(fn, "__module__", "") in ("typing", "builtins") or id(fn) in done):
+                    continue
+                label = f"{mod_name}.{n}" if mod_name else n
+                if not mod_name and n in self.orig:
+                    continue
+                done.add(id(fn))
+                self.orig[label] = fn
+                setattr(mod, n, self._wrap(label, fn))
+        self._rebind_shim()
+        return self
+
+    def _rebind_shim(self):
+        """Make tt-bio's tape shim call the wrappers too.
+
+        `taped_ttnn._SHIM` caches the shipped callable per verb the first time a tape reads it,
+        and every `tt_bio` module calls through that proxy while a tape (or a checkpoint's
+        recompute) is open. A census installed after any warm-up therefore never sees the
+        forward: on BindCraft 2 it recorded 0.26 s of a 2.21 s Evoformer forward. Dropping the
+        cache makes the shim re-resolve each verb off the wrapped module, and pointing the
+        shipped `__getitem__` at the wrapper keeps it across the shim's swap out.
+        """
+        TT = sys.modules.get("tt_bio.taped_ttnn")
+        if TT is None:
+            return
+        TT.forget_shim_bindings()
+        TT._SHIPPED_GETITEM = self.ttnn.Tensor.__getitem__
 
 
 def one_step(ag, ttnn, device, Wtt, cfg, logits_np, mask_t, M, inC, rec=None):

@@ -27,6 +27,15 @@
 #include "api/compute/eltwise_binary_sfpu.h"
 #endif
 
+// Per-stage device-profiler zones of the standard loop, behind TRIATT_ZONES (TT_BIO_TRIATT_ZONES).
+// An instrument: the stage times sum to the unit's, and nothing else changes.
+#ifdef TRIATT_ZONES
+#include "tools/profiler/kernel_profiler.hpp"
+#define TZONE(n) DeviceZoneScopedN(n)
+#else
+#define TZONE(n)
+#endif
+
 ALWI void sdpa_reduce_copy_tile_to_dst_init_short(uint32_t cbid, uint32_t transpose = 0) {
     UNPACK((llk_unpack_A_init<BroadcastType::NONE, false, EltwiseBinaryReuseDestType::NONE, UnpackToDestEn>(
         transpose, true /*transpose within 16x16 face*/, cbid)));
@@ -139,11 +148,16 @@ void reduce_c(uint32_t out_cb, uint32_t prev_cb, bool do_eltwise_max = false) {
              * Note that this special invocation of copy_tile is necessary to produce
              * tiles in DST with transposed faces, as `reduce_block_max_row` expects.
              */
+            // The previous max is bf16 while srcA still holds the score CB's format. With a bfp8
+            // score CB, copying it under that format reads garbage into every k chunk after the
+            // first, so move srcA for the copy and back (both no-ops in the all-bf16 stock table).
+            reconfig_data_format_srca(in0_cb, prev_cb);
             sdpa_reduce_copy_tile_to_dst_init_short(prev_cb);
             for (uint32_t i = 0; i < dst_tiles; i++) {
                 const uint32_t cur_max_dst_idx = i;
                 copy_tile(prev_cb, (row_start_idx + i), cur_max_dst_idx);
             }
+            reconfig_data_format_srca(prev_cb, in0_cb);
         }
 
         /**
@@ -206,8 +220,10 @@ void reduce_c(uint32_t out_cb, uint32_t prev_cb, uint32_t cols, bool do_eltwise_
         }
         reduce_uninit();
         if (do_eltwise_max) {
+            reconfig_data_format_srca(in0_cb, prev_cb);
             copy_tile_to_dst_init_short(prev_cb);
             copy_tile(prev_cb, i, prev_max_dst_idx);
+            reconfig_data_format_srca(prev_cb, in0_cb);
             binary_max_tile(reduce_dst_idx, prev_max_dst_idx, reduce_dst_idx, static_cast<int>(vector_mode));
         }
 
@@ -399,6 +415,11 @@ void sub_exp_block_bcast_cols_inplace(uint32_t in1_cb, uint32_t reduce_cb, uint3
             tile_regs_wait();
 
             if constexpr (write_result_inplace) {
+                // The scores and the running sum alternate on the packer; reconfigure between them
+                // so a score CB narrower than the bf16 statistics is packed in its own format.
+                if constexpr (do_reduce) {
+                    pack_reconfig_data_format(reduce_cb, in0_cb);
+                }
                 for (uint32_t j = 0; j < dst_tiles; ++j) {
                     pack_tile(j, in0_cb);
                 }
@@ -407,6 +428,9 @@ void sub_exp_block_bcast_cols_inplace(uint32_t in1_cb, uint32_t reduce_cb, uint3
             }
 
             if constexpr (do_reduce) {
+                if constexpr (write_result_inplace) {
+                    pack_reconfig_data_format(in0_cb, reduce_cb);
+                }
                 // While we have results in DST, take advantage of L1 accumulation
                 // to reduce row x cols tiles to rows x 1 tiles.
                 if (u > 0) {
@@ -1380,7 +1404,9 @@ ALWI void matmul_blocks(
     const bool& transpose,
     const bool& add_mask = false,
     const uint32_t& mask_cb = 0,
-    const uint32_t& zero_cb = 0) {
+    const uint32_t& zero_cb = 0,
+    const bool& preload_mask = false,
+    const uint32_t& mask_base = 0) {
     // precondition: in0_cb has M*K produced
     // precondition: in1_cb has K*N produced
     // postcondition: in0_cb is full, in1_cb is empty
@@ -1401,12 +1427,39 @@ ALWI void matmul_blocks(
     reconfig_data_format(in1_cb, in0_cb);
     cb_wait_front(in1_cb, K * N);
     cb_reserve_back(out_cb, output_num_tiles);
+#ifdef QK_MASK_PRELOAD
+    if (preload_mask) {
+        // The persistent mask block for this k chunk is tiles [mask_base, mask_base + M*N), laid
+        // out like the output; it is never popped.
+        cb_wait_front(mask_cb, mask_base + output_num_tiles);
+    }
+#endif
 
     for (uint32_t in0_subblock = 0; in0_subblock < in0_num_subblocks; ++in0_subblock) {
         cb_wait_front(in0_cb, in0_wait_tiles);
         uint32_t in1_index_offset = 0;
         for (uint32_t in1_subblock = 0; in1_subblock < in1_num_subblocks; ++in1_subblock) {
             tile_regs_acquire();
+
+#ifdef QK_MASK_PRELOAD
+            if (preload_mask) {
+                // Seed DST with the mask so the matmul accumulates QK^T onto it: the scores are
+                // packed once with the bias already in, and the separate add pass goes away.
+                reconfig_data_format_srca(in1_cb, mask_cb);
+                copy_tile_to_dst_init_short(mask_cb);
+                uint32_t d = 0;
+                const uint32_t m0 = mask_base + in0_subblock * in0_subblock_all_cols_num_tiles +
+                                    in1_subblock * subblock_w;
+                for (uint32_t r = 0; r < subblock_h; r++) {
+                    for (uint32_t c = 0; c < subblock_w; c++) {
+                        copy_tile(mask_cb, m0 + r * N + c, d++);
+                    }
+                }
+                reconfig_data_format_srca(mask_cb, in1_cb);
+                mm_block_init_short(
+                    in0_cb, in1_cb, transpose, subblock_w /*ct_dim*/, subblock_h /*rt_dim*/, in0_block_w /*kt_dim*/);
+            }
+#endif
 
             uint32_t dst_index = 0;
             uint32_t in0_index = in0_index_offset;
@@ -1426,8 +1479,38 @@ ALWI void matmul_blocks(
                     add_tiles(zero_cb, mask_cb, 0, i, i);
                 }
             }
+#if defined(ABLATE_QKEXP) && defined(QK_MASK_PRELOAD)
+            // INSTRUMENT (TT_BIO_TRIATT_ABLATE=QKEXP), wrong values on purpose: the QK^T stage takes
+            // on the work a one-pass softmax would add to it, an exp of every score tile in DST and
+            // an L1-accumulated row-sum pack, while MAX and SUBEXP still run. The one-pass ceiling
+            // is TA_QK(this arm) + TA_PV. CB-neutral: the sum is packed onto the score block itself.
+            // The exp runs on the math thread with the init's template arguments matching the
+            // call's: a pack-thread exp raced the math thread's own SFPU work, and an init/call
+            // clamping mismatch hangs the core (sub_exp_block_bcast_cols_inplace above).
+            if (preload_mask) {
+                exp_tile_init<true, true, 0x3F800000, InputClamping::None>();
+                for (uint32_t i = 0; i < out_subblock_num_tiles; i++) {
+                    exp_tile<true, true, false, false, InputClamping::None, 32>(i, (int)VectorMode::None);
+                }
+            }
+#endif
             tile_regs_commit();
             tile_regs_wait();
+#if defined(ABLATE_QKEXPPT) && defined(QK_MASK_PRELOAD)
+            // INSTRUMENT (TT_BIO_TRIATT_ABLATE=QKEXPPT), the pack-thread twin of QKEXP: the exp runs on
+            // the pack thread so it can hide under the next subblock's matmul. The init waits for the
+            // first commit, which stalls on the math thread's own SFPU work, and its arguments match
+            // the call's (compute_streaming.hpp's pack-thread exp). Pair it with the row-sum pack below.
+            if (preload_mask) {
+                if (in0_subblock == 0 && in1_subblock == 0) {
+                    exp_packthread_tile_init<true, true, 0x3F800000, InputClamping::None>();
+                }
+                for (uint32_t i = 0; i < out_subblock_num_tiles; i++) {
+                    exp_packthread_tile<true, true, false, false, InputClamping::None, 32>(i, (int)VectorMode::None);
+                }
+                PACK(TTI_STALLWAIT(p_stall::STALL_PACK, p_stall::WAIT_SFPU));
+            }
+#endif
             uint32_t dst_idx = 0;
             uint32_t out_col_offset = in1_subblock * subblock_w;
             for (uint32_t r = 0; r < subblock_h; r++) {
@@ -1437,6 +1520,18 @@ ALWI void matmul_blocks(
                     dst_idx++;
                 }
             }
+#if (defined(ABLATE_QKEXP) || defined(ABLATE_QKEXPPT)) && defined(QK_MASK_PRELOAD)
+            if (preload_mask) {
+                PACK((llk_pack_reconfig_l1_acc(1)));
+                dst_idx = 0;
+                for (uint32_t r = 0; r < subblock_h; r++) {
+                    for (uint32_t c = 0; c < subblock_w; c++) {
+                        pack_tile<true>(dst_idx++, out_cb, r * N + out_col_offset);
+                    }
+                }
+                PACK((llk_pack_reconfig_l1_acc(0)));
+            }
+#endif
             tile_regs_release();
             in1_index_offset += subblock_w;
         }
@@ -1928,6 +2023,14 @@ void sdpa_inner_loop(
              *
              * matmul_blocks internally waits on both inputs
              */
+#if defined(PERSISTENT_MASK) && defined(QK_MASK_PRELOAD)
+            // Only where the add below would run on every k chunk: a provided mask, nothing causal,
+            // windowed, ring or lightweight.
+            const bool qk_mask_preload = use_provided_mask && !is_causal && sliding_window_size == 0 &&
+                                         sdpa_type != RING && !lw_mask.enabled;
+#endif
+            {
+            TZONE("TA_QK");
             reconfig_data_format(cb_k_in, cb_q_in);
             pack_reconfig_data_format(cb_qk_im);
             matmul_blocks(
@@ -1943,7 +2046,17 @@ void sdpa_inner_loop(
                 qk_in0_block_w,
                 qk_subblock_h,
                 qk_subblock_w,
-                true /*transpose*/);
+                true /*transpose*/
+#if defined(PERSISTENT_MASK) && defined(QK_MASK_PRELOAD)
+                ,
+                false,
+                cb_mask_in,
+                0,
+                qk_mask_preload,
+                k_chunk * qk_chunk_tiles
+#endif
+            );
+            }
 
             /**
              * Note
@@ -1995,7 +2108,15 @@ void sdpa_inner_loop(
                         local_n_mask_chunk_id,
                         joint_n_mask_chunk_id);
                 } else {
-#if defined(PERSISTENT_MASK) && defined(ABLATE_MASKADD)
+#if defined(PERSISTENT_MASK) && defined(QK_MASK_PRELOAD)
+                    // The mask went into DST ahead of the QK^T matmul. Dropping the add is
+                    // CB-neutral, as ABLATE_MASKADD measured: with pop_in1 false it pops and
+                    // re-pushes in0 with no net effect.
+                    if (!qk_mask_preload) {
+                        add_block_inplace<false>(
+                            cb_qk_im, cb_mask_in, qk_chunk_tiles, k_chunk * qk_chunk_tiles);
+                    }
+#elif defined(PERSISTENT_MASK) && defined(ABLATE_MASKADD)
                     // Instrument arm: the reader still fills the whole fronted mask, so this
                     // prices the ADD alone, not the mask's bytes. With pop_in1 false the call
                     // it replaces pops and re-pushes in0 with no net effect, so dropping it
@@ -2036,9 +2157,21 @@ void sdpa_inner_loop(
              * else:
              *  cur_max = max(qk, dim=-1)
              */
+            {
+            TZONE("TA_MAX");
             reconfig_data_format(cb_qk_im, cb_identity_scale_in);
+            // The packer still holds cb_qk_im's format from the matmul and the mask add. The row
+            // statistics are bf16, so a narrower score CB needs the packer moved before the max
+            // lands in them (a no-op when both are bf16, the stock table).
+            pack_reconfig_data_format(cb_qk_im, alias_cur_max);
+#ifdef QK_TILEWISE_MAX
+            reduce_c<PoolType::MAX, ReduceDim::REDUCE_ROW, cb_qk_im, cb_identity_scale_in, Sq_chunk_t>(
+                alias_cur_max, alias_prev_max, Sk_chunk_t, processed_k_chunks > 0);
+#else
             reduce_c<PoolType::MAX, ReduceDim::REDUCE_ROW, cb_qk_im, cb_identity_scale_in, Sq_chunk_t, Sk_chunk_t>(
                 alias_cur_max, alias_prev_max, processed_k_chunks > 0);
+#endif
+            }
 
             /**
              * sub_exp fuses a few operations.
@@ -2050,10 +2183,15 @@ void sdpa_inner_loop(
              * Partial reduce_sum is used to push the final row_reduction within a tile
              * outside of the loop over K chunks.
              */
+            {
+            TZONE("TA_SUBEXP");
             sub_exp_block_bcast_cols_inplace<cb_qk_im, Sq_chunk_t, scale_fp32, true>(
                 alias_cur_max, alias_cur_sum, Sk_chunk_t);
+            }
 
             // Reconfigure unpackers: srcA (context 0) = cb_v_in, srcB (context 1) = cb_qk_im (operands are swapped in matmul)
+            {
+            TZONE("TA_PV");
             reconfig_data_format(cb_v_in, cb_qk_im);
             pack_reconfig_data_format(alias_mm2_cur_out);
 
@@ -2074,10 +2212,12 @@ void sdpa_inner_loop(
                 false /*transpose*/);
 
             cb_pop_front(cb_qk_im, qk_chunk_tiles);
+            }
             reconfig_data_format(alias_prev_max, alias_cur_max);
 
             /* OUT_ACC += OUT_IM */
             if (processed_k_chunks > 0) {
+                TZONE("TA_CORR");
                 /**
                  * cb_exp_max_diff = torch.exp((cb_prev_max - cb_cur_max) * scale)
                  * Scale is fused into exp again since max is the max of unscaled scores.

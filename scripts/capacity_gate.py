@@ -75,7 +75,7 @@ sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
 import capacity_fixture                                                    # noqa: E402
-from gate_guard import install_teardown, track_leg, untrack_leg            # noqa: E402
+from gate_guard import install_teardown, stop_if_stopped_outside, track_leg, untrack_leg  # noqa: E402
 from tt_bio import device_lease                                             # noqa: E402
 from tt_bio import size_limits as sl                                        # noqa: E402
 
@@ -210,6 +210,9 @@ EXEMPT = {
     "rfd3":     "design, not a fold: sized on DESIGN_TOTAL (motif plus designed) from a contig "
                 "spec, so the 1536-token fixture here is not a valid input. Its wall is "
                 "fragmentation rather than capacity and wants its own cell.",
+    "rfd4":     "design, not a fold: its input is an RFD4 condition spec (contig plus conditions), "
+                "so this gate's polymer sequence fixture is not a valid input. Sized on "
+                "DESIGN_TOTAL like rfd3, and it wants a design cell of its own.",
     "pxdesign": "design, not a fold: sized on DESIGN_TARGET from a target STRUCTURE, so it needs a "
                 "1536-residue PDB rather than a sequence. The shipped ladder's own fixture source "
                 "(1DP0 chain A, 1011 residues) cannot reach the bar either.",
@@ -808,7 +811,7 @@ def execute(worker: Worker, argv: list[str], log: Path, *, mode: str,
         beats = sum(f.stat().st_size for f in beat.parent.glob(beat.name + ".*"))
         return (n + beats + (log.stat().st_size if log.exists() else 0)), (n > 0 or beats > 0)
 
-    last, last_move, stalled, warm = -1, time.monotonic(), False, False
+    last, last_move, stalled, warm, killed = -1, time.monotonic(), False, False, False
     cpu_at_quiet, cpu_now = tree_cpu_s(proc.pid), tree_cpu_s(proc.pid)
     try:
         while True:
@@ -836,7 +839,8 @@ def execute(worker: Worker, argv: list[str], log: Path, *, mode: str,
                 break
             if now - t0 > timeout:
                 break
-        if proc.poll() is None:
+        killed = proc.poll() is None
+        if killed:
             # The CLI spawns worker processes; killing only the outer pid orphans the engine.
             try:
                 os.killpg(proc.pid, signal.SIGTERM)
@@ -856,6 +860,8 @@ def execute(worker: Worker, argv: list[str], log: Path, *, mode: str,
         except (ProcessLookupError, PermissionError):
             pass
         untrack_leg(proc.pid)
+    if not killed:
+        stop_if_stopped_outside(proc.returncode)
     wall = time.monotonic() - t0
     text = log.read_text(errors="replace") if log.exists() else ""
     return {"rc": proc.returncode, "wall_s": round(wall, 1), "stalled": stalled,
@@ -1882,9 +1888,22 @@ def main(argv=None) -> int:
     if (stale := baseline_stale()):
         print(f"\nBASELINE STALE: cells whose own ceiling row has moved since: {stale}"
               f"\n  The sweep runs in stages, so this is the remaining work, named.")
-    ok = (report["counts"]["fail_like"] == 0 and not report["counts"]["GATE_BUG"]
+    arch = (report.get("geometry") or {}).get("arch")
+    capped = sum(measured_cap(r, arch) for r in report["results"])
+    ok = (report["counts"]["fail_like"] == capped and not report["counts"]["GATE_BUG"]
           and not report["counts"]["BAD_FIXTURE"] and not report["coverage_gaps"])
     return 0 if ok else 1
+
+
+def measured_cap(r: dict, arch: str | None) -> bool:
+    """A FAIL that is the engine's own size guard refusing the bar where its ceiling row for this arch
+    records a measured failure at or below it (mol1 on Wormhole: 1024, fail_at 1074). The guard
+    refuses before a device opens, so the cell says nothing new about the card, and the row's
+    evidence is the record. A guard refusal on an unmeasured row is still a FAIL."""
+    if r.get("verdict") != "FAIL" or r.get("mechanism") != "size_guard" or not arch:
+        return False
+    c = sl.ceiling(r["model"], arch)
+    return c.fail_at is not None and c.fail_at <= TOKEN_BAR
 
 
 BASELINE = REPO_ROOT / "docs" / "capacity_gate_baseline.json"

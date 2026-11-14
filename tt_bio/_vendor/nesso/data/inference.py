@@ -139,6 +139,7 @@ class InferenceDataset(Dataset):
         min_dist: float = 2.0,
         max_dist: float = 22.0,
         atoms_per_window_queries: int = 32,
+        standard_aa_mols: dict[str, Any] | None = None,
     ) -> None:
         super().__init__()
         self.manifest = manifest
@@ -149,8 +150,12 @@ class InferenceDataset(Dataset):
         self.min_dist = min_dist
         self.max_dist = max_dist
         self.atoms_per_window_queries = atoms_per_window_queries
-        self._standard_aa_mols = load_standard_aa_mols(
-            Path(ccd_pkl) if ccd_pkl is not None else None
+        # tt-bio: a caller holding the standard residues already passes them in, which
+        # saves unpickling the whole ccd.pkl a second time (5 s) to keep 21 of its mols.
+        self._standard_aa_mols = (
+            {aa: standard_aa_mols.get(aa) for aa in STANDARD_AA}
+            if standard_aa_mols is not None
+            else load_standard_aa_mols(Path(ccd_pkl) if ccd_pkl is not None else None)
         )
         self.featurizer = featurizer
 

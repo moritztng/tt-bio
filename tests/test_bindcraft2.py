@@ -15,6 +15,7 @@ import threading
 import time
 import traceback
 import types
+import weakref
 
 import numpy as np
 import pytest
@@ -99,6 +100,66 @@ def test_a_missing_checkpoint_is_recorded_rather_than_refused(tmp_path):
     assert pool.names == ("model_1_ptm",)
     assert pool.holds("model_1_ptm") and not pool.holds("model_3_multimer_v3")
     assert str(tmp_path / "params_model_3_multimer_v3.npz") in pool.absent["model_3_multimer_v3"]
+
+
+def test_an_evicted_trunk_keeps_no_weight_alive(tmp_path, monkeypatch):
+    """Issue 18: a `resident=1` campaign filled the card in four trajectories because every
+    eviction left the old checkpoint's pair weights on it. `pair_mm` caches a transpose for each
+    weight a dX reaches and holds the weight beside it, so the pool's pop was never the last
+    reference. A stand-in weight that takes a weak reference shows whether anything still does."""
+    pair_mm = pytest.importorskip("tt_bio.pair_mm")
+
+    class Weight:
+        pass
+
+    class Trunk:
+        def __init__(self, path, *, template=False):
+            self.weight = Weight()
+
+    monkeypatch.setattr(bindcraft2, "_Trunk", Trunk)
+    monkeypatch.setattr(pair_mm.ttnn, "transpose", lambda w, a, b: Weight())
+    monkeypatch.setattr(pair_mm, "_WT", {})
+    for name in ("a", "b"):
+        (tmp_path / f"params_{name}.npz").touch()
+    pool = bindcraft2.TrunkPool(tmp_path, resident=1)
+    pool.require(["a", "b"])
+
+    first = pool._load("a")
+    pair_mm._transposed(first.weight)          # one pair-track dX on the first checkpoint
+    weight = weakref.ref(first.weight)
+    del first
+    pool._load("b")                            # evicts "a"
+    assert weight() is None, "the evicted checkpoint's weight is still referenced"
+    assert pair_mm._WT == {}
+
+
+def test_a_frozen_trunk_in_a_cycle_is_still_freed_on_eviction(tmp_path, monkeypatch):
+    """A load freezes the heap so the cyclic collector stops walking it every few steps. A frozen
+    object is never collected, so a trunk that sits in a reference cycle would keep its weights
+    on card after eviction unless the pool unfreezes first."""
+    import gc
+    import weakref
+
+    class Weight:
+        pass
+
+    class Trunk:
+        def __init__(self, path, *, template=False):
+            self.weight = Weight()
+            self.me = self                      # only the cyclic collector can free this
+
+    monkeypatch.setattr(bindcraft2, "_Trunk", Trunk)
+    for name in ("a", "b"):
+        (tmp_path / f"params_{name}.npz").touch()
+    pool = bindcraft2.TrunkPool(tmp_path, resident=1)
+    pool.require(["a", "b"])
+    try:
+        weight = weakref.ref(pool._load("a").weight)
+        assert gc.get_freeze_count() > 0
+        pool._load("b")                        # evicts "a"
+        assert weight() is None, "the evicted trunk stayed frozen"
+    finally:
+        gc.unfreeze()
 
 
 def test_a_model_the_pool_was_never_given_is_refused(tmp_path):
@@ -211,7 +272,7 @@ def _campaign_factory_trunks(monkeypatch, **kwargs):
 
     design.trunk, design.pool, design.evoformer = "device", object(), object()
     design.extra_msa = None
-    design.template = None
+    design.template = design.structure = None
     design.exact = True
     design.fast = None
 
@@ -373,7 +434,7 @@ def _fast_round_now():
 
 
 def test_fast_round_keeps_blackhole_only_levers_off_on_wormhole(monkeypatch):
-    """The levers graded on Blackhole alone stay where they were on a Wormhole chip."""
+    """The levers graded on Blackhole alone are off in a Wormhole round."""
     from tt_bio import tenstorrent
     for _module, _owner, _attr, env, _value in bindcraft2._FAST_ROUND:
         if env:
@@ -382,10 +443,8 @@ def test_fast_round_keeps_blackhole_only_levers_off_on_wormhole(monkeypatch):
     before = _fast_round_now()
     with bindcraft2.fast_round() as armed:
         for _m, _o, attr, _e, value in bindcraft2._FAST_ROUND:
-            if attr == "TAPED_KERNELS_DEFAULT":
-                assert armed[attr] == bindcraft2._FAST_ROUND_WORMHOLE_KERNELS
-            elif attr in bindcraft2._BLACKHOLE_ONLY:
-                assert armed[attr] == before[attr]
+            if attr in bindcraft2._BLACKHOLE_ONLY:
+                assert armed[attr] is False
             else:
                 assert armed[attr] == value
     assert _fast_round_now() == before
@@ -580,6 +639,63 @@ def test_the_evoformer_path_pads_the_token_axis_before_anything_reaches_the_card
     assert out[4] == 288 and all(a is b for a, b in zip(out[:4], on_tile))
 
 
+
+def _old_upload(a, pad_dims, n32):
+    """What `_inputs` and `_Trunk.up` did before `_into`: copy, float32, zero pad, then bf16."""
+    t = torch.from_numpy(np.asarray(a).copy()).float()
+    pad = []
+    for d in range(t.dim() - 1, -1, -1):
+        pad += [0, n32 - t.shape[d]] if d in pad_dims else [0, 0]
+    return torch.nn.functional.pad(t, pad).to(torch.bfloat16)
+
+
+def _read_only(a):
+    a = np.ascontiguousarray(a, dtype=np.float32)
+    a[(0,) * a.ndim] = np.nan          # the specials round the same way on both paths
+    a.flat[1], a.flat[2], a.flat[3], a.flat[4] = np.inf, -0.0, 3.4e38, 1e-40
+    a.setflags(write=False)            # what a JAX callback hands over
+    return a
+
+
+@pytest.mark.parametrize("n", [275, 288])
+def test_the_inputs_go_up_with_the_same_bits_as_the_float32_pad_did(n):
+    """`_inputs` and the cotangents now pad and round to bf16 in one pass (`_into`).
+
+    Bit-for-bit what the float32 copy, zero pad and `_Trunk.up`'s `.to(torch.bfloat16)` made,
+    on a read-only array with NaN, inf, -0, the bf16 overflow edge and a denormal in it, at a
+    binder length that pads and at one already on the tile.
+    """
+    import collections
+    import warnings
+
+    rng = np.random.default_rng(n)
+    n32 = bindcraft2._pad32(n)
+    msa = _read_only(rng.standard_normal((2, n, 8)) * 40)
+    pair = _read_only(rng.standard_normal((n, n, 4)) * 40)
+    mask, pair_mask = np.ones((2, n), np.float32), np.ones((n, n), np.float32)
+    same = lambda a, b: a.dtype == b.dtype and torch.equal(a.view(torch.int16), b.view(torch.int16))  # noqa: E731
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")         # the read-only view must not warn
+        evo = object.__new__(bindcraft2.EvoformerOnDevice)
+        m, z, maskp, pmp, got_n = evo._inputs(msa, pair, mask, pair_mask)
+        extra = bindcraft2.ExtraMsaOnDevice(pool=None)
+        z2, pmp2, _ = extra._inputs(pair, np.zeros((1, n), np.float32), pair_mask)
+        tmpl = object.__new__(bindcraft2.TemplateOnDevice)
+        tmpl.seen = collections.Counter()
+        act, _, _ = tmpl._inputs(pair, pair_mask)
+        gz = bindcraft2._into(bindcraft2._host_view(pair), (n32, n32, 4), torch.bfloat16)
+        gm = bindcraft2._into(bindcraft2._host_view(msa), (2, n32, 8), torch.bfloat16)
+
+    assert got_n == n
+    assert same(m, _old_upload(msa, {1}, n32))
+    for t in (z, z2, act, gz):
+        assert same(t, _old_upload(pair, {0, 1}, n32))
+    assert same(gm, _old_upload(msa, {1}, n32))
+    assert maskp.dtype == pmp.dtype == pmp2.dtype == torch.float32, "the masks are cache keys"
+    assert maskp.shape == (2, n32) and pmp.shape == pmp2.shape == (n32, n32)
+    assert not msa.flags.writeable and np.isnan(msa[0, 0, 0]), "the caller's array was touched"
+
 def test_an_unknown_validation_trunk_is_refused():
     with pytest.raises(ValueError):
         with bindcraft2.campaign_predictor(validation="cuda"):
@@ -680,7 +796,8 @@ def test_the_extra_msa_segment_survives_being_recomputed():
     card-free suite and the on-card forward passed while every backward was broken.
 
     Two stubs stand in for the card: a buffer that can be consumed once, and a `checkpoint` that
-    runs the segment a second time the way a backward does.
+    runs the segment a second time the way a backward does. The constant rides into the segment
+    as an input (so a block trace can copy it in) and each execution consumes a clone of it.
     """
     class Buf:
         def __init__(self):
@@ -694,7 +811,7 @@ def test_the_extra_msa_segment_survives_being_recomputed():
             update.alive = False
             return x
 
-        def __call__(self, z, *pair_masks):
+        def __call__(self, z, *pair_masks, drop=None):
             return z
 
     # The stub bites: consuming one buffer twice is what the shipped code did.
@@ -714,19 +831,24 @@ def test_the_extra_msa_segment_survives_being_recomputed():
             built.append(Buf())
             return built[-1]
 
-    def checkpoint(fn, z, offload=False):
-        out = fn(z)     # the forward
-        fn(z)           # the recompute the backward performs on the same closure
+    def checkpoint(fn, *xs, offload=False):
+        out = fn(*xs)   # the forward
+        fn(*xs)         # the recompute the backward performs on the same closure
         return out
+
+    def clone(b):
+        if not b.alive:
+            raise RuntimeError("Buffer is not allocated")
+        return Buf()
 
     trunk = object.__new__(bindcraft2._Trunk)
     trunk.model = Model()
-    trunk.ag = types.SimpleNamespace(checkpoint=checkpoint)
+    trunk.ag = types.SimpleNamespace(checkpoint=checkpoint, TRACE_RECOMPUTE=False, TRACE_FORWARD=False)
+    trunk.ttnn = types.SimpleNamespace(clone=clone)
 
     assert trunk.extra_msa("z", (), recompute=True) == "z"
-    # One constant per block PER EXECUTION, two blocks run twice. Hoisting it out of the loop
-    # body -- the shape that shipped -- builds 2 and reuses them, which is the failure above.
-    assert len(built) == 4, built
+    # One constant per block, never consumed itself: both executions consume clones of it.
+    assert len(built) == 2 and all(b.alive for b in built), built
 
     built.clear()
     assert trunk.extra_msa("z", (), recompute=False) == "z"
@@ -742,6 +864,22 @@ def test_the_extra_msa_segment_survives_being_recomputed():
             const = model._up(model.opm_constant[index].reshape(1, 1, -1))
             z = checkpoint(lambda t, blk=block, c=const: blk(blk._residual(t, c)), z)
     assert len(built) == 1, built
+
+
+def test_card_bytes_reads_the_allocator_once():
+    """The DRAM total is a constant of the chip; every taped seam asked `get_memory_view` again,
+    ~10 ms of card idle a seam on pc before the forward enqueued anything."""
+    reads = []
+
+    def view(_device, _kind):
+        reads.append(1)
+        return types.SimpleNamespace(total_bytes_per_bank=3, num_banks=4)
+
+    trunk = object.__new__(bindcraft2._Trunk)
+    trunk.device = None
+    trunk.ttnn = types.SimpleNamespace(get_memory_view=view, BufferType=types.SimpleNamespace(DRAM=0))
+    assert [trunk.card_bytes() for _ in range(3)] == [12, 12, 12]
+    assert len(reads) == 1
 
 
 # ------------------------------------------------ several trajectories on one card
@@ -1326,7 +1464,7 @@ def test_each_interleaved_trajectory_gets_its_own_design_model(monkeypatch):
         return object()
 
     design.trunk, design.pool, design.evoformer = "device", object(), object()
-    design.extra_msa = design.template = None
+    design.extra_msa = design.template = design.structure = None
     design.exact = True
     design.fast = None
 
@@ -1392,6 +1530,24 @@ def test_a_refusal_above_the_measured_ceiling_names_the_size_and_the_way_down(mo
     assert "backward" in msg
 
 
+#: An L1 bank refusal off a 563-residue complex on a p300c chip (qb2 card 3, sweep15, 2026-10-20):
+#: one 576x576x128 bf16 pair tensor, with one already allocated.
+REFUSAL_L1_576 = (
+    "Out of Memory: Not enough space to allocate 84934656 B L1 buffer across 110 banks, "
+    "where each bank needs to store 774144 B, but bank size is 1461760 B "
+    "(allocated: 780288 B, free: 681472 B, largest free block: 681472 B)\n")
+
+
+def test_an_l1_refusal_is_not_read_as_a_full_card():
+    """The size-aware refusal used to price L1 as the card and advise memory modes."""
+    msg = str(bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_L1_576), phase="forward",
+                                             n=563, padded=576, stack="extra-MSA stack"))
+    assert "in L1 in the extra-MSA stack forward at 576 tokens" in msg
+    assert "84.9 MB in one L1 buffer" in msg and "of 160.8 MB of L1" in msg
+    assert "not the card's DRAM" in msg and "offload" not in msg
+    assert "19 residues off the binder takes this fold to 544 tokens" in msg
+
+
 def test_the_p150a_ceiling_quoted_follows_the_pad_up(monkeypatch):
     """864 with the pad-up on (the default), 576 with it off: a refusal at 608 with the pad-up off
     must not tell the user 608 fits, and one at 896 with it on must quote 864, not 576."""
@@ -1446,10 +1602,80 @@ def test_a_card_held_to_its_last_percent_is_full_even_when_the_sliver_would_cove
                 "(allocated: 1058951296 B, free: 14790496 B, largest free block: 3954656 B)")
     msg = str(bindcraft2._size_aware_refusal(RuntimeError(boundary),
                                              phase="backward", n=531, padded=544))
-    assert "The card is full: 12.707 GB of 12.885 GB is held by this fold" in msg
+    assert "The card is full: 12.707 GB of 12.885 GB is held." in msg
+    assert "this fold" not in msg.split("What to do")[0]   # nothing measured whose memory it is
     assert "177.5 MB left is in pieces of at most 4.0 MB a bank" in msg
     assert "fragmentation" not in msg
     assert "run a smaller complex" in msg and "512 tokens" in msg
+
+
+# Issue #19's refusal, rebuilt from the reporter's figures: a p300c chip reporting 34.226 GB,
+# 33.435 GB allocated when the Evoformer backward refused at 352 tokens, one trajectory on the card.
+REFUSAL_19 = ("Out of Memory: Not enough space to allocate 1207959552 B DRAM buffer across 8 "
+              "banks, where each bank needs to store 150994944 B, but bank size is 4278190016 B "
+              "(allocated: 4179375000 B, free: 98815016 B, largest free block: 98815016 B)")
+
+
+def test_issue_19_the_refusal_splits_inherited_memory_from_this_trajectorys_own():
+    """24.452 GB was held at the trajectory boundary, before the fold allocated anything. The old
+    message called all 33.435 GB "held by this fold" and pointed the user at the fold's size."""
+    msg = str(bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_19), phase="backward",
+                                             n=342, padded=352, held_before=24_452_000_000))
+    assert ("33.435 GB of 34.226 GB is held: 24.452 GB was already held when this trajectory "
+            "started and 8.983 GB was allocated since.") in msg
+    assert "held by this fold" not in msg
+    # Most of the card was inherited, so the advice is about that and not about the size.
+    assert "the size of this fold is not what filled the card" in msg
+    assert "resume=true" in msg
+    assert "residues off the binder" not in msg
+
+
+def test_issue_19_a_fold_that_filled_the_card_itself_keeps_the_size_advice():
+    msg = str(bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_19), phase="backward",
+                                             n=342, padded=352, held_before=2_000_000_000))
+    assert "2.000 GB was already held when this trajectory started and 31.435 GB" in msg
+    assert "not what filled the card" not in msg
+    assert "residues off the binder" in msg
+
+
+def test_issue_19_without_a_boundary_reading_the_refusal_attributes_nothing():
+    """A refusal outside a campaign has no reading to subtract, so it says what is held and
+    nothing about whose: the allocator's figure is the whole card's, never the fold's."""
+    msg = str(bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_19), phase="backward",
+                                             n=342, padded=352))
+    assert "33.435 GB of 34.226 GB is held." in msg
+    assert "this fold" not in msg.split("What to do")[0]
+    assert "already held when" not in msg
+
+
+def test_issue_19_a_reading_above_the_refusals_own_figure_is_not_split():
+    """Memory given back since the boundary leaves no inherited share to print."""
+    msg = str(bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_19), phase="backward",
+                                             n=342, padded=352, held_before=34_000_000_000))
+    assert "33.435 GB of 34.226 GB is held." in msg and "already held when" not in msg
+
+
+def test_issue_19_the_boundary_is_read_when_each_trajectory_starts(monkeypatch):
+    """The reading reaches the refusal raised inside the trajectory, and each trajectory gets
+    its own. The campaign module is a stand-in; `run_trajectory` is the name BindCraft 2 calls."""
+    import types
+    readings = iter([0, 24_452_000_000])
+    monkeypatch.setattr(bindcraft2.duotraj, "held_device_bytes", lambda: next(readings))
+
+    def run_trajectory(number):
+        with bindcraft2._refusal_names_the_size("backward", 342, 352):
+            if number == 2:
+                raise RuntimeError(REFUSAL_19)
+        return number
+
+    campaign = types.SimpleNamespace(run_trajectory=run_trajectory)
+    with bindcraft2._trajectory_boundaries(campaign):
+        assert campaign.run_trajectory(1) == 1
+        assert bindcraft2._HELD_AT_START[""] == 0
+        with pytest.raises(MemoryError, match="24.452 GB was already held when this trajectory"):
+            campaign.run_trajectory(2)
+    assert campaign.run_trajectory is run_trajectory
+    assert bindcraft2._HELD_AT_START == {}
 
 
 @pytest.mark.parametrize("dram,banks,pad_up", [
@@ -1666,6 +1892,31 @@ def _jax_wrapped(exc: BaseException) -> _JaxRuntimeErrorLookalike:
     except BaseException:                                                 # noqa: BLE001
         return _JaxRuntimeErrorLookalike(
             "INTERNAL: CpuCallback error calling callback: " + traceback.format_exc())
+
+
+@pytest.mark.parametrize("cls, stack", [
+    (bindcraft2.ExtraMsaOnDevice, "extra-MSA stack"),
+    (bindcraft2.TemplateOnDevice, "template stack"),
+])
+def test_the_extra_msa_and_template_stacks_name_the_size_when_they_refuse(cls, stack):
+    """Only the Evoformer's seams named the size; a refusal in these two stacks surfaced as the
+    allocator's raw text, with no token axis and no split of what was held (#19's audit)."""
+    class Pool:
+        def trunk_for(self, slot):
+            raise RuntimeError(REFUSAL_608)
+
+    class Tapes:
+        def take(self, token):
+            return {"root": None, "leaf": None, "shape": (608, 608, 4), "n": 586, "mode": "fast"}
+
+    seam = cls.__new__(cls)
+    seam.pool, seam._tapes, seam.memory = Pool(), Tapes(), bindcraft2._Memory()
+    with pytest.raises(MemoryError) as raised:
+        seam._backward("", 0, np.zeros((586, 586, 4), np.float32))
+    msg = str(raised.value)
+    assert f"{stack} backward at 608 tokens" in msg
+    assert "586 residues" in msg
+    assert "largest free block: 326674368 B" in str(raised.value.__cause__)
 
 
 def test_a_refusal_stringified_by_jax_still_reaches_the_caller_as_a_memory_error():
@@ -1913,10 +2164,18 @@ def test_auto_runs_lean_where_fast_was_measured_to_refuse_on_a_p150a():
         assert bindcraft2.memory_mode("auto", padded, card) == "fast", padded
     for padded in (704, 736, 768, 800, 832, 864, 896):
         assert bindcraft2.memory_mode("auto", padded, card) == "lean", padded
-    # The 896 lean served is a floor under lean, not its ceiling, so lean is not capped there.
-    assert bindcraft2.max_tokens("lean", card) >= 896
-    # No offload row: every offload rung on the measuring box was killed by host RAM.
-    assert "offload" not in bindcraft2._MEASURED_MODE_LADDERS["p150a"]
+    # The 1184 lean served is a floor under lean, not its ceiling, so lean is not capped there.
+    assert bindcraft2.max_tokens("lean", card) >= 1184
+
+
+def test_offload_on_a_p150a_is_capped_where_it_was_measured_to_refuse():
+    """The law puts offload at 1568 on a p150a, and 1568 was measured to refuse on fragmentation.
+    Nothing may offer 1568 as fitting, and 1536, which completed three rounds, is the measured top."""
+    card = bindcraft2.P150A_DRAM_BYTES
+    top, refuses = bindcraft2._MEASURED_MODE_LADDERS["p150a"]["offload"]
+    assert bindcraft2.mode_ceiling("offload", card) == (1536, True)
+    assert bindcraft2.memory_mode("auto", top, card) == "offload"
+    assert bindcraft2.max_tokens("offload", card) < refuses
 
 
 def test_a_measured_refusal_caps_the_memory_law_everywhere_it_is_quoted():
@@ -2004,3 +2263,42 @@ def test_an_allocator_refusal_is_still_read_as_a_size_and_not_as_an_l1_clash():
     """The two wrappers must not catch each other's refusal: the remedies are opposites."""
     assert bindcraft2._l1_refusal_names_the_size(RuntimeError(REFUSAL_WORMHOLE),
                                                  phase="backward", n=520, padded=544) is None
+
+
+def test_untaped_recycles_keep_the_gradient_and_skip_the_forward_rule():
+    """The stop-gradient recycles take the primal; the gradient is the one BindCraft 2 computes."""
+    jax = pytest.importorskip("jax")
+    af2 = pytest.importorskip("bindcraft.af2")
+    jnp = jax.numpy
+    rules = []
+
+    @jax.custom_vjp
+    def seam(x):
+        rules.append("primal")
+        return jnp.sin(x)
+
+    def fwd(x):
+        rules.append("forward rule")
+        return jnp.sin(x), x
+
+    seam.defvjp(fwd, lambda x, g: (g * jnp.cos(x),))
+
+    class Runner:
+        def apply(self, params, key, inputs):
+            out = seam(inputs["x"] * params + inputs["prev"]["s"])
+            return {"prev": {"s": out}, "y": out}
+
+    def loss(x):
+        out = af2.recycled_alphafold_outputs(Runner(), 2.0, jax.random.PRNGKey(0),
+                                             {"x": x, "prev": {"s": jnp.zeros(3)}}, 2)
+        return (out["y"] ** 2).sum()
+
+    x = jnp.array([0.3, -1.1, 2.0])
+    with bindcraft2.untaped_recycles(False):
+        want = jax.grad(loss)(x)
+    assert rules == ["forward rule"] * 3
+    rules.clear()
+    with bindcraft2.untaped_recycles():
+        got = jax.grad(loss)(x)
+    assert rules == ["primal", "primal", "forward rule"]
+    np.testing.assert_array_equal(np.asarray(got), np.asarray(want))

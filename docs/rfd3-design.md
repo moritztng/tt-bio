@@ -160,6 +160,166 @@ tt-bio design specs.json --model rfd3 --from_pdb --out_dir ./designs \
   --num_designs 32 --devices 0,1,2,3
 ```
 
+Two more options: `--spec a,b` runs only those spec ids from the inputs file, and `--fp32_residual` keeps the
+residual stream of the DiT, encoder and token encoder in fp32 instead of bf16 (off by default).
+
+The atom attention runs as one fused attention kernel that never materialises the full score matrix. It
+is closer to a float64 reference than the older kernel chain, and a 685-residue design takes about 15 %
+less time with it. At the same seed the design lands somewhere else, as it does after any rounding change
+because the diffusion is chaotic: 5.5 to 9.3 A over four seeds, about the 7.3 A by which the older chain's
+own Blackhole and Wormhole designs differ, and half of what changing the seed does. Design quality is
+unchanged: CA-CA geometry, chain breaks and amino-acid diversity match, with fewer clashes. Above about
+8,600 atoms the older chain runs instead, because the fused kernel's cached mask would take more than
+600 MB per atom block. `RFD3_ATOM_SDPA=0` restores it.
+
+Each diffusion step stays on the card from the noisy coordinates in to the update out. The modules used to
+hand their outputs back to the host for a few additions and upload them again, about 15 round trips a step,
+each of which left the card idle. A 685-residue design takes about 14 % less time on a Blackhole p150a
+(89.0 to 76.1 s). The additions now round in bf16 on the card, so a design moves at the same seed: 3.6 to
+13.5 A on Blackhole and 4.5 to 11.2 A on Wormhole at 685 residues, against 13 to 20 A for a seed change,
+with CA-CA geometry, chain breaks, clashes and amino-acid diversity unchanged. `RFD3_RESIDENT_STEP=0`
+restores the round trips.
+
+The token transformer's attention also runs as one fused kernel, with each head's 48 channels padded to 64
+in the weights so the kernel can take them. A 685-residue design takes about 15 % less time (72.7 to 61.4 s
+on a Blackhole p300c). Graded over four seeds at 685 and 418 residues on Blackhole and on Wormhole: a design
+moves 2.9 to 15.2 A at the same seed against 13 to 20 A for a seed change, and CA-CA geometry, chain breaks,
+clashes and amino-acid diversity match the exact chain. `RFD3_DIT_SDPA=0` restores the older attention.
+
+`--fast` additionally keeps the pair transitions' hidden activations in 8-bit block floating point. It runs the
+same diffusion steps and recycles; only the kernels change. A 685-residue design takes about 13 % less time
+than the default (60.6 to 52.5 s on a Blackhole p300c). Graded over four seeds at 685 and 418 residues on
+Blackhole and Wormhole against the exact chain: a design moves 3.8 to 15.4 A at the same seed, inside what
+changing the seed does (13 to 20 A), and CA-CA geometry, chain breaks, clashes and amino-acid diversity
+match. `--fast` also runs the token pair transition's weights in 8-bit block floating point at the lowest
+math fidelity: about 2 s per design on Wormhole (56.4 to 54.4 s at 1000 MHz) and 1.3 s on a p150a. Over eight
+paired fast seeds on each chip a design moves 3.7 to 12.7 A at the same seed against 12.5 to 19.6 A for a seed
+change, chain breaks go from 4 to 5 on Wormhole and stay at 4 on the p150a, and clashes do not rise.
+
+The token pair transition runs as one weight-stationary kernel that keeps its weights on chip and never
+writes the hidden activations out. On a Blackhole p150a at 1350 MHz a 685-residue fast design drops from
+61.3 to 56.3 s and a Wormhole one from 114.7 to 100.1 s; a default design drops from 62.9 to 51.9 s on
+Blackhole and from about 125 to 91 s on Wormhole at 1000 MHz. Over 28 paired default seeds on both chips
+clashes rise by about 5 per design with a standard error of about 4, chain breaks go from 14 to 15, and the
+same-seed drift (2.9 to 14.1 A) stays inside the 13.8 to 21.7 A a seed change moves a design; the fast
+grade (ten paired seeds) moves clashes by -1.4 and leaves chain breaks identical seed for seed.
+`RFD3_PAIR_WS=0` restores the chunked transition. The same kernel also adds the transition back into the
+pair tensor in place, which drops a full pass over it and one rounding: about 1 s per Wormhole design, closer to
+a float64 reference, and over eight paired default seeds chain breaks go from 3 to 4 with the same-seed drift
+(5.7 to 14.5 A) inside the 11.5 to 19.8 A seed floor. `RFD3_PAIR_WS_RESID=0` restores the separate add.
+
+The token transformer's attention masks (pair-bias projection, head-first layout, scale and mask) are built
+by one kernel instead of a linear, a permute and three elementwise passes. It is closer to a float64
+reference than the chain it replaces, and a 685-residue default design on Wormhole drops from 100.1 to
+91.4 s. Over four seeds the design moves 3.8 to 10.1 A at the same seed against 14 to 18 A for a seed
+change, with chain breaks, clashes and CA-CA geometry unchanged. On a p150a the default design drops by
+about 4 to 6 s, and twelve paired seeds read the same geometry. It is on by default on both;
+`RFD3_DPB=0` restores the chain.
+
+On Wormhole the pairformer's pair bias in the token encoder goes through the same kernel, about 0.6 s per design
+in both modes. Over eight paired default seeds the design moves 4.0 to 13.7 A at the same seed against 13 to 21 A
+for a seed change, with chain breaks 4 -> 3 and fewer clashes. It is off on a p150a, where it does not pay;
+`RFD3_PF_DPB=0/1` forces it either way.
+
+On Wormhole the token encoder's distogram embedding is scaled and shifted by one fused multiply-add instead of two
+passes, about 0.7 s per design in `--fast` and unchanged in normal mode. Over eight paired default seeds the design
+moves 4.7 to 11.5 A at the same seed against 13.4 to 21.3 A for a seed change, with chain breaks 2 -> 3 and clashes
+within seed noise. `RFD3_PZ_ADDCMUL=0/1` forces it either way. With it on, that embedding is computed only for the
+pair rows the recycle cache marks as changed, in one kernel with the same rounding (results bit-identical), about
+1.3 s per design in normal mode. `RFD3_PZ_ROWS=0/1` forces it.
+
+The pairformer's attention in the token encoder runs as one fused attention kernel, with the heads
+padded to a tile width and the pair bias as the mask. It is closer to a float64 reference than the chain of
+separate ops it replaces and saves about 1 s per design in both modes on both chips. Over eight paired default seeds
+the design moves 3.5 to 11.7 A at the same seed against 12.5 to 20.3 A for a seed change, with chain breaks
+unchanged and clashes within seed noise. `RFD3_PF_SDPA=0` turns it off.
+That attention's mask comes from one kernel that normalises the pair tensor and projects it in the same pass, with
+the norm weight and the score scale folded into the projection, instead of a separate norm and a second read of its
+output. About 1 s per design on both chips. Over eight paired default seeds the design moves 2.7 to 13.6 A at the
+same seed against 13.3 to 20.6 A for a seed change on either chip; chain breaks go 3 -> 2 on Wormhole and 2 -> 4 on
+a p150a, clashes flat on Wormhole and up about 6 per design on a p150a. `RFD3_PF_RMSB=0` restores the separate norm.
+
+On a p150a the diffusion transformer's single-design linears run with a fixed 2D multicast program config instead of
+ttnn's own pick, about 0.7 s per design in normal mode and 0.2 s in `--fast`. It regroups the inner sum, so it is
+graded on accuracy: over eight paired default seeds the design moves 6.5 to 13.8 A at the same seed against 14.2 to
+19.8 A for a seed change, chain breaks 4 -> 3, clashes flat. Wormhole keeps ttnn's pick for now; `RFD3_DIT_MM2D=0/1`
+forces it either way.
+
+The pair Transition also runs its SiLU on the packer thread so the matmuls overlap it. Results are bit-identical;
+a default design is up to 1 s faster in normal mode and unchanged in `--fast`. `RFD3_PAIR_WS_PSILU=0` turns it off.
+
+The cross attention between tokens and atoms runs its per-token query side (one query per token) and the upcasts'
+key side (three key rows per token) on flat rows instead of padding each group to a full tile, which ran those
+norms and linears on 10 to 32 times the rows. About 2.7 s per design on Wormhole in both modes. Over eight paired
+default seeds the design moves 4.2 to 9.9 A at the same seed against 13.2 to 20.0 A for a seed change, with chain
+breaks unchanged (3 -> 3) and clashes within seed noise. `RFD3_GCA_FLAT_Q=0` restores the padded form.
+The atom side of the same cross attention (an upcast's queries, a downcast's keys) runs its norms and linears on
+the real atoms only and is grouped by token afterwards. Results are bit-identical; a default design is about 1 s
+faster on Wormhole in normal mode and 0.4 s in `--fast`. `RFD3_GCA_ATOM_ROWS=0` restores the grouped form.
+The token encoder's pair path depends on each token pair only through its distance bin, so it keeps its
+outputs on the card between steps and recomputes only the rows holding a pair whose bin changed, about 58 % of
+them on the page design and almost none over the last 40 steps. Results are bit-identical; a default design is
+1.8 s faster on Wormhole in `--fast` and 2.5 s in normal mode. It holds four extra copies of the pair tensor and
+turns itself off above 1200 MB of them (`RFD3_PAIR_MEMO_MB`); `RFD3_PAIR_MEMO=0` turns it off.
+
+Atom attention scores only the 64 x 64 tiles that hold a neighbour, about a quarter of them, and reads keys,
+values and mask in place; the skipped tiles carry zero softmax weight. It matches a float64 reference as
+closely as the dense kernel (largest error 0.048 against 0.050) and saves about 4 s per design on Wormhole
+in both modes. Over ten paired default seeds on a p150a chain breaks go from 5 to 4, clashes are unchanged
+(53.0 to 53.4) and the same-seed drift (5.3 to 9.6 A) stays well inside the 14 to 20 A a seed change moves a
+design. `RFD3_CSS=0` restores the dense kernel.
+
+Attention heads are split by one kernel over the concatenated q, k and v (atom attention and the gated
+cross attention between atoms and tokens) instead of a reshape and permute per tensor. Same values, bit for
+bit; `RFD3_QKV_HEADS=0` and `RFD3_GCA_HEADS=0` restore the old path.
+
+Three more data-movement changes are bit-exact and on by default: the pair-feature table lookup writes tile
+layout directly (`RFD3_PZ_GATHER=0` restores embedding plus tilize), the atom mask writer walks each neighbour
+index once for four heads (`RFD3_MASKW_HG=1` restores one head at a time), and on Wormhole the token
+attention splits queries into 352-row chunks instead of 64 (`RFD3_DIT_SDPA_CHUNKS=64,352` restores it).
+Together they save about 1 to 1.5 s per design on Wormhole and about 1 s on a p150a. That lookup's table is also kept in twelve
+copies spread over the DRAM banks: far residue pairs all read the table's last row, so a single copy queued
+every read on one bank. Same values; about 1 s per design on Wormhole and on a p150a (`RFD3_PZ_SPREAD=0`
+restores one copy).
+
+The token distance bins the encoder reads every step are computed on the host in one numba pass instead of a
+torch norm plus bucketize. Pairs within a hair of a bin edge are recomputed the torch way, so the bins are the
+same; at 685 tokens a call drops from 4 to 6 ms to under 2 ms. `RFD3_BINS_NB=0` restores the torch chain.
+
+The atom neighbour index each step attends over is built on the card instead of in a host k-d tree the step
+waits on. Distances are exact integers, so the neighbour lists are the same as the tree's, and the build
+overlaps the token encoder. On a p150a a fast-mode design drops from about 31.5 s to 30 s. It is on by default
+except on Wormhole, where it has not yet run on a card; designs above about 18,000 atoms keep the host tree.
+`RFD3_DKNN=0` restores the tree everywhere, `RFD3_DKNN=1` turns the card index on for Wormhole too.
+The card also writes each final row itself, merging in the sequence neighbours, so the host no longer joins two
+lists per step. Same rows; on a p150a that takes about 1.5 s off a fast-mode design and 1.3 s off normal mode.
+
+Where the host tree is used, the atoms that do not move (a binder's target, a fixed motif) have their
+neighbours found once per design, and each step only re-queries the moving atoms and the target rows they
+come close to. Every row is the same as the full tree's, order included. On Wormhole the binder page cell drops
+from 61.4 to 56.7 s per design in fast mode and from 62.7 to 57.3 s in normal mode, with identical structures.
+`RFD3_STATIC_KNN=0` restores the full query every step. Only the index rows whose
+neighbour list changed are rebuilt each step, which takes another 1.2 s off fast and 1.3 s off normal mode there.
+When the moving atoms are one contiguous range, as a binder is, their rows go to the card index while the host
+tree answers the rest, with the same rows. That takes another 1.3 s off fast and 1.0 s off normal mode on
+Wormhole. `RFD3_DKNN_MOVERS=0` keeps every row on the host.
+The card index is read back behind an event instead of a blocking read, so the step does not also wait for the work
+queued after the index. Same rows; about 0.4 s per design in normal mode on Wormhole. `RFD3_DKNN_ASYNC_READ=0`
+restores the blocking read.
+
+The token transformer's conditioning is the same for all 18 blocks of a step, so its adaLN gains, shifts and
+output gates come from three wide projections per step instead of six small ones and two norms per block,
+with each block's normalisation folded into the weights. That changes rounding, so it was graded: over eight
+paired default seeds on a p150a chain breaks go from 4 to 3, clashes are unchanged (421 to 426 in total) and
+the same-seed drift (3.6 to 12.3 A) stays inside the 12.9 to 18.8 A a seed change moves a design. A default
+design on a p150a drops from 29.9 to 29.4 s. `RFD3_DIT_SHOIST=0` restores the per-block projections.
+
+The pair-feature projection that does not change between steps is computed once per design and the
+distance-bin half becomes a table lookup, three device ops instead of six. It started in `--fast` and now
+ships in both modes: over eight paired default seeds on Wormhole chain breaks go from 4 to 3, clashes drop
+by about 6 (standard error 10) and the same-seed drift (6.1 to 14.1 A) stays inside the 13.3 to 20.7 A a
+seed change moves a design, about 2 s faster per design. `RFD3_PROCESS_Z_COLLAPSE=0` restores the old path.
+
 ## Checkpoint
 
 The RFD3 checkpoint downloads automatically on first use, straight from the

@@ -121,11 +121,14 @@ class DiffusionConditioning(Module):
     def single_at(self, s_trunk, s_inputs, t: torch.Tensor) -> ttnn.Tensor:
         """The t-dependent half on its own. `pair` takes no `t`, so a rollout that has
         hoisted it needs only this one."""
-        n = fourier_embedding(t, self.fourier_w, self.fourier_b, self.sigma_data)
-        n_embed = ttnn.from_torch(n.reshape(1, -1, n.shape[-1]),
-                                  layout=ttnn.TILE_LAYOUT, device=self.device,
-                                  dtype=_dtype(ttnn.bfloat16))
+        n_embed = ttnn.from_torch(self.noise_embedding(t), layout=ttnn.TILE_LAYOUT,
+                                  device=self.device, dtype=_dtype(ttnn.bfloat16))
         return self.single(s_trunk, s_inputs, n_embed)
+
+    def noise_embedding(self, t: torch.Tensor) -> torch.Tensor:
+        """The host-side Fourier embedding of `t` that `single` takes, as [1, D, c]."""
+        n = fourier_embedding(t, self.fourier_w, self.fourier_b, self.sigma_data)
+        return n.reshape(1, -1, n.shape[-1])
 
     def __call__(self, relpos_feat, z_trunk, s_trunk, s_inputs, t: torch.Tensor):
         return (self.single_at(s_trunk, s_inputs, t),

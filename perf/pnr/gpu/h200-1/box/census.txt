@@ -1,0 +1,21 @@
+Linux d919d47c3e5c 6.8.0-142-generic #142-Ubuntu SMP PREEMPT_DYNAMIC Wed Sep  2 14:24:27 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux
+144
+Model name:                              INTEL(R) XEON(R) PLATINUM 8568Y+
+               total        used        free      shared  buff/cache   available
+Mem:            3023          77        1147           1        1814        2945
+Swap:              0           0           0
+Filesystem      Size  Used Avail Use% Mounted on
+overlay         200G   50M  200G   1% /
+PRETTY_NAME="Ubuntu 24.04.3 LTS"
+NAME="Ubuntu"
+VERSION_ID="24.04"
+VERSION="24.04.3 LTS (Noble Numbat)"
+VERSION_CODENAME=noble
+ID=ubuntu
+ID_LIKE=debian
+HOME_URL="https://www.ubuntu.com/"
+SUPPORT_URL="https://help.ubuntu.com/"
+BUG_REPORT_URL="https://bugs.launchpad.net/ubuntu/"
+PRIVACY_POLICY_URL="https://www.ubuntu.com/legal/terms-and-policies/privacy-policy"
+UBUNTU_CODENAME=noble
+LOGO=ubuntu-logo

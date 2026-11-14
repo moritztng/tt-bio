@@ -1,0 +1,40 @@
+// SPDX-FileCopyrightText: (c) 2026 Tenstorrent USA, Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
+// permute_back_pk: x [C, N, N] channel-major -> out [N, N, H] channel-last, the re-tiling done by the packer.
+// x may carry a batch [B, C, N, N] -> [B, N, N, H]: units run b slowest, so batch 1 reads the same pages in the same order.
+// Per unit (b, ct, it, jt): the 32 channel tiles x[b][ct*32 + c][it, jt], in channel order, in groups of 8.
+#include "api/dataflow/dataflow_api.h"
+
+void kernel_main() {
+    constexpr uint32_t St = get_compile_time_arg_val(0);
+    constexpr uint32_t ABL = get_compile_time_arg_val(1);   // bit 0: no DRAM read; bit 128: rotate a unit's reads over the
+                                                            // banks (page + c, wrong output). Diagnostic
+    constexpr uint32_t CT = get_compile_time_arg_val(2);
+    constexpr uint32_t ORD = get_compile_time_arg_val(3);   // 1: channel tile fastest (bank spread), 0: ct slowest
+    constexpr auto x_args = TensorAccessorArgs<4>();
+    const auto x = TensorAccessor(x_args, get_common_arg_val<uint32_t>(0));
+    const uint32_t u0 = get_arg_val<uint32_t>(0);
+    const uint32_t nunits = get_arg_val<uint32_t>(1);
+    const uint32_t step = get_arg_val<uint32_t>(2);     // 1, or the core count under round-robin (permute_back_pk.RR)
+    constexpr uint32_t in_cb = tt::CBIndex::c_0;
+    constexpr uint32_t SS = St * St;
+    constexpr uint32_t CS = CT * SS;
+    const uint32_t tb = get_tile_size(in_cb);
+
+    for (uint32_t i = 0, u = u0; i < nunits; ++i, u += step) {
+        const uint32_t b = u / CS, v = u % CS;
+        const uint32_t ct = ORD ? v % CT : v / SS;
+        const uint32_t cube = ORD ? v / CT : v % SS;          // it * St + jt
+        uint32_t page = (b * CT + ct) * 32 * SS + cube;
+        for (uint32_t g = 0; g < 4; ++g) {
+            cb_reserve_back(in_cb, 8);
+            uint32_t dst = get_write_ptr(in_cb);
+            for (uint32_t c = 0; c < 8; ++c, page += SS, dst += tb)
+                if constexpr (!(ABL & 1)) noc_async_read_page((ABL & 128) ? (page + g * 8 + c) % (32 * SS * CT) : page, x, dst);
+            noc_async_read_barrier();
+            cb_push_back(in_cb, 8);
+        }
+    }
+}

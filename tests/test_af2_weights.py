@@ -70,7 +70,7 @@ def test_unconsumed_arrays_are_only_the_unused_heads():
     # non-empty consumed set is the assertion. Guard the count so a manifest that lost the heads
     # cannot make this vacuous.
     remap_af2_params(_zero_source())
-    assert len(_shapes(CHECKPOINT_SHAPES)) - len(consumed) == 6
+    assert len(_shapes(CHECKPOINT_SHAPES)) - len(consumed) == 4
 
 
 def test_an_unconsumed_array_fails_loudly():

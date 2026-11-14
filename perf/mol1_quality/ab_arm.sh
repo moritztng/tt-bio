@@ -1,0 +1,31 @@
+#!/bin/bash
+# B arm of a BH stack A/B (D-orch-25 Fix B, D-orch-41/97 final main) on qb1 or qb2: the 33 cases of fixb/CASES.json
+# folded with tree SHA on one card, seed-major so every seed pass is a gradeable A/B on all 33 cases.
+#   bash ab_arm.sh SHA OUT CARD [SECONDS]      log on stdout, AB-EXIT at the end
+# Several cards of one host may run it at once on the same OUT: run_tt.sh claim files share ~/mol1-quality/OUT.
+set -uo pipefail
+cd ~/mol1-quality; SHA=${1:?sha}; OUT=${2:?out}; C=${3:?card}; S=${4:-43200}; O=mol1-quality-ab-c$C
+say() { echo "$(date -u +%FT%TZ) $*"; }
+case $(hostname) in tt-quietbox2) LOCK_HOST=qb2 L=~/spd_qb2_chip$C.lock ;; tt-quietbox) LOCK_HOST=qb1 L=~/spd_qb1_card$C.lock ;;
+  *) say "unknown host"; exit 2 ;; esac
+P=$(dirname "$(realpath "$0")"); REPO=tt-bio.git; [ -d $REPO ] || REPO=~/tt-bio-dev
+if [ ! -f main-$SHA/.ok ]; then  # cards start together: each unpacks its own copy, the first rename wins
+  git -C $REPO cat-file -e $SHA^{commit} 2>/dev/null || git -C $REPO fetch -q origin main
+  t=$(mktemp -d main-$SHA.XXXX) && git -C $REPO archive $SHA tt_bio | tar -x -C $t && echo $SHA > $t/.ok ||
+    { say "archive $SHA failed"; rm -rf $t; exit 1; }
+  mv -T $t main-$SHA 2>/dev/null || rm -rf $t
+fi
+export PATH=$HOME/tt-bio-dev/env/bin:$HOME/mol1-quality/env/kalign/bin:$PATH PYTHONPATH=$PWD/main-$SHA LOCK_HOST
+say "engine $(python3 -c 'import tt_bio; print(tt_bio.__file__)') = $SHA"
+for s in 42 66 101 2024 8888; do
+  while :; do  # a window that lapses or is cut (a gate, another booking) books again, as bh_arm.sh does
+    until [ "$(python3 ~/spd/feed/book.py active "$C" 2>/dev/null)" = "$O" ]; do
+      say "book $(python3 ~/spd/feed/book.py add $O "$C" "$S" --note "mol1-quality BH stack A/B ($SHA)")"; sleep 60; done
+    flock "$L" true  # the outgoing holder (a release-gate leg, a feed job) finishes first
+    say "chip $C: window open, seed $s"
+    bash "$P/run_tt.sh" --book $O --cases fixb/CASES.json inputs "$OUT" "$s" "$C" | tee "$OUT.c$C.last"
+    grep -q "TT-STOP\|card lock held" "$OUT.c$C.last" || break
+    sleep 60
+  done
+done
+python3 ~/spd/feed/book.py rm $O; say "AB-EXIT"

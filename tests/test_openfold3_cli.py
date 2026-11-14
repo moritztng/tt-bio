@@ -271,3 +271,19 @@ def test_single_sequence_augment_preserves_user_and_cached_msas(tmp_path):
     assert [str(p) for p in a.main_msa_file_paths] == [str(user_a3m)]
     assert b.main_msa_file_paths[0].read_text() == ">query\nGACG"
     assert d.main_msa_file_paths is None
+
+
+@pytest.mark.parametrize("model", ["opendde", "opendde-abag"])
+def test_worker_gives_opendde_the_molecule_library(tmp_path, monkeypatch, model):
+    """OpenDDE's cfg carried no mol_dir, so a ligand fell back to ~/.boltz/mols, which a
+    Galaxy (weights under $TT_BIO_CACHE) does not have: every ligand fold died "Invalid moldir"."""
+    from tt_bio import weights
+    from tt_bio.worker import _ensure_local_artifacts
+
+    asked = []
+    monkeypatch.setenv("TT_BIO_CACHE", str(tmp_path))
+    monkeypatch.setattr(weights, "fetch", lambda key, **k: asked.append(key) or tmp_path / key)
+    cfg = {"model": model, "msa_dir": None}
+    _ensure_local_artifacts(cfg)
+    assert cfg["mol_dir"] == str(tmp_path / "mols")
+    assert "mols" in {a.key for a in weights.artifacts_for(model)}

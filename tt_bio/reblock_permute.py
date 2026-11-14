@@ -67,6 +67,12 @@ def _elem():
 
 _CACHE: dict = {}
 _CACHE_BACK: dict = {}
+# Bench only (perf/spd_trimul/back_bench.py): 1 skips the DRAM read, 2 the L1 gather, 4 the DRAM write. Output is garbage
+# under any of them; the model path never sets it.
+BACK_ABL = 0
+# Bench flag: the writer RISC reads each group's source tiles one group ahead on its own NOC, so the DRAM read overlaps
+# the reader's L1 gather (RPB_SPLIT). Same bytes in the same order; off until it is timed.
+BACK_SPLIT = False
 # Counters for the A/B harness: (eligible calls served, calls that fell through to ttnn.permute).
 STATS = [0, 0]
 # The same pair for the back direction, counted separately so one A/B can read both legs.
@@ -369,6 +375,85 @@ def reblock_permute(x, memory_config=None, device=None):
 L1_N_MIN = int(os.environ.get("TT_BIO_REBLOCK_L1_N_MIN", "288"))
 L1_N_MAX = int(os.environ.get("TT_BIO_REBLOCK_L1_N_MAX", "352"))
 
+# Below L1_N_MIN the moves still open on L1 once the Nt*Nt work groups reach this many per
+# core. The 288 edge was measured on 110- and 130-core grids, where it is Nt=9 = 81 groups; on a
+# Wormhole chip's 64 cores the same kernel already wins at Nt=7 = 49 groups (N=195: 1.17x at C=64,
+# N=224: 1.22x) and loses at Nt=6 = 36 groups (N=192: 0.97x), every point torch.equal
+# (.114 chip 7, perf/bigswing/reblock_window_band.py, state/spd-gap-bind.md). What decides the win is
+# whether the groups fill the grid: 0.74 (Nt=9 on 110 cores) and 0.77 (Nt=7 on 64, Nt=10 on 130) win;
+# 0.62 (Nt=9 on a 130-core p150a: 0.89 / 1.08 / 0.95x at N=257 / 272 / 288, qb1 card 0) is break-even,
+# and 0.56-0.58 lose (N=256 on 110 cores 0.952x, N=192 on 64 cores 0.97x). 0 restores the plain N edge.
+# The back and gated legs take the same floor: AF2-IG at 195 tokens on a Wormhole chip folds in 5.395 s
+# with the old gate, 5.336 s with only the forward move opened and 5.232 s with all three, every
+# structure digest identical (.114 chip 6, out/whgate_fa1b3cbfa). On 130 cores the rule needs Nt=10,
+# which is above L1_N_MIN already, so a p150a is unchanged.
+# The floor is 0.68, not 0.7, because the Galaxy's Wormhole chips report 8x9 = 72 cores, where Nt=7 is
+# 0.68 per core. At 0.7 the gate shut there and AF2-IG at 195 tokens fell back to 5.40-5.49 s; at
+# 0.68 it folds in 5.22-5.25 s with the same coordinates (.114 chip 1, 3 reps each,
+# out/af2igwh_rj_322104346). 0.68 moves no other grid listed here (64, 110 or 130 cores).
+L1_GROUPS_PER_CORE = float(os.environ.get("TT_BIO_REBLOCK_L1_GROUPS_PER_CORE", "0.68"))
+
+# The gated move on L1 below that window, by size of the move rather than by N. The gated kernel
+# replaces the four-way split, two `p * sigmoid(g)` and two plain moves, so it wins wherever that
+# chain costs more than the kernel's own floor (~0.22 ms for the pair on 110 cores), and the chain
+# scales with the slice's N*N*C elements. Measured on qb2 card 1 (11x10, 1350 MHz), split against
+# gated on an L1 projection, every point torch.equal (perf/rfd4/e2e/gated_window.py): the win starts
+# at 2**21 elements -- 128^2 x 128 1.09x, 256^2 x 32 1.06x, 192^2 x 64 1.17x, 96^2 x 256 1.17x,
+# 128^2 x 256 1.32x (RFD4's trimul) -- and every point below it loses (160^2 x 64 0.93x, 224^2 x 32
+# 0.91x, 128^2 x 64 0.72x). Keyed by grid core count because only the 110-core grid is measured;
+# other grids keep the N window above.
+GATED_L1_MIN_ELEMS = {110: 2 ** 21}
+
+# The DRAM legs take the same grid-fill rule below their N=256 edge. 256 was measured on 110- and
+# 130-core Blackhole grids, where the rule needs Nt=10 and so moves nothing; on a 72-core Wormhole
+# chip a DRAM -> DRAM move wins at Nt=7: forward [1, N, N, 128] 1.31x at N=195 and 1.33x at N=224,
+# every point torch.equal (.114 chip 12, 1000 MHz, out/rbdram_67a5e6b56). That is BindCraft 2's pair
+# track, which lives in DRAM, so its trimul channel moves were all on the stock permute.
+# The fused gated leg is not an index move, so it was graded on its own: at 224 tokens on Wormhole it
+# leaves BindCraft 2's gradients bit-identical over 30 iterations and AF2-IG's coordinates equal, and
+# takes the on-card iteration 5.34 -> 5.02 s (.114 chip 19, 1000 MHz, out/gfill_2c9346e08).
+# TT_BIO_REBLOCK_DRAM_FILL=0 / TT_BIO_REBLOCK_DRAM_FILL_GATED=0 restore the plain N edge for an A/B.
+# On Blackhole the plain moves also win at N=224 without filling the grid (49 groups on 110 cores):
+# p150a qb1 card 0, 1350 MHz, [1, 224, 224, C] DRAM -> DRAM, torch.equal throughout: back
+# (0, 2, 3, 1) 0.375 -> 0.128 ms at C=128 and 0.170 -> 0.121 at C=64 against the two transposes,
+# forward (0, 3, 1, 2) 0.267 -> 0.221 and 0.142 -> 0.112 against the stock permute. At N=192 the
+# forward loses (0.202 -> 0.213), so the edge is 224, and only for a tile-aligned N.
+DRAM_N_ALIGNED_MIN = 224
+DRAM_FILL = env_flag("TT_BIO_REBLOCK_DRAM_FILL", True)
+DRAM_FILL_GATED = env_flag("TT_BIO_REBLOCK_DRAM_FILL_GATED", True)
+_GRID_CORES = {}
+
+
+def _dram_open(x, N: int) -> bool:
+    """The DRAM legs' window: N >= 256, a tile-aligned N >= 224, or below that where the groups
+    fill the grid (`DRAM_FILL`)."""
+    if N >= 256:
+        return True
+    return DRAM_FILL and ((N >= DRAM_N_ALIGNED_MIN and N % TILE_H == 0) or _l1_fills_grid(x, N))
+
+
+def _grid_cores(x) -> int:
+    device = x.device()
+    key = device.id()
+    if key not in _GRID_CORES:
+        g = device.compute_with_storage_grid_size()
+        _GRID_CORES[key] = g.x * g.y
+    return _GRID_CORES[key]
+
+
+def _gated_l1_big(xw, N: int, slice_c: int) -> bool:
+    """Whether one gated slice reaches `GATED_L1_MIN_ELEMS` on xw's grid (never on an unmeasured grid)."""
+    floor = GATED_L1_MIN_ELEMS.get(_grid_cores(xw))
+    return floor is not None and N * N * slice_c >= floor
+
+
+def _l1_fills_grid(x, N: int) -> bool:
+    """Whether an N x N move's Nt*Nt groups reach L1_GROUPS_PER_CORE per core of x's grid."""
+    if not L1_GROUPS_PER_CORE:
+        return False
+    nt = (N + TILE_H - 1) // TILE_H
+    return nt * nt >= L1_GROUPS_PER_CORE * _grid_cores(x)
+
 
 def eligible(x, memory_config, taped_ok: bool = False) -> bool:
     """The gate, measured against the wheel's own ``ttnn.permute`` on the card that runs it.
@@ -378,7 +463,8 @@ def eligible(x, memory_config, taped_ok: bool = False) -> bool:
     On L1 the margin is smaller and grid-dependent. It opens at 288 because below that there are
     fewer work groups than cores and the per-call cost is not amortised: N=256 on an L1 output
     measures 0.952x on 110 cores, a real loss, and it is the shape boltzgen runs 2384 of its 3024
-    channel moves on.
+    channel moves on. Below 288 the L1 leg still opens where the Nt*Nt groups fill the grid
+    (`L1_GROUPS_PER_CORE`), which on a 64-core Wormhole chip is from N=193.
 
     The upper edge stays 352. It was widened to 544 on qb2 evidence and reverted: the widening is
     worth 0.000 s/fold at 512 aa (the fit test already routes the pair tensor to DRAM, where the leg
@@ -401,7 +487,7 @@ def eligible(x, memory_config, taped_ok: bool = False) -> bool:
     multiple of 32, because the trunk's own chunk width depends on the compute grid.
     """
     from . import ops
-    if ops.declines_under_tape("reblock_permute") and not (taped_ok and TAPED_MOVE):
+    if ops.declines_under_tape("reblock_permute", x) and not (taped_ok and TAPED_MOVE):
         # A DIRECT caller under a tape gets no node for this `generic_op`, so it has to keep
         # the stock permute the tape can follow. `taped_ok` is the tape itself asking, and for
         # these two moves the tape can follow the kernel: the move is a pure index reordering
@@ -423,8 +509,9 @@ def eligible(x, memory_config, taped_ok: bool = False) -> bool:
     if x.memory_config().memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED:
         return _reject("sharded_in", shape)
     bt = memory_config.buffer_type
-    if not ((bt == ttnn.BufferType.DRAM and N >= 256)
-            or (bt == ttnn.BufferType.L1 and L1_N_MIN <= N <= L1_N_MAX)):
+    if not ((bt == ttnn.BufferType.DRAM and _dram_open(x, N))
+            or (bt == ttnn.BufferType.L1 and N <= L1_N_MAX
+                and (N >= L1_N_MIN or _l1_fills_grid(x, N)))):
         return _reject(f"window_{bt}", shape)
     return True
 
@@ -505,7 +592,7 @@ def _cache_key_back(x, out, device, reader_ct, writer_ct):
         str(x.dtype), str(x.layout),
         str(x.memory_config()), str(out.memory_config()),
         g.x, g.y, WALK, genq.compact(),
-        tuple(reader_ct), tuple(writer_ct),
+        tuple(reader_ct), tuple(writer_ct), BACK_ABL, BACK_SPLIT,
     )
 
 
@@ -568,12 +655,15 @@ def _build_back(x, out, device, reader_ct, writer_ct):
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
         core_ranges=core_grid, compile_time_args=genq_ct + reader_ct, runtime_args=reader_rt,
         common_runtime_args=[0], config=ttnn.ReaderConfigDescriptor(),
+        defines=[(d, "1") for b, d in ((1, "RPB_NO_DRAM"), (2, "RPB_NO_GATHER"), (8, "RPB_SPLIT"))
+                 if (BACK_ABL | 8 * BACK_SPLIT) & b],
     )
     writer = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR_BACK / "writer_reblock_permute_back.cpp"),
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
         core_ranges=core_grid, compile_time_args=genq_ct + writer_ct, runtime_args=writer_rt,
-        common_runtime_args=[0], config=ttnn.WriterConfigDescriptor(),
+        common_runtime_args=[0, Ct, 0, 0], config=ttnn.WriterConfigDescriptor(),
+        defines=[(d, "1") for b, d in ((4, "RPB_NO_WRITE"), (8, "RPB_SPLIT")) if (BACK_ABL | 8 * BACK_SPLIT) & b],
     )
     # The compute kernel is the forward direction's, unchanged: both moves end in one `transpose_wh`
     # per tile, and the CB indices are the same.
@@ -605,6 +695,9 @@ def _prepare_back(x, out, device):
     reader_ct.extend(ttnn.TensorAccessorArgs(x).get_compile_time_args())
     writer_ct = [_elem(), OUT_CB, TILE_H, TILE_W]
     writer_ct.extend(ttnn.TensorAccessorArgs(out).get_compile_time_args())
+    if BACK_SPLIT:
+        writer_ct.append(STAGE_CB)
+        writer_ct.extend(ttnn.TensorAccessorArgs(x).get_compile_time_args())
     key = _cache_key_back(x, out, device, reader_ct, writer_ct)
     entry = _CACHE_BACK.get(key)
     if entry is None:
@@ -612,25 +705,61 @@ def _prepare_back(x, out, device):
     return entry
 
 
+# The move takes permute_back_pk (the packer re-tiles, the writer copies whole tiles) where it serves, on both archs:
+# bit-exact, and faster than this kernel, whose reader gathers 64 NOC packets a tile. Wormhole (Galaxy chip, 1000 MHz)
+# 1.48 vs 2.09 ms at 512 c256, 5.67 vs 6.91 ms at 1024; p150a (1350 MHz) 0.47 vs 0.56 ms at 512 c128, 1.92 vs
+# 3.18 ms at 1024. TT_BIO_PBPK=0 turns it off.
+_PBPK = None
+STATS_PBPK = [0]
+
+
+def _pbpk():
+    global _PBPK
+    if _PBPK is None:
+        _PBPK = env_flag("TT_BIO_PBPK", True)
+    return _PBPK
+
+
 @_ops.fused_kernel("reblock_permute_back")
-def reblock_permute_back(x, memory_config=None, device=None):
-    """``ttnn.permute(x, (0, 2, 3, 1))`` for ``x`` of shape ``[1, C, N, N]`` bf16 TILE."""
+def reblock_permute_back(x, memory_config=None, device=None, out=None, c_off=0):
+    """``ttnn.permute(x, (0, 2, 3, 1))`` for ``x`` of shape ``[B, C, N, N]`` bf16 TILE.
+
+    With ``out`` (a ``[B, N, N, C_out]`` tensor, ``C_out >= c_off + C``) the result is written into
+    its channels ``[c_off, c_off + C)`` and ``out`` is returned: a channel loop then fills one tensor
+    in place instead of concatenating its chunks. Same bytes, same order, bit-exact. B > 1 (RFD4's
+    sample batch) is served by `permute_back_pk` only; `eligible_back` admits it only where that runs.
+    """
     device = device or x.device()
     mc = memory_config or x.memory_config()
-    C, N = int(x.shape[1]), int(x.shape[2])
-    out = ttnn.allocate_tensor_on_device(
-        ttnn.Shape([1, N, N, C]), _DTYPE, ttnn.TILE_LAYOUT, device, mc
-    )
+    B, C, N = int(x.shape[0]), int(x.shape[1]), int(x.shape[2])
+    if out is None:
+        out = ttnn.allocate_tensor_on_device(
+            ttnn.Shape([B, N, N, C]), _DTYPE, ttnn.TILE_LAYOUT, device, mc
+        )
+    c_out = int(out.shape[-1])
+    assert c_off % TILE_W == 0 and c_off + C <= c_out and [int(out.shape[i]) for i in range(3)] == [B, N, N], (
+        "reblock_permute_back: the channel slice must be tile-aligned and inside `out`",
+        C, c_off, [int(d) for d in out.shape])
+    if _pbpk() and (x.memory_config().memory_layout == out.memory_config().memory_layout
+                    == ttnn.TensorMemoryLayout.INTERLEAVED):
+        from . import permute_back_pk as _pk
+        from .tenstorrent import COMPUTE_GRID_MAIN
+        if _pk.ok(x, out, c_off):
+            STATS_BACK[0] += 1
+            STATS_PBPK[0] += 1
+            return _pk.permute_back_pk(x, out, tuple(COMPUTE_GRID_MAIN), c_off=c_off)
+    assert B == 1, ("reblock_permute_back: a batch needs permute_back_pk", [int(d) for d in x.shape])
     entry = _prepare_back(x, out, device)
     src, dst = x.buffer_address(), out.buffer_address()
+    wargs = [dst, c_out // TILE_W, c_off // TILE_W, src]
     if ADDR_WRITE_MODE == "in_place":
         pd = entry["pd"]
         pd.kernels[0].common_runtime_args = [src]
-        pd.kernels[1].common_runtime_args = [dst]
+        pd.kernels[1].common_runtime_args = wargs
     else:
         reader, writer, compute = entry["kernels"]
         reader.common_runtime_args = [src]
-        writer.common_runtime_args = [dst]
+        writer.common_runtime_args = wargs
         pd = entry["pd"] = ttnn.ProgramDescriptor(
             kernels=[reader, writer, compute], semaphores=[], cbs=entry["cbs"]
         )
@@ -651,6 +780,17 @@ def set_enabled_back(on: bool) -> bool:
     return prev
 
 
+def back_x8_ok(memory_config, batch: int = 2) -> bool:
+    """Whether the move back takes a bfp8 x: a batch under `pair_x8` (RFD4), one fold under `trimul_x8`. The kernel,
+    DRAM interleaved, no tape."""
+    from . import ops
+    from .tenstorrent import lever
+    on = lever("pair_x8") and lever("pair_batch") if batch > 1 else lever("trimul_x8")
+    return bool(on and _pbpk() and _ENABLED_BACK and not ops.taping()
+                and memory_config.buffer_type == ttnn.BufferType.DRAM
+                and memory_config.memory_layout == ttnn.TensorMemoryLayout.INTERLEAVED)
+
+
 def eligible_back(x, memory_config, taped_ok: bool = False) -> bool:
     """The gate for the back direction.
 
@@ -662,7 +802,7 @@ def eligible_back(x, memory_config, taped_ok: bool = False) -> bool:
     chunk from 352 aa up.
     """
     from . import ops
-    if ops.declines_under_tape("reblock_permute_back") and not (taped_ok and TAPED_MOVE):
+    if ops.declines_under_tape("reblock_permute_back", x) and not (taped_ok and TAPED_MOVE):
         # A DIRECT caller under a tape gets no node for this `generic_op`, so it has to keep
         # the stock permute the tape can follow. `taped_ok` is the tape itself asking, and for
         # these two moves the tape can follow the kernel: the move is a pure index reordering
@@ -674,18 +814,31 @@ def eligible_back(x, memory_config, taped_ok: bool = False) -> bool:
     if not _ENABLED_BACK:
         return False
     shape = [int(d) for d in x.shape]
-    if len(shape) != 4 or shape[0] != 1 or shape[2] != shape[3] or shape[1] % TILE_W:
+    if len(shape) != 4 or shape[0] < 1 or shape[2] != shape[3] or shape[1] % TILE_W:
         return _reject("back_shape", shape)
     C, N = shape[1], shape[2]
     if N % TILE_H:
         return _reject("back_ragged", shape)
-    if x.dtype != _DTYPE or x.layout != ttnn.TILE_LAYOUT:
+    if shape[0] > 1:
+        # A sample batch, under RFD4's `pair_batch` only. permute_back_pk is the one kernel that takes it, and the
+        # alternative is the two transposes over the whole batch, not a stock permute, so the batch-1 window below does not
+        # apply. b16 at 128: 3.69 + 0.69 ms a move for the transposes (state/rfd4/bets/b128.md).
+        from .tenstorrent import lever
+        if not (lever("pair_batch") and _pbpk() and memory_config.buffer_type == ttnn.BufferType.DRAM
+                and (x.dtype == _DTYPE or x.dtype == ttnn.bfloat8_b and back_x8_ok(memory_config))
+                and x.layout == ttnn.TILE_LAYOUT
+                and x.memory_config().memory_layout == memory_config.memory_layout
+                == ttnn.TensorMemoryLayout.INTERLEAVED):
+            return _reject("back_batch", shape)
+        return True
+    if (x.dtype != _DTYPE and not (x.dtype == ttnn.bfloat8_b and back_x8_ok(memory_config, 1))
+            or x.layout != ttnn.TILE_LAYOUT):
         return _reject("back_dtype_layout", shape)
     if memory_config.memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED:
         return _reject("back_sharded_out", shape)
     if x.memory_config().memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED:
         return _reject("back_sharded_in", shape)
-    if memory_config.buffer_type != ttnn.BufferType.DRAM or N < 256:
+    if memory_config.buffer_type != ttnn.BufferType.DRAM or not _dram_open(x, N):
         return _reject(f"back_window_{memory_config.buffer_type}", shape)
     # An L1 SOURCE is the channel loop's L1 path, where this kernel replaces a permute into L1
     # plus a clone to DRAM. It carries the forward kernel's L1 floor rather than the DRAM one:
@@ -693,7 +846,8 @@ def eligible_back(x, memory_config, taped_ok: bool = False) -> bool:
     # an A/A floor of 1.0002-1.0015x -- 256 LOSES at 0.9918x / 0.9903x, 288 wins 1.0086x /
     # 1.0092x, 320 wins 1.0135x / 1.0172x (perf/trix_layout/back_onepass_qb1c0.json). 256's
     # chunks are 4.19 MB, small enough that the kernel's own dispatch outweighs the deleted pass.
-    if x.memory_config().buffer_type == ttnn.BufferType.L1 and N < L1_N_MIN:
+    if (x.memory_config().buffer_type == ttnn.BufferType.L1 and N < L1_N_MIN
+            and not _l1_fills_grid(x, N)):
         return _reject("back_l1_src_narrow", shape)
     return True
 
@@ -754,7 +908,7 @@ def _cache_key_gated(x, out, device, reader_ct, writer_ct):
         # `_build_gated` bakes this into the compute kernel's compile-time args AND into four CB
         # depths, so it has to be in the key. Without it an A/B that flips the granularity gets the
         # FIRST arm's compiled program back for both legs and reads a 1.000x that means nothing.
-        GATE_GRANULARITY,
+        GATE_GRANULARITY, _gate_lean(),
     )
 
 
@@ -780,13 +934,18 @@ def _build_gated(x, out, device, reader_ct, writer_ct, fidelity, fp32_acc):
     _, _, (num_cores, core_grid, cg1, cg2, work1, work2) = plan
 
     tile_bytes = TILE_H * TILE_W * _elem()
+    # The two input CBs take the projection's own format, so a bfp8 producer is read as written
+    # (`GATED_IN_DTYPES`); the unpacker converts on the way into the gate. Everything after the
+    # gate stays in `_DTYPE`.
+    in_dtype = x.dtype
+    in_bytes = _TILE_BYTES_ANY[in_dtype]
 
-    def cb(idx, depth):
+    def cb(idx, depth, dtype=_DTYPE, page=tile_bytes):
         fmt = ttnn.CBFormatDescriptor(
-            buffer_index=idx, data_format=_DTYPE, page_size=tile_bytes
+            buffer_index=idx, data_format=dtype, page_size=page
         )
         return ttnn.CBDescriptor(
-            total_size=depth * tile_bytes, core_ranges=core_grid, format_descriptors=[fmt]
+            total_size=depth * page, core_ranges=core_grid, format_descriptors=[fmt]
         )
 
     # c_16 keeps the 32-tile group multiple the writer's L1 window needs. The four working CBs are
@@ -794,7 +953,8 @@ def _build_gated(x, out, device, reader_ct, writer_ct, fidelity, fp32_acc):
     # one tile at a time, and a deeper ring would only hold more of a stream the writer is already
     # the slow end of. That last clause is exactly what GATE_GRANULARITY tests -- if the writer is
     # the slow end then removing compute barriers buys nothing and the A/B reads 1.00x.
-    cbs = [cb(P_CB, 2 * GATE_GRANULARITY), cb(G_CB, 2 * GATE_GRANULARITY),
+    cbs = [cb(P_CB, 2 * GATE_GRANULARITY, in_dtype, in_bytes),
+           cb(G_CB, 2 * GATE_GRANULARITY, in_dtype, in_bytes),
            cb(SIG_CB, 2 * GATE_GRANULARITY), cb(MUL_CB, 2 * GATE_GRANULARITY),
            cb(OUT_CB, GROUP_TILES * 2), cb(STAGE_CB, 2)]
 
@@ -834,7 +994,7 @@ def _build_gated(x, out, device, reader_ct, writer_ct, fidelity, fp32_acc):
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
         core_ranges=core_grid,
         compile_time_args=[P_CB, G_CB, SIG_CB, MUL_CB, OUT_CB, int(GATE_SKIP_SIGMOID),
-                           GATE_GRANULARITY],
+                           GATE_GRANULARITY, int(in_dtype != ttnn.bfloat16), _gate_lean()],
         runtime_args=compute_rt,
         config=ttnn.ComputeConfigDescriptor(
             math_fidelity=fidelity, fp32_dest_acc_en=fp32_acc
@@ -873,6 +1033,25 @@ GATE_FIDELITY = ttnn.MathFidelity.HiFi4
 GATE_FP32_ACC = False
 # Diagnostic, never on in production: drops the activation so the multiply can be measured alone.
 GATE_SKIP_SIGMOID = False
+
+# The lean gated compute (`lean` in compute_reblock_permute_gated.cpp): g and p are transposed on
+# the unpack, so a tile takes two pack round trips instead of three. 1 multiplies on the FPU from
+# DST, which truncates into the 16-bit DST (one bf16 ULP low on about a quarter of elements; WH
+# module rel_rms 0.0084 against 0.0081). 2 keeps the incumbent's SFPU multiply and is bit-exact
+# (torch.equal to 0 on WH and BH, both trimul variants), so it is the default. 0 is the incumbent
+# three-round-trip compute. spd-trimul A/B arms `glean` (1) and `noglean` (0).
+GATE_LEAN = int(os.environ.get("TT_BIO_GATED_LEAN", "2"))
+
+
+def set_gate_lean(mode) -> int:
+    """A/B switch for the paired harness: 0 off, 1 lean FPU multiply, 2 lean exact. Returns the previous."""
+    global GATE_LEAN
+    prev, GATE_LEAN = GATE_LEAN, int(mode)
+    return prev
+
+
+def _gate_lean() -> int:
+    return GATE_LEAN
 
 
 @_ops.fused_kernel("reblock_permute_gated")
@@ -915,6 +1094,12 @@ def reblock_permute_gated(xw, p_slice, g_slice, slice_c, memory_config=None, dev
         )
     STATS_GATED[0] += 1
     return ttnn.generic_op([xw, out], pd)
+
+
+# Formats the gated move reads its projection in. bfp8_b is the spd-trimul lever: the in-projection
+# writes it (`TT_BIO_TRIMUL_INPROJ_B8`), halving its output drain, and only the two input CBs change.
+GATED_IN_DTYPES = (ttnn.bfloat16, ttnn.bfloat8_b)
+_TILE_BYTES_ANY = {ttnn.bfloat16: 2048, ttnn.float32: 4096, ttnn.bfloat8_b: 1088}
 
 
 # Master switch for folding the trimul's chunk and its two sigmoid gates into the forward move.
@@ -972,15 +1157,18 @@ def eligible_gated(xw, slice_c, memory_config) -> bool:
     if shape[3] != 4 * slice_c or slice_c % TILE_W:
         return _reject("gated_slice", shape)
     N = shape[2]
-    if xw.dtype != _DTYPE or xw.layout != ttnn.TILE_LAYOUT:
+    if xw.dtype not in GATED_IN_DTYPES or xw.layout != ttnn.TILE_LAYOUT:
         return _reject("gated_dtype_layout", shape)
+    if xw.dtype != _DTYPE and shape[1] != shape[2]:
+        return _reject("gated_b8_rowblock", shape)      # only the whole-tensor move was measured
     if memory_config.memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED:
         return _reject("gated_sharded_out", shape)
     if xw.memory_config().memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED:
         return _reject("gated_sharded_in", shape)
     bt = memory_config.buffer_type
-    if not ((bt == ttnn.BufferType.DRAM and N >= 256)
-            or (bt == ttnn.BufferType.L1 and L1_N_MIN <= N <= L1_N_MAX)):
+    if not ((bt == ttnn.BufferType.DRAM and (N >= 256 or (DRAM_FILL_GATED and _dram_open(xw, N))))
+            or (bt == ttnn.BufferType.L1 and N <= L1_N_MAX
+                and (N >= L1_N_MIN or _l1_fills_grid(xw, N) or _gated_l1_big(xw, N, slice_c)))):
         return _reject(f"gated_window_{bt}", shape)
     return True
 

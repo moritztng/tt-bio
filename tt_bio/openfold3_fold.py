@@ -8,15 +8,192 @@ import ttnn
 
 from . import align
 from . import ranking as rank
+from . import tenstorrent as _T
 from .tenstorrent import Module, device_dtype_override, dram_peak
 from .openfold3 import InputEmbedderGlue
 from .openfold3_confidence import OF3ConfidenceHead
 from .openfold3_trunk import OF3Trunk
 from .openfold3_sample_diffusion import OF3SampleDiffusion
-from .protenix import ConfidenceHead
+from .protenix import DEFAULT_MAX_PARALLEL_SAMPLES, ConfidenceHead
+from .tenstorrent import pair_lookup_device
 from .openfold3_weights import _sub
 from .envflags import env_flag
 
+# OpenFold3's `--fast` set is its normal set plus dit_s16 and diffusion_bf16 (the bf16 DiT stack). The stack's
+# Blackhole 11-set fast grade against the normal arm, 44 paired folds per model, seeds 101-104: OpenFold3 top pose
+# median 0.401 A (seed floor 1.023 A), CA-lDDT -0.0019, docking 18 -> 19/44; OpenBind-0 0.209 A (floor 1.898 A),
+# CA-lDDT -0.0017, docking 26 -> 26/44. Both PASS. The old Wormhole reading (9LLG pLDDT 0.733 -> 0.688, 143.2 s against
+# 139.6) predates the on-device bf16 atom pad that lets the bf16 rollout trace. acc_off stays out: it cost confidence
+# (0.712) and bought nothing.
+# transition_bw and transition_shard stay out: OpenFold3 c730 gains nothing with them (113.2 -> 112.9 s, Wormhole
+# 1000 MHz) and its normal 11-set grade fails DockQ (-0.0168 [-0.0474, -0.0006], 44 paired folds, spd-trans2).
+# dit_qsplit moves work between cores, not arithmetic: CIFs identical with and without it on both models, Wormhole
+# and Blackhole (512-token --fast fold A/B, xmodel_ab); -0.22 s (OpenFold3) / -0.24 s (OpenBind-0) on a Galaxy chip
+# at 1000 MHz, flat on p150a. opm_jd comes with the shared normal set.
+# Normal mode also runs the fast set's trunk kernels on both parts: trimul_t1, trimul_t2 (trimul_t2cm on Blackhole),
+# transition_ws, ws_l1dest, triatt_ln and edm_device; the DiT stays fp32. Blackhole 11-set normal grade against the
+# normal set before it, paired seeds, 44 folds per model (nbg, p300c, 2026-10-23), PASS: OpenFold3 top pose median
+# 0.688 A (floor 1.208 A), CA-lDDT +0.0014 [-0.0010, +0.0048], docking 18 -> 20/44; OpenBind-0 0.519 A (floor 1.898 A),
+# CA-lDDT +0.0004 [-0.0004, +0.0014], docking 26 -> 28/44. 512-token page fold on a p300c chip at 1350 MHz,
+# off/on/on/off processes (pnb): OpenFold3 11.39 -> 9.72 s, OpenBind-0 12.67 -> 11.54 s.
+NORMAL_LEVERS = _T.NORMAL_LEVERS - {"transition_bw", "transition_shard"} | {
+    "dit_qsplit", "trimul_t1", "trimul_t2", "trimul_t2cm", "transition_ws", "ws_l1dest", "triatt_ln", "edm_device",
+    "trimul_t1_2g", "atom_l1"}
+# trimul_t1_2g lets T1 serve above ~1180 tokens, where a + b + g_out pass its 1 GiB cap and every trimul fell back to
+# the gated-move channel loop. Inert at and below 1024 (T1 already serves there). 1536-token OpenFold3 fold, p300c:
+# fast 87.8 -> 64.2 s, normal 89.0 -> 72.1 s. On Wormhole T1 also needs the chunking gate open, which it is only to
+# ~1088 tokens; with the gate held at 1536 (not shipped) the 1536 fold goes 322 -> 205 s fast, 356 -> 248 s normal.
+# trimul_t1 + trimul_t2 (the triangle multiplication's input and output as one kernel each) join --fast on the
+# Blackhole 11-set fast grade against today's --fast, 44 paired folds per model:
+# OpenFold3 top pose median 0.352 A (seed floor 1.328 A), CA-lDDT -0.0002 [-0.0012, +0.0008], docking 19 -> 19/44,
+# PASS; OpenBind-0 top pose median 0.391 A (seed floor 2.079 A), CA-lDDT +0.0003 [-0.0004, +0.0011],
+# docking 26 -> 26/44, PASS. 512-token fold on a p300c chip: OpenFold3 11.02 -> 10.08 s, OpenBind-0 11.40 -> 9.99 s.
+# Wormhole 11-set fast grade, same chip, AICLK 1000: OpenFold3 top pose median 1.191 A (seed floor 1.122 A),
+# CA-lDDT -0.0014 [-0.0043, +0.0005], docking 21 -> 21/44, PASS, median fold 77.5 -> 72.4 s; OpenBind-0 CA-lDDT
+# +0.0008, docking 27 -> 28/44, PASS, median fold 103.8 -> 89.6 s.
+# transition_ws + dit_fuse join on the Blackhole 11-set fast grade (p300c, 44 paired folds) of today's --fast plus
+# t2cm, transition_ws and dit_fuse against the --fast before them: OpenFold3 top pose median 0.406 A (seed floor
+# 0.917 A), CA-lDDT +0.0031 [+0.0002, +0.0078], docking 19 -> 22/44, PASS; OpenBind-0 top pose median 0.454 A
+# (seed floor 0.820 A), CA-lDDT +0.0003 [-0.0005, +0.0012], docking 26 -> 28/44, PASS.
+# Wormhole fast grades: transition_ws PASS (see tenstorrent.FAST_LEVERS), dit_fuse PASS on both models (44 paired
+# each, state/spd/grade-dfuse-*-wh-fast.md; DiT block 1.080 -> 1.004 ms at 1000 MHz).
+# trimul_t2cm (T2 reads the einsum's channel-major output, no reblock_permute_back) is bit-exact: Wormhole l512 coords
+# identical to --fast on 4 seeds x both models, fold 43.76 -> 43.45 s (OpenFold3) and 50.33 -> 49.97 s (OpenBind-0).
+# edm_device (the traced rollout keeps the coordinates on the card, augment + EDM step in fp32 inside the step trace)
+# joins on the 11-set fast grade of --fast + edm_device against --fast, 44 paired folds per model and arch:
+# Blackhole p150a OpenFold3 top pose median 0.240 A (seed floor 1.086 A), CA-lDDT +0.0004, docking 22 -> 22/44, PASS;
+# OpenBind-0 0.234 A (floor 0.771 A), CA-lDDT +0.0002, docking 28 -> 27/44, PASS. Wormhole OpenFold3 0.341 A (floor
+# 1.199 A), CA-lDDT +0.0005 [+0.0000, +0.0011], docking 19 -> 21/44, PASS; OpenBind-0 0.258 A (floor 0.510 A),
+# CA-lDDT +0.0004, docking 27 -> 27/44, PASS (state/spd/grade-edm-*-fast.md). 512-token page fold on a p150a at
+# 1350 MHz: OpenFold3 ~-0.2 s, OpenBind-0 ~-0.5 s.
+# ws_l1dest lets transition_ws take the pair transitions whose residual update fits L1, which at 512 tokens on a
+# p150a was every pairformer transition (ws had never fired there). 11-set fast grade of --fast + ws_l1dest against
+# --fast, 44 paired folds per model and arch: Blackhole p150a OpenFold3 top pose median 0.455 A (seed floor
+# 0.964 A), CA-lDDT -0.0017 [-0.0033, -0.0004], docking 22 -> 20/44, PASS; OpenBind-0 0.450 A (floor 0.790 A),
+# CA-lDDT -0.0002, docking 27 -> 28/44, PASS. Wormhole OpenFold3 0.167 A (floor 1.108 A), CA-lDDT +0.0024,
+# docking 21 -> 23/44, PASS; OpenBind-0 0.091 A (floor 0.642 A), CA-lDDT +0.0000, docking 27 -> 27/44, PASS
+# (state/spd/grade-wsd-*-fast.md). 512-token page fold on a p150a at 1350 MHz: OpenFold3 -0.35 s, OpenBind-0 -0.42 s.
+# dit_hifi2 (the bf16 DiT's linears at HiFi2) graded PASS on the Wormhole fast grade and bought OpenFold3 -0.16 s,
+# OpenBind-0 -0.28 s, but it is out: the Wormhole --fast diffusion step stalled on the device in ~7 % of processes
+# (15 / 210, eager and traced alike), and a bisect of the DiT levers (hbis, 2026-10-24) hung 5 / 56 processes in the
+# arms that kept it against 0 / 58 in the arms without it. Same di/dt class as the LoFi hang: HiFi2 makes the
+# >48-core DiT matmul's MVMUL stream denser (tt-metal compute_throttle_utils.cpp).
+# dit_kc + dit_mask16 (the DiT attention's full k chunk and bf16 pair-bias mask, both Wormhole only) join on the
+# Wormhole 11-set fast grade of --fast + both against --fast, 44 paired folds per model: OpenFold3 top pose median
+# 0.267 A (floor 1.178 A), CA-lDDT +0.0001 [-0.0004, +0.0006], docking 22 -> 22/44, PASS; OpenBind-0 0.207 A (floor
+# 0.748 A), CA-lDDT +0.0001 [-0.0001, +0.0004], docking 27 -> 27/44, PASS (state/spd/grade-kcm-*-wh-fast.md).
+# sdpa_probe found 0 wrong pixels at every k chunk. 512-token page fold on a Galaxy chip at 1000 MHz, paired median
+# of 4: OpenFold3 -0.37 s, OpenBind-0 -0.46 s.
+# triatt_ln (triangle attention's layer_norm and qkvgb projection as one kernel) moves bytes, not arithmetic: CIFs
+# identical with and without it on both models, Wormhole and Blackhole (512-token --fast fold A/B, xmodel_ab, 5 pairs).
+# Galaxy chip at 1000 MHz, paired median: OpenFold3 -0.37 s, OpenBind-0 -0.20 s; flat on p150a.
+# dit_b8 (the fused DiT block's six adaLN-fed weights rounded to bfp8, activations bf16) joins on the 11-set fast grade
+# of --fast + dit_b8 against --fast, 44 paired folds per model per chip, PASS on both. Wormhole: OpenFold3 top pose
+# median 0.227 A (floor 1.621 A), CA-lDDT -0.0006 [-0.0014, +0.0001], docking 21 -> 19/44; OpenBind-0 0.244 A (floor
+# 0.952 A), CA-lDDT +0.0000, docking 27 -> 28/44. Blackhole: OpenFold3 0.222 A (floor 0.953 A), CA-lDDT +0.0003,
+# docking 20 -> 20/44; OpenBind-0 0.298 A (floor 1.209 A), CA-lDDT +0.0001, docking 28 -> 27/44
+# (state/spd/grade-ditb8-*-fast.md). 512-token page fold, same chip, off/on/on/off processes: Galaxy chip at 1000 MHz
+# OpenFold3 -0.32 s, OpenBind-0 -0.22 s; p150a at 1350 MHz -0.13 / -0.10 s.
+# ws_lofi (the pair SwiGLU transition at LoFi) joins on the Blackhole 11-set fast grade of --fast (dit_b8 included)
+# + ws_lofi against --fast, 44 paired folds per model (p300c, bwl2, 2026-10-18), PASS: OpenFold3 CA-lDDT +0.0014
+# [-0.0022, +0.0060], docking 20 -> 23/44; OpenBind-0 CA-lDDT -0.0004 [-0.0020, +0.0014], docking 27 -> 28/44
+# (state/spd/grade-wslo2-*-bh-fast.md). Same-seed top pose median 1.54 / 1.26 A (floor 0.98 / 0.97 A). Warm 5-sample
+# folds of those complexes at 1343-1350 MHz, per-complex median: OpenFold3 -0.16 s, OpenBind-0 -0.28 s (trunk only,
+# so the saving holds at 1 sample). The Wormhole grade is not complete, so Wormhole leaves it out for now.
+# dit_l1 only moves the DiT's per-step tensors into L1 (CIF-identical); neutral in Blackhole fast, in the set because
+# Blackhole normal takes it (NORMAL_MODEL_LEVERS) and the fast set holds the normal one.
+FAST_LEVERS = NORMAL_LEVERS | {"dit_s16", "diffusion_bf16", "trimul_t1", "trimul_t2", "trimul_t2cm", "transition_ws",
+                               "dit_fuse", "edm_device", "ws_l1dest", "dit_kc", "dit_mask16", "triatt_ln",
+                               "dit_b8", "ws_lofi", "dit_l1"}
+# Wormhole --fast adds apb_ln (the attention pair-bias projection reads the pair through the same fused LayerNorm).
+# Wormhole 11-set fast grade of --fast + apb_ln against --fast, 44 paired folds per model (whlg, 2026-10-15), PASS:
+# OpenFold3 top pose median 0.543 A (floor 1.238 A), CA-lDDT -0.0010 [-0.0036, +0.0007], docking 22 -> 22/44;
+# OpenBind-0 0.573 A (floor 0.672 A), CA-lDDT +0.0014 [-0.0000, +0.0036], docking 27 -> 27/44
+# (state/spd/grade-apbln-*-wh-fast.md). Not graded on Blackhole, so it stays off there.
+# And trimul_sig6 (the trimul gate sigmoid as a degree-6 polynomial). Wormhole 11-set fast grade of --fast +
+# trimul_sig6 against --fast, 44 paired folds per model (whs6g, 2026-10-15), PASS: OpenFold3 top pose median 0.565 A
+# (floor 1.090 A), CA-lDDT -0.0007 [-0.0027, +0.0007], docking 22 -> 21/44; OpenBind-0 0.743 A (floor 0.812 A),
+# CA-lDDT -0.0009 [-0.0021, +0.0001], docking 27 -> 27/44 (state/spd/grade-sig6-*-wh-fast.md). 512-token page fold
+# on a Galaxy chip at 1000 MHz, paired median of 4: -0.18 s on both. No saving on p150a, so Wormhole only.
+# And trimul_bres (the trimul einsum with b[c] resident in L1, bmm_res, as ESMFold2 ships it): CIFs identical with and
+# without it on both models (512-token --fast fold A/B, xmodel_ab, 1760 einsums served, 0 declined). Galaxy chip at
+# 1000 MHz, paired median: OpenFold3 -0.18 s (3 pairs; the first paid a 4.7 s program compile), OpenBind-0 -0.24 s (4).
+# In the normal mode too, CIFs identical, all 8 pairs faster: OpenFold3 -0.23 s, OpenBind-0 -0.27 s (25.8 s folds).
+# Flat on p150a in both modes (paired medians within +-0.07 s), so Wormhole only.
+# ws_lofi and triatt_hifi2 (the fused triangle-attention SDPA at HiFi2) join Wormhole fast on its 11-set fast grade of
+# the Wormhole fast set + both against it, paired seeds (wsg, 2026-10-18), PASS: OpenFold3 44 folds, top pose median
+# 0.961 A (floor 1.638 A), CA-lDDT +0.0024 [-0.0014, +0.0083], docking 19 -> 23/44; OpenBind-0 40 folds (10 complexes),
+# 1.137 A (floor 1.093 A), CA-lDDT +0.0003 [-0.0014, +0.0020], docking 24 -> 23/40. 512-token page fold on a Galaxy
+# chip at 1000 MHz, ABBA processes: triatt_hifi2 -0.22 / -0.23 s, ws_lofi -0.12 / -0.07 s (wstk).
+# dit_sigf32 (the DiT gate linears' fused sigmoid on calculate_silu_f32) joins Wormhole fast on its 11-set fast grade
+# of the Wormhole fast set + it against that set, paired seeds (sgg, 2026-10-19), PASS: OpenFold3 44 folds, top pose
+# median 0.260 A (floor 1.288 A), CA-lDDT -0.0003 [-0.0006, -0.0000], docking 23 -> 23/44; OpenBind-0 44 folds,
+# 0.230 A (floor 1.091 A), CA-lDDT -0.0003 [-0.0006, -0.0000], docking 27 -> 27/44. 512-token page fold on a Galaxy
+# chip at 1000 MHz, paired median of 4: OpenFold3 -0.27 s, OpenBind-0 -0.35 s. On p300c -0.04 / -0.12 s and not
+# graded there, so Wormhole only.
+# triatt_ln_b8 (the fused triangle-attention LayerNorm writes q, k, v as bfp8 into the SDPA) joins Wormhole fast on its
+# 11-set fast grade of the Wormhole fast set + it against that set, paired seeds (tlbg, 2026-10-19), PASS: OpenFold3
+# 40 folds (10 complexes), top pose median 0.709 A (floor 1.029 A), CA-lDDT -0.0002 [-0.0014, +0.0008], docking
+# 20 -> 20/40; OpenBind-0 44 folds, 0.846 A (floor 1.160 A), CA-lDDT -0.0024 [-0.0053, -0.0003], docking 27 -> 28/44.
+# 512-token page fold on a Galaxy chip at 1000 MHz, mean of the 3 warm pairs after the compile: OpenFold3 -0.27 s,
+# OpenBind-0 -0.28 s. On p300c within noise (-0.03 / -0.11 s paired medians), so Wormhole only.
+# dit_l1 (the bf16 token DiT's per-step tensors in L1, placement only): CIFs identical with and without it on both
+# models (512-token --fast fold A/B, xmodel_ab, dl1w, 2026-10-19). Galaxy chip at 1000 MHz, the three warm pairs after
+# the first (which paid the L1 programs' compile): OpenFold3 -0.95 / -0.87 / -0.71 s, OpenBind-0 -1.04 / -0.99 / -1.09 s.
+# Flat on Blackhole (bhl1), so Wormhole only.
+# atom_l1 (the atom transformer's per-step tensors in L1, placement only): CIFs identical with and without it on both
+# models (512-token --fast fold A/B, a3lw2, 2026-10-19, and at 1024 / 1568 tokens, a3ls). Galaxy chip at 1000 MHz,
+# 2 chips x 5 warm pairs after the compile pair, every pair faster: OpenFold3 -0.36 s, OpenBind-0 -0.38 s mean.
+# In normal mode too (a3nw, 2026-10-20): CIFs identical, Galaxy chip at 1000 MHz, 4 warm pairs after the compile pair,
+# every pair faster: OpenFold3 -0.31 s, OpenBind-0 -0.28 s mean. Blackhole p300 chip at 1350 MHz, 512-token page fold,
+# mirrored off/a/.../a/off processes, 2 warm folds each, CIFs identical (bhl, 2026-10-25): OpenBind-0 fast
+# 8.47 -> 8.27 s, OpenBind-0 normal 9.90 -> 9.72 s, OpenFold3 normal 8.74 -> 8.61 s. So both parts, both modes.
+# ws_psilu (pair SwiGLU's silu on the packer thread, overlapping the matmuls): CIFs identical with and without it on
+# both models (512-token --fast fold A/B, psf2, 2026-10-19). Galaxy chip at 1000 MHz, mean of the 5 warm pairs after
+# the compile pair: OpenFold3 -0.08 s, OpenBind-0 -0.12 s; the kernel alone 2.63 -> 2.23 ms at c_z 128. Flat in normal
+# mode (-0.06 / +0.02 s), so Wormhole fast only.
+# dit_mask8 (the token DiT attention's pair-bias mask read as bfp8): Galaxy chip at 1000 MHz, 6 paired 512-token
+# --fast folds (m8w, 2026-10-20): OpenFold3 -0.11 s, OpenBind-0 -0.06 s mean. Graded on the 11-complex fast set,
+# paired seeds (m8g): PASS on both models (DockQ -0.003 / -0.005, CIs span zero). Blackhole within noise (OpenFold3
+# median -0.04 s, m8b2), so Wormhole fast only.
+# The Wormhole normal grade of the trunk kernels (with trimul_bres and atom_l1, without trimul_t2cm as in Wormhole fast):
+# 11-set normal grade against the normal set before it, paired seeds, 44 folds per model (nwg, 2026-10-21), PASS:
+# OpenFold3 top pose median 0.398 A (floor 1.010 A), CA-lDDT +0.0005 [-0.0012, +0.0025], docking 20 -> 21/44;
+# OpenBind-0 0.633 A (floor 0.813 A), CA-lDDT -0.0004 [-0.0017, +0.0007], docking 27 -> 27/44. 512-token page fold on a
+# Galaxy chip at 1000 MHz, off/on/on/off processes (pnw): OpenFold3 25.20 -> 20.02 s, OpenBind-0 25.27 -> 20.03 s.
+WH_NORMAL_LEVERS = NORMAL_LEVERS - {"trimul_t2cm"} | {"trimul_bres"}
+# Per-model additions to the normal set, each with the grade the other model failed. OpenFold3 takes the bf16 DiT in
+# normal mode; OpenBind-0 failed its Wormhole grade and keeps the fp32 DiT on both parts.
+# Wormhole, the stack dit_s16, diffusion_bf16, dit_fuse, dit_l1 on top of WH_NORMAL_LEVERS, 11-set normal grade, paired
+# seeds, 44 folds per model (nwd, 2026-10-21): OpenFold3 PASS, top pose median 0.434 A (floor 0.980 A), CA-lDDT -0.0001
+# [-0.0013, +0.0011], docking 21 -> 23/44. OpenBind-0 FAIL, CA-lDDT -0.0012 [-0.0020, -0.0006] (without dit_fuse and
+# dit_l1 also ligand RMSD +1.52 A [+0.04, +3.96]).
+# Blackhole, dit_s16 + diffusion_bf16 on top of NORMAL_LEVERS against the normal set before both (nbg, p300c,
+# 2026-10-23): OpenFold3 PASS, top pose median 0.809 A (floor 1.208 A), CA-lDDT -0.0005 [-0.0031, +0.0033], docking
+# 18 -> 20/44; page fold at 1350 MHz 9.72 -> 9.12 s (pnb).
+# OpenBind-0 on Wormhole takes dit_fuse and dit_l1 on its fp32 DiT alone (ngw, 2026-10-25): PASS, top pose median
+# 0.510 A (floor 1.105 A), CA-lDDT +0.0001 [-0.0007, +0.0009], docking 27 -> 26/44; page fold at 1000 MHz 20.2 -> 17.6 s.
+# Blackhole, dit_fuse + dit_l1 over dit_s16 + diffusion_bf16, 11-set normal grade, 44 paired folds (nfb+nfr, 11-01):
+# OpenFold3 PASS, top pose median 0.291 A (floor 1.583 A), CA-lDDT +0.0004 [-0.0001, +0.0010], docking 20 -> 21/44.
+# Warm 5-sample folds at 1350 MHz: -10 to -13 % at 515-611 tokens; from 678 tokens the device refuses the L1 stream,
+# the stack reruns in DRAM and dit_fuse alone is -3 to +1 %. OpenBind-0 (fp32 DiT) is refused L1 at every graded size
+# on Blackhole and was slower on 10 of 10 complexes (+5 to +7 %), so it stays out there.
+NORMAL_MODEL_LEVERS = {"openfold3": frozenset({"dit_s16", "diffusion_bf16", "dit_fuse", "dit_l1"})}
+# OpenBind-0 on Wormhole normal also takes dit_kl1 + apb_ln + trimul_sig6. They were graded with triatt_hifi2 as one stack
+# (nxg, 2026-11-12, 11 complexes x 4 seeds): PASS, every CI covers 0 or favours the stack, pLDDT -0.0007, same-seed top
+# pose median 0.526 A (seed floor 1.105 A, kill bar 0.60 A). Page fold at 1000 MHz 17.39 -> 16.82 s with all four (kla).
+# triatt_hifi2 stays out of normal: it is a HiFi2 fp32-dest matmul on Wormhole, the class that hung prod OpenDDE on 7-10 %
+# of leases (`hifi2_allowed`), and dropping a fidelity cut only moves the stack toward the reference. OpenFold3 FAILED the
+# same stack (DockQ -0.0066 [-0.0129, -0.0005], TM -0.0019 [-0.0039, -0.0003]) and keeps its set.
+WH_NORMAL_MODEL_LEVERS = {**NORMAL_MODEL_LEVERS,
+                          "openbind": frozenset({"dit_fuse", "dit_l1", "dit_kl1", "apb_ln", "trimul_sig6"})}
+# ws_lofi leaves Wormhole fast (LoFi hangs Wormhole chips, tenstorrent.lofi_allowed): with it OpenFold3 9PCQ hung in
+# 3 of 3 processes, without it 48 of 48 folds clean (pcqc, 2026-10-20). It had saved 0.12 / 0.07 s at the page cell.
+# trimul_t2cm leaves Wormhole fast too: plain T2 + reblock_permute_back is faster there at the page cell. Galaxy chip at
+# 1000 MHz, 4 warm pairs after the compile pair, CIFs identical (t2cw, 2026-10-20): OpenFold3 -0.21 s, OpenBind-0
+# -0.17 s mean without it.
+WH_FAST_LEVERS = FAST_LEVERS - {"ws_lofi", "trimul_t2cm"} | {"apb_ln", "trimul_sig6", "trimul_bres", "triatt_hifi2", "dit_sigf32",
+                                  "triatt_ln_b8", "ws_psilu", "dit_mask8"}
 
 def kabsch_rmsd(pred_ca, gt_ca):
     """Optimal-superposition Cα-RMSD (Kabsch). pred_ca, gt_ca: [N, 3].
@@ -128,6 +305,42 @@ def sample_rotation(dtype=torch.float32):
     return _quat_to_rot(q)                      # [3, 3]
 
 
+def _pae_bin_vectors(n_tok, asym_id, nb=64, max_a=32.0):
+    """Every bin vector the confidence readings multiply softmax(pae) by: the bin centres (the
+    PAE / PDE matrices) and the TM kernel at each token count pTM / ipTM and the chain reductions
+    normalise on, built with the same expressions as `ConfidenceHead._ptm_iptm` and
+    `_chain_confidence`, so `_BinProj` finds them by equality."""
+    centers = (torch.arange(nb, dtype=torch.float32) + 0.5) * (max_a / nb)
+    counts = {max(n_tok, 19)}
+    if asym_id is not None:
+        a = asym_id.long().reshape(-1)
+        ids = [int(x) for x in torch.unique(a)]
+        if a.numel() == n_tok and len(ids) > 1:
+            for i, ci in enumerate(ids):
+                counts.add(max(int((a == ci).sum()), 19))
+                for cj in ids[i + 1:]:
+                    counts.add(max(int(((a == ci) | (a == cj)).sum()), 19))
+    vecs = [centers]
+    for n in sorted(counts):
+        d0 = 1.24 * (n - 15) ** (1.0 / 3.0) - 1.8
+        vecs.append(1.0 / (1.0 + (centers / d0) ** 2))
+    return vecs
+
+
+class _BinProj:
+    """Stands in for softmax(pae_logits) [N, N, 64] when the card returned only its products
+    with `vecs`: `probs @ v` is answered from the matching column."""
+
+    def __init__(self, proj, vecs):
+        self.proj, self.vecs = proj, vecs
+
+    def __matmul__(self, v):
+        for i, u in enumerate(self.vecs):
+            if u.shape == v.shape and torch.equal(u, v.float()):
+                return self.proj[..., i]
+        raise KeyError("this bin vector was not reduced on the card")
+
+
 def build_dm_device_aux(dev, ft, *, cl0, plm0, atom_mask, atom_to_token_index,
                         npe_q_indices, npe_k_indices, zij_mask, key_block_idxs,
                         invalid_mask, mask_trunked, atom_to_token_mean,
@@ -161,12 +374,18 @@ def build_dm_device_aux(dev, ft, *, cl0, plm0, atom_mask, atom_to_token_index,
     mask_bias = (1e9 * (mask_trunked - 1)).reshape(1, nb, 1, 32, 128)
     pair_mask_m = mask_trunked.reshape(1, nb, 32, 128, 1)
     tok_pad = torch.zeros(n_tok_pad, dtype=torch.float32); tok_pad[:n_token] = token_mask.float()
+
+    def ft_col(x):
+        # A trailing channel of 1 tile-pads 32x on the host (pm_d: ~40 MB of tilize for 1.3 MB
+        # of mask); upload without it and add the unit dim on the card. Same values, same tiles.
+        return ttnn.unsqueeze(ft(x.squeeze(-1)), -1)
+
     return dict(
         cl0_d=cl0_d, plm0_d=plm0_d,
         amc_d=ft(amc), amc_na_d=ft(amc_na),
         idx_tt=idx_tt, flat_tt=flat_tt,
-        zij_mask_d=ft(zij_mask.unsqueeze(0).unsqueeze(-1)),
-        kidx_tt=kidx_tt, valid_d=ft(valid), mb_d=ft(mask_bias), pm_d=ft(pair_mask_m),
+        zij_mask_d=ft_col(zij_mask.unsqueeze(0).unsqueeze(-1)),
+        kidx_tt=kidx_tt, valid_d=ft_col(valid), mb_d=ft(mask_bias), pm_d=ft_col(pair_mask_m),
         mean_d=ft(atom_to_token_mean.unsqueeze(0)),
         tok_pad_tt=ft(tok_pad.reshape(1, n_tok_pad)),
         tok_col_pad_tt=ft(tok_pad.reshape(1, n_tok_pad, 1)),
@@ -196,13 +415,30 @@ class OpenFold3(Module):
         num_cycles: trunk recycle cycles (OF3 default 4 = num_recycles+1).
     """
 
-    def __init__(self, sd, compute_kernel_config, num_cycles: int = 4):
+    def __init__(self, sd, compute_kernel_config, num_cycles: int = 4, levers=None, model="openfold3"):
+        """``levers``: the precision levers (``tenstorrent.LEVERS``) this model builds and folds
+        under, active only inside its own build and fold, as for Protenix-v2. None takes the
+        mode's set (``tenstorrent.model_levers``): ``NORMAL_LEVERS`` / ``FAST_LEVERS`` below (``WH_*`` on Wormhole),
+        plus ``NORMAL_MODEL_LEVERS[model]`` (``WH_NORMAL_MODEL_LEVERS`` on Wormhole) in normal mode, and nothing
+        else, the older bfp8 trunk is off inside the scope. ``model``: the family id the weights belong to (openfold3, openbind)."""
+        wh = _T.is_wormhole()
+        normal = (WH_NORMAL_LEVERS | WH_NORMAL_MODEL_LEVERS.get(model, frozenset()) if wh
+                  else NORMAL_LEVERS | NORMAL_MODEL_LEVERS.get(model, frozenset()))
+        self._levers = _T.model_levers(normal, WH_FAST_LEVERS if wh else FAST_LEVERS, spec=levers)
+        with _T.lever_scope(self._levers):
+            self._build(sd, compute_kernel_config, num_cycles)
+
+    def _build(self, sd, compute_kernel_config, num_cycles):
+        # The `lofi` / `acc_off` levers reach every stage through this one config.
+        compute_kernel_config = _T.lpx_compute_kernel_config(compute_kernel_config)
         super().__init__(sd, compute_kernel_config)
         self.sd = sd
         self.ckc = compute_kernel_config
         self.input_glue = InputEmbedderGlue(
             _sub(sd, "input_embedder"), compute_kernel_config)
-        self.trunk = OF3Trunk(sd, compute_kernel_config, num_cycles=num_cycles)
+        # The trunk gets its own config (`trunk_hifi3`), which cannot reach the diffusion module.
+        self.trunk = OF3Trunk(sd, _T.trunk_compute_kernel_config(compute_kernel_config),
+                              num_cycles=num_cycles)
         self._confidence_sd = _sub(sd, "aux_heads")
         self.confidence_head = None
         fourier_w = sd["diffusion_module.diffusion_conditioning.fourier_emb.w"]
@@ -215,8 +451,9 @@ class OpenFold3(Module):
         # that closed the Protenix HSA leg (PROTENIX_DIFFUSION_FP32_DEVICE, also
         # default-on). In bf16 the 9BK6 complex leg misses the all-atom noise floor
         # (X 1.889 > 1.821 threshold); in fp32 it passes (X 1.627, seeds 0-4:
-        # 1.35-2.18 A). OF3_DIFFUSION_FP32_DEVICE=0 opts back out to bf16.
-        if env_flag("OF3_DIFFUSION_FP32_DEVICE", True):
+        # 1.35-2.18 A). OF3_DIFFUSION_FP32_DEVICE=0 opts back out to bf16, and so does the
+        # shared `diffusion_bf16` lever (fast mode), as it does for Protenix-v2.
+        if env_flag("OF3_DIFFUSION_FP32_DEVICE", True) and not _T.lever("diffusion_bf16"):
             with device_dtype_override(ttnn.float32):
                 self.sampler = OF3SampleDiffusion(_sub(sd, "diffusion_module"),
                                                   compute_kernel_config,
@@ -237,8 +474,7 @@ class OpenFold3(Module):
         self.dump_fn = trajectory_dump_from_env()
 
     def _ft(self, x, dtype=ttnn.bfloat16):
-        return ttnn.from_torch(x.float(), layout=ttnn.TILE_LAYOUT, device=self.device,
-                               dtype=dtype)
+        return _T.upload(x.float(), dtype, self.device)
 
     def _gen_rollout(self, noise_schedule, n_atom, seed):
         """Fresh per-step (rots, trans, noise, t, c_tau) + xl_init for one sample,
@@ -258,7 +494,7 @@ class OpenFold3(Module):
             t_l.append(t); c_tau_l.append(c_tau)
         return xl_init, rots_l, trans_l, noise_l, t_l, c_tau_l
 
-    def _confidence(self, sample, si_input, si_trunk, zij_trunk, aux):
+    def _confidence(self, sample, si_input, si_trunk, zij_trunk, aux, shared=None):
         if self.confidence_head is None:
             self.confidence_head = OF3ConfidenceHead(
                 self._confidence_sd, self.device, self.ckc)
@@ -275,12 +511,20 @@ class OpenFold3(Module):
                 atom_mask=aux["repr_batch"]["atom_mask"])
         else:
             representative = sample[aux["representative_atom_indices"].long()]
+        n_tok = si_trunk.shape[0]
+        vecs = _pae_bin_vectors(n_tok, aux.get("asym_id")) if _T.lever("conf_bins") else None
         out = self.confidence_head.forward(
             si_input=si_input.float(), si_trunk=si_trunk.float(),
-            zij_trunk=zij_trunk.float(), repr_x_pred=representative.float(),
+            zij_trunk=None if zij_trunk is None else zij_trunk.float(), repr_x_pred=representative.float(),
             max_atom_per_token_mask=aux["max_atom_per_token_mask"].float(),
-            use_zij_trunk_embedding=True,
+            use_zij_trunk_embedding=True, shared=shared,
+            bin_vectors=None if vecs is None else torch.stack(vecs, -1),
         )
+        if "pae_proj" in out:
+            # The pae / pde heads were reduced on the card: every reading below is softmax(pae)
+            # times one bin vector, so the [N, N, 64] logits never cross.
+            out["pae_logits"] = torch.empty(n_tok, n_tok, 64, device="meta")
+            pae_probs = _BinProj(out["pae_proj"], vecs)
         bins = (torch.arange(50, dtype=torch.float32) + 0.5) / 50
         plddt_atom = (torch.softmax(out["plddt_logits"].float(), -1) * bins).sum(-1)
         from .protenix import ConfidenceHead
@@ -300,8 +544,12 @@ class OpenFold3(Module):
                 batch=aux["frame_batch"], x=sample.float(),
                 atom_mask=aux["frame_batch"]["atom_mask"].float())
             has_frame = has_frame.bool()
+        # One softmax over the [N, N, 64] PAE bins serves pTM/ipTM, the chain reductions and
+        # the PAE matrix; on the host at 730 tokens each one costs ~0.2 s per sample.
+        if "pae_proj" not in out:
+            pae_probs = torch.softmax(out["pae_logits"].float(), -1)
         ptm, iptm = ConfidenceHead._ptm_iptm(
-            out["pae_logits"], aux.get("asym_id"), has_frame=has_frame)
+            out["pae_logits"], aux.get("asym_id"), has_frame=has_frame, probs=pae_probs)
         disorder = _disorder_score(aux["atom_array"], sample) if aux.get("atom_array") is not None else 0.0
         has_clash = 0.0
         if all(k in aux for k in ("asym_id", "atom_to_token_index", "atom_mask", "polymer_mask")):
@@ -311,21 +559,37 @@ class OpenFold3(Module):
         ranking_score = rank.ranking_score(
             iptm=iptm, ptm=ptm, plddt=float(plddt_atom.mean()),
             disorder=disorder, has_clash=has_clash)
+        # Full matrices as upstream's aggregate_confidence_ranking computes them: the expectation
+        # over 64 bins on 0-32 Å. The distogram is the trunk's, the same for every sample.
+        centers = (torch.arange(64, dtype=torch.float32) + 0.5) * 0.5
         return {
+            # chain_ptm, chain_iptm and pair_chains_iptm, the same reduction Protenix and
+            # OpenDDE report, over this head's logits and frame mask.
+            **ConfidenceHead._chain_confidence(out["pae_logits"], aux.get("asym_id"),
+                                               has_frame=has_frame, probs=pae_probs),
             "plddt": float(plddt_atom.mean()), "plddt_atom": plddt_atom,
             "ptm": ptm, "iptm": iptm, "disorder": disorder,
             "has_clash": has_clash, "ranking_score": ranking_score,
+            "pae": (pae_probs @ centers if "pae_proj" in out else (pae_probs * centers).sum(-1)),
+            "pde": (out["pde_proj"] if "pae_proj" in out
+                    else (torch.softmax(out["pde_logits"].float(), -1) * centers).sum(-1)),
+            "distogram": out["distogram_logits"],
         }
 
+    @_T.under_lever_scope
     def fold(self, *, template_feat, msa_feat, s_input, relpos, token_bonds,
              token_mask, dm_aux_host, n_atom, n_token, no_rollout_steps, seed,
              no_samples=1, confidence_aux_host=None, progress_fn=None,
-             template_slots=None):
+             template_slots=None, max_parallel_samples=None, distogram=True):
         """Run the device input glue + trunk and confidence-rank fresh rollouts.
 
         ``msa_feat`` is the searched, post-subsample 34-channel MSA input. The returned
         result keeps every sample and identifies ``coordinates`` / ``best_index`` using
         the OF3 sample-ranking score (0.8 ipTM + 0.2 pTM + 0.5 disorder - 100 clash).
+        ``max_parallel_samples`` caps how many samples share one diffusion-module call
+        (default ``protenix.DEFAULT_MAX_PARALLEL_SAMPLES``); it moves memory and time, not a
+        sample's draws. ``distogram=False`` skips the trunk distogram (only ``--write_pae``
+        reads it), which saves its [N, N, 64] fp32 read-back; the confidence reports None for it.
         """
         import torch.nn.functional as F
         from .token_axis import (TILE, bucket_enabled, bucket_multiple, bucketed_width,
@@ -349,7 +613,12 @@ class OpenFold3(Module):
         pair_mask_pad = attn_mask_pad = None
 
         s_input_d = ft(s_input.unsqueeze(0))
-        relpos_dev = ft(relpos.unsqueeze(0))
+        if isinstance(relpos, tuple):
+            # derive_relpos_codes: the device expands the one-hots, the host keeps them only to pad.
+            relpos_dev = pair_lookup_device(*relpos, self.device)
+            relpos = relpos[1][relpos[0].long()] if tok_pad else None
+        else:
+            relpos_dev = ft(relpos.unsqueeze(0))
         token_bonds_dev = ft(token_bonds.unsqueeze(0).unsqueeze(-1))
         if tok_pad:
             # Trunk-local padded copies. The sampler keeps the unpadded s_input / relpos it has
@@ -414,49 +683,57 @@ class OpenFold3(Module):
 
         dram_peak("of3 diffusion entry")
         noise_schedule = create_noise_schedule(no_rollout_steps, **self.ns_cfg)
-        n_steps = len(noise_schedule) - 1
+        # Every sample's draws up front, each from its own seed, so a sample's numbers do not
+        # depend on how many run beside it; then all of them step together (the sampler's list
+        # form), max_parallel_samples per diffusion-module call.
+        rollouts = [self._gen_rollout(noise_schedule, n_atom, seed + k) for k in range(no_samples)]
+        _, _, _, _, t_l, c_tau_l = rollouts[0]
+        xl_init_devs = [ft(r[0].unsqueeze(0)) for r in rollouts]
+        if max_parallel_samples is None:
+            max_parallel_samples = DEFAULT_MAX_PARALLEL_SAMPLES
+        xl_final_devs = self.sampler(
+            xl_init_devs, si_trunk_d, si_input_dev, zij_trunk_d, relpos_dev,
+            tm_dev, pair_mask_dev, tok_mask_dev,
+            aux["cl0_d"], aux["plm0_d"], aux["amc_d"], aux["amc_na_d"],
+            aux["idx_tt"], aux["flat_tt"], aux["zij_mask_d"], aux["kidx_tt"],
+            aux["valid_d"], aux["mb_d"], aux["pm_d"], aux["mean_d"],
+            aux["tok_pad_tt"], aux["tok_col_pad_tt"],
+            n_atom, NP, nb, n_token, n_tok_pad,
+            noise_schedule, [r[1] for r in rollouts], [r[2] for r in rollouts],
+            [r[3] for r in rollouts], t_l, c_tau_l,
+            self.step_scale, progress_fn=progress_fn, max_parallel_samples=max_parallel_samples,
+            dump_fn=self.dump_fn)
+        del rollouts
         samples = []
-        for sample_index in range(no_samples):
-            # One monotonic diffusion sweep across samples (protenix batches its
-            # samples and ticks total=n_step once; this sampler is per-sample, so
-            # offset the steps of each sample to keep the live view advancing).
-            if progress_fn is not None:
-                def _sample_pfn(stage, step, total, _si=sample_index):
-                    progress_fn(stage, step=_si * n_steps + step,
-                                total=n_steps * no_samples)
-            else:
-                _sample_pfn = None
-            xl_init, rots_l, trans_l, noise_l, t_l, c_tau_l = self._gen_rollout(
-                noise_schedule, n_atom, seed + sample_index)
-            xl_init_dev = ft(xl_init.unsqueeze(0))
-            xl_final_dev = self.sampler(
-                xl_init_dev, si_trunk_d, si_input_dev, zij_trunk_d, relpos_dev,
-                tm_dev, pair_mask_dev, tok_mask_dev,
-                aux["cl0_d"], aux["plm0_d"], aux["amc_d"], aux["amc_na_d"],
-                aux["idx_tt"], aux["flat_tt"], aux["zij_mask_d"], aux["kidx_tt"],
-                aux["valid_d"], aux["mb_d"], aux["pm_d"], aux["mean_d"],
-                aux["tok_pad_tt"], aux["tok_col_pad_tt"],
-                n_atom, NP, nb, n_token, n_tok_pad,
-                noise_schedule, rots_l, trans_l, noise_l, t_l, c_tau_l,
-                self.step_scale, progress_fn=_sample_pfn, dump_fn=self.dump_fn)
-            xl_final = torch.Tensor(ttnn.to_torch(xl_final_dev)).float().reshape(n_atom, 3)
-            ttnn.deallocate(xl_init_dev)
-            ttnn.deallocate(xl_final_dev)
+        for sample_index, (x0, xf) in enumerate(zip(xl_init_devs, xl_final_devs)):
+            xl_final = torch.Tensor(ttnn.to_torch(xf)).float().reshape(n_atom, 3)
+            ttnn.deallocate(x0)
+            ttnn.deallocate(xf)
             samples.append(xl_final)
-            dram_peak("diffusion sample done")
             print(f"  [fold] sample {sample_index}: xl_final std={float(xl_final.std()):.4f} "
                   f"range=[{float(xl_final.min()):.2f},{float(xl_final.max()):.2f}]")
+        dram_peak("diffusion samples done")
 
         confidence = []
         if confidence_aux_host is not None:
             if progress_fn is not None:
                 progress_fn("confidence", step=0, total=0)
             si_trunk = torch.Tensor(ttnn.to_torch(si_trunk_d)).float().reshape(n_token, -1)
-            zij_trunk = torch.Tensor(ttnn.to_torch(zij_trunk_d)).float().reshape(n_token, n_token, -1)
+            # Trunk terms, computed with the first sample; the device trunk pair lets the head
+            # build each sample's pair embedding and the distogram on device, so the pair itself
+            # never comes back (OF3ConfidenceHead._z_embed_device).
+            shared = {"zij_trunk_d": zij_trunk_d}
+            if not distogram:
+                shared["distogram"] = None
             confidence = [
-                self._confidence(sample, s_input, si_trunk, zij_trunk, confidence_aux_host)
+                self._confidence(sample, s_input, si_trunk, None, confidence_aux_host,
+                                 shared)
                 for sample in samples
             ]
+            if "z_ij_d" in shared:
+                li_d, lj_d, tables_d = shared["z_ij_d"]
+                for t in (li_d, lj_d, *tables_d):
+                    ttnn.deallocate(t)
             best_index = max(range(len(samples)), key=lambda i: confidence[i]["ranking_score"])
             dram_peak(f"confidence done [samples={len(samples)}]")
         else:

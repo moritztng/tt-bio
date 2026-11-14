@@ -1,0 +1,29 @@
+[
+ {
+  "name": "bad_bond",
+  "sequences": [
+   {
+    "proteinChain": {
+     "sequence": "MKQLEDKVEELLSKNYHLENEVARLKKLVGER",
+     "count": 1
+    }
+   },
+   {
+    "ligand": {
+     "ligand": "CCD_NAG",
+     "count": 1
+    }
+   }
+  ],
+  "covalent_bonds": [
+   {
+    "entity1": 1,
+    "position1": 15,
+    "atom1": "XX9",
+    "entity2": 2,
+    "position2": 1,
+    "atom2": "C1"
+   }
+  ]
+ }
+]

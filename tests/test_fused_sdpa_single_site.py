@@ -134,9 +134,53 @@ def _generic_sdpa_runners():
 
 def test_the_generic_op_route_is_only_reached_masked(monkeypatch):
     # sdpa_generic runs the same wheel kernels through ttnn.generic_op, a second way to the op.
-    # tenstorrent.py imports it only to price L1; triatt_sdpa is the one runner, and both of its
-    # entries decline a None bias.
-    assert _generic_sdpa_runners() == ["tt_bio/triatt_sdpa.py"]
+    # tenstorrent.py imports it only to price L1. triatt_sdpa runs it, and both of its entries
+    # decline a None bias. protenix runs it at one site, atom_sdpa32, whose mask is the superset
+    # bias `zs` that `_superset_bias` always builds. tenstorrent runs it at two sites, `_sdpa32`
+    # (lever dit_sdpa32) and `_sdpa32_fused` (its read-from-the-fused-projection form), which both
+    # read their mask's shape before the call, so None cannot reach them.
+    # OpenFold3's atom transformer runs it in `_attend_superset`, which reads `sup_b.shape` first.
+    # ESMFold2's windowed atom attention runs it in `attend` with the bias `_frame` returns: `self.bias`, which
+    # `__init__` always uploads, or its B-fold repeat.
+    # RFD3's atom attention runs it with the mask `_sdpa_bias` returns, which always builds one.
+    # shsdpa runs it with the key-padding row of the `pad` pair its caller builds, never None.
+    assert _generic_sdpa_runners() == ["tt_bio/esmfold2.py", "tt_bio/openfold3_atom_transformer.py",
+                                       "tt_bio/protenix.py", "tt_bio/rfd3/model.py", "tt_bio/shsdpa.py",
+                                       "tt_bio/tenstorrent.py", "tt_bio/triatt_sdpa.py"]
+    rf_src = (PKG / "rfd3" / "model.py").read_text()
+    assert rf_src.count("mask = self._sdpa_bias(") == 1
+    rf = ast.parse(rf_src)
+    rcalls = [n for n in ast.walk(rf) if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
+              and n.func.attr == "sdpa" and isinstance(n.func.value, ast.Name) and n.func.value.id == "_SG"]
+    assert len(rcalls) == 1 and ast.unparse(rcalls[0].args[4]) == "mask"
+    sb = next(n for n in ast.walk(rf) if isinstance(n, ast.FunctionDef) and n.name == "_sdpa_bias")
+    assert all(r.value is not None and ast.unparse(r.value) in ("bias", "hit[2]")
+               for r in ast.walk(sb) if isinstance(r, ast.Return))
+    ef2 = ast.parse((PKG / "esmfold2.py").read_text())
+    ecalls = [n for n in ast.walk(ef2) if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
+              and n.func.attr == "sdpa" and isinstance(n.func.value, ast.Name) and n.func.value.id == "SG"]
+    assert len(ecalls) == 1 and ast.unparse(ecalls[0].args[4]) == "bias"
+    att = next(n for n in ast.walk(ef2) if isinstance(n, ast.FunctionDef) and n.name == "attend")
+    assert ecalls[0] in list(ast.walk(att)) and "bias, zero = self._frame(B)" in ast.unparse(att)
+    of3 = ast.parse((PKG / "openfold3_atom_transformer.py").read_text())
+    sup = next(n for n in ast.walk(of3) if isinstance(n, ast.FunctionDef) and n.name == "_attend_superset")
+    ocalls = [n for n in ast.walk(of3) if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
+              and n.func.attr == "sdpa" and isinstance(n.func.value, ast.Name) and n.func.value.id == "SG"]
+    assert len(ocalls) == 1 and ocalls[0] in list(ast.walk(sup)) and ocalls[0].args[4].id == "sup_b"
+    assert "sup_b.shape" in ast.unparse(sup.body[:6])
+    tt = ast.parse((PKG / "tenstorrent.py").read_text())
+    tcalls = [n for n in ast.walk(tt) if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
+              and n.func.attr == "sdpa" and isinstance(n.func.value, ast.Name) and n.func.value.id == "SG"]
+    fns = [n for n in ast.walk(tt) if isinstance(n, ast.FunctionDef) and n.name in ("_sdpa32", "_sdpa32_fused")]
+    assert len(fns) == 2 and len(tcalls) == 2
+    for fn in fns:
+        call = next(c for c in tcalls if c in list(ast.walk(fn)))
+        assert isinstance(call.args[4], ast.Name) and call.args[4].id == "mask"
+        assert "mask.shape" in ast.unparse(fn.body[:6])
+    calls = [n for n in ast.walk(ast.parse((PKG / "protenix.py").read_text()))
+             if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute) and n.func.attr == "sdpa"
+             and isinstance(n.func.value, ast.Name) and n.func.value.id == "SG"]
+    assert len(calls) == 1 and isinstance(calls[0].args[4], ast.Name) and calls[0].args[4].id == "zs"
     pytest.importorskip("ttnn")
     tri = pytest.importorskip("tt_bio.triatt_sdpa")
     monkeypatch.setattr(tri, "_ENABLED", True)  # else both entries decline everything

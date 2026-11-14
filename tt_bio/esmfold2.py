@@ -26,6 +26,7 @@ import ttnn
 
 from tt_bio.esmc import SwiGLUFFN, apply_rotary
 from tt_bio.envflags import env_flag
+from tt_bio.runtime import serial_host
 from tt_bio.tenstorrent import (
     CORE_GRID_MAIN,
     Module,
@@ -33,13 +34,24 @@ from tt_bio.tenstorrent import (
     TriangleMultiplication,
     Weights,
     WeightScope,
+    capture_trace,
     _accurate_softmax,
     _sdpa_program_config_for_lengths,
     accurate_softmax_site,
+    atom_l1_linears,
     attn_value_matmul,
     fused_sdpa,
+    lever,
+    _ColWin,
+    _win_addcmul,
+    sdpa32_mask,
+    sdpa32_rows,
+    _sdpa32_fused,
+    trunk_compute_kernel_config,
+    trace_region_size,
 )
 from tt_bio.eltwise_fusion import scale_add
+from tt_bio.addcmul_at import addcmul_at
 
 _ROW = lambda x: x.reshape(1, -1)
 
@@ -49,6 +61,10 @@ _DTYPE = ttnn.bfloat16  # activation dtype for the diffusion / encoders
 # c, the atom adaLN modulation) across the ~20 sampling steps, keyed by source-
 # tensor identity. Bit-identical to recomputing.
 _STEP_CACHE = True
+
+# The token DiT's q/k/v/g with the 48 -> 64 head padding folded into the weights (AttentionPairBias
+# ._folded): two matmuls per block instead of six plus a chunk and a concat. Same arithmetic.
+_APB_FOLD = env_flag("TT_BIO_ESMFOLD2_APB_FOLD", False)
 
 
 # Optional progress callback for the CLI display: report_progress(stage, step, total).
@@ -72,6 +88,40 @@ def report_progress(stage, step=0, total=0):
 # set_trajectory_dump() installs one. It only reads tensors the sampler already made, so a fold is
 # bit-identical with or without it. An exception raised by the hook aborts the fold.
 _DUMP = None
+
+# The atom transformer's SwiGLU up-projection as two linears (one per half of w_up) instead of one linear and a
+# ttnn.chunk: 6 atom blocks x every sampler step, the chunk was 0.30 s of device time per 512-aa fold (census c3).
+ATOM_FFN_SPLIT = env_flag("TT_BIO_ESMFOLD2_ATOM_FFN_SPLIT", None)  # unset: the ef2_atom_ffn_split lever
+
+# The MSA encoder's two SwiGLU transitions (MSA and pair) on the trunk's own pair-FFN path (split fc1, row-blocked,
+# pair SwiGLU kernel and its folded residual where the mode's levers serve them) instead of one fc1 linear, a chunk,
+# a silu and a multiply over the whole tensor. With an MSA deeper than max_depth the encoder runs every loop, and on
+# p150a those ops were 2.2 s of a 5.6 s encoder (512 aa, 4096 rows, 1350 MHz, dmc).
+MSA_FFN_FUSED = env_flag("TT_BIO_ESMFOLD2_MSA_FFN_FUSED", None)  # unset: the ef2_msa_ffn lever
+# The outer product's Wout, [L, L, 1024] -> 256, on the shared pair-projection path (tenstorrent._pair_proj_linear)
+# instead of a core_grid linear. ttnn's tall plan for it takes in0_block_w 1: 21 ms a call at 748 aa on p150a
+# (~14 TF/s, 44 calls a deep-MSA fold, d748f) against ~13 ms for the 4x larger outer-product matmul before it.
+OPM_PROJ = env_flag("TT_BIO_ESMFOLD2_OPM_PROJ", None)  # unset: the ef2_opm_proj lever
+
+
+def gate(flag, name):
+    """A branch-stack switch: its setting when given, else whether lever `name` is active in the fold's scope.
+    esmfold2_runtime.fold_levers decides which ef2_* levers each mode and arch carries."""
+    return lever(name) if flag is None else flag
+
+
+#: Replay the diffusion step from a ttnn trace (StructureHead._step) when the device was opened
+#: with get_device(trace="esmfold2"). Lossless. Pays where the step is host-dispatch bound: at
+#: 64 aa on p150a the fold drops 2.03 -> 1.25 s (-Fast --fast) and 2.65 -> 2.21 s (ESMFold2
+#: normal); at 256-512 aa the step is device-bound and it is flat on both arches.
+DIFFUSION_TRACE = env_flag("TT_BIO_ESMFOLD2_DIFFUSION_TRACE", True)
+DIFFUSION_TRACE_STATS = [0, 0]  # [steps replayed, steps run eager]
+
+
+def set_diffusion_trace(on: bool) -> None:
+    global DIFFUSION_TRACE
+    DIFFUSION_TRACE = bool(on)
+
 
 def set_trajectory_dump(fn):
     global _DUMP
@@ -99,6 +149,20 @@ def _attn_fp32(q, k, v, attn_mask, scale, ck, accurate_softmax: bool = False):
             else ttnn.softmax(logits, dim=-1))  # over keys
     ctx = attn_value_matmul(attn, vf, ck, f32)  # [B,H,L,Dp]
     return ttnn.typecast(ctx, _DTYPE)
+
+
+def _sdpa32_mask(bias, scale):
+    """The cached pair bias as the `_sdpa32` mask under dit_qkvf: fp32, divided by `scale` (the program scales its mask with
+    the scores), padded to `sdpa32_rows`. Built once per block per fold, like the bias it replaces."""
+    f32 = ttnn.float32
+    b = ttnn.typecast(bias, f32)
+    m = ttnn.multiply(b, 1.0 / scale)
+    ttnn.deallocate(b)
+    if sdpa32_rows(int(m.shape[-1])) == int(m.shape[-1]):
+        return m
+    mp = sdpa32_mask(m)
+    ttnn.deallocate(m)
+    return mp
 
 
 def _sdpa_bf16(q, k, v, attn_mask, scale):
@@ -174,20 +238,18 @@ class PairUpdateBlock(Module):
             _remap_transition(sd), compute_kernel_config, fuse_swiglu=True
         )
 
-    def _residual(self, z: ttnn.Tensor, update: ttnn.Tensor) -> ttnn.Tensor:
-        out = ttnn.add(z, update)
-        ttnn.deallocate(z)
-        ttnn.deallocate(update)
-        return out
-
     def __call__(self, z: ttnn.Tensor, mask: ttnn.Tensor | None = None) -> ttnn.Tensor:
-        z = self._residual(z, self.tri_out(z, mask))
-        z = self._residual(z, self.tri_in(z, mask))
+        # `z + tri(z)` through the trimul's own residual path, as the Pairformer runs it: the
+        # in-place add (`_add_input`), or under the trimul_tail lever the add folded into the
+        # tail's epilogue, which saves one pair-tensor pass per trimul.
+        z = self.tri_out(z, mask, add_to_input=True)
+        z = self.tri_in(z, mask, add_to_input=True)
         # `z + transition(z)`, but the add belongs to the transition: on the row-blocked path it
         # runs per block so fc2's output never round-trips DRAM (lever F, esmc.PAIR_FFN_FUSED_
         # RESIDUAL). Bit-exact -- the add is elementwise and row-independent.
         out = self.transition.residual(z)
-        ttnn.deallocate(z)
+        if out is not z:  # ws_resid wrote into z
+            ttnn.deallocate(z)
         return out
 
 
@@ -216,7 +278,9 @@ class FoldingTrunk(TorchWrapper):
         self.d_pair = d_pair
 
     def _create_module(self, weights: WeightScope) -> FoldingTrunkModel:
-        return FoldingTrunkModel(self.n_layers, weights, self.compute_kernel_config)
+        # The trunk's matmul fidelity, as every Pairformer-family trunk takes it (`trunk_hifi3`).
+        return FoldingTrunkModel(self.n_layers, weights,
+                                 trunk_compute_kernel_config(self.compute_kernel_config))
 
     def forward(self, z):
         # Pad both sequence axes to a tile multiple and mask padding out of the
@@ -248,9 +312,25 @@ class AdaLN(Module):
         self.s_gate_b = self.torch_to_tt("s_gate.bias", transform=_ROW)
         self.s_shift_w = self.torch_to_tt("s_shift.weight")
 
-    def __call__(self, a: ttnn.Tensor, s: ttnn.Tensor) -> ttnn.Tensor:
+    def folded(self):
+        """(scale weight, scale bias, shift weight) on the un-weighted LN(s): the s-norm's gamma folded in."""
+        g = self.weights["s_scale"].float()[:, None]
+        return (g * self.weights["s_gate.weight"].float().t(), self.weights["s_gate.bias"].float(),
+                g * self.weights["s_shift.weight"].float().t())
+
+    def __call__(self, a: ttnn.Tensor, s: ttnn.Tensor, terms=None) -> ttnn.Tensor:
+        """`terms`: this block's (sigmoid scale, shift) windows of the step's wide conditioning (dit_shoist)."""
         ck = self.compute_kernel_config
         a_norm = ttnn.layer_norm(a, epsilon=1e-5, compute_kernel_config=ck)
+        if terms is not None:
+            (sc_t, sc_off, w, sc_row), (sh_t, sh_off, _, sh_row) = terms
+            out = addcmul_at(sh_t, a_norm, sc_t, w, x_off=sh_off, z_off=sc_off, x_row=sh_row, z_row=sc_row)
+            if out is None:
+                sc, sh = terms[0].cut(), terms[1].cut()
+                out = ttnn.addcmul(sh, a_norm, sc, value=1.0)
+                ttnn.deallocate(sc); ttnn.deallocate(sh)
+            ttnn.deallocate(a_norm)
+            return out
         s_norm = ttnn.layer_norm(s, weight=self.s_scale, epsilon=1e-5, compute_kernel_config=ck)
         gate = ttnn.sigmoid(self._lin(s_norm, self.s_gate_w, bias=self.s_gate_b))
         shift = self._lin(s_norm, self.s_shift_w)
@@ -299,14 +379,51 @@ class AttentionPairBias(Module):
         )
         self.scatter_g = to_tt(Sg)
         self.out_w_padded = to_tt(Op)
+        self._Sg = Sg
+        self._fold = None  # (qkv_w, qkv_b, g_w) with the head padding folded in, built on first use
 
-    def __call__(self, a: ttnn.Tensor, s: ttnn.Tensor, z: ttnn.Tensor) -> ttnn.Tensor:
+    def _folded(self):
+        """q/k/v/g projections with scatter_g folded into the weights: W @ Sg only moves columns, so
+        x @ (W @ Sg) is the padded projection exactly, one matmul for q|k|v and one for g."""
+        if self._fold is None:
+            Sg, d = self._Sg, self._Sg.shape[0]
+            W = lambda k: self.weights[k].float()
+            kv = W("kv_proj.weight")
+            qkv = torch.cat([W("q_proj.weight").t() @ Sg, kv[:d].t() @ Sg, kv[d:].t() @ Sg], dim=1)
+            b = torch.cat([W("q_proj.bias").reshape(1, -1) @ Sg, torch.zeros(1, 2 * Sg.shape[1])], dim=1)
+            to_tt = lambda x: ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, device=self.device, dtype=_DTYPE)
+            self._fold = (to_tt(qkv), to_tt(b), to_tt(W("g_proj.weight").t() @ Sg))
+        return self._fold
+
+    def __call__(self, a: ttnn.Tensor, s: ttnn.Tensor, z: ttnn.Tensor, terms=None) -> ttnn.Tensor:
+        """`terms` (dit_shoist): the adaLN windows; the output then comes back without its s-gate, which the
+        caller applies with the residual add."""
         ck = self.compute_kernel_config
         d_model = a.shape[-1]
         head_dim = d_model // self.num_heads
 
-        x = self.adaln(a, s)
+        x = self.adaln(a, s, terms)
+        s = s if terms is None else None  # no s: _out skips the gate
         lin = self._lin
+        if lever("dit_qkvf"):
+            # dit_qkvf: one q|k|v projection (head padding folded in) read straight by the shared `_sdpa32_fused`
+            # program, which writes the heads concatenated on their padded lanes: no head split, no casts, no
+            # re-assembly. The token axis arrives padded to sdpa32_rows (DiffusionTransformerModel).
+            qkv_w, qkv_b, g_w = self._folded()
+            qkv = ttnn.unsqueeze(lin(x, qkv_w, qkv_b), 1)
+            g_pad = ttnn.sigmoid(lin(x, g_w))
+            ttnn.deallocate(x)
+            B, _, n, w = (int(d) for d in qkv.shape)
+            ctx = _sdpa32_fused(qkv, self._pair_bias(z, head_dim, ck), head_dim**-0.5, self.num_heads,
+                                out_dtype=_DTYPE)
+            ttnn.deallocate(qkv)
+            return self._out(ttnn.reshape(ctx, (B, n, w // 3)), g_pad, s)
+        if _APB_FOLD:
+            qkv_w, qkv_b, g_w = self._folded()
+            qh, kh, vh = self._split_heads(lin(x, qkv_w, qkv_b), self.num_heads)
+            g_pad = ttnn.sigmoid(lin(x, g_w))  # pad lanes read 0.5, against ctx pad lanes that are 0
+            ttnn.deallocate(x)
+            return self._attend(qh, kh, vh, g_pad, s, z, head_dim, ck)
         q = lin(x, self.q_w, self.q_b)
         kv = lin(x, self.kv_w)
         k, v = ttnn.chunk(kv, 2, dim=-1)
@@ -326,40 +443,53 @@ class AttentionPairBias(Module):
         qkv = ttnn.concat([qp, kp, vp], dim=-1)  # [B, L, 3*Dpad]
         ttnn.deallocate(qp); ttnn.deallocate(kp); ttnn.deallocate(vp)
         qh, kh, vh = self._split_heads(qkv, self.num_heads)
-
-        # pair_bias = pair_bias_proj(layer_norm(z)) is a pure function of the
-        # pair conditioning z, which is constant across the diffusion sampling
-        # steps (the resident sampler feeds the same cached z object each step).
-        # So compute it once and reuse it while the same z is fed; a new protein
-        # passes a fresh z, which rebuilds it. Bit-identical to recomputing, and
-        # saves an O(L^2 . H) layer_norm + projection per step per layer — the
-        # single largest step-invariant cost in the token DiT.
-        if _STEP_CACHE and self._pb_src is z:
-            pair_bias = self._pb
-        else:
-            if self._pb is not None:
-                ttnn.deallocate(self._pb)
-            z_norm = ttnn.layer_norm(
-                z, weight=self.pair_norm_w, bias=self.pair_norm_b, epsilon=1e-5, compute_kernel_config=ck
-            )
-            pb = lin(z_norm, self.pair_bias_w)  # [B, L, L, H]
-            ttnn.deallocate(z_norm)
-            pair_bias = ttnn.permute(pb, (0, 3, 1, 2))  # [B, H, L, L]
-            ttnn.deallocate(pb)
-            self._pb = pair_bias
-            self._pb_src = z
-
-        ctx = _attn_fp32(qh, kh, vh, pair_bias, head_dim**-0.5, ck, self.accurate_softmax)
-        ttnn.deallocate(qh); ttnn.deallocate(kh); ttnn.deallocate(vh)
-        ctx = self._merge_heads(ctx)  # [B, L, H*head_dim_pad]  (pad value dims are 0)
-        # Gate + out_proj in the padded head layout, then project back to d_model.
         g_pad = lin(g, self.scatter_g)  # [B, L, Dpad]
         ttnn.deallocate(g)
+        return self._attend(qh, kh, vh, g_pad, s, z, head_dim, ck)
+
+    def _pair_bias(self, z, head_dim, ck):
+        """pair_bias = pair_bias_proj(layer_norm(z)) [B, H, L, L], or under dit_qkvf `_sdpa32`'s mask
+        made from it (`_sdpa32_mask`).
+
+        A pure function of the pair conditioning z, which is constant across the diffusion sampling steps (the
+        resident sampler feeds the same cached z object each step). So it is built once and reused while the same
+        z is fed; a new protein passes a fresh z, which rebuilds it. Bit-identical to recomputing, and saves an
+        O(L^2 . H) layer_norm + projection per step per layer, the single largest step-invariant cost in the
+        token DiT."""
+        if _STEP_CACHE and self._pb_src is z:
+            return self._pb
+        if self._pb is not None:
+            ttnn.deallocate(self._pb)
+        z_norm = ttnn.layer_norm(
+            z, weight=self.pair_norm_w, bias=self.pair_norm_b, epsilon=1e-5, compute_kernel_config=ck
+        )
+        pb = self._lin(z_norm, self.pair_bias_w, memory_config=ttnn.DRAM_MEMORY_CONFIG)  # [B, L, L, H], cached
+        ttnn.deallocate(z_norm)
+        pair_bias = ttnn.permute(pb, (0, 3, 1, 2))  # [B, H, L, L]
+        ttnn.deallocate(pb)
+        if lever("dit_qkvf"):  # cache the fp32 mask in place of the bf16 bias
+            m = _sdpa32_mask(pair_bias, head_dim**-0.5)
+            ttnn.deallocate(pair_bias)
+            pair_bias = m
+        self._pb = pair_bias
+        self._pb_src = z
+        return pair_bias
+
+    def _attend(self, qh, kh, vh, g_pad, s, z, head_dim, ck):
+        pair_bias = self._pair_bias(z, head_dim, ck)
+        ctx = _attn_fp32(qh, kh, vh, pair_bias, head_dim**-0.5, ck, self.accurate_softmax)
+        ttnn.deallocate(qh); ttnn.deallocate(kh); ttnn.deallocate(vh)
+        return self._out(self._merge_heads(ctx), g_pad, s)  # [B, L, H*head_dim_pad]  (pad value dims are 0)
+
+    def _out(self, ctx, g_pad, s):
+        """Gate + out_proj in the padded head layout, then project back to d_model; times the s gate."""
         ctx = ttnn.multiply(ctx, g_pad)
         ttnn.deallocate(g_pad)
-        out = lin(ctx, self.out_w_padded)  # [B, L, d_model]
+        out = self._lin(ctx, self.out_w_padded)  # [B, L, d_model]
         ttnn.deallocate(ctx)
-        out_gate = ttnn.sigmoid(lin(s, self.out_gate_w, self.out_gate_b))
+        if s is None:
+            return out
+        out_gate = ttnn.sigmoid(self._lin(s, self.out_gate_w, self.out_gate_b))
         return ttnn.multiply(out_gate, out)
 
 
@@ -374,10 +504,10 @@ class ConditionedTransitionBlock(Module):
         self.gate_w = self.torch_to_tt("output_gate.weight")
         self.gate_b = self.torch_to_tt("output_gate.bias", transform=_ROW)
 
-    def __call__(self, a: ttnn.Tensor, s: ttnn.Tensor) -> ttnn.Tensor:
-        ck = self.compute_kernel_config
+    def __call__(self, a: ttnn.Tensor, s: ttnn.Tensor, terms=None) -> ttnn.Tensor:
+        """`terms` as AttentionPairBias's: the output then comes back without its s-gate."""
         lin = self._lin
-        x = self.adaln(a, s)
+        x = self.adaln(a, s, terms)
         sw = lin(x, self.swish_w)
         ttnn.deallocate(x)
         a1, a2 = ttnn.chunk(sw, 2, dim=-1)
@@ -386,6 +516,8 @@ class ConditionedTransitionBlock(Module):
         ttnn.deallocate(a1); ttnn.deallocate(a2)
         out = lin(b, self.out_w)
         ttnn.deallocate(b)
+        if terms is not None:
+            return out
         gate = ttnn.sigmoid(lin(s, self.gate_w, self.gate_b))
         return ttnn.multiply(gate, out)
 
@@ -405,12 +537,73 @@ class DiffusionTransformerModel(Module):
             ConditionedTransitionBlock(self.scope(f"transition_blocks.{i}"), compute_kernel_config)
             for i in range(num_blocks)
         ]
+        self._shoist_w = None
+
+    def _shoist(self, s):
+        """`dit_shoist`: every block's s-terms as three wide linears off this step's `s`: (sigmoid adaLN scales,
+        adaLN shifts, sigmoid output gates), one 768-column window per sub-block in order (attention 0,
+        transition 0, attention 1, ...). The adaLN pair reads the un-weighted LN(s), its gamma folded in."""
+        if self._shoist_w is None:
+            sw, sb, hw, gw, gb = [], [], [], [], []
+            for attn, trans in zip(self.attn, self.trans):
+                for blk, g in ((attn, "out_gate."), (trans, "output_gate.")):
+                    w_sc, b_sc, w_sh = blk.adaln.folded()
+                    sw.append(w_sc); sb.append(b_sc); hw.append(w_sh)
+                    gw.append(blk.weights[g + "weight"].float().t()); gb.append(blk.weights[g + "bias"].float())
+            up = lambda t: ttnn.from_torch(t.contiguous(), dtype=_DTYPE, layout=ttnn.TILE_LAYOUT,  # noqa: E731
+                                           device=self.device)
+            self._shoist_w = (up(torch.cat(sw, 1)), up(torch.cat(sb).reshape(1, -1)), up(torch.cat(hw, 1)),
+                              up(torch.cat(gw, 1)), up(torch.cat(gb).reshape(1, -1)))
+        w_sc, b_sc, w_sh, w_g, b_g = self._shoist_w
+        s_hat = ttnn.layer_norm(s, epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
+        out = (self._lin(s_hat, w_sc, b_sc, activation="sigmoid"), self._lin(s_hat, w_sh),
+               self._lin(s, w_g, b_g, activation="sigmoid"))
+        ttnn.deallocate(s_hat)
+        return out
+
+    def _blocks_shoist(self, a, s, z):
+        """The block loop under dit_shoist: each sub-block reads its adaLN windows and returns ungated; the gate
+        window multiplies it into the residual in one op."""
+        sc, sh, g = self._shoist(s)
+        W = lambda t, j: _ColWin(t, j * 768, 768)  # noqa: E731
+        x = a
+        for i, (attn, trans) in enumerate(zip(self.attn, self.trans)):
+            for j, blk in ((2 * i, attn), (2 * i + 1, trans)):
+                terms = (W(sc, j), W(sh, j))
+                y = blk(x, s, z, terms) if blk is attn else blk(x, s, terms)
+                x_new = _win_addcmul(x, y, W(g, j))
+                if x_new is None:
+                    gj = W(g, j).cut()
+                    x_new = ttnn.addcmul(x, y, gj, value=1.0)
+                    ttnn.deallocate(gj)
+                ttnn.deallocate(y)
+                if x is not a:
+                    ttnn.deallocate(x)
+                x = x_new
+        for t in (sc, sh, g):
+            ttnn.deallocate(t)
+        return x
 
     def __call__(self, a: ttnn.Tensor, s: ttnn.Tensor, z: ttnn.Tensor) -> ttnn.Tensor:
-        x = a
-        for attn, trans in zip(self.attn, self.trans):
-            x = ttnn.add(x, attn(x, s, z))
-            x = ttnn.add(x, trans(x, s))
+        # dit_qkvf runs the attention at sdpa32_rows. The token stream is padded to it here, once a call, not
+        # q, k and v in every block: rows are independent everywhere but the attention, and its mask
+        # (`_sdpa32_mask`) hides the new keys. The same padding Protenix's and OpenFold3's token DiTs do.
+        n = int(a.shape[-2])
+        npad = sdpa32_rows(n) if lever("dit_qkvf") else n
+        if npad != n:
+            a, s = (ttnn.pad(t, [(0, 0), (0, npad - n), (0, 0)], value=0.0) for t in (a, s))
+        if lever("dit_shoist"):
+            x = self._blocks_shoist(a, s, z)
+        else:
+            x = a
+            for attn, trans in zip(self.attn, self.trans):
+                x = ttnn.add(x, attn(x, s, z))
+                x = ttnn.add(x, trans(x, s))
+        if npad != n:
+            out = ttnn.slice(x, [0, 0, 0], [int(x.shape[0]), n, int(x.shape[2])])
+            for t in (s, x):
+                ttnn.deallocate(t)
+            x = out
         return x
 
 
@@ -662,6 +855,21 @@ def build_3d_rope_tables(ref_pos, ref_space_uid, head_dim, n_spatial_per_axis,
     return cos, sin
 
 
+def _valid_rank(n_or_mask):
+    """Atom validity [N] (bool) and each atom's rank among the valid ones, cumsum(valid) - 1."""
+    if isinstance(n_or_mask, int):
+        valid = torch.ones(n_or_mask, dtype=torch.bool)
+    else:
+        valid = (n_or_mask.reshape(-1) > 0.5)
+    return valid, torch.cumsum(valid.long(), 0) - 1
+
+
+def _allowed(valid, rank, i, j, half_window):
+    """Whether query atom i may attend key atom j (index tensors that broadcast, all in range)."""
+    within = (rank[i] - rank[j]).abs() <= half_window
+    return (within & valid[i] & valid[j]) | (i == j)
+
+
 def band_mask(n_or_mask, half_window: int):
     """Sliding-window additive attention bias [1,1,N,N], validity-aware.
 
@@ -670,16 +878,140 @@ def band_mask(n_or_mask, half_window: int):
     (rank=cumsum(valid)-1), padded atoms are excluded, and the diagonal is always
     allowed (so a fully-masked/invalid row doesn't produce NaN under softmax).
     """
-    if isinstance(n_or_mask, int):
-        valid = torch.ones(n_or_mask, dtype=torch.bool)
-    else:
-        valid = (n_or_mask.reshape(-1) > 0.5)
-    n = valid.shape[0]
-    rank = torch.cumsum(valid.long(), 0) - 1
-    within = (rank[:, None] - rank[None, :]).abs() <= half_window
-    allowed = within & valid[:, None] & valid[None, :]
-    allowed = allowed | torch.eye(n, dtype=torch.bool)
-    return torch.where(allowed, 0.0, float("-inf")).view(1, 1, n, n)
+    valid, rank = _valid_rank(n_or_mask)
+    idx = torch.arange(valid.shape[0])
+    allowed = _allowed(valid, rank, idx[:, None], idx[None, :], half_window)
+    return torch.where(allowed, 0.0, float("-inf")).view(1, 1, *allowed.shape)
+
+
+# The atom transformer's sliding window as ONE windowed SDPA: block i of 32 queries reads the 160 keys
+# [32 i - 64, 32 i + 96) straight from a zero-framed K/V (sdpa_generic `kv_window`, the program
+# Protenix's and OpenFold3's atom attention run), instead of a dense [N, N] band mask over every atom.
+# Keys outside the band get zero weight on both paths, so it is the same attention; the softmax reduces
+# over 160 keys instead of N, which is ~26x fewer scores at 512 tokens. When a valid atom's window does
+# not fit the 160 keys (padding inside the atom list) the dense band runs instead. p300c 512 aa: -0.82 s ESMFold2,
+# -1.05 s ESMFold2-Fast; on a Wormhole Galaxy chip -11.0 s per 5-sample ESMFold2-Fast grade fold. Graded on both
+# models on both architectures (perf/spd/grade.py, 11 complexes x 4 seeds), so on by default; 0 restores the dense band.
+_SWA_WINDOW = env_flag("TT_BIO_ESMFOLD2_SWA_WINDOW", True)
+SWA_STATS = [0, 0]  # atom transformer masks built (windowed, dense)
+
+
+def _window_bias(n_or_mask, half_window, nq=32):
+    """`band_mask`'s 0/-inf band cut to per-block bias [nb, nq, W] over keys [nq*i - lead, nq*i - lead + W),
+    or None when some valid query row has an allowed key outside its window. Built from the ranks over
+    the W keys a row can see, never the dense [N, N] (at 512 aa ~4k atoms, that cost ~0.5 s of host
+    time per build)."""
+    valid, rank = _valid_rank(n_or_mask)
+    N = valid.shape[0]
+    lead = -(-half_window // nq) * nq
+    W, NP = 2 * lead + nq, -(-N // nq) * nq
+    i = torch.arange(NP)[:, None]
+    j = (i // nq) * nq - lead + torch.arange(W)[None, :]                     # [NP, W] key atom per slot
+    inside = (i < N) & (j >= 0) & (j < N)
+    allowed = inside & _allowed(valid, rank, i.clamp(max=N - 1), j.clamp(0, N - 1), half_window)
+    # A dense row allows every valid atom within half_window ranks of a valid query (a contiguous rank
+    # range clipped to [0, V)), or only the diagonal for a padding query.
+    V = int(valid.sum())
+    r = rank[:N]
+    need = torch.where(valid, (r + half_window).clamp(max=V - 1) - (r - half_window).clamp(min=0) + 1, 1)
+    if not torch.equal(allowed[:N].sum(1), need):
+        return None
+    return torch.where(allowed, 0.0, float("-inf")).view(NP // nq, nq, W)
+
+
+class SWAWindow:
+    """The windowed atom attention's device state: the 0/-big bias [1, H*nb, 32, W] and the zero rows
+    that frame K and V. Stands where the dense band mask stood."""
+
+    NQ = 32
+
+    def __init__(self, win, n, heads, head_dim, upload, device):
+        nb, nq, W = win.shape
+        self.n, self.nb, self.W, self.lead = n, nb, W, (W - nq) // 2
+        # finite, so a fully masked padding row stays finite; pre-scaled because the kernel scales the
+        # mask with the scores (OpenFold3 _superset does the same)
+        bias = win.clamp(min=-1e4) * head_dim ** 0.5
+        self.bias = upload(bias.unsqueeze(0).expand(heads, nb, nq, W).reshape(1, heads * nb, nq, W).contiguous())
+        self.zero = ttnn.zeros((1, heads, self.lead, head_dim), dtype=_DTYPE, layout=ttnn.TILE_LAYOUT, device=device)
+        self._batched = {}  # B -> (bias, zero) for B diffusion samples folded into the heads
+
+    def _frame(self, B):
+        """Bias and zero rows for a batch of B samples run as B * H heads: query block (b H + h) nb + i
+        reads frame head b H + h, which is the row-major [B, H] -> [B H] reshape of q, k and v."""
+        if B == 1:
+            return self.bias, self.zero
+        if B not in self._batched:
+            H, lead, dh = self.zero.shape[1], self.zero.shape[2], self.zero.shape[3]
+            self._batched[B] = (ttnn.repeat(self.bias, [1, B, 1, 1]),
+                                ttnn.zeros((1, B * H, lead, dh), dtype=_DTYPE, layout=ttnn.TILE_LAYOUT,
+                                           device=self.zero.device()))
+        return self._batched[B]
+
+    def attend(self, q, k, v, scale):
+        """q, k, v [B, H, N, dh] -> ctx [B, H, N, dh]."""
+        import tt_bio.tenstorrent as _T
+        from tt_bio import sdpa_generic as SG
+        B, dh, nb, nq, N = q.shape[0], q.shape[3], self.nb, self.NQ, self.n
+        H, NP = B * q.shape[1], nb * nq
+        bias, zero = self._frame(B)
+        if NP != N:
+            q, k, v = (ttnn.pad(t, [(0, 0), (0, 0), (0, NP - N), (0, 0)], 0.0) for t in (q, k, v))
+        if B > 1:  # tile-aligned rows, so a view
+            q, k, v = (ttnn.reshape(t, (1, H, NP, dh)) for t in (q, k, v))
+        kf = ttnn.concat([zero, k, zero], dim=2)
+        vf = ttnn.concat([zero, v, zero], dim=2)
+        qb = ttnn.reshape(q, (1, H * nb, nq, dh))
+        o = ttnn.allocate_tensor_on_device(ttnn.Shape([1, H * nb, nq, dh]), q.dtype, ttnn.TILE_LAYOUT,
+                                           q.device(), ttnn.DRAM_MEMORY_CONFIG)
+        # the wheel SDPA's default compute config, which the dense band path runs at
+        SG.sdpa(q.device(), qb, kf, vf, bias, o, nq, self.W, tuple(_T.COMPUTE_GRID_MAIN),
+                (ttnn.MathFidelity.HiFi2, True, False, False), scale, kv_window=(nb, self.W))
+        ttnn.deallocate(kf); ttnn.deallocate(vf)
+        if NP != N:
+            for t in (q, k, v):
+                ttnn.deallocate(t)
+        o = ttnn.reshape(o, (B, H // B, NP, dh))
+        return ttnn.slice(o, [0, 0, 0, 0], [B, H // B, N, dh]) if NP != N else o
+
+    def deallocate(self):
+        for t in (self.bias, self.zero, *(t for f in self._batched.values() for t in f)):
+            ttnn.deallocate(t)
+        self._batched = {}
+
+
+def swa_band(n_or_mask, half_window, upload, device, heads=4, head_dim=32):
+    """The atom transformer's attention mask on the device: a SWAWindow when the windowed path holds,
+    else the dense [1, 1, N, N] band."""
+    win = _window_bias(n_or_mask, half_window) if _SWA_WINDOW else None
+    SWA_STATS[win is None] += 1
+    if win is None:
+        return upload(band_mask(n_or_mask, half_window).float())
+    return SWAWindow(win, _valid_rank(n_or_mask)[0].shape[0], heads, head_dim, upload, device)
+
+
+_ROT_HALF = {}  # (device id, head_dim) -> the rotate-half matrix on that device
+
+
+def _rope_mm(x, cos, sin):
+    """apply_rotary with rotate_half(x) = cat([-x2, x1]) as one matmul against a signed permutation.
+
+    ttnn.experimental.rotary_embedding needs head_dim % 64 == 0 and the atom heads are 32 wide. Each output element
+    is one product with +-1 and zeros, so the matmul is exact and replaces chunk, neg and concat."""
+    d = x.shape[-1]
+    dev = x.device()
+    key = (dev.id(), d)
+    if key not in _ROT_HALF:
+        r = torch.zeros(d, d)
+        h = d // 2
+        r[h:, :h] = -torch.eye(h)
+        r[:h, h:] = torch.eye(h)
+        _ROT_HALF[key] = ttnn.from_torch(r, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)
+    ck = ttnn.WormholeComputeKernelConfig(math_fidelity=ttnn.MathFidelity.HiFi3, math_approx_mode=False,
+                                          fp32_dest_acc_en=True, packer_l1_acc=False)
+    rot = ttnn.matmul(x, _ROT_HALF[key], compute_kernel_config=ck)
+    out = ttnn.add(ttnn.multiply(x, cos), ttnn.multiply(rot, sin))
+    ttnn.deallocate(rot)
+    return out
 
 
 def _rms_norm(x, ck, eps=1e-6):
@@ -701,9 +1033,15 @@ class SWAAttention(Module):
         lin = self._lin
         head_dim = x.shape[-1] // self.n_heads
         q, k, v = self._split_heads(lin(x, self.qkv_w), self.n_heads)
-        q = apply_rotary(_rms_norm(q, ck), cos, sin)
-        k = apply_rotary(_rms_norm(k, ck), cos, sin)
-        ctx = _sdpa_bf16(q, k, v, attn_mask, head_dim**-0.5)
+        q, k = _rms_norm(q, ck), _rms_norm(k, ck)
+        if lever("ef2_atom_rope"):
+            q, k = _rope_mm(q, cos, sin), _rope_mm(k, cos, sin)
+        else:
+            q, k = apply_rotary(q, cos, sin), apply_rotary(k, cos, sin)
+        if isinstance(attn_mask, SWAWindow):
+            ctx = attn_mask.attend(q, k, v, head_dim**-0.5)
+        else:
+            ctx = _sdpa_bf16(q, k, v, attn_mask, head_dim**-0.5)
         ttnn.deallocate(q); ttnn.deallocate(k); ttnn.deallocate(v)
         ctx = self._merge_heads(ctx)
         # Zero invalid (padding) atom outputs so they can't blow up / NaN-contaminate
@@ -726,6 +1064,9 @@ class SWAAtomBlock(Module):
         self.adaln_w = self.torch_to_tt("adaln_modulation.1.weight")
         self.attn = SWAAttention(n_heads, self.scope("attn"), compute_kernel_config)
         self.ffn_up = self.torch_to_tt("ffn.w_up.weight")
+        h = self.weights["ffn.w_up.weight"].shape[0] // 2
+        self.ffn_up_ab = tuple(self.torch_to_tt("ffn.w_up.weight", lambda w, s=s: w[s].t())
+                               for s in (slice(0, h), slice(h, None)))
         self.ffn_down = self.torch_to_tt("ffn.w_down.weight")
         self._mod = None       # cached adaLN modulation chunks (see __call__)
         self._mod_src = None   # identity of the conditioning c_l they were built from
@@ -748,7 +1089,7 @@ class SWAAtomBlock(Module):
             if self._mod is not None:
                 for _t in self._mod:
                     ttnn.deallocate(_t)
-            mod = lin(ttnn.silu(c_l), self.adaln_w)  # [B,N,6d]
+            mod = lin(ttnn.silu(c_l), self.adaln_w, memory_config=ttnn.DRAM_MEMORY_CONFIG)  # [B,N,6d], cached
             sa, ca, ga, sf, cf, gf = ttnn.chunk(mod, 6, dim=-1)
             ttnn.deallocate(mod)
             self._mod = (sa, ca, ga, sf, cf, gf)
@@ -760,7 +1101,10 @@ class SWAAtomBlock(Module):
         ttnn.deallocate(attn_out)
 
         ffn_in = self._modulate(x, cf, sf)
-        h1, h2 = ttnn.chunk(lin(ffn_in, self.ffn_up), 2, dim=-1)
+        if gate(ATOM_FFN_SPLIT, "ef2_atom_ffn_split"):
+            h1, h2 = (lin(ffn_in, w) for w in self.ffn_up_ab)
+        else:
+            h1, h2 = ttnn.chunk(lin(ffn_in, self.ffn_up), 2, dim=-1)
         ttnn.deallocate(ffn_in)
         ffn_out = lin(ttnn.multiply(ttnn.silu(h1), h2), self.ffn_down)
         ttnn.deallocate(h1); ttnn.deallocate(h2)
@@ -804,11 +1148,10 @@ class SWAAtomTransformer(TorchWrapper):
     def forward(self, q_l, c_l, ref_pos, ref_space_uid):
         n = q_l.shape[1]
         cos, sin = build_3d_rope_tables(ref_pos, ref_space_uid, self.head_dim, **ATOM_ROPE)
-        mask = band_mask(n, self.half_window)
+        mask = swa_band(n, self.half_window, self._from_torch, self.tt_device, self.n_heads, self.head_dim)
         out = self.module(
             self._from_torch(q_l), self._from_torch(c_l),
-            self._from_torch(cos.float()), self._from_torch(sin.float()),
-            self._from_torch(mask.float()),
+            self._from_torch(cos.float()), self._from_torch(sin.float()), mask,
         )
         return self._to_torch(out)
 
@@ -849,7 +1192,7 @@ class AtomEncoder(Module):
         else:
             if self._c is not None:
                 ttnn.deallocate(self._c)
-            c = ttnn.layer_norm(lin(atom_feats, self.atom_linear_w), weight=self.atom_norm_w, bias=self.atom_norm_b, epsilon=1e-5, compute_kernel_config=ck)
+            c = ttnn.layer_norm(lin(atom_feats, self.atom_linear_w, memory_config=ttnn.DRAM_MEMORY_CONFIG), weight=self.atom_norm_w, bias=self.atom_norm_b, epsilon=1e-5, compute_kernel_config=ck)
             self._c = c
             self._c_src = atom_feats
         q = ttnn.add(c, lin(r_input, self.coords_w)) if self.structure_prediction else c
@@ -899,6 +1242,14 @@ class DiffusionModuleModel(Module):
         self.token_norm_b = self.torch_to_tt("token_norm.bias")
 
     def _denoise(self, s, z, atom_feats, r_input, cos, sin, band, scatter_m, gather_g, valid):
+        # atom_l1: the step's linears write L1 where the output fits (placement only, the same bits). The DiT's
+        # short-K and 512-row projections wait on their interleaved DRAM write: on a Galaxy chip at 1000 MHz
+        # [4128, 128] x [128, 256] reads 59.9 us with a DRAM output and 30.5 us with an L1 one, [512, 768] x
+        # [768, 3072] 103.2 vs 70.1 us, rel_l2 vs float64 equal (wdy).
+        with atom_l1_linears():
+            return self._denoise_step(s, z, atom_feats, r_input, cos, sin, band, scatter_m, gather_g, valid)
+
+    def _denoise_step(self, s, z, atom_feats, r_input, cos, sin, band, scatter_m, gather_g, valid):
         ck = self.compute_kernel_config
         lin = self._lin
         a, q_skip, c_skip = self.atom_encoder(atom_feats, cos, sin, band, scatter_m, r_input=r_input, valid=valid)
@@ -938,12 +1289,28 @@ class DiffusionModuleModel(Module):
 
     def release_cache(self):
         for k, v in getattr(self, "_ctx", {}).items():
-            if isinstance(v, ttnn.Tensor):
+            if isinstance(v, (ttnn.Tensor, SWAWindow)):
                 try:
-                    ttnn.deallocate(v)
+                    v.deallocate() if isinstance(v, SWAWindow) else ttnn.deallocate(v)
                 except Exception:
                     pass
         self._ctx = {}
+        # The per-layer step caches are keyed on the identity of tensors freed above, so nothing can
+        # hit them again. Freed here rather than when the next fold rebuilds them: left in place, the
+        # token DiT's 12 pair biases alone ([1, 16, L, L], 384 MiB at 1024 tokens) sat through the
+        # next fold's language model and trunk, and a warm 1024-token ESMFold2-Fast fold on a
+        # Wormhole chip ran out of DRAM where the cold one fit.
+        owners = ([(m, "_pb", "_pb_src") for m in self.token_transformer.attn]
+                  + [(b, "_mod", "_mod_src") for b in
+                     self.atom_encoder.transformer.blocks + self.atom_decoder.transformer.blocks]
+                  + [(self.atom_encoder, "_c", "_c_src")])
+        for owner, cache, src in owners:
+            held = getattr(owner, cache)
+            for t in held if isinstance(held, tuple) else (held,):
+                if t is not None and t.is_allocated():
+                    ttnn.deallocate(t)
+            setattr(owner, cache, None)
+            setattr(owner, src, None)
 
 
 class DiffusionModule(TorchWrapper):
@@ -977,16 +1344,16 @@ class DiffusionModule(TorchWrapper):
             ref_element, ref_atom_name_chars.reshape(B, N, -1),
         ], dim=-1)  # [B,N,389]
         cos, sin = build_3d_rope_tables(ref_pos, ref_space_uid, 32, **ATOM_ROPE)
-        band = band_mask(ref_mask, 64)
+        ft = self._from_torch
+        band = swa_band(ref_mask, 64, ft, self.tt_device)
         valid = ref_mask.reshape(1, N, 1).float()  # [1,N,1] zero out padding atoms
         oh = F.one_hot(tok_idx[0].long(), L).float() * ref_mask[0].float()[:, None]  # [N,L]
         gather_g = oh.unsqueeze(0)  # [1,N,L]
         scatter_m = (oh / oh.sum(0).clamp(min=1)).t().unsqueeze(0)  # [1,L,N]
 
-        ft = self._from_torch
         r_update = self.module(
             ft(s_inputs), ft(z_trunk), ft(relpos), ft(n_raw), ft(atom_feats.float()),
-            ft(r_input.float()), ft(cos.float()), ft(sin.float()), ft(band.float()),
+            ft(r_input.float()), ft(cos.float()), ft(sin.float()), band,
             ft(scatter_m.float()), ft(gather_g.float()), ft(valid),
         )
         r_update = self._to_torch(r_update)
@@ -1025,6 +1392,71 @@ def relpos_features(residue_index, asym_id, sym_id, entity_id, token_index,
     return torch.cat([a_res.float(), a_tok.float(), same_entity.float().unsqueeze(-1), a_ch.float()], dim=-1)
 
 
+class PairLookup:
+    """A [B,L,L,c] pair tensor held as `rows[codes]`: one int code per pair, one fp32 row per distinct code.
+
+    The vendored forward only stores it, adds it or calls `.float()` / `.detach()` on it; `host()` is the
+    dense fp32 tensor and `device(dev)` builds it on the device with one embedding (an L*L index and a
+    [U,c] table cross PCIe instead of the 134 MB bf16 pair at 512 tokens)."""
+
+    dtype = torch.float32
+
+    def __init__(self, codes, rows):
+        self.codes, self.rows = codes, rows
+
+    @property
+    def shape(self):
+        return (*self.codes.shape, self.rows.shape[-1])
+
+    def float(self):
+        return self
+
+    detach = float
+
+    def host(self):
+        return F.embedding(self.codes, self.rows)
+
+    def device(self, dev):
+        assert self.codes.shape[0] == 1, self.codes.shape
+        from tt_bio.tenstorrent import pair_lookup_device
+        return pair_lookup_device(self.codes[0], self.rows, dev)
+
+
+def relpos_rows(w, residue_index, asym_id, sym_id, entity_id, token_index, r_bins=32, c_bins=2) -> PairLookup:
+    """`relpos_features(...) @ w.T` without the one-hots: every feature group is one-hot (entity is one
+    0/1 column), so the product is a sum of rows of w.T picked by index, and each distinct index tuple is
+    one row of the table. Rows are summed in fp32 in the order relpos_lookup always used."""
+    n = 2 * r_bins + 2
+    t = w.t().float()  # [n_feats, d_pair]
+    same_chain = asym_id.unsqueeze(2) == asym_id.unsqueeze(1)
+    same_res = residue_index.unsqueeze(2) == residue_index.unsqueeze(1)
+    same_entity = entity_id.unsqueeze(2) == entity_id.unsqueeze(1)
+    dij = torch.clip(residue_index.unsqueeze(2) - residue_index.unsqueeze(1) + r_bins, 0, 2 * r_bins)
+    dij = torch.where(same_chain, dij, 2 * r_bins + 1)
+    dtok = torch.clip(token_index.unsqueeze(2) - token_index.unsqueeze(1) + r_bins, 0, 2 * r_bins)
+    dtok = torch.where(same_chain & same_res, dtok, 2 * r_bins + 1)
+    dch = torch.clip(sym_id.unsqueeze(2) - sym_id.unsqueeze(1) + c_bins, 0, 2 * c_bins)
+    dch = torch.where(same_chain, 2 * c_bins + 1, dch)
+    nc = 2 * c_bins + 2
+    uniq, codes = torch.unique(((dij.long() * n + dtok) * nc + dch) * 2 + same_entity.long(), return_inverse=True)
+    se, rest = uniq % 2, uniq // 2
+    ch, rest = rest % nc, rest // nc
+    rows = t[:n][rest // n] + t[n:2 * n][rest % n]
+    rows += t[2 * n + 1:][ch]
+    rows += se.bool().unsqueeze(-1) * t[2 * n]
+    return PairLookup(codes, rows)
+
+
+def relpos_lookup(w, residue_index, asym_id, sym_id, entity_id, token_index, r_bins=32, c_bins=2):
+    """Dense fp32 `relpos_features(...) @ w.T` (relpos_rows on the host)."""
+    return relpos_rows(w, residue_index, asym_id, sym_id, entity_id, token_index, r_bins, c_bins).host()
+
+
+# Relative positions by table lookup on the host (relpos_lookup); False = one-hot features through a device linear.
+# Unset follows the ef2_relpos_lookup lever.
+RELPOS_LOOKUP = env_flag("TT_BIO_ESMFOLD2_RELPOS_LOOKUP", None)
+
+
 class RelPosEncoding(TorchWrapper):
     """Relative-position pair encoding: host one-hot features -> Linear(n_feats, d_pair)."""
 
@@ -1036,7 +1468,12 @@ class RelPosEncoding(TorchWrapper):
         self._w = weights["embed.weight"]
         return weights  # no ttnn submodule; we just hold the weight
 
+    def rows(self, residue_index, asym_id, sym_id, entity_id, token_index) -> PairLookup:
+        return relpos_rows(self._w, residue_index, asym_id, sym_id, entity_id, token_index, self.r_bins, self.c_bins)
+
     def forward(self, residue_index, asym_id, sym_id, entity_id, token_index):
+        if gate(RELPOS_LOOKUP, "ef2_relpos_lookup"):
+            return self.rows(residue_index, asym_id, sym_id, entity_id, token_index).host()
         feats = relpos_features(residue_index, asym_id, sym_id, entity_id, token_index, self.r_bins, self.c_bins)
         w = ttnn.from_torch(self._w.t(), layout=ttnn.TILE_LAYOUT, device=self.tt_device, dtype=_DTYPE)
         out = ttnn.linear(self._from_torch(feats.float()), w, compute_kernel_config=self.compute_kernel_config,
@@ -1063,13 +1500,13 @@ class InputsEmbedder(TorchWrapper):
             ref_element, ref_atom_name_chars.reshape(B, N, -1),
         ], dim=-1)
         cos, sin = build_3d_rope_tables(ref_pos, ref_space_uid, 32, **ATOM_ROPE)
-        band = band_mask(atom_mask, 64)
+        band = swa_band(atom_mask, 64, self._from_torch, self.tt_device)
         valid = atom_mask.reshape(1, N, 1).float()
         oh = F.one_hot(atom_to_token[0].long(), L).float() * atom_mask[0].float()[:, None]
         scatter_m = (oh / oh.sum(0).clamp(min=1)).t().unsqueeze(0)
         ft = self._from_torch
         a, _q, _c = self.module(ft(atom_feats.float()), ft(cos.float()), ft(sin.float()),
-                                ft(band.float()), ft(scatter_m.float()), valid=ft(valid))
+                                band, ft(scatter_m.float()), valid=ft(valid))
         a = self._to_torch(a)  # [B,L,384]
         return torch.cat([a, aatype, profile, deletion_mean.unsqueeze(-1)], dim=-1)
 
@@ -1089,18 +1526,23 @@ class LanguageModelShimModel(Module):
         self.o2_w = self.torch_to_tt("base_z_mlp.0.output_mlp.2.weight"); self.o2_b = self.torch_to_tt("base_z_mlp.0.output_mlp.2.bias", transform=_ROW)
         self.fln_w = self.torch_to_tt("base_z_mlp.1.weight"); self.fln_b = self.torch_to_tt("base_z_mlp.1.bias")
 
-    def __call__(self, hidden, combine_w):  # hidden [B,L,K,d_model]; combine_w torch [K]
+    def __call__(self, hidden, combine_w, precombined=False):  # hidden [B, L*K, d_model] (flat_layers); combine_w torch [K]
         ck = self.compute_kernel_config
         lin = self._lin
         ln = lambda t, w, b: ttnn.layer_norm(t, weight=w, bias=b, epsilon=1e-5, compute_kernel_config=ck)
-        B, L, K, dm = hidden.shape
-        # Per-layer projection in ttnn (reshape L,K together -> 3D, no sub-tile middle dim).
-        hs2 = ttnn.reshape(hidden, (B, L * K, dm))
-        lz = lin(ln(hs2, self.zl_ln_w, self.zl_ln_b), self.zl_w)  # [B, L*K, 256]
+        K = 1 if precombined else combine_w.numel()
+        B, L = hidden.shape[0], hidden.shape[1] // K
+        if precombined:  # K = 1: the ESMC already summed the weighted layer norms (combine_lm)
+            x = lin(lin(hidden, self.zl_w), self.dp_w, self.dp_b)
+            return self._pair_init(x, L)
+        lz = lin(ln(hidden, self.zl_ln_w, self.zl_ln_b), self.zl_w)  # [B, L*K, 256]
         # Softmax-weighted layer combine on host (non-learned given combine_w).
         lz_t = torch.Tensor(ttnn.to_torch(lz)).float().reshape(B, L, K, 256)
         x_t = (combine_w.view(1, 1, K, 1) * lz_t).sum(2)  # [B,L,256]
         x = lin(ttnn.from_torch(x_t, layout=ttnn.TILE_LAYOUT, device=self.device, dtype=_DTYPE), self.dp_w, self.dp_b)
+        return self._pair_init(x, L)
+
+    def _pair_init(self, x, L):
         # The outer-product pair init holds a, b, their product and difference, and the
         # 512-wide concat all at full [B,L,L,*]: ~4.4 GiB at L=1095, which is the
         # allocation esmfold2's 9j4c exclusion dies on (1255833600 B = 1095x1120x512x2,
@@ -1131,16 +1573,47 @@ class LanguageModelShimModel(Module):
         return ln(h2, self.fln_w, self.fln_b)
 
 
+def flat_layers(hidden_states):
+    """ESMC hidden states [B, L, K, d] -> [B, L*K, d], the layout the shim projects, on the host.
+
+    A host reshape is a view. The device reshape it replaces went through the tile-padded
+    [B, L, K, d] (K = 81 pads to 96) and left a buffer the process never got back, held by no
+    Python object: 451,215,360 B at 1024 tokens, which a warm 1088-token ESMFold2-Fast fold on a
+    Wormhole chip then ran out of DRAM for. The upload is also 16 % smaller without the padding.
+    """
+    B, L, K, d = hidden_states.shape
+    return hidden_states.reshape(B, L * K, d)
+
+
 class LanguageModelShim(TorchWrapper):
     """ESMC hidden states [B,L,n_layers+1,d_model] -> pair init z [B,L,L,256]."""
 
     def _create_module(self, weights: WeightScope) -> LanguageModelShimModel:
         self._combine = weights["base_z_combine"]  # [n_layers+1]
+        self._ln_bias = weights["base_z_linear.0.bias"].float()
         return LanguageModelShimModel(weights, self.compute_kernel_config)
+
+    def combine_lm(self):
+        """What the ESMC needs to combine its layers itself: (softmax weights, LayerNorm weight, bias)."""
+        return torch.softmax(self._combine, 0).tolist(), self.module.zl_ln_w, self.module.zl_ln_b
+
+    @staticmethod
+    def is_precombined(hidden_states) -> bool:
+        """The ESMC hands over one layer only when it combined them itself (combine_lm); the 6B has 81."""
+        return hidden_states.shape[2] == 1
+
+    def fill_absent(self, hidden_states):
+        """Non-protein tokens reach the shim as zero rows, and the reference's LayerNorm maps a zero row to
+        its bias in every layer, so their combined state is that bias (the weights sum to 1)."""
+        absent = (hidden_states == 0).all(-1, keepdim=True)
+        return torch.where(absent, self._ln_bias.to(hidden_states.dtype), hidden_states)
 
     def forward(self, hidden_states):
         w = torch.softmax(self._combine, 0)  # [K]
-        return self._to_torch(self.module(self._from_torch(hidden_states), w))
+        pre = self.is_precombined(hidden_states)
+        if pre:
+            hidden_states = self.fill_absent(hidden_states)
+        return self._to_torch(self.module(self._from_torch(flat_layers(hidden_states)), w, precombined=pre))
 
 
 # ===========================================================================
@@ -1203,6 +1676,18 @@ def _opm_fallback_rows(L: int) -> int:
     return max(32, (max(32, L // 4) // 32) * 32)
 
 
+#: How the outer product meets Wout. "tile" (the original): the [L*32, L*32] product, then two tile
+#: reshapes that turn each 32x32 tile into a row of 1024; at 512 aa those reshapes are 95 of the op's
+#: ~114 ms (census c3, p150a), and with a 1024-row MSA 8.0 s of a 49 s fold on Wormhole (wpo). "pk": the
+#: same product, the move done by `permute_back_pk.tile_rows` (bit-exact, a copy). "kq": contract a with
+#: Wout's q-blocks first (K = 32 x MSA depth), so no tile ever changes shape. "rm": the original with its
+#: reshapes done row-major. A/B in perf/spd_gap_esmf/opm_bench.py. Unset: "pk". It replaced the ef2_opm_kq
+#: lever (kq for MSAs up to 64 rows): Wormhole, 512 aa, 35 rows, 24.8 ms a call against kq's 63.7 and tile's 231.8,
+#: and exact where kq moves the result (opk/mic).
+_OPM_PATH = os.environ.get("TT_BIO_ESMFOLD2_OPM") or None
+_OPM_KQ_MAX_DEPTH = 64
+
+
 class OuterProductMean(Module):
     """MSA -> pair update via outer-product mean (d_hidden=32, tile-aligned -> full ttnn)."""
 
@@ -1211,6 +1696,57 @@ class OuterProductMean(Module):
         self.norm_w = self.torch_to_tt("norm.weight"); self.norm_b = self.torch_to_tt("norm.bias")
         self.W = self.torch_to_tt("W.weight")
         self.Wout = self.torch_to_tt("Wout.weight"); self.Wout_b = self.torch_to_tt("Wout.bias", transform=_ROW)
+        self._wq = None
+
+    def _wout_q(self):
+        """Wout as 32 [32p, 256] blocks, one per q: Wout's input index is p*32 + q."""
+        if self._wq is None:
+            w = self.weights["Wout.weight"].t().reshape(32, 32, -1)  # [p, q, c]
+            self._wq = [ttnn.from_torch(w[:, q].contiguous(), layout=ttnn.TILE_LAYOUT, device=self.device,
+                                        dtype=_DTYPE) for q in range(32)]
+        return self._wq
+
+    def _wout(self, outer):  # [B,Bl,L,1024] -> [B,Bl,L,256]
+        if gate(OPM_PROJ, "ef2_opm_proj"):
+            from tt_bio import tenstorrent
+            return tenstorrent._pair_proj_linear(outer, self.Wout, self.compute_kernel_config, _DTYPE, bias=self.Wout_b)
+        return self._lin(outer, self.Wout, self.Wout_b)
+
+    def _rows_kq(self, a_blk, b, recip_blk, L, M):  # a_blk [B,Bl,M,32], b [B,L,M,32] -> [B,Bl,L,256]
+        """out[i,j,c] = sum over (q,m) of b[j,m,q] * U[i,(q,m),c], U[i,m,q,c] = sum_p a[i,m,p] Wout[p*32+q,c].
+
+        Same sum as `_rows`, reassociated: the 32x32 outer block is never formed, so nothing is
+        reshaped across tiles. The MSA axis is zero-padded to a tile so it can be the inner run of K."""
+        ck = self.compute_kernel_config
+        B, Bl = int(a_blk.shape[0]), int(a_blk.shape[1])
+        Mp = -(-M // 32) * 32
+        if Mp != M:
+            a_blk = ttnn.pad(a_blk, [(0, 0), (0, 0), (0, Mp - M), (0, 0)], 0.0)
+            b = ttnn.pad(b, [(0, 0), (0, 0), (0, Mp - M), (0, 0)], 0.0)
+        u = ttnn.concat([ttnn.matmul(a_blk, w, compute_kernel_config=ck, dtype=_DTYPE) for w in self._wout_q()],
+                        dim=2)  # [B,Bl,32*Mp,256], row q*Mp + m
+        ut = ttnn.transpose(u, -2, -1)  # [B,Bl,256,32*Mp]
+        ttnn.deallocate(u)
+        bt = ttnn.reshape(ttnn.permute(b, (0, 3, 2, 1)), (1, 1, 32 * Mp, L))  # [(q,m), j]  (B == 1)
+        o = ttnn.matmul(ut, bt, compute_kernel_config=ck, dtype=_DTYPE, core_grid=CORE_GRID_MAIN)  # [B,Bl,256,L]
+        ttnn.deallocate(ut)
+        out = ttnn.add(ttnn.transpose(o, -2, -1), self.Wout_b)
+        ttnn.deallocate(o)
+        return ttnn.multiply(out, recip_blk)
+
+    def _rows_rm(self, a_blk, b2, recip_blk, L, M):
+        """`_rows` with its two cross-tile reshapes done row-major (views) around one untilize/tilize."""
+        ck = self.compute_kernel_config
+        B, Bl = a_blk.shape[0], a_blk.shape[1]
+        a2 = ttnn.reshape(ttnn.permute(a_blk, (0, 1, 3, 2)), (B, Bl * 32, M))
+        prod = ttnn.matmul(a2, b2, compute_kernel_config=ck, dtype=_DTYPE, core_grid=CORE_GRID_MAIN)
+        r = ttnn.to_layout(prod, ttnn.ROW_MAJOR_LAYOUT)
+        ttnn.deallocate(prod)
+        r = ttnn.permute(ttnn.reshape(r, (B, Bl, 32, L, 32)), (0, 1, 3, 2, 4))
+        outer = ttnn.to_layout(ttnn.reshape(r, (B, Bl, L, 1024)), ttnn.TILE_LAYOUT)
+        ttnn.deallocate(r)
+        out = self._wout(outer)
+        return ttnn.multiply(out, recip_blk)
 
     def _rows(self, a_blk, b2, recip_blk, L, M):  # a_blk [B,Bl,M,32] -> [B,Bl,L,256]
         ck = self.compute_kernel_config
@@ -1219,7 +1755,40 @@ class OuterProductMean(Module):
         prod = ttnn.matmul(a2, b2, compute_kernel_config=ck, dtype=_DTYPE, core_grid=CORE_GRID_MAIN)  # [B,Bl*32,L*32]
         prod = ttnn.permute(ttnn.reshape(prod, (B, Bl, 32, L, 32)), (0, 1, 3, 2, 4))  # [B,Bl,L,32,32]
         outer = ttnn.reshape(prod, (B, Bl, L, 1024))
-        out = self._lin(outer, self.Wout, self.Wout_b)  # [B,Bl,L,256]
+        out = self._wout(outer)  # [B,Bl,L,256]
+        return ttnn.multiply(out, recip_blk)
+
+    def _rows_pk(self, a_blk, b2, recip_blk, L, M):
+        """`_rows` with the tile -> row move on `permute_back_pk.tile_rows`; `_rows` where that kernel does not serve.
+
+        `b2` may carry zero columns past L*32 (the caller pads L up to a tile so tile_rows serves it);
+        the output is sliced back to L."""
+        from . import permute_back_pk as PK
+        from .tenstorrent import COMPUTE_GRID_MAIN
+        ck = self.compute_kernel_config
+        B, Bl = int(a_blk.shape[0]), int(a_blk.shape[1])
+        Lw = int(b2.shape[-1]) // 32
+        a2 = ttnn.reshape(ttnn.permute(a_blk, (0, 1, 3, 2)), (B, Bl * 32, M))
+        prod = ttnn.matmul(a2, b2, compute_kernel_config=ck, dtype=_DTYPE, core_grid=CORE_GRID_MAIN)  # [B,Bl*32,Lw*32]
+        outer = ttnn.allocate_tensor_on_device(ttnn.Shape([B, Bl, Lw, 1024]), _DTYPE, ttnn.TILE_LAYOUT,
+                                               prod.device(), prod.memory_config())
+        if not PK.tile_rows_ok(prod, outer):
+            ttnn.deallocate(outer)
+            ttnn.deallocate(prod)
+            if Lw == L:
+                return self._rows(a_blk, b2, recip_blk, L, M)
+            b2l = ttnn.slice(b2, [0, 0, 0], [int(b2.shape[0]), int(b2.shape[1]), L * 32])
+            out = self._rows(a_blk, b2l, recip_blk, L, M)
+            ttnn.deallocate(b2l)
+            return out
+        PK.tile_rows(prod, outer, tuple(COMPUTE_GRID_MAIN))
+        ttnn.deallocate(prod)
+        out = self._wout(outer)  # [B,Bl,Lw,256]
+        ttnn.deallocate(outer)
+        if Lw != L:
+            real = ttnn.slice(out, [0, 0, 0, 0], [B, Bl, L, int(out.shape[-1])])
+            ttnn.deallocate(out)
+            out = real
         return ttnn.multiply(out, recip_blk)
 
     def _project(self, mm, mf=None):  # [B,rows,M,128] -> a, b each [B,rows,M,32]
@@ -1241,7 +1810,25 @@ class OuterProductMean(Module):
             b = ttnn.concat([p[1] for p in parts], dim=1)
         else:
             a, b = self._project(m, mf)  # [B,L,M,32]
-        b2 = ttnn.reshape(ttnn.permute(b, (0, 2, 1, 3)), (B, M, L * 32))   # [B,M,L*32]
+        # kq costs 16384 L^2 Mp flops against tile's 2048 L^2 M + 524288 L^2 and holds a [L, 32 Mp, 256] transient,
+        # so it is for shallow MSAs only (the page fixture has 35 rows); deep ones take pk.
+        path = _OPM_PATH or "pk"
+        if path == "kq" and M <= _OPM_KQ_MAX_DEPTH:
+            b2, rows = b, self._rows_kq  # kq contracts the [B,L,M,32] b itself
+        else:
+            b2 = ttnn.reshape(ttnn.permute(b, (0, 2, 1, 3)), (B, M, L * 32))   # [B,M,L*32]
+            rows = {"rm": self._rows_rm, "tile": self._rows}.get(path, self._rows_pk)  # a deep MSA under kq too
+            if rows == self._rows_pk and L % 32:
+                # tile_rows serves only a tile-aligned L. Any other length fell back to `_rows`, whose
+                # 5-D permute of the [B, L*32, L*32] product costs ~22 s to set up the first time a
+                # process sees that L (a fresh 585-aa fold: prep 25 s, 41 s in all; 576 aa: 3 s and
+                # 17.5 s), so every worker paid it again for every new protein length. Zero columns
+                # out to the next tile: column j of the product reads only b[:, :, j], so the real
+                # columns are what they were, and _rows_pk slices the padding off its output.
+                pad = (-L % 32) * 32
+                b2p = ttnn.pad(b2, [(0, 0), (0, 0), (0, pad)], 0.0)
+                ttnn.deallocate(b2)
+                b2 = b2p
         # The a2@b2 product is [B,L*32,L*32] (~2 GiB at L=1024), which OOMs the
         # 12 GB/chip Wormhole DRAM. Output row i depends only on a[i] and b, so
         # tiling over the i (row) dim is bit-exact. Pair op -> area-bounded tile
@@ -1250,7 +1837,7 @@ class OuterProductMean(Module):
         from tt_bio import tenstorrent
         chunk = tenstorrent.pair_row_tile(L)
         if chunk:
-            return self._row_blocked(a, b2, recip_nvalid, L, M, chunk)
+            return self._row_blocked(a, b2, recip_nvalid, L, M, chunk, rows)
         # `pair_row_tile` returns 0 on a big grid, so Blackhole runs this op in a single
         # pass -- which was right at every size it was measured at and is not at 1536.
         # `_rows` builds a [B, Bl*32, L*32] product, quadratic in L with a 32x blow-up on
@@ -1269,56 +1856,48 @@ class OuterProductMean(Module):
         # shared with the pair transition rather than written out again here.
         return tenstorrent.row_block_after_refusal(
             _OPM_ROWS_REFUSED, L,
-            lambda: self._rows(a, b2, recip_nvalid, L, M),
-            lambda rows: self._row_blocked(a, b2, recip_nvalid, L, M, rows),
+            lambda: rows(a, b2, recip_nvalid, L, M),
+            lambda n: self._row_blocked(a, b2, recip_nvalid, L, M, n, rows),
             rows=_opm_fallback_rows(L), tag="opm")
 
-    def _row_blocked(self, a, b2, recip_nvalid, L, M, chunk):
-        """`_rows` over `chunk`-row blocks. A further refusal is the caller's to shrink."""
-        outs = [self._rows(a[:, s:min(s + chunk, L), :, :], b2,
+    def _row_blocked(self, a, b2, recip_nvalid, L, M, chunk, rows):
+        """`rows` (one of the `_rows*` paths) over `chunk`-row blocks. A further refusal is the caller's to shrink."""
+        outs = [rows(a[:, s:min(s + chunk, L), :, :], b2,
                            recip_nvalid[:, s:min(s + chunk, L), :, :], L, M)
                 for s in range(0, L, chunk)]
         return ttnn.concat(outs, dim=1)
 
 
 class MSAPairWeightedAveraging(Module):
-    """Pair-biased MSA row update (head_width 16 sub-tile -> contraction on host)."""
+    """Pair-biased MSA row update on tt-bio's shared `PairWeightedAveraging` (AF3 Algorithm 10).
+
+    The shared module holds the MSA depth-major, [1, M, L, c]; ESMFold2 holds it token-major,
+    [1, L, M, c], so the update is one permute in and one out. The old path ran the head contraction
+    on the host in fp32 because head_width 16 is sub-tile; the shared module's unpadded head path
+    does it on the chip. With a 1024-row MSA at 512 tokens that host einsum was 1.3 s a call, 33
+    calls a fold (11 loops x 3 blocks).
+    """
 
     def __init__(self, n_heads, head_width, state_dict: Weights, compute_kernel_config):
         super().__init__(state_dict, compute_kernel_config)
-        self.n_heads, self.head_width = n_heads, head_width
-        self.ns_w = self.torch_to_tt("norm_single.weight"); self.ns_b = self.torch_to_tt("norm_single.bias")
-        self.cb_ln_w = self.torch_to_tt("compute_bias.0.weight"); self.cb_ln_b = self.torch_to_tt("compute_bias.0.bias")
-        self.cb_w = self.torch_to_tt("compute_bias.1.weight")
-        self.Wv = self.torch_to_tt("Wv.weight"); self.Wgate = self.torch_to_tt("Wgate.weight")
-        self.Wout = self.torch_to_tt("Wout.weight")
+        from tt_bio import tenstorrent
+        sd = self.weights.as_dict()
+        names = {"norm_m": "norm_single", "norm_z": "compute_bias.0", "proj_z": "compute_bias.1",
+                 "proj_m": "Wv", "proj_g": "Wgate", "proj_o": "Wout"}
+        self.pwa = tenstorrent.PairWeightedAveraging(head_width, n_heads, WeightScope(
+            {f"{k}.{t}": sd[f"{v}.{t}"] for k, v in names.items() for t in ("weight", "bias")
+             if f"{v}.{t}" in sd}), compute_kernel_config)
 
     def __call__(self, m, pair):
-        """Returns `m + update`: the residual is folded into the row loop so a
-        second full [B,L,M,c] copy never has to sit on the chip alongside `m`."""
-        ck = self.compute_kernel_config
-        lin = self._lin
-        B, L, M = m.shape[0], m.shape[1], m.shape[2]
-        h, dh = self.n_heads, self.head_width
-        bias = lin(ttnn.layer_norm(pair, weight=self.cb_ln_w, bias=self.cb_ln_b, epsilon=1e-5, compute_kernel_config=ck), self.cb_w)  # [B,L,L,8]
-        # non-learned 5D contraction on host (head_width 16 is sub-tile)
-        bias_t = torch.Tensor(ttnn.to_torch(bias)).float()
-        attn = torch.softmax(bias_t, dim=-2)  # over j
-        blocks = _msa_row_blocks(L, M) or [(0, L)]
-        rows = (lambda t, s, e: t) if len(blocks) == 1 else (lambda t, s, e: t[:, s:e])
-        v_t, gate_t = [], []
-        for s, e in blocks:
-            mn = ttnn.layer_norm(rows(m, s, e), weight=self.ns_w, bias=self.ns_b, epsilon=1e-5, compute_kernel_config=ck)
-            v_t.append(torch.Tensor(ttnn.to_torch(lin(mn, self.Wv))).float())          # [B,rows,M,128]
-            gate_t.append(torch.Tensor(ttnn.to_torch(ttnn.sigmoid(lin(mn, self.Wgate)))).float())
-        cat = lambda ts: (ts[0] if len(ts) == 1 else torch.cat(ts, dim=1)).reshape(B, L, M, h, dh)
-        out = torch.einsum("bijh,bjmhd,bimhd->bimhd", attn, cat(v_t), cat(gate_t)).reshape(B, L, M, h * dh)
-        upd = []
-        for s, e in blocks:
-            out_tt = ttnn.from_torch(rows(out, s, e), layout=ttnn.TILE_LAYOUT, device=self.device, dtype=_DTYPE)
-            upd.append(ttnn.add(rows(m, s, e), lin(out_tt, self.Wout)))
-        from tt_bio import tenstorrent
-        return tenstorrent._acc_concat(upd, 1, False)
+        """Returns `m + update`."""
+        mt = ttnn.permute(m, (0, 2, 1, 3))
+        o = self.pwa(mt, pair)
+        ttnn.deallocate(mt)
+        u = ttnn.permute(o, (0, 2, 1, 3))
+        ttnn.deallocate(o)
+        out = ttnn.add(m, u)
+        ttnn.deallocate(u)
+        return out
 
 
 class MSAEncoderBlock(Module):
@@ -1326,12 +1905,38 @@ class MSAEncoderBlock(Module):
         super().__init__(state_dict, compute_kernel_config)
         self.is_final = is_final
         self.opm = OuterProductMean(self.scope("outer_product_mean"), compute_kernel_config)
+        # Both builds of each transition, at construction: a lazy build would take its weights out of turn
+        # under the shared tile cache, which keys every weight on its construction order. ~0.3 MB a block.
+        names = ("pair_transition",) if is_final else ("msa_transition", "pair_transition")
+        self._ffns = {(n, f): SwiGLUFFN(_remap_transition_named(self.weights.as_dict(), n), compute_kernel_config,
+                                        fuse_swiglu=f) for n in names for f in (False, True)}
         if not is_final:
             self.mpwa = MSAPairWeightedAveraging(n_heads_msa, msa_head_width, self.scope("msa_pair_weighted_averaging"), compute_kernel_config)
-            self.msa_transition = SwiGLUFFN(_remap_transition_named(self.weights.as_dict(), "msa_transition"), compute_kernel_config)
         self.tri_out = TriangleMultiplication(False, _remap_trimul(self.weights.as_dict(), "tri_mul_out._engine"), compute_kernel_config)
         self.tri_in = TriangleMultiplication(True, _remap_trimul(self.weights.as_dict(), "tri_mul_in._engine"), compute_kernel_config)
-        self.pair_transition = SwiGLUFFN(_remap_transition_named(self.weights.as_dict(), "pair_transition"), compute_kernel_config)
+
+    def _residual(self, name, x):
+        """`x + transition(x)`. Under ef2_msa_ffn, the trunk's `SwiGLUFFN.residual` wherever its row block serves
+        the shape; elsewhere (and with the lever off) the original path, which a DRAM-bound shape needs: it
+        updates the pair in place, and `_msa_transition_residual` frees the MSA as it goes."""
+        if gate(MSA_FFN_FUSED, "ef2_msa_ffn"):
+            ffn = self._ffns[name, True]
+            if ffn._split_plan(x)[1]:
+                # ws_lofi was graded on the trunk's pair transition only. On these two it cost a 512 aa deep-MSA
+                # fold 0.18 pLDDT under --fast (0.912 -> 0.732, qb2 fab), so the encoder keeps the kernel's own fidelity.
+                import tt_bio.tenstorrent as _T
+                with _T.levers(_T._LEVERS - {"ws_lofi"}):
+                    out = ffn.residual(x)
+                if out is not x:
+                    ttnn.deallocate(x)
+                return out
+        ffn = self._ffns[name, False]
+        if name == "msa_transition":
+            return _msa_transition_residual(x, ffn)
+        u = ffn(x)
+        ttnn.add_(x, u)
+        ttnn.deallocate(u)
+        return x
 
     def __call__(self, m, pair, recip_nvalid, mf=None):
         # `pair` is the encoder's own tensor (block 0 gets MSAEncoder.forward's upload), so every
@@ -1343,12 +1948,12 @@ class MSAEncoderBlock(Module):
         ttnn.deallocate(u)
         if not self.is_final:
             m = self.mpwa(m, pair)  # residual included
-            m = _msa_transition_residual(m, self.msa_transition)
-        for f in (lambda z: self.tri_out(z, None), lambda z: self.tri_in(z, None), self.pair_transition):
+            m = self._residual("msa_transition", m)
+        for f in (lambda z: self.tri_out(z, None), lambda z: self.tri_in(z, None)):
             u = f(pair)
             ttnn.add_(pair, u)
             ttnn.deallocate(u)
-        return m, pair
+        return m, self._residual("pair_transition", pair)
 
 
 def _remap_transition_named(sd: dict, prefix: str) -> WeightScope:
@@ -1390,15 +1995,18 @@ class MSAEncoder(TorchWrapper):
     def _create_module(self, weights: WeightScope) -> MSAEncoderModel:
         return MSAEncoderModel(self.n_layers, self.n_heads_msa, self.msa_head_width, weights, self.compute_kernel_config)
 
-    def forward(self, x_pair, x_inputs, msa_oh, has_deletion, deletion_value, msa_mask):
+    def forward(self, x_pair, x_inputs, msa_oh, has_deletion, deletion_value, msa_mask, to_host=True):
+        """`to_host=False` returns the device pair, for a caller that keeps the injection on the chip."""
         m_feat = torch.cat([msa_oh, has_deletion.unsqueeze(-1), deletion_value.unsqueeze(-1)], dim=-1)  # [B,L,M,35]
         mask_f = msa_mask.float()
         n_valid = (mask_f @ mask_f.transpose(-1, -2)).clamp(min=1.0).unsqueeze(-1)  # [B,L,L,1]
         ft = self._from_torch
         # An all-ones mask (no column masking) multiplies by one: skip it.
         mf = None if bool(mask_f.all()) else ft(mask_f.unsqueeze(-1))
-        out = self.module(ft(x_pair), ft(x_inputs), ft(m_feat.float()), ft((1.0 / n_valid).float()), mf)
-        return self._to_torch(out)
+        # A device x_pair (ESMFold2's z_init built on the device) is copied: the blocks update the pair in place.
+        xp = ttnn.clone(x_pair) if isinstance(x_pair, ttnn.Tensor) else ft(x_pair)
+        out = self.module(xp, ft(x_inputs), ft(m_feat.float()), ft((1.0 / n_valid).float()), mf)
+        return self._to_torch(out) if to_host else out
 
 
 # ===========================================================================
@@ -1493,13 +2101,15 @@ def sample_structure(denoise_fn, n_atoms, ref_mask, *, steps=14, sigma_data=16.0
     n_steps = len(schedule) - 1
     for i, (s_tm, s_t, gamma) in enumerate(zip(schedule[:-1], schedule[1:], gammas[1:])):
         report_progress("diffusion", i, n_steps)
-        x, x_prev = _center_random_augmentation(x, atom_mask, gen, x_prev)
         s_tm_v = float(s_tm); t_hat = s_tm_v * (1.0 + float(gamma))
         eps = lam * max(t_hat ** 2 - s_tm_v ** 2, 0.0) ** 0.5
-        x_noisy = x + eps * torch.randn(x.shape, generator=gen)
+        with serial_host():  # atom-sized host math, cheaper on one thread than fanned out
+            x, x_prev = _center_random_augmentation(x, atom_mask, gen, x_prev)
+            x_noisy = x + eps * torch.randn(x.shape, generator=gen)
         x_den = denoise_fn(x_noisy, torch.full((B,), t_hat))
-        x_noisy = _weighted_rigid_align(x_noisy.float(), x_den.float(), atom_mask, atom_mask)
-        x = x_noisy + eta * (float(s_t) - t_hat) * (x_noisy - x_den) / t_hat
+        with serial_host():
+            x_noisy = _weighted_rigid_align(x_noisy.float(), x_den.float(), atom_mask, atom_mask)
+            x = x_noisy + eta * (float(s_t) - t_hat) * (x_noisy - x_den) / t_hat
         x_prev = x_den
         if _DUMP is not None:
             _DUMP(i, x, x_den)
@@ -1543,13 +2153,14 @@ class StructureHead(TorchWrapper):
             ref_element, ref_atom_name_chars.reshape(B, N, -1),
         ], dim=-1)
         cos, sin = build_3d_rope_tables(ref_pos, ref_space_uid, 32, **ATOM_ROPE)
-        band = band_mask(ref_mask, 64)
+        band = swa_band(ref_mask, 64, ft, self.tt_device)
         valid = ref_mask.reshape(1, N, 1).float()
         oh = F.one_hot(tok_idx[0].long(), L).float() * ref_mask[0].float()[:, None]
         gather_g = oh.unsqueeze(0)
         scatter_m = (oh / oh.sum(0).clamp(min=1)).t().unsqueeze(0)
-        dmm.prepare(ft(s_inputs), ft(z_trunk), ft(relpos), ft(atom_feats.float()),
-                    ft(cos.float()), ft(sin.float()), ft(band.float()),
+        relpos = relpos.device(self.tt_device) if isinstance(relpos, PairLookup) else ft(relpos)
+        dmm.prepare(ft(s_inputs), z_trunk if isinstance(z_trunk, ttnn.Tensor) else ft(z_trunk), relpos, ft(atom_feats.float()),
+                    ft(cos.float()), ft(sin.float()), band,
                     ft(scatter_m.float()), ft(gather_g.float()), ft(valid))
         self._base, self._ref_mask, self._n_atoms = dmm._ctx, ref_mask, N
 
@@ -1582,7 +2193,7 @@ class StructureHead(TorchWrapper):
             denom = torch.sqrt(t * t + sigma * sigma)
             r_noisy = x_noisy / denom[:, None, None]
             r_input = torch.cat([r_noisy, torch.zeros_like(r_noisy)], dim=-1)  # [B,N,6]
-            r_update = self._to_torch(dmm.step(ft(n_raw), ft(r_input.float())))
+            r_update = self._step(n_raw, r_input.float())
             sigma2, t2 = sigma * sigma, t * t
             out = (sigma2 / (sigma2 + t2))[:, None, None] * x_noisy
             return out + ((sigma * t) / torch.sqrt(sigma2 + t2))[:, None, None] * r_update
@@ -1591,9 +2202,75 @@ class StructureHead(TorchWrapper):
             return sample_structure(denoise, N, ref_mask, steps=steps,
                                     sigma_data=sigma, seed=seed)
         finally:
+            self._release_trace()
             if dmm._ctx is not self._base:
+                # the replicas, not what they share with the base (the SWAWindow is batched in place)
+                dmm._ctx = {k: v for k, v in dmm._ctx.items() if v is not self._base.get(k)}
                 dmm.release_cache()
                 dmm._ctx = self._base
+
+    def _step(self, n_raw, r_input):
+        """One denoiser call. Replayed from a ttnn trace when the device has a region for it.
+
+        The step is shape-stable within a trajectory and reads only two small inputs, so the
+        graph captured once replays every later step with new input contents: the same program
+        on the same buffers, bit-identical to the eager call. What it removes is the host
+        dispatch of every op of every step, which the eager loop pays in full because each step
+        ends in a download. Steps 1-2 run eager (they fill the modules' lazy device caches,
+        which must not be created inside a capture); step 3 is captured and replayed.
+        The trace bakes in the addresses of the trajectory's resident tensors, so it lives
+        exactly as long as one draw().
+        """
+        tr = getattr(self, "_trace", None)
+        key = (tuple(n_raw.shape), tuple(r_input.shape))
+        if tr is not None and tr["key"] != key:
+            self._release_trace()
+            tr = None
+        if tr is None:
+            self._eager_steps = getattr(self, "_eager_steps", 0) + 1
+            if self._eager_steps > 2 and DIFFUSION_TRACE and trace_region_size() > 0:
+                tr = self._capture_step(n_raw, r_input, key)
+            if tr is None:
+                DIFFUSION_TRACE_STATS[1] += 1
+                out = self.module.step(self._from_torch(n_raw), self._from_torch(r_input))
+                res = self._to_torch(out)
+                ttnn.deallocate(out)
+                return res
+        host = lambda x: ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16)
+        ttnn.copy_host_to_device_tensor(host(n_raw), tr["n"])
+        ttnn.copy_host_to_device_tensor(host(r_input), tr["r"])
+        ttnn.execute_trace(self.tt_device, tr["tid"], cq_id=0, blocking=False)
+        DIFFUSION_TRACE_STATS[0] += 1
+        return self._to_torch(tr["out"])
+
+    def _capture_step(self, n_raw, r_input, key):
+        """The captured step, or None when this draw runs eager: a capture that fails (the step
+        outgrew the trace region) is not retried until the next draw."""
+        if getattr(self, "_trace_failed", False):
+            return None
+        dev = self.tt_device
+        n_t, r_t = self._from_torch(n_raw), self._from_torch(r_input)
+        ttnn.synchronize_device(dev)
+        try:
+            tid, out = capture_trace(dev, lambda: self.module.step(n_t, r_t))
+        except Exception as e:
+            print(f"  [esmfold2 diffusion] trace capture failed, steps run eagerly: {e}")
+            ttnn.deallocate(n_t)
+            ttnn.deallocate(r_t)
+            self._trace_failed = True
+            return None
+        self._trace = {"tid": tid, "n": n_t, "r": r_t, "out": out, "key": key}
+        return self._trace
+
+    def _release_trace(self):
+        tr = getattr(self, "_trace", None)
+        self._trace, self._eager_steps, self._trace_failed = None, 0, False
+        if tr is None:
+            return
+        ttnn.synchronize_device(self.tt_device)
+        ttnn.release_trace(self.tt_device, tr["tid"])
+        for k in ("n", "r", "out"):
+            ttnn.deallocate(tr[k])
 
     def release(self):
         self.module._ctx = getattr(self, "_base", {}) or {}

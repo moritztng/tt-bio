@@ -1,0 +1,138 @@
+{
+ "stock": {
+  "arm": "stock",
+  "settings": [],
+  "xla": null,
+  "evidence": "/root/kc/bc2/arms/stock/runs.jsonl",
+  "n": 2,
+  "dropped_low_clock": 0,
+  "median": 0.3627,
+  "spread": [
+   0.356,
+   0.3693
+  ],
+  "iterations": [
+   140
+  ],
+  "terminated": [
+   "None"
+  ],
+  "design_s": [
+   49.84,
+   51.7
+  ],
+  "sm_mhz": 1965.0,
+  "gpu": "NVIDIA B200, 1000.00 W, 580.126.09",
+  "jax": "0.11.2",
+  "bc2_sha": "7a2dfdb8a285232a6f881899fe135c6dc48679f1",
+  "cpu": "Intel(R) Xeon(R) Platinum 8559C",
+  "ncpu": 192,
+  "wall_s": 366.7,
+  "rc": 0
+ },
+ "cueq": {
+  "arm": "cueq",
+  "settings": [
+   "use_cueq=true"
+  ],
+  "xla": null,
+  "evidence": "/root/kc/bc2/arms/cueq/runs.jsonl",
+  "n": 0,
+  "dropped_low_clock": 0,
+  "median": null,
+  "spread": null,
+  "iterations": [],
+  "terminated": [],
+  "design_s": [],
+  "sm_mhz": null,
+  "gpu": "NVIDIA B200, 1000.00 W, 580.126.09",
+  "jax": "0.11.2",
+  "bc2_sha": "7a2dfdb8a285232a6f881899fe135c6dc48679f1",
+  "cpu": "Intel(R) Xeon(R) Platinum 8559C",
+  "ncpu": 192,
+  "wall_s": 18.9,
+  "rc": 0
+ },
+ "attn-stock": {
+  "arm": "attn-stock",
+  "settings": [
+   "attention_backend=stock"
+  ],
+  "xla": null,
+  "evidence": "/root/kc/bc2/arms/attn-stock/runs.jsonl",
+  "n": 2,
+  "dropped_low_clock": 0,
+  "median": 0.4647,
+  "spread": [
+   0.3303,
+   0.5991
+  ],
+  "iterations": [
+   140
+  ],
+  "terminated": [
+   "None",
+   "mutate"
+  ],
+  "design_s": [
+   83.87,
+   46.25
+  ],
+  "sm_mhz": 1965.0,
+  "gpu": "NVIDIA B200, 1000.00 W, 580.126.09",
+  "jax": "0.11.2",
+  "bc2_sha": "7a2dfdb8a285232a6f881899fe135c6dc48679f1",
+  "cpu": "Intel(R) Xeon(R) Platinum 8559C",
+  "ncpu": 192,
+  "wall_s": 332.0,
+  "rc": 0
+ },
+ "_skipped": [],
+ "_ranking": [
+  "stock",
+  "attn-stock"
+ ],
+ "_winner": {
+  "arm": "stock",
+  "settings": [],
+  "xla": null,
+  "evidence": "/root/kc/bc2/winner/runs.jsonl",
+  "n": 7,
+  "dropped_low_clock": 0,
+  "median": 0.3568,
+  "spread": [
+   0.3552,
+   0.3714
+  ],
+  "iterations": [
+   50,
+   75,
+   140
+  ],
+  "terminated": [
+   "None",
+   "final",
+   "mutate",
+   "refine",
+   "screen"
+  ],
+  "design_s": [
+   49.73,
+   49.95,
+   27.73,
+   50.15,
+   18.57,
+   49.93,
+   49.83
+  ],
+  "sm_mhz": 1965.0,
+  "gpu": "NVIDIA B200, 1000.00 W, 580.126.09",
+  "jax": "0.11.2",
+  "bc2_sha": "7a2dfdb8a285232a6f881899fe135c6dc48679f1",
+  "cpu": "Intel(R) Xeon(R) Platinum 8559C",
+  "ncpu": 192,
+  "wall_s": 549.0,
+  "rc": 0,
+  "stacked": null
+ }
+}

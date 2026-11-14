@@ -94,3 +94,11 @@ The fixtures are deliberately captured on the runtime rather than pinning rdkit 
 the reference environment's version. `../rdkit_pin_impact.py` measures why: pinning
 to 2026.03.4 moves Protenix-v2's and OpenFold3's reference conformers on every
 ligand tested, by up to 4.3 Å RMSD.
+
+## Reference updates
+
+`covalent_glycan` `feats/ref_charge`, atom 11 (the glycosylated ASN ND2): 1 -> 0, on the
+move to atomworks 3.0.4 (2026-10-21). atomworks 3.0 removes the leaving hydrogen when it
+forms the N-glycosidic bond, so the N is a neutral secondary amide nitrogen; 2.2.1 left it
+at +1. Upstream RF3 installs atomworks 3.0 today. The capture is otherwise unchanged, and
+the edit is recorded under `__reference_updates__` in that fixture's `ref_f.meta.json`.

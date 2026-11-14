@@ -70,6 +70,22 @@ TRIATT_PERSISTENT_MASK = True
 _ENABLED = os.environ.get(
     "TT_BIO_TRIATT_PERSISTENT_MASK", "1" if TRIATT_PERSISTENT_MASK else "0") == "1"
 
+# Add the persistent mask by seeding DST with it ahead of the QK^T matmul, instead of a separate
+# add pass over the score block (one of the four whole-block packs per k chunk; ABLATE_MASKADD
+# priced that pass at 1.17 ms of a 6.55 ms op). MEASURED at [736, 8, 736, 32] bf16 on one
+# Wormhole Galaxy chip at 1000 MHz (perf/spd_attn/opbench.py, .107 chip 8): q256 k384 20.01 ->
+# 17.39 ms, q256 k768 17.39 -> 15.79 ms; rel_rms against float64 0.02667 -> 0.02672 and
+# 0.02724 -> 0.02721. "0" turns it off.
+QK_MASK_PRELOAD = env_flag("TT_BIO_TRIATT_QK_MASK_PRELOAD", True)
+
+
+def _mask_defines(k_num_chunks: int) -> dict:
+    d = {"PERSISTENT_MASK": k_num_chunks}
+    if QK_MASK_PRELOAD:
+        d["QK_MASK_PRELOAD"] = 1
+    return d
+
+
 # The q-split above, ON by default up to _Q_SPLIT_MAX_S padded tokens. Verified at 768 aa with the
 # _PM_OVER_L1 fix in place: -17.670 s (6.4 %) on the fold, byte-identical CIF and plDDT, 7x the
 # 2.543 s A/A floor (perf/sizes/qsplitfix_768.json, qb1 card 2, benchlock). Raised to 1024 on the
@@ -146,7 +162,7 @@ PM_L1_ERRORS: dict = {}
 # matmul against a bf16 v, and the statistics CBs meet a bf16 scalar in the reduce. The plumbing was
 # removed again rather than left as a dark knob -- there is nothing to gain from it, since the fp32
 # DST already carries the reduction and the arm above beats the materialised path outright.
-# INSTRUMENT, never a shipped knob. `TT_BIO_TRIATT_ABLATE=EXP,MASKADD` compiles the kernel with
+# INSTRUMENT, never a shipped knob. `TT_BIO_TRIATT_ABLATE=EXP,MASKADD,KVREAD` compiles the kernel with
 # the named stage REMOVED, so the arm's output is wrong on purpose and only its time means anything.
 # It exists because neither roof this campaign uses -- bytes moved and matmul FLOPs -- prices the
 # SFPU, and at head_dim 32 the score matrix this op exponentiates is 16x larger than the operands
@@ -159,6 +175,10 @@ if _ABLATE:
     warnings.warn(f"TT_BIO_TRIATT_ABLATE={','.join(_ABLATE)}: triangle attention is computing "
                   "WRONG VALUES on purpose. Never set this outside a perf instrument.",
                   stacklevel=2)
+
+# INSTRUMENT: `TT_BIO_TRIATT_ZONES=1` compiles per-stage device-profiler zones into the standard loop
+# (TA_QK, TA_MAX, TA_SUBEXP, TA_PV, TA_CORR). Values are unchanged; read them under a profiler build.
+_ZONES = bool(os.environ.get("TT_BIO_TRIATT_ZONES"))
 
 _FIDELITY = {"LoFi": ttnn.MathFidelity.LoFi, "HiFi2": ttnn.MathFidelity.HiFi2,
              "HiFi4": ttnn.MathFidelity.HiFi4}
@@ -182,6 +202,15 @@ def ckc_from_env(spec=None):
 
 
 _CKC_OVERRIDE = ckc_from_env()
+_CKC_DEFAULT = (ttnn.MathFidelity.HiFi2, True, False, False)
+# triatt_lofi: both matmuls (QK^T and PV) at LoFi. The bound is the softmax passes, so this prices the matmul
+# share of the op; the program cache keys on the ckc, so the lever can flip per fold.
+_CKC_LOFI = (ttnn.MathFidelity.LoFi, True, False, False)
+
+
+def _ckc(ckc_default):
+    from .tenstorrent import lever, lofi_allowed
+    return ckc_default or _CKC_OVERRIDE or (_CKC_LOFI if lever("triatt_lofi") and lofi_allowed() else _CKC_DEFAULT)
 
 
 def q_parallel_factor(S: int, H: int, q_chunk: int, cores: int, cap: int = -1) -> int:
@@ -225,9 +254,66 @@ def per_core_cost(p, q_chunk: int, seq: int) -> int:
             + p["batch_per_core"] * 2 * seq)
 
 
+# Chunk widths, in tiles, that `fused_pairs(padded=True)` offers. A padded chunk is free to be any
+# width, and the cost model alone would take the widest k (one chunk, no rescale), but a prime tile
+# count leaves the matmul and reduce stages one tile wide. MEASURED at 736 tokens (23 tiles), 8
+# heads, bf16, mask-reuse kernel, one Wormhole chip at 1000 MHz (state/lpx-sdpa.md, reuse1): q192
+# against k256 / k384 / k736 = 24.81 / 22.17 / 24.54 ms, and q96 k384 / k736 = 27.69 / 28.19.
+# The whole row is offered as one k chunk at an EVEN tile count instead (`_one_k_chunk`): 24 tiles
+# at 736 keeps 2-wide subblocks, and q256 k768 measured 17.39 ms against q256 k384's 20.01 ms on
+# the same chip (perf/spd_attn/opbench.py), the rescale gone and only one padded tile computed.
+_PADDED_CHUNK_TILES = (16, 12, 8, 6, 4)
+# Lever `triatt_q10`: the q side also offers 10 tiles, ranked only against the k chunk today's ranking picks, so the
+# output bits cannot move (q_chunk only moves rows between cores). At 608 (19 tiles) q320 pads the axis to 640 where
+# q256 pads it to 768, and on the 8x9 Galaxy grid both light all 72 cores: [608, 12, 608, 32] gated at k640 reads
+# 20.58 ms against 23.46 ms, torch.equal, 1000 MHz (spd-m-opendde q608, perf/spd_m_opendde/ta608q.py, 2026-10-22).
+_PADDED_Q_TILES = _PADDED_CHUNK_TILES + (10,)
+
+
+def _one_k_chunk(seq: int) -> int:
+    """The whole padded row as one k chunk, rounded up to an even tile count."""
+    t = -(-seq // SG.TILE)
+    return (t + t % 2) * SG.TILE
+
+
+# The k chunk sets the online-softmax accumulation order, so it decides the output bits; the q chunk and the
+# q split only move rows between cores. On Wormhole `fused_pairs` therefore takes its k chunk from the ranking
+# on the Galaxy's 8x9 grid and only the q side from the real one. Ranked on the real grid alone, Protenix-v2's
+# bf16 [512, 4, 512, 32] call picked k 256 on an 8x8 Wormhole (n150, n300) and k 512 on 8x9, and the fold's
+# CIF differed between the two (spd-m-protenix gn88 / gn89, 2026-10-19). Blackhole still ranks per grid: the
+# p300c's measured 1536 pick (256, 512) is not the p150a's k chunk, and that trade is unmeasured.
+REF_CORES_WH = 72
+
+
+def fused_pairs(seq: int, heads: int, head_dim: int, cores: int, mask_dtype=None,
+                padded: bool = False, batch: int = 0) -> tuple:
+    """(q_chunk, k_chunk) pairs this kernel can serve at padded length `seq`, best first: the pairs at
+    the Wormhole reference grid's first k chunk lead (see `REF_CORES_WH`), the rest follow in cost order.
+    """
+    from .tenstorrent import lever
+    return _fused_pairs(seq, heads, head_dim, cores, mask_dtype, padded, batch, padded and lever("triatt_q10"))
+
+
 @lru_cache(maxsize=None)
-def fused_pairs(seq: int, heads: int, head_dim: int, cores: int, mask_dtype=None) -> tuple:
-    """(q_chunk, k_chunk) pairs this kernel can serve at padded length `seq`, best first.
+def _fused_pairs(seq, heads, head_dim, cores, mask_dtype, padded, batch, q10) -> tuple:
+    ranked = _ranked_pairs(seq, heads, head_dim, cores, mask_dtype, padded, batch)
+    if cores < REF_CORES_WH and ranked:
+        kref = next(iter(_ranked_pairs(seq, heads, head_dim, REF_CORES_WH, mask_dtype, padded, batch)), (0, 0))[1]
+        ranked = tuple(p for p in ranked if p[1] == kref) + tuple(p for p in ranked if p[1] != kref)
+    if not (q10 and ranked):
+        return ranked
+    lead = tuple(p for p in _ranked_pairs(seq, heads, head_dim, cores, mask_dtype, padded, batch, _PADDED_Q_TILES)
+                 if p[1] == ranked[0][1])
+    return lead + tuple(p for p in ranked if p not in lead)
+
+
+fused_pairs.cache_clear = _fused_pairs.cache_clear
+
+
+@lru_cache(maxsize=None)
+def _ranked_pairs(seq: int, heads: int, head_dim: int, cores: int, mask_dtype=None,
+                  padded: bool = False, batch: int = 0, q_tiles: tuple = _PADDED_CHUNK_TILES) -> tuple:
+    """(q_chunk, k_chunk) pairs this kernel can serve at padded length `seq` on `cores`, cheapest first.
 
     Its two constraints pull in opposite directions, and neither is on the stock op's ladder:
 
@@ -251,10 +337,22 @@ def fused_pairs(seq: int, heads: int, head_dim: int, cores: int, mask_dtype=None
 
     Empty when nothing fits, which is the answer at 1184, 1312, 1856 and every other padded
     length whose only 32-aligned divisors are 32 and itself.
+
+    `padded=True` answers for exactly those lengths: pairs that leave a padded tail, for
+    `sdpa(..., padded_mask=True)`, whose persistent-mask reader fills the tail tiles with -inf as
+    the per-chunk read does. Priced on the padded extents the kernel actually runs, and drawn from
+    `_PADDED_CHUNK_TILES` rather than every multiple of 32.
+
+    `batch` is triangle attention's `seq` unless given. The token DiT's batch is its 5 samples, and
+    priced at batch `seq` the order put q384 k256 first at c730 on Wormhole (0.693 ms) where q192
+    k384 / k768 measure 0.523 / 0.532 ms (perf/spd_ditsdpa/opbench.py): the q split that lights 64
+    cores only wins once the batch each core loops over is the real one.
     """
     out = []
-    for kc in SG.chunk_divisors(seq):
-        for qc in SG.chunk_divisors(seq):
+    widths = lambda tiles: tuple(t * SG.TILE for t in tiles if t * SG.TILE < seq)
+    chunks = widths(_PADDED_CHUNK_TILES) if padded else SG.chunk_divisors(seq)
+    for kc in (chunks + (_one_k_chunk(seq),) if padded else chunks):
+        for qc in (widths(q_tiles) if padded else chunks):
             q_pf = q_parallel_factor(seq, heads, qc, cores, cap=0)
             # `plan` reads the grid only as a core count here, and its split assert is against
             # that count -- so the grid has to carry the caller's `cores`, not the module default.
@@ -262,8 +360,8 @@ def fused_pairs(seq: int, heads: int, head_dim: int, cores: int, mask_dtype=None
             # instead of answering, so `TT_BIO_SDPA_FUSED_LARGE_S=1` raised AssertionError out of
             # the fold rather than falling through to the stock ladder.
             p = SG.plan_for_shape(seq, heads, head_dim, qc, kc, grid=(cores, 1), split=(
-                max(cores // (heads * q_pf), 1), heads, q_pf), dtype=mask_dtype)
-            if p["q_per_core"] != 1 or p["nh_per_core"] != 1 or p["use_padded_mask"]:
+                max(cores // (heads * q_pf), 1), heads, q_pf), dtype=mask_dtype, batch=batch)
+            if p["q_per_core"] != 1 or p["nh_per_core"] != 1 or p["use_padded_mask"] != padded:
                 continue
             pers = p["k_num_chunks"] * p["Sq_chunk_t"] * p["Sk_chunk_t"]
             # Every operand CB at the dtype the call will carry, not just the mask.
@@ -274,8 +372,72 @@ def fused_pairs(seq: int, heads: int, head_dim: int, cores: int, mask_dtype=None
             dts = {} if mask_dtype is None else {
                 f"{o}_dtype": mask_dtype for o in ("q", "k", "v", "mask", "out")}
             if SG.cb_fits_l1(p, mask_cb_tiles=pers, **dts):
-                out.append((per_core_cost(p, qc, seq), qc, kc))
+                out.append((per_core_cost(p, qc, p["k_num_chunks"] * kc), qc, kc))
     return tuple((qc, kc) for _c, qc, kc in sorted(out))
+
+
+# A padded q chunk ahead of the dividing ladder when it lights enough more cores. ON; bit-exact.
+#
+# With one q chunk per core the split is (cores // (heads * q_pf), heads, q_pf), so only a product of
+# those factors lights up, and a core's load is its batch rows times its q rows. The dividing ladder
+# can leave most of the grid idle: at padded 1024 with 10 heads on the Galaxy's 72 cores q512 is over
+# L1 and q256 runs [1, 10, 4], 40 cores. q160 pads the axis to 1120 in 7 chunks and runs [1, 10, 7],
+# 70 cores. MEASURED on .107 chip 6 at 1000 MHz, [1024, 10, 1024, 32] bf16 at k256
+# (perf/mol1_triattn/sdpa_sweep.py, state/mol1/evidence/wh1024/triattn/sweep.jsonl): 107.29 -> 70.17 ms,
+# torch.equal. Over every pair that ran at 512 and 1024 the time follows `per_core_cost` to within 5 %,
+# the padded ones at the high end. At the 12 % margin every cell measured on the 8x9 and 8x8 grids
+# (perf/mol1_triattn/split_ab.py --margin 0.12, 21 cells) ran 1.09-1.80x faster and torch.equal,
+# the 4-head Protenix-v2 shape at 800 included (1.20x). The q chunk only moves rows between cores and the
+# padded rows are dropped, so the output bits are the dividing pick's at the same k chunk.
+#
+# Blackhole pays a fixed cost per (batch row, q chunk) iteration that the Wormhole surface does not show.
+# MEASURED on a p150a (qb1 card 0, 11x10 grid, 1350 MHz), [1024, 10, 1024, 32] bf16 at k1024: q128 at
+# [1,10,8] and q256 at [2,10,4] own the same rows per core and take 30.33 vs 24.37 ms, ~82 q rows of
+# overhead per iteration; that fit predicts q224 [2,10,5] at 22.1 ms (measured 21.49). Without the term the
+# model takes q64/q96 and loses 0.50-0.78x on Blackhole (state/mol1/evidence/bh/triattn.md). The model's
+# own K/V term already carries one row, so Wormhole adds 0 and its picks are unchanged.
+# With that term the Blackhole model tracks its surface closely enough for an 8 % margin: on qb2 card 3
+# (p300, served levers, split_ab.py --served --margin 0.08, 14 cells) it admits q224 at 1024 x 10 (25.51
+# -> 22.40 ms) and q192 at 896 x 10 (16.92 -> 15.10 ms) beside the 12 % picks, every admitted cell faster
+# and torch.equal. Wormhole keeps the 12 % its 21 cells were measured at.
+SPLIT_Q = env_flag("TT_BIO_TRIATT_SPLIT_Q", True)
+SPLIT_Q_MARGIN = {"wormhole": 0.12, "blackhole": 0.08}
+SPLIT_Q_ITER_ROWS = {"wormhole": 0, "blackhole": 80}
+SPLIT_Q_STATS = [0, 0]   # (served, offered and declined)
+
+
+@lru_cache(maxsize=None)
+def split_q_chunk(seq: int, heads: int, head_dim: int, cores: int, k_chunk: int, mask_dtype,
+                  dividing: tuple, iter_rows: int = 0, margin: float = 0.12) -> int:
+    """A padded q chunk for `sdpa(..., padded_mask=True)` at `k_chunk`, or 0 for the dividing ladder.
+
+    `dividing` is the ladder's q chunks at this k, widest first; its first one that divides and fits the
+    persistent mask is what serves without this (a non-dividing one never reaches the fused kernel here). Each q split `q_pf` is offered at the narrowest q that reaches it,
+    and one wins only if `per_core_cost` puts it `margin` under that pick (SPLIT_Q_MARGIN). Within the cap only:
+    above it `q_parallel_factor` gives no split and the large-S route ranks its own pairs. `iter_rows` is the
+    fixed cost of one (batch row, q chunk) iteration in q rows on top of the model's own (SPLIT_Q_ITER_ROWS)."""
+    if not SPLIT_Q or seq > _Q_SPLIT_MAX_S or seq % k_chunk:
+        return 0
+    dts = {} if mask_dtype is None else {f"{o}_dtype": mask_dtype for o in ("q", "k", "v", "mask", "out")}
+
+    def cost(qc):
+        q_pf = q_parallel_factor(seq, heads, qc, cores)
+        p = SG.plan_for_shape(seq, heads, head_dim, qc, k_chunk, grid=(cores, 1),
+                              split=(max(cores // (heads * q_pf), 1), heads, q_pf), dtype=mask_dtype)
+        if p["q_per_core"] != 1 or p["nh_per_core"] != 1:
+            return None
+        if not SG.cb_fits_l1(p, mask_cb_tiles=p["k_num_chunks"] * p["Sq_chunk_t"] * p["Sk_chunk_t"], one_k_trim=True,
+                             **dts):
+            return None
+        kv = p["k_num_chunks"] * k_chunk
+        return per_core_cost(p, qc, kv) + p["batch_per_core"] * iter_rows * 2 * kv
+
+    base = next((c for c in (cost(qc) for qc in dividing if seq % qc == 0) if c is not None), None)
+    if base is None:
+        return 0
+    pads = {-(-seq // (n * SG.TILE)) * SG.TILE for n in range(2, cores // heads + 1)}
+    best = min(((c, qc) for qc in pads if seq % qc and (c := cost(qc)) is not None), default=None)
+    return best[1] if best and best[0] < (1 - margin) * base else 0
 
 
 # The gate multiply folded into this kernel's pack stage. `gate_and_project` runs
@@ -325,9 +487,34 @@ def _reject(reason, shape):
     return None
 
 
+#: bench-only (perf/spd_m_protenix/sdpa_b8.py): the destination's dtype when set, else `_out_dtype`
+OUT_DTYPE = None
+
+
+def _out_dtype(q):
+    # Lever `triatt_ln_b8` feeds bfp8 q, k, v and bias but keeps the destination bf16, so the gated
+    # out-projection downstream stays on its fused tail (it reads bf16 o and g only). The narrowing
+    # it skips is one pack-stage rounding (see `fast_dtypes_ok`'s `dest`); sb8b, chip 4, 1000 MHz,
+    # PV2 512: 5.81 ms bf16-destination against 5.86 bfp8 and 6.01 all-bf16.
+    from .tenstorrent import lever
+    if q.dtype == ttnn.bfloat8_b and lever("triatt_ln_b8"):
+        return ttnn.bfloat16
+    return q.dtype
+
+#: parts where the reader forwards K/V along the q_pf cores of each head, every batch
+#: (`sdpa_generic.build(kv_chain=True)`), so K/V leave DRAM once per head instead of once per core.
+#: Blackhole, perf/mol1_triattn/chain_ab.py, add_to_input, every cell torch.equal (qb1 p150a, 1343-1350 MHz):
+#: 1024 x c448 start 76.7 -> 69.5 ms, end 88.2 -> 81.0; 1024 x c320, 512 x c320/c384/c448 flat (K/V reads
+#: already hidden there). Wormhole is unmeasured and stays off.
+KV_CHAIN = {"wormhole": False, "blackhole": True}
+
+
 def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_factor=2,
-         q_split_cap: int = -1, gate=None):
+         q_split_cap: int = -1, gate=None, padded_mask: bool = False, rows=None):
     """The fold's SDPA with the mask read once per head, or `None` to leave the call alone.
+
+    `rows` is the real sequence length when q, k and v are head-pitched `[B, H, rows + 32, 32]`
+    (`triatt_ln.head_pitch`); the output is `[B, H, rows, 32]` all the same. Ungated only.
 
     `q_split_cap=0` lifts `_Q_SPLIT_MAX_S` for this call. Only `_tri_att_sdpa_at`'s above-cap
     route passes it, and it passes a pair `fused_pairs` already priced against the same L1 model.
@@ -335,6 +522,10 @@ def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_fac
     `gate` folds triangle attention's `o * sigmoid(g)` into the pack stage. It is all or nothing:
     given a gate this returns a GATED output or `None`, never an ungated one, so a caller that
     reads `None` still owes the multiply.
+
+    `padded_mask` admits a q or k chunk that does not divide the sequence: the persistent-mask
+    reader fills the padded tiles with -inf exactly as the per-chunk read does. Taken from
+    `fused_pairs(..., padded=True)` at lengths with no dividing pair, and by the LPX prototype.
     """
     from . import ops
     if ops.taping():
@@ -347,6 +538,10 @@ def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_fac
     shape = [int(d) for d in q.shape]
     if len(shape) != 4 or len(bias.shape) != 4:
         return _reject("rank", shape)
+    if rows is not None:
+        if gate is not None or shape[2] != rows + 32:
+            return _reject("pitch", shape)
+        shape[2] = rows
     if not fast_dtypes_ok(q.dtype, k.dtype, v.dtype, bias.dtype):
         return _reject("dtype", shape)
     if any(t.layout != ttnn.TILE_LAYOUT for t in (q, k, v, bias)):
@@ -357,9 +552,9 @@ def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_fac
                 or mc.memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED):
             return _reject("memory_config", shape)
 
-    from .tenstorrent import COMPUTE_GRID_MAIN, _SDPA_Q_CHUNK_OVER_L1
+    from .tenstorrent import COMPUTE_GRID_MAIN, _SDPA_Q_CHUNK_OVER_L1, is_wormhole
     grid = tuple(COMPUTE_GRID_MAIN)
-    l1_key = (int(q.shape[2]), int(k.shape[2]), q_chunk, q.dtype)
+    l1_key = (shape[2], shape[2] if rows is not None else int(k.shape[2]), q_chunk, q.dtype)
     # `_PM_OVER_L1` is keyed on the FULL config, not on `l1_key`. This kernel's L1 cost moves with
     # k_chunk and with the k/v buffer factor as well as with q_chunk -- the wide-k ladder in
     # `_tri_att_sdpa_at` calls here with several k_chunks at one q_chunk -- so a three-term key lets
@@ -390,18 +585,28 @@ def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_fac
     # narrower destination is a page-size change and not a kernel change. Byte-identical while the
     # gate above only admits bf16 operands.
     out = ttnn.allocate_tensor_on_device(
-        ttnn.Shape(shape), q.dtype, ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
+        ttnn.Shape(shape), OUT_DTYPE or _out_dtype(q), ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
     # The op's own default compute kernel config, not the trunk's -- see perf/triatt_fused/s4_gate.py
-    ckc = ckc_default or _CKC_OVERRIDE or (ttnn.MathFidelity.HiFi2, True, False, False)
+    ckc = _ckc(ckc_default)
 
-    p = SG.plan(q, k, v, bias, out, q_chunk, k_chunk, grid, ckc, scale, split)
+    p = SG.plan(q, k, v, bias, out, q_chunk, k_chunk, grid, ckc, scale, split, kv_buffer_factor, rows)
     # everything the hoisted fill assumes
     if not (p["nh_per_core"] == 1 and p["q_per_core"] == 1 and p["bcast_batch"]
-            and not p["use_padded_mask"] and p["NKH"] == H and p["NVH"] == H):
+            and (padded_mask or not p["use_padded_mask"]) and p["NKH"] == H and p["NVH"] == H):
         ttnn.deallocate(out)
         return _reject("fill_preconditions", shape)
 
     persistent = p["k_num_chunks"] * p["Sq_chunk_t"] * p["Sk_chunk_t"]
+    # Priced here, not caught from the device: a caught refusal is a hang risk, and `cb_bytes` is
+    # exact against the device's own figures on both parts (see `sdpa_generic.cb_budget`). Priced
+    # trimmed, as `build` allocates it: the untrimmed table refused triatt_k1's (q512, k512) on
+    # Wormhole (1480704 B vs 1395424) although the trimmed one the device gets fits (1357824).
+    if gate is None and not SG.cb_fits_l1(p, q_dtype=q.dtype, k_dtype=k.dtype, v_dtype=v.dtype,
+                                          mask_dtype=bias.dtype, out_dtype=out.dtype,
+                                          mask_cb_tiles=persistent, one_k_trim=True):
+        ttnn.deallocate(out)
+        _PM_OVER_L1.add(pm_key)
+        return _reject("l1_budget", shape)
 
     gate_arg = None
     if gate is not None:
@@ -433,9 +638,11 @@ def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_fac
     try:
         SG.sdpa(dev, q, k, v, bias, out, q_chunk, k_chunk, grid, ckc, scale, split=split,
                 kernel_dir=KERNEL_DIR, mask_cb_tiles=persistent,
-                kv_buffer_factor=kv_buffer_factor, gate=gate_arg,
-                defines_extra={"PERSISTENT_MASK": p["k_num_chunks"],
-                               **{f"ABLATE_{a}": 1 for a in _ABLATE}})
+                kv_buffer_factor=kv_buffer_factor, gate=gate_arg, rows=rows,
+                kv_chain=KV_CHAIN["wormhole" if is_wormhole() else "blackhole"],
+                defines_extra={**_mask_defines(p["k_num_chunks"]),
+                               **{f"ABLATE_{a}": 1 for a in _ABLATE},
+                               **({"TRIATT_ZONES": 1} if _ZONES else {})})
     except Exception as exc:  # noqa: BLE001 -- an L1 refusal must reach the stock op, not the caller
         ttnn.deallocate(out)
         if "circular buffers" not in str(exc):
@@ -524,7 +731,7 @@ def sdpa_fused_qkv(x, w, bias, scale, n_heads, head_dim, q_chunk, k_chunk, ckc_d
     out = ttnn.allocate_tensor_on_device(
         ttnn.Shape([B, n_heads, S, head_dim]), x.dtype, ttnn.TILE_LAYOUT, dev,
         ttnn.DRAM_MEMORY_CONFIG)
-    ckc = ckc_default or _CKC_OVERRIDE or (ttnn.MathFidelity.HiFi2, True, False, False)
+    ckc = _ckc(ckc_default)
     p = SG.plan(out, out, out, bias, out, q_chunk, k_chunk, grid, ckc, scale, split)
     if not (p["nh_per_core"] == 1 and p["q_per_core"] == 1 and p["bcast_batch"]
             and not p["use_padded_mask"] and p["Skt"] == p["Sq_chunk_t"]):
@@ -550,7 +757,7 @@ def sdpa_fused_qkv(x, w, bias, scale, n_heads, head_dim, q_chunk, k_chunk, ckc_d
         SG.sdpa(dev, out, out, out, bias, out, q_chunk, k_chunk, grid, ckc, scale, split=split,
                 kernel_dir=KERNEL_DIR, mask_cb_tiles=persistent, kv_buffer_factor=kvbf,
                 fuse_qkv=(x, w, xbf),
-                defines_extra={"PERSISTENT_MASK": p["k_num_chunks"]})
+                defines_extra=_mask_defines(p["k_num_chunks"]))
     except Exception as exc:  # noqa: BLE001
         ttnn.deallocate(out)
         if "circular buffers" not in str(exc):

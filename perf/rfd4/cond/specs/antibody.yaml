@@ -1,0 +1,7 @@
+# Written by perf/rfd4/cond/make_antibody_spec.py; edit that, not this.
+fab5g9_tissuefactor_cdr:
+  input: ../../../../examples/ground_truth_structures/1ahw.cif
+  contig: "A1-23, L1:10-12, A35-49, L2:6-8, A57-88, L3:8-10, A98-108, /0, B1-30, H1:4-6, B36-49, H2:16-18, B67-98, H3:7-9, B107-117, /0, C103-208"
+  conditions:
+    C_CRDGRP: {1: [{select: "sel('C/*/*/[N,CA,C,O]')"}]}
+    C_SEQ: {true: [{select: "sel('C')"}, {select: "sel('A/*/[1-23]')"}, {select: "sel('A/*/[35-49]')"}, {select: "sel('A/*/[57-88]')"}, {select: "sel('A/*/[98-108]')"}, {select: "sel('B/*/[1-30]')"}, {select: "sel('B/*/[36-49]')"}, {select: "sel('B/*/[67-98]')"}, {select: "sel('B/*/[107-117]')"}]}

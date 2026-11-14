@@ -39,7 +39,7 @@ from ._vendor.openfold3.core.utils.atom_attention_block_utils import (
     get_pair_atom_block_mask,
     get_query_block_padding,
 )
-from ._vendor.openfold3.core.utils.relpos import relpos_complex
+from ._vendor.openfold3.core.utils.relpos import apply_cyclic_offsets, relpos_complex
 from .envflags import env_flag
 from .openfold3_weights import _sub
 
@@ -69,8 +69,9 @@ def derive_template_feat(features: dict) -> dict:
     return {
         "distogram": features["template_distogram"].float(),
         "pseudo_beta_pair_mask": (pbm[..., None] * pbm[..., None, :])[..., None] * mcm[..., None],
-        "restype_ti": restype[..., None, :].expand(*restype.shape[:-2], -1, n_tok, -1).contiguous(),
-        "restype_tj": restype[..., None, :, :].expand(*restype.shape[:-2], n_tok, -1, -1).contiguous(),
+        # Stride-0 views: the template embedder projects the row they broadcast (_unbroadcast).
+        "restype_ti": restype[..., None, :].expand(*restype.shape[:-2], -1, n_tok, -1),
+        "restype_tj": restype[..., None, :, :].expand(*restype.shape[:-2], n_tok, -1, -1),
         "unit_vec_x": ux[..., None],
         "unit_vec_y": uy[..., None],
         "unit_vec_z": uz[..., None],
@@ -104,6 +105,24 @@ def dedup_template_slots(feat: dict) -> tuple[dict, list[int]]:
     return {k: v[reps].contiguous() for k, v in feat.items()}, slot_index
 
 
+# The raw per-slot keys `derive_template_feat` reads. Each derived slot is an injective function
+# of its own raw slot (the pair masks keep their diagonal, so a mask that differs anywhere shows),
+# so two slots derive byte-identically exactly when these match.
+TEMPLATE_RAW_KEYS = ("template_distogram", "template_pseudo_beta_mask",
+                     "template_backbone_frame_mask", "template_restype", "template_unit_vector")
+
+
+def derived_template_slots(features: dict) -> tuple[dict, list[int]]:
+    """``dedup_template_slots(derive_template_feat(features))``, deduped on the raw keys first.
+
+    Same tensors and slot map, but the [N, N] blocks are built once per distinct slot instead of
+    once per slot: on a query with one real template or none, the duplicate slots are never
+    expanded (0.20 -> 0.06 s on one core at 512 tokens).
+    """
+    raw, slot_index = dedup_template_slots({k: features[k] for k in TEMPLATE_RAW_KEYS})
+    return derive_template_feat({**features, **raw}), slot_index
+
+
 def derive_relpos(features: dict) -> torch.Tensor:
     """139-d ``relpos_complex`` feature, input-embedder clipping config."""
     return relpos_complex(
@@ -111,6 +130,42 @@ def derive_relpos(features: dict) -> torch.Tensor:
         max_relative_idx=MAX_RELATIVE_IDX,
         max_relative_chain=MAX_RELATIVE_CHAIN,
     ).float()
+
+
+# The relpos feature as codes: `table[codes]` is `derive_relpos` exactly, but the host builds [N, N] int32
+# and a few hundred one-hot rows instead of 145 MB of float one-hots (0.16 s) and tilizing them (0.26 s on
+# pc), and the device expands it with one embedding. Same digest as the dense feature on OpenFold3 and
+# OpenBind-0 (qb2 p300c, cdk2x2_512). OF3_RELPOS_CODES=0 uploads the dense feature.
+RELPOS_CODES = "OF3_RELPOS_CODES"
+
+
+def derive_relpos_codes(features: dict) -> tuple[torch.Tensor, torch.Tensor]:
+    """``(codes [N, N] int32, table [U, 139] float32)`` with ``table[codes] == derive_relpos(features)``.
+
+    The same bins as ``relpos_complex``: three clipped offsets and the same-entity bit, packed into one
+    integer per pair; each distinct packed value is one row of the table."""
+    asym, ent = features["asym_id"], features["entity_id"]
+    same_chain = asym[:, None] == asym[None, :]
+    same_ent = ent[:, None] == ent[None, :]
+    res = features["residue_index"]
+    cyc = features.get("cyclic_mask")
+
+    def binned(pos, cond, clip):
+        off = apply_cyclic_offsets(offset=pos[:, None] - pos[None, :], pos=pos, cyclic_mask=cyc,
+                                   asym_id=asym)
+        return torch.where(cond, torch.clamp(off + clip, 0, 2 * clip), 2 * clip + 1).long()
+
+    nr, nc = 2 * MAX_RELATIVE_IDX + 2, 2 * MAX_RELATIVE_CHAIN + 2
+    parts = (binned(res, same_chain, MAX_RELATIVE_IDX),
+             binned(features["token_index"], same_chain & (res[:, None] == res[None, :]), MAX_RELATIVE_IDX),
+             same_ent.long(), binned(features["sym_id"], same_ent, MAX_RELATIVE_CHAIN))
+    packed = ((parts[0] * nr + parts[1]) * 2 + parts[2]) * nc + parts[3]
+    uniq, codes = torch.unique(packed, return_inverse=True)
+    ch, rest = uniq % nc, uniq // nc
+    e, rest = rest % 2, rest // 2
+    table = torch.cat([F.one_hot(rest // nr, nr), F.one_hot(rest % nr, nr), e[:, None],
+                       F.one_hot(ch, nc)], dim=-1).float()
+    return codes.to(torch.int32), table
 
 
 def derive_block_aux(features: dict) -> dict:
@@ -244,12 +299,21 @@ def ref_atom_embed(w: dict, features: dict) -> tuple[torch.Tensor, torch.Tensor]
     cl = sum(_lin(x, w, n) for x, n in zip(ref_atom_single_inputs(features), names))
     dlm, vlm, inv_sq_dists = ref_atom_block_inputs(
         features, features["atom_mask"].float())
-    plm = (
-        _lin(dlm, w, "linear_ref_offset") * vlm
-        + _lin(inv_sq_dists, w, "linear_inv_sq_dists") * vlm
-        + _lin(vlm, w, "linear_valid_mask") * vlm
-    )
-    return cl, plm
+    pair = ("linear_ref_offset", "linear_inv_sq_dists", "linear_valid_mask")
+    if any(f"{n}.bias" in w for n in pair):
+        plm = (
+            _lin(dlm, w, "linear_ref_offset") * vlm
+            + _lin(inv_sq_dists, w, "linear_inv_sq_dists") * vlm
+            + _lin(vlm, w, "linear_valid_mask") * vlm
+        )
+        return cl, plm
+    # The same sum in one buffer. vlm is 0/1, so multiplying each term by it and then the sum
+    # once are equal values, and a one-wide linear is one product per element. Bit-identical
+    # to the three-term form, at half the host time (eight 34 MB passes become four).
+    plm = _lin(dlm, w, "linear_ref_offset")
+    plm.add_(inv_sq_dists * w["linear_inv_sq_dists.weight"].float()[:, 0])
+    plm.add_(w["linear_valid_mask.weight"].float()[:, 0])
+    return cl, plm.mul_(vlm)
 
 
 def ref_atom_device_inputs(dev, features: dict, atom_mask: torch.Tensor,
@@ -286,38 +350,61 @@ def ref_atom_embed_device(compute_kernel_config, w: dict, features: dict,
     return rafe(*ref_atom_device_inputs(dev, features, atom_mask, n_pad))
 
 
+def input_atom_transformer(compute_kernel_config, sd: dict):
+    """The input embedder's ``OF3AtomTransformer``. Build it once per model and pass it to
+    every ``run_input_atom_encoder`` call: a fresh one uploads its weights again on each fold."""
+    from .openfold3_atom_transformer import OF3AtomTransformer
+
+    return OF3AtomTransformer(_sub(sd, "input_embedder.atom_attn_enc.atom_transformer"),
+                              compute_kernel_config)
+
+
+def atom_pair_completion(enc: dict, cl: torch.Tensor, plm: torch.Tensor,
+                         atom_mask: torch.Tensor) -> torch.Tensor:
+    """Algorithm 5 lines 13-14 (pair completion), host replica."""
+    cl_l, cl_m, pair_mask = convert_single_rep_to_blocks(
+        ql=cl, n_query=N_QUERY, n_key=N_KEY, atom_mask=atom_mask)
+    # In place, in two scratch buffers: the same ops in the same order as
+    # (plm + cl_lm*mask) -> 3-layer relu MLP -> (plm + h)*mask, bit for bit, without
+    # allocating a fresh 34 MB tensor per op.
+    pm = pair_mask.unsqueeze(-1)
+    cl_lm = torch.add(_lin(cl_l.relu().unsqueeze(-2), enc, "linear_l"),
+                      _lin(cl_m.relu().unsqueeze(-3), enc, "linear_m"))
+    plm = cl_lm.mul_(pm).add_(plm)
+    flat = plm.view(-1, plm.shape[-1])
+    a, b = torch.empty_like(flat), torch.empty_like(flat)
+    torch.clamp_min(flat, 0, out=a)
+    for i, key in enumerate(("pair_mlp.1", "pair_mlp.3", "pair_mlp.5")):
+        torch.mm(a, enc[f"{key}.weight"].t().float(), out=b)
+        if f"{key}.bias" in enc:
+            b.add_(enc[f"{key}.bias"].float())
+        a, b = (b.clamp_min_(0) if i < 2 else b), a
+    plm = a.view_as(plm).add_(plm).mul_(pm)
+    return plm
+
+
 def run_input_atom_encoder(dev, compute_kernel_config, sd: dict, features: dict,
-                           aux: dict) -> torch.Tensor:
+                           aux: dict, at=None) -> torch.Tensor:
     """Input-embedder atom-encoder leg -> ``ai`` [n_token, 384].
 
     Host: ref-atom embedding + pair-rep completion. Device: the PCC-gated
-    ``OF3AtomTransformer`` (P7). Host: ``relu(linear_q(...))`` + mean aggregation to
-    tokens via ``atom_to_token_mean``.
+    ``OF3AtomTransformer`` (P7), ``at`` from ``input_atom_transformer`` (built here when
+    None). Host: ``relu(linear_q(...))`` + mean aggregation to tokens via
+    ``atom_to_token_mean``.
     """
-    from .openfold3_atom_transformer import OF3AtomTransformer
-
     enc = _sub(sd, "input_embedder.atom_attn_enc")
     atom_mask = aux["atom_mask"]
     n_atom, nb, NP = aux["n_atom"], aux["nb"], aux["NP"]
 
     cl, plm = ref_atom_embed(_sub(enc, "ref_atom_feature_embedder"), features)
-    # Algorithm 5 lines 13-14 (pair completion), host replica.
-    cl_l, cl_m, pair_mask = convert_single_rep_to_blocks(
-        ql=cl, n_query=N_QUERY, n_key=N_KEY, atom_mask=atom_mask)
-    cl_lm = (
-        _lin(cl_l.relu().unsqueeze(-2), enc, "linear_l")
-        + _lin(cl_m.relu().unsqueeze(-3), enc, "linear_m")
-    ) * pair_mask.unsqueeze(-1)
-    plm = plm + cl_lm
-    h = plm
-    for key in ("pair_mlp.1", "pair_mlp.3", "pair_mlp.5"):
-        h = _lin(h.relu(), enc, key)
-    plm = (plm + h) * pair_mask.unsqueeze(-1)
+    plm = atom_pair_completion(enc, cl, plm, atom_mask)
 
-    at = OF3AtomTransformer(_sub(enc, "atom_transformer"), compute_kernel_config)
+    at = at or input_atom_transformer(compute_kernel_config, sd)
 
-    def ft(x, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT):
-        return ttnn.from_torch(x.float(), layout=layout, device=dev, dtype=dtype)
+    from .tenstorrent import upload
+
+    def ft(x):
+        return upload(x.float(), ttnn.bfloat16, dev)
 
     a_pad = torch.zeros(1, NP, 128)
     a_pad[0, :n_atom] = cl
@@ -328,8 +415,12 @@ def run_input_atom_encoder(dev, compute_kernel_config, sd: dict, features: dict,
     kidx = aux["key_block_idxs"].reshape(1, nb * N_KEY).to(torch.int32)
     kidx_tt = ttnn.from_torch(kidx, layout=ttnn.ROW_MAJOR_LAYOUT, device=dev,
                               dtype=ttnn.uint32)
-    ql_d = at(ft(a_pad), ft(a_pad.clone()), ft(plm.unsqueeze(0)), ft(atom_mask_col),
-              kidx_tt, ft(valid), ft(mask_bias), n_atom, NP, nb)
+    # One upload of a_pad, copied on the card; the channel-1 masks go up without their unit
+    # dim (a trailing 1 tile-pads 32x in the host tilize) and get it back on the card.
+    a_d = ft(a_pad)
+    ql_d = at(a_d, ttnn.clone(a_d), ft(plm.unsqueeze(0)),
+              ttnn.unsqueeze(ft(atom_mask_col.squeeze(-1)), -1),
+              kidx_tt, ttnn.unsqueeze(ft(valid.squeeze(-1)), -1), ft(mask_bias), n_atom, NP, nb)
     if env_flag(DEVICE_REF_ATOM, False):
         # The aggregation head on the card. `linear_q.0.weight` is 0.74055 % of the model's
         # squared gradient norm on its own -- the single heaviest of the seventeen tensors

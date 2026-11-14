@@ -1,0 +1,304 @@
+{
+ "ab3": {
+  "256-trimul_bres+trimul_bres_hifi2": {
+   "base_s": 13.58,
+   "stack_s": 13.586,
+   "speedup": 0.9995,
+   "z_rel_rms": 0.0,
+   "aiclk_median": 1337,
+   "aiclk_min": 1325,
+   "load_end": 6.98583984375,
+   "reps": 30
+  },
+  "256-trimul_bres": {
+   "base_s": 13.573,
+   "stack_s": 13.584,
+   "speedup": 0.999,
+   "z_rel_rms": 0.0,
+   "aiclk_median": 1350,
+   "aiclk_min": 1337,
+   "load_end": 6.46826171875,
+   "reps": 30
+  },
+  "384-trimul_bres+trimul_bres_hifi2": {
+   "base_s": 27.456,
+   "stack_s": 25.579,
+   "speedup": 1.0734,
+   "z_rel_rms": 0.008191648304446178,
+   "aiclk_median": 1337,
+   "aiclk_min": 1293,
+   "load_end": 6.88720703125,
+   "reps": 30
+  },
+  "384-trimul_bres": {
+   "base_s": 27.445,
+   "stack_s": 25.792,
+   "speedup": 1.0641,
+   "z_rel_rms": 0.007616036976450548,
+   "aiclk_median": 1350,
+   "aiclk_min": 1237,
+   "load_end": 7.61474609375,
+   "reps": 30
+  },
+  "512-trimul_bres+trimul_bres_hifi2": {
+   "base_s": 43.604,
+   "stack_s": 42.012,
+   "speedup": 1.0377,
+   "z_rel_rms": 0.007736513511944694,
+   "aiclk_median": 1318,
+   "aiclk_min": 1281,
+   "load_end": 5.701171875,
+   "reps": 30
+  },
+  "512-trimul_bres": {
+   "base_s": 43.615,
+   "stack_s": 42.605,
+   "speedup": 1.0237,
+   "z_rel_rms": 0.007209706206324295,
+   "aiclk_median": 1337,
+   "aiclk_min": 1293,
+   "load_end": 5.501953125,
+   "reps": 30
+  }
+ },
+ "design4": {
+  "256": {
+   "base": {
+    "n_warm": 8,
+    "design_s": 15.9575,
+    "trunk_s": 14.713000000000001,
+    "aiclk_median": 1340.0,
+    "clock_artifact": false,
+    "load1_max": 9.7294921875
+   },
+   "stack": {
+    "n_warm": 8,
+    "design_s": 15.507,
+    "trunk_s": 14.698,
+    "aiclk_median": 1343.0,
+    "clock_artifact": false,
+    "load1_max": 11.8818359375
+   },
+   "base2": {
+    "n_warm": 2,
+    "design_s": 18.3975,
+    "trunk_s": 14.7615,
+    "aiclk_median": 1346.5,
+    "clock_artifact": false,
+    "load1_max": 9.908203125
+   },
+   "grade": {
+    "base": "/home/ttuser/rfd4-tri3-runs/design4/256/base",
+    "seeds": [
+     0,
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7
+    ],
+    "seed_floor_a": [
+     33.27151029614572,
+     30.73237623054723,
+     20.688872842783514,
+     21.47101784975831,
+     25.33888690632467,
+     21.166174833979333,
+     23.72288906407292
+    ],
+    "seed_floor_median_a": 23.72288906407292,
+    "arms": {
+     "/home/ttuser/rfd4-tri3-runs/design4/256/stack": {
+      "per_seed": {
+       "0": {
+        "rmsd_a": 9.260795876402574e-07,
+        "seq_id": 1.0,
+        "target_a": 4.650651193280656e-07
+       },
+       "1": {
+        "rmsd_a": 1.4566771810495693e-06,
+        "seq_id": 1.0,
+        "target_a": 4.143418462064231e-07
+       },
+       "2": {
+        "rmsd_a": 6.589922654083314e-07,
+        "seq_id": 1.0,
+        "target_a": 3.524534389745767e-07
+       },
+       "3": {
+        "rmsd_a": 1.5029802704474088e-06,
+        "seq_id": 1.0,
+        "target_a": 7.585624920170558e-07
+       },
+       "4": {
+        "rmsd_a": 6.418565699484592e-07,
+        "seq_id": 1.0,
+        "target_a": 3.777955972167374e-07
+       },
+       "5": {
+        "rmsd_a": 5.850816396007881e-07,
+        "seq_id": 1.0,
+        "target_a": 3.9320296988814303e-07
+       },
+       "6": {
+        "rmsd_a": 9.413640563760073e-07,
+        "seq_id": 1.0,
+        "target_a": 4.981259730861217e-07
+       },
+       "7": {
+        "rmsd_a": 6.111849248955639e-07,
+        "seq_id": 1.0,
+        "target_a": 3.224849197301281e-07
+       }
+      },
+      "n": 8,
+      "median_a": 7.925359265242944e-07,
+      "max_a": 1.5029802704474088e-06,
+      "median_seq_id": 1.0,
+      "identical": false
+     },
+     "/home/ttuser/rfd4-tri3-runs/design4/256/base2": {
+      "per_seed": {
+       "0": {
+        "rmsd_a": 9.260795876402574e-07,
+        "seq_id": 1.0,
+        "target_a": 4.650651193280656e-07
+       },
+       "1": {
+        "rmsd_a": 1.4566771810495693e-06,
+        "seq_id": 1.0,
+        "target_a": 4.143418462064231e-07
+       }
+      },
+      "n": 2,
+      "median_a": 1.1913783843449134e-06,
+      "max_a": 1.4566771810495693e-06,
+      "median_seq_id": 1.0,
+      "identical": false
+     }
+    }
+   }
+  },
+  "512": {
+   "base": {
+    "n_warm": 8,
+    "design_s": 52.944,
+    "trunk_s": 48.4465,
+    "aiclk_median": 1334.0,
+    "clock_artifact": false,
+    "load1_max": 13.8515625
+   },
+   "stack": {
+    "n_warm": 8,
+    "design_s": 52.346999999999994,
+    "trunk_s": 46.935500000000005,
+    "aiclk_median": 1328.0,
+    "clock_artifact": false,
+    "load1_max": 15.494140625
+   },
+   "base2": {
+    "n_warm": 2,
+    "design_s": 50.08,
+    "trunk_s": 48.4265,
+    "aiclk_median": 1334.0,
+    "clock_artifact": false,
+    "load1_max": 6.37646484375
+   },
+   "grade": {
+    "base": "/home/ttuser/rfd4-tri3-runs/design4/512/base",
+    "seeds": [
+     0,
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7
+    ],
+    "seed_floor_a": [
+     39.434351472352105,
+     38.260693343493315,
+     37.416566234128176,
+     35.69252428240749,
+     30.207409156489817,
+     39.80708687908974,
+     53.84042936621763
+    ],
+    "seed_floor_median_a": 38.260693343493315,
+    "arms": {
+     "/home/ttuser/rfd4-tri3-runs/design4/512/stack": {
+      "per_seed": {
+       "0": {
+        "rmsd_a": 7.567637515197745,
+        "seq_id": 0.327455919395466,
+        "target_a": 0.06355820244227624
+       },
+       "1": {
+        "rmsd_a": 4.022112715449126,
+        "seq_id": 0.47858942065491183,
+        "target_a": 0.04996064197025496
+       },
+       "2": {
+        "rmsd_a": 3.8964256563604276,
+        "seq_id": 0.3350125944584383,
+        "target_a": 0.03851526207213414
+       },
+       "3": {
+        "rmsd_a": 1.3467827052088241,
+        "seq_id": 0.4987405541561713,
+        "target_a": 0.039567970380016027
+       },
+       "4": {
+        "rmsd_a": 1.413761187851668,
+        "seq_id": 0.5969773299748111,
+        "target_a": 0.04439205504389806
+       },
+       "5": {
+        "rmsd_a": 2.93957622859014,
+        "seq_id": 0.3022670025188917,
+        "target_a": 0.045366187015829555
+       },
+       "6": {
+        "rmsd_a": 1.1560599741084294,
+        "seq_id": 0.5894206549118388,
+        "target_a": 0.029110350783509896
+       },
+       "7": {
+        "rmsd_a": 1.6936590769949473,
+        "seq_id": 0.5919395465994962,
+        "target_a": 0.0354291716314189
+       }
+      },
+      "n": 8,
+      "median_a": 2.3166176527925435,
+      "max_a": 7.567637515197745,
+      "median_seq_id": 0.48866498740554154,
+      "identical": false
+     },
+     "/home/ttuser/rfd4-tri3-runs/design4/512/base2": {
+      "per_seed": {
+       "0": {
+        "rmsd_a": 9.488314549124227e-07,
+        "seq_id": 1.0,
+        "target_a": 4.649579346696069e-07
+       },
+       "1": {
+        "rmsd_a": 7.491675302974525e-07,
+        "seq_id": 1.0,
+        "target_a": 5.062871217059646e-07
+       }
+      },
+      "n": 2,
+      "median_a": 8.489994926049376e-07,
+      "max_a": 9.488314549124227e-07,
+      "median_seq_id": 1.0,
+      "identical": false
+     }
+    }
+   }
+  }
+ }
+}

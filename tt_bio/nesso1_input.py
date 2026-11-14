@@ -26,14 +26,17 @@ from safetensors.torch import save_file
 
 from tt_bio._vendor.nesso.data.types import Manifest, Record
 from tt_bio.cache import cached, staged
+from tt_bio.ccd import CcdMols
 from tt_bio.weights import NESSO_REPO, NESSO_REVISION
 
 # RDKit drops atom properties when UNPICKLING too, not just when pickling, so this has
 # to be set before ccd.pkl is read or every standard-residue mol comes back without its
 # ``name`` prop and the featurizer dies with KeyError: 'name'. The vendored
 # ``featurizer`` module sets the same thing as an import side-effect, which makes the
-# whole pipeline import-order dependent; set it here where the load happens.
-Chem.SetDefaultPickleProperties(Chem.PropertyPickleOptions.AtomProps)
+# whole pipeline import-order dependent; set it here where the load happens. The option
+# is process-wide and atomworks (RF3, OpenFold3) asserts it is AllProps, so add atom
+# properties to it rather than replace it.
+Chem.SetDefaultPickleProperties(Chem.GetDefaultPickleProperties() | Chem.PropertyPickleOptions.AtomProps)
 
 ESM2_MODEL = "facebook/esm2_t33_650M_UR50D"
 
@@ -168,30 +171,79 @@ def run_esm(
     esm_dir: Path,
     model_name: str = ESM2_MODEL,
     cache_dir: Path | None = None,
+    on_device: bool = False,
 ) -> int:
-    """Write ``[1, L+2, 1280]`` final-layer ESM-2 embeddings, skipping ones on disk."""
-    missing = {m: s for m, s in seqs.items() if not cached(esm_dir / f"{m}.safetensors")}
-    if not missing:
-        return 0
-    from tt_bio._vendor.nesso.data.esm import extract_esm_embedding, setup_esm_model
+    """Write ``[1, L+2, 1280]`` final-layer ESM-2 embeddings, skipping ones on disk.
 
-    model, tokenizer = setup_esm_model(model_name, torch.device("cpu"), cache_dir=cache_dir)
-    for mid, seq in sorted(missing.items()):
-        emb = extract_esm_embedding(seq, model, tokenizer)
-        with staged(esm_dir / f"{mid}.safetensors") as tmp:
-            save_file({"embeddings": emb}, tmp)
+    The embedding is a pure function of the sequence, and a screen re-runs the same target
+    with every new batch of ligands, so it is also kept per user under the cache root and
+    linked in from there: 7.6 s of a 512 aa invocation on qb1 (transformers import, the 650M
+    load, the forward) is paid once per target rather than once per run. The card's embedding
+    is not the CPU's (rel_fro 2.4 % at 512 aa), so each backend keeps its own store: a shared
+    one handed a device run whatever the CPU had written first. Returns how many were computed.
+    """
+    from tt_bio.weights import cache_root
+
+    store = cache_root() / "nesso1" / "esm2" / (model_name.replace("/", "--") + ("-tt" if on_device else ""))
+    todo = {m: s for m, s in seqs.items() if not cached(esm_dir / f"{m}.safetensors")}
+    missing = {m: s for m, s in todo.items() if not cached(store / f"{m}.safetensors")}
+    if missing:
+        from tt_bio._vendor.nesso.data.esm import extract_esm_embedding, setup_esm_model
+
+        store.mkdir(parents=True, exist_ok=True)
+        if on_device:
+            encode = device_esm(model_name, cache_dir)
+        else:
+            model, tokenizer = setup_esm_model(model_name, torch.device("cpu"), cache_dir=cache_dir)
+            encode = lambda seq: extract_esm_embedding(seq, model, tokenizer)  # noqa: E731
+        for mid, seq in sorted(missing.items()):
+            emb = encode(seq)
+            with staged(store / f"{mid}.safetensors") as tmp:
+                save_file({"embeddings": emb}, tmp)
+    link_given_esm({m: str(store / f"{m}.safetensors") for m in todo}, esm_dir)
     return len(missing)
 
 
-_CCD: dict | None = None
+_DEVICE_ESM: dict = {}
+
+
+def device_esm(model_name: str = ESM2_MODEL, cache_dir: Path | None = None):
+    """``seq -> [1, L+2, 1280]`` float32 on the Tenstorrent card, loaded once per process.
+
+    The 650M on a host CPU is most of a warm prediction's host time (1.4 s of 2.0 s on a
+    12-core desktop, more on a loaded Galaxy host); on the card it is one encoder forward.
+    """
+    if model_name not in _DEVICE_ESM:
+        from transformers import AutoTokenizer
+
+        from tt_bio.saprot import load_esm2
+
+        tok = AutoTokenizer.from_pretrained(model_name, cache_dir=None if cache_dir is None else str(cache_dir))
+        model = load_esm2(model_name, cache_dir)
+
+        def encode(seq: str) -> torch.Tensor:
+            with torch.no_grad():
+                _, emb = model(tok(seq, return_tensors="pt")["input_ids"], want_logits=False)
+            return emb.float().contiguous()
+
+        _DEVICE_ESM[model_name] = encode
+    return _DEVICE_ESM[model_name]
+
+
+def standard_mols(ccd: CcdMols) -> dict:
+    """The standard residues, the only part of the CCD the featurizer reads."""
+    from tt_bio._vendor.nesso.data.inference import STANDARD_AA
+
+    return {k: ccd[k] for k in STANDARD_AA if k in ccd}
+
+
+_CCD: CcdMols | None = None
 
 
 def _init_worker(ccd_pkl: Path | None) -> None:
     global _CCD
     if ccd_pkl is not None:
-        from tt_bio._vendor.nesso.data.yaml_input import load_ccd_mol_dict
-
-        _CCD = load_ccd_mol_dict(ccd_pkl)
+        _CCD = CcdMols(ccd_pkl)
 
 
 def _parse_one(yp: Path, mol_dir: Path, structures_dir: Path, records_dir: Path) -> Record:
@@ -250,7 +302,7 @@ def build_dataset(paths: Paths, manifest: Manifest, ccd_pkl: Path, max_dist: flo
         manifest=manifest,
         target_dir=paths.processed,
         ligand_dir=paths.mol_dir,
-        ccd_pkl=ccd_pkl,
+        standard_aa_mols=standard_mols(CcdMols(ccd_pkl)),
         use_esm_all_layers=False,
         num_dist_bins=64,
         min_dist=2.0,
@@ -328,8 +380,12 @@ def prepare(
     num_workers: int = 2,
     esm_cache: Path | None = None,
     max_dist: float = 22.0,
+    esm_on_device: bool = False,
 ):
-    """YAML path or directory -> (dataset, manifest, failed stems)."""
+    """YAML path or directory -> (dataset, manifest, failed stems).
+
+    ``esm_on_device`` runs a missing ESM-2 embedding on the Tenstorrent card instead of the CPU.
+    """
     yaml_paths = find_yamls(data)
     warn_ignored_protein_keys(yaml_paths)
     paths = resolve_paths(out_dir)
@@ -340,7 +396,7 @@ def prepare(
     manifest, failed = preprocess(yaml_paths, paths, ccd, num_workers=num_workers)
     seqs, given = collect_esm(yaml_paths)
     link_given_esm(given, paths.esm_dir)
-    run_esm(seqs, paths.esm_dir, cache_dir=esm_cache)
+    run_esm(seqs, paths.esm_dir, cache_dir=esm_cache, on_device=esm_on_device)
     return build_dataset(paths, manifest, ccd, max_dist=max_dist), manifest, failed
 
 

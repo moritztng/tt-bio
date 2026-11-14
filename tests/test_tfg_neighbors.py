@@ -1,0 +1,120 @@
+"""Exact pair search (tt_bio.tfg.neighbors) and the accelerated VinaSteric path, against brute force and the dense path."""
+import torch
+
+from tt_bio.tfg.neighbors import BoundField, pairs_within
+from tt_bio.tfg.potentials import VinaStericPotential
+
+
+def _cloud(n, box, seed):
+    g = torch.Generator().manual_seed(seed)
+    return torch.rand(2, n, 3, generator=g) * box
+
+
+def test_pairs_within_is_brute_force():
+    # the second query cloud reaches well outside P's grid on every side
+    for Q, P in ((_cloud(300, 25.0, 0), _cloud(400, 25.0, 1)), (_cloud(500, 45.0, 2) - 10.0, _cloud(400, 25.0, 3))):
+        s, i, j = pairs_within(Q, P, 3.1)
+        got = list(zip(s.tolist(), i.tolist(), j.tolist()))
+        want = set(map(tuple, torch.nonzero(torch.cdist(Q, P) < 3.1).tolist()))
+        assert len(got) == len(set(got)) and set(got) == want and len(want) > 100
+
+
+def _complex(seed=0, n=600):
+    """Three chains packed into one box so inter-chain clashes exist; element C/N/O/S."""
+    g = torch.Generator().manual_seed(seed)
+    X = torch.rand(3, n, 3, generator=g) * 22.0
+    elem = torch.zeros(n, 128)
+    elem[torch.arange(n), torch.tensor([6, 7, 8, 16])[torch.randint(0, 4, (n,), generator=g)]] = 1.0
+    tok = torch.arange(n)
+    asym = torch.cat([torch.zeros(250), torch.ones(200), torch.full((150,), 2.0)]).long()
+    return X, {"asym_id": asym, "atom_to_token_idx": tok, "ref_element": elem}
+
+
+def test_vina_sparse_equals_dense_bitwise():
+    X, f = _complex()
+    pot = VinaStericPotential()
+    for step in (0.0, 0.05, 3.0):        # build, reuse inside the skin, rebuild
+        Y = X + step * torch.randn(X.shape, generator=torch.Generator().manual_seed(7))
+        e0, g0 = pot.energy_and_grad(Y, f, {"buffer": 0.225, "core": "off"})
+        e1, g1 = pot.energy_and_grad(Y, f, {"buffer": 0.225, "core": "auto"})
+        assert torch.equal(e0, e1) and torch.equal(g0, g1)
+        assert float(e0.abs().sum()) > 0
+
+
+def test_residue_distances_pruned_equals_cdist():
+    """The pruned epitope distances equal residue_distances on random rigid poses: values and nearest-pair slots."""
+    from tt_bio.tfg.epitope import ResidueDistances, residue_distances
+
+    g = torch.Generator().manual_seed(4)
+    body = torch.rand(2, 300, 3, generator=g) * 20.0                 # paratope, 2 samples, 30 residues of 10 atoms
+    token = torch.arange(300) // 10
+    epi = torch.rand(2, 6 * 5, 3, generator=g) * 20.0 + 8.0         # 6 epitope residues x 5 slots
+    slots = torch.arange(30).view(6, 5)
+    valid = torch.ones(6, 5, dtype=torch.bool)
+    valid[2, 3:] = False
+    rd = ResidueDistances(body, token, slots, valid)
+    for seed in range(3):
+        rot = torch.linalg.matrix_exp(torch.cross(torch.eye(3).expand(2, 3, 3), torch.randn(2, 1, 3, generator=g)
+                                                  .expand(2, 3, 3), dim=-1))
+        posed = body @ rot.transpose(1, 2) + torch.randn(2, 1, 3, generator=g) * 4.0
+        d0, a0, p0, _ = residue_distances(posed, epi, slots, valid, torch.arange(300))
+        d1, a1, p1 = rd(posed, epi, torch.arange(2), slots=True)
+        assert torch.equal(d0, d1) and torch.equal(a0, a1) and torch.equal(p0, p1)
+
+
+def test_classify_rows_equals_classify_off_grid_too():
+    """classify_rows clamps off-grid points onto the outermost voxel layer, which must be inf (no atom reaches it)."""
+    g = torch.Generator().manual_seed(3)
+    fixed = torch.rand(3, 400, 3, generator=g) * 30
+    rb = torch.rand(400, generator=g) + 1.2
+    field = BoundField(fixed, rb, 1.9)
+    grid = field.soft.view(3, *(int(d) for d in field.dims))
+    for face in (grid[:, 0], grid[:, -1], grid[:, :, 0], grid[:, :, -1], grid[..., 0], grid[..., -1]):
+        assert torch.isinf(face).all()
+    X = torch.rand(3, 20000, 3, generator=g) * 60 - 15
+    ra = torch.rand(20000, generator=g) + 1.2
+    samples = torch.tensor([2, 0, 1])
+    far, severe = field.classify(X.reshape(-1, 3), samples.repeat_interleave(20000), ra.repeat(3))
+    far_r, severe_r = field.classify_rows(X, samples, ra)
+    assert torch.equal(far, far_r) and torch.equal(severe, severe_r)
+    assert far.any() and (~far).any() and severe.any()
+
+
+def test_interchain_pairs_equal_the_chain_by_chain_search():
+    from tt_bio.tfg.neighbors import interchain_pairs
+
+    g = torch.Generator().manual_seed(3)
+    for nc in (2, 3, 5):
+        X = torch.randn(3, 1500, 3, generator=g) * 12
+        chain = torch.randint(0, nc, (1500,), generator=g)
+        allowed = ~torch.eye(nc, dtype=torch.bool) & (torch.rand(nc, nc, generator=g) > 0.2)
+        s, i, j = interchain_pairs(X, chain, allowed, 4.5)
+        got = set(zip(s.tolist(), i.tolist(), j.tolist()))
+        ref = set()
+        for c in range(nc - 1):
+            a, b = torch.nonzero(chain == c).flatten(), torch.nonzero(chain > c).flatten()
+            ss, ii, jj = pairs_within(X[:, a], X[:, b], 4.5)
+            ii, jj = a[ii], b[jj]
+            k = allowed[chain[ii], chain[jj]]
+            ref |= set(zip(ss[k].tolist(), ii[k].tolist(), jj[k].tolist()))
+        assert got == ref and len(got) == s.numel()
+
+
+def test_bound_field_matches_brute_force_where_it_is_read():
+    """Within the range the searches read (a point is far only once the bound clears 0.85 ra + delta), every voxel
+    holds min_j |c - b_j| - 0.85 rb_j over ALL atoms to 1e-4 A, and beyond it the bound never reads lower."""
+    g = torch.Generator().manual_seed(5)
+    fixed = torch.rand(2, 80, 3, generator=g) * 25
+    rb = torch.rand(80, generator=g) * 0.6 + 1.2
+    ra_max = 1.9
+    field = BoundField(fixed, rb, ra_max)
+    dims = [int(d) for d in field.dims]
+    idx = torch.stack(torch.meshgrid(*(torch.arange(d) for d in dims), indexing="ij"), -1).reshape(-1, 3)
+    for s in range(2):
+        centre = field.lo[s].double() + (idx.double() + 0.5) * field.v
+        brute = (torch.cdist(centre, fixed[s].double()) - 0.85 * rb.double()).min(-1).values
+        soft = field.soft.view(2, -1)[s].double()
+        read = brute < 0.85 * ra_max + field.delta + field.margin
+        assert read.any() and (~read).any()
+        assert (soft[read] - brute[read]).abs().max() < 1e-4
+        assert (soft[~read] >= 0.85 * ra_max + field.delta + field.margin - 1e-4).all()

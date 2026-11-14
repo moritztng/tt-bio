@@ -1,0 +1,363 @@
+{
+ "label": "mol1-fast",
+ "model": "mol1",
+ "tree": "/home/ttuser/.coworker/wt/pnr-tt",
+ "size": 512,
+ "census": false,
+ "fast": true,
+ "trace": null,
+ "ab_trace": false,
+ "ab_attr": null,
+ "ab_lever": null,
+ "ttnn": "0.68.0",
+ "host": "tt-quietbox",
+ "card": "0",
+ "grid": [
+  11,
+  10
+ ],
+ "recycling_steps": 20,
+ "sampling_steps": 200,
+ "samples": 1,
+ "flags": {
+  "ADALN_S_HOIST": true,
+  "FP32_SOFTMAX_BIAS_HOIST": true,
+  "TRIMUL_TAIL_F1": true,
+  "TRANSPOSE_L1_HEADROOM": 1.25
+ },
+ "started": "2026-11-06T16:49:31+0000",
+ "loadavg": [
+  "2.60",
+  "2.17",
+  "3.33"
+ ],
+ "folds": [
+  {
+   "tag": "warm0",
+   "fold_s": 85.392,
+   "plddt": 0.754219,
+   "conf": {
+    "confidence_score": 0.720008,
+    "ptm": 0.583164,
+    "iptm": 0.0,
+    "complex_plddt": 0.754219
+   },
+   "n_tokens": 512,
+   "n_atoms": 4117,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "f40b4eaeadd88f62"
+   },
+   "loadavg": [
+    "2.63",
+    "2.40",
+    "3.21"
+   ],
+   "aiclk": {
+    "median": 1350,
+    "min": 1343,
+    "max": 1350,
+    "n": 39
+   }
+  },
+  {
+   "tag": "warm1",
+   "fold_s": 85.737,
+   "plddt": 0.754219,
+   "conf": {
+    "confidence_score": 0.720008,
+    "ptm": 0.583164,
+    "iptm": 0.0,
+    "complex_plddt": 0.754219
+   },
+   "n_tokens": 512,
+   "n_atoms": 4117,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "f40b4eaeadd88f62"
+   },
+   "loadavg": [
+    "3.55",
+    "2.66",
+    "3.22"
+   ],
+   "aiclk": {
+    "median": 1350,
+    "min": 1343,
+    "max": 1350,
+    "n": 39
+   }
+  },
+  {
+   "tag": "warm2",
+   "fold_s": 85.571,
+   "plddt": 0.754219,
+   "conf": {
+    "confidence_score": 0.720008,
+    "ptm": 0.583164,
+    "iptm": 0.0,
+    "complex_plddt": 0.754219
+   },
+   "n_tokens": 512,
+   "n_atoms": 4117,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "f40b4eaeadd88f62"
+   },
+   "loadavg": [
+    "2.38",
+    "2.47",
+    "3.10"
+   ],
+   "aiclk": {
+    "median": 1350,
+    "min": 1343,
+    "max": 1350,
+    "n": 39
+   }
+  },
+  {
+   "tag": "warm3",
+   "fold_s": 85.644,
+   "plddt": 0.754219,
+   "conf": {
+    "confidence_score": 0.720008,
+    "ptm": 0.583164,
+    "iptm": 0.0,
+    "complex_plddt": 0.754219
+   },
+   "n_tokens": 512,
+   "n_atoms": 4117,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "f40b4eaeadd88f62"
+   },
+   "loadavg": [
+    "3.00",
+    "2.76",
+    "3.15"
+   ],
+   "aiclk": {
+    "median": 1350,
+    "min": 1343,
+    "max": 1350,
+    "n": 38
+   }
+  },
+  {
+   "tag": "warm4",
+   "fold_s": 85.749,
+   "plddt": 0.754219,
+   "conf": {
+    "confidence_score": 0.720008,
+    "ptm": 0.583164,
+    "iptm": 0.0,
+    "complex_plddt": 0.754219
+   },
+   "n_tokens": 512,
+   "n_atoms": 4117,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "f40b4eaeadd88f62"
+   },
+   "loadavg": [
+    "2.77",
+    "2.75",
+    "3.11"
+   ],
+   "aiclk": {
+    "median": 1350,
+    "min": 1343,
+    "max": 1350,
+    "n": 38
+   }
+  }
+ ],
+ "cold": {
+  "tag": "cold",
+  "fold_s": 93.896,
+  "plddt": 0.754219,
+  "conf": {
+   "confidence_score": 0.720008,
+   "ptm": 0.583164,
+   "iptm": 0.0,
+   "complex_plddt": 0.754219
+  },
+  "n_tokens": 512,
+  "n_atoms": 4117,
+  "cif_sha256": {
+   "cdk2x2_512.cif": "f40b4eaeadd88f62"
+  },
+  "loadavg": [
+   "2.86",
+   "2.32",
+   "3.26"
+  ],
+  "aiclk": {
+   "median": 1350,
+   "min": 1343,
+   "max": 1350,
+   "n": 46
+  }
+ },
+ "trace_region_bytes": 37748736,
+ "median_s": 85.644,
+ "spread_s": 0.357,
+ "aiclk_mhz": 1350,
+ "aiclk_min": 1343,
+ "reach": {
+  "adaln_calls": 0,
+  "adaln_with_s_terms": 0,
+  "adaln_s_terms_calls": 0
+ },
+ "kernels": {
+  "triatt_sdpa": {
+   "fwd": {
+    "served": 12960,
+    "declined": 0
+   },
+   "pm_over_l1": []
+  },
+  "trimul_tail": {
+   "fwd": {
+    "served": 0,
+    "declined": 20304
+   },
+   "rejects": {
+    "('t1:key=2x4x2', '1x512x512x64')": 1920,
+    "('k_tiles=2', '1x512x512x64@64x64')": 1920,
+    "('t1:c448_off', '1x512x512x448')": 2928,
+    "('k_tiles=14', '1x512x512x448@448x448')": 8784,
+    "('t1:c320_off', '1x512x512x320')": 9600,
+    "('k_tiles=10', '1x512x512x320@320x640')": 9600,
+    "('t2:key=10x10', '1x512x512x320')": 9600
+   }
+  },
+  "reblock_permute": {
+   "fwd": {
+    "served": 0,
+    "declined": 0
+   },
+   "back": {
+    "served": 17376,
+    "declined": 0
+   },
+   "gated": {
+    "served": 30912,
+    "declined": 0
+   }
+  },
+  "rfd3_bias": {
+   "fwd": {
+    "served": 0,
+    "declined": 0
+   }
+  },
+  "triatt_ln": {
+   "fwd": {
+    "served": 0,
+    "declined": 0
+   }
+  }
+ },
+ "trimul_routes": {
+  "gated-inproj-moved|defer": 1920,
+  "gated-move|defer": 15456
+ },
+ "bmm_res": [
+  0,
+  17376
+ ],
+ "trimul_gout": {
+  "stats": [
+   9600,
+   2928
+  ],
+  "rejects": {
+   "multi_chunk_channel_loop": 2928
+  }
+ },
+ "trimul_tail_sub": {
+  "GIN_MOVE_STATS": [
+   1920,
+   0
+  ],
+  "RES_STATS": [
+   0,
+   0
+  ],
+  "T1_STATS": [
+   0,
+   14448
+  ],
+  "T2_STATS": [
+   0,
+   9600
+  ],
+  "T2CM_STATS": [
+   0,
+   0
+  ],
+  "MASK_STATS": [
+   0
+  ]
+ },
+ "latches": {
+  "l1_out": {
+   "served": 3840,
+   "refused": 0,
+   "blocked": 0,
+   "declined": 26064,
+   "why": []
+  },
+  "transpose_l1": {
+   "served": 960,
+   "refused": 0,
+   "blocked": 0,
+   "declined": 0,
+   "why": []
+  },
+  "bmm_cfg": {
+   "served": 11568,
+   "refused": 0,
+   "blocked": 0,
+   "declined": 0,
+   "why": []
+  }
+ },
+ "thresholds": {
+  "_IS_SMALL_GRID": false,
+  "SEQ_LEN_MORE_CHUNKING": 1536,
+  "TRANSITION_BATCH_CHUNKING_THRESHOLD": 1024,
+  "TRANSITION_W_CHUNKING_THRESHOLD": 1024,
+  "TRIANGLE_ATT_CHUNK_SIZE_FAST": 1024,
+  "TRANSITION_W_CHUNK_SIZE": 1024,
+  "TRIANGLE_MULT_L1_MAX_SEQ_FAST": 640,
+  "TRIANGLE_MULT_L1_MAX_SEQ": 352,
+  "SMALL_GRID_SEQ_TILE": 0,
+  "SMALL_GRID_PAIR_TILE_AREA": 0,
+  "SDPA_CHUNK_MAX": 256,
+  "PAIRFORMER_PAD_MULTIPLE": 32,
+  "TRIANGLE_MULT_CHUNK_SIZE": 32
+ },
+ "fp32_softmax_stats": {
+  "calls": 0,
+  "blocked": 0,
+  "blocks": 0,
+  "fused": 0,
+  "unfused": 0,
+  "l1": 0,
+  "l1_blocks": 0,
+  "l1_refused": 0,
+  "l1_cores": 0,
+  "l1_free_retired": 0,
+  "l1_free_walked": 0,
+  "l1_padded_diverged": 0,
+  "dram_narrowed": 0
+ },
+ "addcmul_at_stats": [
+  0,
+  0
+ ],
+ "atom_l1_stats": [
+  0,
+  0
+ ],
+ "fp32_softmax_l1_row_caps": {},
+ "transpose_l1_refused_keys": []
+}

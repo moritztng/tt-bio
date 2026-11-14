@@ -27,6 +27,7 @@ HIDDEN = 128     # trimul latent width for ESMFold2 and Protenix-v2
 def grid(monkeypatch):
     monkeypatch.setattr(T, "COMPUTE_GRID_MAIN", GRID)
     monkeypatch.setattr(T, "_FAST_MODE", False)
+    monkeypatch.setattr(T, "_IS_SMALL_GRID", False)  # a Wormhole host sets it at device open
 
 
 def _budget() -> float:
@@ -87,7 +88,7 @@ def _pre_fix_width(seq_len: int, hidden: int) -> int:
 
 @pytest.mark.parametrize("grid", [(13, 10), (11, 10), (8, 8), (7, 7)])
 @pytest.mark.parametrize("fast", [False, True])
-def test_batch_one_is_a_no_op_on_every_grid(monkeypatch, grid, fast):
+def test_batch_one_is_a_no_op_on_every_grid(monkeypatch, grid, fast, clean_memos):
     """Single-sample folds must resolve to the EXACT width the pre-fix budget picked.
 
     Every model that passed before this fix folds its trunk at batch 1, so this is what makes
@@ -150,6 +151,7 @@ def test_clash_memo_keeps_the_minimum(grid, clean_memos):
 
 def test_memo_is_keyed_per_shape_and_grid(monkeypatch, clean_memos):
     """A clash on one grid or shape says nothing about another: no cross-talk."""
+    monkeypatch.setattr(T, "_IS_SMALL_GRID", False)
     monkeypatch.setattr(T, "COMPUTE_GRID_MAIN", (11, 10))
     T._record_trimul_clash(140, 256, 1, 256)
     assert T._trimul_chunk_size(140, 256, 1) == 128      # same key: clamped
@@ -164,3 +166,27 @@ def test_dram_shapes_force_the_dram_config(grid, clean_memos):
     assert T._triangle_mul_memory_config(140) is T.ttnn.L1_MEMORY_CONFIG
     T._TRIMUL_DRAM_SHAPES.add(140)
     assert T._triangle_mul_memory_config(140) is T.ttnn.DRAM_MEMORY_CONFIG
+
+
+@pytest.mark.parametrize("fast", [False, True])
+def test_wormhole_residency_threshold_holds_in_both_modes(monkeypatch, fast):
+    """On the small (Wormhole) grid the re-fit threshold decides residency in normal mode too; Blackhole keeps its own."""
+    monkeypatch.setattr(T, "_FAST_MODE", fast)
+    monkeypatch.setattr(T, "is_wormhole", lambda: True)
+    monkeypatch.setattr(T, "_IS_SMALL_GRID", True)
+    assert T._trimul_l1_max_seq() == T.SMALL_GRID_TRIMUL_L1_MAX_SEQ == 128
+    assert T._trimul_chunk_size(160, HIDDEN, 1) == T.TRIANGLE_MULT_CHUNK_SIZE
+    monkeypatch.setattr(T, "_IS_SMALL_GRID", False)
+    assert T._trimul_l1_max_seq() > 128
+
+
+@pytest.mark.parametrize("fast", [False, True])
+def test_small_blackhole_grid_keeps_the_derived_threshold(monkeypatch, fast):
+    """The Wormhole re-fit must not reach a small Blackhole grid: there it moves a T1 plan between L1 (declines) and
+    DRAM (serves), and the release gate's 8x8 fold stops matching the native one."""
+    monkeypatch.setattr(T, "_FAST_MODE", fast)
+    monkeypatch.setattr(T, "is_wormhole", lambda: False)
+    monkeypatch.setattr(T, "_IS_SMALL_GRID", False)
+    native = T._trimul_l1_max_seq()
+    monkeypatch.setattr(T, "_IS_SMALL_GRID", True)
+    assert T._trimul_l1_max_seq() == native > 128

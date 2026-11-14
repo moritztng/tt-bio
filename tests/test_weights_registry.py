@@ -129,7 +129,7 @@ def _stub_hub(monkeypatch, produce):
     monkeypatch.setattr(huggingface_hub, "hf_hub_download", fake)
 
 
-HUB = "hf://repo/w.ckpt"
+HUB = "hf://org/repo/w.ckpt"
 
 
 def test_corrupt_cached_file_is_refetched(tmp_path, monkeypatch):
@@ -139,6 +139,20 @@ def test_corrupt_cached_file_is_refetched(tmp_path, monkeypatch):
     out = weights.fetch_file((HUB,), dest)
     assert out == dest
     assert weights.artifact_intact(out) and out.stat().st_size != broken
+
+
+def test_a_stalled_hub_download_gives_up(tmp_path, monkeypatch):
+    """hf_xet ignores the hub's read timeout, so a CDN that sends nothing parked a fold for 30 min.
+    The byte watchdog bounds the hub source like every other transport."""
+    import threading
+    never = threading.Event()
+    _stub_hub(monkeypatch, lambda d, f: never.wait())
+    monkeypatch.setattr(weights, "NO_START_SECONDS", 1)
+    t0 = time.monotonic()
+    with pytest.raises(weights.DownloadFailed, match="nothing arrived in 1s"):
+        weights.fetch_file((HUB,), tmp_path / "w.ckpt", quiet=True)
+    assert time.monotonic() - t0 < 30 and not (tmp_path / "w.ckpt").exists()
+    never.set()
 
 
 def test_intact_cached_file_is_not_refetched(tmp_path, monkeypatch):

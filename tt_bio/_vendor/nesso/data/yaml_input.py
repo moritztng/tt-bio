@@ -111,6 +111,9 @@ def get_conformer(mol: Chem.Mol) -> Chem.Conformer:
     if mol.GetNumConformers() == 0:
         opts = AllChem.ETKDGv3()
         opts.clearConfs = False
+        # tt-bio: a fixed embedding seed. ETKDG's default (-1) draws a fresh one per call, so the same SMILES got a
+        # different conformer in every process and a seeded screen() was not repeatable.
+        opts.randomSeed = 0
         cid = AllChem.EmbedMolecule(mol, opts)
         if cid < 0:
             opts.useRandomCoords = True

@@ -37,9 +37,26 @@ from typing import Any
 LEASE_S = 120.0
 #: Renewals per lease: ten seconds between heartbeats at the default lease.
 HEARTBEAT_PER_LEASE = 12
+#: Workers a job is handed to before a lapsed lease fails it. A worker that stops
+#: heartbeating mid-job is usually a hang the input causes, and the next chip hangs the
+#: same way: JapanFold's 584-residue Boltz-2 folds took ~10 chips each to its 25 min cap
+#: on 10-19 before one was failed. Two leases still cover a single chip dying.
+MAX_LEASES = 2
 #: How recently an idle worker must have polled to be left a job it has the weights for. An
 #: idle worker polls every second, so five seconds is a live one that missed a poll or two.
 IDLE_WARM_S = 5.0
+
+
+def diffusion_precision(cfg: dict[str, Any]) -> str | None:
+    """The run's diffusion precision: the one asked for, else fp32 for a guided OpenDDE run,
+    else None (the model's default). Guidance re-docks the movable chains whenever x0 clashes,
+    and bf16's clashier x0 turned that into compressed chains about 9x as often as upstream
+    (docs/constraint-guidance.md), so guided runs stay fp32 in every mode."""
+    if cfg.get("diffusion_precision"):
+        return cfg["diffusion_precision"]
+    if cfg.get("use_tfg_guidance") and cfg.get("model") in ("opendde", "opendde-abag"):
+        return "fp32"
+    return None
 
 
 def run_config_hash(cfg: dict[str, Any]) -> str:
@@ -52,6 +69,10 @@ def run_config_hash(cfg: dict[str, Any]) -> str:
     same name."""
     keep = {k: cfg.get(k) for k in ("model", "conf_kwargs", "aff_kwargs", "fast", "method",
                                     "checkpoint")}
+    # Only when set, so every config that does not choose a diffusion precision keeps the hash
+    # it had before the option existed (a controller and its agents may run different versions).
+    if prec := diffusion_precision(cfg):
+        keep["diffusion_precision"] = prec
     return hashlib.sha256(json.dumps(keep, sort_keys=True, default=str).encode()).hexdigest()
 
 
@@ -85,7 +106,10 @@ _STAGE_MAP = {
 
 def _coarse_stage(event: dict[str, Any]) -> str | None:
     """The coarse phase an event implies, or None if it isn't a stage signal."""
-    if event.get("event") == "start":
+    # A model reload is announced as a bare "loading" event, before the job's
+    # "start". Read only as a stage word it set nothing, so a task waiting on a
+    # reload showed no phase and JapanFold's stall watchdog took it for wedged.
+    if event.get("event") in ("start", "loading"):
         return "prepare"
     s = str(event.get("stage") or "").lower()
     for key, phase in _STAGE_MAP.items():
@@ -97,9 +121,10 @@ def _coarse_stage(event: dict[str, Any]) -> str | None:
 class ControllerStore:
     """SQLite-backed controller state."""
 
-    def __init__(self, path: Path, lease_s: float = LEASE_S):
+    def __init__(self, path: Path, lease_s: float = LEASE_S, max_leases: int = MAX_LEASES):
         self.path = path
         self.lease_s = float(lease_s)
+        self.max_leases = int(max_leases)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._lock = threading.RLock()
         self._init_db()
@@ -132,6 +157,7 @@ class ControllerStore:
                     job_id TEXT NOT NULL,
                     name TEXT NOT NULL DEFAULT '',
                     input_b64 TEXT NOT NULL DEFAULT '',
+                    sidecar_b64 TEXT NOT NULL DEFAULT '',
                     status TEXT NOT NULL,
                     stage TEXT,
                     worker_id TEXT,
@@ -160,6 +186,14 @@ class ControllerStore:
                     event_json TEXT NOT NULL,
                     created_at REAL NOT NULL
                 );
+                -- A store lives as long as its agent and keeps every job and event, so each lookup
+                -- below scanned a table that grows all day. Every lease ran five such scans of jobs
+                -- under self._lock (50 ms at 2.7k jobs on a JapanFold agent after 18 h), 32 workers
+                -- polling saturated the lock, heartbeats and progress queued behind it, and served
+                -- OpenDDE folds slowed from 162 s to 218 s until the agent restarted.
+                CREATE INDEX IF NOT EXISTS jobs_worker_status ON jobs (worker_id, status);
+                CREATE INDEX IF NOT EXISTS jobs_status_lease ON jobs (status, lease_until);
+                CREATE INDEX IF NOT EXISTS events_run_seq ON events (run_id, seq);
                 """
             )
             # Migrate pre-existing tables that lack newer columns.
@@ -167,7 +201,8 @@ class ControllerStore:
                          "ALTER TABLE runs ADD COLUMN owner TEXT",
                          "ALTER TABLE runs ADD COLUMN model TEXT",
                          "ALTER TABLE workers ADD COLUMN model TEXT",
-                         "ALTER TABLE workers ADD COLUMN warm TEXT"):
+                         "ALTER TABLE workers ADD COLUMN warm TEXT",
+                         "ALTER TABLE jobs ADD COLUMN sidecar_b64 TEXT NOT NULL DEFAULT ''"):
                 try:
                     conn.execute(stmt)
                 except sqlite3.OperationalError:
@@ -179,6 +214,10 @@ class ControllerStore:
         jobs = payload["jobs"]
         config = payload["config"]
         with self._lock, self._connect() as conn:
+            # A run created again under its id (JapanFold's retry of a job on the same host) starts
+            # over: the earlier attempt's job rows and events would otherwise answer for it.
+            conn.execute("DELETE FROM jobs WHERE run_id = ?", (run_id,))
+            conn.execute("DELETE FROM events WHERE run_id = ?", (run_id,))
             conn.execute(
                 """
                 INSERT OR REPLACE INTO runs
@@ -202,14 +241,15 @@ class ControllerStore:
                 conn.execute(
                     """
                     INSERT OR IGNORE INTO jobs
-                        (run_id, job_id, name, input_b64, status, updated_at)
-                    VALUES (?, ?, ?, ?, 'pending', ?)
+                        (run_id, job_id, name, input_b64, sidecar_b64, status, updated_at)
+                    VALUES (?, ?, ?, ?, ?, 'pending', ?)
                     """,
                     (
                         run_id,
                         job["id"],
                         job.get("name", ""),
                         job.get("input_b64", ""),
+                        job.get("sidecar_b64", ""),
                         now,
                     ),
                 )
@@ -239,6 +279,7 @@ class ControllerStore:
             self._upsert_worker(conn, worker, now)
             conn.execute("UPDATE jobs SET lease_until=0 WHERE worker_id=? AND status='running'",
                          (worker_id,))
+            self._fail_spent_leases(conn, now)
             # Work-conserving max-min fair share across users (owners). Devices in
             # use right now, per owner:
             load: dict[str, int] = {}
@@ -253,7 +294,7 @@ class ControllerStore:
             # expired), oldest first.
             rows = conn.execute(
                 """
-                SELECT j.run_id, j.job_id, j.name, j.input_b64, j.updated_at, r.owner, r.model, r.config_json
+                SELECT j.run_id, j.job_id, j.name, j.input_b64, j.sidecar_b64, j.updated_at, r.owner, r.model, r.config_json
                 FROM jobs j
                 JOIN runs r ON r.run_id = j.run_id
                 WHERE r.status = 'running'
@@ -290,12 +331,19 @@ class ControllerStore:
             # users get a fair share, and each device tends to stay on one model
             # (reloading only when its model has no waiting work). A device idles
             # while a job waits only for the second an idle warm one takes to poll.
+            # (4) Within one submission, the largest input first. A run's jobs share one
+            # updated_at, so job_id (the file name) used to decide, and the biggest protein of a
+            # batch could start last and run alone while every other chip idled: 32 proteins of
+            # 98-585 aa on 8 cards ended on the 585-aa fold. Longest-first is the classic bound
+            # for that tail. The input's size stands in for its cost (residues dominate a
+            # YAML/FASTA); a retried job's newer updated_at still puts it behind.
             def rank(row):
-                return (load.get(row["owner"], 0), cold(row), row["updated_at"], row["job_id"])
+                return (load.get(row["owner"], 0), cold(row), row["updated_at"],
+                        -len(row["input_b64"]), row["job_id"])
             chosen = min(rows, key=rank)
             run_id = chosen["run_id"]
             config_json = chosen["config_json"]
-            picked = [row for row in rows if row["run_id"] == run_id][:batch_size]
+            picked = sorted((row for row in rows if row["run_id"] == run_id), key=rank)[:batch_size]
             jobs = []
             for row in picked:
                 conn.execute(
@@ -310,6 +358,7 @@ class ControllerStore:
                     "id": row["job_id"],
                     "name": row["name"],
                     "input_b64": row["input_b64"],
+                    **({"sidecar_b64": row["sidecar_b64"]} if row["sidecar_b64"] else {}),
                 })
             return {"run_id": run_id, "config": json.loads(config_json), "jobs": jobs,
                     "lease_s": self.lease_s}
@@ -436,25 +485,46 @@ class ControllerStore:
             event = payload.get("event")
             if event:
                 self.add_event(conn, run_id, worker_id, event)
-            pending = conn.execute(
-                "SELECT COUNT(*) AS n FROM jobs WHERE run_id=? AND status IN ('pending', 'running')",
-                (run_id,),
-            ).fetchone()["n"]
-            if pending == 0:
-                failed = conn.execute(
-                    "SELECT COUNT(*) AS n FROM jobs WHERE run_id=? AND status != 'ok'",
-                    (run_id,),
-                ).fetchone()["n"]
-                run_status = "failed" if failed else "ok"
-                # Only conclude a run that's still running — never overwrite a
-                # 'canceled' status set by cancel_run with a late job completion.
-                changed = conn.execute(
-                    "UPDATE runs SET status=?, updated_at=? WHERE run_id=? AND status='running'",
-                    (run_status, now, run_id),
-                ).rowcount
-                if changed:
-                    self.add_event(conn, run_id, None, {"event": "run_done", "status": run_status, "failed": failed})
+            self._finish_run(conn, run_id, now)
         return {"ok": True}
+
+    def _fail_spent_leases(self, conn: sqlite3.Connection, now: float) -> None:
+        """Fail each job whose lease lapsed on its last allowed worker, instead of handing
+        a hang to one chip after another (``MAX_LEASES``)."""
+        for row in conn.execute(
+            "SELECT run_id, job_id FROM jobs WHERE status='running' AND lease_until < ? AND attempts >= ?",
+            (now, self.max_leases),
+        ).fetchall():
+            error = (f"no result after {self.max_leases} workers: each stopped heartbeating "
+                     f"(hung or died) while running this input")
+            conn.execute(
+                "UPDATE jobs SET status='failed', result_json=?, error=?, lease_until=NULL, updated_at=? "
+                "WHERE run_id=? AND job_id=?",
+                (json.dumps({"id": row["job_id"], "status": "failed", "error": error}), error, now,
+                 row["run_id"], row["job_id"]),
+            )
+            self._finish_run(conn, row["run_id"], now)
+
+    def _finish_run(self, conn: sqlite3.Connection, run_id: str, now: float) -> None:
+        pending = conn.execute(
+            "SELECT COUNT(*) AS n FROM jobs WHERE run_id=? AND status IN ('pending', 'running')",
+            (run_id,),
+        ).fetchone()["n"]
+        if pending:
+            return
+        failed = conn.execute(
+            "SELECT COUNT(*) AS n FROM jobs WHERE run_id=? AND status != 'ok'",
+            (run_id,),
+        ).fetchone()["n"]
+        run_status = "failed" if failed else "ok"
+        # Only conclude a run that's still running — never overwrite a
+        # 'canceled' status set by cancel_run with a late job completion.
+        changed = conn.execute(
+            "UPDATE runs SET status=?, updated_at=? WHERE run_id=? AND status='running'",
+            (run_status, now, run_id),
+        ).rowcount
+        if changed:
+            self.add_event(conn, run_id, None, {"event": "run_done", "status": run_status, "failed": failed})
 
     def results(self, run_id: str) -> list[dict[str, Any]]:
         with self._connect() as conn:
@@ -567,8 +637,8 @@ class ControllerStore:
 class ControllerServer:
     """The HTTP face of :class:`ControllerStore`, on loopback only."""
 
-    def __init__(self, port: int, db_path: Path, lease_s: float = LEASE_S):
-        self.store = ControllerStore(db_path, lease_s)
+    def __init__(self, port: int, db_path: Path, lease_s: float = LEASE_S, max_leases: int = MAX_LEASES):
+        self.store = ControllerStore(db_path, lease_s, max_leases)
         store = self.store
 
         class Handler(BaseHTTPRequestHandler):
@@ -796,14 +866,21 @@ def job_payloads(jobs: list[Any]) -> list[dict[str, str]]:
 
     Each entry is ``{"id": <stem>, "name": <filename>, "input_b64": <base64>}``
     so a worker can run the job without sharing a filesystem with the controller.
+    An input staged from upstream Protenix / Mol-1 JSON also carries its sidecar
+    (``sidecar_b64``): its MSAs live there, and a worker without it searches instead.
     """
+    from tt_bio.protenix_json import sidecar_path
+
     payloads: list[dict[str, str]] = []
     for job in jobs:
         path = Path(job.path)
+        side = sidecar_path(path)
         payloads.append({
             "id": job.id,
             "name": path.name,
             "input_b64": base64.b64encode(path.read_bytes()).decode("ascii"),
+            **({"sidecar_b64": base64.b64encode(side.read_bytes()).decode("ascii")}
+               if side is not None and side.exists() else {}),
         })
     return payloads
 

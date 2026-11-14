@@ -57,7 +57,10 @@ def test_cleanup_drops_the_driver_fds():
     """The mechanism, read straight off /proc: no fd on the card survives cleanup()."""
     from tt_bio import tenstorrent as tt
 
-    assert _driver_fds() == [], f"a card was already open before this test: {_driver_fds()}"
+    # An earlier test may have left tt-bio's shared device open, which is how the suite reuses
+    # one open card. Close that first; whatever is still open is a card cleanup() cannot reach.
+    tt.cleanup()
+    assert _driver_fds() == [], f"a card cleanup() cannot close was open before this test: {_driver_fds()}"
     tt.get_device()
     assert _driver_fds(), "get_device() opened no fd on a card, so this proves nothing"
     tt.cleanup()

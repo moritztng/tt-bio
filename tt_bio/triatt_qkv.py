@@ -109,7 +109,7 @@ def qkv_heads(x, w, ckc, n_heads, head_dim, dtype, mm_config):
         dev, ttnn.DRAM_MEMORY_CONFIG) for _ in range(3)]
     G.generic_minimal_matmul(
         dev, x, w, outs, (blk, tuple(COMPUTE_GRID_MAIN)), G.ckc_args(ckc),
-        {"HEAD_MAJOR_MT": pad[-2] // TILE}, KERNEL_DIR)
+        {"HEAD_MAJOR_MT": pad[-2] // TILE}, KERNEL_DIR, guard="tri")
     STATS[0] += 1
     return tuple(outs)
 
@@ -231,7 +231,7 @@ def gate_proj(x, w_g, w_o, ckc, n_heads, head_dim, dtype, mm_config):
         dev, ttnn.DRAM_MEMORY_CONFIG)
     G.generic_minimal_matmul(
         dev, x, w_g, out, (_mm_block_for(w_g), tuple(COMPUTE_GRID_MAIN)),
-        G.ckc_args(ckc), {"HEAD_MAJOR_OUT_MT": pad[-2] // TILE}, KERNEL_DIR)
+        G.ckc_args(ckc), {"HEAD_MAJOR_OUT_MT": pad[-2] // TILE}, KERNEL_DIR, guard="tri")
     TAIL_STATS[0] += 1
     return out
 
@@ -318,7 +318,7 @@ def qkvg_heads(x, w, w_o, ckc, n_heads, head_dim, dtype, mm_config):
         dev, ttnn.DRAM_MEMORY_CONFIG) for _ in range(4)]
     G.generic_minimal_matmul(
         dev, x, w, outs, (blk, tuple(COMPUTE_GRID_MAIN)), G.ckc_args(ckc),
-        {"HEAD_MAJOR_MT": pad[-2] // TILE}, KERNEL_DIR)
+        {"HEAD_MAJOR_MT": pad[-2] // TILE}, KERNEL_DIR, guard="tri")
     QKVG_STATS[0] += 1
     STATS[0] += 1
     TAIL_STATS[0] += 1
@@ -344,8 +344,294 @@ def out_proj(gated, w, ckc, dtype, memory_config=None):
     G.generic_minimal_matmul(
         dev, gated, w, out, (_mm_block_for(w), tuple(COMPUTE_GRID_MAIN)),
         G.ckc_args(ckc), {"HEAD_MAJOR_IN0_MT": pad[-2] // TILE}, KERNEL_DIR,
-        m_k=(pad[0] * pad[-2], H * D))
+        m_k=(pad[0] * pad[-2], H * D), guard="tri")
     return out
+
+
+# --- the whole tail in one program: gate, `out` projection and residual -----------------------------
+#
+# Production runs the tail as three DRAM round trips: multiply_(o, g, SIGMOID on b) reads 2P and writes
+# P, `out_proj` above reads P and writes P, and the layer's add_ reads 2P and writes P (P = one bf16
+# pair tensor, 277 MB at 736 tokens). Measured on WH at 736: 4.99 + 3.38 + 3.40 = 11.77 ms per call.
+# `gated_out_proj` reads o, g and z once and writes z once (4P), with Wo resident in L1: one output row
+# tile per unit, the gate applied in DST, the whole K in one block, the residual added on the FPU.
+# Numerics move at the bf16-ULP level: sigmoid(g) is never rounded to bf16 before the multiply.
+#
+# Variants at 736, WH 1000 MHz, z += tail with the residual, rel. RMS vs float64 (perf/spd_pair/ops.py, op3):
+#   three ops today            11.95 ms   0.001723
+#   fused, sigmoid_bf16, RNE    6.24 ms   0.001719
+#   fused, poly, RNE            5.22 ms   0.001727
+#   fused, sigmoid_bf16, no RNE 5.64 ms   0.001719  (output identical to RNE: the packer already rounds)
+#   fused, HiFi4 no f32 (fast)  6.49 ms   0.001974
+# So: poly sigmoid, no explicit RNE, and HiFi3 with fp32 DST in both modes (faster AND closer than fast's
+# config, as for the pair layer norms).
+TAIL_SIGPOLY = int(os.environ.get("TT_BIO_TRIATT_TAIL_SIGPOLY", "1"))
+TAIL_RNE = int(os.environ.get("TT_BIO_TRIATT_TAIL_RNE", "0"))
+# K one tile per DST pass, summed by the packer in fp32 (compute.cpp KB1): the Wormhole fp32-DST erratum
+# lives in accumulation across a multi-tile K block (BOARD 2026-10-09 12:08Z, spd-swiglu). Counted vs
+# float64 on WH, S 384/512/736 x 4 seeds, 974 M elements per arm (perf/spd_pair/tail_outliers.py): the
+# whole-K block had 1 element off by 2.0 (S 736, seed 2), KB1 none (max 0.020), and KB1 is faster at
+# 512 and 736 (2.85 vs 3.74 ms, 5.61 vs 6.45 ms).
+TAIL_KB1 = int(os.environ.get("TT_BIO_TRIATT_TAIL_KB1", "1"))
+# The ending block's update comes out transposed and went back as two programs: this tail wrote u (P)
+# and pair_transpose_add read u and z and wrote z (3P). `resid_t` writes it straight into z^T: a unit
+# is a 32 x 32 block whose 32 row tiles stay in L1 (32*Nt tiles) until the writer shuffles them into z's
+# orientation and compute adds z, pair_transpose_add's arithmetic, so the bytes are the same (2P less).
+# Per call at 512 / 736 (perf/spd_m_protenix/tail_t.py, torch.equal): Blackhole -0.10 / -0.9..-1.5 ms;
+# Wormhole +0.31 ms with a bfp8 gate at 512 (the unit's shuffle does not overlap its matmul), so Blackhole only.
+TAIL_T = os.environ.get("TT_BIO_TRIATT_TAIL_T")   # "1" / "0" overrides the per-arch default
+TAIL_T_GRAN = 4   # sums per DEST batch, as pair_transpose_add
+TAIL_FORCE = os.environ.get("TT_BIO_TRIATT_TAIL")   # "1" / "0" overrides the `triatt_tail` lever
+GOP_STATS = [0, 0]   # gated_out_proj served, declined (TAIL_STATS above is the head-major tail's)
+_TAIL_DIR = Path(__file__).resolve().parent / "kernels" / "triatt_tail"
+_TAIL_CACHE: dict = {}
+
+
+def tail_on(biased: bool = False) -> bool:
+    """The `triatt_tail` lever, or `triatt_tail_bias` for a block with biases (graded apart)."""
+    if TAIL_FORCE is not None:
+        return TAIL_FORCE == "1"
+    from .tenstorrent import is_wormhole, lever
+    if biased:   # graded on Wormhole only (AF2-IG); Blackhole keeps today's fold until its own grade
+        return lever("triatt_tail_bias") and is_wormhole()
+    return lever("triatt_tail")
+
+
+def set_tail(v):
+    """A/B switch for the harness: "1", "0" or None (follow the lever). Returns the previous value."""
+    global TAIL_FORCE
+    prev, TAIL_FORCE = TAIL_FORCE, v
+    return prev
+
+
+def _dram_tile_bf16(t, b8=False):
+    return (t.dtype in ((ttnn.bfloat16, ttnn.bfloat8_b) if b8 else (ttnn.bfloat16,))
+            and t.layout == ttnn.TILE_LAYOUT and t.memory_config() == ttnn.DRAM_MEMORY_CONFIG)
+
+
+def _g3d(o, g):
+    """True when g is the projection's own `[.., B, S, Kt*32]` rather than head-major like o."""
+    po, pg = [int(d) for d in o.padded_shape], [int(d) for d in g.padded_shape]
+    return (len(po) == 4 and po != pg and len(pg) >= 3 and all(d == 1 for d in pg[:-3])
+            and pg[-3:] == [po[0], po[2], po[1] * TILE])
+
+
+def _gp(o, g):
+    """Extra row tiles in g's head pitch: 1 when g is triatt_ln's pitched head-major `[B, H, S + 32, 32]`
+    (`triatt_ln.head_pitch`) against o's `[B, H, S, 32]`, else 0."""
+    po, pg = [int(d) for d in o.padded_shape], [int(d) for d in g.padded_shape]
+    return int(len(po) == 4 and len(pg) == 4 and pg[:2] == po[:2] and pg[3] == po[3] and pg[2] == po[2] + TILE)
+
+
+def _tail_ok(o, g, w, resid, bias=None):
+    from .tenstorrent import lever
+    po, pg = [int(d) for d in o.padded_shape], [int(d) for d in g.padded_shape]
+    if not (len(po) == 4 and (po == pg or _g3d(o, g) or _gp(o, g)) and po[-1] == TILE and _dram_tile_bf16(o)
+            and _dram_tile_bf16(g, b8=lever("triatt_ln_b8g")) and _dram_tile_bf16(w) and len(w.shape) == 2
+            and int(w.shape[-2]) == po[1] * TILE and int(w.shape[-1]) % TILE == 0):
+        return False
+    if bias is not None and not (TAIL_KB1 and bias.dtype == ttnn.bfloat16
+                                 and int(bias.shape[-1]) == int(w.shape[-1])):
+        return False
+    if resid is not None:
+        pz = [int(d) for d in resid.padded_shape]
+        if not (_dram_tile_bf16(resid) and pz[-3:] == [po[0], po[2], int(w.shape[-1])]
+                and all(d == 1 for d in pz[:-3])):
+            return False
+    from .tenstorrent import _l1_bank_bytes
+    kt, nt = po[1], int(w.shape[-1]) // TILE
+    tiles = kt * nt + 5 * kt + (8 if TAIL_KB1 else 7) * nt + (nt if bias is not None else 0)
+    return tiles * G.tile_bytes(ttnn.bfloat16) <= 0.6 * _l1_bank_bytes()
+
+
+#: id(bias) -> (bias, its [32, N] tile tensor with every row the bias). Holds the bias so a recycled
+#: id cannot hand a new tensor a stale row tile.
+_BIAS_ROWS: dict = {}
+
+
+def _bias_rows(bias):
+    hit = _BIAS_ROWS.get(id(bias))
+    if hit is None or hit[0] is not bias:
+        import torch
+        b = ttnn.to_torch(bias).reshape(-1)[: int(bias.shape[-1])].to(torch.bfloat16)
+        hit = _BIAS_ROWS[id(bias)] = (bias, ttnn.from_torch(
+            b.expand(TILE, -1).contiguous(), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT,
+            device=bias.device(), memory_config=ttnn.DRAM_MEMORY_CONFIG))
+    return hit[1]
+
+
+def _tail_cb(idx, core_grid, tiles, dt=ttnn.bfloat16):
+    fmt = ttnn.CBFormatDescriptor(buffer_index=idx, data_format=dt, page_size=G.tile_bytes(dt))
+    return ttnn.CBDescriptor(total_size=tiles * G.tile_bytes(dt), core_ranges=core_grid,
+                             format_descriptors=[fmt])
+
+
+def _tail_dw(kt, nt):
+    """Tiles per DST batch: four fit a 32-bit DST, and the batch must divide both K and N. A width that
+    does not (the template stack's 64-channel pair has Kt = Nt = 2) packs past the end of the circular
+    buffers and overwrites the residual's tiles."""
+    return next(d for d in (4, 2, 1) if kt % d == 0 and nt % d == 0)
+
+
+def _build_tail(o, g, w, out, ckc, grid, resid, brows=None, trans=0):
+    B, kt, St = int(o.padded_shape[0]), int(o.padded_shape[1]), int(o.padded_shape[2]) // TILE
+    nt = int(w.shape[-1]) // TILE
+    nu = B * St // trans if trans else B * St   # trans = R: a unit is an R x 32 block, R row tiles
+    sub = trans or 1
+    gx, gy = grid
+    ncores = gx * gy
+    core_grid = ttnn.CoreRangeSet([ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(gx - 1, gy - 1))])
+    rd, wr, cp = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
+    u0 = 0
+    for c in range(ncores):
+        n = nu // ncores + (c < nu % ncores)
+        x_, y_ = c % gx, c // gx
+        rd[x_][y_] = [u0 * sub, n * sub]
+        wr[x_][y_] = [u0 * sub, n * sub]
+        cp[x_][y_] = [n * sub]
+        u0 += n
+    acc = lambda t: list(ttnn.TensorAccessorArgs(t).get_compile_time_args())
+    src = ttnn.KernelDescriptor.SourceType.FILE_PATH
+    reader = ttnn.KernelDescriptor(
+        kernel_source=str(_TAIL_DIR / "reader.cpp"), source_type=src, core_ranges=core_grid,
+        compile_time_args=[kt, nt, St, int(_g3d(o, g)), int(brows is not None), int(trans)]
+        + acc(o) + acc(g) + acc(w) + acc(brows if brows is not None else w),
+        defines=[("GP", "1")] * _gp(o, g),
+        runtime_args=rd, common_runtime_args=[0] * 4, config=ttnn.ReaderConfigDescriptor())
+    writer = ttnn.KernelDescriptor(
+        kernel_source=str(_TAIL_DIR / ("writer_t.cpp" if trans else "writer.cpp")), source_type=src,
+        core_ranges=core_grid,
+        compile_time_args=([nt, St, B // TILE, TAIL_T_GRAN, trans] if trans else [nt, int(resid)]) + acc(out),
+        runtime_args=wr, common_runtime_args=[0], config=ttnn.WriterConfigDescriptor())
+    fid, approx, fp32, full = G.ckc_args(ckc)
+    fid, fp32 = ttnn.MathFidelity.HiFi3, True
+    compute = ttnn.KernelDescriptor(
+        kernel_source=str(_TAIL_DIR / "compute.cpp"), source_type=src, core_ranges=core_grid,
+        compile_time_args=[kt, nt, int(resid), TAIL_SIGPOLY, TAIL_RNE, _tail_dw(kt, nt), TAIL_KB1,
+                           int(brows is not None), int(g.dtype == ttnn.bfloat8_b), trans, TAIL_T_GRAN],
+        runtime_args=cp,
+        config=ttnn.ComputeConfigDescriptor(math_fidelity=fid, math_approx_mode=approx,
+                                            fp32_dest_acc_en=fp32, dst_full_sync_en=full))
+    cbs = [_tail_cb(0, core_grid, kt * nt), _tail_cb(1, core_grid, 2 * kt), _tail_cb(2, core_grid, 2 * kt, g.dtype),
+           _tail_cb(4, core_grid, kt), _tail_cb(16, core_grid, (trans or 2) * nt)]
+    if trans:
+        cbs += [_tail_cb(3, core_grid, TILE), _tail_cb(18, core_grid, TILE), _tail_cb(17, core_grid, TAIL_T_GRAN)]
+    if resid:
+        cbs.append(_tail_cb(3, core_grid, 2 * nt))
+    if TAIL_KB1:
+        cbs.append(_tail_cb(6, core_grid, nt, ttnn.float32))
+    if brows is not None:
+        cbs.append(_tail_cb(7, core_grid, nt))
+    elif resid:
+        cbs.append(_tail_cb(5, core_grid, nt))
+    return {"kernels": [reader, writer, compute], "cbs": cbs}
+
+
+def _tail_t_rows(o, w, z, bias) -> int:
+    """b rows per unit (32, 16 or 8) when `z` is the transposed pair `[1?, S, B, N]` of o's `[B, H, S, 32]`,
+    the widest block that fits in L1; 0 when none does. The stage is R row tiles of Nt, so a wide pair
+    takes a narrower block: at 320 channels the 32-row block is 558 tiles (1.14 MB, over a Blackhole bank's
+    budget), 16 rows 398. Every R computes the same sums: R moves only which rows a unit owns."""
+    from .tenstorrent import _l1_bank_bytes, arch_name
+    if not ((int(TAIL_T) if TAIL_T is not None else arch_name() == "blackhole") and TAIL_KB1 and _dram_tile_bf16(z)):
+        return 0
+    po, pz = [int(d) for d in o.padded_shape], [int(d) for d in z.padded_shape]
+    nt, kt = int(w.shape[-1]) // TILE, po[1]
+    if not (pz[-3:] == [po[2], po[0], nt * TILE] and all(d == 1 for d in pz[:-3]) and po[0] % TILE == 0):
+        return 0
+    for r in (TILE, 16, 8):
+        tiles = kt * nt + 5 * kt + (r + 2) * nt + 2 * TILE + TAIL_T_GRAN + (nt if bias is not None else 0)
+        if tiles * G.tile_bytes(ttnn.bfloat16) <= 0.75 * _l1_bank_bytes():
+            return r
+    return 0
+
+
+def gated_out_proj(o, g, w, ckc, resid=None, bias=None, resid_t=None):
+    """`(o * sigmoid(g)) @ w [+ bias]` from head-major o `[B, H, S, 32]` and g either head-major
+    too or as its projection wrote it (`[.., B, S, H*32]`, a biased block's gate), as `[B, S, N]`;
+    with `resid` (the pair `[1?, B, S, N]` the update belongs to) the sum is written into `resid`
+    in place and `resid` is returned. With `resid_t` instead (the pair `[1?, S, B, N]` the transposed
+    update belongs to) the update goes into `resid_t` transposed. None where it declines; the caller
+    then runs the three ops."""
+    if (_taping() or not tail_on(bias is not None or _g3d(o, g)) or not _tail_ok(o, g, w, resid, bias)
+            or (resid_t is not None and (resid is not None or not _tail_t_rows(o, w, resid_t, bias)))):
+        GOP_STATS[1] += 1
+        return None
+    from .tenstorrent import COMPUTE_GRID_MAIN
+    B, S = int(o.shape[0]), int(o.shape[2])
+    trans = _tail_t_rows(o, w, resid_t, bias) if resid_t is not None else 0
+    if resid_t is not None:
+        out = resid_t
+    elif resid is None:
+        out = ttnn.allocate_tensor_on_device(ttnn.Shape([B, S, int(w.shape[-1])]), ttnn.bfloat16,
+                                             ttnn.TILE_LAYOUT, o.device(), ttnn.DRAM_MEMORY_CONFIG)
+    else:
+        out = resid
+    grid = tuple(COMPUTE_GRID_MAIN)
+    brows = _bias_rows(bias) if bias is not None else None
+    key = (str(o.padded_shape), str(g.padded_shape), str(g.dtype), str(w.padded_shape), str(out.padded_shape), grid,
+           G.ckc_args(ckc), resid is not None, bias is not None, TAIL_SIGPOLY, TAIL_RNE, TAIL_KB1,
+           trans)
+    entry = _TAIL_CACHE.get(key)
+    if entry is None:
+        entry = _TAIL_CACHE[key] = _build_tail(o, g, w, out, ckc, grid, resid is not None, brows,
+                                               trans=trans)
+    reader, writer, _ = entry["kernels"]
+    reader.common_runtime_args = [o.buffer_address(), g.buffer_address(), w.buffer_address(),
+                                  brows.buffer_address() if brows is not None else 0]
+    writer.common_runtime_args = [out.buffer_address()]
+    pd = ttnn.ProgramDescriptor(kernels=entry["kernels"], semaphores=[], cbs=entry["cbs"])
+    ref = None if resid_t is not None else _tail_check_ref(o, g, w, resid, bias)
+    ttnn.generic_op([o, g, w, out], pd)
+    if ref is not None:
+        _tail_check_log(ref, out, o, g)
+    GOP_STATS[0] += 1
+    return out
+
+
+# Diagnostic: TT_BIO_TRIATT_TAIL_CHECK=N compares the first N calls against float64 on the host and
+# appends one JSON line per call to TT_BIO_TRIATT_TAIL_CHECK_LOG.
+_CHECK_N = int(os.environ.get("TT_BIO_TRIATT_TAIL_CHECK", "0"))
+_CHECK = [0]
+
+
+def _tail_check_ref(o, g, w, resid, bias=None):
+    if _CHECK[0] >= _CHECK_N:
+        return None
+    _CHECK[0] += 1
+    import torch
+    O, Gt, W = (ttnn.to_torch(t).double() for t in (o, g, w))
+    B, H, S, D = O.shape
+    if Gt.shape[:2] == O.shape[:2] and Gt.shape[2] == S + 32:
+        Gt = Gt[:, :, :S]   # pitched (`_gp`)
+    if Gt.shape != O.shape:
+        Gt = Gt.reshape(B, S, H, D).permute(0, 2, 1, 3)
+    x = (O * torch.sigmoid(Gt)).permute(0, 2, 1, 3).reshape(B, S, H * D)
+    u = x @ W
+    if bias is not None:
+        u = u + ttnn.to_torch(bias).double().reshape(-1)[: u.shape[-1]]
+    if resid is not None:
+        u = ttnn.to_torch(resid).double().reshape(u.shape) + u
+    return u
+
+
+def _tail_check_log(ref, out, o, g):
+    import json, torch
+    got = ttnn.to_torch(out).double().reshape(ref.shape)
+    err = got - ref
+    bad = int((~torch.isfinite(got)).sum())
+    err = torch.nan_to_num(err)
+    rel = float(err.norm() / ref.norm().clamp_min(1e-30))
+    i = int(err.abs().argmax())
+    G_ = ttnn.to_torch(g).float()
+    O_ = ttnn.to_torch(o).float()
+    rec = dict(call=_CHECK[0], shape=list(ref.shape), rel=rel, max_abs=float(err.abs().max()),
+               at=list(map(int, torch.unravel_index(torch.tensor(i), ref.shape))),
+               ref_at=float(ref.flatten()[i]), got_at=float(got.flatten()[i]), nonfinite=bad,
+               g_min=float(G_.min()), g_max=float(G_.max()), o_absmax=float(O_.abs().max()),
+               ref_absmax=float(ref.abs().max()))
+    with open(os.environ.get("TT_BIO_TRIATT_TAIL_CHECK_LOG", "/tmp/triatt_tail_check.jsonl"), "a") as f:
+        f.write(json.dumps(rec) + "\n")
 
 
 # --- R1b: the pair-bias projection rides the qkv+gate pass, so `x_norm` is read ONCE -------------
@@ -377,6 +663,13 @@ _QKVGB_ENABLED = os.environ.get(
 # (fused calls served, calls that left the bias projection where it was)
 QKVGB_STATS = [0, 0]
 QKVGB_REJECTS: dict = {}
+
+# The fused projection's block on Wormhole. The derived entries were swept on Blackhole and run M_block 4
+# on Wormhole's 8x9 grid. M_block 16, N_block 1, subblock 4x1 with K_block kept at the whole contraction
+# is the fastest torch.equal arm at every width the three head_dim-32 models use (perf/spd_m_opendde/
+# qkvgb_sweep.py, .108 chip 12, 2026-10-17; every arm that ran was torch.equal on all five outputs):
+#   OpenDDE (12, 49) 10.911 -> 8.555 ms, Protenix-v2 (8, 33) 6.125 -> 4.789, Boltz-2/OpenFold3 (4, 17) 2.574 -> 2.231.
+QKVGB_WH_BLOCK = True
 
 
 def _qkvgb_reject(reason, shape):
@@ -413,6 +706,10 @@ def qkvgb_heads(x, w, w_o, ckc, n_heads, head_dim, dtype, mm_config, bias_channe
     blk = _mm_block_for(w)
     if blk is None or blk is _MM_DEFAULT:
         return _qkvgb_reject("no_block_entry", shape)
+    if QKVGB_WH_BLOCK:
+        from .tenstorrent import is_wormhole
+        if is_wormhole():
+            blk = (16, blk[1], 1, 4, 1)
     # `gate_proj`'s guard set, because a fused call that served where the gate refused would move
     # the tail off `out_proj` and change what the block computes.
     if not _PAIR_PROJ_MM:
@@ -447,7 +744,7 @@ def qkvgb_heads(x, w, w_o, ckc, n_heads, head_dim, dtype, mm_config, bias_channe
         dev, ttnn.DRAM_MEMORY_CONFIG))
     G.generic_minimal_matmul(
         dev, x, w, outs, (blk, tuple(COMPUTE_GRID_MAIN)), G.ckc_args(ckc),
-        {"HEAD_MAJOR_MT": pad[-2] // TILE}, KERNEL_DIR, n_widths=[c // TILE] * 4 + [1])
+        {"HEAD_MAJOR_MT": pad[-2] // TILE}, KERNEL_DIR, n_widths=[c // TILE] * 4 + [1], guard="tri")
     QKVGB_STATS[0] += 1
     QKVG_STATS[0] += 1
     STATS[0] += 1

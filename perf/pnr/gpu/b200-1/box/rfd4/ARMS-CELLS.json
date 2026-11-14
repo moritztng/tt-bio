@@ -1,0 +1,187 @@
+{
+  "224": {
+    "arms": {
+      "native-compile": {
+        "sweep": {
+          "32": {
+            "status": "ok",
+            "n": 1,
+            "designs_s": 0.8256786046031582,
+            "spread": [
+              0.8256786046031582,
+              0.8256786046031582
+            ],
+            "batch": 32,
+            "sm_mhz_median": 1965
+          },
+          "64": {
+            "status": "ok",
+            "n": 1,
+            "designs_s": 0.8610946665949089,
+            "spread": [
+              0.8610946665949089,
+              0.8610946665949089
+            ],
+            "batch": 64,
+            "sm_mhz_median": 1965
+          },
+          "128": {
+            "status": "ok",
+            "n": 1,
+            "designs_s": 0.880869307898232,
+            "spread": [
+              0.880869307898232,
+              0.880869307898232
+            ],
+            "batch": 128,
+            "sm_mhz_median": 1965
+          },
+          "256": {
+            "status": "ok",
+            "n": 1,
+            "designs_s": 0.879646492066001,
+            "spread": [
+              0.879646492066001,
+              0.879646492066001
+            ],
+            "batch": 256,
+            "sm_mhz_median": 1965
+          },
+          "512": {
+            "status": "FAILED",
+            "error": "OutOfMemoryError: CUDA out of memory. Tried to allocate 18.38 GiB. GPU 0 has a total capacity of 178.35 GiB of which 8.32 GiB is free. Including non-PyTorch memory, this process has 170.02 GiB memory in use. Of the allocated memory 125.81 GiB is allocated by PyTorch, and 43.45 GiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)",
+            "n": 0
+          }
+        },
+        "start": 32,
+        "batch": 128,
+        "designs_s": 0.880869307898232
+      },
+      "compile-cueq": {
+        "sweep": {
+          "32": {
+            "status": "ok",
+            "n": 1,
+            "designs_s": 0.8311904205304034,
+            "spread": [
+              0.8311904205304034,
+              0.8311904205304034
+            ],
+            "batch": 32,
+            "sm_mhz_median": 1965
+          },
+          "64": {
+            "status": "ok",
+            "n": 1,
+            "designs_s": 0.869151897874652,
+            "spread": [
+              0.869151897874652,
+              0.869151897874652
+            ],
+            "batch": 64,
+            "sm_mhz_median": 1965
+          },
+          "128": {
+            "status": "ok",
+            "n": 1,
+            "designs_s": 0.889661164205039,
+            "spread": [
+              0.889661164205039,
+              0.889661164205039
+            ],
+            "batch": 128,
+            "sm_mhz_median": 1965
+          },
+          "256": {
+            "status": "ok",
+            "n": 1,
+            "designs_s": 0.8877945587903798,
+            "spread": [
+              0.8877945587903798,
+              0.8877945587903798
+            ],
+            "batch": 256,
+            "sm_mhz_median": 1965
+          },
+          "512": {
+            "status": "FAILED",
+            "error": "OutOfMemoryError: CUDA out of memory. Tried to allocate 18.38 GiB. GPU 0 has a total capacity of 178.35 GiB of which 8.32 GiB is free. Including non-PyTorch memory, this process has 170.02 GiB memory in use. Of the allocated memory 125.81 GiB is allocated by PyTorch, and 43.45 GiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)",
+            "n": 0
+          }
+        },
+        "start": 32,
+        "batch": 128,
+        "designs_s": 0.889661164205039
+      },
+      "compile-reduce-overhead": {
+        "sweep": {
+          "32": {
+            "status": "ok",
+            "n": 1,
+            "designs_s": 0.7993006119645311,
+            "spread": [
+              0.7993006119645311,
+              0.7993006119645311
+            ],
+            "batch": 32,
+            "sm_mhz_median": 1965
+          },
+          "64": {
+            "status": "ok",
+            "n": 1,
+            "designs_s": 0.8351929426196348,
+            "spread": [
+              0.8351929426196348,
+              0.8351929426196348
+            ],
+            "batch": 64,
+            "sm_mhz_median": 1965
+          },
+          "128": {
+            "status": "ok",
+            "n": 1,
+            "designs_s": 0.874932500324682,
+            "spread": [
+              0.874932500324682,
+              0.874932500324682
+            ],
+            "batch": 128,
+            "sm_mhz_median": 1965
+          },
+          "256": {
+            "status": "ok",
+            "n": 1,
+            "designs_s": 0.8876806568836861,
+            "spread": [
+              0.8876806568836861,
+              0.8876806568836861
+            ],
+            "batch": 256,
+            "sm_mhz_median": 1965
+          },
+          "512": {
+            "status": "FAILED",
+            "error": "OutOfMemoryError: CUDA out of memory. Tried to allocate 18.38 GiB. GPU 0 has a total capacity of 178.35 GiB of which 6.82 GiB is free. Including non-PyTorch memory, this process has 171.51 GiB memory in use. Of the allocated memory 170.22 GiB is allocated by PyTorch, with 38.34 GiB allocated in private pools (e.g., CUDA Graphs), and 474.57 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)",
+            "n": 0
+          }
+        },
+        "start": 32,
+        "batch": 256,
+        "designs_s": 0.8876806568836861
+      }
+    },
+    "arm": "compile-cueq",
+    "batch": 128,
+    "final": {
+      "status": "ok",
+      "n": 5,
+      "designs_s": 0.8892903046514051,
+      "spread": [
+        0.8865616645195252,
+        0.8898405238936085
+      ],
+      "batch": 128,
+      "sm_mhz_median": 1965
+    }
+  }
+}

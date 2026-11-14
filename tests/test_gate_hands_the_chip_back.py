@@ -168,14 +168,14 @@ def test_nesso1_refuses_to_score_a_report_from_an_earlier_run():
         fixture = root / "tyr48.json"
         fixture.write_text("{}")
 
-        old_root, old_fix, old_fold = rg.REPO_ROOT, rg.NESSO1_FIXTURE, rg._run_fold
-        rg.REPO_ROOT, rg.NESSO1_FIXTURE = root, fixture
+        old_root, old_run, old_fix, old_fold = rg.REPO_ROOT, rg.RUN_DIR, rg.NESSO1_FIXTURE, rg._run_fold
+        rg.REPO_ROOT, rg.RUN_DIR, rg.NESSO1_FIXTURE = root, root, fixture
         # The harness never opened the card, so it writes no report -- the whole point.
         rg._run_fold = lambda cmd, timeout, **kw: (CONTENDED_EXIT_CODE, False)
         try:
             row = rg.run_nesso1(keep=True)
         finally:
-            rg.REPO_ROOT, rg.NESSO1_FIXTURE, rg._run_fold = old_root, old_fix, old_fold
+            rg.REPO_ROOT, rg.RUN_DIR, rg.NESSO1_FIXTURE, rg._run_fold = old_root, old_run, old_fix, old_fold
 
         assert not row["gate"], "scored a report from an earlier run as this run's PASS"
         assert row["spread"] is None and row["x_over_r"] is None, \

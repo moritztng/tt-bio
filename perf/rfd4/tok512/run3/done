@@ -1,0 +1,12 @@
+start chip 1 tree tree-4e5fc03e5 2026-10-24T09:09:10Z load 1.46
+zprec512 rc=0 2026-10-24T09:16:00Z load 6.92
+zprec224 rc=0 2026-10-24T09:17:40Z load 7.03
+designs n512-base rc=0 2026-10-24T09:29:37Z load 3.89
+designs n512-tok rc=0 2026-10-24T09:41:24Z load 4.95
+designs n224-base rc=0 2026-10-24T09:45:04Z load 6.23
+designs n224-tok rc=0 2026-10-24T09:48:41Z load 6.04
+designs rc=0 2026-10-24T09:48:41Z load 6.04
+quality 512 rc=0 binder: PASS (5 metrics graded) -> /home/ttuser/scratch/rfd4-tok512/run3/quality-512.json 2026-10-24T09:49:00Z load 5.93
+quality 224 rc=0 binder: PASS (5 metrics graded) -> /home/ttuser/scratch/rfd4-tok512/run3/quality-224.json 2026-10-24T09:49:13Z load 5.62
+grade rc=0 2026-10-24T09:49:13Z load 5.62
+ALLDONE 2026-10-24T09:49:13Z load 5.62

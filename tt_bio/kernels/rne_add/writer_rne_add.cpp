@@ -2,7 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-// rne_add writer. Drains c_16 to the output tensor page-for-page over this core`s tile range.
+// rne_add writer. Drains c_16 to the output tensor page-for-page over this core`s tile range, and
+// under DUAL (compile-time, after the genq block) c_17 to the bfloat16 copy the same way.
 #include "api/dataflow/dataflow_api.h"
 
 #include "../genq/genq_split.h"
@@ -33,6 +34,11 @@ void kernel_main() {
     }
 
     const uint32_t tile_bytes = get_tile_size(cb_out);
+    constexpr uint32_t DUAL = get_compile_time_arg_val(G + 8);
+    constexpr auto lo_args = TensorAccessorArgs<G + 9>();
+    constexpr uint32_t cb_lo = 17;  // c_17
+    const auto sl = TensorAccessor(lo_args, get_common_arg_val<uint32_t>(1));
+    const uint32_t lo_bytes = DUAL ? get_tile_size(cb_lo) : 0;
 
     uint32_t page = first_tile;
     for (uint32_t i = 0; i < num_tiles; i += GRAN) {
@@ -43,8 +49,19 @@ void kernel_main() {
             noc_async_write(r, sd.get_noc_addr(page + j), tile_bytes);
             r += tile_bytes;
         }
+        if constexpr (DUAL) {
+            cb_wait_front(cb_lo, n);
+            uint32_t rl = get_read_ptr(cb_lo);
+            for (uint32_t j = 0; j < n; ++j) {
+                noc_async_write(rl, sl.get_noc_addr(page + j), lo_bytes);
+                rl += lo_bytes;
+            }
+        }
         noc_async_write_barrier();
         cb_pop_front(cb_out, n);
+        if constexpr (DUAL) {
+            cb_pop_front(cb_lo, n);
+        }
         page += n;
     }
 }

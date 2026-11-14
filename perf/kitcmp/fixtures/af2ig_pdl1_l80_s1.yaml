@@ -1,0 +1,6 @@
+target:
+  file: af2ig_pdl1_l80_s1.pdb
+  chain: A
+binder:
+  sequence: SLTPRQVYNMLWDVMESLRVKVMRGETRITDEHVAVVKRIPKDQRAKMMAMVVWRVWQHMNGKQIHHFMEMHVRLMQKIS
+  chain: B

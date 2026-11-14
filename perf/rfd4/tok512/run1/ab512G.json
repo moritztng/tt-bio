@@ -1,0 +1,97 @@
+{
+ "n": 512,
+ "batch": 1,
+ "levers": {
+  "base": [
+   "pair_batch",
+   "pair_bf16z",
+   "pair_bfp8z",
+   "pair_bias_rms",
+   "pair_block",
+   "pair_block_hifi2",
+   "pair_mm",
+   "pair_mm_tr",
+   "pair_tail",
+   "pair_tail_cm",
+   "pair_tail_small",
+   "pair_write_res",
+   "pair_x8",
+   "pair_x8t",
+   "transition_b8",
+   "trimul_bres",
+   "trimul_bres_hifi2",
+   "trimul_gin",
+   "trimul_gin_hifi2",
+   "trimul_gin_w8",
+   "trimul_t1",
+   "trimul_t1_dram",
+   "trimul_t1_fgate",
+   "trimul_t1_psig",
+   "trimul_t1b8",
+   "trimul_t1g8",
+   "trimul_t1w8",
+   "trimul_tail_hifi2"
+  ],
+  "stack": [
+   "dit_sigf32",
+   "pair_batch",
+   "pair_bf16z",
+   "pair_bfp8z",
+   "pair_bias_rms",
+   "pair_block",
+   "pair_block_hifi2",
+   "pair_mm",
+   "pair_mm_tr",
+   "pair_tail",
+   "pair_tail_cm",
+   "pair_tail_small",
+   "pair_write_res",
+   "pair_x8",
+   "pair_x8t",
+   "transition_b8",
+   "trimul_bres",
+   "trimul_bres_hifi2",
+   "trimul_gin",
+   "trimul_gin_hifi2",
+   "trimul_gin_w8",
+   "trimul_t1",
+   "trimul_t1_dram",
+   "trimul_t1_fgate",
+   "trimul_t1_psig",
+   "trimul_t1b8",
+   "trimul_t1g8",
+   "trimul_t1w8",
+   "trimul_tail_hifi2"
+  ]
+ },
+ "base_set": "",
+ "tt_bio": "/home/ttuser/scratch/rfd4-tok512/tree-b4bed1a1b",
+ "load_start": 3.6748046875,
+ "z_rel_rms_stack_vs_base": 0.041417736717085964,
+ "z_equal": false,
+ "t2cm_served_declined": [
+  84,
+  0
+ ],
+ "base": {
+  "pass_ms_median": 108.398,
+  "pass_ms_min": 108.086,
+  "trunk_s_per_design": 19.512
+ },
+ "stack": {
+  "pass_ms_median": 107.823,
+  "pass_ms_min": 107.349,
+  "trunk_s_per_design": 19.408
+ },
+ "paired_speedup_median": 1.0054,
+ "reps": 30,
+ "load_end": 3.54052734375,
+ "aiclk": {
+  "0": {
+   "min": 1300,
+   "max": 1350,
+   "median": 1331,
+   "n": 5
+  }
+ }
+}

@@ -1,0 +1,130 @@
+[
+ {
+  "name": "pl256",
+  "sequences": [
+   {
+    "proteinChain": {
+     "sequence": "MAEVIRSSAFWRSFPIFEEFDSETLCELSGIASYRKWSAGTVIFQRGDQGDYMIVVVSGRIKLSLFTPQGRELMLRQHEAGALFGEMALLDGQPRSADATAVTAAEGYVIGKKDFLALITQRPKTAEAVIRFLCAQLRDTTDRLETIALYDLNARVARFFLATLRQIHGSEMPQSANLRLTLSQTDIASILGASRPKVNRAILSLEESGAIKRADGIICCNVGRLLSIADPEEDLEHHHHHHHH",
+     "count": 1,
+     "pairedMsaPath": "@MOL1@/examples/7pzb/msa/1/pairing.a3m",
+     "unpairedMsaPath": "@MOL1@/examples/7pzb/msa/1/non_pairing.a3m"
+    }
+   },
+   {
+    "ligand": {
+     "ligand": "CCD_PCG",
+     "count": 1
+    }
+   },
+   {
+    "ligand": {
+     "ligand": "CC(=O)Oc1ccccc1C(=O)O",
+     "count": 1
+    }
+   }
+  ]
+ },
+ {
+  "sequences": [
+   {
+    "proteinChain": {
+     "sequence": "MGSSHHHHHHSSGLVPRGSHMSGKIQHKAVVPAPSRIPLTLSEIEDLRRKGFNQTEIAELYGVTRQAVSWHKKTYGGRLTTRQIVQQNWPWDTRKPHDKSKAFQRLRDHGEYMRVGSFRTMSEDKKKRLLSWWKMLRDNDLVLEFDPSIEPYEGMAGGGFRYVPRDISDDDLLIRVNEHTQLTAEGELLWSWPDDIEELLSEP",
+     "count": 1,
+     "id": [
+      "A"
+     ],
+     "pairedMsaPath": "@MOL1@/examples/7r6r/msa/1/pairing.a3m",
+     "unpairedMsaPath": "@MOL1@/examples/7r6r/msa/1/non_pairing.a3m"
+    }
+   },
+   {
+    "dnaSequence": {
+     "sequence": "TTTCGGTGGCTGTCAAGCGGG",
+     "count": 1,
+     "id": [
+      "B"
+     ]
+    }
+   },
+   {
+    "dnaSequence": {
+     "sequence": "CCCGCTTGACAGCCACCGAAA",
+     "count": 1,
+     "id": [
+      "D"
+     ]
+    }
+   }
+  ],
+  "name": "prot_dna"
+ },
+ {
+  "sequences": [
+   {
+    "rnaSequence": {
+     "sequence": "ACCAGGAUGGCCGAGUGGUUAAGGCGUUGGACUUAAGAUCCAAUGGACAUAUGUCCGCGUGGGUUCGAACCCCACUCCUGGUACCA",
+     "count": 1,
+     "unpairedMsaPath": "@MOL1@/examples/examples_with_rna_msa/9gmw/9gmw_2_all.a3m"
+    }
+   }
+  ],
+  "modelSeeds": [],
+  "assembly_id": "1",
+  "name": "rna"
+ },
+ {
+  "name": "modcov",
+  "sequences": [
+   {
+    "proteinChain": {
+     "sequence": "MGSSHHHHHHSSGLVPRGSHMSGKIQHKAVVPAPSRIPLTLSEIEDLRRKGFNQTEIAELYGVTRQAVSWHKKTYGGRLTTRQIVQQNWPWDTRKPHDKSKAFQRLRDHGEYMRVGSFRTMSEDKKKRLLSWWKMLRDNDLVLEFDPSIEPYEGMAGGGFRYVPRDISDDDLLIRVNEHTQLTAEGELLWSWPDDIEELLSEP",
+     "count": 1,
+     "pairedMsaPath": "@MOL1@/examples/7r6r/msa/1/pairing.a3m",
+     "unpairedMsaPath": "@MOL1@/examples/7r6r/msa/1/non_pairing.a3m",
+     "modifications": [
+      {
+       "ptmType": "CCD_SEP",
+       "ptmPosition": 35
+      }
+     ]
+    }
+   },
+   {
+    "ligand": {
+     "ligand": "CCD_NAG_NAG",
+     "count": 1
+    }
+   },
+   {
+    "ligand": {
+     "ligand": "FILE_@GOLDEN@/inputs/caffeine.sdf",
+     "count": 1
+    }
+   },
+   {
+    "ion": {
+     "ion": "ZN",
+     "count": 1
+    }
+   }
+  ],
+  "covalent_bonds": [
+   {
+    "entity1": "1",
+    "position1": "53",
+    "atom1": "ND2",
+    "entity2": "2",
+    "position2": "1",
+    "atom2": "C1"
+   },
+   {
+    "entity1": "2",
+    "position1": "1",
+    "atom1": "O4",
+    "entity2": "2",
+    "position2": "2",
+    "atom2": "C1"
+   }
+  ]
+ }
+]

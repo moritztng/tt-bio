@@ -13,6 +13,9 @@ The two things this pins down: the sizes that already fold keep the exact single
 folded with, and the sizes above them are bounded instead of growing with L^2.
 """
 import importlib
+import os
+import subprocess
+import sys
 
 import pytest
 
@@ -81,15 +84,15 @@ def test_the_budget_is_a_module_constant_not_a_literal_in_the_helper():
     assert "BH_PAIR_TILE_AREA" in src and "524288" not in src
 
 
-def test_the_screen_hooks_can_force_either_path(monkeypatch):
+def test_the_screen_hooks_can_force_either_path():
     # The A/B this needs: forcing the single pass back on reproduces the unbounded behaviour, so
-    # the cost of blocking can be measured on one card instead of inferred across two.
-    import importlib
-    monkeypatch.setenv("TT_BIO_BH_PAIR_SINGLE_PASS_MAX", "100000")
-    reloaded = importlib.reload(tenstorrent)
-    try:
-        assert reloaded.pair_row_tile(1536) == 0
-    finally:
-        monkeypatch.delenv("TT_BIO_BH_PAIR_SINGLE_PASS_MAX")
-        importlib.reload(tenstorrent)
+    # the cost of blocking can be measured on one card instead of inferred across two. The hook
+    # is read at import, so it is checked in a fresh interpreter: reloading tt_bio.tenstorrent
+    # here would swap every class in it under the modules that imported them first (rfd4's
+    # WeightScope stopped being a WeightScope for the rest of the pytest process).
+    probe = "from tt_bio import tenstorrent as t; print(t.pair_row_tile(1536))"
+    env = {**os.environ, "TT_BIO_BH_PAIR_SINGLE_PASS_MAX": "100000"}
+    out = subprocess.run([sys.executable, "-c", probe], env=env, capture_output=True, text=True,
+                         check=True, timeout=300).stdout.split()
+    assert out[-1] == "0"
     assert tenstorrent.pair_row_tile(1536) == 320

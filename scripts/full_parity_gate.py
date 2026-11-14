@@ -233,6 +233,9 @@ class Leg:
                                  # shared-draws envelope — ref_fp32/ref_bf16 would be device-on-CPU
                                  # tautology, and --regen-refs must skip these legs
     min_fold_timeout: float | None = None  # per-leg FLOOR (s); effective = max(--fold-timeout, this)
+    max_plddt_delta: float | None = None   # esmfold2 legs: largest same-seed mean-plDDT gap to the
+                                           # reference that still PASSes (None: confidence ungraded)
+    max_plddt_delta_fast: float | None = None  # the same bar for a record folded --fast (None: as above)
     cards: int = 1               # physical cards the leg needs. Every leg today scores ONE card's
                                  # numerics, so 1 is right for all of them: the fixture legs fold
                                  # one seed per card and the in-process legs pin to one. A leg that
@@ -304,6 +307,19 @@ LEGS = [
     Leg("esmfold2-fast-trpcage", "esmfold2-fast", "esmfold2", "examples/trpcage.yaml",
         committed_json="esmfold2-fast.json", seeds=(0, 1, 2, 3, 4),
         note="24-block trunk, no MSA encoder; same four targets as the esmfold2 leg"),
+    # Confidence at the length users fold. Kabsch and the distance-matrix metric cannot see a
+    # confidence loss: on 2026-09-02 this checkpoint placed cdk2x2_512 inside the seed floor
+    # while reading mean plDDT 0.021 low, and it shrank to 0.0014 by 2026-10-15 with nothing
+    # grading it either way. The reference is cached (two CPU fp32 folds take ~95 min), so the
+    # leg is device-only. The bar sits just above the reference's own two-seed spread, 0.0042.
+    # A --fast fold (every Wormhole run) is graded at the fast bar, 0.03: Wormhole's ws_lofi
+    # (pair SwiGLU at LoFi) alone moves this target's mean plDDT by 0.015 (spd-gap-whesmf wpl).
+    Leg("esmfold2-fast-512-confidence", "esmfold2-fast", "esmfold2", "",
+        fixture="esmfold2-fast/cdk2x2_512/nomsa_10cycle_100step_1sample_fp32_prod",
+        committed_json="esmfold2-fast-512aa.json", seeds=(0, 1), max_plddt_delta=0.005,
+        max_plddt_delta_fast=0.03,
+        device_args=("--proteins", "cdk2x2_512", "--loops", "10", "--steps", "100"),
+        note="CDK2 tandem at 512 aa, the perf page's fixture; grades the mean-plDDT gap"),
     # A capability with no gate leg regresses quietly, and this one regresses in the worst
     # way available: the ligand is dropped and the fold still succeeds. So the leg exists,
     # and _esmfold2_verdict refuses to call a record with an empty ligand block a PASS.
@@ -622,6 +638,21 @@ LEGS += [
     Leg("rf3-1024aa", "rf3", "rf3_xtal", "", committed_json="", seeds=(0,),
         note="RF3 at 997 aa: device CA-RMSD to the 7EIP crystal, floor <=4.0 A; reuses "
              "release_gate --model rf3-1024aa (scripts/rf3_port/accuracy_cell.py)"),
+    # The three PNR page rows. Each reuses the harness that validated its port, delegated through
+    # release_gate the way rf3-1024aa is, and none carries a committed_json for the reason that leg
+    # gives: the floor is in the scorer, and a second copy of it would detect nothing.
+    #
+    # Mol-1 folds 7ROA through release_gate's own mol1 row (crystal floor plus geometry bands), so
+    # the gate runs that fold once, here, instead of also as rg:mol1. Its port-level shared-draw
+    # Kabsch grade needs 107 GB of upstream goldens on one host and stays out of the gate.
+    Leg("mol1-7roa", "mol1", "mol1_xtal", "", seeds=(0,),
+        note="Mol-1 on 7ROA: release_gate's mol1 fold, CA-RMSD/TM to the crystal + geometry"),
+    Leg("rfd4-trunk", "rfd4", "rfd4_trunk", "", seeds=(0,),
+        note="RFD4 trunk modules on the device vs a float64 transcription and vs upstream's fp32 "
+             "goldens at the real checkpoint (tests/test_rfd4_trunk_{parity,golden}.py)"),
+    Leg("bindcraft2-afgrad-stack", "bindcraft2", "bc2_grad", "", seeds=(0,),
+        note="BindCraft 2 design-gradient round vs float64 autograd, torch bf16 as the envelope "
+             "(perf/spd/bc2_stack_grade.py)"),
 ]
 
 LEGS_BY_ID = {l.id: l for l in LEGS}
@@ -810,10 +841,12 @@ def _of3_ckpt_default() -> Path | None:
 
 
 def _openbind_ckpt_default() -> Path | None:
-    """The OpenBind-0 checkpoint at a known default location, if one exists.
-    Unlike preview2 this row has no legacy env var — tt_bio.weights resolves it."""
-    for p in (Path.home() / ".boltz" / "of3-ob-2025-06-30-174k.pt",
-              Path.home() / "of3-weights" / "of3-ob-2025-06-30-174k.pt"):
+    """The OpenBind-0 checkpoint where tt_bio.weights resolves it ($TT_BIO_CACHE /
+    $BOLTZ_CACHE / ~/.boltz), else the fleet copy. Unlike preview2 there is no legacy env var."""
+    from tt_bio import weights as _weights
+    if (p := _weights.cached_path("openbind")) is not None:
+        return p
+    for p in (Path.home() / "of3-weights" / "of3-ob-2025-06-30-174k.pt",):
         if p.exists():
             return p
     return None
@@ -870,7 +903,7 @@ def preflight_check(legs: list) -> list:
             if _openbind_ckpt_default() is None:
                 problems.append(
                     f"{leg.id}: OpenBind checkpoint not found — `tt-bio weights fetch "
-                    f"openbind` or drop of3-ob-2025-06-30-174k.pt in ~/.boltz "
+                    f"openbind` or drop of3-ob-2025-06-30-174k.pt in the weights cache "
                     f"(fleet copy ~/of3-weights/); the fold otherwise fails inside "
                     f"tt_bio/worker.py after paying for setup")
         if leg.kind == "rf3_xtal":
@@ -1206,6 +1239,7 @@ def _run_local_fold(wrapped, out_dir: Path, logf, fold_timeout: float | None):
         rc = proc.poll()
         if rc is not None:
             _reap(proc)  # the CLI exited; take any worker it left behind with it
+            gate_guard.stop_if_stopped_outside(rc)
             return rc, False
         if folded_at is None and _find_results_dir(out_dir) is not None:
             folded_at = time.monotonic()
@@ -1232,6 +1266,7 @@ def _run_remote_fold(wrapped, worker: "Worker", out_dir: Path, logf, fold_timeou
                               timeout=fold_timeout)
     except subprocess.TimeoutExpired:
         return -99, True
+    gate_guard.stop_if_stopped_outside(proc.returncode)
     if proc.returncode == 0:
         out_dir.mkdir(parents=True, exist_ok=True)
         subprocess.run(["rsync", "-a", "-e", "ssh -o ConnectTimeout=5",
@@ -1588,6 +1623,9 @@ DELEGATED_KINDS = {
     "capacity": lambda rg: rg.run_capacity_all(keep=False),
     "nesso1": lambda rg: rg.run_nesso1(keep=False),
     "rf3_xtal": lambda rg: rg.run_rf3_1024aa(keep=False),
+    "mol1_xtal": lambda rg: rg.run_model("mol1", rg._load_structure_harness(), keep=False),
+    "rfd4_trunk": lambda rg: rg.run_rfd4_trunk(keep=False),
+    "bc2_grad": lambda rg: rg.run_bc2_stack(keep=False),
 }
 
 
@@ -1704,6 +1742,8 @@ def run_inprocess(leg: Leg, out_json: Path, log_path: Path, env: dict,
                "--proteins", "trpcage,gb1,ubiquitin,lysozyme",
                "--seeds", ",".join(str(x) for x in leg.seeds),
                "--out", str(out_json), *leg.device_args]
+        if leg.fixture:
+            cmd += ["--ref_fixture", str(_fixture_dir(leg.fixture))]
         # Mirror production (main.py): esmfold2 auto-runs --fast on Wormhole because the
         # non-fast model needs >12 GB DRAM/chip; without this the device load OOMs.
         from tt_bio.tenstorrent import is_wormhole
@@ -1740,6 +1780,30 @@ def run_inprocess(leg: Leg, out_json: Path, log_path: Path, env: dict,
 ESMFOLD2_LIGAND_MAX_RMSD_A = 2.5
 ESMFOLD2_LIGAND_MAX_CONTACT_A = 5.0
 ESMFOLD2_LIGAND_MIN_CONTACTS = 10
+
+
+def _esmfold2_confidence_gap(targets: list, max_delta: float | None,
+                             max_delta_fast: float | None = None) -> str:
+    """Why an esmfold2 record's confidence fails its leg's bar, or "" if it passes or is ungraded.
+
+    Kabsch and the distance-matrix metric cannot see this failure: ESMFold2-Fast at 512 aa placed
+    the reference's structure inside the seed floor while reading mean plDDT 0.021 low
+    (docs/esmfold2-e2e-parity.md). So a leg that sets `max_plddt_delta` grades the same-seed
+    mean-plDDT gap the harness reports (`plddt_mean.mean_abs_delta`) directly. A record the
+    harness marks `fast` is graded at `max_delta_fast` when the leg sets one; a record without
+    the mark is graded at the normal bar."""
+    if max_delta is None:
+        return ""
+    gaps = []
+    for t in targets:
+        bar = max_delta_fast if t.get("fast") and max_delta_fast is not None else max_delta
+        delta = (t.get("plddt_mean") or {}).get("mean_abs_delta")
+        if delta is None:
+            gaps.append(f"{t.get('protein', '?')}: no plddt_mean block to grade")
+        elif delta > bar:
+            gaps.append(f"{t['protein']}: same-seed mean plDDT {delta:.4f} off the reference "
+                        f"(max {bar})")
+    return "; ".join(gaps)
 
 
 def _esmfold2_ligand_gap(targets: list) -> str:
@@ -1920,6 +1984,34 @@ def _rf3_xtal_verdict(report: dict) -> tuple[str, str]:
     if report.get("x_a") is not None:
         detail += f", X {report['x_a']:.3f} A"
     detail += f", n_ca {report.get('n_ca')}"
+    return ("PASS" if report.get("gate") else "GAP"), detail
+
+
+def _mol1_xtal_verdict(report: dict) -> tuple[str, str]:
+    """Mol-1 on 7ROA: release_gate's own fold row (CA-RMSD/TM of the confidence-selected sample to
+    the crystal, plus the geometry bands). No reading is NO-DATA, never a pass."""
+    if report.get("rmsd") is None:
+        return "ERROR", str(report.get("error") or "no RMSD in row")
+    detail = f"7ROA RMSD {report['rmsd']:.3f} A TM {report['tm']:.3f} vs crystal"
+    if report.get("error"):
+        detail += f"; {report['error']}"
+    return ("PASS" if report.get("gate") else "GAP"), detail
+
+
+def _rfd4_trunk_verdict(report: dict) -> tuple[str, str]:
+    if report.get("tests") is None:
+        return "ERROR", str(report.get("error") or "no test counts")
+    detail = (f"{report['tests'] - report['failed'] - report['skipped']}/{report['tests']} trunk "
+              f"parity tests pass vs float64 + upstream fp32 goldens, {report['skipped']} skipped")
+    return ("PASS" if report.get("gate") else "GAP"), detail
+
+
+def _bc2_grad_verdict(report: dict) -> tuple[str, str]:
+    if report.get("rel_l2") is None:
+        return "ERROR", str(report.get("error") or "no device_vs_f64 reading")
+    detail = (f"dL/dlogits rel L2 vs float64 {report['rel_l2']:.4f} (torch bf16 "
+              f"{report['bf16_rel_l2']:.4f}, {report['rel_l2'] / report['bf16_rel_l2']:.2f}x), "
+              f"fd ratio {report['fd_ratio']}, repeat diff {report['repeat']}")
     return ("PASS" if report.get("gate") else "GAP"), detail
 
 
@@ -2147,6 +2239,12 @@ def extract_verdict(leg: Leg, report: dict | None) -> tuple[str, str]:
         return _nesso1_verdict(report)
     if leg.kind == "rf3_xtal":
         return _rf3_xtal_verdict(report)
+    if leg.kind == "mol1_xtal":
+        return _mol1_xtal_verdict(report)
+    if leg.kind == "rfd4_trunk":
+        return _rfd4_trunk_verdict(report)
+    if leg.kind == "bc2_grad":
+        return _bc2_grad_verdict(report)
     if leg.kind == "pxdesign":
         return _pxdesign_featurizer_verdict(report)
     if leg.kind in ("rfd3", "af2ig"):
@@ -2173,6 +2271,9 @@ def extract_verdict(leg: Leg, report: dict | None) -> tuple[str, str]:
         lig = _esmfold2_ligand_gap(proteins)
         if lig:
             return "GAP", lig
+        conf = _esmfold2_confidence_gap(proteins, leg.max_plddt_delta, leg.max_plddt_delta_fast)
+        if conf:
+            return "GAP", conf
         return "PASS", f"{len(proteins)} proteins scored ({n_within} within floor)"
     return "UNKNOWN", "no extractor"
 
@@ -2699,6 +2800,17 @@ def main() -> int:
                    if v not in ("BLOCKED-REF-REGEN-NEEDED", "SKIPPED-CARD-GRANT"))
     inconclusive = n_scored == 0
     skipped = [r for r in rows if r["verdict"] == "SKIPPED-CARD-GRANT"]
+    # A leg whose card another job held measured nothing about the tree. Its summary row only says
+    # "predict exited 75" or "scorer returned no report", so name the contention here, where
+    # gate_fanout reads it and runs the leg again (11-12: three BH legs of 2cca84e6a lost qb2:1 to
+    # a fleet row's device lease and were recorded as the gate's failures).
+    for r in rows:
+        if r["verdict"] == "ERROR":
+            hit = next((ln for f in sorted(log_dir.glob(f"{r['leg']}*.log"))
+                        for ln in f.read_text(errors="replace").splitlines()
+                        if "Refusing to open it concurrently" in ln), None)
+            if hit:
+                print(f"# {r['leg']}: device contention, nothing ran: {hit.strip()[:200]}")
     print("\n" + "#" * 78)
     print(f"# Tally: {dict(tally)}    total wall {total_wall/60:.1f} min")
     if skipped:

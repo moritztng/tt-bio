@@ -1,0 +1,70 @@
+{
+ "mode": "sigterm",
+ "tree": "/home/ttuser/.coworker/wt/bci-refusal",
+ "pid": 1638924,
+ "events": [
+  {
+   "t": 50.27,
+   "name": "opened",
+   "memory": {},
+   "signals": {
+    "SigBlk": [],
+    "SigIgn": [
+     13,
+     25
+    ],
+    "SigCgt": [
+     2,
+     4,
+     6,
+     7,
+     8,
+     11
+    ]
+   },
+   "dram": {
+    "allocated": 16384,
+    "free": 34225503744,
+    "total": 34225520128
+   }
+  },
+  {
+   "t": 58.27,
+   "name": "boundary_probe",
+   "trajectory": 1,
+   "probe": {
+    "allocated": 16384,
+    "free": 34225503744,
+    "total": 34225520128
+   }
+  },
+  {
+   "t": 58.27,
+   "name": "round",
+   "n": 1,
+   "aiclk": 1350
+  },
+  {
+   "t": 94.55,
+   "name": "round",
+   "n": 2,
+   "aiclk": 1350
+  },
+  {
+   "t": 101.8,
+   "name": "round",
+   "n": 3,
+   "aiclk": 1350
+  }
+ ],
+ "start": 1791408981.5463574,
+ "returncode": -15,
+ "wall_s": 102.6,
+ "signals_sent": [
+  [
+   "SIGTERM",
+   101.8
+  ]
+ ],
+ "exit_after_last_word_s": 0.78
+}

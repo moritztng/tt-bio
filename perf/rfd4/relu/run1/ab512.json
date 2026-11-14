@@ -1,0 +1,78 @@
+{
+ "n": 512,
+ "levers": {
+  "base": [
+   "pair_bf16z",
+   "pair_bias_rms",
+   "pair_block",
+   "pair_mm",
+   "pair_mm_tr",
+   "pair_tail",
+   "pair_tail_cm",
+   "pair_tail_small",
+   "pair_write_res",
+   "transition_b8",
+   "trimul_bres",
+   "trimul_bres_hifi2",
+   "trimul_gin",
+   "trimul_gin_hifi2",
+   "trimul_gin_w8",
+   "trimul_t1",
+   "trimul_t1_dram",
+   "trimul_t1_psig",
+   "trimul_t1w8"
+  ],
+  "stack": [
+   "pair_bf16z",
+   "pair_bias_rms",
+   "pair_block",
+   "pair_block_hifi2",
+   "pair_mm",
+   "pair_mm_tr",
+   "pair_tail",
+   "pair_tail_cm",
+   "pair_tail_small",
+   "pair_write_res",
+   "transition_b8",
+   "trimul_bres",
+   "trimul_bres_hifi2",
+   "trimul_gin",
+   "trimul_gin_hifi2",
+   "trimul_gin_w8",
+   "trimul_t1",
+   "trimul_t1_dram",
+   "trimul_t1_psig",
+   "trimul_t1w8"
+  ]
+ },
+ "base_set": "",
+ "tt_bio": "/home/ttuser/rfd4-relu-runs/tree-6d7a15ef9",
+ "load_start": 7.09326171875,
+ "z_rel_rms_stack_vs_base": 0.05165120225248395,
+ "z_equal": false,
+ "t2cm_served_declined": [
+  84,
+  0
+ ],
+ "base": {
+  "pass_ms_median": 147.318,
+  "pass_ms_min": 147.097,
+  "trunk_s_per_design": 26.517
+ },
+ "stack": {
+  "pass_ms_median": 138.049,
+  "pass_ms_min": 137.825,
+  "trunk_s_per_design": 24.849
+ },
+ "paired_speedup_median": 1.0669,
+ "reps": 30,
+ "load_end": 8.9873046875,
+ "aiclk": {
+  "0": {
+   "min": 1300,
+   "max": 1350,
+   "median": 1350,
+   "n": 8
+  }
+ }
+}

@@ -681,6 +681,30 @@ def test_the_rep_count_comes_from_the_noisiest_rung_not_from_512(rg_fresh, monke
     assert old_block["reps"] == 1
 
 
+def test_a_re_measure_keeps_the_warm_folds_it_already_has(rg_fresh, monkeypatch, tmp_path):
+    """The record pass re-measures a noisy model at 3 reps. Its rungs are warm from the first pass
+    and each holds one rep, so it folds two more and no warm-up: rf3 on a Wormhole chip spent ~85 min
+    re-folding them and ran out of leg budget (rec-c2b4b898e)."""
+    tags = []
+
+    def fake(model, rung, workdir, tag, need_runtime=True):
+        tags.append((rung, tag))
+        v = {640: 120.0, 768: 180.0}[rung] + len(tags)
+        return {"levers": {"FLAG": FIRING}, "runtime_s": v, "wall": v + 20.0,
+                "census_json": tmp_path / f"{rung}-{tag}.json", "grid": "13x10"}
+
+    monkeypatch.setattr(rg_fresh, "_run_census_fold", fake)
+    first = rg_fresh._size_ladder_measure_model("rf3", (640, 768), tmp_path, 1, 1)
+    assert tags == [(640, "warmup"), (640, "rep0"), (768, "warmup"), (768, "rep0")]
+    tags.clear()
+    again = rg_fresh._size_ladder_measure_model("rf3", (640, 768), tmp_path, 3, 3,
+                                                prior=first["runs"])
+    assert tags == [(640, "rep1"), (640, "rep2"), (768, "rep1"), (768, "rep2")]
+    assert again["runtime_reps_s"]["640"][0] == first["runtime_s"]["640"]
+    assert len(again["runtime_reps_s"]["768"]) == 3
+    assert again["census_jsons"]["640"] == first["census_jsons"]["640"]
+
+
 def test_check_model_propagates_the_partial_rungs_to_the_printer(rg_fresh, monkeypatch, tmp_path):
     """The summary row reads runtime_s off the leg dict, so the error path has to carry it."""
     def fake(model, rungs, workdir, reps_512, reps_other):
@@ -739,6 +763,32 @@ def test_every_rung_refused_is_an_error_and_not_an_empty_pass(rg_fresh, monkeypa
     out = rg_fresh._size_ladder_measure_model("opendde", (896, 1024), tmp_path, 1, 1)
 
     assert "is above this model's size guard" in out["error"]
+
+
+def test_a_part_above_the_ceiling_is_judged_against_the_baseline_refusals(rg_fresh, monkeypatch,
+                                                                         tmp_path):
+    """opendde's 1152-1280 part on a p150a capped at 1024 is all refusals. The baseline recorded
+    the same refusals, so the part passes; split off from the rungs that fold it used to fail
+    as "every rung requested is above this model's size guard" (gate rel-2cca84e6a). A ceiling
+    that moved still fails, and off a part the all-refused error stands."""
+    monkeypatch.setattr(rg_fresh, "_run_census_fold",
+                        lambda *a, **k: {"refused": "has 1152 residues, cap is 1024"})
+    monkeypatch.setattr(rg_fresh, "SIZE_LADDER_AGAINST", "abc1234")
+    monkeypatch.setattr(rg_fresh, "_size_ladder_ab",
+                        lambda *a, **k: pytest.fail("A/B folded for a part with no rung"))
+    base = {"reps": 1, "refused": {"1152": "cap 1024", "1280": "cap 1024"},
+            "levers": {}, "runtime_s": {"1024": 400.0}}
+    leg = rg_fresh._size_ladder_check_model("opendde", (1152, 1280), base, tmp_path, part=True)
+    assert leg["gate"] is True, leg
+
+    moved = rg_fresh._size_ladder_check_model("opendde", (1152, 1280),
+                                              {**base, "refused": {"1280": "cap 1152"},
+                                               "levers": {"1152": {}}}, tmp_path, part=True)
+    assert moved["gate"] is False
+    assert "opendde/1152: folded when the baseline was recorded, now refused" in moved["error"]
+
+    whole = rg_fresh._size_ladder_check_model("opendde", (1152, 1280), base, tmp_path)
+    assert whole["gate"] is False and "is above this model's size guard" in whole["error"]
 
 
 def test_check_flags_a_ceiling_that_moved_in_either_direction(rg_fresh, monkeypatch, tmp_path):
@@ -815,6 +865,37 @@ def test_rungs_arg_cannot_narrow_the_check(rg_fresh, tmp_path):
                                    models=["openfold3"], rungs=(256,))
     assert out["gate"] is False
     assert "RECORD-mode resume aid" in out["error"]
+    part = rg_fresh.run_size_ladder(False, False, tmp_path / "b.json",
+                                    models=["openfold3"], rungs=(256,), part=True)
+    assert "RECORD-mode resume aid" not in (part["error"] or "")   # a gate part reaches the check
+    assert rg_fresh.SIZE_LADDER_PARTS
+
+
+def test_a_part_refuses_an_exponent_interval_it_shares_with_another_part(rg_fresh, tmp_path,
+                                                                        monkeypatch):
+    """gate_fanout's first group keeps 256, 512 and 768 together because the exponents read
+    them. A part holding one end of an interval would skip it, and so would the part holding
+    the other, so the interval would go unread with every part green. Refused before any fold."""
+    base = tmp_path / "size_ladder_baseline.json"
+    entry = _baseline()
+    entry["exponents"] = {"256->512": {"k": 1.4, "tol": 0.3}, "512->768": {"k": 3.2, "tol": 0.4}}
+    base.write_text(json.dumps({"cards": {"tt-galaxy-wh l": {"models": {"boltz2": entry}}}}))
+    monkeypatch.setattr(rg_fresh, "_size_ladder_card_type", lambda: "tt-galaxy-wh l")
+    folded = []
+    monkeypatch.setattr(rg_fresh, "_size_ladder_check_model",
+                        lambda m, rungs, *a, **k: folded.append(tuple(rungs)) or
+                        {"model": m, "gate": True, "error": None, "findings": []})
+    split = rg_fresh.run_size_ladder(False, False, base, models=["boltz2"], rungs=(512, 640),
+                                     part=True)
+    assert split["gate"] is False and "256->512, 512->768" in split["error"] and not folded
+    whole = rg_fresh.run_size_ladder(False, False, base, models=["boltz2"],
+                                     rungs=(256, 512, 640, 768), part=True)
+    assert whole["gate"] and folded == [(256, 512, 640, 768)]
+    assert rg_fresh.run_size_ladder(False, False, base, models=["boltz2"], rungs=(896, 1024),
+                                    part=True)["gate"]
+    monkeypatch.setattr(rg_fresh, "_size_ladder_model_rungs", lambda m, want=None, card=None: ())
+    empty = rg_fresh.run_size_ladder(False, False, base, models=["boltz2"], rungs=(1408,), part=True)
+    assert empty["gate"] is False and "without a fold" in empty["error"]
 
 
 def test_a_model_fragment_does_not_touch_the_shared_baseline(rg_fresh, tmp_path):
@@ -967,8 +1048,12 @@ def test_a_models_fragment_records_its_own_ladder(rg_fresh, tmp_path):
                                 "commit": "3880fe8f"},
         "rf3", {"runtime_s": {"256": 51.6}})
     frag = json.loads((tmp_path / "size_ladder_baseline.d" / "rf3.json").read_text())
-    assert frag["rungs"] == list(rg_fresh._size_ladder_model_rungs("rf3"))
     assert 1088 in frag["rungs"]
+    # and every board's top rungs, whichever board recorded: a p300c pass writing only its own
+    # ladder dropped the 1152-1536 rungs the p150a and Galaxy cells in the same file are walked at
+    for card in rg_fresh.SIZE_LADDER_CARD_RUNGS:
+        assert set(rg_fresh._size_ladder_model_rungs("rf3", card=card)) <= set(frag["rungs"]), card
+    assert frag["rungs"] == sorted(frag["rungs"])
 
 
 def test_an_extra_rung_belongs_to_one_model_only(rg_fresh):
@@ -1611,3 +1696,54 @@ def test_the_committed_levers_are_read_from_git_head(rg):
     assert "1536" in lv
     assert rg._size_ladder_committed_levers(rg.SIZE_LADDER_BASELINE, "no-such-card",
                                             "boltz2") == {}
+
+
+def test_a_rung_recorded_slower_than_the_flat_timeout_gets_its_own_budget(rg, monkeypatch):
+    """opendde/1536 on a Wormhole Galaxy is recorded at 3992 s; a flat 1800 s fold timeout made
+    that rung time out on every pass, so the timeout scales with the rung's recorded runtime."""
+    monkeypatch.setattr(rg, "SIZE_LADDER_FOLD_TIMEOUTS", {})
+    t = rg._size_ladder_fold_timeouts("opendde", {"256": 56.3, "1536": 3992.0, "2048": None})
+    assert t == {256: rg.FOLD_TIMEOUT_S, 1536: 3 * 3992}
+    assert rg.SIZE_LADDER_FOLD_TIMEOUTS[("opendde", 1536)] == 3 * 3992
+    monkeypatch.setattr(rg, "_size_ladder_measure_model", lambda *a, **k: {"error": "x"})
+    base = _baseline()
+    base["runtime_s"]["768"] = 1000.0
+    rg._size_ladder_check_model("boltz2", RUNGS, base, pathlib.Path("/tmp"))
+    assert rg.SIZE_LADDER_FOLD_TIMEOUTS[("boltz2", 768)] == 3000
+    assert rg.SIZE_LADDER_FOLD_TIMEOUTS[("boltz2", 256)] == rg.FOLD_TIMEOUT_S
+
+
+def test_a_worker_device_death_names_the_fatal_not_the_dispatcher(rg_fresh):
+    """.108 chip 5, 2026-10-17: the worker's TT_THROW is an earlier traceback than the
+    dispatcher's summary. The error has to carry the init failure so gate_fanout's
+    dirty-chip retry (INIT_FAILED) recognises the leg."""
+    text = (
+        "tt-bio worker UF-EV-A4-GWH02:tt5: device open failed\n"
+        "Traceback (most recent call last):\n"
+        '  File "x.py", line 1, in open\n'
+        "RuntimeError: TT_THROW @ /project/tt_metal/impl/device/firmware/"
+        "risc_firmware_initializer.cpp:1115: tt::exception\n"
+        "info:\n"
+        "Device 0 init: failed to initialize FW! Try resetting the board.\n"
+        "backtrace:\n"
+        " --- void tt::assert::detail::tt_throw()\n"
+        "Traceback (most recent call last):\n"
+        '  File "main.py", line 2, in run\n'
+        "RuntimeError: every local worker exited before the run finished "
+        "(SpawnProcess-1 exit 1); no job can be served.\n")
+    err = rg_fresh._fold_error(text)
+    assert err.startswith("RuntimeError: TT_THROW")
+    assert "failed to initialize FW" in err
+    assert "every local worker exited" in err
+    import importlib.util, pathlib, sys
+    spec = importlib.util.spec_from_file_location(
+        "gate_fanout_for_ladder_test", pathlib.Path(__file__).parents[1] / "scripts" / "gate_fanout.py")
+    gf = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = gf
+    spec.loader.exec_module(gf)
+    assert gf.INIT_FAILED.search(err)
+
+
+def test_a_single_traceback_still_reports_its_own_exception(rg_fresh):
+    text = "Traceback (most recent call last):\n  File \"a\", line 1\nValueError: bad shape\n"
+    assert rg_fresh._fold_error(text) == "ValueError: bad shape"

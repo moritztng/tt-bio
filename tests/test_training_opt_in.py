@@ -38,7 +38,9 @@ TRAINING = {"autograd", "finetune", "train", "taped_ttnn"}
 # gradient stack is what it is for, not a leak into an inference path. It imports both inside
 # `_Trunk.__init__`, so importing the module pulls neither, and nothing under `tt_bio/` imports
 # `bindcraft2` at all -- the inference path cannot reach it by any route.
-ALLOWED = {"autograd.py", "bindcraft2.py", "finetune.py", "taped_ttnn.py"}
+# `af2_structure.py` is BindCraft 2's structure module: only `bindcraft2` imports it, and its
+# tape backend imports `autograd` inside `Card.__init__`, so the same argument holds.
+ALLOWED = {"af2_structure.py", "autograd.py", "bindcraft2.py", "finetune.py", "taped_ttnn.py"}
 
 
 def _imports(path: Path) -> set[str]:

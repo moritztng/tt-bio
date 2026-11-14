@@ -177,3 +177,27 @@ def test_g_is_dropped_when_the_shrunk_block_no_longer_tiles_the_length(stub):
     esmc.SwiGLUFFN._row_blocked(_ffn_instance(), y, 32, residual=True)
     assert esmc.FILL_ASSEMBLY_STATS == [0, 1], "G assembled a length it does not tile"
     assert esmc.FUSED_RESID_STATS == [1, 0], "F does not need the exact tiling G does"
+
+
+def test_without_a_residual_the_blocks_fill_one_output_instead_of_a_concat(stub, monkeypatch):
+    """The MSA encoder's pair transition (`residual=False`) assembles with G too. Its concat
+    needed a second whole-pair buffer, 2 GiB at 2048 aa, which is what OOMed ESMFold2 --fast
+    on one p300c chip. fc2's output must land in L1, the input `fill_cache` takes."""
+    out_mcs = []
+
+    def fake_ffn(self, part, split=False, l1_gated=False, out_mc=None):
+        out_mcs.append(out_mc)
+        return FakeTensor(part.shape)
+
+    def no_concat(outs, dim):
+        raise AssertionError("concatenated blocks that G should have filled in place")
+
+    monkeypatch.setattr(esmc.SwiGLUFFN, "_ffn", fake_ffn)
+    monkeypatch.setattr(ttnn, "concat", no_concat)
+    x = FakeTensor((1, 512, 512, 128))
+    out = esmc.SwiGLUFFN._row_blocked(_ffn_instance(), x, 32, residual=False)
+
+    assert out.shape == (1, 512, 512, 128)
+    assert esmc.FILL_ASSEMBLY_STATS == [1, 0]
+    assert esmc.FUSED_RESID_STATS == [0, 0], "F counted on a call with no residual"
+    assert out_mcs == [ttnn.L1_MEMORY_CONFIG] * 16

@@ -1,0 +1,21 @@
+# OpenDDE 1.2.0 example 9xqn (Fab), contact: upstream examples/tfg/9xqn/9xqn_contact.json.
+# Entity n is the n-th entry of `sequences`; copy k is the k-th id in its list.
+# tt-bio predict examples/tfg/9xqn_contact.yaml --model opendde-abag --use_tfg_guidance
+version: 1
+sequences:
+  - protein:    # entity 1
+      id: A
+      sequence: ASGRQTVDEALKDAQTSQEGNSTSLQEGLQDLIHTATLVTCTFLLAVIFCLGSYGNFIVFLSFFDPAFRKFRTNFDFMILNLSFCDLFICGVTAPMFTFVLFFSSASSIPDAFCFTFHLTSSGFIIMSLKTVAVIALHRLRMVLGKQPNRTASFPCTVLLTLLLWATSFTLATLATLKTSKSHLCLPMSSLIAGKGKAILSLYVVDFTFCVAVVSVSYIMIAQTLRKNAERARSTLADLEDNWETLNDNLKVIEKADNAAQVKDALTKMRAAALDAQKASGSGSPEMKDFRHGFDILVGQIDDALKLANEGKVKEAQAAAEQLKTTRNAYIQKYLERARSTLAKDSKAVVTCVIIVLSVLVCCLPLGISLVQVVLSSNGSFILYQFELFGFTLIFFKSGLNPFIYSRNSAGLRRKVLWCLQS
+  - protein:    # entity 2
+      id: B
+      sequence: SDIQMTQSPSSLSASVGDRVTITCRASQSVSSAVAWYQQKPGKAPKLLIYSASSLYSGVPSRFSGSRSGTDFTLTISSLQPEDFATYYCQQYLYYSLVTFGQGTKVE
+  - protein:    # entity 3
+      id: C
+      sequence: VQLVESGGGLVQPGGSLRLSCAASGFNVVVFSIHWVRQAPGKGLEWVAYISSSSGSTSYADSVKGRFTISADTSKNTAYLQMNSLRAEDTAVYYCARWGYWPGEPWWKAFDYWGQGTLVTV
+constraint:
+  movable_chains: [B, C]
+  contact:
+    - {entity1: 1, copy1: 1, position1: 271, atom1: "CA", entity2: 2, copy2: 1, position2: 31, atom2: "CA", min_distance: 3.5, max_distance: 8.0}
+    - {entity1: 1, copy1: 1, position1: 299, atom1: "CA", entity2: 3, copy2: 1, position2: 101, atom2: "CA", min_distance: 3.5, max_distance: 8.0}
+    - {entity1: 1, copy1: 1, position1: 309, atom1: "CA", entity2: 3, copy2: 1, position2: 58, atom2: "CA", min_distance: 3.5, max_distance: 8.0}
+    - {entity1: 1, copy1: 1, position1: 306, atom1: "CA", entity2: 3, copy2: 1, position2: 56, atom2: "CA", min_distance: 3.5, max_distance: 8.0}

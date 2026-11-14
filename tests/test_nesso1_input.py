@@ -23,6 +23,42 @@ pytestmark = pytest.mark.skipif(
 )
 
 
+@pytest.fixture(autouse=True)
+def _private_cache(tmp_path, monkeypatch):
+    """CcdMols writes its index under the cache root; keep it out of the user's."""
+    monkeypatch.setenv("TT_BIO_CACHE", str(tmp_path / "cache"))
+
+
+def _mol_key(m):
+    from rdkit import Chem
+
+    return (Chem.MolToMolBlock(m), [sorted(a.GetPropsAsDict().items()) for a in m.GetAtoms()])
+
+
+def test_ccd_index_serves_the_same_mols_as_the_full_pickle(tmp_path):
+    """build_dataset used to unpickle all of ccd.pkl a second time to keep 21 mols, and
+    preprocess unpickled it once more: 10 s of a 20 s featurisation. CcdMols serves each
+    code from a derived index. Every mol must be the one the full load gives, on the
+    first (index written) and second (index read) construction alike."""
+    import pickle
+
+    import tt_bio.nesso1_input as NI
+    from tt_bio._vendor.nesso.data.inference import STANDARD_AA
+    from tt_bio._vendor.nesso.data.yaml_input import load_ccd_mol_dict
+
+    full = load_ccd_mol_dict(CCD)
+    extra = tmp_path / "ccd.pkl"
+    with extra.open("wb") as f:
+        pickle.dump({**full, "XYZ": full["ALA"]}, f)
+    for _ in range(2):
+        mols = NI.CcdMols(extra)
+        std = NI.standard_mols(mols)
+        assert sorted(std) == sorted(k for k in STANDARD_AA if k in full)
+        assert all(_mol_key(std[k]) == _mol_key(full[k]) for k in std)
+    assert "XYZ" in mols and _mol_key(mols["XYZ"]) == _mol_key(full["ALA"])
+    assert "NOPE" not in mols
+
+
 def _preprocess(out_dir, num_workers):
     from tt_bio.nesso1_input import preprocess, resolve_paths
 
@@ -42,15 +78,10 @@ def test_num_workers_zero_parses_inline(tmp_path):
     assert (paths.mol_dir / "tyr48__B.pkl").exists()
 
 
-def test_inline_and_pooled_agree_on_everything_but_the_conformer(tmp_path):
-    """The inline path is the same code as the pooled one, and the record it writes is
-    byte-identical. The ligand conformer is NOT: ETKDG draws its embedding seed from the
-    process RNG state, so a worker process and the parent produce coordinates that differ
-    (first atoms agree, later ones do not). Protein coordinates come from the CCD and are
-    stable. So num_workers changes the model input for any SMILES ligand -- one more face
-    of the featurization-samples trap, alongside center_random_augmentation. Anything
-    comparing numbers across runs has to commit the conformer, which is why the parity
-    fixtures ship rdkit_conformers/ rather than regenerating it."""
+def test_inline_and_pooled_agree_conformer_included(tmp_path):
+    """The inline path is the same code as the pooled one, and what it writes is byte-identical, the ligand conformer
+    included. ETKDG's default seed (-1) draws a fresh one per call, so a worker process and the parent used to embed
+    different coordinates for the same SMILES and a seeded screen() was not repeatable; get_conformer now fixes it."""
     inline, _, _ = _preprocess(tmp_path / "inline", 0)
     pooled, _, _ = _preprocess(tmp_path / "pooled", 2)
     for rel in ("records/tyr48.json", "manifest.json"):
@@ -58,15 +89,8 @@ def test_inline_and_pooled_agree_on_everything_but_the_conformer(tmp_path):
     a = np.load(inline.structures_dir / "tyr48.npz")
     b = np.load(pooled.structures_dir / "tyr48.npz")
     assert sorted(a.files) == sorted(b.files)
-    moved = []
     for k in a.files:
-        if a[k].dtype.names and "coords" in a[k].dtype.names:
-            assert a[k].shape == b[k].shape, k  # same atoms in the same order
-            if not np.array_equal(a[k], b[k]):
-                moved.append(k)
-            continue
         assert np.array_equal(a[k], b[k]), k
-    assert moved, "expected the conformer coordinates to move across the process boundary"
 
 
 def test_ccd_atom_names_survive_unpickling():
@@ -142,3 +166,53 @@ def test_find_ccd_without_download_names_where_it_looked(tmp_path, monkeypatch):
     monkeypatch.setenv("HOME", str(tmp_path))  # so ~/.cache/huggingface is empty too
     with pytest.raises(FileNotFoundError, match="--ccd"):
         find_ccd(tmp_path / "empty", download=False)
+
+
+def test_esm_embedding_is_computed_once_per_sequence_across_runs(tmp_path, monkeypatch):
+    """A screen re-runs the same target with new ligands. The ESM-2 embedding is a pure
+    function of the sequence, so the second run must link the stored one, byte for byte,
+    instead of loading the 650M encoder again."""
+    import torch
+    from safetensors.torch import load_file
+
+    import tt_bio._vendor.nesso.data.esm as esm
+    from tt_bio.nesso1_input import run_esm
+
+    calls = []
+    monkeypatch.setattr(esm, "setup_esm_model", lambda *a, **k: (None, None))
+    monkeypatch.setattr(esm, "extract_esm_embedding",
+                        lambda seq, m, t: calls.append(seq) or torch.randn(1, len(seq) + 2, 4))
+    seqs = {"m1": "MENFQK"}
+    assert run_esm(seqs, (tmp_path / "run1").mkdir() or tmp_path / "run1") == 1
+    assert run_esm(seqs, (tmp_path / "run2").mkdir() or tmp_path / "run2") == 0
+    assert calls == ["MENFQK"]
+    a, b = (load_file(tmp_path / r / "m1.safetensors")["embeddings"] for r in ("run1", "run2"))
+    assert torch.equal(a, b)
+
+
+def test_device_and_cpu_embeddings_keep_separate_stores(tmp_path, monkeypatch):
+    """The card's ESM-2 is not the CPU's to the bit. A run on one backend must never be
+    handed the other's stored embedding: a DAVIS grade of the device encoder once read the
+    CPU arm's store and came out identical to it."""
+    import torch
+    from safetensors.torch import load_file
+
+    import tt_bio._vendor.nesso.data.esm as esm
+    import tt_bio.nesso1_input as NI
+
+    calls = []
+    monkeypatch.setattr(esm, "setup_esm_model", lambda *a, **k: (None, None))
+    monkeypatch.setattr(esm, "extract_esm_embedding",
+                        lambda seq, m, t: calls.append("cpu") or torch.zeros(1, len(seq) + 2, 4))
+    monkeypatch.setattr(NI, "device_esm",
+                        lambda *a, **k: lambda seq: calls.append("tt") or torch.ones(1, len(seq) + 2, 4))
+    seqs = {"m1": "MENFQK"}
+    runs = {}
+    for i, dev in enumerate((False, True, False, True)):
+        d = tmp_path / f"run{i}"
+        d.mkdir()
+        NI.run_esm(seqs, d, on_device=dev)
+        runs[i] = load_file(d / "m1.safetensors")["embeddings"]
+    assert calls == ["cpu", "tt"]
+    assert torch.equal(runs[0], runs[2]) and torch.equal(runs[1], runs[3])
+    assert not torch.equal(runs[0], runs[1])

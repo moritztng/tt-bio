@@ -1,0 +1,4 @@
+2026-11-03T18:07:34Z resumed watching 58992458
+2026-11-03T18:42:15Z 58992458 ended: done (setup-mol1 0 2026-11-03T18:07:18Z;setup-bc2 0 2026-11-03T18:07:18Z;setup-rfd4 0 2026-11-03T18:07:18Z;mol1 0 2026-11-03T18:11:43Z;bc2 0 2026-11-03T18:22:31Z;rfd4 0 2026-11-03T18:39:48Z;)
+2026-11-03T18:42:27Z DESTROYED 58992458 (session end: done); this instance over REST: gone; instances left: 2
+2026-11-03T18:42:28Z credit $85.86057016977657 at end

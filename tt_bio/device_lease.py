@@ -186,15 +186,57 @@ def device_init_lock():
     if f is None:
         yield                    # unserialized, and already warned about above
         return
+    serve = None
     try:
-        fcntl.flock(f, fcntl.LOCK_EX)  # wait our turn; do NOT proceed concurrently
+        serve = open(_init_lock_path + ".serve", "a")
+    except Exception:
+        pass                     # no priority on this box; the lock itself still serializes
+    try:
+        if os.environ.get(DEVICE_CLASS_ENV) == "borrow":
+            _take_behind_serve(f, serve)
+        else:
+            if serve is not None:
+                fcntl.flock(serve, fcntl.LOCK_SH)   # says "a serving open is waiting"
+            fcntl.flock(f, fcntl.LOCK_EX)  # wait our turn; do NOT proceed concurrently
         yield
     finally:
+        for x in (f, serve):
+            try:
+                if x is not None:
+                    fcntl.flock(x, fcntl.LOCK_UN)
+                    x.close()
+            except Exception:
+                pass
+
+
+#: ``borrow`` marks a process running on a chip a serving host lent it (the JapanFold agent's
+#: borrow lane sets it): its bring-ups go after every serving one. Anything else, or unset, serves.
+DEVICE_CLASS_ENV = "TT_BIO_DEVICE_CLASS"
+#: How often a borrowing open looks again while a serving one waits or the lock is held.
+BORROW_POLL_S = 0.5
+
+
+def _take_behind_serve(f, serve):
+    """Take the bring-up lock only when no serving open waits for it.
+
+    .107 2026-10-24 00:07-01:01Z: release legs requeued on lent chips queued their bring-ups
+    in the same lock as the agent's canaries, each canary gave up after 300 s behind them,
+    and five chips sat out until the box reset itself. A serving open holds ``<lock>.serve``
+    shared from before it waits until it is done; a borrowing one never sits in the kernel's
+    queue, it polls, so the next release always goes to a waiting serving open."""
+    while True:
+        if serve is not None:
+            try:
+                fcntl.flock(serve, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                fcntl.flock(serve, fcntl.LOCK_UN)
+            except BlockingIOError:
+                time.sleep(BORROW_POLL_S)
+                continue
         try:
-            fcntl.flock(f, fcntl.LOCK_UN)
-            f.close()
-        except Exception:
-            pass
+            fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            return
+        except BlockingIOError:
+            time.sleep(BORROW_POLL_S)
 
 
 def lease_dir():
@@ -271,7 +313,7 @@ def physical_cards():
         from tt_bio.runtime import visible_device_indices
         cards = visible_device_indices(visible)
     else:
-        cards = [int(p.rsplit("/", 1)[-1]) for p in glob.glob("/dev/tenstorrent/[0-9]*")]
+        cards = range(len(glob.glob("/dev/tenstorrent/[0-9]*")))  # UMD indices, not node numbers
     # No cards present (device-free host, CI): keep the single-card behaviour rather than
     # leasing nothing, so a lease is still taken and the open fails on its own terms.
     return [str(c) for c in sorted(set(cards))] or [physical_card()]
@@ -538,7 +580,63 @@ class CardSetLease:
 _ARMED = False
 
 
-def install_parent_death_guard(parent_pid: int, *, exit_code: int = 70) -> None:
+#: How long an orphan gets to unwind after its parent is gone before it is SIGKILLed. A worker's
+#: SIGTERM handler closes its chip in seconds, and its heartbeat backstop exits at ~60 s when the
+#: interpreter still runs; this is the case where neither can.
+ORPHAN_KILL_AFTER_S = 90.0
+
+# Runs in its own interpreter, so a process wedged inside a C call cannot stop it. It is the
+# guarded process's child: while ``getppid()`` names that process, a kill cannot hit a recycled
+# pid. The parent's death shows as a changed ppid in /proc, which needs no pidfd (a uv-built
+# Python has no os.pidfd_open). It ignores the group signals its guarded process gets, so a
+# `timeout` that SIGTERMs the whole group does not take the reaper down first, and it holds
+# none of the guarded process's fds, so a reader waiting for that process's EOF never waits on it.
+_REAPER_SRC = """
+import os, signal, sys, time
+for s in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+    signal.signal(s, signal.SIG_IGN)
+guarded, parent, after = int(sys.argv[1]), int(sys.argv[2]), float(sys.argv[3])
+
+def parent_of(pid):
+    try:
+        with open(f"/proc/{pid}/stat") as f:
+            return int(f.read().rsplit(")", 1)[1].split()[1])
+    except (OSError, IndexError, ValueError):
+        return None
+
+while os.getppid() == guarded and parent_of(guarded) == parent:
+    time.sleep(0.25)
+deadline = time.monotonic() + after
+while os.getppid() == guarded and time.monotonic() < deadline:
+    time.sleep(0.25)
+if os.getppid() == guarded:
+    try:
+        with open(f"/proc/{guarded}/fd/2", "w") as err:
+            err.write(f"tt-bio: pid {guarded} outlived its parent {parent} by {after:.0f}s "
+                      "without taking SIGTERM; killing it (SIGKILL)\\n")
+    except OSError:
+        pass
+    os.kill(guarded, signal.SIGKILL)
+"""
+_REAPER = None
+
+
+def _start_orphan_reaper(parent_pid: int, kill_after_s: float) -> None:
+    """SIGKILL this process ``kill_after_s`` after ``parent_pid`` stops being its parent.
+
+    The reaper exits within a quarter second of this process, so it never outlives what it guards.
+    """
+    global _REAPER
+    import subprocess
+
+    _REAPER = subprocess.Popen(
+        [sys.executable, "-I", "-S", "-c", _REAPER_SRC,
+         str(os.getpid()), str(parent_pid), str(kill_after_s)],
+        stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def install_parent_death_guard(parent_pid: int, *, exit_code: int = 70,
+                               kill_after_s: float = ORPHAN_KILL_AFTER_S) -> None:
     """Die with the process that owns this one, from inside any call.
 
     PR_SET_PDEATHSIG is delivered by the kernel the moment the parent dies, so it
@@ -548,9 +646,17 @@ def install_parent_death_guard(parent_pid: int, *, exit_code: int = 70) -> None:
     a gate scorer, held card 1 for 1 h 43 m and killed the next gate's first leg with
     DeviceInUseError.
 
+    The death signal is SIGTERM so that a worker's handler can close its chip cleanly.
+    A Python handler only runs when the interpreter does, though, and a process wedged
+    in a ttnn call never gets back to it: a predict worker stuck in the bring-up
+    dispatch probe held card 3 for 1 h 48 min after `timeout` killed its CLI
+    (2026-11-13). So a reaper process escalates to SIGKILL ``kill_after_s`` later,
+    which nothing in this process can block or delay. Stale-lease reclaim stays the
+    backstop behind both.
+
     The kernel sends the signal when the parent THREAD that created us exits, not when
     the parent process does, so a caller spawning from a thread pool must not let that
-    thread return while the child is still alive.
+    thread return while the child is still alive. The reaper watches the process.
     """
     if not parent_pid:
         return
@@ -564,6 +670,19 @@ def install_parent_death_guard(parent_pid: int, *, exit_code: int = 70) -> None:
     # is sent if it is already gone, so re-check by hand.
     if os.getppid() != parent_pid:
         os._exit(exit_code)
+    try:
+        _start_orphan_reaper(parent_pid, kill_after_s)
+    except OSError:
+        pass
+
+
+def orphan_guard_env() -> dict:
+    """Environment that lets a child this process spawns arm its guard against us.
+
+    Merge it into the env of any child that can open a device. The child arms in
+    ``arm_orphan_guard``, which every device open and every CLI entry point calls.
+    """
+    return {"TT_BIO_PARENT_PID": str(os.getpid())}
 
 
 def arm_orphan_guard() -> None:

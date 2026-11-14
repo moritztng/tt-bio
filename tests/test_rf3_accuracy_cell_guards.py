@@ -110,6 +110,7 @@ def test_default_ckpt_follows_tt_bio_weights_not_a_second_hard_coded_path(ac, mo
     ck.parent.mkdir()
     ck.write_bytes(b"")
     monkeypatch.delenv("RF3_CKPT", raising=False)
+    monkeypatch.delenv("TT_BIO_CACHE", raising=False)   # outranks BOLTZ_CACHE; a gate host sets it
     monkeypatch.setenv("BOLTZ_CACHE", str(tmp_path))
     assert ac._default_ckpt() == str(ck)
     monkeypatch.setenv("RF3_CKPT", str(tmp_path / "elsewhere.ckpt"))

@@ -4,7 +4,9 @@ OpenDDE's structural pair at 1536 residues (2987 tokens) was refused a 230013337
 position projection, and its fp32 cast would have been 13.9 GB, both built whole before the row
 blocks began. After a refusal the whole chain (cast, compression, concat + LN + projection, both
 transitions) now runs per row block and each block goes to the host. Every step is per (i, j)
-position, so the blocked result must equal the single pass.
+position, so the blocked result must equal the single pass. In fp32 that holds bit for bit. In
+bf16 ttnn plans the 64-row block's matmuls differently from the whole tensor's on some grids (p300c),
+so there the two agree to bf16 accumulation error at the tensor's scale.
 """
 import types
 
@@ -68,5 +70,12 @@ def test_row_blocked_pair_conditioning_is_the_single_pass(model, fp32):
     stub._paircond_rows_refused = _Refused()
     blocked = Protenix._diffusion_pair_cond(stub, ft(z), relp)
     assert blocked.shape == (n, n, single.shape[-1]) and single.numel() == blocked.numel()
-    assert torch.equal(blocked, single.reshape(blocked.shape)), \
-        (blocked - single.reshape(blocked.shape)).abs().max()
+    single = single.reshape(blocked.shape)
+    if fp32:
+        assert torch.equal(blocked, single), (blocked - single).abs().max()
+    else:
+        # qb2 p300c: max 0.25 against values to ~16, i.e. bf16 accumulation error at the tensor's scale.
+        # A wrong or misplaced row block is off by the values themselves.
+        err, ref = (blocked - single).abs(), single.abs()
+        assert err.max() <= 2.0 ** -5 * ref.max(), err.max()
+        assert err.square().mean().sqrt() <= 2.0 ** -6 * ref.square().mean().sqrt(), err.square().mean().sqrt()

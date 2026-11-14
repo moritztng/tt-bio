@@ -1,0 +1,8 @@
+Designed-chain CA RMSD per seed (perf/rfd4/e2e/grade.py), bar 0.60 A, PD-L1 binder specs.
+g1 = qb2 chip 1 (no determinism marker), tree 37b597211; q2 = qb2 chip 3, main 25acd266d (controls only).
+lever  c224 g1 w10 vs w5, 31 seeds: median 1.667 mean 2.01 max 7.01, 10/31 under 0.60, seed floor median 21.15; binder grade PASS
+lever  c192 g1 w14 vs w7, 31 seeds: median 0.704 mean 1.30 max 7.24, 15/31 under 0.60, seed floor median 18.23; binder grade PASS
+lever  q2 224 w10 vs w5, 20 seeds:  median 0.738 mean 1.38 max 4.93, 8/20 under 0.60, floor 21.38
+lever  q2 192 w14 vs w7, 20 seeds:  median 0.000 mean 0.47 max 4.50, 16/20 under 0.60, floor 20.18
+main   q2 224 w4 vs w5, 20 seeds:   median 1.014 mean 1.47 max 4.93, 8/20 under 0.60, floor 21.38  (main already re-rolls on width)
+card   g1 chip1 w5 vs q2 chip3 w5:  0.000 on 20/20  (no card dependence)

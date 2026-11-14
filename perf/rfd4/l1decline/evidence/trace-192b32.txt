@@ -1,0 +1,7 @@
+PATH fused_tail_ln ((1, 192, 192, 256),) ('DataType.BFLOAT16',) False
+PATH fused_tail ((32, 192, 192, 384),) ('DataType.BFLOAT8_B',) True
+PATH fused_tail ((32, 192, 192, 256),) ('DataType.BFLOAT16',) True
+PATH trimul_out_proj ((32, 192, 192, 256),) ('DataType.BFLOAT16',) False
+LINEAR-REFUSED (32, 192, 192, 384) DataType.BFLOAT8_B (384, 384) DataType.BFLOAT16 {'bias': None, 'memory_config': MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0), 'dtype': DataType.BFLOAT16, 'core_grid': ttnn.CoreGrid(x=13, y=10), 'activation': None} ['TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception', 'info:', 'Statically allocated circular buffers on core range [(x=0,y=0) - (x=12,y=9)] grow to 1586560 B which is beyond max L1 size of 1572864 B']
+T2-REJECTS {('k_tiles=12', '32x192x192x384@384x128'): 4, ('dtype_pair', '32x192x192x256@256x384'): 1} T2_STATS [2520, 0]
+RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception

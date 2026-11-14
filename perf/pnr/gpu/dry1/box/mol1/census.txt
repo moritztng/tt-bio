@@ -1,0 +1,9 @@
+Linux 43df97abb2b9 5.15.0-202-generic #212-Ubuntu SMP Thu Oct 15 16:49:38 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux
+32
+Model name:                              Intel(R) Core(TM) i9-14900KF
+               total        used        free      shared  buff/cache   available
+Mem:              62           9           1           0          51          52
+Swap:              7           0           7
+Filesystem      Size  Used Avail Use% Mounted on
+overlay         200G   44G  157G  22% /
+d5b83a86884aa6870565b1a249e8f13c232dfc6dfa311089ab0c7868212b6bd6  /root/moldata/checkpoint/mol-1-base.pt

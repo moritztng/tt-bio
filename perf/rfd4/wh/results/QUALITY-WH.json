@@ -1,0 +1,58 @@
+{
+ "what": "RFD4-Proteina on Wormhole vs Blackhole, same tree, same seeds, pdl1 binder spec, thinking_medium, batch 1, default levers",
+ "verdict": "PASS",
+ "tree": "wk/rfd4-wh-bringup 1bc72dfb6 on main 01c1644ae",
+ "wh": {
+  "box": "172.16.102.103 UF-EV-A2-GWH01",
+  "arch": "wormhole_b0",
+  "aiclk_mhz": 1000,
+  "chips": {
+   "256": 10,
+   "512": 16
+  }
+ },
+ "bh": {
+  "box": "qb2 p300c card 2",
+  "arch": "blackhole",
+  "aiclk_mhz": "1275-1350 (median 1306-1350)"
+ },
+ "grader": "perf/rfd4/wh/grade.sh: perf/rfd4/e2e/grade.py per seed (designed-chain CA RMSD, WH seed k vs BH seed k; floor BH seed k vs k+1) + perf/rfd4/quality.py grade --feature binder against the calibrated binder resample floor in state/rfd4/QUALITY.json, the same instruments LAND9-12 used",
+ "measured": "2026-10-23T19:05:45Z",
+ "sizes": {
+  "256": {
+   "n": 31,
+   "rmsd_median_a": 1.091,
+   "rmsd_mean_a": 2.412,
+   "rmsd_max_a": 11.04,
+   "seed_floor_median_a": 24.769,
+   "ratio": 0.044,
+   "under_floor": "31/31",
+   "per_seed_le_0p6": "14/31",
+   "binder_grade": "PASS",
+   "binder_ks_p": {
+    "geom.radius_of_gyration": 0.9994,
+    "geom.frac_ca_bond_outlier": 1.0,
+    "geom.ca_clash_frac": 1.0
+   },
+   "quality_json": "artifacts/wh/quality256.json on branch wk/rfd4-wh-bringup"
+  },
+  "512": {
+   "n": 31,
+   "rmsd_median_a": 2.944,
+   "rmsd_mean_a": 3.735,
+   "rmsd_max_a": 10.993,
+   "seed_floor_median_a": 37.524,
+   "ratio": 0.078,
+   "under_floor": "31/31",
+   "per_seed_le_0p6": "0/31",
+   "binder_grade": "PASS",
+   "binder_ks_p": {
+    "geom.radius_of_gyration": 0.9994,
+    "geom.frac_ca_bond_outlier": 0.6128,
+    "geom.ca_clash_frac": 1.0
+   },
+   "quality_json": "artifacts/wh/quality512.json on branch wk/rfd4-wh-bringup"
+  }
+ },
+ "reading": "WH lands a median 1.09 A from BH at 256 and 2.94 A at 512, against seed floors of 24.8 and 37.5 A (ratios 0.044 / 0.078). LAND12's approved 512 stack read 6.75 A against 38.6. A trajectory rerolls on any numeric change, so per-seed misses are not the test; the pooled median against the floor plus the binder KS is, and both pass at both sizes."
+}

@@ -47,6 +47,13 @@ committed reference-fixture tree (opendde schema): ``meta.json`` +
 ``ref_fp32/seed<N>.npz`` reference outputs + ``seed<N>/{meta.json,results.json,
 structures/<target>.cif,device_seed<N>.npz}`` device outputs, and asserts the executed
 sampler step count (requested 100 -> 68 after the sigma_max=256 schedule clip).
+``--ref_fixture <dir>`` reads the reference folds back from such a tree instead of running
+them, so a release only pays for the device side (a CPU fp32 fold of cdk2x2_512 takes ~47 min
+per seed). The fixture's settings and checkpoint must match the run's, or the harness refuses.
+
+The device model is built and folds under the lever set ``tt-bio predict`` uses for the same
+checkpoint and mode (``esmfold2_runtime.fold_scope``), so the number is the one users get.
+``TT_BIO_LEVERS`` overrides it, as it does for the serving path.
 """
 
 from __future__ import annotations
@@ -162,18 +169,23 @@ def checkpoint_repo(checkpoint: str) -> str:
     return ARTIFACTS[checkpoint].repo
 
 
-def checkpoint_identity(repo: str, config) -> dict:
+def checkpoint_identity(repo: str, config, revision: str | None = None) -> dict:
     """What was actually loaded: repo, weight sha256, trunk depth, MSA encoder.
 
     The sha256 is the hub's own blob name for model.safetensors, read off the resolved cache
     entry, so it names the bytes this run folded instead of a literal that goes stale when the
-    repo is re-uploaded. Depth and MSA-encoder presence come from the checkpoint config."""
+    repo is re-uploaded. It is looked up at the pinned revision the model was loaded from: a
+    cache whose refs/main points at a snapshot without weights reads no sha at main, which
+    made the identity depend on the host. The name is the snapshot link's own target, one
+    hop: a deduplicated cache (.108) points the repo blob on into a shared store whose file
+    name is not the hub's, and following the whole chain read that name instead. Depth and
+    MSA-encoder presence come from the checkpoint config."""
     sha = None
     try:
         from huggingface_hub import try_to_load_from_cache
-        hit = try_to_load_from_cache(repo, "model.safetensors")
+        hit = try_to_load_from_cache(repo, "model.safetensors", revision=revision)
         if isinstance(hit, str):
-            sha = os.path.basename(os.path.realpath(hit))
+            sha = os.path.basename(os.readlink(hit) if os.path.islink(hit) else hit)
     except Exception:
         pass
     blocks = config.folding_trunk.n_layers
@@ -272,6 +284,34 @@ def run_forward(model, feats, lm_hs, *, loops, steps, samples, seed=0):
                      num_sampling_steps=steps, num_diffusion_samples=samples)
 
 
+def load_ref_fixture(root, name, seeds, args, ckpt):
+    """The reference folds a fixture tree recorded (see dump_fixture), as run_forward returns them."""
+    from pathlib import Path
+
+    import numpy as np
+    root = Path(root)
+    meta = json.loads((root / "meta.json").read_text())
+    st = meta["settings"]
+    want = {"recycling_cycles": args.loops, "requested_steps": args.steps,
+            "checkpoint": ckpt["version"]}
+    have = {k: st.get(k) for k in want}
+    if have != want or meta["envelope"]["settings"]["target_id"] != name:
+        raise SystemExit(f"{root}: fixture was folded with {have} on "
+                         f"{meta['envelope']['settings']['target_id']!r}, this run asks for "
+                         f"{want} on {name!r}; regenerate it with --fixture_dir")
+    missing = sorted(set(seeds) - set(meta["seeds"]))
+    if missing:
+        raise SystemExit(f"{root}: no reference fold for seeds {missing} (has {meta['seeds']})")
+    # A committed fixture may leave out distogram_logits (67 MB a seed at L=512); the run
+    # then reports no distogram metrics rather than refusing.
+    runs = {}
+    for s in seeds:
+        with np.load(root / "ref_fp32" / f"seed{s}.npz") as z:
+            runs[s] = {k: torch.from_numpy(z[k]) for k in
+                       ("sample_atom_coords", "plddt", "distogram_logits", "ptm") if k in z}
+    return runs
+
+
 def kabsch_rmsd(a_coords, b_coords, atom_mask):
     """RMSD (Angstrom) of a_coords onto b_coords after weighted rigid alignment.
 
@@ -358,6 +398,13 @@ def dump_fixture(fixture_dir, name, chains, feats, chain_infos, builder, ref_run
     """Dump the opendde-schema fixture tree: meta.json + ref_fp32/ + seed<N>/ device legs."""
     from pathlib import Path
     import numpy as np
+    import socket
+    import subprocess
+    git_head = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True,
+                              text=True).stdout.strip() or "unknown commit"
+    shared_rng = os.environ.get("TT_BIO_ESMFOLD2_DIFFUSION_SHARED_RNG") == "1"
+    no_shared_rng = "off: the device sampler draws from its own generator, so a seed pairs " \
+                    "the settings, not the noise"
     # Polymer residues only: a ligand chain's "sequence" is a CCD/SMILES spec.
     n_res = sum(len("".join(str(c[1]).split())) for c in chains if c[3] != "ligand")
     # A target named by file path cannot be a filename. Use its stem.
@@ -407,19 +454,20 @@ def dump_fixture(fixture_dir, name, chains, feats, chain_infos, builder, ref_run
             [_seed_result(name, n_res, tt_runs[s], atom_mask)], indent=2))
         (d / "meta.json").write_text(json.dumps({
             "seed": s, "backend": "ttnn (Tenstorrent Blackhole), production sampler path",
-            "shared_rng": "TT_BIO_ESMFOLD2_DIFFUSION_SHARED_RNG=1 — device sampler draws "
-                          "from the global CPU torch stream, seeded per seed before each "
-                          "forward on both paths (paired shared-draw comparison)",
+            "shared_rng": ("TT_BIO_ESMFOLD2_DIFFUSION_SHARED_RNG=1 — device sampler draws "
+                           "from the global CPU torch stream, seeded per seed before each "
+                           "forward on both paths (paired shared-draw comparison)"
+                           if shared_rng else no_shared_rng),
         }, indent=2))
 
-    cmd = ("TT_VISIBLE_DEVICES=1 TT_BIO_ESMFOLD2_DIFFUSION_SHARED_RNG=1 PYTHONPATH=$PWD "
+    cmd = (("TT_BIO_ESMFOLD2_DIFFUSION_SHARED_RNG=1 " if shared_rng else "") + "PYTHONPATH=$PWD "
            f"python3 scripts/esmfold2_e2e_parity.py --checkpoint {args.checkpoint} "
            f"--proteins {name} --loops {args.loops} "
            f"--steps {args.steps} --seeds {','.join(map(str, seeds))} "
            f"--fixture_dir {fixture_dir} --out <summary.json>")
     meta = {
         "command": cmd,
-        "date": "2026-07-29",
+        "date": __import__("datetime").date.today().isoformat(),
         "model": args.checkpoint,
         "msa": "none (single-sequence; ESMFold2 is single-sequence by design, its MSA is optional)",
         "envelope": {
@@ -448,20 +496,20 @@ def dump_fixture(fixture_dir, name, chains, feats, chain_infos, builder, ref_run
             "dtype": "fp32",
             "checkpoint": ckpt["version"],
             "target": f"{name} ({target_label(chains)})",
-            "shared_rng": "TT_BIO_ESMFOLD2_DIFFUSION_SHARED_RNG=1 (global CPU torch stream seeded per seed on both paths)",
+            "shared_rng": ("TT_BIO_ESMFOLD2_DIFFUSION_SHARED_RNG=1 (global CPU torch stream "
+                           "seeded per seed on both paths)" if shared_rng else no_shared_rng),
             "lm_hidden_states": "shared: one ttnn ESMC-6B (biohub/ESMC-6B rev 45b0fa5d) forward injected into both paths",
             "rationale": "sample=1 isolates convergence (loops/steps) from best-of-N selection",
         },
         "parity": parity,
+        "settings_tag": root.name,
         "invalidation_rule": "Regenerate this fixture ONLY when the pinned reference "
                              "commit/checkpoint or the settings above change. For any other "
                              "change (device seeds, device code, release tag) the fixture is "
                              "reused as-is and only the device side re-runs.",
-        "provenance": "Built 2026-07-29 on qb1 (Blackhole p150 card 1) at the ESMFold2 paper "
-                      "benchmark protocol (10 loops, 100 requested = 68 executed steps, 1 "
-                      "sample, seeds 0-2, single-sequence) — the D4a reference leg esmfold2 "
-                      "never got. Parity numbers in the parity field are the output of this "
-                      "harness's noise-floor verdict (X within max(R,D)).",
+        "provenance": f"Built on {socket.gethostname()} at tt-bio {git_head}. Parity numbers "
+                      "in the parity field are the output of this harness's noise-floor "
+                      "verdict (X within max(R,D)).",
     }
     (root / "meta.json").write_text(json.dumps(meta, indent=2))
     print(f"wrote fixture tree to {root}", flush=True)
@@ -936,18 +984,23 @@ def main():
                          "the reference fold, so no parity verdict is produced")
     ap.add_argument("--fixture_dir", default=None,
                     help="dump a committed fixture tree here (requires exactly one protein)")
+    ap.add_argument("--ref_fixture", default=None,
+                    help="read the reference folds from this fixture tree instead of running "
+                         "them (requires exactly one protein)")
     args = ap.parse_args()
 
     torch.set_grad_enabled(False)
     from tt_bio import tenstorrent
     from tt_bio._vendor.esmfold2_hf.modeling_esmfold2 import ESMFold2Model
     from tt_bio._vendor.esmfold2_hf.modeling_esmfold2_common import compute_lm_hidden_states
-    from tt_bio.esmfold2_runtime import _ESMCAdapter, patch_esmfold2
+    from tt_bio.esmfold2_runtime import _ESMCAdapter, fold_levers, fold_scope, patch_esmfold2
 
     names = [n.strip() for n in args.proteins.split(",") if n.strip()]
     seeds = [int(s.strip()) for s in args.seeds.split(",") if s.strip()]
-    if args.fixture_dir and len(names) != 1:
-        raise SystemExit("--fixture_dir requires exactly one --proteins entry")
+    if (args.fixture_dir or args.ref_fixture) and len(names) != 1:
+        raise SystemExit("--fixture_dir and --ref_fixture require exactly one --proteins entry")
+    if args.fixture_dir and args.ref_fixture:
+        raise SystemExit("--fixture_dir records reference folds that --ref_fixture would skip")
 
     # Empirical device-side executed-step counter: capture the sampler's own n_steps via
     # its progress hook on the first device forward.
@@ -960,12 +1013,11 @@ def main():
         return _orig_report(stage, step, total)
     E.report_progress = _report
 
-    # Fast mode must be set BEFORE the ESMC preload: otherwise the 6B LM loads in
-    # default (non-fast) bf16 (~12.8 GB) and the later fast-mode trunk construction
-    # OOMs on Wormhole. Production sets fast mode before any load; mirror it.
+    # The adapter picks the 6B's weight format from its own `fast` at preload, as production does:
+    # without it the LM loads in bf16 (~12.8 GB) and the trunk build OOMs a 12 GiB Wormhole chip.
     tenstorrent.set_fast_mode(args.fast)
     # Shared ttnn ESMC-6B (loaded once): produces the LM hidden states fed to BOTH paths.
-    esmc = _ESMCAdapter(args.esmc_repo, persistent=True)
+    esmc = _ESMCAdapter(args.esmc_repo, persistent=True, fast=args.fast)
     esmc.preload()
 
     # Torch reference model (unpatched). Real ESMFold2 weights, no CPU ESMC (we
@@ -976,7 +1028,7 @@ def main():
     print(f"loading torch reference model ({args.checkpoint} -> {repo}"
           f"{f' @ {revision}' if revision else ''}) ...", flush=True)
     ref_model = ESMFold2Model.from_pretrained(repo, load_esmc=False, revision=revision).eval()
-    ckpt = checkpoint_identity(repo, ref_model.config)
+    ckpt = checkpoint_identity(repo, ref_model.config, revision)
     print(f"checkpoint: {ckpt['version']}, msa_encoder={ckpt['msa_encoder']}", flush=True)
 
     n_steps_code = executed_step_count(ref_model, args.steps)
@@ -984,9 +1036,12 @@ def main():
           flush=True)
 
     # ttnn model: same weights, every submodule swapped to ttnn.
-    print(f"loading ttnn model (fast={args.fast}) ...", flush=True)
+    levers = fold_levers(args.fast)
+    print(f"loading ttnn model (fast={args.fast}, levers={levers}) ...", flush=True)
     tt_model = ESMFold2Model.from_pretrained(repo, load_esmc=False, revision=revision).eval()
-    patch_esmfold2(tt_model, esmc_repo=args.esmc_repo)
+    # Built and folded under the set `predict` uses: some levers are read at build, the rest at run.
+    with fold_scope(args.fast):
+        patch_esmfold2(tt_model, esmc_repo=args.esmc_repo, fast=args.fast)
     tt_model._esmc = esmc  # reuse the already-loaded ESMC (LM states are passed in anyway)
 
     results = []
@@ -1006,12 +1061,13 @@ def main():
             atom_mask = atom_mask.unsqueeze(0)
 
         if args.conf_ab:
-            ab = conf_trunk_ab(tt_model, ref_model, feats, lm_hs, loops=args.loops,
-                               steps=args.steps, seed=seeds[0],
-                               trunk_probe=args.trunk_probe, z_sens=args.z_sens,
-                               x_swap_pdb=args.x_swap_pdb,
-                               inputs_swap=args.inputs_swap, ref_z=args.ref_z,
-                               z_ref_out=args.z_ref_out)
+            with fold_scope(args.fast):
+                ab = conf_trunk_ab(tt_model, ref_model, feats, lm_hs, loops=args.loops,
+                                   steps=args.steps, seed=seeds[0],
+                                   trunk_probe=args.trunk_probe, z_sens=args.z_sens,
+                                   x_swap_pdb=args.x_swap_pdb,
+                                   inputs_swap=args.inputs_swap, ref_z=args.ref_z,
+                                   z_ref_out=args.z_ref_out)
             ab = dict(protein=name, target=label, L=seq_len, seed=seeds[0],
                       checkpoint=args.checkpoint,
                       trunk_blocks=ckpt["trunk_blocks"], **ab)
@@ -1019,16 +1075,21 @@ def main():
             print(json.dumps(ab, indent=2), flush=True)
             continue
 
-        ref_runs, tt_runs = {}, {}
+        ref_runs = (load_ref_fixture(args.ref_fixture, name, seeds, args, ckpt)
+                    if args.ref_fixture else {})
+        tt_runs = {}
         for s in seeds:
-            print(f"  ref seed={s} ...", flush=True)
-            ref_runs[s] = run_forward(ref_model, feats, lm_hs, loops=args.loops, steps=args.steps, samples=1, seed=s)
+            if s not in ref_runs:
+                print(f"  ref seed={s} ...", flush=True)
+                ref_runs[s] = run_forward(ref_model, feats, lm_hs, loops=args.loops, steps=args.steps, samples=1, seed=s)
             print(f"  device seed={s} ...", flush=True)
-            tt_runs[s] = run_forward(tt_model, feats, lm_hs, loops=args.loops, steps=args.steps, samples=1, seed=s)
+            with fold_scope(args.fast):
+                tt_runs[s] = run_forward(tt_model, feats, lm_hs, loops=args.loops, steps=args.steps, samples=1, seed=s)
 
         base_ref, base_tt = ref_runs[seeds[0]], tt_runs[seeds[0]]
         verdicts = compare_multiseed(ref_runs, tt_runs, atom_mask, seeds)
-        dg_rel = rel_l2(base_tt["distogram_logits"], base_ref["distogram_logits"])
+        has_dg = "distogram_logits" in base_ref
+        dg_rel = rel_l2(base_tt["distogram_logits"], base_ref["distogram_logits"]) if has_dg else None
         plddt_means = plddt_seed_block(
             [float(ref_runs[s]["plddt"].float().mean()) for s in seeds],
             [float(tt_runs[s]["plddt"].float().mean()) for s in seeds], seeds)
@@ -1037,11 +1098,14 @@ def main():
             # What the input asked for, next to what the fold produced: a reader that has
             # both can tell a target with no ligand from a ligand that went missing.
             n_ligand_chains=sum(1 for c in chains if c[3] == "ligand"),
-            checkpoint=args.checkpoint, trunk_blocks=ckpt["trunk_blocks"],
+            checkpoint=args.checkpoint, trunk_blocks=ckpt["trunk_blocks"], levers=levers,
+            fast=bool(args.fast),
+            ref_source=args.ref_fixture or "folded in this run",
             plddt_mean=plddt_means,
             plddt_pcc=pcc(base_tt["plddt"], base_ref["plddt"]),
             plddt_mae=(base_tt["plddt"].float() - base_ref["plddt"].float()).abs().mean().item(),
-            distogram_pcc=pcc(base_tt["distogram_logits"], base_ref["distogram_logits"]),
+            distogram_pcc=(pcc(base_tt["distogram_logits"], base_ref["distogram_logits"])
+                           if has_dg else None),
             distogram_rel_l2=dg_rel,
             ptm_tt=float(base_tt["ptm"].mean()), ptm_ref=float(base_ref["ptm"].mean()),
             **verdicts,
@@ -1051,7 +1115,7 @@ def main():
             m["ligand"] = placement
         results.append(m)
         print(json.dumps(m, indent=2), flush=True)
-        assert dg_rel < DISTOGRAM_REL_L2_MAX, (
+        assert dg_rel is None or dg_rel < DISTOGRAM_REL_L2_MAX, (
             f"{name}: distogram_rel_l2 {dg_rel:.4f} >= {DISTOGRAM_REL_L2_MAX}: "
             "distogram_logits is scale-wrong, not just noisy (a PCC-only anchor "
             "shipped the double-symmetrize bug at distogram_pcc 0.9996)")

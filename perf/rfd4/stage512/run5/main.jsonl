@@ -1,0 +1,8 @@
+{"C": 128, "n": 256, "ta": 0, "tb": 0, "dtype": "DataType.BFLOAT16", "sha": "852f0fccaa5409f7"}
+{"C": 128, "n": 256, "ta": 1, "tb": 1, "dtype": "DataType.BFLOAT16", "sha": "749c71dae6977c98"}
+{"C": 256, "n": 256, "ta": 0, "tb": 1, "dtype": "DataType.BFLOAT8_B", "sha": "37d1cdc8980c88a6"}
+{"C": 128, "n": 512, "ta": 1, "tb": 0, "dtype": "DataType.BFLOAT16", "sha": "edb0e2a867bebd05"}
+{"C": 256, "n": 512, "ta": 0, "tb": 0, "dtype": "DataType.BFLOAT8_B", "sha": "bf93a4d322b2dfc2"}
+{"C": 256, "n": 384, "ta": 1, "tb": 0, "dtype": "DataType.BFLOAT8_B", "sha": "fb918b544b6fc90b"}
+{"C": 128, "n": 1024, "ta": 0, "tb": 0, "dtype": "DataType.BFLOAT16", "sha": null}
+{"C": 256, "n": 1024, "ta": 1, "tb": 1, "dtype": "DataType.BFLOAT8_B", "sha": null}

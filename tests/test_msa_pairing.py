@@ -196,15 +196,18 @@ def test_protenix_and_opendde_share_the_rule():
     """Neither predict path carries its own copy of the search or the trigger."""
     import inspect
 
-    from tt_bio.worker import _WorkerState
+    from tt_bio.worker import _WorkerState, openfold3_host_inputs
 
     for name in ("_protenix_inputs", "_predict_opendde_one"):
         src = inspect.getsource(getattr(_WorkerState, name))
         assert "_paired_a3ms(path, chains, msa_dir, cfg)" in src, name
         assert "n_prot" not in src and "_generate_paired_a3m" not in src, name
-    for name in ("_predict_openfold3_one", "_predict_esmfold2_one"):
-        assert "_paired_msa(path, chains, msa_dir, cfg)" in inspect.getsource(
-            getattr(_WorkerState, name)), name
-    # preview2 does not pair (upstream 0.4.x drops the rows); OpenBind does.
-    assert 'model == "openbind" and (paired := _paired_msa(' in inspect.getsource(
+    # OF3's featurization lives in openfold3_host_inputs, which _predict_openfold3_one calls.
+    of3 = inspect.getsource(openfold3_host_inputs)
+    assert "openfold3_host_inputs(path, cfg" in inspect.getsource(
         _WorkerState._predict_openfold3_one)
+    assert "_paired_msa(path, chains, msa_dir, cfg)" in of3
+    assert "_paired_msa(path, chains, msa_dir, cfg)" in inspect.getsource(
+        _WorkerState._predict_esmfold2_one)
+    # preview2 does not pair (upstream 0.4.x drops the rows); OpenBind does.
+    assert 'model == "openbind" and (paired := _paired_msa(' in of3

@@ -82,7 +82,7 @@ class Derived:
     what a host already has."""
 
     subdir: str                          # cache-relative output directory
-    producer: str                        # "tar" | "rfd3"
+    producer: str                        # "tar" | "af2-params" | "rdkit-conformers" | "rfd3"
     expect: tuple[str, ...] = ()         # files that must exist and verify inside
     min_entries: int = 0                 # or: at least this many entries
     discard_archive: bool = False        # unlink the source once the output verifies
@@ -99,6 +99,7 @@ class Artifact:
     repo: str | None = None              # HF repo id
     revision: str | None = None          # HF tag/commit to pin; None means the repo default
     filename: str | None = None          # path within the repo, or the flat file's name
+    allow: tuple[str, ...] = ()          # hub paths to snapshot; empty takes the whole repo
     url: str | None = None               # direct download, tried after the hub
     sha256: str | None = None            # of the finished file, when we have verified one
     subdir: str = ""                     # cache-relative dir for flat files
@@ -197,10 +198,14 @@ NESSO_REVISION = "v1.0.0"      # not `main`: main carries only a config.json
 # row loses its pin or a new unpinned third-party repo is added.
 ESMFOLD2_REPO = "biohub/ESMFold2"
 ESMFOLD2_FAST_REPO = "biohub/ESMFold2-Fast"
+RFD4_REPO = "nvidia/RFD4-Proteina"
+MOL1_REPO = "RUIMA294264/Mol-1"
+
 HF_REVISIONS = {
     ESMFOLD2_REPO: "8fc3ff471022fdce52c77030685eb775de0c00a3",
     ESMFOLD2_FAST_REPO: "c6c7958d63f5f2f1f0fed0bb9462316f8ccceea6",
     "biohub/ESMC-6B": "45b0fa5d7fb06faefbd5e3b89bdcef35d564e79a",
+    MOL1_REPO: "1ee94bcc3e56c7aa7d2bcb831810b5ce3c359cf4",
     "biohub/esmc-300m-2024-12": "7f10b20ae75017b2dbc884070e03434515709a8d",
     "biohub/esmc-600m-2024-12": "e4d83bc7e10fd55c92e598e545f4a76bf04a6e5c",
     "aurekaresearch/OpenDDE": "02c183584847af2a8c7e39ff591f95f47126b1f7",
@@ -208,6 +213,7 @@ HF_REVISIONS = {
     "westlake-repl/SaProt_650M_AF2": "d9b9ad00ef61c0990e611b2b43f2231c7de24b38",
     "westlake-repl/SaProt_1.3B_AF2": "314b94aee8eece41e5d52e0413f7df1cd00d3325",
     NESSO_REPO: NESSO_REVISION,
+    RFD4_REPO: "48377e45eb25a4fce8d2aff56c1a659b726d2106",
 }
 
 # Repo owners whose pushes we control, so their rows track the default branch.
@@ -232,11 +238,12 @@ _HF_SCHEME = "hf://"
 
 
 def split_hf(source: str) -> tuple[str, str] | None:
-    """``(repo, filename)`` for an ``hf://repo/file`` source, None for a plain URL."""
+    """``(repo, filename)`` for an ``hf://owner/name/path`` source, None for a plain URL.
+    A hub repo id is always two components; the file may sit in a subdirectory (mol1)."""
     if not source.startswith(_HF_SCHEME):
         return None
-    repo, _, filename = source[len(_HF_SCHEME):].rpartition("/")
-    return repo, filename
+    owner, name, filename = source[len(_HF_SCHEME):].split("/", 2)
+    return f"{owner}/{name}", filename
 
 
 def _hf_api_url(repo: str) -> str:
@@ -269,7 +276,7 @@ _ROWS: tuple[Artifact, ...] = (
     Artifact("boltz2-aff", ("boltz2",), "file", "MIT",
              repo=BOLTZ2_REPO, filename="boltz2_aff.ckpt", approx_bytes=2062139170,
              note="affinity head; only read for ligand affinity"),
-    Artifact("mols", ("boltz2", "protenix-v1", "protenix-v2"), "file", "MIT",
+    Artifact("mols", ("boltz2", "protenix-v1", "protenix-v2", "mol1", "opendde", "opendde-abag"), "file", "MIT",
              repo=BOLTZ2_REPO, filename="mols.tar", approx_bytes=1855662080,
              derived=Derived("mols", "tar", min_entries=45227),
              note="CCD molecule library, extracted to <cache>/mols"),
@@ -306,6 +313,61 @@ _ROWS: tuple[Artifact, ...] = (
                   "reproduced or distributed without the rights holder's consent. Use "
                   "--model protenix-v1, upstream's Apache-2.0 v0.5.0 checkpoint, instead."),
 
+    # Mol-1 (Molence) runs on the Protenix engine. The official copy sits in an Alibaba OSS
+    # bucket in Shanghai that serves the rest of the world at tens of KB/s, so the hub mirror,
+    # an unofficial byte-identical copy, is tried first. The sha256 is of the official file
+    # (its OSS CRC-64 matched the bucket's), so a mirror that drifts is a named error.
+    # Molence released the weights under Apache-2.0 like the code (molence/Mol-1#5, 2026-11-02).
+    Artifact("mol1", ("mol1",), "file", "Apache-2.0 (Molence)",
+             repo=MOL1_REPO, filename="checkpoint/mol-1-base.pt",
+             url="https://mol-1-release.oss-cn-shanghai.aliyuncs.com/checkpoint/mol-1-base.pt",
+             sha256="d5b83a86884aa6870565b1a249e8f13c232dfc6dfa311089ab0c7868212b6bd6",
+             subdir="mol1", approx_bytes=2393615173,
+             note="Mol-1 base checkpoint, a Protenix-v2 variant"),
+    # Mol-1-constraint: Mol-1 fine-tuned with SITE / CONTACT / EXCLUSION conditioning (mol1_constraint.py). No CLI
+    # model owns it, so a plain mol1 fold never downloads it; `predict` fetches it for an input that names a
+    # constraint. The mirror does not carry it; sha256 of the official file, whose OSS CRC-64 matched the bucket's.
+    Artifact("mol1-constraint", (), "file", "Apache-2.0 (Molence)",
+             filename="checkpoint/mol-1-constraint.pt",
+             url="https://mol-1-release.oss-cn-shanghai.aliyuncs.com/checkpoint/mol-1-constraint.pt",
+             sha256="33c5139f8bce74ae92bc33e46336724cc11bb720578e34f8a237834cc5e2fa5b",
+             subdir="mol1", approx_bytes=2311106509,
+             note="Mol-1-constraint checkpoint (site / contact / exclusion conditioning)"),
+    # Mol-1 takes each reference conformer from its own CCD pickle (mol.ref_conf_id), not the
+    # CCD ideal coordinates the other Protenix models read, so ref_pos needs this table to
+    # match upstream. Upstream ships the pickle only inside common.tar.gz, so the mirror's loose
+    # copy is the one source; the sha256 is of the pickle in the official tarball. Only the
+    # table is kept: conformers plus elements, charges and bonds, which build the CCD codes the
+    # `mols` library lacks. It lives in mol1/ccd, not the conformer-only mol1/conformers it replaced,
+    # so a host holding the old one derives the new one instead of adopting it by its marker.
+    Artifact("mol1-ccd", ("mol1",), "file", "unstated (Molence); CCD data PDB terms",
+             repo=MOL1_REPO, filename="common/components.cif.rdkit_mol.pkl",
+             sha256="b59c9ec2ee52b8e695d8669096d0496933ff374b8bf7d2e56025387d22df863a",
+             subdir="mol1", approx_bytes=149618245,
+             derived=Derived("mol1/ccd", "rdkit-conformers", expect=("ccd_table.npz",),
+                             discard_archive=True),
+             note="Mol-1's CCD table (conformers + topology), reduced to <cache>/mol1/ccd"),
+    # The wwPDB Chemical Component Dictionary as Mol-1 ships it (common/components.cif, byte-equal to the copy in the
+    # official common.tar.gz). Only `tt-bio json` reads it, so no model lists it and predict never fetches it.
+    Artifact("mol1-components", (), "file", "CC0 (wwPDB)",
+             repo=MOL1_REPO, filename="common/components.cif",
+             sha256="64f53e4d72c8f919d9d2afd34183df7c0b6211929dfe0eeb865fad82cd1374d5",
+             subdir="mol1", approx_bytes=518765615,
+             note="CCD components file Mol-1's structure-to-JSON converter reads"),
+    # Searched template hits (.a3m, .hhr) are kept only when their PDB entry has a release date before the cut-off;
+    # with no table every hit is dropped and the fold runs template-free. Upstream ships both files in common.tar.gz
+    # (sha256 of those copies; the mirror's are byte-equal). Fetched on first use by --use_template.
+    Artifact("mol1-release-dates", (), "file", "CC0 (wwPDB)",
+             repo=MOL1_REPO, filename="common/release_date_cache.json",
+             sha256="0020fbfb2881cee7c21f2d9136569c371b9cf2939e54dea312afcbd3ba50d188",
+             subdir="mol1", approx_bytes=13015253,
+             note="PDB release dates for Mol-1's template date filter"),
+    Artifact("mol1-obsolete", (), "file", "CC0 (wwPDB)",
+             repo=MOL1_REPO, filename="common/obsolete_to_successor.json",
+             sha256="1bf12b00e56822e90891f5b352232dad4a13a660e89399423e0dc85b22102661",
+             subdir="mol1", approx_bytes=82029,
+             note="Obsolete PDB entry to successor map for Mol-1's template search"),
+
     # -- ESMFold2 / ESMC / SaProt: whole HF repos, read from the hub cache ------
     Artifact("esmfold2", ("esmfold2",), "hf-repo", "MIT (Biohub)",
              repo=ESMFOLD2_REPO, approx_bytes=1352914698),
@@ -328,6 +390,11 @@ _ROWS: tuple[Artifact, ...] = (
     Artifact("saprot-1.3b", ("saprot-1.3b",), "hf-repo", "MIT",
              repo="westlake-repl/SaProt_1.3B_AF2", approx_bytes=15000000000),
 
+    # -- RFD4-Proteina: the repo also ships AF2, OpenFold3 and container images (~100 GB);
+    # the engine reads the config and NVIDIA's adapter-folded export, nothing else.
+    Artifact("rfd4", ("rfd4",), "hf-repo", "BSD-3-Clause (Institute for Protein Design)",
+             repo=RFD4_REPO, allow=("config.json", "model.safetensors"), approx_bytes=1742667866),
+
     # -- OpenDDE --------------------------------------------------------------
     Artifact("opendde", ("opendde",), "hf-repo", "Apache-2.0 (Aureka Research)",
              repo=OPENDDE_REPO, filename="opendde.pt", approx_bytes=2625249069,
@@ -335,6 +402,15 @@ _ROWS: tuple[Artifact, ...] = (
     Artifact("opendde-abag", ("opendde-abag",), "hf-repo", "Apache-2.0 (Aureka Research)",
              repo=OPENDDE_REPO, filename="opendde_abag.pt", approx_bytes=2625271509,
              legacy_env=("OPENDDE_CKPT",)),
+    # Upstream reads every CCD reference conformer from its own RDKit pickle (mol.ref_conf_id),
+    # not the CCD ideal coordinates, the same mechanism as mol1-ccd but OpenDDE's own pickle.
+    Artifact("opendde-ccd", ("opendde", "opendde-abag"), "file", "Apache-2.0 (Aureka Research); CCD data PDB terms",
+             repo=OPENDDE_REPO, filename="common/components.cif.rdkit_mol.pkl",
+             sha256="d1cfb71f5993a3ebea7c47877022d7f597bbfbaf86e28a4770e957da6c50cd35",
+             subdir="opendde", approx_bytes=142498117,
+             derived=Derived("opendde/ccd", "rdkit-conformers", expect=("ccd_table.npz",),
+                             discard_archive=True),
+             note="OpenDDE's CCD table (conformers + topology), reduced to <cache>/opendde/ccd"),
 
     # -- Nesso-1 (Recursion, Apache-2.0) ---------------------------------------
     # An hf-repo pair rather than two hf-file rows, the same shape as the two OpenDDE rows:
@@ -761,6 +837,40 @@ def _tool_commands(url: str, dest: Path) -> list[tuple[str, list[str]]]:
     return tools
 
 
+def _watch_bytes(wait, watch: Path, *, total: int | None, label: str) -> tuple[bool, int, bool]:
+    """Call ``wait(1.0)`` until it returns True, giving up when the bytes under ``watch`` stop growing.
+
+    Returns (finished, bytes on disk, silent). ``watch`` is the staging file, or a staging
+    directory when the downloader picks its own file names. Polling the disk rather than a
+    tool's progress output is what makes one bound hold for every transport, including the
+    ones whose own timeouts do not hold (the hub client's did not, 2026-11-01)."""
+    def size() -> int:
+        try:
+            if watch.is_dir():
+                return sum(p.stat().st_size for p in watch.rglob("*") if p.is_file())
+            return watch.stat().st_size
+        except OSError:
+            return 0
+
+    start = last = size()
+    moved_at = time.monotonic()
+    while True:
+        done = wait(1.0)
+        now = size()
+        if now != last:
+            last, moved_at = now, time.monotonic()
+            _report(label, now, total)
+        if done:
+            return True, now, False
+        silent = now == start == 0
+        if time.monotonic() - moved_at > (NO_START_SECONDS if silent else STALL_SECONDS):
+            return False, now, silent
+
+
+def _stall_reason(silent: bool) -> str:
+    return f"nothing arrived in {NO_START_SECONDS}s" if silent else f"no data for {STALL_SECONDS}s"
+
+
 def _run_tool(name: str, cmd: list[str], watch: Path, *, total: int | None,
               quiet: bool) -> tuple[bool, str, int, bool]:
     """Run one download command, killing it when the bytes stop arriving.
@@ -773,56 +883,44 @@ def _run_tool(name: str, cmd: list[str], watch: Path, *, total: int | None,
     import signal
     import subprocess
 
-    def size() -> int:
-        try:
-            return watch.stat().st_size
-        except OSError:
-            return 0
-
-    start = last = size()
-    moved_at = time.monotonic()
     proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL if quiet else None,
                             stderr=subprocess.STDOUT if quiet else None,
                             start_new_session=True)
-    while True:
+
+    def wait(t: float) -> bool:
         try:
-            rc = proc.wait(timeout=1.0)
+            proc.wait(timeout=t)
+            return True
         except subprocess.TimeoutExpired:
-            rc = None
-        now = size()
-        if now != last:
-            last, moved_at = now, time.monotonic()
-            _report(watch.name, now, total)
-        if rc is not None:
-            return rc == 0, ("finished" if rc == 0 else f"exit code {rc}"), now, False
-        silent = now == start == 0
-        if time.monotonic() - moved_at > (NO_START_SECONDS if silent else STALL_SECONDS):
-            for sig in (signal.SIGTERM, signal.SIGKILL):
-                try:
-                    os.killpg(os.getpgid(proc.pid), sig)
-                except OSError:
-                    break
-                try:
-                    proc.wait(timeout=5)
-                    break
-                except subprocess.TimeoutExpired:
-                    continue
-            if silent:
-                return False, f"nothing arrived in {NO_START_SECONDS}s", 0, True
-            return False, f"no data for {STALL_SECONDS}s", now, False
+            return False
+
+    finished, now, silent = _watch_bytes(wait, watch, total=total, label=watch.name)
+    if finished:
+        rc = proc.returncode
+        return rc == 0, ("finished" if rc == 0 else f"exit code {rc}"), now, False
+    for sig in (signal.SIGTERM, signal.SIGKILL):
+        try:
+            os.killpg(os.getpgid(proc.pid), sig)
+        except OSError:
+            break
+        if wait(5):
+            break
+    return False, _stall_reason(silent), now, silent
 
 
 def _hf_download_to(repo: str, filename: str, dest: Path, *, quiet: bool,
                     log: list) -> tuple[bool, bool]:
     """Fetch one file out of a Hugging Face repo into ``dest``. Never a final path.
 
-    The hub client does its own staging and its own retries, and every request it makes
-    carries a 10 s read timeout (``huggingface_hub.constants.HF_HUB_DOWNLOAD_TIMEOUT``),
-    so a host that goes quiet mid-transfer raises here instead of parking us: this
-    source needs no stall watchdog of its own, only the same "one attempt, then the
-    next source" rule as the tools. It downloads into a scratch dir beside ``dest``
-    rather than the hub cache, so a flat row keeps one copy on disk rather than two."""
+    The hub client does its own staging and its own retries, and its 10 s read timeout
+    (``HF_HUB_DOWNLOAD_TIMEOUT``) did not bound a stalled CDN: on qb1 (2026-11-01) a fetch
+    sat for half an hour with connections open and nothing arriving, through hf_xet and
+    with HF_HUB_DISABLE_XET=1 alike. So the fetch runs in a thread under the same byte
+    watchdog as the tools; a stalled thread is abandoned (daemon) and the next source is
+    tried. It downloads into a scratch dir beside ``dest`` rather than the
+    hub cache, so a flat row keeps one copy on disk rather than two."""
     import tempfile
+    import threading
 
     _echo(f"  Downloading {dest.name} from {repo} ...", quiet)
     _report(dest.name, 0, None)
@@ -831,10 +929,25 @@ def _hf_download_to(repo: str, filename: str, dest: Path, *, quiet: bool,
     staging = Path(tempfile.mkdtemp(dir=str(dest.parent), prefix=".dl-"))
     try:
         from huggingface_hub import hf_hub_download
-        tmp = Path(hf_hub_download(repo_id=repo, filename=filename,
-                                   revision=hf_revision(repo),
-                                   local_dir=str(staging), force_download=True))
-        os.replace(tmp, dest)
+        box: dict = {}
+
+        def fetch():
+            try:
+                box["path"] = Path(hf_hub_download(repo_id=repo, filename=filename,
+                                                   revision=hf_revision(repo),
+                                                   local_dir=str(staging), force_download=True))
+            except BaseException as e:                       # noqa: BLE001
+                box["err"] = e
+
+        t = threading.Thread(target=fetch, name=f"hf {filename}", daemon=True)
+        t.start()
+        finished, got, silent = _watch_bytes(lambda s: (t.join(s), not t.is_alive())[1], staging,
+                                             total=None, label=dest.name)
+        if not finished:
+            raise TimeoutError(_stall_reason(silent) + f" after {got} byte(s)")
+        if "err" in box:
+            raise box["err"]
+        os.replace(box["path"], dest)
         log.append((f"{_HF_SCHEME}{repo}/{filename}", "hf", "finished",
                     dest.stat().st_size))
         return True, False
@@ -977,7 +1090,7 @@ def fetch_file(sources: tuple[str, ...], dest: Path, *, sha256: str | None = Non
 
 
 def fetch_hf_repo(repo_id: str, *, filename: str | None = None, revision: str | None = None,
-                  force: bool = False, quiet: bool = False) -> Path:
+                  allow: tuple[str, ...] = (), force: bool = False, quiet: bool = False) -> Path:
     """Snapshot a whole HF repo into the hub cache and return the snapshot dir.
 
     ``revision`` pins a tag or commit, and defaults to the repo's ``HF_REVISIONS``
@@ -985,6 +1098,9 @@ def fetch_hf_repo(repo_id: str, *, filename: str | None = None, revision: str | 
     reaches here with a bare repo id) is pinned too. It is not cosmetic for a repo whose
     default branch is not the released tree: ``recursionpharma/nesso`` keeps ``main`` and
     ``v1.0.0`` on different commits, and ``main`` holds only a ``config.json``.
+
+    ``allow`` limits the snapshot to those paths, for a repo that carries far more than we
+    load: ``nvidia/RFD4-Proteina`` is ~100 GB and the engine reads 1.7 GB of it.
 
     The hub cache is already written blob-at-a-time through ``.incomplete`` staging, so
     the destination cannot hold a partial blob. What it does not do is notice a blob
@@ -994,12 +1110,15 @@ def fetch_hf_repo(repo_id: str, *, filename: str | None = None, revision: str | 
     from huggingface_hub import snapshot_download
 
     revision = revision or hf_revision(repo_id)
-    snap = Path(snapshot_download(repo_id, revision=revision, force_download=force))
+    patterns = list(allow) or None
+    snap = Path(snapshot_download(repo_id, revision=revision, allow_patterns=patterns,
+                                  force_download=force))
     if filename:
         target = snap / filename
         if not target.exists() or not artifact_intact(target):
             _echo(f"Cached {repo_id}:{filename} is incomplete/corrupt, re-downloading", quiet)
-            snap = Path(snapshot_download(repo_id, revision=revision, force_download=True))
+            snap = Path(snapshot_download(repo_id, revision=revision, allow_patterns=patterns,
+                                          force_download=True))
     return snap
 
 
@@ -1102,6 +1221,11 @@ def _produce(producer: str, archive: Path, staging: Path, *, quiet: bool = False
                 raise ValueError(f"{want} in {archive.name} is not a regular file")
             with (staging / want).open("wb") as fh:
                 shutil.copyfileobj(src, fh)
+    elif producer == "rdkit-conformers":
+        from tt_bio.protenix_data import write_conformer_table
+        _echo(f"Reading reference conformers from {archive.name}", quiet)
+        staging.mkdir(parents=True, exist_ok=True)
+        write_conformer_table(archive, staging / "ccd_table.npz")
     elif producer == "rfd3":
         from tt_bio.rfd3.design import extract_rfd3_weights
         _echo("Extracting RFD3 weights", quiet)
@@ -1297,7 +1421,7 @@ def _fetch_locked(art, *, root, force: bool, quiet: bool) -> Path:
     """The downloading half of `fetch`, run under that artifact's lock."""
     if art.source == "hf-repo":
         snap = fetch_hf_repo(art.repo, filename=art.filename, revision=art.revision,
-                             force=force, quiet=quiet)
+                             allow=art.allow, force=force, quiet=quiet)
         return snap / art.filename if art.filename else snap
 
     if art.source != "file":
@@ -1464,7 +1588,8 @@ def unmanaged(root: str | Path | None = None) -> list[tuple[Path, int]]:
         return []
     claimed = {p.resolve() for k in ARTIFACTS for p in artifact_paths(k, root)}
     claimed |= {(base / a.subdir).resolve() for a in _ROWS if a.subdir}
-    keep = {"msa", "msa_db", "msa_server_cache", "demo_msa", "of3_template_structures", ".cache"}
+    keep = {"msa", "msa_db", "msa_server_cache", "demo_msa", "of3_template_structures", ".cache",
+            "tiles"}  # tiles: device-format weight copies (esmc.esmc6b_tile_dir), rebuilt on demand
     out = []
     for entry in base.iterdir():
         if entry.name in keep or entry.name.startswith(".") or entry.resolve() in claimed:

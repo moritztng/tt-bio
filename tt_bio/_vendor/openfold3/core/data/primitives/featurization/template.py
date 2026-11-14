@@ -227,6 +227,17 @@ def create_template_distogram(
         torch.Tensor:
             The distogram template feature [N_templates, N_token, N_token, N_bins].
     """
+    # No template token has a pseudo beta (the dummy templates of a template-less fold),
+    # so the mask below zeroes every entry: skip building and masking a [T, N, N, n_bins]
+    # float32 one-hot (163 MB at 4 x 512 tokens, ~0.1 s of host time per fold).
+    mask = torch.as_tensor(pseudo_beta_mask)
+    if not mask.any():
+        pair = mask[..., None] * mask[..., None, :]
+        return torch.zeros(
+            torch.broadcast_shapes(pair.shape + (n_bins,), multichain_pair_mask.shape),
+            dtype=torch.promote_types(torch.promote_types(torch.float, pair.dtype),
+                                      multichain_pair_mask.dtype))
+
     diff = (
         pseudo_beta_atom_coords[..., None, :]
         - pseudo_beta_atom_coords[..., None, :, :]
@@ -286,6 +297,16 @@ def create_template_unit_vector(
         torch.Tensor:
             The unit vector template feature [N_templates, N_token, N_token, 3].
     """
+
+    # No template token has a backbone frame: every entry is masked to zero (see
+    # create_template_distogram).
+    mask = torch.as_tensor(backbone_frame_mask)
+    if not mask.any():
+        pair = mask[..., None] * mask[..., None, :]
+        return torch.zeros(
+            torch.broadcast_shapes(pair.shape + (3,), multichain_pair_mask.shape),
+            dtype=torch.promote_types(torch.promote_types(torch.float, pair.dtype),
+                                      multichain_pair_mask.dtype))
 
     # Convert nans to 0s and tensors to Vec3Arrays
     frame_atom_coords = torch.nan_to_num(

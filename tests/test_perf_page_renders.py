@@ -56,6 +56,7 @@ def test_every_category_block_is_shaped_like_the_others():
     """
     d = json.loads(DATA.read_text())
     page = PAGE.read_text()
+    plat_vendor = {p["id"]: p["vendor"] for p in d["platforms"]}
     keys = [line.split('key: "')[1].split('"')[0]
             for line in page.splitlines() if "key: \"" in line and "label:" in line]
     assert keys, "CATEGORIES not found in the page"
@@ -74,7 +75,13 @@ def test_every_category_block_is_shaped_like_the_others():
                 if c.get("status") == "measured":
                     assert "s_per_fold" in c or "s_per_design" in c, \
                         f"{k}/{m['id']}/{cell} measured with no seconds"
-                    assert c.get("ref"), f"{k}/{m['id']}/{cell} measured with no provenance"
+                    # schema 3: a cell carries its run (n, clock, versions) or, for the cells
+                    # measured before it, the provenance prose they shipped with
+                    assert c.get("n") or c.get("provenance"), \
+                        f"{k}/{m['id']}/{cell} measured with no provenance"
+                    if plat_vendor.get(cell) == "nvidia":
+                        assert c.get("ref") in ("kit", "stock"), \
+                            f"{k}/{m['id']}/{cell} does not say whether it ran the kit or stock"
                 else:
                     assert c.get("detail") or c.get("reason"), \
                         f"{k}/{m['id']}/{cell} is not measured and says nothing about why"

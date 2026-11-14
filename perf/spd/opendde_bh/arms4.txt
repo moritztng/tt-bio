@@ -1,0 +1,5 @@
+# Mol-1's BH diffusion and trunk levers stacked (lad3 read each alone), against a same-window control.
+n0 normal -
+nS normal dit_shoist,atom_mm16,adaln_mod,dit_qbox,dit_mask_chain,dit_qkvf,edm_device,atom_l1,trimul_t1_part,trimul_t1split,ws_l1dest
+f0 fast -
+fS fast dit_shoist,atom_mm16,dit_qbox,dit_mask_chain,dit_qkvf,edm_device,atom_l1,trimul_t1_part,trimul_t1split,ws_l1dest

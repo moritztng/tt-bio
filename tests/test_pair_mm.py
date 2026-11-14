@@ -26,8 +26,9 @@ class _Shape:
 
 
 def _t(shape, dtype=None, layout=None):
-    return types.SimpleNamespace(shape=_Shape(shape), dtype=dtype or ttnn.bfloat16,
-                                 layout=layout or ttnn.TILE_LAYOUT)
+    return types.SimpleNamespace(shape=_Shape(shape), padded_shape=_Shape(shape),
+                                 dtype=dtype or ttnn.bfloat16, layout=layout or ttnn.TILE_LAYOUT,
+                                 memory_config=lambda: ttnn.DRAM_MEMORY_CONFIG)
 
 
 @pytest.mark.parametrize("x,w,tb", [
@@ -81,7 +82,9 @@ def test_transposed_weight_is_cached_per_object(monkeypatch):
 
 
 def test_armed_by_fast_round():
+    """Both architectures arm it: it left `bindcraft2._BLACKHOLE_ONLY` on its Wormhole grade."""
     from tt_bio import bindcraft2
+    assert "PAIR_MM_FUSED" not in bindcraft2._BLACKHOLE_ONLY
     with bindcraft2.fast_round() as armed:
         assert armed["PAIR_MM_FUSED"] is True and pair_mm.PAIR_MM_FUSED is True
     assert pair_mm.PAIR_MM_FUSED is False
@@ -90,6 +93,7 @@ def test_armed_by_fast_round():
 
 def test_relu_rides_the_pack_and_other_activations_decline(monkeypatch):
     monkeypatch.setattr(pair_mm, "PAIR_MM_FUSED", True)
+    monkeypatch.setattr(pair_mm, "PAIR_LINEAR_WH", False)   # on a Wormhole host the plain call takes pair_linear
     seen = {}
     monkeypatch.setattr(ttnn.experimental, "minimal_matmul",
                         lambda **kw: seen.update(kw) or "out")
@@ -100,3 +104,146 @@ def test_relu_rides_the_pack_and_other_activations_decline(monkeypatch):
     before = pair_mm.STATS[1]
     assert pair_mm.matmul(x, w, activation="gelu") is None
     assert pair_mm.STATS[1] == before + 1
+
+
+@pytest.mark.parametrize("x,w", [
+    ((1, 195, 195, 128), (128, 512)),     # AF2-IG at 195: 1365 M tiles, no table M block divides it
+    ((1, 195, 195, 512), (512, 128)),
+    ((1, 195, 195, 128), (128, 128)),
+])
+def test_serves_a_ragged_pair_grid(x, w):
+    """A ragged grid runs with a partial last M block; a whole-tile grid whose M tiles the table's
+    block does not divide still declines, as it was graded."""
+    assert pair_mm.config(_t(x), _t(w)) is not None
+    assert pair_mm.config(_t((1, 257, 64, x[-1])), _t(w)) is None       # 514 whole M tiles
+
+
+def test_the_lever_arms_it_without_the_process_flag():
+    """AF2 names `pair_mm` in its own lever set; inside it the flag stays off and `armed` is on."""
+    from tt_bio import tenstorrent
+    assert not pair_mm.armed()
+    with tenstorrent.levers("pair_mm"):
+        assert pair_mm.armed() and pair_mm.PAIR_MM_FUSED is False
+    assert not pair_mm.armed()
+
+
+@pytest.mark.parametrize("armed", [True, False])
+def test_shim_linear_asks_pair_mm_first(monkeypatch, armed):
+    """The tape shim's `ttnn.linear` (what the shipped pair modules call) takes `pair_mm` where armed."""
+    from tt_bio import taped_ttnn
+    monkeypatch.setattr(pair_mm, "PAIR_MM_FUSED", armed)
+    monkeypatch.setattr(pair_mm, "matmul", lambda *a, **k: "pair_mm" if pair_mm.armed() else None)
+    linear = taped_ttnn._taped_verb("linear", lambda *a, **k: "linear")
+    x, w = _t((1, 224, 224, 128)), _t((128, 128))
+    assert linear(x, w, bias=None, dtype=ttnn.bfloat16, core_grid=None,
+                  memory_config=ttnn.DRAM_MEMORY_CONFIG) == ("pair_mm" if armed else "linear")
+    assert linear(x, w, program_config=object()) == "linear"
+
+
+@pytest.mark.parametrize("armed", [True, False])
+def test_pair_proj_linear_asks_pair_mm(monkeypatch, armed):
+    """`_pair_proj_linear` (AF2's pair projections, BC2's checkpoint forward) takes `pair_mm` where armed."""
+    from tt_bio import tenstorrent
+    monkeypatch.setattr(pair_mm, "PAIR_MM_FUSED", armed)
+    monkeypatch.setattr(pair_mm, "matmul", lambda *a, **k: "pair_mm" if pair_mm.armed() else None)
+    monkeypatch.setattr(tenstorrent, "_PAIR_PROJ_MM", False)
+    monkeypatch.setattr(tenstorrent, "_pair_proj_config", lambda *a, **k: None)
+    monkeypatch.setattr(tenstorrent.ttnn, "linear", lambda *a, **k: "linear")
+    out = tenstorrent._pair_proj_linear(_t((1, 195, 195, 128)), _t((128, 128)), None, ttnn.bfloat16)
+    assert out == ("pair_mm" if armed else "linear")
+
+
+def _armed_wh(monkeypatch, served):
+    from tt_bio import pair_linear, tenstorrent
+    monkeypatch.setattr(pair_mm, "PAIR_MM_FUSED", True)
+    monkeypatch.setattr(pair_mm, "PAIR_LINEAR_WH", True)
+    monkeypatch.setattr(tenstorrent, "is_wormhole", lambda: True)
+    monkeypatch.setattr(pair_linear, "matmul", lambda x, w, ckc: served.append((x, w)) or "pl")
+    monkeypatch.setattr(ttnn.experimental, "minimal_matmul", lambda **kw: "mm")
+
+
+def test_wormhole_bias_free_calls_take_pair_linear(monkeypatch):
+    served = []
+    _armed_wh(monkeypatch, served)
+    x, w = _t((1, 288, 288, 128)), _t((128, 128))
+    assert pair_mm.matmul(x, w) == "pl" and served == [(x, w)]
+
+
+def test_wormhole_bias_and_activation_keep_minimal_matmul(monkeypatch):
+    served = []
+    _armed_wh(monkeypatch, served)
+    x, w = _t((1, 288, 288, 128)), _t((128, 512))
+    assert pair_mm.matmul(x, w, bias=object()) == "mm"
+    assert pair_mm.matmul(x, w, activation="relu") == "mm"
+    assert served == []
+
+
+def test_pair_linear_declines_a_bf16_dest():
+    from tt_bio import pair_linear
+    ckc = types.SimpleNamespace(fp32_dest_acc_en=False, math_fidelity=ttnn.MathFidelity.HiFi4)
+    assert pair_linear.matmul(_t((1, 288, 288, 128)), _t((128, 128)), ckc) is None
+
+
+@pytest.mark.parametrize("x,w,tb", [
+    ((1, 224, 224, 128), (128, 4), False),   # pair-bias projection
+    ((1, 224, 224, 4), (4, 128), False),     # its dX
+    ((1, 224, 224, 4), (128, 4), True),      # its dX as the tape asks it
+])
+def test_wormhole_narrow_pair_bias_calls_take_pair_linear(monkeypatch, x, w, tb):
+    served = []
+    _armed_wh(monkeypatch, served)
+    monkeypatch.setattr(pair_mm, "_transposed", lambda w: w)
+    assert pair_mm.config(_t(x), _t(w), tb) is None
+    assert pair_mm.matmul(_t(x), _t(w), transpose_b=tb) == "pl" and len(served) == 1
+
+
+def test_narrow_calls_decline_off_wormhole(monkeypatch):
+    from tt_bio import tenstorrent
+    monkeypatch.setattr(pair_mm, "PAIR_MM_FUSED", True)
+    monkeypatch.setattr(tenstorrent, "is_wormhole", lambda: False)
+    assert pair_mm.matmul(_t((1, 224, 224, 128)), _t((128, 4))) is None
+    assert not pair_mm._narrow(_t((1, 24, 24, 128)), _t((128, 4)))   # too few rows
+
+
+def test_a_taped_tensor_is_left_to_the_tape_shim(monkeypatch):
+    """The tape's `autograd.Tensor` reached `pair_linear`'s kernel builder raw (whpl2, rc=1 on .107)."""
+    from tt_bio import autograd
+    served = []
+    _armed_wh(monkeypatch, served)
+    x = autograd.Tensor.__new__(autograd.Tensor)
+    assert pair_mm.matmul(x, _t((128, 4))) is None and served == []
+
+
+# RFD4's pair transition at 128 tokens: fc1 [.., 384] x [384, 768], fc2 [.., 768] x [768, 384].
+_TRANSITION = [((1, 128, 128, 384), (384, 768)), ((1, 128, 128, 768), (768, 384))]
+
+
+@pytest.mark.parametrize("x,w", _TRANSITION)
+def test_transition_keys_need_their_own_lever(x, w):
+    """Arming pair_mm (AF2 on Wormhole, a BindCraft 2 round) leaves a 384 <-> 768 linear on ttnn's plan;
+    only `pair_mm_tr` (RFD4's --fast set) reaches the keys, in bf16 and in bfloat8_b."""
+    from tt_bio import tenstorrent
+    b8 = ttnn.bfloat8_b
+    with tenstorrent.levers("pair_mm"):
+        assert pair_mm.config(_t(x), _t(w)) is None
+        assert pair_mm.config(_t(x), _t(w, b8)) is None
+    with tenstorrent.levers("pair_mm,pair_mm_tr"):
+        assert pair_mm.config(_t(x), _t(w)) is not None
+        assert pair_mm.config(_t(x, b8), _t(w, b8)) is not None
+        assert pair_mm.config(_t((1, 128, 128, 128), b8), _t((128, 128), b8)) is None  # no other bfp8 key
+
+
+@pytest.mark.parametrize("x,w", _TRANSITION)
+def test_shared_linear_dispatch_unchanged_without_the_lever(monkeypatch, x, w):
+    """The shared pair linear (`_pair_proj_linear`) with pair_mm armed by the process flag: a 384 <-> 768
+    call stays on ttnn.linear unless the lever set names pair_mm_tr."""
+    from tt_bio import tenstorrent
+    monkeypatch.setattr(pair_mm, "PAIR_MM_FUSED", True)
+    monkeypatch.setattr(pair_mm, "PAIR_LINEAR_WH", False)
+    monkeypatch.setattr(tenstorrent, "_PAIR_PROJ_MM", False)
+    monkeypatch.setattr(tenstorrent, "_pair_proj_config", lambda *a, **k: None)
+    monkeypatch.setattr(tenstorrent.ttnn, "linear", lambda *a, **k: "linear")
+    monkeypatch.setattr(ttnn.experimental, "minimal_matmul", lambda **kw: "mm")
+    assert tenstorrent._pair_proj_linear(_t(x), _t(w), None, ttnn.bfloat16) == "linear"
+    with tenstorrent.levers("pair_mm_tr"):
+        assert tenstorrent._pair_proj_linear(_t(x), _t(w), None, ttnn.bfloat16) == "mm"

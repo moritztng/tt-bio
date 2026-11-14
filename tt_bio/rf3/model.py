@@ -35,14 +35,53 @@ from tt_bio.rf3.diffusion_conditioning import DiffusionConditioning
 from tt_bio.rf3.distogram_head import DistogramHead
 from tt_bio.rf3.feature_init import mlff_constant_from_weights
 from tt_bio.rf3.feature_initializer import FeatureInitializer
-from tt_bio.rf3.host import HostInputs, distance_onehot
+from tt_bio.rf3.host import HostInputs, distance_onehot, to_device
 from tt_bio.rf3.msa import MSAModule
 from tt_bio.rf3.remap import (PAIRFORMER_DIMS, PAIRFORMER_FLAGS, remap_msa_module,
                               remap_pairformer_stack, remap_template_embedder)
 from tt_bio.rf3.sampler import DiffusionSampler, Draws
 from tt_bio.rf3.template import TemplateEmbedder
 from tt_bio.rf3.token_dit import TokenDiffusionTransformer
-from tt_bio.tenstorrent import CORE_GRID_MAIN, Module, Pairformer, WeightScope, dram_peak
+from tt_bio import tenstorrent as _T
+from tt_bio.tenstorrent import (CORE_GRID_MAIN, Module, Pairformer, WeightScope, _dtype, dram_peak,
+                                trace_region_size)
+
+
+# RF3's precision levers per mode (`tenstorrent.model_levers`). RF3 builds and folds inside
+# `lever_scope`, so the process-wide `--fast` switch (`tenstorrent._FAST_MODE`: bfp8 activations and
+# weights, narrower chunks) is off inside it, as in Boltz-2 and OpenFold3. At 512 aa that switch
+# folded slower than normal mode (p150a 54.40 vs 45.21 s): its bfp8 operands are refused by every
+# fused kernel the normal fold runs on (triangle-attention SDPA, the gated channel move), so fast
+# fell back to the stock ttnn ops.
+# Every arch and mode runs the trunk kernels OpenFold3 graded (same shared Pairformer, c_z 128). On
+# Blackhole the trimul output tail also reads the einsum's channel-major output itself (trimul_t2cm);
+# on Wormhole the einsum keeps b resident in L1 (trimul_bres), as each arch graded.
+_TRUNK = frozenset({"atom_l1", "triatt_ln", "opm_jd", "dit_qsplit", "trimul_t1", "trimul_t2", "trimul_t1_2g",
+                    "transition_ws", "ws_l1dest", "triatt_k1"})
+_NORMAL_EXTRA = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3", "triatt_tail", "silu_f32", "dit_sdpa32"})
+# Blackhole normal, grade against exact on p150a at 1350 MHz, 32 paired folds of 8 complexes: same-seed top
+# pose median 0.207 A against the 0.60 A bar (A/A floor 2.459 A), CA-lDDT -0.0001 [-0.0004, +0.0002],
+# docking 24 -> 24 of 32. cdk2x2_512: 27.5 -> 22.2 s (2026-10-26).
+LEVERS_NORMAL = _TRUNK | _NORMAL_EXTRA | {"trimul_t2cm"}
+# Wormhole normal, 11-set grade against exact, 66 paired folds: same-seed top pose median 0.232 A
+# against the 0.60 A bar (A/A floor 2.985 A), CA-lDDT +0.0003 [-0.0003, +0.0012], docking 28 -> 28
+# of 44. cdk2x2_512 on a Galaxy chip at AICLK 1000: 55.16 -> 38.12 s (2026-10-26).
+WH_LEVERS_NORMAL = _TRUNK | _NORMAL_EXTRA | {"trimul_bres"}
+# The shared fast set's precision levers without the three trimul levers. Alone on Blackhole p300c
+# against exact, 40 paired folds: same-seed top pose median 0.304 A against the 0.60 A bar (A/A floor
+# 2.802 A), CA-lDDT +0.0009 [+0.0001, +0.0022] (spd-gap-inv, 2026-10-11).
+_FAST_BASE = frozenset({"acc_off", "diffusion_bf16", "dit_sdpa", "transition_b8", "opm_b8", "atom_sdpa",
+                        "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
+                        "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "swiglu_fc12g",
+                        "msa_sample", "dit_sdpa_pm"})
+# Blackhole fast, grade against the base on p150a at 1350 MHz, 32 paired folds of 8 complexes: same-seed
+# top pose median 0.249 A against the 0.60 A bar (A/A floor 2.550 A), CA-lDDT -0.0002 [-0.0008, +0.0006],
+# docking 24 -> 24 of 32. ws_lofi on top bought no time and moved the pose 0.373 A.
+LEVERS_FAST = _FAST_BASE | _TRUNK | {"trimul_t2cm"}
+# Wormhole fast, 11-set grade against the base, 44 paired folds: same-seed top pose median 0.230 A
+# against the 0.60 A bar (A/A floor 2.796 A), CA-lDDT -0.0002 [-0.0009, +0.0005], docking 28 -> 28 of
+# 44. cdk2x2_512 on a Galaxy chip at AICLK 1000: 48.1 -> 36.1 s (2026-10-26).
+WH_LEVERS_FAST = _FAST_BASE | _TRUNK | {"trimul_bres", "trimul_ibw", "trimul_tail"}
 
 
 def _pairformer_stack(scope: WeightScope, n_blocks: int, cfg, prefix: str
@@ -125,6 +164,12 @@ _HOIST_ROLLOUT = env_flag("TT_BIO_RF3_HOIST_ROLLOUT", True)
 _HOIST_DIT_BIAS = env_flag("TT_BIO_RF3_DIT_BIAS_HOIST", True)
 
 
+#: Replay the denoiser's device half from a ttnn trace (`DiffusionModule._replay`): a step is
+#: ~1,600 ops and the eager rollout is host-dispatch bound. Lossless; needs the device opened
+#: with the "rf3" trace region and the hoisted rollout. TT_BIO_RF3_DIFFUSION_TRACE=0 runs eagerly.
+TRACE = env_flag("TT_BIO_RF3_DIFFUSION_TRACE", True)
+
+
 class DiffusionModule(Module):
     """The denoiser: conditioning, atom encoder, token DiT, atom decoder, EDM scaling."""
 
@@ -174,6 +219,90 @@ class DiffusionModule(Module):
                 "dec": self.decoder.prepare(enc["c"], enc["p"], host.window_mask,
                                             host.n_atom_padded)}
 
+    def _step(self, host: HostInputs, n_embed, r_in, ch_in, s_inputs, s_trunk, z_trunk,
+              prepared: dict | None):
+        """The device half of one denoiser call: noise embedding, scaled coordinates and
+        chirality in, the decoder's coordinate update out."""
+        s_cond = self.conditioning.single(s_trunk, s_inputs, n_embed)
+        z_cond = (self.conditioning.pair(host.relpos_feat, z_trunk) if prepared is None
+                  else prepared["z_cond"])
+        # The conditioning's Fourier term carries the diffusion-batch axis, so its
+        # single output comes back rank 4 as [1, D, I, c_s]. Every component harness
+        # reshaped to the reference's shape before scoring, so none of them saw it;
+        # composed, the extra axis reaches nlp_create_qkv_heads and the op rejects
+        # the shape. One `t` per call here, so D is 1 and dropping it is exact.
+        s_cond = ttnn.reshape(s_cond, (1, host.n_token, s_cond.shape[-1]))
+
+        a_i, q_skip, c_skip, p_skip = self.encoder(
+            host.single_in, host.pair_in, host.pair_v, host.keys_indexing,
+            host.atom_to_token_mean, host.window_mask, host.n_atom_padded,
+            s_trunk, z_cond, r_in, ch_in, host.atom_to_token, host.token_to_atom_win,
+            prepared=None if prepared is None else prepared["enc"])
+
+        a_i = ttnn.add_(a_i, self.process_s(s_cond))
+        a_i = self.transformer(a_i, s_cond, z_cond,
+                               bias=None if prepared is None else prepared["dit_bias"])
+        a_i = ttnn.layer_norm(a_i, weight=self.ln1_w, bias=self.ln1_b,
+                              epsilon=1e-5,
+                              compute_kernel_config=self.compute_kernel_config)
+
+        return self.decoder(
+            a_i, q_skip, c_skip, p_skip, host.atom_to_token,
+            host.keys_indexing, host.window_mask, host.n_atom_padded,
+            prepared=None if prepared is None else prepared["dec"])
+
+    def _replay(self, trace: dict, host: HostInputs, n_embed, r_in, ch_in, s_inputs,
+                s_trunk, prepared: dict):
+        """`_step` from a ttnn trace: the first call runs eagerly (it compiles every program),
+        the second is captured, every later one copies its three inputs into the captured
+        buffers and replays. The replayed program is the captured one, so the output is the
+        eager output bit for bit. A failed capture (e.g. a trace region too small for the step)
+        leaves every step eager."""
+        # the dtypes the eager call uploads with (`single_at`, `to_device`)
+        inputs = ((n_embed, _dtype(ttnn.bfloat16)), (r_in, ttnn.bfloat16), (ch_in, ttnn.bfloat16))
+        if "bufs" not in trace:
+            trace["bufs"] = [ttnn.from_torch(x.float(), layout=ttnn.TILE_LAYOUT,
+                                             device=self.device, dtype=dt) for x, dt in inputs]
+        else:
+            for (x, dt), b in zip(inputs, trace["bufs"]):
+                ttnn.copy_host_to_device_tensor(
+                    ttnn.from_torch(x.float(), layout=ttnn.TILE_LAYOUT, dtype=dt), b)
+        trace["calls"] = trace.get("calls", 0) + 1
+        step = lambda: self._step(host, *trace["bufs"], s_inputs, s_trunk, None, prepared)
+        if trace.get("tid") is not None:
+            ttnn.execute_trace(self.device, trace["tid"], cq_id=0, blocking=False)
+            return trace["out"]
+        if trace["calls"] == 2 and not trace.get("failed"):
+            tid = ttnn.begin_trace_capture(self.device, cq_id=0)
+            try:
+                trace["out"] = step()
+                ttnn.end_trace_capture(self.device, tid, cq_id=0)
+                trace["tid"] = tid
+            except Exception as e:      # e.g. the step outgrew the trace region
+                import traceback   # the Python frame names the op; the TT_FATAL alone does not
+                print(f"  [rf3 diffusion] trace capture failed, steps run eagerly: {e}\n"
+                      + "".join(traceback.format_tb(e.__traceback__)[-8:]))
+                try:
+                    ttnn.end_trace_capture(self.device, tid, cq_id=0)
+                except Exception:
+                    pass
+                ttnn.release_trace(self.device, tid)
+                trace["failed"] = True
+                return step()
+            ttnn.execute_trace(self.device, tid, cq_id=0, blocking=False)
+            return trace["out"]
+        return step()
+
+    def release_trace(self, prepared: dict):
+        """Release the rollout's trace and its buffers; before the hoisted state it reads."""
+        trace = prepared.pop("trace", None)
+        if trace is None:
+            return
+        if trace.get("tid") is not None:
+            ttnn.release_trace(self.device, trace["tid"])
+        for b in trace.get("bufs", ()):
+            ttnn.deallocate(b)
+
     def __call__(self, host: HostInputs, x_noisy: torch.Tensor, t: torch.Tensor,
                  s_inputs, s_trunk, z_trunk, prepared: dict | None = None
                  ) -> torch.Tensor:
@@ -182,43 +311,23 @@ class DiffusionModule(Module):
         D is the diffusion batch. The conditioning depends on t, which varies over D,
         so a batch is D independent denoiser calls, not one wider one.
         """
+        trace = prepared.get("trace") if prepared is not None else None
         out = []
         for d in range(x_noisy.shape[0]):
             t_d = t[d:d + 1]
-            if prepared is None:
-                s_cond, z_cond = self.conditioning(
-                    host.relpos_feat, z_trunk, s_trunk, s_inputs, t_d)
-            else:
-                z_cond = prepared["z_cond"]
-                s_cond = self.conditioning.single_at(s_trunk, s_inputs, t_d)
-            # The conditioning's Fourier term carries the diffusion-batch axis, so its
-            # single output comes back rank 4 as [1, D, I, c_s]. Every component harness
-            # reshaped to the reference's shape before scoring, so none of them saw it;
-            # composed, the extra axis reaches nlp_create_qkv_heads and the op rejects
-            # the shape. One `t` per call here, so D is 1 and dropping it is exact.
-            s_cond = ttnn.reshape(s_cond, (1, host.n_token, s_cond.shape[-1]))
-
             # EDM: scale to dimensionless coordinates of roughly unit variance
             scale = float((t_d.double() ** 2 + self.sigma_data ** 2).sqrt())
-            r_in, ch_in = host.step_inputs(x_noisy[d:d + 1] / scale, self.device)
-
-            a_i, q_skip, c_skip, p_skip = self.encoder(
-                host.single_in, host.pair_in, host.pair_v, host.keys_indexing,
-                host.atom_to_token_mean, host.window_mask, host.n_atom_padded,
-                s_trunk, z_cond, r_in, ch_in, host.atom_to_token, host.token_to_atom_win,
-                prepared=None if prepared is None else prepared["enc"])
-
-            a_i = ttnn.add_(a_i, self.process_s(s_cond))
-            a_i = self.transformer(a_i, s_cond, z_cond,
-                                   bias=None if prepared is None else prepared["dit_bias"])
-            a_i = ttnn.layer_norm(a_i, weight=self.ln1_w, bias=self.ln1_b,
-                                  epsilon=1e-5,
-                                  compute_kernel_config=self.compute_kernel_config)
-
-            r_update = self.decoder(
-                a_i, q_skip, c_skip, p_skip, host.atom_to_token,
-                host.keys_indexing, host.window_mask, host.n_atom_padded,
-                prepared=None if prepared is None else prepared["dec"])
+            r_in, ch_in = host.step_inputs_host(x_noisy[d:d + 1] / scale)
+            n_embed = self.conditioning.noise_embedding(t_d)
+            if trace is not None:
+                r_update = self._replay(trace, host, n_embed, r_in, ch_in, s_inputs,
+                                        s_trunk, prepared)
+            else:
+                n_embed = ttnn.from_torch(n_embed, layout=ttnn.TILE_LAYOUT, device=self.device,
+                                          dtype=_dtype(ttnn.bfloat16))
+                r_update = self._step(host, n_embed, to_device(r_in, self.device),
+                                      to_device(ch_in, self.device), s_inputs, s_trunk,
+                                      z_trunk, prepared)
             r_update = torch.Tensor(ttnn.to_torch(r_update)).float()[
                 0, :host.n_atom].reshape(1, host.n_atom, 3)
 
@@ -239,6 +348,16 @@ class RF3(Module):
                  sigma_data: float = 16.0, num_timesteps: int = 200,
                  with_confidence: bool = True):
         super().__init__(state_dict, compute_kernel_config)
+        wh = _T.is_wormhole()
+        self._levers = _T.model_levers(WH_LEVERS_NORMAL if wh else LEVERS_NORMAL,
+                                       WH_LEVERS_FAST if wh else LEVERS_FAST)
+        with _T.lever_scope(self._levers):
+            self._build(compute_kernel_config, n_pairformer_blocks, n_msa_blocks,
+                        n_dit_blocks, n_confidence_layers, sigma_data, num_timesteps,
+                        with_confidence)
+
+    def _build(self, compute_kernel_config, n_pairformer_blocks, n_msa_blocks, n_dit_blocks,
+               n_confidence_layers, sigma_data, num_timesteps, with_confidence):
         fi = self.scope("feature_initializer")
         self.feature_initializer = FeatureInitializer(
             fi, compute_kernel_config,
@@ -259,6 +378,7 @@ class RF3(Module):
         self.sampler = DiffusionSampler(num_timesteps=num_timesteps,
                                         sigma_data=sigma_data)
 
+    @_T.under_lever_scope
     def trunk(self, host: HostInputs, n_recycles: int, stop_after_first=None,
               progress_fn=None):
         """Feature init followed by `n_recycles` weight-shared trunk passes.
@@ -291,6 +411,7 @@ class RF3(Module):
                 break
         return s_inputs, s, z
 
+    @_T.under_lever_scope
     def predict(self, f: dict, *, n_recycles: int | None = None,
                 diffusion_batch_size: int = 1, rep_atom_idxs: torch.Tensor | None = None,
                 coord_to_be_noised: torch.Tensor | None = None,
@@ -344,15 +465,21 @@ class RF3(Module):
 
         prepared = (self.diffusion_module.prepare(host, s_inputs, s, z)
                     if _HOIST_ROLLOUT else None)
+        if prepared is not None and TRACE and trace_region_size() > 0:
+            prepared["trace"] = {}
 
         def denoise(x_noisy: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
             x = self.diffusion_module(host, x_noisy, t, s_inputs, s, z, prepared)
             dram_peak(f"diffusion step [D={x_noisy.shape[0]}]")
             return x
 
-        x_pred, draws = self.sampler.sample(
-            denoise, coord_to_be_noised, diffusion_batch_size, draws=draws,
-            partial_t=partial_t, progress_fn=progress_fn)
+        try:
+            x_pred, draws = self.sampler.sample(
+                denoise, coord_to_be_noised, diffusion_batch_size, draws=draws,
+                partial_t=partial_t, progress_fn=progress_fn)
+        finally:
+            if prepared is not None:
+                self.diffusion_module.release_trace(prepared)
         # The hoisted state is dead once the rollout is. Held into the confidence head it is
         # z_cond, every windowed atom bias and n_block x n_heads x I^2 x 2 B of DiT biases, and
         # 3abq at 1536 was refused the head's pair transpose by 5 MiB/bank.
@@ -373,6 +500,7 @@ class RF3(Module):
             dram_peak(f"confidence done [D={diffusion_batch_size}]")
         return out
 
+    @_T.under_lever_scope
     def mean_plddt_no_structure(self, s_inputs, s, z,
                                 is_real_atom: torch.Tensor) -> float:
         """Mean pLDDT from the confidence head with no structure fed to it.
@@ -387,6 +515,7 @@ class RF3(Module):
             logits = logits[0]
         return float(rf3_confidence.atomwise_plddt(logits, is_real_atom).mean())
 
+    @_T.under_lever_scope
     def confidence(self, s_inputs, s, z, x_pred: torch.Tensor,
                    rep_atom_idxs: torch.Tensor, per_sample=None) -> dict:
         """The four confidence heads over the diffusion batch, stacked on dim 0.

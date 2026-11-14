@@ -35,7 +35,7 @@ from .envflags import env_flag
 KERNEL_DIR = Path(__file__).resolve().parent / "kernels" / "rne_add"
 
 TILE_H = TILE_W = 32
-A_CB, B_CB, OUT_CB = 0, 1, 16
+A_CB, B_CB, M_CB, OUT_CB, LO_CB = 0, 1, 2, 16, 17
 
 #: Tiles per DEST acquire. A 32-bit DEST holds four tiles on Blackhole, and the SFPU add arm keeps
 #: both operands in DEST, so its cap is two (`compute_rne_add.cpp`, and `bcx-TABWD.md` for where
@@ -99,7 +99,9 @@ def enabled() -> bool:
     return _ENABLED
 
 
-def _gran(add_mode=None) -> int:
+def _gran(add_mode=None, masked=False) -> int:
+    if masked:
+        return 1    # three DEST slots a tile: masked, the update, its mask, the residual; dual, a, b, a + b
     cap = _DST_TILES // (2 if (ADD_MODE if add_mode is None else add_mode) == 1 else 1)
     return min(GRAN or cap, cap)
 
@@ -163,7 +165,7 @@ def _split_plan(device, units):
     return _SPLIT_CACHE[key]
 
 
-def _cache_key(a, b, out, device, mode):
+def _cache_key(a, b, out, device, mode, m=None, lo=None):
     """What decides which cached program serves this call, built only from cheap reads.
 
     This runs on EVERY dispatch, so what it costs is what every call costs. The obvious spelling
@@ -183,18 +185,21 @@ def _cache_key(a, b, out, device, mode):
         device.id(), _tile_count(a), a.dtype, a.layout, b.dtype, b.layout,
         mca.buffer_type, mca.memory_layout, mcb.buffer_type, mcb.memory_layout,
         mco.buffer_type, mco.memory_layout, g.x, g.y,
-        mode, _gran(mode[0]), out.dtype, genq.compact(),
+        mode, _gran(mode[0], m is not None or lo is not None), out.dtype, genq.compact(),
+        None if m is None else _tile_count(m), lo is not None,
     )
 
 
-def _build(a, b, out, device, reader_ct, writer_ct, mode):
+def _build(a, b, out, device, reader_ct, writer_ct, mode, m=None, lo=None):
     num_tiles = _tile_count(a)
     plan = _split_plan(device, num_tiles)
     assert plan is not None, "no work to split"
     num_cores, core_grid, cg1, cg2, work1, work2 = plan
 
     add_mode, round_mode = mode
-    gran = _gran(add_mode)
+    gran = _gran(add_mode, m is not None or lo is not None)
+    mask_ct = [0, 0] if m is None else [1, _tile_count(m)]
+    dual = int(lo is not None)
 
     def cb(idx, depth, dtype):
         tile_bytes = TILE_H * TILE_W * _ELEM[dtype]
@@ -209,6 +214,10 @@ def _build(a, b, out, device, reader_ct, writer_ct, mode):
     # `get_write_ptr`, so a depth that is not a multiple of `gran` would wrap a block mid-walk.
     cbs = [cb(A_CB, 2 * gran, a.dtype), cb(B_CB, 2 * gran, b.dtype),
            cb(OUT_CB, 2 * gran, out.dtype)]
+    if m is not None:
+        cbs.append(cb(M_CB, mask_ct[1], m.dtype))   # the whole slab, resident for the call
+    if lo is not None:
+        cbs.append(cb(LO_CB, 2 * gran, lo.dtype))
 
     # EVERY placed core gets a slice, and the placement set is built from the same loop that
     # assigns them. A core placed without runtime args reads them as zero, so its writer takes
@@ -237,26 +246,26 @@ def _build(a, b, out, device, reader_ct, writer_ct, mode):
     if plan_ct is None:
         for (cx, cy), (fst, per_core) in assign.items():
             reader_rt[cx][cy] = [fst, per_core]
-            compute_rt[cx][cy] = [per_core]
+            compute_rt[cx][cy] = [per_core, fst]
             writer_rt[cx][cy] = [fst, per_core]
 
     reader = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "reader_rne_add.cpp"),
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
-        core_ranges=core_grid, compile_time_args=reader_ct + genq_ct, runtime_args=reader_rt,
-        common_runtime_args=[0, 0], config=ttnn.ReaderConfigDescriptor(),
+        core_ranges=core_grid, compile_time_args=reader_ct[0] + genq_ct + mask_ct + reader_ct[1],
+        runtime_args=reader_rt, common_runtime_args=[0, 0, 0], config=ttnn.ReaderConfigDescriptor(),
     )
     writer = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "writer_rne_add.cpp"),
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
-        core_ranges=core_grid, compile_time_args=writer_ct + genq_ct, runtime_args=writer_rt,
-        common_runtime_args=[0], config=ttnn.WriterConfigDescriptor(),
+        core_ranges=core_grid, compile_time_args=writer_ct[0] + genq_ct + [dual] + writer_ct[1],
+        runtime_args=writer_rt, common_runtime_args=[0, 0], config=ttnn.WriterConfigDescriptor(),
     )
     compute = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "compute_rne_add.cpp"),
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
         core_ranges=core_grid,
-        compile_time_args=[A_CB, B_CB, OUT_CB, gran, add_mode, round_mode] + genq_ct,
+        compile_time_args=[A_CB, B_CB, OUT_CB, gran, add_mode, round_mode] + genq_ct + mask_ct + [dual],
         runtime_args=compute_rt,
         config=_compute_config(a, b),
     )
@@ -265,10 +274,10 @@ def _build(a, b, out, device, reader_ct, writer_ct, mode):
     global ADDR_WRITE_MODE
     if ADDR_WRITE_MODE is None:
         probe = 0xABCD1234
-        pd.kernels[0].common_runtime_args = [probe, 0]
+        pd.kernels[0].common_runtime_args = [probe, 0, 0]
         ADDR_WRITE_MODE = ("in_place" if list(pd.kernels[0].common_runtime_args)[0] == probe
                            else "rebuild_pd")
-        pd.kernels[0].common_runtime_args = [0, 0]
+        pd.kernels[0].common_runtime_args = [0, 0, 0]
 
     return {"pd": pd, "kernels": [reader, writer, compute], "cbs": cbs,
             "core_grid": core_grid, "num_cores": num_cores, "num_tiles": num_tiles,
@@ -298,19 +307,24 @@ def _compute_config(a, b):
     return cfg
 
 
-def _prepare(a, b, out, device, mode):
-    key = _cache_key(a, b, out, device, mode)
+def _prepare(a, b, out, device, mode, m=None, lo=None):
+    key = _cache_key(a, b, out, device, mode, m, lo)
     entry = _CACHE.get(key)
     if entry is None:
         # The miss path. Everything here is built once per (shape, placement, mode), never per
         # call.
-        gran = _gran(mode[0])
-        reader_ct = [gran]
-        reader_ct.extend(ttnn.TensorAccessorArgs(a).get_compile_time_args())
-        reader_ct.extend(ttnn.TensorAccessorArgs(b).get_compile_time_args())
-        writer_ct = [gran]
-        writer_ct.extend(ttnn.TensorAccessorArgs(out).get_compile_time_args())
-        entry = _CACHE[key] = _build(a, b, out, device, reader_ct, writer_ct, mode)
+        gran = _gran(mode[0], m is not None or lo is not None)
+        head = [gran]
+        head.extend(ttnn.TensorAccessorArgs(a).get_compile_time_args())
+        head.extend(ttnn.TensorAccessorArgs(b).get_compile_time_args())
+        # The mask's accessor sits after the genq block; with no mask it is b's again, so every
+        # compile-time index the reader names exists and the unmasked program reads nothing more.
+        reader_ct = (head, list(ttnn.TensorAccessorArgs(b if m is None else m).get_compile_time_args()))
+        # The bfloat16 copy's accessor sits after the genq block, like the mask's in the reader;
+        # without one it is out's again and nothing is written through it.
+        writer_ct = ([gran] + list(ttnn.TensorAccessorArgs(out).get_compile_time_args()),
+                     list(ttnn.TensorAccessorArgs(out if lo is None else lo).get_compile_time_args()))
+        entry = _CACHE[key] = _build(a, b, out, device, reader_ct, writer_ct, mode, m, lo)
     return entry
 
 
@@ -325,15 +339,15 @@ def rne_add(a, b, memory_config=None, out=None, device=None):
     return _dispatch(a, b, OUT_DTYPE, (ADD_MODE, ROUND_MODE), memory_config, out, device)
 
 
-def _dispatch(a, b, out_dtype, mode, memory_config, out, device):
+def _dispatch(a, b, out_dtype, mode, memory_config, out, device, m=None, lo=None):
     device = device or a.device()
     if out is None:
         out = ttnn.allocate_tensor_on_device(
             a.shape, out_dtype, ttnn.TILE_LAYOUT, device, memory_config or a.memory_config()
         )
-    entry = _prepare(a, b, out, device, mode)
-    common_r = [a.buffer_address(), b.buffer_address()]
-    common_w = [out.buffer_address()]
+    entry = _prepare(a, b, out, device, mode, m, lo)
+    common_r = [a.buffer_address(), b.buffer_address(), 0 if m is None else m.buffer_address()]
+    common_w = [out.buffer_address(), 0 if lo is None else lo.buffer_address()]
     if ADDR_WRITE_MODE == "in_place":
         pd = entry["pd"]
         pd.kernels[0].common_runtime_args = common_r
@@ -345,7 +359,8 @@ def _dispatch(a, b, out_dtype, mode, memory_config, out, device):
         pd = entry["pd"] = ttnn.ProgramDescriptor(
             kernels=[reader, writer, compute], semaphores=[], cbs=entry["cbs"]
         )
-    return ttnn.generic_op([a, b, out], pd)
+    io = [a, b] + ([] if m is None else [m]) + ([] if lo is None else [lo])
+    return ttnn.generic_op(io + [out], pd)
 
 
 def eligible(a, b, memory_config) -> bool:
@@ -375,6 +390,55 @@ def eligible(a, b, memory_config) -> bool:
     if _tile_grid(a) != _tile_grid(b):
         return _reject("tile_grid", shape_a, [int(d) for d in b.shape])
     return True
+
+
+# ---------------------------------------------------------------------------------------------
+# rne_add_masked: AF2's dropout folded into its residual, `rne(a + rne(b * m))`.
+#
+# `AF2PairBlock._dropped` multiplies the update by a per-row keep mask `(1, n, c)` and `_residual`
+# adds it: two passes over a pair tensor and a pair-sized intermediate. Here the mask is one
+# [n, c] slab (n*c/1024 tiles, 28 at 224 tokens) held in L1 for the call, so the update is read
+# once and nothing is written between the two. The product of two bfloat16 values is exact in a
+# 32-bit DEST, so rounding it to even reproduces torch's bfloat16 multiply, and the add is
+# `rne_add`'s. The per-column draw `(n, 1, c)` broadcasts inside a tile and is declined.
+
+#: The lever, on by default: a BindCraft 2 round on Wormhole writes the same gradient with it on
+#: and off (identical digest) in 648 fewer calls, 5.70 -> 5.64 s per iteration at 1000 MHz.
+MASKED = env_flag("TT_BIO_RNE_MASK", True)
+
+#: Slab tiles a core holds in L1 (2 KiB each). 64 is 128 KiB, n*c <= 65,536.
+MAX_MASK_TILES = 64
+
+
+def masked_eligible(a, b, m, memory_config) -> bool:
+    """What `rne_add_masked` serves: `eligible(a, b)` plus a per-row mask slab."""
+    if not MASKED or m is None:
+        return False
+    if _ops.declines_under_tape("rne_add_masked"):
+        return _reject("masked_taped_no_entry", [int(d) for d in a.shape])
+    if not eligible(a, b, memory_config):
+        return False
+    core_m, core_b = _core_shape(m), _core_shape(b)
+    if m.dtype != _DTYPE or m.layout != ttnn.TILE_LAYOUT or \
+            m.memory_config().memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED:
+        return _reject("mask_format", core_m)
+    # A per-row draw: the mask is the update's last two dims, shared by every leading index.
+    if len(core_m) != 2 or core_b[-2:] != core_m:
+        return _reject("mask_not_per_row", core_m, core_b)
+    mt = _tile_count(m)
+    if mt > MAX_MASK_TILES or _tile_count(b) % mt:
+        return _reject("mask_tiles", core_m, core_b)
+    return True
+
+
+@_ops.fused_kernel("rne_add_masked")
+def rne_add_masked(a, b, m, memory_config=None, out=None, device=None):
+    """``round_rne_bf16(a + round_rne_bf16(b * m))``, `m` broadcast over `b`'s leading dims.
+
+    None of the three is deallocated.
+    """
+    STATS[0] += 1
+    return _dispatch(a, b, OUT_DTYPE, (1, 1), memory_config, out, device, m)
 
 
 # ---------------------------------------------------------------------------------------------
@@ -449,6 +513,40 @@ def round_add(a, b):
     """
     WIDEN_REACH["served: round"] += 1
     return _dispatch(a, b, ttnn.bfloat16, (1, 1), ttnn.DRAM_MEMORY_CONFIG, None, None)
+
+
+def residual_dual(x, u):
+    """``(f32(x) + f32(u), round_rne_bf16(f32(x) + f32(u)))`` from one read of both operands.
+
+    The fp32 residual stream's write: `x` the float32 residual, `u` a bfloat16 update, both TILE
+    with one shape. The first result is `typecast(u, f32) + x`, the second `typecast(first, bf16)`,
+    which is what the next sublayer reads; both bit for bit (`perf/rfd4/e2e/resid_bench.py`).
+    None when `residual_dual_eligible` declines; neither operand is deallocated.
+    """
+    if not residual_dual_eligible(x, u):
+        return None
+    lo = ttnn.allocate_tensor_on_device(x.shape, ttnn.bfloat16, ttnn.TILE_LAYOUT, x.device(),
+                                        ttnn.DRAM_MEMORY_CONFIG)
+    WIDEN_REACH["served: dual"] += 1
+    out = _dispatch(x, u, ttnn.float32, (1, 1), ttnn.DRAM_MEMORY_CONFIG, None, None, lo=lo)
+    return out, lo
+
+
+#: The lever for the fp32 residual streams (RFD4's trunk). On by default: bit-identical to the
+#: typecast + add + typecast it replaces, so it cannot move a design.
+RESIDUAL_DUAL = env_flag("TT_BIO_RESIDUAL_DUAL", True)
+
+
+def residual_dual_eligible(x, u) -> bool:
+    if not (RESIDUAL_DUAL and _ENABLED) or _ops.taping():
+        return False
+    if x.dtype != ttnn.float32 or u.dtype != ttnn.bfloat16:
+        return False
+    if x.layout != ttnn.TILE_LAYOUT or u.layout != ttnn.TILE_LAYOUT:
+        return False
+    if [int(d) for d in x.shape] != [int(d) for d in u.shape]:
+        return False
+    return all(t.memory_config().memory_layout == ttnn.TensorMemoryLayout.INTERLEAVED for t in (x, u))
 
 
 def widen_reach() -> dict:

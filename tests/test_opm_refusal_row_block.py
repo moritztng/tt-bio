@@ -85,7 +85,7 @@ def test_a_refused_single_pass_is_re_run_in_row_blocks():
     L = 1536
     opm = _OPM()
     rows = E._opm_fallback_rows(L)
-    result = opm._row_blocked(_Slice(L), object(), _Slice(L), L, 8192, rows)
+    result = opm._row_blocked(_Slice(L), object(), _Slice(L), L, 8192, rows, opm._rows)
     nblk = -(-L // rows)
     assert result == f"concat:{nblk}", result
     assert len(opm.row_calls) == nblk, opm.row_calls
@@ -100,7 +100,7 @@ def _through_the_helper(opm, L, rows=None):
     return tenstorrent.row_block_after_refusal(
         E._OPM_ROWS_REFUSED, L,
         lambda: opm._rows(_Slice(L), object(), _Slice(L), L, 8192),
-        lambda r: opm._row_blocked(_Slice(L), object(), _Slice(L), L, 8192, r),
+        lambda r: opm._row_blocked(_Slice(L), object(), _Slice(L), L, 8192, r, opm._rows),
         rows=rows if rows is not None else E._opm_fallback_rows(L), tag="opm")
 
 
@@ -143,6 +143,6 @@ def test_anything_that_is_not_an_allocator_refusal_propagates_untouched():
 
     opm = _Boom()
     with pytest.raises(RuntimeError) as info:
-        opm._row_blocked(_Slice(L), object(), _Slice(L), L, 8192, E._opm_fallback_rows(L))
+        opm._row_blocked(_Slice(L), object(), _Slice(L), L, 8192, E._opm_fallback_rows(L), opm._rows)
     assert "circular buffer clash" in str(info.value)
     assert L not in E._OPM_ROWS_REFUSED, "a non-refusal must not be remembered as one"

@@ -6,6 +6,31 @@
 #include "api/dataflow/dataflow_api.h"
 #include "dataflow_common.hpp"
 
+#ifdef ABLATE_KVREAD
+// INSTRUMENT (TT_BIO_TRIATT_ABLATE=KVREAD), wrong values on purpose: the K and V chunks are pushed
+// without their DRAM reads, so the arm's time is the call without the K/V traffic.
+template <uint32_t tile_bytes, typename ReaderType>
+uint32_t kv_read(const ReaderType&, const uint32_t cb_id, uint32_t, const uint32_t, const uint32_t,
+                 const uint32_t dst_rows, const uint32_t dst_cols, const uint32_t, const bool = false,
+                 const uint32_t = 0) {
+    cb_reserve_back(cb_id, dst_rows * dst_cols);
+    cb_push_back(cb_id, dst_rows * dst_cols);
+    return 0;
+}
+#define KV_READ kv_read
+#else
+#define KV_READ read_chunk_with_padding
+#endif
+
+// KV_CHAIN_EVERY_BATCH (`sdpa_generic.build(kv_chain=True)`): the cores of one head's chain walk the
+// same batch range with one q chunk each, so they stay in lockstep and forward K/V for every batch,
+// not only the chain's own one. Triangle attention batches the pair rows (B = S per head).
+#ifdef KV_CHAIN_EVERY_BATCH
+#define CHAIN_MATCH (nq == chain_head)
+#else
+#define CHAIN_MATCH (nb == chain_batch && nq == chain_head)
+#endif
+
 // Read a KV chunk into a CB for L1-L1 forwarding.
 // Skips intermediate read barriers (single barrier at end) for lower latency.
 // Returns the CB write pointer (start address of the data) for use as the forwarding source.
@@ -264,7 +289,11 @@ void kernel_main() {
 
     constexpr uint32_t skip_src_cols = (use_mla && mla_kv_overlap) ? DHt - vDHt : 0;
 
-    const auto q_tile_shape = TensorTileShape(B, NQH, valid_Sqt, DHt);
+#ifndef QKV_PITCH_T
+#define QKV_PITCH_T 0   // q, k, v head pitch valid_S*t + QKV_PITCH_T row tiles (triatt_ln.head_pitch); rows past
+                        // valid_S*t are never read, only the head stride moves
+#endif
+    const auto q_tile_shape = TensorTileShape(B, NQH, valid_Sqt + QKV_PITCH_T, DHt);
 #ifdef GATE_EPILOGUE
     constexpr uint32_t gate_tile_bytes = get_tile_size(cb_gate_in);
     const auto gate_reader = TensorAccessor(gate_args, gate_addr, gate_tile_bytes);
@@ -272,14 +301,14 @@ void kernel_main() {
     // DHt == vDHt -- and the host refuses the epilogue unless both are 1.
     const auto gate_tile_shape = TensorTileShape(B, NQH, valid_Sqt, vDHt);
 #endif
-    const auto k_tile_shape = TensorTileShape(B, NKH, valid_Skt, DHt);
+    const auto k_tile_shape = TensorTileShape(B, NKH, valid_Skt + QKV_PITCH_T, DHt);
 
     // If we have MLA:
     // - if k and v tensors are overlapped, we want to read from the k tensor, but just a portion of it, hence setting
     // the v tile shape dim to DHt (and skip accordingly based on skip_src_cols)
     // - if k and v tensors are not overlapped, we want to read from the v tensor, hence setting the v tile shape dim to
     // vDHt Otherwise head dim of k and v are same
-    const auto v_tile_shape = TensorTileShape(B, NVH, valid_Skt, use_mla && !mla_kv_overlap ? vDHt : DHt);
+    const auto v_tile_shape = TensorTileShape(B, NVH, valid_Skt + QKV_PITCH_T, use_mla && !mla_kv_overlap ? vDHt : DHt);
     const auto attention_sink_tile_shape = TensorTileShape(B, NQH, 1, 1);
 
     volatile tt_l1_ptr uint32_t* page_table_ptr;
@@ -330,27 +359,38 @@ void kernel_main() {
     // each, so read all PERSISTENT_MASK k-chunk blocks once here and never refill. Blocks are laid
     // out k-chunk-major, so block kc starts at tile kc * mask_chunk_tiles and the compute side
     // indexes it with that base. The host asserts the preconditions: one head and one q chunk per
-    // core, a batch-broadcast mask, and no padded mask.
+    // core and a batch-broadcast mask. A padded mask (a chunk that does not divide the sequence)
+    // is filled exactly as the per-chunk read below fills it: -inf past valid_Sqt / valid_Skt.
     {
         constexpr uint32_t persistent_mask_tiles = PERSISTENT_MASK * mask_chunk_tiles;
         cb_reserve_back(cb_mask_in, persistent_mask_tiles);
         uint32_t pm_write_ptr = get_write_ptr(cb_mask_in);
         uint32_t pm_barrier = 0;
+        uint32_t pm_tile = 0;
         for (uint32_t kc = 0; kc < PERSISTENT_MASK; ++kc) {
             uint32_t pm_row_start = local_q_start * Sq_chunk_t * valid_Skt;
             if constexpr (!broadcast_provided_mask_heads) {
                 pm_row_start += local_nh_start * valid_Sqt * valid_Skt;
             }
             for (uint32_t row = 0; row < Sq_chunk_t; ++row) {
+                const bool q_valid = !use_padded_mask || (local_q_start * Sq_chunk_t + row < valid_Sqt);
                 for (uint32_t col = 0; col < Sk_chunk_t; ++col) {
-                    noc_async_read_tile(pm_row_start + kc * Sk_chunk_t + col, mask_reader, pm_write_ptr);
+                    const uint32_t k_tile = kc * Sk_chunk_t + col;
+                    if (q_valid && (!use_padded_mask || k_tile < valid_Skt)) {
+                        noc_async_read_tile(pm_row_start + k_tile, mask_reader, pm_write_ptr);
+                    } else {
+                        fill_neginf_tile<mask_tile_bytes>(cb_mask_in, pm_tile);
+                    }
                     pm_write_ptr += mask_tile_bytes;
+                    pm_tile++;
                     if (++pm_barrier == barrier_threshold) {
                         noc_async_read_barrier();
                         pm_barrier = 0;
                     }
                 }
-                pm_row_start += valid_Skt;
+                if (q_valid) {
+                    pm_row_start += valid_Skt;
+                }
             }
         }
         noc_async_read_barrier();
@@ -520,10 +560,10 @@ void kernel_main() {
                     bool should_forward = false;
                     bool should_receive = false;
                     if constexpr (!is_causal) {
-                        should_forward = is_chain_participant && !is_sink && (nb == chain_batch && nq == chain_head) &&
+                        should_forward = is_chain_participant && !is_sink && CHAIN_MATCH &&
                                          (q_iter < next_core_q_chunks);
                         should_receive =
-                            is_chain_participant && !is_injector && (nb == chain_batch && nq == chain_head);
+                            is_chain_participant && !is_injector && CHAIN_MATCH;
                     }
 
                     // loop while k_low < q_high
@@ -569,7 +609,7 @@ void kernel_main() {
                                     cb_k_start_address = read_chunk_for_forwarding<k_tile_bytes, true>(
                                         k_reader, cb_k_in, k_start_tile_id, kv_row_tile_count, DHt, Sk_chunk_t, DHt);
                                 } else {
-                                    read_chunk_with_padding<k_tile_bytes>(
+                                    KV_READ<k_tile_bytes>(
                                         k_reader,
                                         cb_k_in,
                                         k_start_tile_id,
@@ -728,7 +768,7 @@ void kernel_main() {
                                         vDHt,
                                         skip_src_cols);
                                 } else {
-                                    read_chunk_with_padding<v_tile_bytes>(
+                                    KV_READ<v_tile_bytes>(
                                         v_reader,
                                         cb_v_in,
                                         v_start_tile_id,

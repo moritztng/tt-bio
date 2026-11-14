@@ -351,6 +351,13 @@ class AtomDiffusion(Module):
         atom_coords = init_sigma * torch.randn(shape, device=self.device)
         feats = network_condition_kwargs["feats"]
 
+        # Every step's `times`, as preconditioned_network_forward computes them: `dit_cond_steps` conditions
+        # several steps ahead (Boltz-2's sampler does the same).
+        set_schedule = getattr(self.score_model, "set_time_schedule", None)
+        if set_schedule:
+            set_schedule([self.c_noise(torch.full((1,), sm.item() * (1 + g.item())))[0].item()
+                          for sm, _, g, _, _ in sigmas_gammas_ss_ns])
+
         # gradually denoise
         coords_traj = [atom_coords]
         x0_coords_traj = []
@@ -418,6 +425,8 @@ class AtomDiffusion(Module):
             atom_coords = atom_coords_next
         coords_traj.append(atom_coords)
 
+        if set_schedule:
+            set_schedule(None)
         _emit_progress("diffusion", _total_diff_steps, _total_diff_steps)
         result = dict(
             sample_atom_coords=atom_coords,

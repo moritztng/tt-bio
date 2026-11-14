@@ -55,10 +55,8 @@ def test_multiple_cards_are_refused(tmp_path, monkeypatch):
     """Nesso-1 is batch-1 by construction, so --devices 0,1 is a user error rather
     than something to silently ignore.
 
-    TT_VISIBLE_DEVICES has to be cleared: affinity_cmd reads --devices only when the env
-    var is unset (the env wins, deliberately), and RELEASING.md tells you to run the suite
-    as `TT_VISIBLE_DEVICES=0 pytest`, so this failed under the documented invocation and
-    passed under a bare one."""
+    The refusal comes before the ids are checked against the cards present, so it reads the
+    same on every host and under the documented `TT_VISIBLE_DEVICES=0 pytest`."""
     from tt_bio.main import affinity_cmd
 
     monkeypatch.delenv("TT_VISIBLE_DEVICES", raising=False)
@@ -67,7 +65,7 @@ def test_multiple_cards_are_refused(tmp_path, monkeypatch):
     yaml_path.write_text("version: 1\n")
     out = CliRunner().invoke(affinity_cmd, [str(yaml_path), "--devices", "0,1"])
     assert out.exit_code != 0
-    assert "batch-1" in out.output
+    assert "one card per process" in out.output
 
 
 def test_one_record_that_raises_does_not_end_the_screen(tmp_path, monkeypatch):

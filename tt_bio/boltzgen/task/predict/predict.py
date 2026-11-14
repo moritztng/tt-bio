@@ -10,15 +10,153 @@ scaffolding around it stays in fp32 on CPU.
 from tt_bio.boltzgen.utils.quiet import quiet_startup
 quiet_startup()
 
+import multiprocessing
+import os
+import pickle
+import random
+import sys
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from typing import List, Optional, Union
 
+import numpy as np
 import torch
+from rdkit import Chem
 
 from tt_bio.boltzgen.adapter import load_boltz_checkpoint
 from tt_bio.boltzgen.progress import progress
 from tt_bio.boltzgen.task.predict.data_from_generated import FromGeneratedDataModule
 from tt_bio.boltzgen.task.predict.writer import DesignWriter, FoldingWriter
 from tt_bio.boltzgen.task.task import Task
+from tt_bio.boltzgen.model.models.boltz import design_levers
+
+
+_items = None
+
+
+def _pickle_mol_props() -> None:
+    # A pickled rdkit Mol drops its atom properties (the featurizer looks atoms up by "name") unless asked to keep them.
+    Chem.SetDefaultPickleProperties(Chem.PropertyPickleOptions.AllProps)
+
+
+def _featurize_open(data: bytes) -> None:
+    """Spawned featurize worker: own the data module and its iterator, built before the parent needs a design."""
+    global _items
+    torch.set_num_threads(1)
+    _pickle_mol_props()
+    _items = iter(pickle.loads(data).predict_dataloader())
+
+
+def _featurize_next(rng: tuple = None) -> bytes:
+    # The first request carries the parent's numpy / random state from the point where the in-process featurizer
+    # would start (after the model load, which draws from them), so every design draws exactly what it would.
+    if rng is not None:
+        np.random.set_state(rng[0])
+        random.setstate(rng[1])
+    # Plain pickle copies each tensor's bytes. multiprocessing's own pickler would share each one through a file
+    # descriptor held while the tensor lives, and a design's few hundred tensors run a 1024-fd limit out.
+    return pickle.dumps(next(_items, None), protocol=pickle.HIGHEST_PROTOCOL)
+
+
+def _featurize_serve(conn) -> None:
+    try:
+        data = conn.recv_bytes()
+    except EOFError:
+        return  # a spare that was never used
+    _featurize_open(data)
+    while True:
+        try:
+            rng = conn.recv()
+        except EOFError:
+            return
+        conn.send_bytes(_featurize_next(rng))
+
+
+# A spawned featurizer spends ~3 s importing this module before it can take its data module, and once the checkpoint
+# load is gone (resident weights) nothing hides that. So one idle, imported spare is kept ahead: each stage takes it and
+# starts the next, and a persistent worker's next shard starts on one too. A spawn inherits the environment, the cwd and
+# sys.path at start(), so a spare started under different ones is dropped, not used. The worker's per-job progress file
+# is left out: the featurizer never reports progress, and keying on it would cold-start every shard's first stage.
+_SPARE = None
+
+
+def _spawn_key() -> tuple:
+    env = sorted((k, v) for k, v in os.environ.items() if k != "BOLTZGEN_PROGRESS_FILE")
+    return tuple(env), os.getcwd(), tuple(sys.path)
+
+
+def _spawn() -> tuple:
+    ctx = multiprocessing.get_context("spawn")
+    conn, child = ctx.Pipe()
+    proc = ctx.Process(target=_featurize_serve, args=(child,), daemon=True)
+    proc.start()
+    child.close()
+    return _spawn_key(), proc, conn
+
+
+def _take_featurize_process() -> tuple:
+    global _SPARE
+    spare, _SPARE = _SPARE, None
+    if spare is not None and spare[0] == _spawn_key() and spare[1].is_alive():
+        _, proc, conn = spare
+    else:
+        if spare is not None:
+            spare[2].close()
+            spare[1].join(1)
+        _, proc, conn = _spawn()
+    _SPARE = _spawn()
+    return proc, conn
+
+
+class _FeatureProcess:
+    """bg_featproc's worker: a spawned process that owns the data module and featurizes one design per request.
+
+    It talks over a pipe, which is a pair of file descriptors. A process pool's queues are named POSIX semaphores, and
+    systemd-logind removes a user's named IPC objects when their last login session closes (RemoveIPC, the default for
+    a non-system user without linger). On a Galaxy that happened between a pool's start and its worker's, the worker
+    died opening them and the design waited for it until its timeout. ``submit`` / ``result`` mirror the thread path's
+    future, and a worker that exits without replying raises rather than hangs."""
+
+    def __init__(self, data) -> None:
+        self._proc, self._conn = _take_featurize_process()
+        # The data module goes over the pipe behind the caller, not as a spawn argument: an argument past the pipe
+        # buffer holds start() until the child has imported this module (~3 s on a Galaxy host), in front of the
+        # checkpoint load it is meant to hide behind.
+        self._sent = threading.Thread(target=self._send_data, args=(pickle.dumps(data),), daemon=True)
+        self._sent.start()
+
+    def _send_data(self, data: bytes) -> None:
+        try:
+            self._conn.send_bytes(data)
+        except OSError:
+            pass  # the child died; the first submit or result reports it
+
+    def submit(self, rng: tuple = None) -> "_FeatureProcess":
+        self._sent.join()
+        try:
+            self._conn.send(rng)
+        except OSError as e:
+            raise self._died() from e
+        return self
+
+    def result(self):
+        try:
+            return pickle.loads(self._conn.recv_bytes())
+        except (EOFError, OSError) as e:
+            raise self._died() from e
+
+    def _died(self) -> RuntimeError:
+        self._proc.join(10)
+        return RuntimeError(f"bg_featproc worker exited with code {self._proc.exitcode} before featurizing a design")
+
+    def __enter__(self) -> "_FeatureProcess":
+        return self
+
+    def __exit__(self, *exc) -> None:
+        self._conn.close()
+        self._proc.join(10)
+        if self._proc.is_alive():
+            self._proc.terminate()
 
 
 class Predict(Task):
@@ -87,6 +225,16 @@ class Predict(Task):
         if _cfg is not None and hasattr(_cfg, "num_workers"):
             _cfg.num_workers = 0
 
+        # With bg_featproc the featurizer runs in a spawned process (spawn, not fork: nothing of this process's
+        # threads is copied), so its seconds of Python no longer take the GIL from the thread that dispatches a
+        # design; only the pickled batch crosses. It starts here, so its imports and data module are ready behind the
+        # checkpoint load; the first request carries the RNG state the in-process path would start from. The model
+        # is not built yet, so this reads the set it will build under (design_levers), not the active scope.
+        featurize = None
+        if run_prediction and "bg_featproc" in design_levers():
+            _pickle_mol_props()
+            featurize = _FeatureProcess(self.data)
+
         # Build model with convert_to_tt applied; load_boltz_checkpoint filters
         # legacy hparams and applies the legacy-key remap on the state_dict.
         model = load_boltz_checkpoint(
@@ -107,10 +255,33 @@ class Predict(Task):
 
         total_batches = len(dataloader)
         progress("batch", 0, total_batches)
-        for batch_idx, batch in enumerate(dataloader):
-            prediction = model.predict_step(batch, batch_idx=batch_idx)
-            self.writer.write(prediction, batch, batch_idx)
-            progress("batch", batch_idx + 1, total_batches)
+        # The host work of a design (featurizing the next one, writing the last one) runs on two
+        # helpers while the card runs this one, as a DataLoader's workers would (see above for why
+        # they cannot be forked). Each helper keeps its own order, the featurizer draws only
+        # from numpy's global stream (its torch draws use a generator seeded from it) and the model
+        # only from torch's, so every design is the same whatever the timing. A design counts as done
+        # when its prediction is; its write finishes behind the next one.
+        # The iterator draws its base seed from torch's global stream, so it is built here in both modes.
+        items = iter(dataloader)
+        if featurize is None:
+            featurize = ThreadPoolExecutor(1)
+            fetch = lambda: featurize.submit(next, items, None)  # noqa: E731
+            ahead = fetch()
+        else:
+            fetch = featurize.submit
+            ahead = featurize.submit((np.random.get_state(), random.getstate()))
+        with featurize, ThreadPoolExecutor(1) as write:
+            written = None
+            for batch_idx in range(total_batches):
+                batch = ahead.result()
+                ahead = fetch()
+                prediction = model.predict_step(batch, batch_idx=batch_idx)
+                if written is not None:
+                    written.result()
+                written = write.submit(self.writer.write, prediction, batch, batch_idx)
+                progress("batch", batch_idx + 1, total_batches)
+            if written is not None:
+                written.result()
 
         self.writer.finalize()
         del model

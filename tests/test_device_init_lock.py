@@ -13,6 +13,7 @@ measures 6s of overlap against the old code and none against the new.
 Run: python3 tests/test_device_init_lock.py, or as part of the release suite via pytest.
 """
 import contextlib
+import fcntl
 import io
 import json
 import os
@@ -32,12 +33,38 @@ import json, os, sys, time
 sys.path.insert(0, os.environ["REPO"])
 from tt_bio import device_lease as dl
 dl.DEVICE_INIT_LOCK_PATH = os.environ["LOCK"]
+if os.environ.get("READY"):
+    open(os.environ["READY"], "w").close()
 with dl.device_init_lock():
     t0 = time.time()
-    time.sleep(float(os.environ["HOLD"]))
+    if os.environ.get("RELEASE"):               # hold until the test says so
+        while not os.path.exists(os.environ["RELEASE"]):
+            time.sleep(0.01)
+    else:
+        time.sleep(float(os.environ["HOLD"]))
     t1 = time.time()
 open(os.environ["OUT"], "w").write(json.dumps([t0, t1]))
 """
+
+
+def _until(cond, what, timeout=60.0):
+    end = time.time() + timeout
+    while not cond():
+        assert time.time() < end, f"timed out waiting for {what}"
+        time.sleep(0.01)
+
+
+def _held(path):
+    """True while another process holds a lock on `path`, shared or exclusive."""
+    if not os.path.exists(path):
+        return False
+    with open(path, "a") as f:
+        try:
+            fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return True
+        fcntl.flock(f, fcntl.LOCK_UN)
+        return False
 
 
 @contextlib.contextmanager
@@ -79,7 +106,8 @@ def test_shared_path_is_used_unchanged_when_writable():
         resolved, err = _take_lock(shared)
         assert resolved == shared, resolved
         assert err == "", err                      # no warning, nothing to warn about
-        assert os.listdir(d) == ["tt-bio-device-open.lock"], os.listdir(d)
+        # No fallback file; the ".serve" sibling is the serving-first marker beside the lock.
+        assert sorted(os.listdir(d)) == ["tt-bio-device-open.lock", "tt-bio-device-open.lock.serve"], os.listdir(d)
 
 
 def test_falls_back_to_a_per_user_path_and_says_so():
@@ -139,6 +167,83 @@ def test_two_processes_serialize_when_shared_path_unwritable():
         assert overlap < 0.1, (f"bring-up was NOT serialized: the two holds overlapped by "
                                f"{overlap:.3f}s of {hold}s")
         assert a1 - a0 >= hold and b1 - b0 >= hold
+
+
+
+def test_a_serving_open_goes_before_a_borrowing_one_that_waited_longer():
+    """.107 2026-10-24: release legs on lent chips queued their bring-ups ahead of the
+    JapanFold agent's canaries, which gave up after 300 s. A holds the lock; B (borrow) starts
+    waiting, then C (serve). When A lets go, C must hold it before B.
+
+    Each step waits on observable state, not a sleep: in a loaded release gate a child took
+    over a second to start, C was not waiting yet when A let go, and B rightly took the lock."""
+    with tempfile.TemporaryDirectory() as d:
+        lock = os.path.join(d, "tt-bio-device-open.lock")
+        release = os.path.join(d, "release")
+
+        def start(name, cls, **extra):
+            env = dict(os.environ, REPO=REPO, LOCK=lock, HOLD="0.5", OUT=os.path.join(d, name),
+                       READY=os.path.join(d, name + ".ready"), **extra)
+            env.pop("TT_BIO_DEVICE_CLASS", None)
+            if cls:
+                env["TT_BIO_DEVICE_CLASS"] = cls
+            return subprocess.Popen([sys.executable, "-c", HOLDER], env=env, stderr=subprocess.DEVNULL)
+
+        a = start("a", None, RELEASE=release)
+        _until(lambda: _held(lock), "A to hold the lock")
+        b = start("b", "borrow")
+        _until(lambda: os.path.exists(os.path.join(d, "b.ready")), "B to start waiting")
+        time.sleep(2 * dl.BORROW_POLL_S)            # B is polling before C exists
+        c = start("c", None)
+        _until(lambda: _held(lock + ".serve"), "C to announce its serving wait")
+        open(release, "w").close()
+        for p in (a, b, c):
+            assert p.wait(timeout=60) == 0
+        (a0, a1), (b0, b1), (c0, c1) = [json.load(open(os.path.join(d, n))) for n in "abc"]
+        assert a1 <= c0 + 0.05 and c1 <= b0 + 0.05, (
+            f"held a {a0:.2f}-{a1:.2f}, borrow {b0:.2f}-{b1:.2f}, serve {c0:.2f}-{c1:.2f}")
+
+# A child that runs the real _open_device_locked() with ttnn.open_device swapped for a call
+# that holds the GIL the way the C open does when it spins on a dirty chip.
+OPENER = r"""
+import os, re, sys
+sys.path.insert(0, os.environ["REPO"])
+from tt_bio import device_lease as dl, tenstorrent as tt
+dl.DEVICE_INIT_LOCK_PATH = os.environ["LOCK"]
+tt._OPEN_WEDGE_TIMEOUT_S = 1.0
+class Dev:
+    def enable_program_cache(self): pass
+def wedged(**kw):
+    re.match(r"(a+)+$", "a" * 40 + "b")  # minutes of C, GIL held throughout
+    return Dev()
+def healthy(**kw):
+    return Dev()
+tt.ttnn.open_device = wedged if os.environ["MODE"] == "wedged" else healthy
+tt._configure_active_compute_grid = lambda dev: None
+tt._open_device_locked(0, {})
+import time; time.sleep(1.5)  # outlive the watchdog: a healthy open must have cancelled it
+print("opened")
+"""
+
+
+def _run_opener(mode):
+    with tempfile.TemporaryDirectory() as d:
+        env = dict(os.environ, REPO=REPO, LOCK=os.path.join(d, "open.lock"), MODE=mode)
+        t = time.time()
+        p = subprocess.run([sys.executable, "-c", OPENER], env=env, capture_output=True,
+                           text=True, timeout=120)
+        return p, time.time() - t
+
+
+def test_wedged_open_exits_and_releases_the_lock():
+    p, dt = _run_opener("wedged")
+    assert p.returncode == 1 and "opened" not in p.stdout, (p.returncode, p.stdout, p.stderr)
+    assert "Timeout" in p.stderr and dt < 60, (dt, p.stderr)
+
+
+def test_healthy_open_cancels_the_watchdog():
+    p, _ = _run_opener("healthy")
+    assert p.returncode == 0 and "opened" in p.stdout, (p.returncode, p.stdout, p.stderr)
 
 
 if __name__ == "__main__":

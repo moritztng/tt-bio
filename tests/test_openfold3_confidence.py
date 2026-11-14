@@ -59,6 +59,7 @@ def _run():
         repr_x_pred=g["repr_x_pred"].float(),
         max_atom_per_token_mask=g["max_atom_per_token_mask"].float(),
         use_zij_trunk_embedding=g["use_zij_trunk_embedding"],
+        return_pair=True,
     )
     return g, out
 

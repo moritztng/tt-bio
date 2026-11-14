@@ -30,6 +30,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 import socket
 import subprocess
 import sys
@@ -158,16 +159,23 @@ def seed_msa_cache(target: Path, a3m: Path, msa_dir: Path) -> int:
     # A ligand or nucleic-acid chain carries no alignment, so what has to be unique is the
     # chain this seeds, not the chain count: a protein + ligand target seeds the protein and
     # leaves the ligand alone. Monomers take exactly the path they always did.
-    polymers = [c for c in chains if c[3] == "protein"]
-    assert len(polymers) == 1, (
-        f"{target} has {len(polymers)} protein chains; this seeds exactly one alignment")
-    seq = polymers[0][1]
+    # A homomer seeds that one alignment too: the cache is keyed by sequence, so every copy reads it.
+    seqs = {c[1] for c in chains if c[3] == "protein"}
+    assert len(seqs) == 1, (
+        f"{target} has {len(seqs)} distinct protein sequences; this seeds exactly one alignment")
+    seq = seqs.pop()
     text = a3m.read_text()
     rows = text.split("\n")
     assert rows[1] == seq, f"{a3m} query row does not match {target}'s sequence"
     msa_dir.mkdir(parents=True, exist_ok=True)
     h = hashlib.sha256(seq.encode()).hexdigest()[:16]
-    (msa_dir / f"{h}.a3m").write_text(text)
+    # A seeded tree may be deduped into read-only hardlinks shared with other trees: leave an
+    # identical file alone, and replace a different one by rename so no other tree sees the write.
+    dst = msa_dir / f"{h}.a3m"
+    if not dst.exists() or dst.read_text() != text:
+        tmp = dst.with_name(f"{dst.name}.{os.getpid()}.tmp")
+        tmp.write_text(text)
+        tmp.replace(dst)
     return text.count(">")
 
 
@@ -226,6 +234,8 @@ PHASES: dict[str, list[tuple[str, str, str]]] = {
         ("mod", "tt_bio.worker:_write_atom_array_structure", "host"),          # :1409
     ],
 }
+# OpenBind-0 is OpenFold3's model code under other weights: same _predict_openfold3_one, same phases.
+PHASES["openbind"] = PHASES["openfold3"]
 
 
 class Instrument:
@@ -318,7 +328,7 @@ class Instrument:
 
 def build_fold(model: str, msa_dir: Path, target: Path, a3m: Path,
                samples: int = DIFFUSION_SAMPLES, hoist: bool = False,
-               instrument: bool = False, fast: bool = False, trace: bool = False,
+               instrument: bool = False, fast: bool = False, trace: bool | None = None,
                recycling_steps: int | None = None):
     """Open the card, load the model, seed the MSA cache; return ``(one_fold, meta)``.
 
@@ -357,8 +367,15 @@ def build_fold(model: str, msa_dir: Path, target: Path, a3m: Path,
     _E.set_progress(_noop)
 
     # --trace replays a captured ttnn trace of the per-step diffusion device graph, and
-    # Protenix/OpenDDE fold(trace=True) refuses unless the device carries a region.
-    get_device(trace="protenix" if trace else None)  # open the chip once (lease enforced here)
+    # Protenix/OpenDDE fold(trace=True) refuses unless the device carries a region. Boltz-2's
+    # DiT step is a different capture (its --diffusion_trace), with its own region. ESMFold2's
+    # loader reserves its own diffusion step region, so the chip is opened here the way the
+    # worker's first open will open it.
+    if model.startswith("esmfold2"):
+        region = "esmfold2"
+    else:
+        region = ("diffusion" if model == "boltz2" else "protenix") if trace else None
+    get_device(trace=region)  # open the chip once (lease enforced here)
     hw = arch_name()
 
     work = Path(tempfile.mkdtemp(prefix=f"ttbase-{model}-"))
@@ -438,7 +455,7 @@ def build_fold(model: str, msa_dir: Path, target: Path, a3m: Path,
     def one_fold():
         job_cfg["struct_dir"] = str(struct_dir)
         for p in struct_dir.glob("*"):
-            p.unlink()
+            shutil.rmtree(p) if p.is_dir() else p.unlink()
         if hoist and cold_done["v"]:
             return hoisted()
         t0 = time.perf_counter()
@@ -462,7 +479,7 @@ def build_fold(model: str, msa_dir: Path, target: Path, a3m: Path,
 
 def measure(model: str, repeat: int, msa_dir: Path, out_path: Path,
             target: Path, a3m: Path, label: str, fast: bool = False,
-            keep_cif: Path | None = None, trace: bool = False,
+            keep_cif: Path | None = None, trace: bool | None = None,
             ab_env: str | None = None, ab_values: tuple[str, str] = ("1", "0"),
             recycling_steps: int | None = None) -> dict:
     one_fold, meta, state = build_fold(model, msa_dir, target, a3m, fast=fast, trace=trace,
@@ -601,8 +618,11 @@ def main() -> int:
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--fast", action="store_true",
                     help="fold with the shipped --fast block-fp8 path (not the default arm)")
-    ap.add_argument("--trace", action="store_true",
-                    help="replay a captured ttnn trace of the diffusion step")
+    ap.add_argument("--trace", action="store_const", const=True, default=None,
+                    help="replay a captured ttnn trace of the diffusion step (unset: the "
+                         "shipped default, on for protenix-v1/v2 on Blackhole)")
+    ap.add_argument("--no-trace", dest="trace", action="store_const", const=False,
+                    help="fold untraced")
     ap.add_argument("--keep-cif", type=Path, default=None,
                     help="copy each fold's CIF here, so an arm can be scored against another")
     ap.add_argument("--ab-env", default=None, metavar="NAME",

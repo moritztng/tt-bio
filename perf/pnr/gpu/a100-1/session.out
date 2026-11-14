@@ -1,0 +1,9 @@
+2026-11-03T18:43:46Z credit $85.80385791977665 at start, gpu a100, cap 3.5 h
+2026-11-03T18:43:49Z created 59000608 on offer 54677825
+2026-11-03T18:49:37Z 59000608 up at 92.96.154.105:43905, power limit 275 W
+2026-11-03T18:49:50Z DESTROYED 59000608 (power limit 275 W outside 390-400); this instance over REST: gone; instances left: 2
+2026-11-03T18:49:53Z created 59001250 on offer 29019379
+2026-11-03T18:51:28Z 59001250 up at 80.188.223.202:11430, power limit 300 W
+2026-11-03T18:51:40Z DESTROYED 59001250 (power limit 300 W outside 390-400); this instance over REST: gone; instances left: 2
+2026-11-03T18:51:41Z no untried offer matches: gpu_name=A100_SXM4 num_gpus=1 gpu_ram>=79 cuda_max_good>=13.0 inet_down>=200 reliability>=0.95 dph<=1.6
+2026-11-03T18:51:41Z SESSION-END no-offer-passed

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import gc
 import os
+import sys
 from abc import ABC, abstractmethod
 from functools import partial
 from math import exp, pi, sqrt
@@ -28,6 +29,7 @@ from tt_bio.data import const
 from pathlib import Path
 from tt_bio.envflags import env_flag, env_int
 from tt_bio.sample_chunks import denoise_in_chunks, resolve_sample_chunk_width
+from tt_bio.runtime import serial_host
 
 
 class _LazyTenstorrent:
@@ -46,6 +48,127 @@ class _LazyTenstorrent:
 
 
 tenstorrent = _LazyTenstorrent()
+
+
+# Boltz-2's precision levers (tenstorrent.LEVERS) per mode: the shared kernels' switches, graded on
+# this model's own accuracy set before a name goes in, so a lever graded only on another model never
+# reaches it. A harness grades a candidate through the serving path with TT_BIO_LEVERS.
+# Normal: Wormhole 11-set grade PASS, 44 paired folds, same-seed top pose median 0.895 A against the
+# A/A seed floor 1.784 A, every paired CI covers 0 or sits on the better side, docking 24/44 both;
+# c730 157.98 -> 147.17 s (spd-boltz2 g1/s1, 2026-10-09).
+# triatt_tail is not in the normal set: its 11-set normal grade passed on Wormhole (88 paired folds) but failed on
+# Blackhole p150a (88 paired, seeds 101-108): ipTM -0.0225 [-0.0409, -0.0059], CA-lDDT -0.0003 [-0.0006, -0.0001]
+# (spd-integrate gttbh, 2026-10-12). It was worth ~0.8 s of a 16 s fold at 512 x 1.
+# opm_jd (the OPM contracts b in (j d) row order, so its output needs no relayout) moves bytes, not arithmetic, and
+# rides in both modes on its digest: CIFs identical on and off, Galaxy chip 512 x 1 (1000 MHz, 5 pairs each), normal
+# 31.20 -> 30.68 s (5/5 pairs faster), fast -0.29 s median (spd-gap-small opmj, 2026-10-15).
+# atomp_dev (the diffusion conditioning's atom-pair tensor and its bias stacks built on the card instead of the host)
+# rides in both modes. Run-to-run deterministic (every stage bit-identical over 4 reps), encoder / decoder rel error vs
+# float64 0.0045 / 0.0043. 11-set grade, each mode's set vs the same set + atomp_dev, 44 paired folds per mode, PASS
+# on both chips, docking 24 -> 24 in all four: Wormhole (spd-gap-small gapd, 2026-10-17) same-seed top pose median
+# 0.689 A normal / 0.631 A fast against A/A floors of 1.697 / 2.008 A; Blackhole (gapdbh, 2026-10-18) CA-lDDT +0.0004
+# [-0.0003, +0.0014] normal / -0.0000 [-0.0005, +0.0005] fast. 512 x 1, 6 pairs each: Galaxy chip (1000 MHz) normal
+# -0.71 s, fast -0.55 s (apab2); p150a (1331-1350 MHz) normal -0.01 s, fast -0.11 s (apbh).
+LEVERS_NORMAL = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3", "dit_sdpa32", "silu_f32", "opm_jd",
+                           "atomp_dev"})
+# Fast: tenstorrent.FAST_LEVERS on the normal path. The process-wide `--fast` switch
+# (tenstorrent._FAST_MODE: bfp8 activations, narrower chunks) is off inside Boltz-2, because on
+# Wormhole c730 it folds in 159.7 s against 135.5 s for normal mode, while this set folds in 123.4 s
+# (l1024: 217.4 / 181.6 / 168.3 s; spd-boltz2 s4, 2026-10-09). Wormhole fast grade against normal, 11-set x 4 seeds:
+# PASS, CA-lDDT +0.0018, pLDDT -0.0002, docking 24/44 both (spd-boltz2 gf1).
+# triatt_tail (the gate, output projection and residual add of triangle attention in one program) is graded on
+# Protenix-v2 in both modes. On Boltz-2 fast at 512 x 1 on p150a it reads 14.60 / 14.67 s against 14.81 / 15.00 s
+# (interleaved, 3 warm each), pLDDT 0.852 -> 0.850 (spd-gap-small abK, 2026-10-12). Boltz-2 fast grade on
+# Blackhole PASS, 44 paired folds (spd-integrate gttbh/fast, 2026-10-12).
+# adaln_mod (each fp32 AdaLN modulates in one addcmul) is graded on Boltz-2 fast against this set without it:
+# Wormhole PASS, 42 paired, top pose 0.989 A vs a 1.801 A seed floor (spd-integrate gad); Blackhole PASS, 44 paired,
+# top pose median 1.255 A vs a 1.779 A floor, pLDDT within +-0.003 per complex, docking 24/44 both. p150a 512 x 1,
+# interleaved: 13.51 / 14.40 s against 14.43 / 14.74 s (spd-gap-small abO, 2026-10-12).
+# trimul_t1 / trimul_t2 (the triangle multiplication's in-projection and its tail as fused kernels) are graded on
+# Boltz-2 fast against this set without them: Wormhole PASS, top pose 1.10 A vs a 1.81 A floor; Blackhole PASS,
+# 44 paired, top pose median 1.251 A vs 1.797 A, docking 24/44 both, pLDDT within 0.004 per complex (spd-integrate
+# gb2t). 512 x 1: Wormhole 25.9 -> 24.1 s, p150a 13.58 -> 13.03 s (spd-gap-small). Their normal grade fails the
+# 0.6 A kill bar on both (top pose 0.876 / 0.845 A), so normal keeps the incumbent.
+LEVERS_FAST = frozenset({"acc_off", "diffusion_bf16", "dit_sdpa", "transition_b8", "opm_b8", "atom_sdpa",
+                         "trimul_ibw", "trimul_tail", "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32",
+                         "triatt_tail", "adaln_mod", "transition_ws", "trimul_t1", "trimul_t2", "ws_resid",
+                         "opm_jd", "atomp_dev"})
+# Wormhole --fast adds the pair LayerNorm fused into triangle attention's projections (protenix.TRIATT_LN). Wormhole
+# 11-set fast grade, LEVERS_FAST vs + these, 44 paired folds (spd-gap-small gtalb2, 2026-10-15), PASS: CA-lDDT
+# -0.0005 [-0.0013, +0.0001], pLDDT within 0.004 per complex, docking 24 -> 24. Galaxy chip 512 x 1 -0.64 s (5/5 pairs).
+# It also takes dit_cond_jit (the token DiT's conditioning projected per layer). Wormhole 11-set fast grade, fast vs
+# fast+dit_cond_jit, 44 paired folds (spd-gap-small gb2cj, 2026-10-15), PASS: same-seed top pose median 0.744 A
+# (A/A floor 1.731 A), CA-lDDT -0.0004 [-0.0011, +0.0003], docking 24 -> 24. Galaxy chip 512 x 1 (1000 MHz) 23.26 ->
+# 22.83 s median, every warm pair faster. On p150a it is 0.35 s slower (5/5 pairs), so Blackhole leaves it off.
+# And trimul_sig6: Wormhole 11-set fast grade, 44 paired folds (gsig6, 2026-10-15), PASS: top pose median 1.083 A
+# (floor 1.731 A), CA-lDDT -0.0006 [-0.0021, +0.0005], docking 24 -> 24; Galaxy chip -0.12 s (3 of 4 pairs).
+# dit_shoist (the token DiT's conditioning as three wide linears a step, blocks reading their columns in place) is
+# graded on p150a: 11-set fast grade, 44 paired folds (spd-gap-small gshxbh, 2026-10-16), PASS: top pose median
+# 0.486 A vs the 1.828 A floor, CA-lDDT +0.0010 [+0.0003, +0.0018], docking 24 -> 24; 5 samples 12.65 -> 12.28 s
+# (shxb). On Wormhole it is no faster than dit_cond_jit (shjw: -0.06 s over 3 pairs), so Wormhole keeps dit_cond_jit.
+# And dit_cond_jcat: each DiT layer's six conditioning projections as three [768, 1536] linears read in place. Wormhole
+# 11-set fast grade, 43 paired folds (spd-gap-small gjcw, 2026-10-18), PASS: top pose median 1.035 A (floor 1.730 A),
+# CA-lDDT +0.0015 [+0.0008, +0.0023], docking 24 -> 24; Galaxy chip 512 x 1 (1000 MHz) 20.37 -> 20.15 s, 4/4 warm pairs.
+# And triatt_k1 (triangle attention in one k chunk where the trimmed CB set fits): 512-token set fast grade, 44 paired
+# folds (gk1b2, 2026-10-19), PASS: top pose median 1.309 A (floor 2.381 A), CA-lDDT -0.0002 [-0.0009, +0.0005], docking
+# 24 -> 24; Galaxy chip 512 x 1 (1000 MHz) -0.26 s median, 7/8 warm pairs (k1b2).
+# atom_l1 (the atom transformer's intermediates in L1) is placement only: on a Galaxy chip at 512 x 1 (1000 MHz) both
+# modes fold byte-identical CIFs with it, normal -0.63 s (6/6 warm pairs), fast -0.54 s (5/6) (spd-gap-small al1,
+# 2026-10-19), so it needs no grade. Blackhole leaves it off until a p150a pair reads it.
+# trimul_bres in normal (no acc_off there) is the same: byte-identical CIFs, Galaxy chip 512 x 1 (1000 MHz) 28.45 ->
+# 28.24 s, -0.21 s median, 7/8 warm pairs (spd-gap-small xf9, 2026-10-21).
+# Wormhole normal also takes eleven levers the fast set graded: triatt_tail, triatt_k1, triatt_ln, apb_ln, dit_cond_jit,
+# dit_cond_jcat, dit_cond_steps, adaln_mod, transition_ws, ws_resid, trimul_sig6. Galaxy chip 512 x 1 (1000 MHz), 4
+# in-process pairs: -5.23 s median (l0, spd-m-boltz2-3, 2026-11-06); transition_ws alone is -2.59 s. 44-fold normal grade
+# as a stack (gswh): vs TT_BIO_LEVERS=none top pose median 1.145 A (floor 2.386 A), CA-lDDT +0.0019 [+0.0007, +0.0033],
+# DockQ +0.0108 [+0.0035, +0.0189], docking 24 -> 24; vs the previous Wormhole normal set 1.290 A (floor 2.283 A),
+# CA-lDDT +0.0018 [+0.0008, +0.0028], docking 24 -> 24.
+WH_LEVERS_NORMAL = LEVERS_NORMAL | {"atom_l1", "trimul_bres", "triatt_tail", "triatt_k1", "triatt_ln", "apb_ln",
+                                    "dit_cond_jit", "dit_cond_jcat", "dit_cond_steps", "adaln_mod", "transition_ws",
+                                    "ws_resid", "trimul_sig6"}
+# triatt_ln_b8 + triatt_ln_b8g (triatt_ln writes q, k, v and the gate bfp8): 512-token set fast grade, 44 paired folds
+# (spd-gap-small gtlb2, 2026-10-19), PASS: top pose median 1.566 A (floor 2.245 A), CA-lDDT +0.0003 [-0.0006, +0.0013],
+# docking 24 -> 24; Galaxy chip 512 x 1 (1000 MHz) -0.98 s median, 5/5 warm pairs (tlb2).
+# dit_shard (the token DiT transition's hidden products block-sharded in L1): same 44-fold fast grade (gdsh, 2026-10-20),
+# PASS: top pose median 1.006 A (floor 2.254 A), CA-lDDT -0.0004 [-0.0010, +0.0002], docking 24 -> 24; 5-sample folds
+# -1.21 s median, 44/44 faster (1000 MHz). Normal FAILS the same grade (CA-lDDT -0.0013 [-0.0023, -0.0005]), so fast only.
+# trimul_bres (the trimul einsum with b[c] resident in L1, bmm_res, firing under acc_off since it took its own fp32 dest):
+# same 44-fold fast grade (gbres, 2026-10-21), PASS: top pose median 1.537 A (floor 2.328 A), CA-lDDT +0.0004
+# [-0.0005, +0.0014], docking 24 -> 24; 5-sample folds -0.44 s median, 39/44 faster (1000 MHz); 512 x 1 -0.23 s (xf8).
+# ie_dev (the input embedder's atom encoder on the card): same 44-fold fast grade (gief, 2026-10-21), PASS: top pose
+# median 0.944 A (floor 2.434 A), CA-lDDT -0.0004 [-0.0013, +0.0006], docking 24 -> 24; Galaxy chip 512 x 1 (1000 MHz)
+# -0.20 s paired median, 5/7 warm pairs (ie). Normal FAILS its grade (gie: DockQ -0.0067 [-0.0148, -0.0008], CA-lDDT
+# -0.0010 [-0.0018, -0.0002]), so fast only.
+# opm_b8cfg (opm_b8's contraction on opm_contract_config's plan at HiFi2, Protenix-v2's lever): same 44-fold fast grade
+# (gob2, 2026-10-22), PASS: top pose median 1.323 A (floor 2.280 A), CA-lDDT +0.0003 [-0.0006, +0.0011], docking 24 -> 24;
+# 512-token folds (1000 MHz) -0.13 s paired median on 39 folds past the first-fold compile, up to -1 s on the deeper MSAs
+# (9LV4, 9W8A); the 35-row page fixture contracts two K tiles, so it gains nothing there.
+# dit_cond_steps (the token DiT conditioning of 4096 // tokens steps as one tall linear): Galaxy chip 512 x 1 (1000 MHz)
+# -0.36 s paired median, 10/12 pairs faster, CIFs bit-identical in all 12 pairs (cs3, 2026-10-22), so no grade.
+WH_LEVERS_FAST = LEVERS_FAST | {"triatt_ln", "apb_ln", "dit_cond_jit", "trimul_sig6", "dit_cond_jcat", "triatt_k1",
+                                "atom_l1", "triatt_ln_b8", "triatt_ln_b8g", "dit_shard", "trimul_bres", "ie_dev", "opm_b8cfg",
+                                "dit_cond_steps"}
+# On Blackhole ie_dev reads p300c 512 x 1 fast -0.25 s paired median (5/5 warm pairs, AICLK ~1350; iebh) and passes the
+# same 44-fold fast grade (giebh, 2026-10-21): top pose median 1.106 A (floor 2.438 A), CA-lDDT +0.0001 [-0.0006, +0.0007],
+# docking 24 -> 24.
+BH_LEVERS_FAST = LEVERS_FAST | {"dit_shoist", "ie_dev"}
+# Blackhole normal adds the fast set's fusions that change no arithmetic or only regroup an fp32 modulate: triatt_tail,
+# adaln_mod, transition_ws, ws_resid. p150a 512 x 1, in-process pairs at AICLK ~1349 MHz: -0.60 s median (l0bh,
+# spd-m-boltz2-3, 2026-11-05). 44-fold normal grade on p150a against TT_BIO_LEVERS=none (gsbh): PASS, top pose median
+# 1.374 A (A/A seed floor 2.318 A), CA-lDDT +0.0002 [-0.0011, +0.0013], DockQ -0.0050 [-0.0147, +0.0036], pLDDT +0.0008,
+# docking 24 -> 24 with no flips. LRMSD moves only on folds neither arm docks (LRMSD 30-120 A); on the 24 docked folds
+# its median moves -0.02 A.
+BH_LEVERS_NORMAL = LEVERS_NORMAL | {"triatt_tail", "adaln_mod", "transition_ws", "ws_resid"}
+
+
+def _under_levers(method):
+    """`tenstorrent.under_lever_scope`, looked up at call time so importing Boltz-2 does not import ttnn."""
+    import functools
+
+    @functools.wraps(method)
+    def run(self, *a, **kw):
+        return tenstorrent.under_lever_scope(method)(self, *a, **kw)
+    return run
 
 
 def _dram_peak(tag):
@@ -1230,6 +1353,53 @@ def _device_conf_heads() -> bool:
     return env_flag("TT_BIO_DEVICE_CONF_HEADS", True)
 
 
+def device_conf_heads(conf, multiplicity, label):
+    """The device pae/pde heads for a confidence module's call, or ``None`` with a printed reason.
+
+    Shared by Boltz-2's confidence head and BoltzGen's refold confidence head, which carry the
+    same ``ConfidenceHeads`` projections. A lever that can decline needs an instrument that says
+    it declined: the parent row's gate fell back to torch for two folds because
+    `bond_type_feature` arrives from the `Boltz2` constructor and not from
+    `confidence_model_args`, and the fold simply read as "the lever did nothing". So every
+    operand is named here, and a refusal prints once.
+    """
+    # A device pairformer exists only if tt_bio.tenstorrent was imported; asking the lazy
+    # handle otherwise would import ttnn on a CPU/GPU host that has none (issue #6).
+    if not _device_conf_heads() or "tt_bio.tenstorrent" not in sys.modules:
+        return None
+    heads = conf.confidence_heads
+    operands = {
+        "pairformer_stack is a device PairformerModule":
+            isinstance(getattr(conf, "pairformer_stack", None), tenstorrent.PairformerModule),
+        "ConfidenceHeadsDevice.supports(confidence_heads)":
+            tenstorrent.ConfidenceHeadsDevice.supports(heads),
+        "one sample (multiplicity == 1)": multiplicity == 1,
+        "no latent feats asked for (return_latent_feats is False)":
+            not getattr(conf, "return_latent_feats", False),
+    }
+    declined = [k for k, v in operands.items() if not v]
+    if declined:
+        if not getattr(conf, "_tt_heads_declined", False):
+            conf._tt_heads_declined = True
+            print(f"[{label}] TT_BIO_DEVICE_CONF_HEADS declines, torch owns the head: "
+                  + "; ".join(f"NOT {d}" for d in declined), flush=True)
+        return None
+    dev = getattr(conf, "_tt_heads", None)
+    if dev is None:
+        dev = tenstorrent.ConfidenceHeadsDevice(
+            heads, conf.pairformer_stack.compute_kernel_config)
+        conf._tt_heads = dev
+    return dev
+
+
+def conf_heads_bins(heads_device, mask):
+    """``(pae centres, TM curve over them, pde centres)`` for ``ConfidenceHeadsDevice``."""
+    pae_c = bin_centres(heads_device.n_pae_bins, 32.0)
+    n_res = mask.sum(dim=-1, keepdim=True)
+    return (pae_c, tm_function(pae_c.unsqueeze(0), n_res).reshape(-1),
+            bin_centres(heads_device.n_pde_bins, 32.0))
+
+
 def _row_block(bytes_per_row: int) -> int:
     return max(1, HOST_BLOCK_BYTES // max(int(bytes_per_row), 1))
 
@@ -1381,6 +1551,28 @@ class RelativePositionEncoder(Module):
         entity = torch.stack([torch.zeros_like(w[:, o_ent]), w[:, o_ent]])
         return (w[:, 0:n_pos].t(), w[:, o_tok:o_ent].t(), entity,
                 w[:, o_chain:o_chain + n_chain].t())
+
+    def joint_table(self, feats):
+        """``forward(feats)`` as ``(index [b, n, n] int32, table [U + 1, token_z])``.
+
+        Each pair's encoding depends only on its four indices, and a fold has a few hundred
+        distinct tuples of them, so the table holds each distinct sum once, added in the order
+        ``forward`` adds it, and ``table[index]`` equals ``forward(feats)`` bit for bit. Row 0 is
+        zero and no pair reads it, so a zero-padded index reads the zero pad.
+        """
+        d_residue, d_token, d_chain, same_entity = self.index_features(feats)
+        n_pos, n_chain = 2 * self.r_max + 2, 2 * self.s_max + 2
+        ids = ((d_residue * n_pos + d_token) * 2 + same_entity.long()) * n_chain + d_chain
+        uniq, index = torch.unique(ids, return_inverse=True)
+        t_res, t_tok, t_ent, t_chain = self.tables()
+        rest, d_chain = uniq.div(n_chain, rounding_mode="floor"), uniq % n_chain
+        rest, same_entity = rest.div(2, rounding_mode="floor"), rest % 2
+        d_residue, d_token = rest.div(n_pos, rounding_mode="floor"), rest % n_pos
+        rows = t_res[d_residue]
+        rows = rows + t_tok[d_token]
+        rows = rows + same_entity.unsqueeze(-1).float() * t_ent[1]
+        rows = rows + t_chain[d_chain]
+        return (index + 1).to(torch.int32), torch.cat([rows.new_zeros(1, rows.shape[-1]), rows])
 
     def forward(self, feats):
         d_residue, d_token, d_chain, b_same_entity = self.index_features(feats)
@@ -1630,6 +1822,30 @@ def single_to_keys(single, indexing_matrix, W, H):
     )  # j = 2K, i = W//2, k = h * K
 
 
+def atom_window_tokens(atom_to_token, to_keys, K, W, H):
+    """``(tok_q [B, K, W], tok_k [B, K, H], keep [B, K, W, H])``: each window's query and key token
+    index, and 1 where both atoms are real (0 for padding or a key slot past the sequence)."""
+    B = atom_to_token.shape[0]
+    valid = atom_to_token.amax(-1)                          # 1 for a real atom, 0 for padding
+    tok = atom_to_token.argmax(-1).to(atom_to_token.dtype)  # token index, exact in fp32
+    tok_q = tok.view(B, K, W).long()
+    tok_k = to_keys(tok.unsqueeze(-1)).view(B, K, H).long()
+    keep = valid.view(B, K, W, 1) * to_keys(valid.unsqueeze(-1)).view(B, K, 1, H)
+    return tok_q, tok_k, keep
+
+
+def pair_to_atom_windows(z, atom_to_token, to_keys, K, W, H):
+    """``einsum("bijd,bwki,bwlj->bwkld", z, queries, keys)`` over the one-hot ``atom_to_token``,
+    done as the gather it is: entry (w, k, l) is ``z[token(query k), token(key l)]``, or 0 where
+    either atom is padding. Same values (each einsum sum has one nonzero term), without the
+    dense contraction over both token axes that cost ~0.2 s per fold on the host."""
+    B = z.shape[0]
+    tok_q, tok_k, keep = atom_window_tokens(atom_to_token, to_keys, K, W, H)
+    b = torch.arange(B, device=z.device).view(B, 1, 1, 1)
+    out = z[b, tok_q.unsqueeze(-1), tok_k.unsqueeze(-2)]    # [B, K, W, H, D]
+    return out * keep.unsqueeze(-1).to(out.dtype)
+
+
 class AtomEncoder(Module):
     def __init__(
         self,
@@ -1693,21 +1909,56 @@ class AtomEncoder(Module):
         )
         init.final_init_(self.p_mlp[5].weight)
 
-    def forward(
-        self,
-        feats,
-        s_trunk=None,  # Float['bm n ts'],
-        z=None,  # Float['bm n n tz'],
-        z_to_p=None,  # Float['bm n n az'], `z_to_p_trans(z)` already applied
-    ):
-        # `z` reaches this module through `z_to_p_trans` and nowhere else, so a caller that
-        # already has the projection can hand it over and keep the pair tensor where it is.
+    def windows(self, feats):
+        """``(to_keys, K, W, H, d, d_norm, v)``: the atom-pair window geometry ``forward`` embeds.
+
+        ``d`` is the key-minus-query reference offset, ``d_norm`` AF3's ``1 / (1 + |d|^2)`` and ``v``
+        the 0/1 same-conformer mask, all ``[B, K, W, H, *]``. They depend on the input alone.
+        """
+        W, H = self.atoms_per_window_queries, self.atoms_per_window_keys
+        atom_mask = feats["atom_pad_mask"].bool()  # Bool['b m'],
+        atom_ref_pos = feats["ref_pos"]  # Float['b m 3'],
+        atom_uid = feats["ref_space_uid"]  # Long['b m'],
+        B, N = atom_mask.shape
+        K = N // W
+        keys_indexing_matrix = get_indexing_matrix(K, W, H, atom_ref_pos.device)
+        to_keys = partial(
+            single_to_keys, indexing_matrix=keys_indexing_matrix, W=W, H=H
+        )
+
+        atom_ref_pos_queries = atom_ref_pos.view(B, K, W, 1, 3)
+        atom_ref_pos_keys = to_keys(atom_ref_pos).view(B, K, 1, H, 3)
+
+        d = atom_ref_pos_keys - atom_ref_pos_queries  # Float['b k w h 3']
+        d_norm = torch.sum(d * d, dim=-1, keepdim=True)  # Float['b k w h 1']
+        d_norm = 1 / (
+            1 + d_norm
+        )  # AF3 feeds in the reciprocal of the distance norm
+
+        atom_mask_queries = atom_mask.view(B, K, W, 1)
+        atom_mask_keys = (
+            to_keys(atom_mask.unsqueeze(-1).float()).view(B, K, 1, H).bool()
+        )
+        atom_uid_queries = atom_uid.view(B, K, W, 1)
+        atom_uid_keys = (
+            to_keys(atom_uid.unsqueeze(-1).float()).view(B, K, 1, H).long()
+        )
+        v = (
+            (
+                atom_mask_queries
+                & atom_mask_keys
+                & (atom_uid_queries == atom_uid_keys)
+            )
+            .float()
+            .unsqueeze(-1)
+        )  # Bool['b k w h 1']
+        return to_keys, K, W, H, d, d_norm, v
+
+    def single(self, feats, s_trunk=None):
+        """``(q, c)``: the atom single features, ``c`` conditioned on the trunk in the structure model."""
         with torch.autocast("cuda", enabled=False):
             B, N, _ = feats["ref_pos"].shape
-            atom_mask = feats["atom_pad_mask"].bool()  # Bool['b m'],
-
             atom_ref_pos = feats["ref_pos"]  # Float['b m 3'],
-            atom_uid = feats["ref_space_uid"]  # Long['b m'],
 
             atom_feats = [atom_ref_pos]
             if not self.add_additional_atom_features:
@@ -1739,69 +1990,38 @@ class AtomEncoder(Module):
             atom_feats = torch.cat(atom_feats, dim=-1)
 
             c = self.embed_atom_features(atom_feats)
+            q = c
+            if self.structure_prediction:
+                # run only in structure model not in initial encoding
+                atom_to_token = feats["atom_to_token"].float()  # Long['b m n'],
+                s_to_c = self.s_to_c_trans(s_trunk.float())
+                s_to_c = torch.bmm(atom_to_token, s_to_c)
+                c = c + s_to_c.to(c)
+        return q, c
 
-            # note we are already creating the windows to make it more efficient
-            W, H = self.atoms_per_window_queries, self.atoms_per_window_keys
-            B, N = c.shape[:2]
-            K = N // W
-            keys_indexing_matrix = get_indexing_matrix(K, W, H, c.device)
-            to_keys = partial(
-                single_to_keys, indexing_matrix=keys_indexing_matrix, W=W, H=H
-            )
-
-            atom_ref_pos_queries = atom_ref_pos.view(B, K, W, 1, 3)
-            atom_ref_pos_keys = to_keys(atom_ref_pos).view(B, K, 1, H, 3)
-
-            d = atom_ref_pos_keys - atom_ref_pos_queries  # Float['b k w h 3']
-            d_norm = torch.sum(d * d, dim=-1, keepdim=True)  # Float['b k w h 1']
-            d_norm = 1 / (
-                1 + d_norm
-            )  # AF3 feeds in the reciprocal of the distance norm
-
-            atom_mask_queries = atom_mask.view(B, K, W, 1)
-            atom_mask_keys = (
-                to_keys(atom_mask.unsqueeze(-1).float()).view(B, K, 1, H).bool()
-            )
-            atom_uid_queries = atom_uid.view(B, K, W, 1)
-            atom_uid_keys = (
-                to_keys(atom_uid.unsqueeze(-1).float()).view(B, K, 1, H).long()
-            )
-            v = (
-                (
-                    atom_mask_queries
-                    & atom_mask_keys
-                    & (atom_uid_queries == atom_uid_keys)
-                )
-                .float()
-                .unsqueeze(-1)
-            )  # Bool['b k w h 1']
+    def forward(
+        self,
+        feats,
+        s_trunk=None,  # Float['bm n ts'],
+        z=None,  # Float['bm n n tz'],
+        z_to_p=None,  # Float['bm n n az'], `z_to_p_trans(z)` already applied
+    ):
+        # `z` reaches this module through `z_to_p_trans` and nowhere else, so a caller that
+        # already has the projection can hand it over and keep the pair tensor where it is.
+        with torch.autocast("cuda", enabled=False):
+            q, c = self.single(feats, s_trunk)
+            to_keys, K, W, H, d, d_norm, v = self.windows(feats)
+            B = c.shape[0]
 
             p = self.embed_atompair_ref_pos(d) * v
             p = p + self.embed_atompair_ref_dist(d_norm) * v
             p = p + self.embed_atompair_mask(v) * v
 
-            q = c
-
             if self.structure_prediction:
-                # run only in structure model not in initial encoding
                 atom_to_token = feats["atom_to_token"].float()  # Long['b m n'],
-
-                s_to_c = self.s_to_c_trans(s_trunk.float())
-                s_to_c = torch.bmm(atom_to_token, s_to_c)
-                c = c + s_to_c.to(c)
-
-                atom_to_token_queries = atom_to_token.view(
-                    B, K, W, atom_to_token.shape[-1]
-                )
-                atom_to_token_keys = to_keys(atom_to_token)
                 if z_to_p is None:
                     z_to_p = self.z_to_p_trans(z.float())
-                z_to_p = torch.einsum(
-                    "bijd,bwki,bwlj->bwkld",
-                    z_to_p,
-                    atom_to_token_queries,
-                    atom_to_token_keys,
-                )
+                z_to_p = pair_to_atom_windows(z_to_p, atom_to_token, to_keys, K, W, H)
                 p = p + z_to_p.to(p)
 
             p = p + self.c_to_p_trans_q(c.view(B, K, W, 1, c.shape[-1]))
@@ -2362,13 +2582,15 @@ class InputEmbedder(nn.Module):
             )
             self.mol_type_conditioning_init.weight.data.fill_(0)
 
-    def forward(self, feats: dict[str, Tensor], affinity: bool = False) -> Tensor:
+    def forward(self, feats: dict[str, Tensor], affinity: bool = False, atom_dev=None) -> Tensor:
         """Perform the forward pass.
 
         Parameters
         ----------
         feats : dict[str, Tensor]
             Input features
+        atom_dev : tenstorrent.InputAtomEncoderDevice, optional
+            Runs the atom encoder on the card (``ie_dev``) instead of the host.
 
         Returns
         -------
@@ -2387,15 +2609,18 @@ class InputEmbedder(nn.Module):
                 deletion_mean = feats["deletion_mean"].unsqueeze(-1)
 
         # Compute input embedding
-        q, c, p, to_keys = self.atom_encoder(feats)
-        atom_enc_bias = self.atom_enc_proj_z(p)
-        a, _, _, _ = self.atom_attention_encoder(
-            feats=feats,
-            q=q,
-            c=c,
-            atom_enc_bias=atom_enc_bias,
-            to_keys=to_keys,
-        )
+        if atom_dev is not None:
+            a = atom_dev(feats)
+        else:
+            q, c, p, to_keys = self.atom_encoder(feats)
+            atom_enc_bias = self.atom_enc_proj_z(p)
+            a, _, _, _ = self.atom_attention_encoder(
+                feats=feats,
+                q=q,
+                c=c,
+                atom_enc_bias=atom_enc_bias,
+                to_keys=to_keys,
+            )
 
         s = a + self.res_type_encoding(res_type)
         if self.use_msa_profile:
@@ -2733,13 +2958,18 @@ class DiffusionConditioning(Module):
 
         return q, c, to_keys, atom_enc_bias, atom_dec_bias, token_trans_bias
 
-    def forward_atoms(self, s_trunk, z_to_p, feats):
+    def forward_atoms(self, s_trunk, z_to_p, feats, pair_dev=None):
         """The atom track of ``forward``, with the pair track already done on the device.
 
         ``tenstorrent.PairConditioningDevice`` produces ``z_to_p`` and the token bias; this is
         the rest, and it is the only part of the conditioning that is not a channel map over the
-        pair tensor.
+        pair tensor. With ``pair_dev`` (``tenstorrent.AtomPairDevice``) ``z_to_p`` is still on the
+        card and the atom-pair tensor and both bias stacks are built there too.
         """
+        if pair_dev is not None:
+            q, c = self.atom_encoder.single(feats, s_trunk)
+            enc, dec, to_keys = pair_dev(self.atom_encoder, feats, c, z_to_p)
+            return q, c, to_keys, enc, dec
         q, c, p, to_keys = self.atom_encoder(
             feats=feats, s_trunk=s_trunk, z_to_p=z_to_p,
         )
@@ -4420,6 +4650,13 @@ class AtomDiffusion(Module):
         token_repr = None
         atom_coords_denoised = None
 
+        # Every step's `times`, as preconditioned_network_forward computes them: `dit_cond_steps` conditions
+        # several steps ahead.
+        set_schedule = getattr(self.score_model, "set_time_schedule", None) if self.use_tenstorrent else None
+        if set_schedule:
+            set_schedule([self.c_noise(torch.full((1,), sm.item() * (1 + g.item())))[0].item()
+                          for sm, _, g in sigmas_and_gammas])
+
         # gradually denoise
         _n_steps = len(sigmas_and_gammas)
         for step_idx, (sigma_tm, sigma_t, gamma) in enumerate(sigmas_and_gammas):
@@ -4432,26 +4669,28 @@ class AtomDiffusion(Module):
             # itself. A coarse bar is correct, just coarse; 8 s of fold time is not.
             if progress_fn and step_idx % 10 == 0:
                 progress_fn("diffusion", step=step_idx, total=_n_steps)
-            random_R, random_tr = compute_random_augmentation(
-                multiplicity, device=atom_coords.device, dtype=atom_coords.dtype
-            )
-            atom_coords = atom_coords - atom_coords.mean(dim=-2, keepdims=True)
-            atom_coords = (
-                torch.einsum("bmd,bds->bms", atom_coords, random_R) + random_tr
-            )
-            if atom_coords_denoised is not None:
-                atom_coords_denoised -= atom_coords_denoised.mean(dim=-2, keepdims=True)
-                atom_coords_denoised = (
-                    torch.einsum("bmd,bds->bms", atom_coords_denoised, random_R)
-                    + random_tr
+            # Atom-sized host math, cheaper on one thread than fanned out (runtime.serial_host).
+            with serial_host():
+                random_R, random_tr = compute_random_augmentation(
+                    multiplicity, device=atom_coords.device, dtype=atom_coords.dtype
                 )
-            if (
-                steering_args["physical_guidance_update"]
-                or steering_args["contact_guidance_update"]
-            ) and scaled_guidance_update is not None:
-                scaled_guidance_update = torch.einsum(
-                    "bmd,bds->bms", scaled_guidance_update, random_R
+                atom_coords = atom_coords - atom_coords.mean(dim=-2, keepdims=True)
+                atom_coords = (
+                    torch.einsum("bmd,bds->bms", atom_coords, random_R) + random_tr
                 )
+                if atom_coords_denoised is not None:
+                    atom_coords_denoised -= atom_coords_denoised.mean(dim=-2, keepdims=True)
+                    atom_coords_denoised = (
+                        torch.einsum("bmd,bds->bms", atom_coords_denoised, random_R)
+                        + random_tr
+                    )
+                if (
+                    steering_args["physical_guidance_update"]
+                    or steering_args["contact_guidance_update"]
+                ) and scaled_guidance_update is not None:
+                    scaled_guidance_update = torch.einsum(
+                        "bmd,bds->bms", scaled_guidance_update, random_R
+                    )
 
             sigma_tm, sigma_t, gamma = sigma_tm.item(), sigma_t.item(), gamma.item()
 
@@ -4609,7 +4848,7 @@ class AtomDiffusion(Module):
                         token_repr = token_repr[resample_indices]
 
             if self.alignment_reverse_diff:
-                with torch.autocast("cuda", enabled=False):
+                with torch.autocast("cuda", enabled=False), serial_host():
                     atom_coords_noisy = weighted_rigid_align(
                         atom_coords_noisy.float(),
                         atom_coords_denoised.float(),
@@ -4629,6 +4868,8 @@ class AtomDiffusion(Module):
                 dump_fn(step_idx, atom_coords, atom_coords_denoised)
 
         _write_sample_digest(atom_coords, chunk_width)
+        if set_schedule:
+            set_schedule(None)
         return dict(sample_atom_coords=atom_coords, diff_token_repr=token_repr)
 
     def loss_weight(self, sigma):
@@ -4912,38 +5153,7 @@ class ConfidenceModule(nn.Module):
         return pair
 
     def _tt_heads_device(self, multiplicity):
-        """The device pae/pde heads for this call, or ``None`` with a printed reason.
-
-        A lever that can decline needs an instrument that says it declined: the parent row's
-        gate fell back to torch for two folds because `bond_type_feature` arrives from the
-        `Boltz2` constructor and not from `confidence_model_args`, and the fold simply read as
-        "the lever did nothing". So every operand is named here, and a refusal prints once.
-        """
-        if not _device_conf_heads():
-            return None
-        heads = self.confidence_heads
-        operands = {
-            "pairformer_stack is a device PairformerModule":
-                isinstance(getattr(self, "pairformer_stack", None), tenstorrent.PairformerModule),
-            "ConfidenceHeadsDevice.supports(confidence_heads)":
-                tenstorrent.ConfidenceHeadsDevice.supports(heads),
-            "one sample (multiplicity == 1)": multiplicity == 1,
-            "no latent feats asked for (return_latent_feats is False)":
-                not getattr(self, "return_latent_feats", False),
-        }
-        declined = [k for k, v in operands.items() if not v]
-        if declined:
-            if not getattr(self, "_tt_heads_declined", False):
-                self._tt_heads_declined = True
-                print("[boltz2] TT_BIO_DEVICE_CONF_HEADS declines, torch owns the head: "
-                      + "; ".join(f"NOT {d}" for d in declined), flush=True)
-            return None
-        dev = getattr(self, "_tt_heads", None)
-        if dev is None:
-            dev = tenstorrent.ConfidenceHeadsDevice(
-                heads, self.pairformer_stack.compute_kernel_config)
-            self._tt_heads = dev
-        return dev
+        return device_conf_heads(self, multiplicity, "boltz2")
 
     def forward(
         self,
@@ -5069,13 +5279,8 @@ class ConfidenceModule(nn.Module):
         if keep_z:
             # `z` is the device tensor, not a host one: the heads read it in place and hand back
             # the three [1, n, n] reductions that are all anyone downstream wants.
-            pae_c = bin_centres(heads_device.n_pae_bins, 32.0)
-            n_res = mask.sum(dim=-1, keepdim=True)
-            pair_dev = heads_device(
-                z, feats["asym_id"],
-                (pae_c, tm_function(pae_c.unsqueeze(0), n_res).reshape(-1),
-                 bin_centres(heads_device.n_pde_bins, 32.0)),
-                seq_len, int(z.shape[1]))
+            pair_dev = heads_device(z, feats["asym_id"], conf_heads_bins(heads_device, mask),
+                                    seq_len, int(z.shape[1]))
             z = None
 
         out_dict = {}
@@ -5238,6 +5443,23 @@ class AffinityModule(nn.Module):
 # ============================================================================
 
 
+def _trajectory_dump_from_env():
+    """The command-line switch for AtomDiffusion.sample's trajectory hook.
+
+    TT_BIO_TRAJECTORY_DIR=<dir> saves every sampler state as <dir>/step_NNN.npy (float32,
+    [samples, atoms, 3]; step -1 is the initial noise, saved as step_-01) and the network's
+    prediction next to it as x0_NNN.npy. Unset, there is no hook at all.
+    """
+    out = os.environ.get("TT_BIO_TRAJECTORY_DIR")
+    if not out:
+        return None
+    os.makedirs(out, exist_ok=True)
+
+    def dump(step, coords, denoised):
+        np.save(os.path.join(out, f"step_{step:03d}.npy"), coords.detach().float().cpu().numpy())
+        if denoised is not None:
+            np.save(os.path.join(out, f"x0_{step:03d}.npy"), denoised.detach().float().cpu().numpy())
+    return dump
 
 class Boltz2(nn.Module):
     """Boltz2 model."""
@@ -5310,6 +5532,9 @@ class Boltz2(nn.Module):
         diffusion_trace: bool = False,
     ) -> None:
         super().__init__()
+        self._levers = (tenstorrent.model_levers(
+            *((WH_LEVERS_NORMAL, WH_LEVERS_FAST) if tenstorrent.is_wormhole() else (BH_LEVERS_NORMAL, BH_LEVERS_FAST)))
+                        if use_tenstorrent else frozenset())
         # Reserve the DiT trace region BEFORE any module opens the device: the first
         # get_device() opens, so this must precede module construction.
         if diffusion_trace:
@@ -5385,8 +5610,7 @@ class Boltz2(nn.Module):
         }
         self.trace = trace
         self.progress_fn = None  # optional callback: fn(stage, step=0, total=0)
-        from tt_bio.runtime import trajectory_dump_from_env
-        self.dump_fn = trajectory_dump_from_env()  # None unless TT_BIO_TRAJECTORY_DIR is set
+        self.dump_fn = _trajectory_dump_from_env()  # None unless TT_BIO_TRAJECTORY_DIR is set
 
         # Inference configuration
         self.predict_args = predict_args
@@ -5507,6 +5731,14 @@ class Boltz2(nn.Module):
             if use_tenstorrent
             else PairformerModule_(token_s, token_z, **pairformer_args)
         )
+        if use_tenstorrent:
+            # The trunk's own matmul fidelity (the `trunk_hifi3` lever), as Protenix-v2's trunk
+            # takes it. Without the lever or TT_BIO_TRUNK_MATH_FIDELITY it is HiFi4, as before.
+            with tenstorrent.levers(self._levers):
+                for trunk in (self.msa_module,) + (
+                        () if self.affinity_trunk_fp32 else (self.pairformer_module,)):
+                    trunk.compute_kernel_config = tenstorrent.trunk_compute_kernel_config(
+                        trunk.compute_kernel_config)
         if compile_pairformer:
             self.is_pairformer_compiled = True
             self.pairformer_module = torch.compile(
@@ -5713,6 +5945,32 @@ class Boltz2(nn.Module):
             self._tt_cond = cond
         return cond
 
+    def _tt_atom_pair_module(self):
+        """Lazily build the device atom-pair module (``atomp_dev``, TT path only). Cached."""
+        mod = getattr(self, "_tt_atom_pair", None)
+        if mod is None:
+            dc = self.diffusion_conditioning
+            mod = tenstorrent.AtomPairDevice(
+                dc.atom_encoder, _fuse_bias_stack(dc.atom_enc_proj_z),
+                _fuse_bias_stack(dc.atom_dec_proj_z), self.msa_module.compute_kernel_config,
+            )
+            self._tt_atom_pair = mod
+        return mod
+
+    def _tt_input_atom_module(self):
+        """Lazily build the input embedder's device atom encoder (``ie_dev``, TT path only). Cached."""
+        mod = getattr(self, "_tt_input_atom", None)
+        if mod is None:
+            mod = tenstorrent.InputAtomEncoderDevice(self.input_embedder, self.msa_module.compute_kernel_config)
+            self._tt_input_atom = mod
+        return mod
+
+    @_under_levers
+    def load_state_dict(self, *a, **kw):
+        # The device modules are built here (TorchWrapper._load_from_state_dict).
+        return super().load_state_dict(*a, **kw)
+
+    @_under_levers
     def forward(
         self,
         feats: dict[str, Tensor],
@@ -5724,14 +5982,12 @@ class Boltz2(nn.Module):
     ) -> dict[str, Tensor]:
         if self.use_tenstorrent:
             try:
-                dev = tenstorrent.get_device()
                 # 8859d7e1 clears here to avoid stale program-cache state across
-                # variable-shape sweeps. TT_BIO_BOLTZ2_KEEP_PROGRAM_CACHE=1 suppresses
-                # the clear so the screen in perf/boltz2-affinity-fixedcost can price
-                # what it costs; unset in production, so the shipped path is unchanged.
+                # variable-shape sweeps (`tenstorrent.program_cache_for`).
+                # TT_BIO_BOLTZ2_KEEP_PROGRAM_CACHE=1 suppresses the clear so the screen in
+                # perf/boltz2-affinity-fixedcost can price what it costs; unset in production.
                 if not env_flag("TT_BIO_BOLTZ2_KEEP_PROGRAM_CACHE", False):
-                    dev.disable_and_clear_program_cache()
-                    dev.enable_program_cache()
+                    tenstorrent.program_cache_for(None)
             except Exception:
                 pass
 
@@ -5748,7 +6004,9 @@ class Boltz2(nn.Module):
         if self.trace:
             print("[boltz2] forward: input_embedder")
         
-        s_inputs = self.input_embedder(feats)
+        s_inputs = self.input_embedder(
+            feats, atom_dev=self._tt_input_atom_module()
+            if self.use_tenstorrent and tenstorrent.lever("ie_dev") else None)
 
         # Initialize the sequence embeddings
         s_init = self.s_init(s_inputs)
@@ -5911,17 +6169,17 @@ class Boltz2(nn.Module):
             if self.trace:
                 print("[boltz2] diffusion_conditioning")
             if device_conditioning:
-                if relative_position_encoding is None:
-                    # `device_zinit` built its own on the card and skipped this one. The
-                    # conditioning still wants the host tensor: it is summed in fp32 and rounded
-                    # once, and that is the rounding the shipped default was measured with.
-                    relative_position_encoding = self.rel_pos(feats)
+                # `device_zinit` built its own on the card and skipped this one; the
+                # conditioning gathers it from the encoder's joint table instead.
+                pair_dev = self._tt_atom_pair_module() if tenstorrent.lever("atomp_dev") else None
                 z_to_p, token_trans_bias = self._tt_cond_module()(
-                    device_z[0], relative_position_encoding, z.shape[1], device_z[1],
+                    device_z[0], relative_position_encoding
+                    if relative_position_encoding is not None else (self.rel_pos, feats),
+                    z.shape[1], device_z[1], keep_z_to_p=pair_dev is not None,
                 )
                 q, c, to_keys, atom_enc_bias, atom_dec_bias = (
                     self.diffusion_conditioning.forward_atoms(
-                        s_trunk=s, z_to_p=z_to_p, feats=feats,
+                        s_trunk=s, z_to_p=z_to_p, feats=feats, pair_dev=pair_dev,
                     )
                 )
             else:

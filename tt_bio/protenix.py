@@ -25,25 +25,417 @@ structures within sample variance of the reference (scripts/protenix_fold_e2e.py
 scripts/protenix_predict.py -> PDB). Remaining (packaging): data-pipeline vendoring
 (sequence/CCD -> feats dict), worker/CLI --model protenix-v2, unified README.
 """
+import gc
 import math
 import os
 import re
+import sys
 import torch
 import ttnn
 
 from . import protenix_weights as PW
+from . import hostlane
 from .envflags import env_flag
+from .size_limits import restart_lighter
 from .sample_chunks import denoise_in_chunks, resolve_sample_chunk_width
 from .token_axis import bucket_multiple as _bucket_multiple
 from .protenix_weights import remap_adaln  # single source of all v2->tt-bio weight remaps
 from . import ops
 from .tenstorrent import (Module, CORE_GRID_MAIN, get_device, dram_peak,
-                          MSA_CHUNK_SIZE, batched_matmul, msa_depth_chunks, host_park,
-                          host_unpark, msa_embed, msa_update_chunks, pair_row_blocks,
+                          MSA_CHUNK_SIZE, batched_matmul, dram_bytes, msa_depth_chunks, host_park,
+                          host_unpark, msa_embed, msa_row_bucket, msa_rows_host, msa_rows_mask, msa_rows_table,
+                          msa_rows_device, msa_upload_whole, msa_update_chunks, msa_embed_chunks,
+                          MSA_JOIN_MAX_BYTES,
+                          pair_row_blocks,
                           row_block_after_refusal, device_generation, accurate_softmax_site,
                           softmax_ckc, host_f64_softmax_site, site_softmax, stack_samples)
 from . import tenstorrent as _T   # for the module-level A/B toggles, which must be read live
-from .eltwise_fusion import scale_add, norm_residual
+
+# The Protenix family's normal set (Protenix-v2, Protenix-v1, OpenDDE): the shared one plus transition_ws with
+# ws_l1acc, which keeps each matmul's fp32 dest sum to 2 K tiles so bf16 weights at c_z 256 / 384 take the fused
+# transition. Wormhole 11-set normal grade, normal vs this set, 44 paired folds each: Protenix-v2 PASS (spd-integrate
+# gwa), OpenDDE PASS, same-seed top pose median 0.219 A vs the 1.335 A A/A floor, CA-lDDT -0.0004 [-0.0016, +0.0004],
+# docking 25 -> 24 of 44 (spd-gap-small 2026-10-14); Blackhole Protenix-v2 PASS, 0.080 A vs 1.292 A (gwabh).
+# Galaxy chip (1000 MHz) Protenix-v2 normal 79.1 -> 74.7 s; p150a OpenDDE normal -1.9 s.
+# trimul_t1_c256 / _c384: the trimul input side as one kernel at c_z 256 (Protenix-v2) and 384 (OpenDDE); c_z 128
+# (Protenix-v1) is untouched. Wormhole 11-set normal grade of the whole set against shared normal, 44 paired folds
+# each (spd-gap-small gst1, 2026-10-14), PASS: same-seed top pose median Protenix-v2 0.093 A vs the 1.134 A A/A
+# floor, OpenDDE 0.184 vs 1.335 A; CA-lDDT -0.0001 [-0.0006, +0.0003] / +0.0000 [-0.0001, +0.0002].
+NORMAL_LEVERS = _T.NORMAL_LEVERS | {"transition_ws", "ws_l1acc", "trimul_t1_c256", "trimul_t1_c384"}
+# The trimul output tail as one kernel (T2, its channel-major hand-off T2CM, and T2 at c_z 384), Protenix-v2 only:
+# under T1 the normal tail otherwise runs LN + out-proj + gated multiply as three ops. Wormhole 11-set normal grade,
+# normal set vs normal set + these, 44 paired folds (spd-gap-small gt2nwh, 2026-10-14): Protenix-v2 PASS, same-seed
+# top pose median 0.041 A vs the 1.132 A A/A floor, CA-lDDT -0.0001 [-0.0004, +0.0001], docking 35 -> 35;
+# OpenDDE FAIL (DockQ -0.0077 [-0.0225, -0.0000]), so OpenDDE keeps NORMAL_LEVERS. Not graded at c_z 128, so
+# Protenix-v1 keeps NORMAL_LEVERS too (`load_from_checkpoint`). Galaxy chip (1000 MHz) Protenix-v2 normal -2.3 s.
+T2_TAIL = frozenset({"trimul_t2", "trimul_t2cm", "trimul_t2w"})
+# ws_chain: the transition's later hidden chunks add into the first in their fp32 dest instead of separate add
+# passes over the pair. Wormhole 11-set grades, shipped set vs + ws_chain (spd-gap-small gwch, 2026-10-14), PASS:
+# Protenix-v2 normal top pose median 0.080 A vs the 1.050 A A/A floor (37 paired folds), OpenDDE normal 0.241 vs
+# 1.257 A (39), OpenDDE fast 0.625 vs 1.374 A (44); docking within one fold everywhere. Galaxy chip (1000 MHz)
+# OpenDDE normal -3.7 s, fast -2.3 s, Protenix-v2 normal -0.7 s. Not graded at c_z 128, so Protenix-v1 stays off.
+# Blackhole twin (gwchbh, 2026-10-15): Protenix-v2 normal PASS 0.080 A vs 1.177 A (44), OpenDDE fast PASS 0.369 vs
+# 1.277 A (39); OpenDDE normal FAIL, so OpenDDE drops it on Blackhole normal (`opendde.BH_NORMAL_LEVERS`).
+WS_CHAIN = frozenset({"ws_chain"})
+# --fast takes trimul_t1_c256 too (Protenix-v2; c_z 128 Protenix-v1 is untouched, OpenDDE has its own set).
+# Blackhole 11-set fast grade, fast vs fast+trimul_t1_c256, 43 paired folds (spd-gap-small g256bh, 2026-10-14), PASS:
+# same-seed top pose median 0.125 A vs the 1.342 A A/A floor, CA-lDDT -0.0004 [-0.0010, +0.0001], docking 33 -> 33.
+# Warm 512-token fast fold, paired: p150a (1350 MHz) Protenix-v2 -1.67 s. Blackhole only: on a Galaxy chip
+# (1000 MHz, same chip, 3 paired folds, spd-gap-small pv2fr 2026-10-14) it costs +1.5 s (61.2 vs 59.7 s), so
+# `mode_levers` leaves it out of the Wormhole fast set. Wormhole normal keeps it (-1.3 s there).
+FAST_LEVERS = _T.FAST_LEVERS | {"trimul_t1_c256"}
+WH_FAST_LEVERS = FAST_LEVERS - {"trimul_t1_c256"}
+# triatt_ln + apb_ln: the pair LayerNorm fused into the projection that reads it (triangle attention's qkvgb, and the
+# attention pair-bias), so the normed pair is never written to DRAM. Wormhole 11-set fast grade, Protenix-v2 fast vs
+# fast + these, 44 paired folds (spd-gap-small gtaln, 2026-10-15), PASS: same-seed top pose median 0.335 A vs the
+# 1.414 A A/A floor, CA-lDDT +0.0006 [-0.0003, +0.0022], docking 34 -> 35. Galaxy chip (1000 MHz, 5 paired folds,
+# talnab): Protenix-v2 fast -2.90 s; OpenDDE then null (+0.23 s: its weight fit no core and the kernel declined; it
+# takes triatt_ln alone since column groups, see opendde.NORMAL_LEVERS). Wormhole normal takes it
+# too: 11-set normal grade, shipped Protenix-v2 normal set vs + these, 44 paired folds (gtalnn, 2026-10-15), PASS:
+# top pose median 0.091 A vs the 0.946 A floor, CA-lDDT +0.0001 [-0.0001, +0.0003], docking 35 -> 35; -2.98 s.
+TRIATT_LN = frozenset({"triatt_ln", "apb_ln"})
+# ws_ln + ws_lofi: the transition's LayerNorm fused into the one-chunk SwiGLU kernel, which then runs at LoFi.
+# Wormhole 11-set fast grade, shipped Protenix-v2 Wormhole fast set vs + these, 44 paired folds (spd-gap-small
+# gwsfx, 2026-10-15), PASS: same-seed top pose median 0.471 A vs the 1.414 A A/A floor, CA-lDDT +0.0001
+# [-0.0013, +0.0021], pLDDT -0.0056, docking 34 -> 34. Galaxy chip (1000 MHz, wsfx): -0.46 s, 4 of 4 pairs faster.
+# Boltz-2 fast null there, so Protenix-v2 Wormhole --fast only.
+# trimul_sig6 (the trimul gate sigmoid as a degree-6 polynomial) joins them. Wormhole 11-set fast grade, shipped
+# Protenix-v2 Wormhole fast set vs + trimul_sig6, 44 paired folds (spd-gap-small gsig6, 2026-10-15), PASS: same-seed
+# top pose median 0.333 A vs the 1.414 A A/A floor, CA-lDDT +0.0001 [-0.0013, +0.0016], docking 34 -> 35. Galaxy chip
+# (1000 MHz, s6x): -0.40 s, 4 of 4 pairs faster. Blackhole not measured.
+# ws_psilu (the SwiGLU silu on the packer thread, overlapping the matmuls) is bit-identical, so it needs no grade. At
+# c_z 256 the LayerNorm prologue does not fit L1 beside the bfp8 weights, so this transition runs the plain kernel at
+# LoFi: N512 6.00 -> 5.00 ms a call, equal to the math-thread silu (ws_attr, .107 chip 26, 2026-10-20). Galaxy chip
+# (1000 MHz, psf): CIFs identical, steady pairs -0.14 / -0.74 / -0.53 s.
+# dit_shoist (the token DiT's conditioning as three wide linears a step, each block reading its columns in place)
+# too: Wormhole 11-set fast grade, 44 paired folds (spd-gap-small gshx, 2026-10-15), PASS: same-seed top pose median
+# 0.256 A vs the 1.414 A floor, CA-lDDT +0.0014 [+0.0008, +0.0022], ipTM -0.0004, docking 34 -> 34. Galaxy chip 512 x 1
+# (1000 MHz, shx2): 55.92 -> 54.70 s, 5 of 5 warm pairs faster. p150a 11-set fast grade, 44 paired folds (gshxbh,
+# 2026-10-16), PASS: top pose median 0.623 A vs the 1.371 A floor, CA-lDDT +0.0071 [+0.0035, +0.0115], docking
+# 34 -> 34; p150a 5 samples 37.46 -> 36.77 s (shxb). So it is Protenix-v2 --fast on both chips: SHOIST_FAST.
+# ws_lofi is out of it since 2026-10-20: LoFi hangs Wormhole chips (tenstorrent.lofi_allowed), so the kernel runs
+# HiFi2 there.
+WS_FAST = frozenset({"ws_ln", "trimul_sig6", "ws_psilu"})
+SHOIST_FAST = frozenset({"dit_shoist"})
+# triatt_k1: triangle attention's fused SDPA takes the whole row as one k chunk at 288-512 tokens (no rescale pass;
+# op 1.13x at [512, 4, 512, 32] on a Galaxy chip). It fires only at those sizes, so it is graded on the 512-token
+# truth set (perf/pfm_accuracy/set512.tsv), shipped Protenix-v2 Wormhole set vs + triatt_k1, 4 seeds, every fold's
+# digest moved (spd-gap-small gk1s, 2026-10-18): fast PASS, 44 paired folds, same-seed top pose median 0.699 A vs the
+# 1.408 A A/A floor; normal PASS, 43 paired folds, 0.321 A vs 1.262 A, docking 34 -> 34. cdk2x2 512 x 1 at 1000 MHz,
+# 5 paired warm folds (k1): normal 64.15 -> 63.20 s, fast 54.07 -> 53.19 s, 5 of 5 faster each. Blackhole, same set vs the
+# shipped Protenix-v2 Blackhole set of each mode (spd-m-protenix gk1bh, 2026-10-24), 44 paired folds each: fast PASS, 0.609 A
+# vs the 1.492 A A/A floor, CA-lDDT +0.0001 [-0.0010, +0.0009], docking 36 -> 36; normal PASS, 0.391 A vs the 0.6 A bar
+# (1.300 A floor), every interval covers 0, docking 36 -> 36. 9TY2 512 on a p300 chip at 1306-1343 MHz, ABBA x4 in separate
+# processes (bhk1ab): warm median -0.35 s on ~34.3 s fast, -0.30 s on ~43 s normal, 24 of 24 pairs faster.
+TRIATT_K1 = frozenset({"triatt_k1"})
+# trimul_bres (the trimul einsum by bmm_res, b[c] resident in L1) in Protenix-v2's Wormhole normal set, as OpenFold3
+# and ESMFold2 ship it. Normal mode's fp32 dest lets it fire as is, and it is bit-exact there: cdk2x2 512 x 1 on a
+# Galaxy chip at 1000 MHz, paired warm folds (spd-m-protenix bresnormal, 2026-10-19), CIFs identical, -1.30 and
+# -1.38 s (63.35 -> 62.01 s). Bit-exact on Blackhole too: p300c chip at 1350 MHz, 4 paired warm folds (bhab bres),
+# CIFs identical, median -1.16 s (32.70 -> 30.72 s steady), so it rides on both chips.
+BRES_NORMAL = frozenset({"trimul_bres"})
+# ws_resid + ws_resid2: the transition's residual add folded into its last SwiGLU chunk's fp32 dest. Wormhole 512-token
+# normal grade, shipped Protenix-v2 Wormhole normal set vs + these, 44 paired folds (spd-m-protenix grr2n, 2026-10-19),
+# PASS: same-seed top pose median 0.608 A vs the 1.311 A A/A floor, every interval on the better side (CA-lDDT +0.0049
+# [+0.0005, +0.0125]), docking 35 -> 36. cdk2x2 512 x 1 at 1000 MHz, paired warm folds (rr2n): median -0.55 s.
+WS_RESID_NORMAL = frozenset({"ws_resid", "ws_resid2"})
+# The normal-mode pair transition stack keyed on pair width, not on Protenix-v2 (`mode_levers`): ws_chain, ws_resid,
+# ws_resid2 and ws_psilu (bit-identical). Graded at 256 above; Mol-1's 448 and 320 since pair_swiglu_ws tiles any
+# even tile width. Op on a p300c chip at 1350 MHz, N 512, Mol-1 weights (perf/mol1_pairmix/transition_bench.py):
+# 448 29.03 -> 19.22 ms, 320 17.44 -> 10.37 ms; rel err to float64 0.0093 -> 0.0099 and 0.0054 -> 0.0062.
+WS_NORMAL = WS_CHAIN | WS_RESID_NORMAL | {"ws_psilu"}
+WS_NORMAL_WIDTHS = frozenset({256, 320, 448})
+# Blackhole takes TRIATT_LN and WS_RESID_NORMAL in Protenix-v2's normal set too. Blackhole 512-token normal grade, shipped
+# Protenix-v2 Blackhole normal set vs + these as one stack (spd-m-protenix gbhn, 2026-10-20), PASS on 44 paired: top pose
+# median 0.320 A vs the 0.6 A bar (1.369 A A/A floor), CA-lDDT +0.0018 [-0.0007, +0.0058], docking 35 -> 36. cdk2x2 512 x 1
+# on a p300 chip at 1350 MHz, 4 paired warm folds in one process (bhab6): steady pairs -0.84 / -1.67 / -1.87 s on ~33 s.
+# dit_qsplit (the token DiT's attention takes the q chunk that leaves the busiest core fewest rows) in Protenix-v2's
+# normal set, as OpenFold3 ships it. It moves rows between cores, not arithmetic: cdk2x2 512 x 1 on a Galaxy chip at
+# 1000 MHz, 6 paired warm folds (spd-m-protenix qsn2, 2026-10-19), CIFs identical, 6 of 6 faster, median -0.15 s
+# (-0.03 to -0.37). Flat on p150a for OpenFold3, so it rides on both chips.
+QSPLIT_NORMAL = frozenset({"dit_qsplit"})
+# A multi-width trunk (Mol-1: 448 and 320) takes, besides WS_NORMAL, the Protenix-v2 normal levers whose property it
+# shares: triangle attention's fused LayerNorm and one-chunk SDPA (TRIATT_LN, TRIATT_K1; each plans per width and
+# declines a shape it does not tile), and the token DiT's q split and device-resident pair (dit_qsplit, pz_device), whose
+# DiT is Protenix-v2's (c_token 768, 16 heads). Graded as one stack on Mol-1 (perf/mol1_pairmix/e2e_ab.sh STACK=1).
+# Mol-1 Blackhole normal, 5sak chain 1 (448 tokens, 4449-row MSA, 20 cycles, 200 steps), base vs this set plus
+# MOL1_BH and the triangle attention planner at 320/448, 3 seeds, p300c at AICLK median 1318-1343: warm fold 86.92 ->
+# 69.92 s (median), same-seed all-atom lDDT 0.997-1.000 vs seed floor 0.970-0.992, pLDDT unchanged. Wormhole: see MOL1_WH.
+WIDE_NORMAL = WS_NORMAL | TRIATT_LN | TRIATT_K1 | QSPLIT_NORMAL | {"pz_device"}
+# triatt_ln_b8 (triatt_ln writes q, k, v bfp8; the head-major bias is narrowed after its permute; the SDPA keeps a
+# bf16 destination) in Protenix-v2's Wormhole --fast set. Wormhole 512-token fast grade, shipped Protenix-v2 Wormhole
+# fast set vs + triatt_ln_b8, 44 paired folds (spd-m-protenix gb8ln, 2026-10-19), PASS: same-seed top pose median
+# 0.770 A vs the 1.435 A A/A floor, CA-lDDT -0.0006 [-0.0019, +0.0003], pLDDT -0.0002, docking 36 -> 36. The fold
+# is the same on an 8x8 and an 8x9 core grid (g88). cdk2x2 512 x 1 on a Galaxy chip at 1000 MHz, 5 paired warm folds
+# (b8f2): 54.28 -> 50.98 s median. triatt_ln_b8g adds the gate, which gated_out_proj reads at bfp8: same grade on top
+# of triatt_ln_b8 (gb8g, 44 paired folds) PASS, top pose median 0.674 A vs the 1.325 A floor, CA-lDDT +0.0004
+# [-0.0005, +0.0014], docking 36 -> 36; b8g on a Galaxy chip at 1000 MHz, 3 of 3 warm pairs faster, median -0.70 s.
+# Blackhole is ungraded.
+TRIATT_LN_B8_FAST = frozenset({"triatt_ln_b8", "triatt_ln_b8g"})
+# trimul_gin_w8: the trimul in-projection holds its resident weights bfp8, so at c_z 256 it fits one launch and reads
+# the normed pair once instead of twice. Each output tile is one core's full-K product, so the fold does not depend on
+# the core grid. Wormhole 512-token fast grade, shipped Protenix-v2 Wormhole fast set vs + trimul_gin_w8, 44 paired
+# folds (spd-m-protenix gw8g, 2026-10-19), PASS: same-seed top pose median 0.812 A vs the 1.399 A A/A floor, CA-lDDT
+# +0.0010 [-0.0010, +0.0040], docking 35 -> 36. cdk2x2 512 x 1 on a Galaxy chip at 1000 MHz (gw8): steady warm pairs
+# -0.22, -0.32 and -1.42 s. Blackhole is ungraded.
+GIN_W8_FAST = frozenset({"trimul_gin_w8"})
+# trimul_t1_c256 + trimul_t1w8 + trimul_t2g on Wormhole --fast: T1 holds its resident weights bfp8, so c_z 256 runs as
+# one launch that reads z once (two bf16 channel-group launches cost +1.5 s here, see FAST_LEVERS), and trimul_t2g
+# fuses the output tail of the calls T1 declines. Wormhole 512-token fast grade, shipped Protenix-v2 Wormhole fast set
+# vs + these, 43 paired folds (spd-m-protenix gt1g, 2026-10-19), PASS: same-seed top pose median 0.791 A vs the
+# 1.600 A A/A floor, CA-lDDT +0.0007 [-0.0005, +0.0019], docking 35 -> 35. cdk2x2 512 x 1 on a Galaxy chip at
+# 1000 MHz, 3 paired warm folds (t1g): 47.0 -> 45.2 s, 3 of 3 faster. Blackhole is ungraded.
+T1W8_FAST = frozenset({"trimul_t1_c256", "trimul_t1w8", "trimul_t2g"})
+# opm_b8cfg: the bfp8 outer-product-mean contraction on opm_contract_config's plan at HiFi2. Kernel on a Galaxy chip at
+# 1000 MHz, [16384, 4128]^2 (fidc): 33.3 -> 25.8 ms, f64 rel-RMS 0.0145 -> 0.0119 (the plan's K order). It pays only on
+# deep MSAs: the 35-row page fixture contracts two K tiles and folds bit-identically (ob8c). Wormhole 512-token fast
+# grade on real MSAs, shipped Protenix-v2 Wormhole fast set vs + opm_b8cfg, 44 paired folds (spd-m-protenix gob8c,
+# 2026-10-19), PASS: same-seed top pose median 0.510 A vs the 1.600 A A/A floor, CA-lDDT +0.0003 [-0.0010, +0.0015],
+# docking 36 -> 36. The plan is Wormhole's; Blackhole is ungraded.
+OPM_B8CFG_FAST = frozenset({"opm_b8cfg"})
+# trimul_x8: where the one-pass move back takes the triangle contraction's channel-major x, the contraction writes x
+# bfp8, so the move reads and the contraction writes half the bytes. Kernel on a Galaxy chip at 1000 MHz, c 256 (x8op):
+# 3.67 -> 3.34 ms/call, f64 rel-RMS 0.0044 -> 0.0080. Wormhole 512-token fast grade, shipped Protenix-v2 Wormhole fast
+# set vs + trimul_x8, 44 paired folds (spd-m-protenix gx8f, 2026-10-26), PASS: same-seed top pose median 0.479 A vs the
+# 1.508 A A/A floor, CA-lDDT -0.0001 [-0.0007, +0.0004], iRMSD -0.35 [-0.83, -0.01], docking 36 -> 36. cdk2x2 512 x 1
+# on a Galaxy chip at 1000 MHz in one process (x8f): steady warm pairs -0.67 / -0.50 s. Wormhole 512-token normal grade,
+# shipped Protenix-v2 Wormhole normal set vs + trimul_x8, 44 paired folds (gx8n, 2026-10-26), PASS: same-seed top pose median
+# 0.324 A vs the 1.281 A A/A floor, every interval covers 0, ipTM -0.0001, docking 36 -> 36.
+# In-process x3 at 1000 MHz (x8n): warm pairs -0.58 / -0.59 / -0.18 s on ~49.8 s. Blackhole runs the channel-major
+# tail (T2CM), where x8 never fires.
+X8_WH = frozenset({"trimul_x8"})
+# Protenix-v2's Blackhole --fast set on top of FAST_LEVERS: triatt_ln (without apb_ln), its bfp8 q/k/v and gate, the
+# pair SwiGLU at LoFi with its fused LN, the degree-6 trimul sigmoid, T1's bfp8 resident weights and trimul_bres.
+# Blackhole 512-token fast grade, shipped Protenix-v2 Blackhole fast set vs + these as one stack (spd-m-protenix gbhf,
+# 2026-10-19), PASS on 42 paired: top pose median 0.650 A vs the 1.345 A A/A floor, CA-lDDT -0.0013 [-0.0036, +0.0003],
+# docking 34 -> 33. 9W8A lost its interface on 2 of 4 seeds; a 12-seed sweep (w8a) shows that target collapsing on
+# ~2 of 12 seeds under every Protenix-v2 fast set, so it is the target, not this stack.
+# cdk2x2 512 x 1 on a p300 chip at 1350 MHz, 4 paired warm folds in one process (bhab5): steady 28.85 -> 25.49 s median, -3.19 s.
+# ws_psilu rides along bit-identically: pair SwiGLU kernel at N 512 c 256 4.08 -> 3.26 ms (wsk), and the fold's CIFs are
+# identical with it on and off, steady warm pairs +0.39 / -0.76 / -0.78 s (psf, p300 at 1325 MHz mean).
+# trimul_t1_dram: below 352 tokens T1 declined every call on the L1 path (0 served, 3384 declined per 256-token fold); on the
+# DRAM path it serves. Never fires at 512. Blackhole 256-token fast grade vs the set above (spd-m-protenix gt1bhf, 2026-10-21),
+# 44 paired folds over 4 seeds, PASS: same-seed top pose median 1.118 A vs the 4.872 A A/A floor, CA-lDDT +0.0008 [-0.0012,
+# +0.0034], DockQ -0.012 [-0.028, -0.001], docking 22/44 -> 22/44. Separate processes on a p300 chip at 1350 MHz (bht1d):
+# warm 12.47 / 11.87 / 12.05 / 12.11 -> 9.85 / 9.74 / 9.95 s.
+BH_V2_FAST = frozenset({"triatt_ln", "ws_ln", "ws_lofi", "trimul_sig6", "trimul_t1w8", "trimul_bres_bh", "ws_psilu",
+                        "trimul_t1_dram"}) | TRIATT_LN_B8_FAST
+# dit_shoist and trimul_t1w8 (T1's resident weights bfp8, c_z 256 in one launch) in Protenix-v2's Wormhole normal set.
+# Wormhole 512-token normal grade, shipped Protenix-v2 Wormhole normal set vs + both, 44 paired folds (spd-m-protenix
+# gstn, 2026-10-20), PASS: same-seed top pose median 0.221 A vs the 0.6 A bar (1.145 A A/A floor), CA-lDDT +0.0002
+# [-0.0003, +0.0008], iRMSD -0.30 [-0.85, -0.004], ipTM -0.009 [-0.022, -0.001], docking 36 -> 36; dit_shoist alone
+# 0.077 A, every interval covers 0. cdk2x2 512 x 1 on a Galaxy chip at 1000 MHz, steady warm pairs: dit_shoist
+# -0.72 / -0.61 / -1.01 s (shn), trimul_t1w8 -0.72 / -0.68 / -0.54 s (t1n). Blackhole is ungraded.
+# transition_b8 + ws_b8_plain (bfp8 pair-transition weights in one chunk on the plain SwiGLU kernel): Wormhole 512-token
+# normal grade vs the set above (spd-m-protenix gtbn, 2026-10-20), 42 paired folds over 4 seeds: same-seed top pose median
+# 0.273 A vs the 0.6 A bar (1.254 A A/A floor), docking 35/42 -> 35/42, every interval covers 0. transition_b8 alone read 0.731 A.
+# Separate processes on one Galaxy chip at 1000 MHz (tbx): 55.98 / 55.99 -> 53.36 / 53.21 s warm; transition_b8 alone 55.18 s.
+# ws_psilu rides along bit-identically on that plain kernel: CIFs identical on 8 of 8 warm folds, separate processes on
+# one Galaxy chip at 1000 MHz (psn): 53.36 / 53.24 / 53.72 / 53.24 -> 52.81 / 52.82 / 52.62 / 53.02 s warm.
+# trimul_t1_dram: below 352 tokens the trimul loop runs from L1, where T1 declined; on the DRAM path T1 serves those folds
+# too. Never fires at 512. Wormhole 256-token normal grade vs the set above (spd-m-protenix t1p, 2026-10-21), 44 paired folds
+# over 4 seeds, PASS: same-seed top pose median 0.306 A vs the 0.6 A bar (3.271 A A/A floor), CA-lDDT -0.0010 [-0.0030,
+# +0.0008], ipTM -0.0035, docking 23/44 -> 24/44. Same grid, 5 samples, two Galaxy chips at 1000 MHz: warm median 42.02 -> 35.45 s.
+# trimul_t1_2g: T1 may hold 2 GiB of outputs, so it also serves c_z 256 from ~900 to 1152 tokens, where every call declined.
+# Never fires at 512. 1024 tokens, warm, in-process A/B x2: Wormhole (1000 MHz) 257.8 / 259.1 -> 218.9 / 217.2 s, pLDDT 0.786 ->
+# 0.788; Blackhole p300 (1275-1350 MHz) 124.7 / 121.7 -> 116.9 / 102.9 s. Op error at 768 and 1024 vs float64 matches the
+# incumbent path (a rel-RMS 0.0037-0.0039 vs 0.0037 at HiFi4). No OOM at 1152 on a 12 GiB Wormhole chip.
+# pz_device in normal mode: the conditioned pair stays on the chip for the fp32 DiT too (device LN, fp32 W_z). Wormhole
+# 512-token normal grade vs the set above (spd-m-protenix gpzn, 2026-10-25), 44 paired folds over 4 seeds, PASS: same-seed
+# top pose median 0.057 A vs the 0.6 A bar (1.296 A A/A floor), every interval covers 0, ipTM +0.0001, docking 36 -> 36.
+# cdk2x2 512 x 1 on a Galaxy chip at 1000 MHz, in-process A/B x3 (pzn): warm -0.89 / -1.02 s on ~50.9 s.
+WH_V2_NORMAL = frozenset({"dit_shoist", "trimul_t1w8", "transition_b8", "ws_b8_plain", "ws_psilu", "trimul_t1_dram",
+                          "trimul_t1_2g", "pz_device"})
+# transition_b8 + ws_b8_plain stay out of Protenix-v2's Blackhole normal set. Its fold is the same on every shipped BH
+# grid (p150a and p300 native, forced 10x10; only a forced 8x8 moves it, spd-m-protenix gridclass2/3), and it saves ~1.2 s
+# at 512, but it lowers confidence: Blackhole 512-token normal grade (gtbbh, 2026-10-25, 44 paired folds) ipTM -0.019
+# [-0.044, -0.002], past the 0.005 normal bar. Most of it is 9W8A, which is bistable here (16 seeds: base collapses on
+# 2, with the pair on 4), the rest -0.009 across the other ten complexes. Fast mode runs transition_b8 on both chips.
+# trimul_t1w8 + ws_psilu: Blackhole 512-token normal grade vs that set with the stack still in (spd-m-protenix gt1wbhn,
+# 2026-10-22), 44 paired folds over 4 seeds, PASS: same-seed top pose median 0.331 A vs the 0.6 A bar (1.410 A A/A floor),
+# CA-lDDT +0.0001 [-0.0035, +0.0033], docking 36/44 -> 36/44, every interval covers 0. On today's base (gt1wg, p300 chip
+# 2, 1325-1343 MHz median, separate processes x2) warm folds are -0.75 to -1.74 s on ~45 s and each arm's digest repeats
+# across processes. ws_psilu is bit-identical by construction.
+# dit_shoist alone fails Blackhole normal (spd-m-protenix gshbn2, 2026-10-24, 44 paired folds): top pose median 0.063 A,
+# but CA-lDDT -0.0002 [-0.0003, -0.0001] excludes 0.
+# pz_device in normal mode, as on Wormhole: Blackhole 512-token normal grade vs the set above (spd-m-protenix gpzbhn,
+# 2026-10-25), 44 paired folds over 4 seeds, PASS: same-seed top pose median 0.080 A vs the 0.6 A bar (1.299 A A/A floor),
+# CA-lDDT +0.0002 [+0.0001, +0.0004], ipTM +0.0002, docking 36 -> 36. 9TY2_512 on a p300 chip, in-process A/B x3 (bhpzn,
+# AICLK not sampled): warm -0.47 / -0.18 s on ~26.4 s.
+BH_V2_NORMAL = frozenset({"trimul_t1_2g", "trimul_t1w8", "ws_psilu", "pz_device"})
+# dit_shoist_mm: the hoisted DiT conditioning linears on minimal_matmul (2 x 16 tile blocks, K block 1), same fidelity and
+# float64 error as ttnn.linear's schedule (shm2). Wormhole 512-token grades vs the shipped Protenix-v2 Wormhole set of each
+# mode, 44 paired folds each over 4 seeds (spd-m-protenix gshmn / gshmf, 2026-10-20), PASS: normal top pose median 0.096 A
+# vs the 0.6 A bar (1.319 A A/A floor), docking 36 -> 36; fast 0.305 A (1.305 A floor), docking 37 -> 37; every interval
+# covers 0. cdk2x2 512 x 1 on a Galaxy chip at 1000 MHz, in-process A/B (shx): median -0.25 s normal, -0.32 s fast.
+# dit_step_mm: the DiT's per-step linears on minimal_matmul with blocks measured at Protenix-v2's shapes. Same grade
+# against the set above (gsmn / gsmf, 2026-10-21), PASS: normal 0.080 A (1.368 A floor), docking 36 -> 36; fast 1.041 A
+# (1.386 A floor), docking 37 -> 37, CA-lDDT +0.0013 and pLDDT +0.0010. Same A/B (stx): median -0.27 s normal, -0.16 s fast.
+# Blackhole is ungraded for both.
+DIT_MM_WH = frozenset({"dit_shoist_mm", "dit_step_mm"})
+# trimul_t1_psig: T1's gate sigmoid on the packer thread, overlapping the next matmul block. Bit-identical by construction
+# (same sigmoid_poly on the same values; in_t1 f64 errors equal at N 512), so it needs no grade. Op on a Galaxy chip at
+# 1000 MHz (t1sig): 6.84 -> 6.41 ms/call, 6.27 -> 5.86 with bfp8 weights. Both chips, both modes: on a p300c chip at
+# 1293-1337 MHz (t1psbh, 9TY2_512) normal is neutral (-0.04 s median of 4 warm pairs) and --fast -0.35 s, digests unchanged.
+T1_PSIG = frozenset({"trimul_t1_psig"})
+# triatt_q10: padded triangle attention may take a 10-tile q chunk at the k chunk the ranking already picks, so output
+# bits cannot move (torch.equal). Op at Protenix-v2's mode sets on a Galaxy chip at 1000 MHz (spd-m-opendde q10h,
+# 2026-10-22), ms/call: 4 heads 608 8.00 -> 6.98, 1184 60.54 -> 56.39; 8 heads 608 15.59 -> 14.68; nowhere slower. A
+# 512-token fold never reaches it. Wormhole both modes; Blackhole ranks per grid and is unmeasured.
+TRIATT_Q10_WH = frozenset({"triatt_q10"})
+# pz_device + dit_mod16 on Wormhole --fast: the diffusion-conditioned pair stays on the chip (one device LN feeds the bf16
+# DiT, no host round trip) and the bf16 AdaLN modulation and the DiT's gated residuals run as one addcmul each, as OpenDDE's
+# DIT_SEAM. Normal mode takes pz_device too on both chips (WH_V2_NORMAL, BH_V2_NORMAL). Wormhole 512-token fast grade, shipped Protenix-v2 Wormhole
+# fast set vs + both, 44 paired folds over 4 seeds (spd-m-protenix gpzf, 2026-10-23), PASS: same-seed top pose median
+# 0.402 A vs the 1.497 A A/A floor, CA-lDDT +0.0013 [+0.0002, +0.0032], lRMSD -0.21 [-0.45, -0.02], docking 37/44 -> 37/44.
+# cdk2x2 512 x 1 on a Galaxy chip at 1000 MHz (pzab), steady warm pairs -0.69 / -0.71 s. On a p300 chip (bhpzab, 9TY2_512,
+# separate processes x2) the two runs read -1.2 and +1.4 s, inside the box's drift; ABBA x4 in separate processes (bhpzab2, AICLK
+# 1337-1350 median) reads -0.53..-1.16 s per warm fold, median -0.83 s on ~36 s. Blackhole 512-token fast grade vs the shipped
+# Blackhole fast set (gpzbh, 2026-10-24), 44 paired folds over 4 seeds, PASS: same-seed top pose median 0.413 A vs the 1.407 A
+# A/A floor, CA-lDDT +0.0002 [-0.0006, +0.0013], docking 35/44 -> 36/44.
+DIT_SEAM_FAST = frozenset({"pz_device", "dit_mod16"})
+# Mol-1 (c_z 448: MSA pair stack, PairMixer, confidence; 320: Pairformer): T1 at both widths on trimul_tail.t1_fit's plans,
+# on the DRAM route from 160 tokens and with the 2 GiB output budget, so it serves every size it can. Same arithmetic as
+# the incumbent in-projection, layer_norm and gated moves: module rel_rms vs float64 0.0085 both ways at 256 and 512 tokens,
+# c_z 320 and 448 (perf/spd_trimul/bench.py, p150a 1350 MHz, state/mol1/rows/mol1-perf-trimul.json). Blackhole only until
+# measured on a Galaxy chip (Protenix-v2's two-group c_z 256 plan lost there in --fast), and normal mode only until --fast is.
+# Plus the T2 output tail (t2w plan) and trimul_bres: module rel_rms 0.0092 (c_z 320) / 0.0096 (448). 5sak with its 4449-row
+# MSA, 448 tokens, real weights, p150a 1325-1343 MHz median, graded stack vs + these, seeds 101-103: same-seed lDDT
+# 0.996-1.000 vs the 0.970-0.991 seed floor, warm median 68.71 -> 63.94 s.
+MOL1_T1 = frozenset({"trimul_t1_c320", "trimul_t1_c448", "trimul_t1_dram", "trimul_t1_2g"})
+# Plus trunk_hifi2 (the trunk matmuls at HiFi2 over trunk_hifi3): 8cnh 509 tokens, p150a at AICLK 1350 (min 1343), 4 warm
+# folds per arm interleaved: 85.9 -> 84.8 s; samples matched to the base fold at 0.218 A median (max 0.387) vs the 0.60 A bar
+# and the 1.37 A sample floor, lDDT 0.996 (state/mol1/evidence/bh-trunk/ab512).
+# Plus trimul_t1_part, which keeps c_z 448 on T1 at 1024 tokens instead of the chunk-32 channel loop and changes nothing
+# below ~900 tokens: mol1-1024 (1000 tokens), p300 chip, warm 380.6 -> 344.1 s at AICLK 1262-1287 (min 1093); samples matched
+# to the base fold at 0.088 A median vs the 0.60 A bar and the 1.27 A sample floor (state/mol1/evidence/bh-trunk/ab1024).
+# Plus the fp32 diffusion stack, graded as one stack: dit_shoist (every DiT block's s-terms as three wide linears a step),
+# atom_mm16 and adaln_mod (the atom transformer's gate sigmoid once per fold). perf/mol1/bh/ab.sh, qb2 p300 chip, 3 warm folds
+# per arm, seeds 102-104: 256 tokens 31.23 -> 29.13 s at AICLK 1331-1337, samples matched to the base fold at 0.247 A median
+# (max 0.767) vs the 2.24 A sample floor; 512 tokens 83.58 -> 80.97 s at 1306-1318, 0.150 A median (max 0.373) vs the 0.60 A
+# bar and the 1.37 A floor. diffusion_bf16 on top fails the 256 grade (0.806 A median) for a further -0.2 s and stays out.
+MOL1_DIT_BH = frozenset({"dit_shoist", "atom_mm16", "adaln_mod"})
+# Plus ws_l1dest: transition_ws also serves the pair transitions whose residual update fits L1, the Pairformer's at 256
+# tokens. mol1-256 (245 tokens) on a qb1 p150a at AICLK 1350, 5 warm folds per arm: 29.6 -> 27.25 s; samples matched to
+# the base fold at 1.61 A median vs the 6.07 A seed floor, lDDT 0.964 vs 0.902. 512: 82.2 -> 81.6 s, 0.256 A median vs
+# the 0.60 A bar and the 1.49 A floor; 1024 coords identical (state/mol1/evidence/bh-batch).
+# Plus edm_device (the EDM trajectory stays on the card, the host only draws and stages each step): the host round trip
+# left the device idle 1.2 s a fold at 256 and 1.4 s at 512 (state/mol1/evidence/bh/opgap.md). qb1 p150a at AICLK 1350
+# (min 1343), 6 warm folds per arm interleaved on a loaded host: 256 31.58 -> 26.84 s, 512 82.88 -> 80.60 s; samples
+# matched to the base fold at 0.265 A median vs the 4.70 A seed floor (256) and 0.167 A (max 0.53) vs the 0.60 A bar and
+# the 1.35 A floor (512).
+# Plus four levers the fleet won elsewhere that leave Mol-1's digest unchanged: atom_l1, trimul_t1_psig, inproj_split and
+# trimul_t2cm. qb1 p150a at AICLK 1350, 5 warm folds per arm (state/mol1/evidence/bh/spdport.md): coords identical at
+# 256 and 512, warm 29.71 -> 26.96 s (256, a noisy base) and 83.29 -> 82.20 s (512); flat against a quiet base.
+# Plus dit_qkvf: each DiT block's attention reads the fused qkv projection and writes its heads concatenated, so the
+# head split and the four-op head re-assembly (4.3 ms of the 32.4 ms step at 256) go. qb1 p150a at AICLK 1350, 3 warm
+# folds per arm: 256 25.76 -> 24.72 s, 0.251 A median vs the 4.58 A seed floor; 512 78.31 -> 76.13 s, 0.163 A (max 0.54)
+# vs the 0.60 A bar and the 1.35 A floor; 1024 293.1 -> 290.8 s, 0.08 A vs the 0.61 A floor (state/mol1/evidence/bh/b256.md).
+# Plus trimul_t1split, bit-identical: one trimul call (qb2 p300c, AICLK 1200-1350) c_z 320 2.67 -> 2.45 ms at 256 tokens,
+# 7.84 -> 7.00 at 512, 33.66 -> 30.23 at 1024; c_z 448 4.17 -> 4.01 ms at 256, flat at 512 and 1024
+# (state/mol1/evidence/bh/mulroof.md).
+# Plus dit_qbox + dit_mask_chain, bit-identical: the token DiT fp32 attention as per-core (sample, head, q chunk) boxes
+# that hand the sample-broadcast mask core to core from 512 tokens. One call, 5 samples: 1024 1.495 -> 1.168 ms, 512
+# 0.432 -> 0.410. qb1 p150a at AICLK 1350, 3 warm folds per arm, coords identical: 512 74.93 -> 74.23 s, 1024 294.28 ->
+# 291.84 s (state/mol1/evidence/bh/diffstep.md).
+MOL1_BH = MOL1_T1 | MOL1_DIT_BH | T1_PSIG | {"trimul_t2", "trimul_t2w", "trimul_bres", "trunk_hifi2", "trimul_t1_part",
+                                            "ws_l1dest", "edm_device", "atom_l1", "inproj_split", "trimul_t2cm",
+                                            "dit_qkvf", "trimul_t1split", "dit_qbox", "dit_mask_chain"}
+# Mol-1 on Blackhole from 512 padded tokens (`size_levers`): bfp8 pair-transition weights in one chunk on the plain SwiGLU
+# kernel, the reblock move back writing bfp8 and T1's resident weights in bfp8. Graded as one stack over MOL1_BH, qb1
+# p150a at AICLK 1350, 5 warm folds per arm: 512 tokens 83.29 -> 75.23 s, samples matched to the base fold at 0.423 A
+# median (max 2.15) vs the 0.60 A bar and the 1.33 A seed floor, lDDT 0.991 vs 0.964. At 256 the same stack reads 0.735 A
+# and fails, so it stays off below 512.
+# trimul_t1g8 (g_out bfp8) graded over the rest of this set, qb2 p300c ABBA: 512 67.75 -> 66.21 s at AICLK 1275-1300,
+# 0.523 A median vs the 1.97 A seed floor; 1024 266.5 -> 260.3 s at 1237-1250, 0.091 A vs 0.538. At 256 it reads -0.8 %
+# for 0.52 A of the 0.60 A bar, so it stays off there.
+MOL1_BH_512 = frozenset({"transition_b8", "ws_b8_plain", "trimul_x8", "trimul_t1w8", "trimul_t1g8"})
+SIZE_LEVERS_MIN_TOKENS = 512
+
+
+def size_levers(state_dict):
+    """The levers a checkpoint's normal mode adds from `SIZE_LEVERS_MIN_TOKENS` padded tokens: `MOL1_BH_512` for Mol-1
+    on Blackhole in either mode, else none. None under a harness set (TT_BIO_LEVERS), which names the whole set."""
+    if os.environ.get("TT_BIO_LEVERS") or _T.is_wormhole():
+        return frozenset()
+    widths = Trunk._pair_widths(state_dict)
+    return MOL1_BH_512 if widths and widths <= WS_NORMAL_WIDTHS and 448 in widths else frozenset()
+
+
+def _under_size_levers(method):
+    """Run a fold entry point under the model's levers, plus its `size_levers` when the target pads to
+    `SIZE_LEVERS_MIN_TOKENS` tokens or more."""
+    import functools
+
+    @functools.wraps(method)
+    def run(self, feats, *a, **kw):
+        f = feats[0] if isinstance(feats, (list, tuple)) else feats
+        nt = int(f["atom_to_token_idx"].max()) + 1
+        base, size = getattr(self, "_levers", frozenset()), getattr(self, "_size_levers", frozenset())
+        big = size and -(-nt // TOKEN_PAD_MULTIPLE) * TOKEN_PAD_MULTIPLE >= SIZE_LEVERS_MIN_TOKENS
+        with _T.levers(base | size if big else base):
+            return method(self, feats, *a, **kw)
+    return run
+
+
+# Mol-1 on Wormhole normal: WIDE_NORMAL, the T1 set and Protenix-v2's Wormhole extras (DIT_MM_WH, TRIATT_Q10_WH, X8_WH,
+# BRES_NORMAL, T1_PSIG), graded as one stack on a Galaxy chip at 1000 MHz (state/mol1/evidence/perf-wh): 8cnh 509 tokens,
+# 20 cycles / 200 steps / 5 samples, warm 272.4 -> 194.1 s per prediction (-29 %; WIDE_NORMAL alone 227.1, + MOL1_T1
+# 206.9); samples matched to the base fold's 0.269 A median (max 0.937) vs the 0.60 A bar and the 1.442 A sample floor,
+# all-atom lDDT 0.996 vs 0.965. T2 (trimul_t2, t2w) is not graded on Wormhole at 320/448 and stays out.
+# Plus trimul_t1_3g, which keeps c_z 448 on T1 at 1024 tokens (2.63 GiB of outputs, over trimul_t1_2g's 2 GiB) instead
+# of the chunk-32 channel loop, and changes nothing below ~900 tokens. Its A/B: state/mol1/evidence/wh1024-host.
+MOL1_WH = MOL1_T1 | DIT_MM_WH | TRIATT_Q10_WH | X8_WH | BRES_NORMAL | T1_PSIG | {"trimul_t1_3g"}
+# Mol-1 --fast: its tuned normal set plus the levers that pay at Mol-1 widths on that chip. Wormhole takes the bfp8
+# weights Blackhole normal takes from 512 tokens, plus trimul_gin_w8 and opm_b8cfg; Blackhole takes the shared
+# FAST_LEVERS, which cost Wormhole +12.5 s on 9DBP. Of the bfp8 pair stack Protenix-v2 grades into its --fast sets,
+# triangle attention cost Mol-1 0.04-0.05 ipTM on both chips and flipped 9W8A seed 103 off its interface on Wormhole,
+# and ws_ln, trimul_sig6 and dit_mod16 bought nothing on Wormhole, so Mol-1 takes none of it.
+# Times and the accuracy grade: state/mol1/evidence/fast/ROOT.md.
+MOL1_WH_FAST = MOL1_BH_512 | GIN_W8_FAST | OPM_B8CFG_FAST
+MOL1_BH_FAST = FAST_LEVERS
+from .eltwise_fusion import scale_add, norm_residual, gated_add
+
+
+class _Sig(tuple):
+    """An atom transformer output gate that already went through its sigmoid (`adaln_mod`)."""
+
+
+def _sigmoid_own(t):
+    out = ttnn.sigmoid(t)
+    ttnn.deallocate(t)
+    return out
+
+
+def _gated_residual(res, x, gate):
+    """`res + x * sigmoid(gate)`: one addcmul when the gate's sigmoid was taken once per fold (`_Sig`)."""
+    if isinstance(gate, _Sig):
+        return gated_add(res, x, gate[0])
+    return ttnn.add(ttnn.multiply(x, gate, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID]), res)
+
+
+def mode_levers(state_dict):
+    """The mode's lever set for a Protenix checkpoint: `FAST_LEVERS` under --fast, else `NORMAL_LEVERS`,
+    plus `T2_TAIL`, `WS_CHAIN` and `QSPLIT_NORMAL` for Protenix-v2 (c_z 256), the one width their normal grades cover; Wormhole --fast takes
+    `WH_FAST_LEVERS`, and Wormhole adds `TRIATT_LN`, `DIT_MM_WH`, `TRIATT_Q10_WH` and `X8_WH` to both Protenix-v2 modes and `WS_FAST`, `TRIATT_LN_B8_FAST`, `GIN_W8_FAST`, `T1W8_FAST`,
+    `OPM_B8CFG_FAST` to its --fast and `WH_V2_NORMAL` to its normal mode; Blackhole adds `BH_V2_FAST` to Protenix-v2's --fast and `BH_V2_NORMAL` to its normal mode. Protenix-v2 takes `BRES_NORMAL`, `TRIATT_LN` and `WS_RESID_NORMAL` in normal mode, `SHOIST_FAST` and `DIT_SEAM_FAST` under --fast and `T1_PSIG` and `TRIATT_K1` in both modes on both chips.
+    Mol-1 (pair widths 448 and 320) adds `WIDE_NORMAL` to its normal mode, plus `MOL1_BH` on Blackhole and `MOL1_WH` on Wormhole;
+    its --fast is that normal set plus `MOL1_BH_FAST` or `MOL1_WH_FAST`."""
+    widths = Trunk._pair_widths(state_dict)
+    v2 = widths == {256}
+    wh = _T.is_wormhole()
+    # The levers that need a width their kernels tile, not Protenix-v2 itself, are keyed on the trunk widths they are
+    # graded at: Mol-1 (448 and 320) takes WIDE_NORMAL in normal mode, and the trimul set graded on each chip.
+    ws = WIDE_NORMAL if widths and widths <= WS_NORMAL_WIDTHS and not v2 else frozenset()
+    m1 = (MOL1_WH if wh else MOL1_BH) if ws and 448 in widths else frozenset()
+    wh_both = TRIATT_LN | DIT_MM_WH | TRIATT_Q10_WH | X8_WH if v2 and wh else frozenset()
+    wh_v2 = WS_FAST | TRIATT_LN_B8_FAST | GIN_W8_FAST | T1W8_FAST | OPM_B8CFG_FAST
+    fast = WH_FAST_LEVERS | wh_both | (wh_v2 if v2 else frozenset()) if wh else FAST_LEVERS | (BH_V2_FAST if v2 else frozenset())
+    if m1:
+        fast = NORMAL_LEVERS | ws | m1 | (MOL1_WH_FAST if wh else MOL1_BH_FAST)
+    return _T.model_levers((NORMAL_LEVERS | T2_TAIL | WS_CHAIN | QSPLIT_NORMAL | BRES_NORMAL | TRIATT_LN | WS_RESID_NORMAL | T1_PSIG | TRIATT_K1
+                            | (WH_V2_NORMAL if wh else BH_V2_NORMAL) if v2 else NORMAL_LEVERS | ws) | wh_both | m1,
+                           fast | SHOIST_FAST | DIT_SEAM_FAST | T1_PSIG | TRIATT_K1 if v2 else fast)
 
 
 # How many diffusion samples a single batched denoise carries by default. The batched
@@ -296,6 +688,35 @@ def _window_q(x, N, NP, nq=32):
 _UPLOAD_REFUSED_ROWS = {}  # host m shape -> depth-chunk rows, once DRAM refused its whole upload or the OPM over it
 _TEMPLATE_ROWS_REFUSED = {}  # pair shape -> row block the template residual settled at
 
+# AtomTransformer attention over a SUPERSET key window, ON. The key window of query block i is
+# atoms [32i - 48, 32i + 80): it does not start on a tile, which is why K and V were windowed by a
+# row-major gather (bf16) or a per-sample slice loop (fp32), ~14-18 ms of the 29 ms module at 730
+# tokens and 5 samples on a Wormhole chip (state/lpx-sdpa.md, atomwin2). The superset is the five
+# whole tiles i-2 .. i+2 (160 keys); its 16 slack keys on each side and every invalid key take a
+# -1e9 bias folded once per fold into the per-block pair bias, so they get exactly zero weight and
+# the attention is the same function. K and V become five tile-aligned block slices and one concat.
+# Not bit-exact: the softmax and attn@v reduce over 160 keys instead of 128.
+# `TT_BIO_ATOM_SUPERSET_WINDOW=0` restores the windowed path.
+_ATOM_SUPERSET = env_flag("TT_BIO_ATOM_SUPERSET_WINDOW", True)
+# The superset path's head split and merge in TILE layout: Q|K|V share one zero-led row frame and
+# one nlp_create_qkv_heads splits them, nlp_concat_heads merges the output. Same values in the
+# same places as the ROW_MAJOR pad/permute round trips it replaces (perf/spd_attn/atom_steps.py:
+# those were ~10 of the 18 ms fp32 module on a Wormhole chip). "0" restores the round trips.
+_ATOM_TILE_HEADS = env_flag("TT_BIO_ATOM_TILE_HEADS", True)
+# The fp32 superset attention as ONE SDPA program (sdpa_generic with fp32 q, k, v, mask and output,
+# spd-diffusion's dit_sdpa32 recipe) in place of matmul + scale_add + softmax + matmul. Closer to a
+# float64 reference than the four ops (rel rms 0.0217 vs 0.0265); graded on the 11-set x 4 seeds,
+# same-seed top-pose deviation median 0.047 A (WH). Inert in bf16, where atom_sdpa covers the same site.
+_ATOM_SDPA32 = env_flag("TT_BIO_ATOM_SDPA32", True)
+# Under atom_sdpa or atom_sdpa32 with TILE heads, the reader takes K and V straight from the head frame as
+# sliding windows (sdpa_generic `kv_window`) instead of the 5 slices + concat that copy every frame row 5
+# times, and Q from its frame rows the same way. Bit-exact: same tiles, same program. In bf16 it is the wheel's own fused SDPA at atom_sdpa's
+# config (q 32, k 160, the main grid, `_ATOM_SDPA_CKC`), driven through generic_op.
+_ATOM_KV_WINDOW = env_flag("TT_BIO_ATOM_KV_WINDOW", True)
+_ATOM_SDPA32_CKC = (ttnn.MathFidelity.HiFi4, False, True, False)   # fidelity, approx exp, fp32 dest, dst full sync
+_ATOM_SDPA_CKC = (ttnn.MathFidelity.HiFi2, True, False, False)     # atom_sdpa's `_sdpa_ckc` as that tuple
+ATOM_SUPERSET_STATS = [0, 0]  # (attention calls on the superset window, on the windowed path)
+
 _WIN_KV_IDX = {}  # (gen,NP,nq,nk) -> (1, nb*nk) uint32 gather index, device tensor on the
                   # CURRENT mesh. gen = tenstorrent.device_generation(): a model switch closes
                   # the mesh and this module-level dict survives, so entries from an older
@@ -405,11 +826,20 @@ class _KeyedWeights:
         return v
 
     def _up(self, t):
-        """Upload an activation/host tensor (per call, not cached)."""
-        return ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=get_device(),
-                               dtype=getattr(self, "dtype", ttnn.bfloat16))
+        """Upload an activation/host tensor (per call, not cached).
 
-    def _opm_from_host(self, opm, t, z):
+        A float32 tensor bound for bf16 is rounded by torch first: torch and ttnn round the same
+        way, so the device tensor is identical, and ttnn tilizes bf16 4x faster than it converts
+        and tilizes float32 (0.66 against 2.73 s for the 730-token MSA feature)."""
+        return _T.upload(self._host_cast(t), getattr(self, "dtype", ttnn.bfloat16))
+
+    def _host_cast(self, t):
+        """The host half of `_up`: the torch rounding to bf16, on its own so the host lane can do it."""
+        if getattr(self, "dtype", ttnn.bfloat16) == ttnn.bfloat16 and t.dtype == torch.float32:
+            t = t.to(torch.bfloat16)
+        return t
+
+    def _opm_from_host(self, opm, t, z, mask=None, n_msa=None):
         """`z + opm(t)` for a host-resident `t` [1, depth, tokens, c]: `t` uploaded whole, or, if
         DRAM refuses that upload or the OPM that reads it, as host-tiled depth chunks that
         OuterProductMean uploads one at a time (its chunk-list input).
@@ -421,7 +851,8 @@ class _KeyedWeights:
         whole `m` is still on the chip beside OPM's full-depth projections. The chunk list is the
         form every later MSA block already hands OPM, and it is not bit-exact against the
         whole-depth product (it reassociates the depth sum), so it runs only after a refusal. The
-        memo skips the refused attempt on later recycling cycles.
+        memo skips the refused attempt on later recycling cycles. `mask`/`n_msa` are a sampled
+        cycle's row mask and drawn row count, as for a device `m`.
 
         OPM gives back its own partial buffers before a refusal leaves it, and adds its residual
         out of place until a successful join, so the chunked retry reads the same `z`. A refusal
@@ -429,7 +860,7 @@ class _KeyedWeights:
         def whole():
             d = self._up(t)
             try:
-                return opm(d, None, None, residual=z)
+                return opm(d, mask, n_msa, residual=z)
             finally:
                 ttnn.deallocate(d)
 
@@ -439,7 +870,7 @@ class _KeyedWeights:
                                    "the depth-chunked retry has no pair to add to")
             return opm([ttnn.from_torch(t[:, s:s + r].contiguous(), layout=ttnn.TILE_LAYOUT,
                                         dtype=getattr(self, "dtype", ttnn.bfloat16))
-                        for s in range(0, t.shape[1], r)], None, None, residual=z)
+                        for s in range(0, t.shape[1], r)], mask, n_msa, residual=z)
 
         return _T.row_block_after_refusal(_UPLOAD_REFUSED_ROWS, tuple(t.shape), whole, chunked,
                                           MSA_CHUNK_SIZE, "protenix msa upload")
@@ -490,6 +921,14 @@ def n_blocks(state_dict, prefix):
     return 1 + max(idx) if idx else 0
 
 
+#: Build the atom attention windows in TILE layout, every sample in one pass (`AtomTransformer.
+#: _windows_tiled`), instead of a ROW_MAJOR pad/reshape/permute round trip per sample. Pure data
+#: movement: the windows, the K transpose and the head merge are the same values in the same places.
+#: On by default: the 730-token fold's digests match the round trip on Wormhole, torch.equal on p150a.
+ATOM_WINDOWS_TILED = env_flag("TT_BIO_ATOM_WINDOWS_TILED", True)
+_HEADS_SPLIT_REFUSED: set = set()
+
+
 class AtomTransformer(_KeyedWeights, Module):
     """Protenix AtomTransformer = DiffusionTransformer(cross_attention_mode=True),
     3 blocks, local windowed attention (n_queries=32, n_keys=128). Fully on-device.
@@ -514,8 +953,55 @@ class AtomTransformer(_KeyedWeights, Module):
         self._softmax_ckc = softmax_ckc("protenix.atom_transformer")
         self._softmax_f64 = host_f64_softmax_site("protenix.atom_transformer")
         self._kv_widx = {}  # cached KV-window gather indices, keyed by NP
+        self._zeros = {}    # zero row blocks of the superset frame, keyed by shape and dtype
+        self._tile_heads = _ATOM_TILE_HEADS
+        # atom_sdpa lever: the bf16 superset attention runs as one fused SDPA (bf16 mask, never bfp8: the
+        # -1e9 entries would share a block exponent with the bias and flush it).
+        self._sdpa = _T.lever("atom_sdpa") and dtype == ttnn.bfloat16 and _ATOM_SUPERSET
+        self._sdpa_ckc = ttnn.WormholeComputeKernelConfig(
+            math_fidelity=ttnn.MathFidelity.HiFi2, math_approx_mode=True,
+            fp32_dest_acc_en=False, packer_l1_acc=False)
+        self._sdpa32 = _ATOM_SDPA32 and dtype == ttnn.float32 and _ATOM_SUPERSET
+        self._kvwin = _ATOM_KV_WINDOW
+        # atom_k1: the fp32 linears on k1_linear's program (one K tile per dest pass on Wormhole).
+        self._k1 = _T.lever("atom_k1") and dtype == ttnn.float32
+        # atom_mm16: the fp32 superset attention's linears on bf16 operands with fp32 accumulation. The
+        # adaLN outputs, q/k/v, the gate and the swiglu hidden are written bf16; the two output projections,
+        # the residual stream and the superset bias stay fp32.
+        self._mm16 = _T.lever("atom_mm16") and self._sdpa32 and self._tile_heads
 
-    def _adaln(self, a, s, pre):
+    def _w16(self, key, transpose=True):
+        cache = self.__dict__.setdefault("_wc16", {})
+        v = cache.get((key, transpose))
+        if v is None:
+            w = self._w[key]
+            v = cache[(key, transpose)] = ttnn.from_torch(w.t().contiguous() if transpose else w,
+                                                          layout=ttnn.TILE_LAYOUT, device=get_device(),
+                                                          dtype=ttnn.bfloat16)
+        return v
+
+    def _lin(self, x, wkey, bkey=None, activation=None, dtype=None):
+        """`dtype`: what an `atom_mm16` linear (a bf16 `x`) writes, bf16 unless given."""
+        if self._mm16 and x.dtype == ttnn.bfloat16:
+            return _T.k1_linear(x, self._w16(wkey), self._w16(bkey, False) if bkey else None,
+                                dtype=dtype or ttnn.bfloat16, activation=activation,
+                                compute_kernel_config=self.compute_kernel_config)
+        w = self._w_tt(wkey)
+        # One K tile leaves the program no K blocking to choose: those keep the shared path.
+        if not self._k1 or int(w.padded_shape[0]) <= 32:
+            return super()._lin(x, wkey, bkey, activation)
+        return _T.k1_linear(x, w, self._w_tt(bkey, False) if bkey else None, dtype=self.dtype,
+                            activation=activation, compute_kernel_config=self.compute_kernel_config)
+
+    def _lin_g(self, q_norm, apb):
+        """The attention gate's linear: no narrow-projection offer and the input's dtype, as before."""
+        key = apb + "attention.linear_g.weight"
+        if self._k1 or self._mm16:
+            return self._lin(q_norm, key)
+        return ttnn.linear(q_norm, self._w_tt(key), compute_kernel_config=self.compute_kernel_config,
+                           core_grid=CORE_GRID_MAIN)
+
+    def _adaln_mod(self, pre):
         # Cache the AdaLN module per prefix: constructing it re-uploads its 4 weights
         # (ttnn.from_torch) every call, which for the diffusion enc/decoder means thousands
         # of redundant device writes per fold (2 AdaLN x 3 blocks x 200 steps). Building once
@@ -528,7 +1014,46 @@ class AtomTransformer(_KeyedWeights, Module):
             sub = {k[len(pre):]: v for k, v in self._w.items() if k.startswith(pre)}
             ada = AdaLN(False, remap_adaln(sub), self.compute_kernel_config, dtype=self.dtype)
             cache[pre] = ada
-        return ada(a, s)
+        return ada
+
+    def _adaln(self, a, s, pre, s_terms=None, dtype=None):
+        return self._adaln_mod(pre)(a, s, s_terms=s_terms, dtype=dtype)
+
+    @staticmethod
+    def _prefixes(b):
+        P = f"diffusion_transformer.blocks.{b}."
+        return P + "attention_pair_bias.", P + "conditioned_transition_block."
+
+    def cond_terms(self, s):
+        """Every term of every block that reads only the conditioning `s`: the three AdaLN
+        (scale, shift) pairs and the two output gates, pre-sigmoid. In the diffusion
+        enc/decoder `s` is the atom conditioning c_la, fixed for the whole fold and shared by
+        every sample, yet these were computed for each of the M samples at every step: 8
+        projections and 3 layer norms of (M,N,128) per block. Computed once here, at the
+        leading dim `s` has, they broadcast over M in the block's binary ops. Same ops on the
+        same values, so the result does not change.
+
+        `adaln_mod` on an fp32 stack: the sigmoids run here too, once per fold, so every apply is one
+        addcmul (the AdaLN modulation and both gated residuals) instead of a multiply with a fused sigmoid
+        and an add. Every shipped --fast set that names adaln_mod runs this stack bf16 (`diffusion_bf16`)."""
+        sig = self.dtype == ttnn.float32 and _T.lever("adaln_mod")
+        terms = []
+        for b in range(self.n_blocks):
+            apb, ctb = self._prefixes(b)
+            t = {
+                "a": self._adaln_mod(apb + "layernorm_a.").s_terms(s),
+                "kv": self._adaln_mod(apb + "layernorm_kv.").s_terms(s),
+                "ctb": self._adaln_mod(ctb + "adaln.").s_terms(s),
+                "gate": self._lin(s, apb + "linear_a_last.weight", apb + "linear_a_last.bias"),
+                "cg": self._lin(s, ctb + "linear_s.weight", ctb + "linear_s.bias"),
+            }
+            if sig:
+                for k in ("a", "kv", "ctb"):
+                    t[k] = _T._SigTerms((_sigmoid_own(t[k][0]), t[k][1]))
+                for k in ("gate", "cg"):
+                    t[k] = _Sig((_sigmoid_own(t[k]),))
+            terms.append(t)
+        return terms
 
     def _windows_q(self, x, N, NP):
         H, dh = self.N_HEADS, self.HEAD_DIM
@@ -575,6 +1100,127 @@ class AtomTransformer(_KeyedWeights, Module):
         x = ttnn.permute(x, (0, 2, 1, 3))
         return ttnn.to_layout(x, ttnn.TILE_LAYOUT)
 
+    def _superset(self):
+        """(lead, W): left pad of the superset key axis and its width, both whole tiles."""
+        nq = self.N_QUERIES
+        lead = -(-self.PAD_LEFT // nq) * nq
+        return lead, -(-(lead - self.PAD_LEFT + self.N_KEYS) // nq) * nq
+
+    def _superset_bias(self, z, mask_trunked, nb):
+        """Pair bias z (B*nb, H, nq, nk) + window validity (B'*nb, nq, nk, host) -> the superset
+        bias (B, H*nb, nq, W), heads-major to match `_attention_superset`'s scores.
+
+        Built on the host from the device z: once per fold, and the key-axis shift by 16 is not a
+        tile-aligned pad on the device. Valid entries keep z's exact value. For the fused SDPA the
+        bias is pre-divided by the scale, which that kernel applies to the mask too."""
+        H, nq, nk = self.N_HEADS, self.N_QUERIES, self.N_KEYS
+        lead, W = self._superset()
+        sl = lead - self.PAD_LEFT
+        zh = ttnn.to_torch(z).float()
+        B = zh.shape[0] // nb
+        pad = torch.where(mask_trunked.float() < 0.5, -1e9, 0.0).reshape(-1, nb, 1, nq, nk)
+        zz = torch.nn.functional.pad((zh.reshape(B, nb, H, nq, nk) + pad).permute(0, 2, 1, 3, 4),
+                                     (sl, W - nk - sl), value=-1e9)
+        dtype = z.dtype
+        if self._sdpa:
+            zz, dtype = zz.clamp(min=-1e4) * self.HEAD_DIM ** 0.5, ttnn.bfloat16
+        elif self._sdpa32:
+            zz = zz.clamp(min=-1e4) * self.HEAD_DIM ** 0.5
+        return ttnn.from_torch(zz.reshape(B, H * nb, nq, W).contiguous(), dtype=dtype,
+                               layout=ttnn.TILE_LAYOUT, device=self.device)
+
+    def _attention_superset(self, q_norm, kv_norm, apb, N, NP, zs):
+        """Windowed attention for (M, N, c) inputs over the superset key window. Q is
+        (M, H*nb, nq, dh); K/V are (M, H*nb, W, dh), built from the padded key rows as W/nq
+        block-shifted slices of one (M*H, nb + W/nq - 1, nq, dh) tensor."""
+        H, dh, nq = self.N_HEADS, self.HEAD_DIM, self.N_QUERIES
+        lead, W = self._superset()
+        M, nb, S = q_norm.shape[0], NP // nq, W // nq
+        nbk = nb + S - 1
+
+        def heads(x, front, rows):                       # (M, N, H*dh) -> (M, H, rows, dh)
+            x = ttnn.to_layout(x, ttnn.ROW_MAJOR_LAYOUT)
+            x = ttnn.pad(x, [[0, 0], [front, rows - front - N], [0, 0]], 0.0)
+            x = ttnn.permute(ttnn.reshape(x, (M, rows, H, dh)), (0, 2, 1, 3))
+            return ttnn.to_layout(x, ttnn.TILE_LAYOUT)
+
+        def win(x):                                      # (M*H, nbk, nq, dh) -> (M*H, nb, W, dh)
+            return ttnn.concat([ttnn.slice(x, [0, j, 0, 0], [M * H, j + nb, nq, dh]) for j in range(S)], dim=2)
+
+        def windows(x):
+            return ttnn.reshape(win(ttnn.reshape(heads(x, lead, nbk * nq), (M * H, nbk, nq, dh))), (M, H * nb, W, dh))
+
+        Q = self._lin(q_norm, apb + "attention.linear_q.weight", apb + "attention.linear_q.bias")
+        if self._tile_heads and _T.lever("atom_kvcat"):
+            # K and V read the same kv_norm: one linear over their stacked weights writes [K | V].
+            kv = apb + "attention.linear_kv.weight"
+            if kv not in self._w:
+                self._w[kv] = torch.cat([self._w[apb + "attention.linear_k.weight"],
+                                         self._w[apb + "attention.linear_v.weight"]], 0)
+            KV = (self._lin(kv_norm, kv),)
+        else:
+            KV = (self._lin(kv_norm, apb + "attention.linear_k.weight"),
+                  self._lin(kv_norm, apb + "attention.linear_v.weight"))
+        if self._tile_heads:
+            # Rows [lead, lead + NP) of the frame are Q's; key window i is frame tile rows i .. i+S-1.
+            x = ttnn.pad(ttnn.concat([Q, *KV], dim=-1), [[0, 0], [0, NP - N], [0, 0]], 0.0)
+            x = ttnn.concat([self._zero_rows(M, lead, x), x, self._zero_rows(M, nbk * nq - lead - NP, x)], dim=1)
+            q, k, v = ttnn.experimental.nlp_create_qkv_heads(
+                ttnn.reshape(x, (M, 1, nbk * nq, 3 * H * dh)), num_heads=H, num_kv_heads=H,
+                transpose_k_heads=False, memory_config=ttnn.DRAM_MEMORY_CONFIG)    # each (M, H, nbk*nq, dh)
+            if (self._sdpa or self._sdpa32) and self._kvwin:
+                Qs, Ks, Vs = q, k, v                     # frames, read as windows by the kernel
+            else:
+                Qs = ttnn.reshape(ttnn.slice(q, [0, 0, lead, 0], [M, H, lead + NP, dh]), (M, H * nb, nq, dh))
+                Ks, Vs = (ttnn.reshape(win(ttnn.reshape(t, (M * H, nbk, nq, dh))), (M, H * nb, W, dh)) for t in (k, v))
+        else:
+            Qs = ttnn.reshape(heads(Q, 0, NP), (M, H * nb, nq, dh))
+            Ks, Vs = (windows(t) for t in KV)
+        kvw = (nb, W, lead, nq) if self._tile_heads and self._kvwin and (self._sdpa or self._sdpa32) else None
+        if self._sdpa and kvw is None:
+            o = _T.fused_sdpa(Qs, Ks, Vs, attn_mask=zs, scale=dh ** -0.5,
+                              program_config=_T._sdpa_program_config(nq, W),
+                              compute_kernel_config=self._sdpa_ckc)
+        elif self._sdpa or self._sdpa32:
+            from . import sdpa_generic as SG
+            kc = W
+            if self._sdpa32:
+                g = self.device.compute_with_storage_grid_size()
+                grid, ckc = (g.x, g.y), _ATOM_SDPA32_CKC
+                # Wormhole: a W-key chunk accumulates W/32 PV tiles in the fp32 dest and writes an occasional
+                # wrong value (-4.8 for -0.02, perf/spd_wherr/sdpa_probe.py --window); one key tile per chunk does not.
+                if self.device.arch() == ttnn.Arch.WORMHOLE_B0:
+                    kc = 32
+            else:
+                grid, ckc = tuple(_T.COMPUTE_GRID_MAIN), _ATOM_SDPA_CKC
+            o = ttnn.allocate_tensor_on_device(ttnn.Shape([M, H * nb, nq, dh]), Qs.dtype,
+                                               ttnn.TILE_LAYOUT, self.device, ttnn.DRAM_MEMORY_CONFIG)
+            SG.sdpa(self.device, Qs, Ks, Vs, zs, o, nq, kc, grid, ckc, dh ** -0.5, kv_window=kvw)
+        else:
+            sc = batched_matmul(Qs, ttnn.permute(Ks, (0, 1, 3, 2)),
+                                compute_kernel_config=self.compute_kernel_config)
+            sc = scale_add(sc, dh ** -0.5, zs)           # zs broadcasts over M at a leading 1
+            o = batched_matmul(site_softmax(sc, dim=-1, compute_kernel_config=self._softmax_ckc,
+                                            host_f64=self._softmax_f64),
+                               Vs, compute_kernel_config=self.compute_kernel_config)
+        ATOM_SUPERSET_STATS[0] += 1
+        if self._tile_heads:
+            o = ttnn.experimental.nlp_concat_heads(ttnn.reshape(o, (M, H, NP, dh)), memory_config=ttnn.DRAM_MEMORY_CONFIG)
+            return ttnn.slice(ttnn.reshape(o, (M, NP, H * dh)), [0, 0, 0], [M, N, H * dh])
+        o = ttnn.permute(ttnn.reshape(o, (M, H, NP, dh)), (0, 2, 1, 3))
+        o = ttnn.reshape(o, (M, NP, H * dh))
+        o = ttnn.slice(ttnn.to_layout(o, ttnn.ROW_MAJOR_LAYOUT), [0, 0, 0], [M, N, H * dh])
+        return ttnn.to_layout(o, ttnn.TILE_LAYOUT)
+
+    def _zero_rows(self, M, rows, like):
+        """A cached (M, rows, C) zero tensor of `like`'s dtype and width, TILE layout."""
+        key = (M, rows, like.shape[-1], like.dtype)
+        z = self._zeros.get(key)
+        if z is None:
+            z = self._zeros[key] = ttnn.zeros((M, rows, like.shape[-1]), dtype=like.dtype,
+                                               layout=ttnn.TILE_LAYOUT, device=self.device)
+        return z
+
     def _pair_bias(self, p, apb):
         """Atom-pair attention bias: LayerNorm(p, weight only) -> linear_nobias_z -> permute
         to (nb,H,nq,nk). Pure function of p; in the diffusion enc/decoder p is constant across
@@ -589,39 +1235,42 @@ class AtomTransformer(_KeyedWeights, Module):
         Q = self._lin(q_norm, apb + "attention.linear_q.weight", apb + "attention.linear_q.bias")
         K = self._lin(kv_norm, apb + "attention.linear_k.weight")
         V = self._lin(kv_norm, apb + "attention.linear_v.weight")
-        Qb = self._windows_q(Q, N, NP); Kb = self._windows_kv(K, N, NP); Vb = self._windows_kv(V, N, NP)
+        if ATOM_WINDOWS_TILED:
+            Qb, KbT, Vb = self._windows_tiled(Q, K, V, 1, N, NP)
+        else:
+            Qb = self._windows_q(Q, N, NP); Kb = self._windows_kv(K, N, NP); Vb = self._windows_kv(V, N, NP)
+            KbT = ttnn.permute(Kb, (0, 1, 3, 2))
         z = z_pre if z_pre is not None else self._pair_bias(p, apb)   # precomputed (fixed p) or inline
-        sc = batched_matmul(Qb, ttnn.permute(Kb, (0, 1, 3, 2)), compute_kernel_config=self.compute_kernel_config)
+        sc = batched_matmul(Qb, KbT, compute_kernel_config=self.compute_kernel_config)
         sc = scale_add(sc, dh ** -0.5, z)
         sc = ttnn.add(sc, pad_bias)
         o = batched_matmul(site_softmax(sc, dim=-1, compute_kernel_config=self._softmax_ckc,
                                         host_f64=self._softmax_f64),
                            Vb, compute_kernel_config=self.compute_kernel_config)
+        if ATOM_WINDOWS_TILED:
+            return self._merge_heads(o, 0, N, NP)
         o = ttnn.permute(o, (0, 2, 1, 3))
         o = ttnn.reshape(o, (NP, H * dh))
         o = ttnn.slice(ttnn.to_layout(o, ttnn.ROW_MAJOR_LAYOUT), [0, 0], [N, H * dh])
         return ttnn.to_layout(o, ttnn.TILE_LAYOUT)
 
-    def _block(self, a, s, p, b, N, NP, pad_bias, z_pre=None):
-        P = f"diffusion_transformer.blocks.{b}."; apb = P + "attention_pair_bias."
-        q_norm = self._adaln(a, s, apb + "layernorm_a.")
-        kv_norm = self._adaln(q_norm, s, apb + "layernorm_kv.")
+    def _block(self, a, s, p, b, N, NP, pad_bias, z_pre=None, terms=None):
+        apb, ctb = self._prefixes(b)
+        t = terms or {}
+        q_norm = self._adaln(a, s, apb + "layernorm_a.", t.get("a"))
+        kv_norm = self._adaln(q_norm, s, apb + "layernorm_kv.", t.get("kv"))
         o = self._attention(q_norm, kv_norm, p, apb, N, NP, pad_bias, z_pre=z_pre)
-        g = ttnn.linear(q_norm, self._w_tt(apb + "attention.linear_g.weight"),
-                        compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN)
+        g = self._lin_g(q_norm, apb)
         o = ttnn.multiply(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
         attn = self._lin(o, apb + "attention.linear_o.weight")
-        gate = self._lin(s, apb + "linear_a_last.weight", apb + "linear_a_last.bias")
-        attn = ttnn.multiply(attn, gate, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
-        a1 = ttnn.add(attn, a)
-        ctb = P + "conditioned_transition_block."
-        an = self._adaln(a1, s, ctb + "adaln.")
+        gate = t["gate"] if t else self._lin(s, apb + "linear_a_last.weight", apb + "linear_a_last.bias")
+        a1 = _gated_residual(a, attn, gate)
+        an = self._adaln(a1, s, ctb + "adaln.", t.get("ctb"))
         b1 = self._lin(an, ctb + "linear_nobias_a1.weight", activation="silu")
         b2 = self._lin(an, ctb + "linear_nobias_a2.weight")
         out = self._lin(ttnn.multiply(b1, b2), ctb + "linear_nobias_b.weight")
-        cg = self._lin(s, ctb + "linear_s.weight", ctb + "linear_s.bias")
-        out = ttnn.multiply(out, cg, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
-        return ttnn.add(out, a1)
+        cg = t["cg"] if t else self._lin(s, ctb + "linear_s.weight", ctb + "linear_s.bias")
+        return _gated_residual(a1, out, cg)
 
     def _make_pad_bias(self, mask_trunked):
         pad = torch.where(mask_trunked < 0.5, torch.full_like(mask_trunked, -1e9),
@@ -634,19 +1283,62 @@ class AtomTransformer(_KeyedWeights, Module):
         __call__(bias_cache=...) to avoid recomputing them every step (24->1 per fold)."""
         z_pre = [self._pair_bias(p, f"diffusion_transformer.blocks.{b}.attention_pair_bias.")
                  for b in range(self.n_blocks)]
+        if _ATOM_SUPERSET:
+            # The pad bias is folded into each block's superset bias; merge_conds reads None.
+            zs = [self._superset_bias(z, mask_trunked, mask_trunked.shape[0]) for z in z_pre]
+            for z in z_pre:
+                ttnn.deallocate(z)
+            return (zs, None)
         return (z_pre, self._make_pad_bias(mask_trunked))
 
-    def __call__(self, a, s, p, mask_trunked, bias_cache=None):
-        """a,s: (1,N,c_atom); p: (nb,nq,nk,c_atompair); mask_trunked: (nb,nq,nk) host
-        tensor of per-window key validity. bias_cache = optional (per-block z_pre, pad_bias)
-        from precompute_biases() (when p/mask are fixed across calls). Returns (1,N,c_atom)."""
-        N = a.shape[1]
-        NP = ((N + self.N_QUERIES - 1) // self.N_QUERIES) * self.N_QUERIES
-        z_pre, pad_bias = bias_cache if bias_cache is not None else (None, self._make_pad_bias(mask_trunked))
-        x = a
-        for b in range(self.n_blocks):
-            x = self._block(x, s, p, b, N, NP, pad_bias, z_pre=(z_pre[b] if z_pre is not None else None))
-        return x
+
+    def _windows_tiled(self, Q, K, V, M, N, NP):
+        """Q windows, transposed K windows and V windows of M samples, in TILE layout throughout.
+
+        Q, K, V are (M, N, H*dh). Window i holds queries [i*nq, (i+1)*nq) and keys
+        [i*nq - PAD_LEFT, i*nq - PAD_LEFT + nk), zeros outside the sequence. nq is one tile row, so
+        once K|V are shifted by PAD_LEFT (the only step that is not tile aligned) every window is
+        nk/nq consecutive tile rows: nk/nq slices and one concat build all of them. The head split
+        and the K transpose are one `nlp_create_qkv_heads`. Returns q (M*nb, H, nq, dh),
+        kT (M*nb, H, dh, nk), v (M*nb, H, nk, dh), what `_windows_q_m` / `_windows_kv_m` give.
+        """
+        H, dh, nq, nk = self.N_HEADS, self.HEAD_DIM, self.N_QUERIES, self.N_KEYS
+        nb, C, r = NP // nq, H * dh, nk // nq
+        rm = lambda x: ttnn.to_layout(x, ttnn.ROW_MAJOR_LAYOUT)
+        tile = lambda x: ttnn.to_layout(x, ttnn.TILE_LAYOUT)
+        q = tile(ttnn.pad(rm(Q), [[0, 0], [0, NP - N], [0, 0]], 0.0))                  # (M, NP, C)
+        q = ttnn.reshape(q, (M * nb, 1, nq, C))
+        kv = ttnn.concat([K, V], dim=-1)                                                # (M, N, 2C)
+        kv = tile(ttnn.pad(rm(kv), [[0, 0], [self.PAD_LEFT, NP + nk - nq - self.PAD_LEFT - N], [0, 0]], 0.0))
+        kv = ttnn.reshape(kv, (M, nb + r - 1, nq, 2 * C))
+        kv = ttnn.concat([ttnn.slice(kv, [0, j, 0, 0], [M, j + nb, nq, 2 * C]) for j in range(r)], dim=2)
+        kv = ttnn.reshape(kv, (M * nb, 1, nk, 2 * C))
+        key = (tuple(q.padded_shape), str(q.dtype))
+        if key not in _HEADS_SPLIT_REFUSED:
+            try:
+                return ttnn.experimental.nlp_create_qkv_heads(
+                    q, kv, num_heads=H, num_kv_heads=H, transpose_k_heads=True,
+                    memory_config=ttnn.DRAM_MEMORY_CONFIG)
+            except RuntimeError as e:                                                   # e.g. a dtype it does not take
+                _HEADS_SPLIT_REFUSED.add(key)
+                print(f"[tt-bio] nlp_create_qkv_heads refused atom windows {key}: {e}; splitting heads "
+                      f"by slices", file=sys.stderr, flush=True)
+        B = M * nb
+        heads = lambda x, c0, n: ttnn.concat(
+            [ttnn.slice(x, [0, 0, 0, c0 + h * dh], [B, 1, n, c0 + (h + 1) * dh]) for h in range(H)], dim=1)
+        return heads(q, 0, nq), ttnn.transpose(heads(kv, 0, nk), -2, -1), heads(kv, C, nk)
+
+    def _merge_heads(self, o, M, N, NP):
+        """(M*nb, H, nq, dh) attention output -> (M, N, H*dh), or (N, H*dh) at M == 0."""
+        C = self.N_HEADS * self.HEAD_DIM
+        o = ttnn.experimental.nlp_concat_heads(o, memory_config=ttnn.DRAM_MEMORY_CONFIG)  # (M*nb, 1, nq, C)
+        if M == 0:
+            o = ttnn.reshape(o, (NP, C))
+            o = ttnn.slice(ttnn.to_layout(o, ttnn.ROW_MAJOR_LAYOUT), [0, 0], [N, C])
+        else:
+            o = ttnn.reshape(o, (M, NP, C))
+            o = ttnn.slice(ttnn.to_layout(o, ttnn.ROW_MAJOR_LAYOUT), [0, 0, 0], [M, N, C])
+        return ttnn.to_layout(o, ttnn.TILE_LAYOUT)
 
     # --- M-aware (multiplicity-batched) path --------------------------------------
     # Mirrors the M=1 _block/_attention but carries M as the leading batch dim. The
@@ -675,9 +1367,13 @@ class AtomTransformer(_KeyedWeights, Module):
         Q = self._lin(q_norm, apb + "attention.linear_q.weight", apb + "attention.linear_q.bias")
         K = self._lin(kv_norm, apb + "attention.linear_k.weight")
         V = self._lin(kv_norm, apb + "attention.linear_v.weight")
-        Qb = self._windows_q_m(Q, M, N, NP); Kb = self._windows_kv_m(K, M, N, NP); Vb = self._windows_kv_m(V, M, N, NP)
+        if ATOM_WINDOWS_TILED:
+            Qb, KbT, Vb = self._windows_tiled(Q, K, V, M, N, NP)
+        else:
+            Qb = self._windows_q_m(Q, M, N, NP); Kb = self._windows_kv_m(K, M, N, NP); Vb = self._windows_kv_m(V, M, N, NP)
+            KbT = ttnn.permute(Kb, (0, 1, 3, 2))
         z = z_pre if z_pre is not None else self._pair_bias(p, apb)
-        sc = batched_matmul(Qb, ttnn.permute(Kb, (0, 1, 3, 2)), compute_kernel_config=self.compute_kernel_config)
+        sc = batched_matmul(Qb, KbT, compute_kernel_config=self.compute_kernel_config)
         if z.shape[0] != sc.shape[0]:
             # z is the sample-INVARIANT precomputed bias, still (nb,H,nq,nk). Fold the
             # (M*nb, H) leading dims into (M, nb*H) so the add broadcasts it over M --
@@ -694,45 +1390,68 @@ class AtomTransformer(_KeyedWeights, Module):
         o = batched_matmul(site_softmax(sc, dim=-1, compute_kernel_config=self._softmax_ckc,
                                         host_f64=self._softmax_f64),
                            Vb, compute_kernel_config=self.compute_kernel_config)
+        if ATOM_WINDOWS_TILED:
+            return self._merge_heads(o, M, N, NP)
         o = ttnn.permute(o, (0, 2, 1, 3))                       # (M*nb, nq, H, dh)
         o = ttnn.reshape(o, (M, NP, H * dh))                    # (M, NP, H*dh)
         o = ttnn.slice(ttnn.to_layout(o, ttnn.ROW_MAJOR_LAYOUT), [0, 0, 0], [M, N, H * dh])  # (M, N, H*dh)
         return ttnn.to_layout(o, ttnn.TILE_LAYOUT)
 
-    def _block_m(self, a, s, p, b, N, NP, M, pad_bias, z_pre=None):
-        P = f"diffusion_transformer.blocks.{b}."; apb = P + "attention_pair_bias."
-        q_norm = self._adaln(a, s, apb + "layernorm_a.")
-        kv_norm = self._adaln(q_norm, s, apb + "layernorm_kv.")
-        o = self._attention_m(q_norm, kv_norm, p, apb, N, NP, M, pad_bias, z_pre=z_pre)
-        g = ttnn.linear(q_norm, self._w_tt(apb + "attention.linear_g.weight"),
-                        compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN)
+    def _block_m(self, a, s, p, b, N, NP, M, pad_bias, z_pre=None, terms=None, zs=None):
+        apb, ctb = self._prefixes(b)
+        t = terms or {}
+        # atom_mm16: the kv adaLN reads the fp32 q_norm and writes bf16; q/g read one bf16 copy of it.
+        lo = ttnn.bfloat16 if self._mm16 and zs is not None else None
+        q_norm = self._adaln(a, s, apb + "layernorm_a.", t.get("a"))
+        kv_norm = self._adaln(q_norm, s, apb + "layernorm_kv.", t.get("kv"), dtype=lo)
+        if lo is not None:
+            q_norm = ttnn.typecast(q_norm, lo)
+        if zs is not None:
+            o = self._attention_superset(q_norm, kv_norm, apb, N, NP, zs)
+        else:
+            o = self._attention_m(q_norm, kv_norm, p, apb, N, NP, M, pad_bias, z_pre=z_pre)
+        g = self._lin_g(q_norm, apb)
         o = ttnn.multiply(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
-        attn = self._lin(o, apb + "attention.linear_o.weight")
-        gate = self._lin(s, apb + "linear_a_last.weight", apb + "linear_a_last.bias")
-        attn = ttnn.multiply(attn, gate, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
-        a1 = ttnn.add(attn, a)
-        ctb = P + "conditioned_transition_block."
-        an = self._adaln(a1, s, ctb + "adaln.")
+        attn = self._lin(o, apb + "attention.linear_o.weight", dtype=self.dtype)
+        gate = t["gate"] if t else self._lin(s, apb + "linear_a_last.weight", apb + "linear_a_last.bias")
+        a1 = _gated_residual(a, attn, gate)
+        an = self._adaln(a1, s, ctb + "adaln.", t.get("ctb"), dtype=lo)
         b1 = self._lin(an, ctb + "linear_nobias_a1.weight", activation="silu")
         b2 = self._lin(an, ctb + "linear_nobias_a2.weight")
-        out = self._lin(ttnn.multiply(b1, b2), ctb + "linear_nobias_b.weight")
-        cg = self._lin(s, ctb + "linear_s.weight", ctb + "linear_s.bias")
-        out = ttnn.multiply(out, cg, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
-        return ttnn.add(out, a1)
+        out = self._lin(ttnn.multiply(b1, b2), ctb + "linear_nobias_b.weight", dtype=self.dtype)
+        cg = t["cg"] if t else self._lin(s, ctb + "linear_s.weight", ctb + "linear_s.bias")
+        return _gated_residual(a1, out, cg)
 
-    def __call__(self, a, s, p, mask_trunked, bias_cache=None, multiplicity=1):
+    def __call__(self, a, s, p, mask_trunked, bias_cache=None, multiplicity=1, terms=None):
         """a,s: (1,N,c_atom) at M=1, (M,N,c_atom) at M>1; p: (nb,nq,nk,c_atompair) shared;
         mask_trunked: (nb,nq,nk) host. bias_cache = optional (per-block z_pre, pad_bias)
-        from precompute_biases() (shared across samples). multiplicity (M): when >1 and
-        supports_multiplicity is on, run the M-aware batched path (one batched forward per
-        block); else the M=1 per-sample path. Returns (1,N,c_atom) at M=1, (M,N,c_atom) at M>1."""
+        from precompute_biases() (shared across samples). terms = optional cond_terms(s), the
+        per-block terms that read only `s`; when given, `s` itself is not read. multiplicity
+        (M): when >1 and supports_multiplicity is on, run the M-aware batched path (one
+        batched forward per block); else the M=1 per-sample path. Returns (1,N,c_atom) at
+        M=1, (M,N,c_atom) at M>1."""
+        tb = (lambda b: terms[b]) if terms is not None else (lambda b: None)
         N = a.shape[1] if multiplicity == 1 else a.shape[1]
         NP = ((N + self.N_QUERIES - 1) // self.N_QUERIES) * self.N_QUERIES
+        if _ATOM_SUPERSET:
+            # One path for every M: the superset bias is (1 or M, H*nb, nq, W) and broadcasts
+            # over the samples in the score add, and only s needs a real M dim (AdaLN).
+            s_m = s if (terms is not None or s.shape[0] == multiplicity) else ttnn.to_layout(
+                ttnn.concat([s] * multiplicity, dim=0), ttnn.TILE_LAYOUT)
+            x = a
+            for b in range(self.n_blocks):
+                zs = bias_cache[0][b] if bias_cache is not None else self._superset_bias(
+                    self._pair_bias(p, f"diffusion_transformer.blocks.{b}.attention_pair_bias."),
+                    mask_trunked, NP // self.N_QUERIES)
+                x = self._block_m(x, s_m, None, b, N, NP, multiplicity, None, terms=tb(b), zs=zs)
+            return x
+        ATOM_SUPERSET_STATS[1] += self.n_blocks
         if multiplicity == 1:
             z_pre, pad_bias = bias_cache if bias_cache is not None else (None, self._make_pad_bias(mask_trunked))
             x = a
             for b in range(self.n_blocks):
-                x = self._block(x, s, p, b, N, NP, pad_bias, z_pre=(z_pre[b] if z_pre is not None else None))
+                x = self._block(x, s, p, b, N, NP, pad_bias, z_pre=(z_pre[b] if z_pre is not None else None),
+                                terms=tb(b))
             return x
         # M-aware. Only the per-atom single s needs a real M dim (AdaLN is elementwise);
         # the pair bias z_pre is broadcast over M in _attention_m rather than replicated,
@@ -743,7 +1462,7 @@ class AtomTransformer(_KeyedWeights, Module):
         # protenix._merge_conds) hands in tensors that already carry the M members, so pass
         # those straight through -- same shapes, no copy.
         nb_ = NP // self.N_QUERIES
-        s_m = s if s.shape[0] == multiplicity else ttnn.to_layout(
+        s_m = s if (terms is not None or s.shape[0] == multiplicity) else ttnn.to_layout(
             ttnn.concat([s] * multiplicity, dim=0), ttnn.TILE_LAYOUT)                         # (M,N,c_atom)
         p_m = p if (z_pre is not None or p.shape[0] == multiplicity * nb_) else ttnn.to_layout(
             ttnn.concat([p] * multiplicity, dim=0), ttnn.TILE_LAYOUT)                         # (M*nb,nq,nk,c_ap)
@@ -754,7 +1473,7 @@ class AtomTransformer(_KeyedWeights, Module):
         x = a
         for b in range(self.n_blocks):
             x = self._block_m(x, s_m, p_m, b, N, NP, multiplicity, pad_bias,
-                                z_pre=(z_pre[b] if z_pre is not None else None))
+                                z_pre=(z_pre[b] if z_pre is not None else None), terms=tb(b))
         return x
 
 
@@ -950,11 +1669,16 @@ class DiffusionModule(_KeyedWeights):
         # device_dit path. The paired HSA accuracy and performance gates passed; bf16 remains
         # available as an explicit A/B opt-out through PROTENIX_DIFFUSION_FP32_DEVICE=0.
         self._dit_fp32 = self._diffusion_fp32
-        self._dit_dtype = self.dtype
+        self._dit_dtype = ttnn.bfloat16 if _T.lever("dit_bf16") else self.dtype
         self._dit_ckc = compute_kernel_config   # HiFi4 + fp32_dest_acc_en: dtype is on the tensors
         self.device_dit = True
         DT = "diffusion_transformer."
         sub = lambda pfx: {k[len(pfx):]: v for k, v in self._w.items() if k.startswith(pfx)}
+        # dit_sdpa32: the fp32 DiT's attention as one SDPA program on a token axis padded by
+        # sdpa32_rows; _token_dit_device pads and slices, finish_bias builds the padded mask.
+        self._dit_sdpa32 = _T.lever("dit_sdpa32") and self._dit_dtype == ttnn.float32
+        # dit_mm16 (fp32 DiT) / dit_b8 (bf16 DiT): the DiT's linears at lower operand formats.
+        self._dit_lp = _T.dit_lowp(self._dit_dtype, self._dit_ckc)
         self._dit = []
         for b in range(self.DIT_BLOCKS):
             A = DT + f"blocks.{b}.attention_pair_bias."
@@ -967,27 +1691,48 @@ class DiffusionModule(_KeyedWeights):
                                   softmax_site="protenix.token_dit"),
                 AdaLN(False, remap_adaln(sub(Cc + "adaln.")), self._dit_ckc, dtype=self._dit_dtype),
                 A, Cc))
+            # dit_sdpa: the bf16 DiT's attention takes the fused SDPA (the token-DiT branch)
+            # rather than the explicit matmul/softmax/matmul chain.
+            self._dit[-1][1].token_dit = _T.lever("dit_sdpa") and self._dit_dtype == ttnn.bfloat16
+            self._dit[-1][1].sdpa32 = self._dit_sdpa32
+            if self._dit_lp is not None:
+                self._dit[-1][1].enable_lowp(self._dit_lp)
+        # dit_bpad: the bf16 fused-SDPA DiT runs its whole token axis at `dit_bias_pad_len` (rows are
+        # independent everywhere but the attention, whose staged bias masks the new keys).
+        self._dit_bpad = (_T.lever("dit_bpad") and not self._dit_sdpa32
+                          and all(apb.token_dit for (_, apb, _, _, _) in self._dit))
 
 
     def _up_dit(self, t):
         """Upload an activation/host tensor at the DiT dtype (fp32 when the gate is on)."""
-        return ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=get_device(), dtype=self._dit_dtype)
+        return _T.upload(t, self._dit_dtype)
 
-    def _w_tt_dit(self, key, transpose=True):
-        """Dedicated DiT weight-upload cache at the active diffusion dtype."""
+    def _w_tt_dit(self, key, transpose=True, dtype=None):
+        """Dedicated DiT weight-upload cache at the DiT dtype (or `dtype`)."""
+        dtype = self._dit_dtype if dtype is None else dtype
         cache = self.__dict__.setdefault("_wc_dit", {})
-        v = cache.get((key, transpose))
+        v = cache.get((key, transpose, dtype))
         if v is None:
             w = self._w[key]
             v = ttnn.from_torch(w.t().contiguous() if transpose else w,
-                                layout=ttnn.TILE_LAYOUT, device=get_device(), dtype=self._dit_dtype)
-            cache[(key, transpose)] = v
+                                layout=ttnn.TILE_LAYOUT, device=get_device(), dtype=dtype)
+            cache[(key, transpose, dtype)] = v
+        return v
+
+    def _w_tt_lp(self, key):
+        """A DiT weight, transposed and rounded via bf16 on the host to `_dit_lp.w`."""
+        cache = self.__dict__.setdefault("_wc_dit_lp", {})
+        v = cache.get(key)
+        if v is None:
+            v = ttnn.from_torch(self._w[key].t().contiguous().float().to(torch.bfloat16),
+                                layout=ttnn.TILE_LAYOUT, device=get_device(), dtype=self._dit_lp.w)
+            cache[key] = v
         return v
 
     def _ln_dit(self, x, wkey, bkey=None):
         """Layer norm at the DiT dtype (used for the DiT-output layernorm_a when fp32)."""
-        return ops.layer_norm(x, self._w_tt_dit(wkey, False),
-                              (self._w_tt_dit(bkey, False) if bkey else None),
+        return ops.layer_norm(x, self._w_tt_dit(wkey, False, self.dtype),
+                              (self._w_tt_dit(bkey, False, self.dtype) if bkey else None),
                               epsilon=1e-5, compute_kernel_config=self._dit_ckc)
 
     def _atom_cond(self, cond):
@@ -1030,6 +1775,22 @@ class DiffusionModule(_KeyedWeights):
         mtf = cond["mask_trunked"].float()
         cond["atxE_bias"] = self.atxE.precompute_biases(cond["p_dev"], mtf)
         cond["atxD_bias"] = self.atxD.precompute_biases(cond["p_dev"], mtf)
+        self._atom_terms(cond)
+
+    def _atom_terms(self, cond):
+        """Both atom transformers' conditioning terms (AtomTransformer.cond_terms) from c_la,
+        once per fold. They are 8 tensors of c_la's shape per block, 48 at the shipped depths
+        (145 MB in fp32 at 5,919 atoms), so they are kept only while that is a small share of
+        the free DRAM; otherwise each step recomputes them as before."""
+        c_la = cond["c_la_dev"]
+        c3 = c_la if len(c_la.shape) == 3 else ttnn.reshape(c_la, (1, c_la.shape[0], c_la.shape[-1]))
+        n_terms = 8 * (self.atxE.n_blocks + self.atxD.n_blocks)
+        need = n_terms * _T._padded_bytes(tuple(c3.shape), 4 if self.dtype == ttnn.float32 else 2)
+        if need * 20 > _T.dram_free():
+            cond["atxE_terms"] = cond["atxD_terms"] = None
+            return
+        cond["atxE_terms"] = self.atxE.cond_terms(c3)
+        cond["atxD_terms"] = self.atxD.cond_terms(c3)
 
     def denoise(self, x_noisy, t_hat, cond):
         """x_noisy (1,N,3) host at M=1, (M,N,3) at M>1; t_hat scalar host tensor (1,); cond dict with host
@@ -1064,7 +1825,7 @@ class DiffusionModule(_KeyedWeights):
         r_noisy = x_noisy / torch.sqrt(torch.tensor(sd ** 2) + t_hat ** 2).reshape(-1, 1, 1)
         q_l = ttnn.add(c_la, self._lin(T(r_noisy[0]), E + "linear_no_bias_r.weight"))
         q_out = self.atxE(ttnn.reshape(q_l, (1, N, 128)), ttnn.reshape(c_la, (1, N, 128)), p, mt,
-                          bias_cache=cond.get("atxE_bias"))
+                          bias_cache=cond.get("atxE_bias"), terms=cond.get("atxE_terms"))
         a_tok = ttnn.matmul(cond["Smean_dev"], ttnn.reshape(ttnn.relu(self._lin(q_out, E + "linear_no_bias_q.weight")), (N, 768)),
                             compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN)
         q_skip = q_out; c_skip = c_la; p_skip = p
@@ -1098,7 +1859,7 @@ class DiffusionModule(_KeyedWeights):
                                  compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN),
                      ttnn.reshape(q_skip, (N, 128)))
         qd = self.atxD(ttnn.reshape(q, (1, N, 128)), ttnn.reshape(c_skip, (1, N, 128)), p_skip, mt,
-                       bias_cache=cond.get("atxD_bias"))
+                       bias_cache=cond.get("atxD_bias"), terms=cond.get("atxD_terms"))
         qn = self._ln(qd, DE + "layernorm_q.weight")
         # The device tensor the coordinate update comes off, kept before the host
         # round-trip. `to_torch` is where a tape ends, so a training step that wants a
@@ -1146,7 +1907,7 @@ class DiffusionModule(_KeyedWeights):
         s_single = ss
         q_l = ttnn.add(c_la, self._lin(r_noisy_dev, E + "linear_no_bias_r.weight"))
         q_out = self.atxE(ttnn.reshape(q_l, (1, N, 128)), ttnn.reshape(c_la, (1, N, 128)), p, mt,
-                          bias_cache=cond.get("atxE_bias"))
+                          bias_cache=cond.get("atxE_bias"), terms=cond.get("atxE_terms"))
         a_tok = ttnn.matmul(cond["Smean_dev"], ttnn.reshape(ttnn.relu(self._lin(q_out, E + "linear_no_bias_q.weight")), (N, 768)),
                             compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN)
         q_skip = q_out; c_skip = c_la; p_skip = p
@@ -1166,7 +1927,7 @@ class DiffusionModule(_KeyedWeights):
                                  compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN),
                      ttnn.reshape(q_skip, (N, 128)))
         qd = self.atxD(ttnn.reshape(q, (1, N, 128)), ttnn.reshape(c_skip, (1, N, 128)), p_skip, mt,
-                       bias_cache=cond.get("atxD_bias"))
+                       bias_cache=cond.get("atxD_bias"), terms=cond.get("atxD_terms"))
         qn = self._ln(qd, DE + "layernorm_q.weight")
         return ttnn.reshape(self._lin(qn, DE + "linear_no_bias_out.weight"), (1, N, 3))
 
@@ -1200,22 +1961,142 @@ class DiffusionModule(_KeyedWeights):
             tok = cond["_trace_token"] = object()
         return tok
 
-    def _capture_trace(self, fou, r_noisy, cond, N):
+    def _capture_trace(self, fou, r_noisy, cond, N, M):
+        """Capture one denoise's device stream at (N, M) against `cond`. The two per-step
+        inputs live in persistent device buffers that each replay overwrites."""
         fou_dev = self._up(fou); r_dev = self._up(r_noisy)   # persistent input buffers
-        _ = self._denoise_device(r_dev, fou_dev, cond)       # warmup / compile
-        _ = self._denoise_device(r_dev, fou_dev, cond)       # 2nd warmup: populate any lazy caches
+        if M == 1:
+            run = lambda: self._denoise_device(r_dev, fou_dev, cond)
+        else:
+            run = lambda: self._denoise_device_m(r_dev, fou_dev, cond, M)
+        _ = run()                                            # warmup / compile
+        _ = run()                                            # 2nd warmup: populate any lazy caches
         ttnn.synchronize_device(self.dev)
-        tid = ttnn.begin_trace_capture(self.dev, cq_id=0)
-        out = self._denoise_device(r_dev, fou_dev, cond)     # record
-        ttnn.end_trace_capture(self.dev, tid, cq_id=0)
-        self._trace = {"N": N, "tid": tid, "in_fou": fou_dev, "in_r": r_dev, "out": out,
+        tid, out = _T.capture_trace(self.dev, run)
+        self._trace = {"N": N, "M": M, "tid": tid, "in_fou": fou_dev, "in_r": r_dev, "out": out,
                        "cond": self._cond_token(cond)}
         return self._trace
 
+    def rollout_ok(self, cond, M):
+        """Whether `rollout_device` can run this fold: the traced path's own conditions (device DiT,
+        biases resident), one chunk of one target."""
+        self._atom_cond(cond)
+        if not (self.device_dit and cond.get("dit_z") is not None) or "_members" in cond:
+            return False
+        if "dit_block_biases" not in cond:
+            cond["dit_block_biases"] = self._dit_block_biases(
+                cond["dit_z"], cond.get("structural_pair_attn_bias"))
+        return all(b.storage_type() == ttnn.StorageType.DEVICE for b in cond["dit_block_biases"])
+
+    def rollout_device(self, x, cond, n_step, draw, progress_fn=None):
+        """The whole EDM trajectory with the coordinates resident on the card (lever ``edm_device``).
+
+        `draw(k)` returns step k's (R, tr, eps, t_hat, sigma_t, eta) from the host RNG in the order
+        the host loop draws them, so the random stream is unchanged. The host stages them and
+        enqueues the step; a captured step centres, rotates, translates and noises the
+        coordinates, denoises, and takes the EDM step in fp32 (`edm_device_step_reference`'s order,
+        no atom mask: every Protenix atom is real). Nothing is read back until the last step, so
+        the device runs the steps back to back instead of idling 6-10 ms on each host round trip
+        (state/mol1/evidence/bh/opgap.md). `x` (M, N, 3) host; returns the final coordinates."""
+        from .edm_device import edm_step_scalars, matmul_f32
+        dev, f32 = self.dev, ttnn.float32
+        M, N = x.shape[0], x.shape[1]
+        self._release_trace()                    # this path does not use the denoise-only trace
+        ckc = ttnn.init_device_compute_kernel_config(
+            dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi4, fp32_dest_acc_en=True, packer_l1_acc=False)
+        host = lambda t, dt=f32: ttnn.from_torch(t.float().contiguous(), layout=ttnn.TILE_LAYOUT, dtype=dt)
+        up = lambda t: ttnn.to_device(host(t), dev)
+
+        def inputs(k):
+            R, tr, eps, t_hat, sigma_t, eta = draw(k)
+            sc = edm_step_scalars(t_hat, sigma_t, self.SIGMA_DATA, float(eta))
+            fou = self._fourier(torch.tensor([t_hat], dtype=torch.float32))
+            return ([host(torch.tensor(v, dtype=torch.float64).reshape(1, 1, 1)) for v in sc],
+                    host(fou, self.dtype), host(R), host(tr), host(eps))
+
+        x_dev = up(x)
+        mrow = up(torch.full((M, 1, N), 1.0 / N))
+        first = inputs(0)
+        st_sc = [ttnn.to_device(v, dev) for v in first[0]]
+        st = [ttnn.to_device(v, dev) for v in first[1:]]     # fou, R, tr, eps
+
+        def stage(ins):
+            for src, dst in zip(ins[0] + list(ins[1:]), st_sc + st):
+                ttnn.copy_host_to_device_tensor(src, dst)
+
+        def zero_pad(t):
+            """`t` with its tile padding zeroed. The fill works in place on this ttnn (it hands back
+            the input's buffer), so the result is freed only where it is a separate buffer."""
+            z = ttnn.fill_implicit_tile_padding(t, 0.0)
+            return z, (z.buffer_address() != t.buffer_address())
+
+        def step():
+            inv_s, c_skip, c_out, inv_t, h = st_sc
+            fou, R, tr, eps = st
+            x0, x0_own = zero_pad(x_dev)                        # the mean contracts over the atom tiles
+            mean = matmul_f32(mrow, x0, ckc)                    # (M, 1, 3)
+            xc = ttnn.subtract(x0, mean)
+            xr = matmul_f32(xc, R, ckc)
+            xa = ttnn.add(xr, tr)
+            xn = ttnn.add(xa, eps)
+            r0 = ttnn.multiply(xn, inv_s)
+            r, r_own = zero_pad(r0)                             # the denoise reads what an upload holds
+            rd = ttnn.typecast(r, self.dtype) if self.dtype != f32 else r
+            out = (self._denoise_device(ttnn.reshape(rd, (N, 3)), fou, cond) if M == 1
+                   else self._denoise_device_m(rd, fou, cond, M))
+            ru = ttnn.typecast(out, f32) if out.dtype != f32 else out
+            if ru is not out:
+                ttnn.deallocate(out)
+            a = ttnn.multiply(xn, c_skip)
+            b = ttnn.multiply(ttnn.reshape(ru, (M, N, 3)), c_out)
+            xd = ttnn.add(a, b)
+            d0 = ttnn.subtract(xn, xd)
+            d = ttnn.multiply(d0, inv_t)
+            hd = ttnn.multiply(d, h)
+            xnew = ttnn.add(xn, hd)
+            ttnn.copy(xnew, x_dev)
+            for y in (mean, xc, xr, xa, xn, r0, ru, a, b, xd, d0, d, hd, xnew):
+                ttnn.deallocate(y)
+            for y, own in ((x0, x0_own), (r, r_own), (rd, rd is not r)):
+                if own:
+                    ttnn.deallocate(y)
+
+        tid = None
+        try:
+            for k in range(n_step):
+                if progress_fn:
+                    progress_fn("diffusion", step=k, total=n_step)
+                if k:
+                    stage(inputs(k))
+                if tid is not None:
+                    ttnn.execute_trace(dev, tid, cq_id=0, blocking=False)
+                    continue
+                step()
+                if k + 1 < n_step:
+                    tid = ttnn.begin_trace_capture(dev, cq_id=0)
+                    try:
+                        step()
+                        ttnn.end_trace_capture(dev, tid, cq_id=0)
+                    except Exception as e:
+                        print(f"  [protenix diffusion] edm_device trace capture failed, steps run eagerly: {e}")
+                        try:
+                            ttnn.end_trace_capture(dev, tid, cq_id=0)
+                        except Exception:
+                            pass
+                        ttnn.release_trace(dev, tid)
+                        tid = None
+            return torch.Tensor(ttnn.to_torch(x_dev)).float().reshape(M, N, 3)
+        finally:
+            if tid is not None:
+                ttnn.release_trace(dev, tid)
+            for y in [x_dev, mrow, *st_sc, *st]:
+                ttnn.deallocate(y)
+
     def denoise_traced(self, x_noisy, t_hat, cond):
-        """Traced equivalent of denoise (device_dit path). Falls back to denoise when the
-        device_dit precomputed bias path is unavailable."""
-        import torch
+        """Traced equivalent of denoise (device_dit path), at any sample count M. Falls back
+        to denoise when the device_dit precomputed bias path is unavailable, when a bias is
+        parked on the host, or for a chunk whose M differs from the captured one (the short
+        tail of a chunked step), so a step never recaptures."""
         self._atom_cond(cond)
         if not (self.device_dit and cond.get("dit_z") is not None):
             return self.denoise(x_noisy, t_hat, cond)
@@ -1225,22 +2106,21 @@ class DiffusionModule(_KeyedWeights):
         if any(b.storage_type() != ttnn.StorageType.DEVICE for b in cond["dit_block_biases"]):
             # A trace cannot hold the upload of a parked bias.
             return self.denoise(x_noisy, t_hat, cond)
-        sd = self.SIGMA_DATA; N = cond["c_l"].shape[0]
-        wf = self._w["diffusion_conditioning.fourier_embedding.w"]; bf = self._w["diffusion_conditioning.fourier_embedding.b"]
-        tp = torch.log(t_hat / sd) / 4
-        fou = torch.cos(2 * torch.pi * (tp.unsqueeze(-1) * wf + bf)).contiguous()          # (1,fdim)
-        r_noisy = (x_noisy / torch.sqrt(torch.tensor(sd ** 2) + t_hat ** 2).reshape(-1, 1, 1))[0].contiguous()  # (N,3)
+        N = cond["c_l"].shape[0]; M = x_noisy.shape[0]
+        fou, r_noisy = self._step_inputs(x_noisy, t_hat)
+        fou = fou.contiguous()
+        r_noisy = (r_noisy[0] if M == 1 else r_noisy).contiguous()   # M=1 captures at (N,3)
         tr = getattr(self, "_trace", None)
         if tr is None or tr["N"] != N or tr.get("cond") is not self._cond_token(cond):
             if tr is not None:
                 self._release_trace()
-            tr = self._capture_trace(fou, r_noisy, cond, N)
+            tr = self._capture_trace(fou, r_noisy, cond, N, M)
+        elif tr["M"] != M:
+            return self.denoise(x_noisy, t_hat, cond)
         ttnn.copy_host_to_device_tensor(self._host_tt(fou), tr["in_fou"])
         ttnn.copy_host_to_device_tensor(self._host_tt(r_noisy), tr["in_r"])
         ttnn.execute_trace(self.dev, tr["tid"], cq_id=0, blocking=False)
-        r_update = torch.Tensor(ttnn.to_torch(tr["out"])).float().reshape(1, N, 3)[:, :N]
-        sr = (t_hat / sd).reshape(-1, 1, 1)
-        return (1.0 / (1.0 + sr ** 2)) * x_noisy[:, :N] + (t_hat.reshape(-1, 1, 1) / torch.sqrt(1.0 + sr ** 2)) * r_update
+        return self._precondition(x_noisy, t_hat, torch.Tensor(ttnn.to_torch(tr["out"])).float(), M, N)
 
     # --- windowing helpers (atom encoder p augmentation) ---
     def _winq(self, x, N, NP):
@@ -1294,7 +2174,7 @@ class DiffusionModule(_KeyedWeights):
         the validated trunk-pairformer convention, incl. the head-dim scaling)."""
         import torch.nn.functional as F
         z_h = F.layer_norm(pair_z, (pair_z.shape[-1],)).unsqueeze(0).contiguous()
-        return ttnn.from_torch(z_h, layout=ttnn.TILE_LAYOUT, device=self.dev, dtype=self._dit_dtype)
+        return _T.upload(z_h, self._dit_dtype, self.dev)
 
     def _dit_block_biases(self, z_dev, extra_attn_bias=None):
         """Per-block DiT attention pair biases, computed ONCE per fold from z_dev=LN(pair_z).
@@ -1313,7 +2193,11 @@ class DiffusionModule(_KeyedWeights):
         # scores, the softmax) beside one bias uploaded for its read: keep that free, park the
         # rest. At 2987 structural tokens the 24 biases are 13.9 GB of fp32 on a 12 GiB chip.
         NT = int(z_dev.shape[-2])
-        one = _T._padded_bytes((1, self.DIT_N_HEADS, NT, NT),
+        if self._dit_sdpa32:
+            NT = _T.sdpa32_rows(NT)
+        # dit_bpad: each bias staged once at the DiT's padded token axis (`_token_dit_device`).
+        to = _T.dit_bias_pad_len(NT) if self._dit_bpad else NT
+        one = _T._padded_bytes((1, self.DIT_N_HEADS, to, to),
                                4 if self._dit_dtype == ttnn.float32 else 2)
         reserve = 4 * one
         # Each DRAM reading drains the pipeline, and 48 of them cost a 20-residue fold 100 ms.
@@ -1325,7 +2209,10 @@ class DiffusionModule(_KeyedWeights):
             b = apb.compute_bias(z_dev)
             if extra is not None:
                 b = ttnn.add(b, extra)
-            biases.append(place(b, reserve))
+            fb = apb.finish_bias(b)
+            if fb is not b:
+                ttnn.deallocate(b)
+            biases.append(place(_T.pad_dit_bias(fb, NT, to), reserve))
         # z_dev's only reader was this loop, and the room it frees takes parked biases back.
         ttnn.deallocate(z_dev)
         if not fits:
@@ -1354,25 +2241,101 @@ class DiffusionModule(_KeyedWeights):
             a_t = ttnn.typecast(a_t, self._dit_dtype)
             s_t = ttnn.typecast(s_t, self._dit_dtype)
         wtt = self._w_tt_dit if self._dit_fp32 else self._w_tt
+        NP = (_T.sdpa32_rows(NT) if self._dit_sdpa32 else
+              _T.dit_bias_pad_len(NT) if self._dit_bpad else NT)
+        if NP != NT:
+            # Rows are independent everywhere but the attention, whose mask hides the new keys.
+            a_t, s_t = (ttnn.pad(x, [(0, 0)] * (len(x.shape) - 2) + [(0, NP - NT), (0, 0)], value=0.0)
+                        for x in (a_t, s_t))
 
         def linb(x, wk, bk=None, act=None):
             return ttnn.linear(x, wtt(wk), bias=(wtt(bk, False) if bk else None), activation=act,
-                               compute_kernel_config=ckc, core_grid=CORE_GRID_MAIN)
+                               compute_kernel_config=_T.silu_ckc(ckc) if act == "silu" else ckc,
+                               core_grid=CORE_GRID_MAIN)
+        lp = self._dit_lp
+        # dit_mm16 / dit_b8: each adaLN writes lp.act, read only by linears; the transition's two
+        # hidden linears write bf16, their product lp.mid into linear_nobias_b, which writes lp.out.
+        ln_dt = lp.act if lp else None
+
+        def linlp(x, wk, dtype, act=None):
+            return lp.linear(x, self._w_tt_lp(wk), dtype=dtype, activation=act)
+        # dit_shoist: every block's s-terms as three wide linears a step, read in place (`addcmul_at`).
+        wide = self._dit_shoist(s_t) if _T.lever("dit_shoist") else None
+        W = lambda t, j: _T._ColWin(t, j * 768, 768)  # noqa: E731
+
+        def gated(x, y, j, wk, bk):
+            out = _T._win_addcmul(x, y, W(wide[2], j)) if wide else None
+            if out is None and _T.lever("dit_mod16") and x.dtype == ttnn.bfloat16:
+                g = ttnn.sigmoid(linb(s_t, wk, bk))
+                out = ttnn.addcmul(x, y, g, value=1.0)
+                ttnn.deallocate(g)
+            if out is None:
+                out = gated_add(x, y, ttnn.sigmoid(linb(s_t, wk, bk)))
+            return out
         for _bi, ((adaln_a, apb, ctb_adaln, A, Cc), bias) in enumerate(zip(self._dit, biases)):
-            b = adaln_a(a_t, s_t)
+            terms = (lambda j: _T._SigTerms((W(wide[0], j), W(wide[1], j)))) if wide else (lambda j: None)
+            b = adaln_a(a_t, s_t, dtype=ln_dt, s_terms=terms(2 * _bi))
             bias_dev = _T.host_unpark(bias)
             attn = apb(b, bias_dev, bias_precomputed=True)
             if bias_dev is not bias:
                 ttnn.deallocate(bias_dev)
             dram_peak(f"dit[M={a_t.shape[0]}] block {_bi}")
-            sg = ttnn.sigmoid(linb(s_t, A + "linear_a_last.weight", A + "linear_a_last.bias"))
-            ao = ttnn.add(ttnn.multiply(attn, sg), a_t)
-            an2 = ctb_adaln(ao, s_t)
-            bb = ttnn.multiply(linb(an2, Cc + "linear_nobias_a1.weight", act="silu"),
-                               linb(an2, Cc + "linear_nobias_a2.weight"))
-            cs = ttnn.sigmoid(linb(s_t, Cc + "linear_s.weight", Cc + "linear_s.bias"))
-            a_t = ttnn.add(ttnn.multiply(cs, linb(bb, Cc + "linear_nobias_b.weight")), ao)
-        return a_t
+            ao = gated(a_t, attn, 2 * _bi, A + "linear_a_last.weight", A + "linear_a_last.bias")
+            an2 = ctb_adaln(ao, s_t, dtype=ln_dt, s_terms=terms(2 * _bi + 1))
+            if lp:
+                bb = ttnn.multiply(linlp(an2, Cc + "linear_nobias_a1.weight", ttnn.bfloat16, "silu"),
+                                   linlp(an2, Cc + "linear_nobias_a2.weight", ttnn.bfloat16), dtype=lp.mid)
+            else:
+                bb = ttnn.multiply(linb(an2, Cc + "linear_nobias_a1.weight", act="silu"),
+                                   linb(an2, Cc + "linear_nobias_a2.weight"))
+            a_t = gated(ao, linlp(bb, Cc + "linear_nobias_b.weight", lp.out) if lp
+                        else linb(bb, Cc + "linear_nobias_b.weight"), 2 * _bi + 1,
+                        Cc + "linear_s.weight", Cc + "linear_s.bias")
+        if wide:
+            for t in wide:
+                ttnn.deallocate(t)
+        a_t = a_t[:, :NT, :] if NP != NT else a_t
+        return ttnn.typecast(a_t, self.dtype) if a_t.dtype != self.dtype else a_t
+
+    def _dit_shoist(self, s_t):
+        """`dit_shoist`: `(sigmoid scales, shifts, sigmoid gates)` of all 24 blocks as three wide
+        linears off this step's `s_t`, two 768-column windows a block in order (attention, transition).
+        The adaLN terms take the s-norm's gamma folded into their weights (`AdaLN.folded_weights`),
+        as Boltz-2's hoisted conditioning does."""
+        dt = s_t.dtype
+        ws = self.__dict__.setdefault("_dit_shoist_w", {})
+        if dt not in ws:
+            sw, sb, bw, gw, gb = [], [], [], [], []
+            for adaln_a, _apb, ctb_adaln, A, Cc in self._dit:
+                for ad in (adaln_a, ctb_adaln):
+                    w_sc, b_sc, w_sb = ad.folded_weights()
+                    sw.append(w_sc); sb.append(b_sc); bw.append(w_sb)
+                for pre in (A + "linear_a_last.", Cc + "linear_s."):
+                    gw.append(self._w[pre + "weight"].t()); gb.append(self._w[pre + "bias"])
+            up = lambda t: ttnn.from_torch(t.float().contiguous(), dtype=dt, layout=ttnn.TILE_LAYOUT,  # noqa: E731
+                                           device=self.dev)
+            ws[dt] = (up(torch.cat(sw, 1)), up(torch.cat(sb, 0).reshape(1, -1)), up(torch.cat(bw, 1)),
+                      up(torch.cat(gw, 1)), up(torch.cat(gb, 0).reshape(1, -1)))
+        w_sc, b_sc, w_sb, w_g, b_g = ws[dt]
+        ckc = self._dit_ckc
+        s_hat = ttnn.layer_norm(s_t, epsilon=1e-5, compute_kernel_config=ckc)
+        lin = lambda x, w, b=None, act=None: ttnn.linear(  # noqa: E731
+            x, w, bias=b, activation=act, compute_kernel_config=ckc, core_grid=CORE_GRID_MAIN)
+        sig = _T.mm_sigmoid(ckc)
+        if _T.lever("dit_shoist_mm") and sig == "sigmoid":
+            # ttnn.linear's own schedule reads these [N, 384] x [384, 36864] at ~57 GB/s; a 2 x 16 tile block per core
+            # runs 2.2x (fp32) / 2.0x (bf16) faster at the same fidelity and the same float64 error (shm2, WH). K block 1
+            # only: minimal_matmul returned elements off by 4-8 at fp32 with K block >= 2 and at bf16 with K block 12.
+            gx, gy = _T.COMPUTE_GRID_MAIN
+            cfg = ttnn.MinimalMatmulConfig(M_block_size=2, K_block_size=1,
+                                           N_block_size=16, subblock_h=1, subblock_w=4,
+                                           compute_with_storage_grid_size=ttnn.CoreCoord(gx, gy))
+            lin = lambda x, w, b=None, act=None: ttnn.experimental.minimal_matmul(  # noqa: E731
+                x, w, bias_tensor=b, compute_kernel_config=ckc, dtype=dt, config=cfg,
+                fused_activation=ttnn.UnaryWithParam(ttnn.UnaryOpType.SIGMOID) if act else None)
+        out = (lin(s_hat, w_sc, b_sc, sig), lin(s_hat, w_sb), lin(s_t, w_g, b_g, sig))
+        ttnn.deallocate(s_hat)
+        return out
 
 
     def _denoise_multiplicity(self, x_noisy, t_hat, cond):
@@ -1380,34 +2343,65 @@ class DiffusionModule(_KeyedWeights):
         carries the leading M batch dim through the atom encoder, token DiT, and atom
         decoder. Shared conditioning (cond: c_la_dev, p_dev, Smean_dev, S_dev, atxE_bias,
         atxD_bias, dit_block_biases) is sample-invariant, so it keeps its leading dim of 1
-        and is broadcast over M; only the coordinate stream x_noisy carries M. The two
-        atom<->token pooling matrices are the exception -- ttnn matmul has no batch
-        broadcast -- so those are replicated (see Smean_m / S_m below).
+        and is broadcast over M; only the coordinate stream x_noisy carries M.
         Returns denoised coords (M,N,3) host."""
-        import torch.nn.functional as F
         self._atom_cond(cond)
         M = x_noisy.shape[0]
-        s_inputs = cond["s_inputs"]
+        N = cond["c_l"].shape[0]
+        fou, r_noisy = self._step_inputs(x_noisy, t_hat)
+        r_dev = self._denoise_device_m(self._up(r_noisy), self._up(fou), cond, M)
+        return self._precondition(x_noisy, t_hat, torch.Tensor(ttnn.to_torch(r_dev)).float(), M, N)
+
+    def _step_inputs(self, x_noisy, t_hat):
+        """The two per-step host inputs of the device denoise: fourier(t_hat) (1,fdim) and
+        the scaled noisy coordinates (M,N,3)."""
         sd = self.SIGMA_DATA
+        r_noisy = x_noisy / torch.sqrt(torch.tensor(sd ** 2) + t_hat ** 2).reshape(-1, 1, 1)
+        return self._fourier(t_hat), r_noisy
+
+    def _fourier(self, t_hat):
+        """fourier(t_hat), (1, fdim): the noise level's embedding, the step's other host input."""
+        wf = self._w["diffusion_conditioning.fourier_embedding.w"]
+        bf = self._w["diffusion_conditioning.fourier_embedding.b"]
+        tp = torch.log(t_hat / self.SIGMA_DATA) / 4
+        return torch.cos(2 * torch.pi * (tp.unsqueeze(-1) * wf + bf))
+
+    def _precondition(self, x_noisy, t_hat, r_update, M, N):
+        """EDM preconditioning of the network output (t_hat broadcasts over M)."""
+        sd = self.SIGMA_DATA
+        r_update = r_update.reshape(M, N, 3)[:, :N]
+        sr = (t_hat / sd).reshape(-1, 1, 1)
+        return (1.0 / (1.0 + sr ** 2)) * x_noisy[:, :N] + (t_hat.reshape(-1, 1, 1) / torch.sqrt(1.0 + sr ** 2)) * r_update
+
+    def _pool_mats(self, cond, M):
+        """The atom->token mean-pool and token->atom broadcast matrices with a sample axis of
+        M. ttnn matmul has no batch broadcast for its first operand, so they are replicated;
+        the copies depend only on the fold and M, so they are made once per fold rather than
+        at every step. A merged cond (protenix._merge_conds) already carries one per member."""
+        key = ("_pool_m", M)
+        if key not in cond:
+            N = cond["c_l"].shape[0]; NT = cond["s_inputs"].shape[0]
+            sm, s = cond["Smean_dev"], cond["S_dev"]
+            cond[key] = (sm if len(sm.shape) == 3 else stack_samples([ttnn.reshape(sm, (1, NT, N))] * M),
+                         s if len(s.shape) == 3 else stack_samples([ttnn.reshape(s, (1, N, NT))] * M))
+        return cond[key]
+
+    def _denoise_device_m(self, r_noisy_dev, fou_dev, cond, M):
+        """The device half of one batched denoise: (M,N,3) scaled coordinates and (1,fdim)
+        fourier features, both already on the device, -> r_update (M,N,3) on the device,
+        before preconditioning. No host transfer, so it can be captured as a trace."""
+        s_inputs = cond["s_inputs"]
         N = cond["c_l"].shape[0]; NT = s_inputs.shape[0]
-        T = self._up
         E = "atom_attention_encoder."
         mt = cond["mask_trunked"].float()
         c_la = cond["c_la_dev"]; p = cond["p_dev"]
-        # A merged cond (protenix._merge_conds) already carries one entry per member, so
-        # every replication below is a pass-through there; sample batching keeps its
-        # leading dim of 1 and gets the copy.
-        rep = lambda t: t if t.shape[0] == M else stack_samples([t] * M)
         # c_la_dev is 2D (N,128) (see _atom_cond) and sample-invariant, so it is kept at
         # (1,N,128) and broadcast over M. Merged it is already (M,N,128).
         c_la_1 = c_la if len(c_la.shape) == 3 else ttnn.reshape(c_la, (1, N, 128))
+        Smean_m, S_m = self._pool_mats(cond, M)
 
         # 1) single conditioning: shared (t-independent base + per-step fourier(t_hat)).
-        wf = self._w["diffusion_conditioning.fourier_embedding.w"]
-        bf = self._w["diffusion_conditioning.fourier_embedding.b"]
-        tp = torch.log(t_hat / sd) / 4
-        fou = torch.cos(2 * torch.pi * (tp.unsqueeze(-1) * wf + bf))
-        nn_ = self._lin(self._ln(T(fou), "diffusion_conditioning.layernorm_n.weight"),
+        nn_ = self._lin(self._ln(fou_dev, "diffusion_conditioning.layernorm_n.weight"),
                         "diffusion_conditioning.linear_no_bias_n.weight")
         _ssb = cond["ss_base"]
         _cs = _ssb.shape[-1]
@@ -1418,16 +2412,13 @@ class DiffusionModule(_KeyedWeights):
         s_single = ss   # (1, NT, c) shared across M
 
         # 2) atom encoder: coordinate-dependent path with M-leading q_l.
-        r_noisy = x_noisy / torch.sqrt(torch.tensor(sd ** 2) + t_hat ** 2).reshape(-1, 1, 1)
-        q_l = ttnn.add(self._lin(T(r_noisy), E + "linear_no_bias_r.weight"), c_la_1)  # (M,N,128)
+        q_l = ttnn.add(self._lin(r_noisy_dev, E + "linear_no_bias_r.weight"), c_la_1)  # (M,N,128)
         q_out = self.atxE(q_l, c_la_1, p, mt,
-                          bias_cache=cond.get("atxE_bias"), multiplicity=M)   # (M,N,128)
+                          bias_cache=cond.get("atxE_bias"), multiplicity=M,
+                          terms=cond.get("atxE_terms"))   # (M,N,128)
         qo_lin = ttnn.relu(self._lin(q_out, E + "linear_no_bias_q.weight"))   # (M,N,768)
-        _smean = cond["Smean_dev"]
-        Smean_m = _smean if len(_smean.shape) == 3 else stack_samples(
-            [ttnn.reshape(_smean, (1, NT, N))] * M)
         a_tok = ttnn.matmul(Smean_m, qo_lin, compute_kernel_config=self.compute_kernel_config,
-                           core_grid=CORE_GRID_MAIN)                          # (M,NT,768)
+                            core_grid=CORE_GRID_MAIN)                         # (M,NT,768)
         _Ms = s_single.shape[0]                       # 1 when shared, M when merged
         s_bias = ttnn.reshape(
             self._lin(self._ln(ttnn.reshape(s_single, (_Ms * NT, s_single.shape[-1])),
@@ -1435,7 +2426,7 @@ class DiffusionModule(_KeyedWeights):
                       "linear_no_bias_s.weight"), (_Ms, NT, 768))
         a_tok = ttnn.add(a_tok, s_bias)                                       # (M,NT,768), s_bias bcast
 
-        # 3) token DiT (device_dit path): M-leading a_t/s_t; per-block biases broadcast.
+        # 3) token DiT (device_dit path): M-leading a_t; per-block biases broadcast.
         if self.device_dit and cond.get("dit_z") is not None:
             if "dit_block_biases" not in cond:
                 cond["dit_block_biases"] = self._dit_block_biases(
@@ -1444,7 +2435,10 @@ class DiffusionModule(_KeyedWeights):
             # broadcast over M in the QK-scale add. Replicating it (M copies of 24 x
             # (n_heads,NT,NT)) was the multiplicity path's dominant allocation: 1.9 GB per
             # copy at NT=1095 in fp32, i.e. ~9.6 GB at M=5.
-            a_t = self._token_dit_device(ttnn.reshape(a_tok, (M, NT, 768)), rep(s_single),
+            # s_single depends on the step, not the sample: every DiT term that reads only it
+            # (the AdaLN scale/shift and both output gates) runs once at a leading dim of 1 and
+            # broadcasts over M, instead of M times on replicated copies.
+            a_t = self._token_dit_device(ttnn.reshape(a_tok, (M, NT, 768)), s_single,
                                          cond["dit_block_biases"], NT)
             a_t = (self._ln_dit if self._dit_fp32 else self._ln)(a_t, "layernorm_a.weight")
         else:
@@ -1454,25 +2448,18 @@ class DiffusionModule(_KeyedWeights):
                 torch.Tensor(ttnn.to_torch(ttnn.reshape(a_tok[m:m + 1], (1, NT, 768)))).float().reshape(NT, 768),
                 torch.Tensor(ttnn.to_torch(s_single)).float().reshape(NT, s_single.shape[-1]),
                 biases, NT) for m in range(M)], 0)
-            a_t = self._ln(T(a_h.reshape(M, NT, 768)), "layernorm_a.weight")
+            a_t = self._ln(self._up(a_h.reshape(M, NT, 768)), "layernorm_a.weight")
 
         # 4) atom decoder: q = S_dev @ lin(a_t) + q_out.
         DE = "atom_attention_decoder."
         a_lin = self._lin(ttnn.reshape(a_t, (M, NT, 768)), DE + "linear_no_bias_a.weight")
-        _sdev = cond["S_dev"]
-        S_m = _sdev if len(_sdev.shape) == 3 else stack_samples(
-            [ttnn.reshape(_sdev, (1, N, NT))] * M)
         q = ttnn.add(ttnn.matmul(S_m, a_lin, compute_kernel_config=self.compute_kernel_config,
                                  core_grid=CORE_GRID_MAIN), q_out)            # (M,N,128)
         qd = self.atxD(q, c_la_1, p, mt,
-                       bias_cache=cond.get("atxD_bias"), multiplicity=M)      # (M,N,128)
+                       bias_cache=cond.get("atxD_bias"), multiplicity=M,
+                       terms=cond.get("atxD_terms"))      # (M,N,128)
         qn = self._ln(qd, DE + "layernorm_q.weight")
-        r_update = torch.Tensor(ttnn.to_torch(self._lin(qn, DE + "linear_no_bias_out.weight"))
-                                ).float().reshape(M, N, 3)[:, :N]
-
-        # EDM preconditioning (t_hat broadcasts over M).
-        sr = (t_hat / sd).reshape(-1, 1, 1)
-        return (1.0 / (1.0 + sr ** 2)) * x_noisy[:, :N] + (t_hat.reshape(-1, 1, 1) / torch.sqrt(1.0 + sr ** 2)) * r_update
+        return self._lin(qn, DE + "linear_no_bias_out.weight")
 
 
 class ConfidenceHead:
@@ -1505,6 +2492,13 @@ class ConfidenceHead:
         self.pf = Pairformer(nb, chpa, nhp, 384 // apb_nh, apb_nh, True, comb,
                              compute_kernel_config, gated_move=gated_move,
                              accurate_softmax=accurate_softmax_site(f"{softmax_scope}.confidence", default=True))
+        # The single track runs on the host in fp32 (`_s_path`); the device runs the pair track and hands back each
+        # block's pair bias. The 4-block stack amplifies any bf16 rounding of s 3-7x per block, so a bf16 or tf32 s
+        # path reads pLDDT 0.01-0.06 off upstream fp32, while z in bf16 costs nothing (state/mol1/evidence/whl4/ROOT.md).
+        self._biases = []
+        for b in self.pf.blocks:
+            b.s_on_host = self._biases
+        self._bias_scale = [b.attention_pair_bias._bias_scale for b in self.pf.blocks]
 
     def _g(self, k):
         return self._w[k].float()
@@ -1517,31 +2511,101 @@ class ConfidenceHead:
         PAE / PDE matrices (Angstrom). All inputs host tensors; coords (N_atom,3). Recipe
         validated vs the real v2 reference (pae/pde PCC 1.0, plddt ~0.93;
         scripts/protenix_confidence_parity.py)."""
+        return self.confidence_samples(s_inputs, s_trunk, z_trunk, [coords], feats)[0]
+
+    def confidence_samples(self, s_inputs, s_trunk, z_trunk, coords, feats, keep_logits=False):
+        """`confidence` for every sample in `coords`, one dict each, bit-identical to calling it
+        per sample. The host work is what the chip waited on: 24 s of a 730-token, 5-sample
+        Protenix-v2 fold on Wormhole sat idle ahead of the confidence pairformers. So the
+        sample-invariant part of z is built once, and each sample's host-side z build and the
+        previous sample's host heads run while the chip runs a pairformer. One sample's
+        tensors are on the chip at a time, as before: the previous result is read back before
+        the next input is uploaded."""
         import torch
         import torch.nn.functional as F
         N = s_trunk.shape[0]
+        # Tilized on the host, off the device's critical path, and cast to bf16 by torch first (the
+        # same round-to-nearest-even ttnn applies, ~4x faster to tilize); only the copy waits.
+        H = lambda x: ttnn.from_torch(x.to(torch.bfloat16), layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16)
         s_t = F.layer_norm(torch.clamp(s_trunk, -512, 512), (384,)) * self._g("input_strunk_ln.weight") + self._bias("input_strunk_ln.bias")
-        z = (z_trunk + F.linear(s_inputs, self._g("linear_no_bias_s1.weight")).unsqueeze(1)
-             + F.linear(s_inputs, self._g("linear_no_bias_s2.weight")).unsqueeze(0))
+        z_base = (z_trunk + F.linear(s_inputs, self._g("linear_no_bias_s1.weight")).unsqueeze(1)
+                  + F.linear(s_inputs, self._g("linear_no_bias_s2.weight")).unsqueeze(0))
         mask = feats["distogram_rep_atom_mask"].bool()
-        xr = coords.reshape(-1, 3)[mask]
-        d = torch.cdist(xr, xr)
-        oh = ((d.unsqueeze(-1) >= self._g("lower_bins")) & (d.unsqueeze(-1) < self._g("upper_bins"))).float()
-        z = z + F.linear(oh, self._g("linear_no_bias_d.weight")) + F.linear(d.unsqueeze(-1), self._g("linear_no_bias_d_wo_onehot.weight"))
-        T = lambda x: ttnn.from_torch(x.float(), layout=ttnn.TILE_LAYOUT, device=self.dev, dtype=ttnn.bfloat16)
-        so, zo = bucketed_pairformer(self.pf, T(s_t.unsqueeze(0)), T(z.unsqueeze(0)), self.dev)
-        s_single = torch.Tensor(ttnn.to_torch(so)).float().reshape(N, 384)
-        zf = torch.Tensor(ttnn.to_torch(zo)).float().reshape(N, N, -1)
 
+        def z_of(x):
+            xr = x.reshape(-1, 3)[mask]
+            d = torch.cdist(xr, xr)
+            oh = ((d.unsqueeze(-1) >= self._g("lower_bins")) & (d.unsqueeze(-1) < self._g("upper_bins"))).float()
+            return (z_base + F.linear(oh, self._g("linear_no_bias_d.weight"))
+                    + F.linear(d.unsqueeze(-1), self._g("linear_no_bias_d_wo_onehot.weight")))
+
+        def read(held):
+            so, zo, dev_biases = held
+            zf = torch.Tensor(ttnn.to_torch(zo)).float().reshape(N, N, -1)
+            biases = [torch.Tensor(ttnn.to_torch(b)) for b in dev_biases]
+            for t in (so, zo, *dev_biases):
+                ttnn.deallocate(t)
+            return self._s_path(s_t, biases), zf
+
+        out, held = [], None
+        s_h = ttnn.from_torch(s_t.unsqueeze(0).float(), layout=ttnn.TILE_LAYOUT, dtype=ttnn.float32)
+        for x in coords:
+            z_h = H(z_of(x).unsqueeze(0))                  # host, while the chip runs the last pairformer
+            done = read(held) if held is not None else None
+            held = (*bucketed_pairformer(self.pf, ttnn.to_device(s_h, self.dev), ttnn.to_device(z_h, self.dev),
+                                         self.dev), self._take_biases())
+            if done is not None:
+                out.append(self._heads(*done, feats, keep_logits))  # host, while the chip runs this one
+        out.append(self._heads(*read(held), feats, keep_logits))
+        return out
+
+    def _take_biases(self):
+        """This sample's per-block pair biases, as the device left them, and an empty list for the next."""
+        out = list(self._biases)
+        self._biases.clear()
+        return out
+
+    def _s_path(self, s, biases):
+        """The confidence Pairformer's single track on the host in fp32: per block, upstream's AttentionPairBias
+        on s (with the device's pair bias, (1,H,Np,Np) scaled by `_bias_scale`) and its single Transition."""
+        import torch
+        import torch.nn.functional as F
+        N, C = s.shape
+        for i, b in enumerate(biases):
+            p = f"pairformer_stack.blocks.{i}."
+            a, t = p + "attention_pair_bias.", p + "single_transition."
+            b = torch.as_tensor(b).float().reshape(-1, *b.shape[-3:])[0, :, :N, :N] / self._bias_scale[i]
+            H = b.shape[0]
+            x = F.layer_norm(s, (C,), self._g(a + "layernorm_a.weight"), self._g(a + "layernorm_a.bias"))
+            heads = lambda w, bias=None: F.linear(x, self._g(a + w), bias).reshape(N, H, -1).transpose(0, 1)  # noqa: E731
+            q = heads("attention.linear_q.weight", self._g(a + "attention.linear_q.bias"))
+            k, v = heads("attention.linear_k.weight"), heads("attention.linear_v.weight")
+            o = torch.softmax(q @ k.transpose(-1, -2) * q.shape[-1] ** -0.5 + b, -1) @ v
+            o = o.transpose(0, 1).reshape(N, C) * torch.sigmoid(F.linear(x, self._g(a + "attention.linear_g.weight")))
+            s = s + F.linear(o, self._g(a + "attention.linear_o.weight"))
+            x = F.layer_norm(s, (C,), self._g(t + "layernorm1.weight"), self._g(t + "layernorm1.bias"))
+            s = s + F.linear(F.silu(F.linear(x, self._g(t + "linear_no_bias_a.weight")))
+                             * F.linear(x, self._g(t + "linear_no_bias_b.weight")), self._g(t + "linear_no_bias.weight"))
+        return s
+
+    def _heads(self, s_single, zf, feats, keep_logits=False):
+        """pae / pde / plddt heads on the host from the pairformer's (s_single, z)."""
+        import torch
+        import torch.nn.functional as F
         pae_logits = F.linear(F.layer_norm(zf, (zf.shape[-1],)) * self._g("pae_ln.weight") + self._bias("pae_ln.bias"),
                               self._g("linear_no_bias_pae.weight"))                          # (N,N,n_bins)
         pde_logits = F.linear(F.layer_norm(zf + zf.transpose(0, 1), (zf.shape[-1],)) * self._g("pde_ln.weight") + self._bias("pde_ln.bias"),
                               self._g("linear_no_bias_pde.weight"))                          # (N,N,n_bins)
+        return self._postprocess(pae_logits, pde_logits, self._plddt_logits(s_single, feats), feats, keep_logits)
+
+    def _plddt_logits(self, s_single, feats):
+        """The plddt head on the host in fp32, from the pairformer's (N, 384) single track: it reads the per-token
+        part of the small channels, which a bf16 gather or layer norm on the device erases."""
+        import torch
+        import torch.nn.functional as F
         a2t = feats["atom_to_token_idx"].long(); a2ta = feats["atom_to_tokatom_idx"].long()
-        a = s_single[a2t]
-        aln = F.layer_norm(a, (384,)) * self._g("plddt_ln.weight") + self._bias("plddt_ln.bias")
-        plddt_logits = torch.einsum("nc,ncb->nb", aln, self._g("plddt_weight")[a2ta])        # (N_atom, n_bins)
-        return self._postprocess(pae_logits, pde_logits, plddt_logits, feats)
+        aln = F.layer_norm(s_single[a2t], (384,)) * self._g("plddt_ln.weight") + self._bias("plddt_ln.bias")
+        return torch.einsum("nc,ncb->nb", aln, self._g("plddt_weight")[a2ta])                # (N_atom, n_bins)
 
     # ---------------------------------------------------------------------------
     # Device-resident confidence path (opt-in). The host path (confidence())
@@ -1553,18 +2617,16 @@ class ConfidenceHead:
     # sample-invariant z_base = z_trunk + s1(s_inputs)[:,None] + s2(s_inputs)
     # [None,:] is computed ONCE on device, and per-sample only the (N,3) coords
     # are uploaded; the distance-embed + Pairformer + pae/pde/plddt heads all
-    # run on device, and only the small final logits (pae/pde (N,N,64), plddt
-    # (N_atom,50)) are downloaded. Feature-detected + gated behind
-    # TT_PROTENIX_CONF_DEVICE=1; off by default until PCC is verified (plddt is
-    # precision-sensitive: the host path is already PCC ~0.93 vs the reference,
-    # and moving the einsum to bf16 can regress it -- see the parity harness).
+    # run on device (plddt on the host from the downloaded (N,384) single track), and
+    # only the small finals (pae/pde (N,N,64), s (N,384)) are downloaded. Feature-detected + gated behind
+    # TT_PROTENIX_CONF_DEVICE, on by default: it passed the normal-mode grade on
+    # Wormhole (11 complexes x 4 seeds) for Protenix-v2 (pLDDT within 0.003 per
+    # complex) and for OpenDDE (coordinates unchanged, CA-lDDT +0.0009).
     # ---------------------------------------------------------------------------
-    @staticmethod
-    def device_confidence_enabled():
-        """True only if the user opted in (TT_PROTENIX_CONF_DEVICE=1) AND the
-        installed ttnn exposes every op the device path needs. Off otherwise
-        (the host-heads path in confidence() is the default)."""
-        if not env_flag("TT_PROTENIX_CONF_DEVICE", False):
+    def device_confidence_enabled(self):
+        """True if TT_PROTENIX_CONF_DEVICE (default on) asks for it AND the installed
+        ttnn exposes every op the device path needs. Otherwise confidence() runs its host heads."""
+        if not env_flag("TT_PROTENIX_CONF_DEVICE", True):
             return False
         import ttnn
         need = ("clamp", "ge", "lt", "sqrt", "embedding", "layer_norm", "linear",
@@ -1607,24 +2669,21 @@ class ConfidenceHead:
         T = lambda x: ttnn.from_torch(x.float(), layout=ttnn.TILE_LAYOUT, device=self.dev, dtype=ttnn.bfloat16)
         N = s_trunk.shape[0]
         s_t_h = F.layer_norm(torch.clamp(s_trunk, -512, 512), (384,)) * self._g("input_strunk_ln.weight") + self._bias("input_strunk_ln.bias")
-        s_t = T(s_t_h.unsqueeze(0))                                       # (1,N,384)
-        # coords gather: which atoms pass distogram_rep_atom_mask (== N tokens)
-        mask = feats["distogram_rep_atom_mask"].bool()
-        idx = torch.nonzero(mask, as_tuple=False).reshape(-1).to(torch.int32)   # (N,)
-        idx_dev = ttnn.from_torch(idx.reshape(1, N), layout=ttnn.ROW_MAJOR_LAYOUT, device=self.dev, dtype=ttnn.uint32)
-        # plddt per-atom-type weight table (24, 384, 50) -> flat (24, 384*50) for embedding gather
-        pw = self._g("plddt_weight")                                       # (n_tokatom, 384, 50)
-        n_ta, c, nb = pw.shape
-        pw_dev = ttnn.from_torch(pw.reshape(n_ta, c * nb).contiguous(), layout=ttnn.ROW_MAJOR_LAYOUT,
-                                 device=self.dev, dtype=ttnn.bfloat16)
-        a2ta = feats["atom_to_tokatom_idx"].long().to(torch.int32).reshape(-1, 1)  # (N_atom,1)
-        a2ta_dev = ttnn.from_torch(a2ta, layout=ttnn.ROW_MAJOR_LAYOUT, device=self.dev, dtype=ttnn.uint32)
-        a2t = feats["atom_to_token_idx"].long().to(torch.int32).reshape(-1, 1)     # (N_atom,1) -> s_single gather
-        a2t_dev = ttnn.from_torch(a2t, layout=ttnn.ROW_MAJOR_LAYOUT, device=self.dev, dtype=ttnn.uint32)
-        cache.update(tag=tag, s_t=s_t, z_base=z_base_dev, idx_dev=idx_dev, N=N,
-                     pw_dev=pw_dev, a2ta_dev=a2ta_dev, a2t_dev=a2t_dev,
-                     pw_shape=(n_ta, c, nb))
+        s_t = ttnn.from_torch(s_t_h.unsqueeze(0).float(), layout=ttnn.TILE_LAYOUT, device=self.dev,
+                              dtype=ttnn.float32)                         # (1,N,384), fp32 like the head's track
+        # Distance bins in fp32, so the bin of every pair is the host path's (the edges are bf16-exact).
+        F32 = lambda k: ttnn.from_torch(self._g(k).reshape(1, 1, 1, -1), layout=ttnn.TILE_LAYOUT,
+                                        device=self.dev, dtype=ttnn.float32)
+        lb4, ub4 = F32("lower_bins"), F32("upper_bins")
+        cache.update(tag=tag, s_t=s_t, s_t_h=s_t_h.float(), z_base=z_base_dev, lb4=lb4, ub4=ub4, N=N)
         return cache
+
+    def drop_device_resident(self):
+        """Free what _device_resident cached for this fold, z_base included. Held, the next fold's
+        trunk ran beside them and its pair transition was refused DRAM at c730."""
+        for v in self.__dict__.pop("_dev_res", {}).values():
+            if isinstance(v, ttnn.Tensor):
+                ttnn.deallocate(v)
 
     def z_base_device(self, s_inputs, s_trunk, z_trunk):
         """Build the sample-invariant z_base = z_trunk + s1(s_inputs)[:,None] +
@@ -1632,10 +2691,29 @@ class ConfidenceHead:
         it on device regresses the pairformer input at small N), then upload as
         bf16 ONCE. Returned as a resident (1,N,N,256) device tensor; reuse across
         samples so the (N,N,256) upload is paid once per fold, not per sample."""
-        import torch.nn.functional as F, ttnn
+        return self.z_base_upload(self.z_base_host(s_inputs, z_trunk))
+
+    def z_base_host(self, s_inputs, z_trunk):
+        """The host half of `z_base_device`: z_base summed in fp32, then rounded to the bf16 it is
+        uploaded in. torch rounds as ttnn's upload does, so the device tensor is the same, and ttnn
+        tilizes bf16 several times faster than it converts fp32. fold() runs this on the host lane
+        during the diffusion, so the chip no longer waits for it when the confidence head starts."""
+        import torch, torch.nn.functional as F
         z_base = (z_trunk + F.linear(s_inputs, self._g("linear_no_bias_s1.weight")).unsqueeze(1)
-                  + F.linear(s_inputs, self._g("linear_no_bias_s2.weight")).unsqueeze(0)).unsqueeze(0).contiguous()
-        return ttnn.from_torch(z_base.float(), layout=ttnn.TILE_LAYOUT, device=self.dev, dtype=ttnn.bfloat16)
+                  + F.linear(s_inputs, self._g("linear_no_bias_s2.weight")).unsqueeze(0)).unsqueeze(0)
+        return z_base.float().to(torch.bfloat16).contiguous()
+
+    def z_base_upload(self, z_base):
+        """z_base on the device, or kept on the host above `concat_host_bytes()`.
+
+        There each sample uploads its own copy and builds its pair into it (`_pair_embed_rows`),
+        so the confidence pairformer runs beside one pair tensor, as the trunk does. Resident, the
+        2 GiB z_base of protenix-v2 at 2048 tokens left no single block for the distance embed's
+        2 GiB sum on a 12 GiB Wormhole chip in any mode."""
+        import ttnn
+        if z_base.numel() * 2 > _T.concat_host_bytes():
+            return z_base
+        return _T.upload(z_base, ttnn.bfloat16, self.dev)
 
     def confidence_device(self, s_inputs, s_trunk, z_base_dev, coords, feats):
         """Device-resident confidence forward. z_base_dev is the RESIDENT bf16
@@ -1645,6 +2723,58 @@ class ConfidenceHead:
         exactly except the per-sample distance-embed + Pairformer + pae/pde/
         plddt heads run on device (bf16) and only the final logits are
         downloaded -- the (N,N,256) z never round-trips per sample."""
+        return self.confidence_device_samples(s_inputs, s_trunk, z_base_dev, [coords], feats)[0]
+
+    def confidence_device_samples(self, s_inputs, s_trunk, z_base_dev, coords, feats, keep_logits=False):
+        """`confidence_device` for each of `coords`. Each sample's logits are read off the chip as
+        soon as it has them, and their untilize and post-processing (softmaxes, pTM/ipTM) run on
+        the host lane while the chip computes the next sample instead of between them. Same values
+        in the same order; only the host work moves."""
+        confs = []
+        for c in coords:
+            logits = self._confidence_device_logits(s_inputs, s_trunk, z_base_dev, c, feats)
+            reads = [hostlane.read(t) for t in logits]
+            for t in logits:
+                ttnn.deallocate(t)
+            confs.append(hostlane.submit(self._postprocess_read, reads, self._dev_res["s_t_h"], feats, keep_logits))
+        return [f.result() for f in confs]
+
+    def _pair_embed(self, z_base, rc, dist):
+        """z_base + linear_no_bias_d(onehot bins of dist) + linear_no_bias_d_wo_onehot(dist), a new
+        tensor. dist is the host (1,R,N) fp32 distance block of rows of z_base."""
+        d = ttnn.from_torch(dist, layout=ttnn.TILE_LAYOUT, device=self.dev, dtype=ttnn.float32)
+        d3 = ttnn.unsqueeze(d, -1)                                           # (1,R,N,1)
+        ge = ttnn.ge(d3, rc["lb4"])                                          # (1,R,N,39)
+        lt = ttnn.lt(d3, rc["ub4"])
+        oh = ttnn.typecast(ttnn.multiply(ge, lt), ttnn.bfloat16)             # AND, 0/1 exact in bf16
+        d3 = ttnn.typecast(d3, ttnn.bfloat16)
+        z = ttnn.add(z_base, self._dev_lin(oh, "linear_no_bias_d.weight"))
+        return ttnn.add(z, self._dev_lin(d3, "linear_no_bias_d_wo_onehot.weight"))
+
+    def _pair_embed_rows(self, z, rc, dist, rows=128):
+        """`_pair_embed` written into z itself, `rows` rows at a time: block I reads only z's rows
+        I, so each sum takes their place (`_T._write_rows`) and no second pair tensor exists."""
+        N, C = int(z.shape[1]), int(z.shape[3])
+        for r0 in range(0, N, rows):
+            r1 = min(N, r0 + rows)
+            zr = ttnn.slice(z, (0, r0, 0, 0), (1, r1, N, C))
+            blk = self._pair_embed(zr, rc, dist[:, r0:r1].contiguous())
+            ttnn.deallocate(zr)
+            _T._write_rows(z, blk, r0)
+
+    def _postprocess_read(self, reads, s_t, feats, keep_logits=False):
+        """`_postprocess` of one sample's logits and pair biases as `hostlane.read` returned them; the single
+        track runs here (`_s_path`) from the head's input s_t."""
+        pae, pde, *biases = (torch.Tensor(h.to_torch()) for h in reads)
+        N = s_t.shape[0]
+        return self._postprocess(pae.float().reshape(N, N, -1), pde.float().reshape(N, N, -1),
+                                 self._plddt_logits(self._s_path(s_t, biases), feats), feats, keep_logits)
+
+    def _confidence_device_logits(self, s_inputs, s_trunk, z_base_dev, coords, feats):
+        """The device half of `confidence_device`: enqueued, not read. Returns the pae and pde
+        logits (1,N,N,64) and the pairformer's fp32 single track (N,384) on the device, still in
+        their device shapes (a tiled reshape would move data the host reshape does not); the plddt
+        head runs on the host from the latter (`_plddt_logits`)."""
         import torch, ttnn
         # Tapped because the trunk and the diffusion stream are, and this was not: three AbAg-XM
         # targets fail ~1300 s in, long after the trunk, at refused sizes that match no trunk
@@ -1655,37 +2785,27 @@ class ConfidenceHead:
         N = rc["N"]
         dram_peak(f"confidence: resident built [N={N}]")
         # ---- per-sample distance-embed on device ----
-        coords_tbl = ttnn.from_torch(coords.float().reshape(coords.shape[0], 3), layout=ttnn.ROW_MAJOR_LAYOUT,
-                                     device=self.dev, dtype=ttnn.bfloat16)        # (N_atom,3) gather table
-        xr = ttnn.embedding(rc["idx_dev"], coords_tbl, layout=ttnn.ROW_MAJOR_LAYOUT,
-                            memory_config=ttnn.DRAM_MEMORY_CONFIG)               # (1,N,3)
-        xr = ttnn.to_layout(ttnn.reshape(xr, (1, N, 3)), ttnn.TILE_LAYOUT)
-        # squared dist = |xr|^2 + |xr|^2 - 2 xr.xr^T ; d = sqrt(clamp(d2, 0))
-        sq = ttnn.pow(xr, 2.0)
-        srow = ttnn.sum(sq, dim=-1)                                          # (1,N)
-        d2 = ttnn.add(ttnn.add(srow, ttnn.reshape(srow, (1, 1, N))),
-                      ttnn.multiply(ttnn.matmul(xr, ttnn.permute(xr, (0, 2, 1)),
-                                                compute_kernel_config=self.compute_kernel_config,
-                                                core_grid=CORE_GRID_MAIN), -2.0))
-        d2 = ttnn.clamp(d2, 0.0, None)
-        d = ttnn.sqrt(d2)                                                    # (1,N,N)
-        d3 = ttnn.unsqueeze(d, -1)                                           # (1,N,N,1)
-        lb = self._wtt("lower_bins", False); ub = self._wtt("upper_bins", False)
-        lb4 = ttnn.reshape(lb, (1, 1, 1, lb.shape[-1])); ub4 = ttnn.reshape(ub, (1, 1, 1, ub.shape[-1]))
-        ge = ttnn.ge(d3, lb4)                                                # (1,N,N,39) bool->bf16
-        lt = ttnn.lt(d3, ub4)
-        oh = ttnn.multiply(ge, lt)                                           # AND
-        oh = ttnn.to_layout(oh, ttnn.TILE_LAYOUT) if oh.layout != ttnn.TILE_LAYOUT else oh
-        z = ttnn.add(rc["z_base"], self._dev_lin(oh, "linear_no_bias_d.weight"))
-        z = ttnn.add(z, self._dev_lin(d3, "linear_no_bias_d_wo_onehot.weight"))
-        # ---- confidence Pairformer (device, z stays resident) ----
-        so, zo = bucketed_pairformer(self.pf, rc["s_t"], z, self.dev)        # (1,N,384),(1,N,N,c_z)
+        # The distances are the host path's own fp32 cdist. In bf16 on the device, |x|^2 + |y|^2 -
+        # 2 x.y cancels: 40 A from the origin |x|^2 is ~1600, where bf16 steps by 8 A^2, so a 3.8 A
+        # neighbour pair (14.4 A^2) came out anywhere from 0 to ~5 A and pLDDT fell 0.046 at c730.
+        xr = coords.float().reshape(-1, 3)[feats["distogram_rep_atom_mask"].bool()]
+        dist = torch.cdist(xr, xr).reshape(1, N, N)
+        if isinstance(rc["z_base"], torch.Tensor):                           # held on the host
+            z = _T.upload(rc["z_base"], ttnn.bfloat16, self.dev)
+            self._pair_embed_rows(z, rc, dist)
+        else:
+            z = self._pair_embed(rc["z_base"], rc, dist)
+        # ---- confidence Pairformer: the pair track on the device, its blocks' pair biases for `_s_path` ----
+        so, zo = bucketed_pairformer(self.pf, ttnn.clone(rc["s_t"]), z, self.dev)  # (1,N,384),(1,N,N,c_z)
+        ttnn.deallocate(so)
+        biases = self._take_biases()
         # ---- heads on device ----
         zof = ttnn.reshape(zo, (1, N, N, zo.shape[-1]))                      # c_z: 256 v2, 128 v1
         pae_ln = ttnn.layer_norm(zof, weight=self._wtt("pae_ln.weight", False),
                                  bias=(self._wtt("pae_ln.bias", False) if "pae_ln.bias" in self._w else None),
                                  epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
         pae_logits = self._dev_lin(pae_ln, "linear_no_bias_pae.weight")      # (1,N,N,64)
+        ttnn.deallocate(pae_ln)
         zot = ttnn.permute(zof, (0, 2, 1, 3))                                # transpose token axes
         # The symmetrising add feeds nothing but this norm, so it folds into the norm's
         # own kernel (tt_bio/eltwise_fusion.py).
@@ -1693,51 +2813,41 @@ class ConfidenceHead:
                                bias=(self._wtt("pde_ln.bias", False) if "pde_ln.bias" in self._w else None),
                                epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
         pde_logits = self._dev_lin(pde_ln, "linear_no_bias_pde.weight")      # (1,N,N,64)
-        # plddt: a = s_single[a2t]; aln = LN(a)*w+b; logits = einsum('nc,ncb->nb', aln, pw[a2ta])
-        s_single = ttnn.reshape(so, (N, 384))
-        a = ttnn.embedding(rc["a2t_dev"], ttnn.to_layout(s_single, ttnn.ROW_MAJOR_LAYOUT),
-                           layout=ttnn.ROW_MAJOR_LAYOUT, memory_config=ttnn.DRAM_MEMORY_CONFIG)  # (N_atom,1,384)
-        a = ttnn.to_layout(ttnn.reshape(a, (a.shape[0], 384)), ttnn.TILE_LAYOUT)
-        aln = ttnn.layer_norm(a, weight=self._wtt("plddt_ln.weight", False),
-                              bias=(self._wtt("plddt_ln.bias", False) if "plddt_ln.bias" in self._w else None),
-                              epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
-        n_ta, c, nb = rc["pw_shape"]
-        pw_g = ttnn.embedding(rc["a2ta_dev"], rc["pw_dev"], layout=ttnn.ROW_MAJOR_LAYOUT,
-                              memory_config=ttnn.DRAM_MEMORY_CONFIG)          # (N_atom,1, c*nb)
-        pw_g = ttnn.reshape(pw_g, (a.shape[0], c, nb))                       # (N_atom, 384, 50)
-        pw_g = ttnn.to_layout(pw_g, ttnn.TILE_LAYOUT)
-        # einsum nc,ncb->nb  ==  batched (N_atom,1,384) @ (N_atom,384,50) -> (N_atom,1,50)
-        aln_b = ttnn.reshape(aln, (a.shape[0], 1, c))
-        plddt_logits = ttnn.matmul(aln_b, pw_g, compute_kernel_config=self.compute_kernel_config)  # (N_atom,1,50)
+        for t in (pde_ln, zot, zof):
+            ttnn.deallocate(t)
         dram_peak("confidence: heads done, before download")
-        # ---- download the small finals; post-process on host (small, exact) ----
-        pae_h = torch.Tensor(ttnn.to_torch(pae_logits)).float().reshape(N, N, -1)
-        pde_h = torch.Tensor(ttnn.to_torch(pde_logits)).float().reshape(N, N, -1)
-        plddt_h = torch.Tensor(ttnn.to_torch(plddt_logits)).float().reshape(a.shape[0], -1)  # (N_atom,50)
-        return self._postprocess(pae_h, pde_h, plddt_h, feats)
+        # ---- the logits and biases are downloaded; the caller runs the single track and plddt on the host ----
+        return (pae_logits, pde_logits, *biases)
 
-    def _postprocess(self, pae_logits, pde_logits, plddt_logits, feats):
+    def _postprocess(self, pae_logits, pde_logits, plddt_logits, feats, keep_logits=False):
         """Shared host-side post-processing: softmax over bins -> expected
         distance (pae/pde) and expected plddt; pTM/ipTM from the pae logits.
-        Identical to the tail of confidence() so device/host paths share it."""
+        Identical to the tail of confidence() so device/host paths share it.
+        keep_logits also returns the three logit tensors (fp32, host), which the upstream
+        output writer (tt_bio.protenix_output) reads; two (N,N,64) per sample, so opt-in."""
         import torch
 
-        def _expected(logits, max_a=32.0):
-            nb = logits.shape[-1]
-            centers = (torch.arange(nb, dtype=torch.float32) + 0.5) * (max_a / nb)
-            return (torch.softmax(logits, -1) * centers).sum(-1)
-        pae = _expected(pae_logits)
-        pde = _expected(pde_logits)
-        ptm, iptm = self._ptm_iptm(pae_logits, feats.get("asym_id"))
-        nb = plddt_logits.shape[-1]
-        plddt_atom = (torch.softmax(plddt_logits, -1) * ((torch.arange(nb, dtype=torch.float32) + 0.5) / nb)).sum(-1)
+        def _expected(probs, max_a=32.0):
+            nb = probs.shape[-1]
+            return probs @ ((torch.arange(nb, dtype=torch.float32) + 0.5) / nb * max_a)
+        # One softmax of the pae logits feeds pae, pTM/ipTM and the chain keys, and every bin
+        # reduction is a matmul: the broadcast multiply-sum and the (N,N,nb) subsets cost ~1 s
+        # per c730 sample on the host, which the chip waited for after its last sample.
+        probs = torch.softmax(pae_logits.float(), -1)
+        pae = _expected(probs)
+        pde = _expected(torch.softmax(pde_logits.float(), -1))
+        ptm, iptm = self._ptm_iptm(pae_logits, feats.get("asym_id"), probs=probs)
+        plddt_atom = _expected(torch.softmax(plddt_logits.float(), -1), 1.0)
         out = {"plddt": float(plddt_atom.mean()), "plddt_atom": plddt_atom, "pae": pae, "pde": pde,
                "ptm": ptm, "iptm": iptm}
-        out.update(self._chain_confidence(pae_logits, feats.get("asym_id")))
+        out.update(self._chain_confidence(pae_logits, feats.get("asym_id"), probs=probs))
+        if keep_logits:
+            out.update(pae_logits=pae_logits.float(), pde_logits=pde_logits.float(),
+                       plddt_logits=plddt_logits.float())
         return out
 
     @staticmethod
-    def _ptm_iptm(pae_logits, asym_id, max_a: float = 32.0, has_frame=None):
+    def _ptm_iptm(pae_logits, asym_id, max_a: float = 32.0, has_frame=None, probs=None):
         """Predicted TM-score (pTM) and interface pTM (ipTM) from the PAE bin logits,
         the standard AlphaFold formula. pTM = max over alignment frame i of the mean
         predicted TM to all tokens j; ipTM restricts j to *other* chains (via asym_id).
@@ -1761,16 +2871,19 @@ class ConfidenceHead:
         ``compute_ptm`` in float64 (``perf/of3t_d10_d107/d10_rule_vs_upstream.py``). With
         eight frameless tokens in that same complex the mask is worth 3.853e-03 on pTM and
         reorders the samples.
+
+        ``probs`` is ``softmax(pae_logits)`` when the caller already has it.
         """
         import torch
 
         N, _, nb = pae_logits.shape
         centers = (torch.arange(nb, dtype=torch.float32) + 0.5) * (max_a / nb)
-        probs = torch.softmax(pae_logits.float(), -1)                       # (N,N,nb)
+        if probs is None:
+            probs = torch.softmax(pae_logits.float(), -1)                   # (N,N,nb)
         n = max(N, 19)
         d0 = 1.24 * (n - 15) ** (1.0 / 3.0) - 1.8
         tm_per_bin = 1.0 / (1.0 + (centers / d0) ** 2)                      # (nb,)
-        e_tm = (probs * tm_per_bin).sum(-1)                                 # (N,N) E[TM] per pair
+        e_tm = probs @ tm_per_bin                                           # (N,N) E[TM] per pair
         frame = (None if has_frame is None else
                  has_frame.reshape(-1).bool().to(e_tm.device))
         if frame is not None and frame.numel() != N:
@@ -1803,7 +2916,8 @@ class ConfidenceHead:
         return round(ptm, 6), round(iptm, 6)
 
     @staticmethod
-    def _chain_confidence(pae_logits, asym_id, max_a: float = 32.0):
+    def _chain_confidence(pae_logits, asym_id, max_a: float = 32.0, centers=None, has_frame=None,
+                          probs=None):
         """The chain-level confidence keys, protenix's `calculate_chain_based_ptm`.
 
         `chain_ptm[c]` is pTM computed inside chain c alone, so its TM normalisation uses that
@@ -1814,7 +2928,7 @@ class ConfidenceHead:
         `ptm_binder` and `iptm_binder`. Both lists are indexed by the sorted unique `asym_id`,
         so the binder is the last entry when the binder is the last chain.
 
-        `pair_chains_iptm[i][j]` is the matrix both reductions are taken over, kept instead of
+        `pair_chains_iptm[i][j]` (i, j = chain positions 0, 1, ...) is the matrix both reductions are taken over, kept instead of
         dropped: selectivity-aware scoring and hallucination score one named interface of a
         multi-chain complex, which a per-chain average cannot express. It is the FULL square
         matrix, diagonal included -- Boltz-2's shape, whose writer reads `pci[i][i]` for
@@ -1824,8 +2938,14 @@ class ConfidenceHead:
         exactly as the global pTM/ipTM already are. None of it is new computation.
 
         Returns `{}` when there are no chain pairs (single chain, or no `asym_id`).
-        `has_frame` is not modelled: every polymer token has a frame, and this path has no
-        ligand tokens.
+
+        OpenFold3, OpenBind-0 and RF3 reduce their own PAE logits through this too, so every
+        model on the platform reports the matrix the same way. `centers` overrides the uniform
+        bin centres for a head binned otherwise (RF3's `bin_midpoints`), and `has_frame` [N] is
+        the frame mask their global pTM/ipTM take the max over: a token without an alignment
+        frame (an atomized ligand atom that fails the angle test) cannot win a row max here
+        either. None means every token has a frame, which holds for standard residues.
+        ``probs`` is ``softmax(pae_logits)`` when the caller already has it.
         """
         import torch
 
@@ -1836,28 +2956,44 @@ class ConfidenceHead:
         if a.numel() != pae_logits.shape[0] or len(ids) < 2:
             return {}
         nb = pae_logits.shape[-1]
-        centers = (torch.arange(nb, dtype=torch.float32) + 0.5) * (max_a / nb)
-        probs = torch.softmax(pae_logits.float(), -1)
+        if centers is None:
+            centers = (torch.arange(nb, dtype=torch.float32) + 0.5) * (max_a / nb)
+        if probs is None:
+            probs = torch.softmax(pae_logits.float(), -1)
+        frame = (torch.ones(a.numel(), dtype=torch.bool) if has_frame is None
+                 else has_frame.bool().reshape(-1))
+
+        # E[TM] depends on a subset only through its token count (the TM normalisation), so the
+        # bins are reduced once per distinct count over the whole (N,N), and each subset slices
+        # the (N,N) result: nb times less to copy than slicing the probabilities.
+        e_tm = {}
 
         def pair_tm(mask):
             """E[TM] per token pair, restricted to `mask` and normalised on its own count."""
-            sub = probs[mask][:, mask]
-            d0 = 1.24 * (max(int(mask.sum()), 19) - 15) ** (1.0 / 3.0) - 1.8
-            return (sub * (1.0 / (1.0 + (centers / d0) ** 2))).sum(-1)
+            n = max(int(mask.sum()), 19)
+            if n not in e_tm:
+                d0 = 1.24 * (n - 15) ** (1.0 / 3.0) - 1.8
+                e_tm[n] = probs @ (1.0 / (1.0 + (centers / d0) ** 2))
+            return e_tm[n][mask][:, mask]
 
-        chain_ptm = [float(pair_tm(a == c).mean(dim=-1).max()) for c in ids]
+        def row_max(row, mask):
+            # Zeroing a frameless row is upstream's form; E[TM] >= 0, so it cannot win.
+            return float(row.masked_fill(~frame[mask], 0.0).max())
+
+        chain_ptm = [row_max(pair_tm(a == c).mean(dim=-1), a == c) for c in ids]
         pair = {(c, c): p for c, p in zip(ids, chain_ptm)}     # diagonal: the chain's own pTM
         for i, ci in enumerate(ids):
             for cj in ids[i + 1:]:
                 m = (a == ci) | (a == cj)
                 cross = (a[m][None, :] != a[m][:, None])
                 row = (pair_tm(m) * cross).sum(-1) / (1e-8 + cross.sum(-1))
-                pair[ci, cj] = pair[cj, ci] = float(row.max())
+                pair[ci, cj] = pair[cj, ci] = row_max(row, m)
         chain_iptm = [sum(pair[c, o] for o in ids if o != c) / (len(ids) - 1) for c in ids]
+        # Keyed by chain position, not by the asym_id value: OpenFold3's asym_id starts at 1.
         return {"chain_ptm": [round(x, 6) for x in chain_ptm],
                 "chain_iptm": [round(x, 6) for x in chain_iptm],
-                "pair_chains_iptm": {ci: {cj: round(pair[ci, cj], 6) for cj in ids}
-                                     for ci in ids}}
+                "pair_chains_iptm": {i: {j: round(pair[ci, cj], 6) for j, cj in enumerate(ids)}
+                                     for i, ci in enumerate(ids)}}
 
     def plddt(self, s_inputs, s_trunk, z_trunk, coords, feats):
         """Mean pLDDT in [0,1] (back-compat thin wrapper over confidence())."""
@@ -1874,38 +3010,27 @@ class ConfidenceHead:
 # are in the same tile-replan equivalence class as the chunked pair track.
 PAIRCOND_BLOCK_BYTES = int(os.environ.get("TT_BIO_PAIRCOND_BLOCK_BYTES", 5 * 2 ** 28))  # 2.5 GiB
 
-#: Output width, in 32-wide tiles, at or below which the diffusion pair-conditioning projection
-#: must NOT force ``core_grid``. Passing a core grid selects ttnn's MULTICAST matmul program,
-#: whose in0-sender / in1-receiver dataflow deadlocks intermittently when the output is this
-#: narrow and the pair tensor is >=512 tokens: the tt-metal watcher shows every core stopped with
-#: BRISC on a NOC semaphore wait and NCRISC on a circular-buffer reserve-back wait
-#: (perf/pxv1/hang_watcher_capture.txt). Interleaved A/B on protenix-v1 at 512 aa, 8 folds per
-#: arm per round, 3 rounds: 24/24 folds clean with the grid dropped against 7/24 with it forced.
-#:
-#: Gated on the WIDTH, not on the model id, because two shipped checkpoints share it:
-#: protenix-v1 and OpenDDE both project to 128 here (OpenDDE compresses c_z 384 -> 128 first),
-#: so both are exposed, while protenix-v2's 256 is 8 tiles and keeps the forced grid byte for
-#: byte. One mechanism in one place rather than a per-model branch.
-PAIRCOND_MM_NARROW_MAX_TILES = 4
+#: The diffusion pair-conditioning projections never force ``core_grid``. Passing a core grid
+#: selects ttnn's 1D in1-multicast matmul, and on these N*N-row fp32 projections (fp32 dest, packer
+#: L1 accumulation) one core's compute intermittently stalls and every other core waits on it
+#: through the in1 multicast handshake. It was first caught on protenix-v1's 4-tile projection
+#: (perf/pxv1/hang_watcher_capture.txt; 24/24 folds clean without the grid against 7/24 with it)
+#: and then on protenix-v2's 8-tile one, so it is not a width effect. Measured on qb2 chip 3,
+#: 2026-10-14, with perf/spd/nocdeadlock/paircond_repro.py at 730 tokens: the forced grid hung
+#: within 50 calls, without it 1000/1000 ran clean, and with the grid but packer_l1_acc off also
+#: 1000/1000 (that arm loses precision, so it is not the fix). Upstream: tt-metal#58653.
+#: PROTENIX_PAIRCOND_MM_FORCE_GRID=1 restores the forced grid for A/B or bisection.
 
 
-def paircond_mm_kw(compute_kernel_config, dtype, out_width):
+def paircond_mm_kw(compute_kernel_config, dtype):
     """ttnn.linear kwargs for a diffusion pair-conditioning projection.
 
-    ONE place decides the ``core_grid`` policy for every projection in that branch, because the
-    deadlock is a property of the WIDTH plus a forced grid, not of one call site. The pair-cond
-    has four such projections -- relpe, the OpenDDE z_trunk compression (twice: plain and
-    blocked), and linear_no_bias_z (twice: plain and blocked) -- and all of them are 128 wide,
-    i.e. 4 tiles, on N*N rows. A fix applied to only the one that happened to be caught hanging
-    would leave the same projection behaving differently depending on which block-size branch it
-    took, which is how a point patch becomes the next bug.
-
-    ``out_width`` is the projection's output channel count (the weight's dim 0 before the
-    transpose that ttnn.linear wants).
+    ONE place decides the ``core_grid`` policy for every projection in that branch (relpe, the
+    OpenDDE z_trunk compression and linear_no_bias_z, each on the whole and the row-blocked path),
+    so no twin of a fixed call keeps the old program.
     """
     kw = dict(compute_kernel_config=compute_kernel_config, dtype=dtype)
-    narrow = (int(out_width) // 32) <= PAIRCOND_MM_NARROW_MAX_TILES
-    if not narrow or env_flag("PROTENIX_PAIRCOND_MM_FORCE_GRID", False):
+    if env_flag("PROTENIX_PAIRCOND_MM_FORCE_GRID", False):
         kw["core_grid"] = CORE_GRID_MAIN
     return kw
 
@@ -1942,6 +3067,8 @@ def _pz_cond_probe(pz, z_in_sha):
     return r1.float()
 
 
+
+
 class Protenix:
     """Top-level Protenix-v2 structure predictor on Tenstorrent (inference-only).
 
@@ -1958,7 +3085,7 @@ class Protenix:
 
     def __init__(self, model_state_dict, compute_kernel_config, device=None, c_z=None,
                  msa_update_first=False, diffusion_fp32=None, gated_move=False,
-                 softmax_scope="protenix"):
+                 softmax_scope="protenix", levers=None, size_levers=()):
         """diffusion_fp32: explicit per-instantiation override for the coordinate-sensitive
         diffusion stack's precision; None falls back to PROTENIX_DIFFUSION_FP32_DEVICE (default
         fp32). Callers that share this class across models (e.g. OpenDDE) should pass this
@@ -1967,10 +3094,26 @@ class Protenix:
         softmax_scope: which model owns the two Pairformer construction sites this class builds
         (the 48-block trunk and the confidence head). OpenDDE instantiates this class, so those
         sites are shared, and per-construction-site alone would tie an OpenDDE softmax decision
-        to Protenix-v2's. Same hazard as diffusion_fp32 above, same fix: the caller names itself."""
+        to Protenix-v2's. Same hazard as diffusion_fp32 above, same fix: the caller names itself.
+
+        levers: the precision levers (`tenstorrent.LEVERS`) this model builds and folds under,
+        active only inside its own build and fold. `load_from_checkpoint` passes the mode's set,
+        and then `--fast` means those levers and nothing else. None is the empty set.
+        size_levers: added to them for a target that pads to `SIZE_LEVERS_MIN_TOKENS` or more (`size_levers`)."""
+        import tt_bio.tenstorrent as _TT
+        self._levers = _TT.parse_levers(levers or ())
+        self._size_levers = frozenset(size_levers) - self._levers
+        with _TT.levers(self._levers, also=self._size_levers):
+            self._build(model_state_dict, compute_kernel_config, device, c_z, msa_update_first,
+                        diffusion_fp32, gated_move, softmax_scope)
+
+    def _build(self, model_state_dict, compute_kernel_config, device, c_z, msa_update_first,
+               diffusion_fp32, gated_move, softmax_scope):
         from .tenstorrent import get_device
         import tt_bio.tenstorrent as _TT
         self._w = model_state_dict
+        # The `lofi` / `acc_off` levers reach every stage through this one config.
+        compute_kernel_config = _TT.lpx_compute_kernel_config(compute_kernel_config)
         self.compute_kernel_config = compute_kernel_config
         self.dev = device or get_device()
         self._c_z = c_z
@@ -1980,32 +3123,19 @@ class Protenix:
             return {k[len(pfx):]: v for k, v in self._w.items() if k.startswith(pfx)}
         resolved_diffusion_fp32 = (env_flag("PROTENIX_DIFFUSION_FP32_DEVICE", True)
                                    if diffusion_fp32 is None else diffusion_fp32)
-        # --fast for Protenix changes only the trunk to bf8. The trunk tolerates bf8, but bf8
-        # in the coordinate-sensitive diffusion collapses the structure (Rg 4.7 vs 22).
-        #
-        # "Tolerates" is per checkpoint, not per class -- the pair track is c_z wide and bf8
-        # costs more where it is narrower. Measured against the CPU reference on a 228-token
-        # 2-chain target: protenix-v2 (c_z 256) s/z PCC 0.99; protenix-v1 (c_z 128) s 0.99993
-        # but z_trunk 0.9892, i.e. marginally UNDER the 0.99 the v2 number states. End to end
-        # that ordering reverses, on a converged 117-aa MSA fold, --fast against default:
-        # protenix-v1 0.4378 A RMSD (pLDDT 0.7646 -> 0.8592), protenix-v2 2.6816 A
-        # (pLDDT 0.8810 -> 0.7525). So --fast is ~6x LESS disruptive on v1 than on the model
-        # that already ships it, and the trunk PCC alone would have said the opposite. Capture the --fast intent, then build each stage at its
-        # own precision; fold() re-applies the per-stage flag (the trunk's triangle/transition
-        # ops read _dtype() at RUNTIME, so the global flag must match the weights per stage).
-        self._fast = _TT._FAST_MODE
-        _TT.set_fast_mode(False)   # input embedder stays bf16; diffusion precision is gate-controlled
+        if diffusion_fp32 is None and _TT.lever("diffusion_bf16"):
+            resolved_diffusion_fp32 = False
+        # `--fast` is the lever set, not the global bfp8 flag: build every stage with it off.
+        _TT.set_fast_mode(False)
         self.input_aae = AtomAttentionEncoder(under("input_embedder.atom_attention_encoder."), compute_kernel_config)
         diffusion_dtype = ttnn.float32 if resolved_diffusion_fp32 else ttnn.bfloat16
         self.diff_feat = AtomFeaturization(under("diffusion_module.atom_attention_encoder."),
                                             compute_kernel_config, dtype=diffusion_dtype)
-        _TT.set_fast_mode(self._fast)   # trunk: bf8 when --fast
         # The trunk gets its OWN compute kernel config, so its matmul fidelity cannot reach the
         # diffusion module, which runs fp32 on purpose and does need all four mantissa passes.
         self.trunk = Trunk(model_state_dict, _TT.trunk_compute_kernel_config(compute_kernel_config),
                            c_z=self._c_z, msa_update_first=msa_update_first,
                            gated_move=gated_move, softmax_scope=softmax_scope)
-        _TT.set_fast_mode(False)   # diffusion uses its gate-controlled dtype; confidence stays bf16
         self.diffusion = DiffusionModule(under("diffusion_module."), self.dev, compute_kernel_config,
                                           diffusion_fp32=resolved_diffusion_fp32)
         self.confidence_head = ConfidenceHead(under("confidence_head."), self.dev,
@@ -2013,9 +3143,14 @@ class Protenix:
                                               softmax_scope=softmax_scope)
 
     @classmethod
-    def load_from_checkpoint(cls, path, compute_kernel_config=None, device=None):
+    def load_from_checkpoint(cls, path, compute_kernel_config=None, device=None, diffusion_fp32=None,
+                             levers=None):
         """Load a v2 checkpoint (.pt) and build the model. Untrusted weights are read
-        with weights_only=True."""
+        with weights_only=True. diffusion_fp32 is the per-run precision (`--diffusion_precision`);
+        None keeps the mode's default (fp32 unless PROTENIX_DIFFUSION_FP32_DEVICE=0, bf16 under
+        the `diffusion_bf16` lever). levers: None takes the mode's set for this checkpoint (`mode_levers`). A harness grading a lever set through the serving
+        path sets TT_BIO_LEVERS (`parse_levers` grammar, e.g. `fast-lofi`); no user does."""
+        import tt_bio.tenstorrent as _TT
         import torch
         import ttnn
         from .tenstorrent import get_device
@@ -2025,14 +3160,19 @@ class Protenix:
         ck = torch.load(path, map_location="cpu", weights_only=True)
         ck = ck.get("model", ck)
         sd = {k[len("module."):] if k.startswith("module.") else k: v for k, v in ck.items()}
+        from .mol1_constraint import fold_weights
+        fold_weights(sd)
         # gated_move=True: the E6 fused chunk+gate forward move serves 2416 of 2416 trimul
         # channel moves at c_z=256 and is torch.equal to the sequence it replaces, so it is
         # the shipped path. Scoped to this entry point -- OpenDDE builds Protenix directly
         # and passes its own flag.
-        return cls(sd, ckc, dev, gated_move=True)
+        size = ()
+        if levers is None:
+            levers, size = mode_levers(sd), size_levers(sd)
+        return cls(sd, ckc, dev, gated_move=True, diffusion_fp32=diffusion_fp32, levers=levers, size_levers=size)
 
     def _tt(self, x):
-        return ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, device=self.dev, dtype=ttnn.bfloat16)
+        return _T.upload(x, ttnn.bfloat16, self.dev)
 
     @staticmethod
     def _to_host(t, shape=None, fp32=True):
@@ -2040,7 +3180,7 @@ class Protenix:
         call sites whose consumers only cast it back (the OpenDDE z_trunk seam): bf16 -> fp32 is
         lossless, so the upcast is 402 MB of host writes that buy nothing. Default stays fp32."""
         import torch
-        h = torch.Tensor(ttnn.to_torch(t))
+        h = torch.Tensor(_T.download(t))
         if fp32:
             h = h.float()
         return h.reshape(shape) if shape is not None else h
@@ -2128,7 +3268,7 @@ class Protenix:
         return dict(N=N, NT=NT, nb=nb, nq=nq, nk=nk, f_in=f_in, d=d, v=v, invd=invd,
                     mt=mt.float(), a2t=a2t, S=S, ref_charge_asinh=torch.arcsinh(feats["ref_charge"]).reshape(N, 1))
 
-    def _diffusion_pair_cond(self, z_trunk_tt, relp):
+    def _diffusion_pair_cond(self, z_trunk_tt, relp, device=False):
         """DiffusionConditioning pair branch (computed once; t-independent):
         zc = LN(concat[z_trunk, relpe(relp)]); pz = linear_z(zc); pz += transition_z1 +
         transition_z2. Reference diffusion_module.diffusion_conditioning. Validated
@@ -2181,8 +3321,7 @@ class Protenix:
 
         def _relpe(rp):
             out = ttnn.linear(T(rp), w_relpe,
-                              **paircond_mm_kw(self.compute_kernel_config,
-                                               self.diffusion.dtype, _w_relpe.shape[0]))
+                              **paircond_mm_kw(self.compute_kernel_config, self.diffusion.dtype))
             _sync("relpe linear")
             return out
 
@@ -2199,8 +3338,7 @@ class Protenix:
                                  epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
             _w_zt = self._w[C + "linear_no_bias_z_trunk.weight"]
             out = ttnn.linear(zn, T(_w_zt.t().contiguous()),
-                              **paircond_mm_kw(self.compute_kernel_config,
-                                               self.diffusion.dtype, _w_zt.shape[0]))
+                              **paircond_mm_kw(self.compute_kernel_config, self.diffusion.dtype))
             ttnn.deallocate(zn)
             return out
 
@@ -2210,15 +3348,10 @@ class Protenix:
             zc = ttnn.layer_norm(zc, weight=T(self._w[C + "layernorm_z.weight"]), epsilon=1e-5,
                                  compute_kernel_config=self.compute_kernel_config)
             _sync("layernorm_z")
-            # Force the core grid only when the output is wide enough for ttnn's multicast
-            # matmul to be safe -- see PAIRCOND_MM_NARROW_MAX_TILES for the deadlock this avoids
-            # and the A/B behind it. PROTENIX_PAIRCOND_MM_FORCE_GRID=1 restores the old
-            # unconditional behaviour, which is how the A/B arms were taken and how a regression
-            # would be bisected.
+            # No forced core grid: see paircond_mm_kw for the multicast deadlock this avoids.
             _w_z = self._w[C + "linear_no_bias_z.weight"]
             pb = ttnn.linear(zc, T(_w_z.t().contiguous()),
-                             **paircond_mm_kw(self.compute_kernel_config,
-                                              self.diffusion.dtype, _w_z.shape[0]))
+                             **paircond_mm_kw(self.compute_kernel_config, self.diffusion.dtype))
             ttnn.deallocate(zc)
             _sync("linear_z")
             return pb
@@ -2245,7 +3378,9 @@ class Protenix:
             return pz
 
         def _whole():
-            return _pz_cond_probe(_chain(z_trunk_tt, relp), _z_sha)
+            pz = _chain(z_trunk_tt, relp)
+            # `device` (the pz_device lever): the conditioned pair stays on the chip for `_pair_z_seam`.
+            return pz if device and _z_sha is None else _pz_cond_probe(pz, _z_sha)
 
         def _rows(rb):
             # Row-blocked chain (see PAIRCOND_BLOCK_BYTES): no full-size relpe, cast, LN'd z,
@@ -2281,11 +3416,15 @@ class Protenix:
         """broadcast_token_to_local_atom_pair: W_z(LN_z(z_trunk)) gathered into windowed
         atom-pair blocks (nb,nq,nk,16). The diffusion atom-encoder's p_lm cache adds this
         trunk-pair-z term (reference transformer.py prepare_cache, r_l path)."""
-        import torch
         import torch.nn.functional as F
         E = "diffusion_module.atom_attention_encoder."
         lnz = F.layer_norm(pair_z, (pair_z.shape[-1],)) * self._w[E + "layernorm_z.weight"]
-        ztok = F.linear(lnz, self._w[E + "linear_no_bias_z.weight"])     # (NT,NT,16)
+        return self._plm_gather(F.linear(lnz, self._w[E + "linear_no_bias_z.weight"]), a2t, nb)
+
+    @staticmethod
+    def _plm_gather(ztok, a2t, nb):
+        """The (NT,NT,16) token-pair term gathered into the windowed atom-pair blocks (nb,nq,nk,16)."""
+        import torch
         N = a2t.shape[0]; NQ, NK, PADL = 32, 128, 48; NP = nb * NQ
         aq = torch.cat([a2t, torch.zeros(NP - N, dtype=torch.long)]).reshape(nb, NQ)
         ak_src = torch.cat([torch.zeros(PADL, dtype=torch.long), a2t,
@@ -2294,6 +3433,40 @@ class Protenix:
         return torch.stack([ztok[aq[b][:, None].expand(NQ, NK), ak[b][None, :].expand(NQ, NK)]
                             for b in range(nb)], 0)                            # (nb,nq,nk,16)
 
+    def _pz_device(self):
+        """Whether the conditioned pair stays on the chip (`_pair_z_seam`): the pz_device lever, for a
+        device DiT. The pair conditioning writes the DiT's own dtype, bf16 or normal mode's fp32."""
+        return _T.lever("pz_device") and self.diffusion.device_dit
+
+    def _pair_z_seam(self, pz, NT, a2t, nb, nq, nk):
+        """The conditioned pair's diffusion consumers: (p_lm z term, cond entries).
+
+        A host `pz` (the default, or the row-blocked conditioning) feeds `_plm_z_term` and the DiT
+        as before. A device `pz` (`_pz_device`) never leaves the chip: one device LN is the DiT's
+        LN(pair_z) and, times the encoder's LN gain folded into W_z, the 16-wide z term, which is
+        the only thing downloaded. At OpenDDE's 1216-token structural axis that replaces a 757 MB
+        fp32 download, two host LNs and a 378 MB upload with a 95 MB download."""
+        D = self.diffusion
+        if isinstance(pz, torch.Tensor):
+            pair_z = pz.reshape(NT, NT, -1)
+            cond = {"pair_z": pair_z}
+            if D.device_dit:
+                cond["dit_z"] = D._dit_z_device(pair_z)
+            else:
+                cond["dit_biases"] = D._dit_pair_biases(pair_z)
+            return self._plm_z_term(pair_z, a2t, nb, nq, nk), cond
+        E = "diffusion_module.atom_attention_encoder."
+        ln = ttnn.layer_norm(pz, epsilon=1e-5, compute_kernel_config=D._dit_ckc)
+        ttnn.deallocate(pz)
+        w = (self._w[E + "linear_no_bias_z.weight"].float() * self._w[E + "layernorm_z.weight"].float()).t()
+        w_tt = ttnn.from_torch(w.contiguous(), dtype=D._dit_dtype, layout=ttnn.TILE_LAYOUT, device=D.dev)
+        zt = ttnn.linear(ln, w_tt, compute_kernel_config=D._dit_ckc, dtype=ttnn.float32)
+        ttnn.deallocate(w_tt)
+        ztok = torch.Tensor(_T.download(zt)).float().reshape(NT, NT, -1)
+        ttnn.deallocate(zt)
+        return self._plm_gather(ztok, a2t, nb), {"pair_z": None, "dit_z": ln}
+
+    @_under_size_levers
     def fold_many(self, feats_list, *, n_step=200, seed=None, progress_fn=None,
                   return_confidence=False, n_cycles=None):
         """Fold B targets with ONE batched diffusion trajectory. Returns a list of B coord
@@ -2310,6 +3483,8 @@ class Protenix:
         fold(feats_list[b], seed=seed) would have drawn alone.
         """
         B = len(feats_list)
+        if B > 1:
+            _T.program_cache_for(tuple(_T.input_shapes(f) for f in feats_list), self.dev)
         if B == 1:
             out = self.fold(feats_list[0], n_step=n_step, n_sample=1, seed=seed,
                             progress_fn=progress_fn, return_confidence=return_confidence,
@@ -2317,7 +3492,7 @@ class Protenix:
             return ([out[0]], [out[1]]) if return_confidence else [out]
         conds, auxs = [], []
         for feats in feats_list:
-            cond, aux = self._trunk_cond(feats, progress_fn=progress_fn, n_cycles=n_cycles)
+            cond, aux = self._trunk_cond(feats, progress_fn=progress_fn, n_cycles=n_cycles, seed=seed)
             conds.append(cond)
             auxs.append(aux)
         merged = merge_conds(self.diffusion, conds)
@@ -2339,16 +3514,23 @@ class Protenix:
         return out, confs
 
     def _confidence_for(self, aux, feats, coords):
-        """Confidence head for one prediction's coords (N,3). Same device/host split fold()
-        uses: the device path needs NT>=128, below which bf16 distance-embed rounding moves
-        the pLDDT head."""
-        s_inputs, s_trunk, z_trunk = aux["s_inputs"], aux["s_trunk"], aux["z_trunk"]
+        """Confidence head for one prediction's coords (N,3). Same device/host split and the
+        same NT>=128 gate fold() uses, and like fold() it frees the resident tensors after."""
+        s_inputs, s_trunk, z_trunk = aux["s_inputs"], aux["s_trunk"], aux["z_trunk"].result()
         if self.confidence_head.device_confidence_enabled() and aux["NT"] >= 128:
             z_base_dev = self.confidence_head.z_base_device(s_inputs, s_trunk, z_trunk)
-            return self.confidence_head.confidence_device(s_inputs, s_trunk, z_base_dev, coords, feats)
+            try:
+                return self.confidence_head.confidence_device(s_inputs, s_trunk, z_base_dev, coords, feats)
+            finally:
+                self.confidence_head.drop_device_resident()
         return self.confidence_head.confidence(s_inputs, s_trunk, z_trunk, coords, feats)
 
-    def _trunk_cond(self, feats, *, progress_fn=None, n_cycles=None):
+    def _trunk_host_inputs(self, feats, NT):
+        """relp and `Trunk.host_inputs`: the host-only part of the trunk's input, for the lane."""
+        relp = feats["relp"] if "relp" in feats else self._generate_relp(feats)
+        return relp, self.trunk.host_inputs(feats, relp, feats["token_bonds"], NT)
+
+    def _trunk_cond(self, feats, *, progress_fn=None, n_cycles=None, seed=None):
         """Trunk plus the t-independent diffusion conditioning for one target: everything
         fold() does before the sampler. Returns (cond, aux); aux carries what the confidence
         head needs. fold() and fold_many() share this so a batched fold runs the same trunk
@@ -2358,11 +3540,40 @@ class Protenix:
             _d = _pl.Path(os.environ.get("TT_PROTENIX_PAIRCOND_DEBUG_DIR", "/tmp/issue9"))
             _d.mkdir(parents=True, exist_ok=True)
             torch.save(feats, _d / "feats_dump.pt")
+        st = self._trunk_stage(feats, progress_fn=progress_fn, n_cycles=n_cycles, seed=seed)
+        fi, s_inputs, c_l, p_lm, relp = st["fi"], st["s_inputs"], st["c_l"], st["p_lm"], st["relp"]
+        N, NT, nb, nq, nk = fi["N"], fi["NT"], fi["nb"], fi["nq"], fi["nk"]
+        mt = fi["mt"]; S = fi["S"]
+        s_trunk_tt, z_tt = st["s_trunk_tt"], st["z_tt"]
+        s_trunk = self._to_host(s_trunk_tt, (NT, s_trunk_tt.shape[-1]))
+        # Raw trunk z, for the confidence head only. Read now, while z_tt exists, but untilized on
+        # the host lane: the chip goes straight on to the pair conditioning. aux carries a Future.
+        C_Z = self.trunk.C_Z
+        z_trunk = hostlane.to_torch(ttnn.from_device(z_tt), lambda z: z.float().reshape(NT, NT, C_Z))
+        # diffusion pair conditioning (once, t-independent): conditioned pair_z
+        pz = self._diffusion_pair_cond(z_tt, relp, device=self._pz_device())
+        # diffusion p_lm cache also carries the (conditioned) pair-z broadcast to atom pairs; the DiT
+        # pair input is t-independent, so LN(pair_z) is made once (or the host biases of the fp32 fallback)
+        z_term, pz_cond = self._pair_z_seam(pz, NT, fi["a2t"], nb, nq, nk)
+        p_lm = p_lm + z_term
+        # 4) EDM sampler
+        cond = {"s_trunk": s_trunk, "s_inputs": s_inputs, "c_l": c_l,
+                "p_lm": p_lm, "S": S, "mask_trunked": mt.float(), **pz_cond}
+        return cond, dict(N=N, NT=NT, s_inputs=s_inputs, s_trunk=s_trunk, z_trunk=z_trunk)
 
+    def _trunk_stage(self, feats, *, progress_fn=None, n_cycles=None, seed=None, msa_sample=None):
+        """Input embedder, the diffusion's atom cache (c_l, p_lm) and the trunk, with the trunk's
+        host inputs on the host lane: everything before the trunk is read back. Protenix and
+        OpenDDE (which diffuses on its own token axis) both start here. Returns a dict with fi,
+        s_inputs, c_l, p_lm, relp and the resident s_trunk_tt, z_tt. msa_sample: the trunk's
+        per-cycle alignment draw when the caller has its own rule (OpenDDE), else the lever's."""
         fi = self._atom_feat_inputs(feats)
         N, NT, nb, nq, nk = fi["N"], fi["NT"], fi["nb"], fi["nq"], fi["nk"]
         mt = fi["mt"]; S = fi["S"]
         tt = self._tt
+        # The trunk's host-only inputs (relp, padding, template and MSA features) are built on the
+        # host lane while the chip runs the input embedder and the diffusion atom cache below.
+        trunk_host = hostlane.submit(self._trunk_host_inputs, feats, NT)
         # 1) s_inputs (input embedder atom encoder)
         Mmat = (S.t() / (S.t().sum(-1, keepdim=True) + 1e-6))
         dm = feats["deletion_mean"]; dm = dm.reshape(-1, 1) if dm.dim() == 1 else dm
@@ -2378,43 +3589,74 @@ class Protenix:
                                                dtt(feats["ref_mask"].reshape(N, 1)), dtt(fi["f_in"])), (N, 128))
         p_lm = self._to_host(self.diff_feat.p_lm(dtt(fi["d"]), dtt(fi["v"]), dtt(fi["invd"]), mt_dev),
                              (nb, nq, nk, 16))
-        # 3) trunk (bf8 under --fast: toggle the global flag ON so the trunk's triangle/
-        #    transition runtime _dtype() matches its bf8 weights, then restore bf16 for the
-        #    coordinate-sensitive diffusion. Trunk tolerates bf8; diffusion does not. The per-
-        #    checkpoint bf8 numbers are in __init__ -- z_trunk is 0.99 at c_z 256 and 0.9892 at 128.)
+        # 3) trunk
         import tt_bio.tenstorrent as _TT
-        relp = feats["relp"] if "relp" in feats else self._generate_relp(feats)
-        if self._fast:
-            _TT.set_fast_mode(True)
+        relp, host = trunk_host.result()
+        # Under the msa_sample lever every cycle reads its own random alignment rows, drawn from
+        # the fold seed as upstream's MSAModule draws them from its seeded global generator. v2
+        # lineage only, told by its template stack as in `trunk_recycles`: Protenix-v2, OpenDDE and
+        # Mol-1 (mol/config/data.py min_size 1, sample_cutoff 16384) draw 1..n rows a cycle; v0.5.0
+        # draws between 2048 and n and keeps 2048 (configs_data.py), a rule not built here.
+        if msa_sample is None and _TT.lever("msa_sample") and self.trunk.TPL:
+            gen = torch.Generator()
+            msa_sample = (None, gen.manual_seed(seed) if seed is not None else gen)
         s_trunk_tt, z_tt = self.trunk(feats, s_inputs, relp, feats["token_bonds"],
-                                      progress_fn=progress_fn, n_cycles=n_cycles)
-        if self._fast:
-            _TT.set_fast_mode(False)
-        s_trunk = self._to_host(s_trunk_tt, (NT, s_trunk_tt.shape[-1]))
-        z_trunk = self._to_host(z_tt, (NT, NT, self.trunk.C_Z))   # raw trunk z (for confidence)
-        # diffusion pair conditioning (once, t-independent): conditioned pair_z
-        pair_z = self._diffusion_pair_cond(z_tt, relp).reshape(NT, NT, self.trunk.C_Z)
-        # diffusion p_lm cache also carries the (conditioned) pair-z broadcast to atom pairs
-        p_lm = p_lm + self._plm_z_term(pair_z, fi["a2t"], nb, nq, nk)
-        # 4) EDM sampler
-        cond = {"s_trunk": s_trunk, "s_inputs": s_inputs, "pair_z": pair_z, "c_l": c_l,
-                "p_lm": p_lm, "S": S, "mask_trunked": mt.float()}
-        # DiT pair input is t-independent -> upload LN(pair_z) once (on-device DiT derives the
-        # per-block bias), or precompute the host biases for the fp32 fallback.
-        if self.diffusion.device_dit:
-            cond["dit_z"] = self.diffusion._dit_z_device(pair_z)
-        else:
-            cond["dit_biases"] = self.diffusion._dit_pair_biases(pair_z)
-        return cond, dict(N=N, NT=NT, s_inputs=s_inputs, s_trunk=s_trunk, z_trunk=z_trunk)
+                                      progress_fn=progress_fn, n_cycles=n_cycles, host=host,
+                                      msa_sample=msa_sample)
+        return dict(fi=fi, s_inputs=s_inputs, c_l=c_l, p_lm=p_lm, relp=relp,
+                    s_trunk_tt=s_trunk_tt, z_tt=z_tt)
 
+    def _confidence_start(self, s_inputs, z_trunk, NT):
+        """The device confidence head's z_base, summed on the host lane while the sampler runs, or
+        None when this fold takes the host heads. `z_trunk` is a host-lane Future of the trunk pair.
+        The device head starts at 128 tokens, where the host path's per-sample (N,N,c_z) round
+        trip starts to cost (~23 ms at 38 tokens)."""
+        ch = self.confidence_head
+        if not (ch.device_confidence_enabled() and NT >= 128):
+            return None
+        return hostlane.submit(lambda: ch.z_base_host(s_inputs, z_trunk.result()))
+
+    def _confidences(self, s_inputs, s_trunk, z_trunk, z_base, coords, feats, keep_logits=False):
+        """One confidence dict per sample in `coords`: on the device when `_confidence_start` gave
+        a z_base, else the host heads. `z_trunk` is a host-lane Future of the trunk pair.
+        keep_logits adds each sample's pae/pde/plddt logits and the fold's distogram contact
+        probabilities, everything the upstream output writer needs."""
+        ch = self.confidence_head
+        if z_base is None:
+            confs = ch.confidence_samples(s_inputs, s_trunk, z_trunk.result(), coords, feats, keep_logits)
+        else:
+            z_base_dev = ch.z_base_upload(z_base.result())
+            try:
+                confs = ch.confidence_device_samples(s_inputs, s_trunk, z_base_dev, coords, feats, keep_logits)
+            finally:
+                ch.drop_device_resident()
+        if keep_logits:
+            from .protenix_output import contact_probs
+            contact = contact_probs(self.distogram_logits(z_trunk.result()))
+            for c in confs:
+                c["contact_probs"] = contact
+        return confs
+
+    def distogram_logits(self, z_trunk):
+        """Upstream's DistogramHead on the host trunk pair (N,N,c_z): L(z) + L(z)^T, (N,N,64).
+        It reads the trunk and feeds nothing back, so no coordinate depends on it."""
+        import torch.nn.functional as F
+        d = F.linear(z_trunk.float(), self._w["distogram_head.linear.weight"].float(),
+                     self._w["distogram_head.linear.bias"].float())
+        return d + d.transpose(0, 1)
+
+    @_under_size_levers
     def fold(self, feats, *, n_step=200, n_sample=1, seed=None, progress_fn=None,
              return_confidence=False, n_cycles=None, trace=False,
-             max_parallel_samples=None, gamma0=None, step_scale=None):
+             max_parallel_samples=None, gamma0=None, step_scale=None, return_logits=False, draws=None):
         """Run the full pipeline. feats: model-ready tensor dict. n_cycles = trunk recycling
         iterations (default 10, protenix-v2's spec; fewer trades accuracy for speed). Returns
         coords (n_sample, N, 3) host tensor; if return_confidence, returns (coords, conf) where
         conf is a dict {plddt (mean, float), plddt_atom (N_atom,), pae (N,N), pde (N,N),
         ptm, iptm} for n_sample==1, or a list of such dicts (one per sample) for n_sample>1.
+        return_logits adds pae_logits / pde_logits / plddt_logits and contact_probs to each conf
+        (`_confidences`), the input of the upstream output layout. draws: one iterator of upstream
+        sampler draws per sample (`edm_sample`), for grading against an upstream trajectory.
         trace=True replays a captured ttnn trace of the denoise stream (lossless; faster on
         dispatch-bound diffusion, e.g. -22% warm at L256). Requires the device to have been
         opened with get_device(trace="protenix").
@@ -2428,9 +3670,13 @@ class Protenix:
         if trace:
             import tt_bio.tenstorrent as _TTd
             _TTd.require_trace_region("fold(trace=True)")
-        cond, _aux = self._trunk_cond(feats, progress_fn=progress_fn, n_cycles=n_cycles)
+        _T.program_cache_for(_T.input_shapes(feats), self.dev)
+        cond, _aux = self._trunk_cond(feats, progress_fn=progress_fn, n_cycles=n_cycles, seed=seed)
         N, NT = _aux["N"], _aux["NT"]
         s_inputs, s_trunk, z_trunk = _aux["s_inputs"], _aux["s_trunk"], _aux["z_trunk"]
+        # The device confidence head's sample-invariant z_base is built on the host lane while the
+        # diffusion runs; the chip used to wait for it, and for z_trunk's untilize, at its entry.
+        z_base = self._confidence_start(s_inputs, z_trunk, NT) if return_confidence else None
         import os as _os, time as _time
         if _os.environ.get("TT_PROTENIX_DBG_COND"):
             self._dbg_cond = cond
@@ -2465,7 +3711,7 @@ class Protenix:
         # batched denoise chunk (OOM safety); None = n_sample (one batched forward).
         _sampler = {k: v for k, v in (("gamma0", gamma0), ("step_scale", step_scale))
                     if v is not None}
-        if n_sample > 1 and getattr(self.diffusion, "supports_multiplicity", False):
+        if n_sample > 1 and draws is None and getattr(self.diffusion, "supports_multiplicity", False):
             _mps = DEFAULT_MAX_PARALLEL_SAMPLES if max_parallel_samples is None else max_parallel_samples
             if _prof:
                 import ttnn as _tn; _tn.synchronize_device(self.diffusion.dev); _ts = _time.time()
@@ -2481,8 +3727,8 @@ class Protenix:
                 if _prof:
                     import ttnn as _tn; _tn.synchronize_device(self.diffusion.dev); _ts = _time.time()
                 coords.append(edm_sample(self.diffusion, cond, N, n_step=n_step, seed=sd_seed,
-                                         trace=trace, progress_fn=progress_fn,
-                                         dump_fn=_dump_fn, **_sampler)[0])
+                                         trace=trace, progress_fn=progress_fn, dump_fn=_dump_fn,
+                                         draws=None if draws is None else draws[k], **_sampler)[0])
                 if _prof:
                     import ttnn as _tn; _tn.synchronize_device(self.diffusion.dev); print(f"[PROF] edm_sample[{k}] {_time.time()-_ts:.3f}s", flush=True)
             coords = torch.stack(coords, 0)
@@ -2499,28 +3745,60 @@ class Protenix:
             # Per-sample confidence so callers can rank samples (best-of-N) and
             # report pTM/ipTM/pLDDT per sample. n_sample==1 returns a single dict
             # (back-compat); n_sample>1 returns a list aligned with coords.
-            # Device-resident path (opt-in, TT_PROTENIX_CONF_DEVICE=1): keep z_base
-            # on device across samples -- pass the raw trunk z device tensor
-            # straight in, skipping the (N,N,256) host round-trip the host-heads
-            # path takes. Falls back to the host-heads path otherwise.
-            if self.confidence_head.device_confidence_enabled() and NT >= 128:
-                # z_base (z_trunk + s1 + s2) is sample-invariant: build it ONCE in
-                # fp32 on host and upload as a resident bf16 device tensor, then
-                # run the per-sample distance-embed + Pairformer + heads on device
-                # -- the (N,N,256) z never round-trips per sample. Restricted to
-                # NT>=128: at small N the per-sample bf16 dist-embed rounding
-                # diverges from the host path's fp32-then-round (amplified by the
-                # Pairformer into the precision-sensitive plddt head), so the host
-                # path is kept there (it is only ~23 ms at NT=38 anyway).
-                z_base_dev = self.confidence_head.z_base_device(s_inputs, s_trunk, z_trunk)
-                confs = [self.confidence_head.confidence_device(
-                            s_inputs, s_trunk, z_base_dev, coords[k], feats)
-                         for k in range(n_sample)]
-            else:
-                confs = [self.confidence_head.confidence(s_inputs, s_trunk, z_trunk, coords[k], feats)
-                         for k in range(n_sample)]
+            confs = self._confidences(s_inputs, s_trunk, z_trunk, z_base, list(coords), feats,
+                                      keep_logits=return_logits)
             return coords, (confs[0] if n_sample == 1 else confs)
         return coords
+
+
+def msa_cycle_rows(msa, n_cycles, depth, generator):
+    """Per recycling cycle, the alignment rows OpenDDE's MSAModule reads (opendde
+    model/msa_sampling.py subsample_msa_feature_dict_valid_first): rows holding any non-gap token
+    in random order, then all-gap rows in random order, the first `depth` of them; one fresh draw
+    per cycle from `generator`. msa: [depth_total, tokens] token ids, real columns only. None
+    when the whole alignment fits, where a draw would only reorder rows the module sums over."""
+    import torch
+    if msa.shape[0] <= depth:
+        return None
+    valid = (msa != 31).any(-1)
+    v_idx, i_idx = valid.nonzero().squeeze(-1), (~valid).nonzero().squeeze(-1)
+    out = []
+    for _ in range(n_cycles):
+        pick = v_idx[torch.randperm(v_idx.numel(), generator=generator)][:depth]
+        if pick.numel() < depth:
+            extra = i_idx[torch.randperm(i_idx.numel(), generator=generator)][:depth - pick.numel()]
+            pick = torch.cat([pick, extra])
+        out.append(pick)
+    return out
+
+
+def deeper_than_before(depths, first=0):
+    """The cycles, numbered from `first`, that read more alignment rows than every cycle before them
+    in `depths`: where a refusal can land that the cycles already run did not meet. The trunk keeps
+    its carry on the host before each, so a refused cycle resumes there instead of at `first`."""
+    out, deepest = set(), depths[0] if depths else 0
+    for i, d in enumerate(depths[1:], first + 1):
+        if d > deepest:
+            out.add(i)
+            deepest = d
+    return out
+
+
+# Upstream Protenix's inference cap on the rows one cycle reads (configs_data.py msa.sample_cutoff.test).
+MSA_SAMPLE_CUTOFF = 16384
+
+
+def msa_cycle_rows_random(n_rows, n_cycles, generator, cutoff=MSA_SAMPLE_CUTOFF):
+    """Per recycling cycle, the alignment rows Protenix v2's MSAModule reads at inference
+    (protenix/model/utils.py sample_indices with strategy "random", lower bound 1): a depth k drawn
+    uniformly from 1..n_rows, then the first k of a random permutation, at most `cutoff`. Drawn in
+    upstream's order, randint then randperm, so the same CPU generator state gives the same rows."""
+    import torch
+    out = []
+    for _ in range(n_cycles):
+        k = int(torch.randint(1, n_rows + 1, (1,), generator=generator).item())
+        out.append(torch.randperm(n_rows, generator=generator)[:k][:cutoff])
+    return out
 
 
 def trunk_recycles(state_dict):
@@ -2530,11 +3808,14 @@ def trunk_recycles(state_dict):
     template embedder with an EMPTY pairformer stack. protenix-v2 and OpenDDE ship 10 and a
     2-block stack. So the template depth separates the two lineages, and it is the same signal
     `Trunk.__call__` gates the template contribution on -- one fact read once, not a second
-    hardcoded copy of a per-model number.
+    hardcoded copy of a per-model number. Mol-1 (`model.N_cycle: 20`) is the one checkpoint whose
+    pair track changes width inside the stack, so its width adapters identify it.
 
     The CLI resolves the same default from `main.RECYCLING_STEPS`, keyed by model id, because it
     has to answer before any weights are loaded. The two must agree.
     """
+    if any(k.startswith("pairformer_stack.adapters.") for k in state_dict):
+        return 20
     return 4 if n_blocks(state_dict, "template_embedder.pairformer_stack") == 0 else 10
 
 
@@ -2577,14 +3858,25 @@ class Trunk(_KeyedWeights):
         # n_blocks anchors the prefix, so template_embedder.pairformer_stack and
         # confidence_head.pairformer_stack cannot leak into this count.
         nb_pf = n_blocks(self._w, "pairformer_stack")
-        comb = {}
+        comb, pf_heads = {}, []
         for i in range(nb_pf):
             blk = {k[len(f"pairformer_stack.blocks.{i}."):]: v for k, v in self._w.items()
                    if k.startswith(f"pairformer_stack.blocks.{i}.")}
             for k, v in PW.remap_pairformer_block(blk).items():
                 comb[f"layers.{i}.{k}"] = v
-        self.PF = Pairformer(nb_pf, self.TRI_HEAD_DIM, n_tri_heads, 384 // 16, 16, True, comb,
+            # Heads per block off its own weights: Mol-1's PairMixer blocks have no triangle
+            # attention (0) and its other blocks run at c_z 320 (10 heads), not the resident 448.
+            ta = blk.get("tri_att_start.linear.weight")
+            pf_heads.append(0 if ta is None else int(ta.shape[0]))
+        # Mol-1's pair-width adapters: before_block_<i> and after_blocks (PW.remap_pair_adapters).
+        comb.update(PW.remap_pair_adapters(self._w, "pairformer_stack.", nb_pf))
+        # Mol-1 (the two-width trunk) carries the single track in fp32 end to end (`PairformerLayer` s_fp32): its
+        # confidence head reads the small channels' per-token part, which a bf16 store erases. One-width trunks keep
+        # the bf16 track they shipped with; on them fp32 cost 12-21 % a call at the perf gate's sizes
+        # (state/mol1/evidence/confperf/ROOT.md).
+        self.PF = Pairformer(nb_pf, self.TRI_HEAD_DIM, pf_heads, 384 // 16, 16, True, comb,
                              compute_kernel_config, gated_move=gated_move,
+                             s_fp32=len(self._pair_widths(model_state_dict)) > 1,
                              accurate_softmax=accurate_softmax_site(f"{softmax_scope}.trunk", default=True))
         # Template embedder: pair-only PairformerLayers, count from the weights. Protenix-v2
         # has 2. Every PXDesign-pinned Protenix variant ships a template embedder that is only
@@ -2650,6 +3942,15 @@ class Trunk(_KeyedWeights):
         """
         w = state_dict.get("layernorm_z_cycle.weight")
         return int(w.shape[0]) if w is not None else None
+
+    @staticmethod
+    def _pair_widths(state_dict):
+        """Every pair width the trunk's Pairformer runs at, off each block's pair transition norm: {c_z} for a
+        one-width stack, {448, 320} for Mol-1's; {c_z} without block keys, empty without trunk keys."""
+        w = {int(v.shape[0]) for k, v in state_dict.items()
+             if k.startswith("pairformer_stack.blocks.") and k.endswith("pair_transition.layernorm1.weight")}
+        c_z = Trunk._derive_c_z(state_dict)
+        return w or ({c_z} if c_z else set())
 
     def _template(self, z3, tpl_a, N, nt, pmask_tt=None, attn_tt=None):
         # tpl_a: nt device tensors, each already `linear_no_bias_a(at)` for one template.
@@ -2735,7 +4036,12 @@ class Trunk(_KeyedWeights):
         ttnn.deallocate(cat)
         return out
 
-    def _msa(self, z3, m_feat, pmask_tt=None, attn_tt=None):
+    def _msa(self, z3, m_feat, pmask_tt=None, attn_tt=None, rows=None):
+        """The MSA module's blocks on `z3`. `m_feat` is the pristine m, a device or a host tensor.
+        rows=(mask, depth) says only the first `depth` rows of `m_feat`, a tensor or a list of depth
+        chunks, are alignment rows (a cycle's sampled rows padded to its bucket); OuterProductMean
+        masks the rest."""
+        opm_mask, n_msa = rows if rows is not None else (None, None)
         def update_msa(m, z, pwa, transition):
             if pwa is None:
                 return m
@@ -2803,9 +4109,9 @@ class Trunk(_KeyedWeights):
             if torch.is_tensor(m_feat):
                 # Protenix-order block 0 reads the pristine m with OPM, from one transient upload
                 # or its depth chunks; update_msa below streams from host.
-                z3 = self._opm_from_host(opm, m_feat, z3)
+                z3 = self._opm_from_host(opm, m_feat, z3, opm_mask, n_msa)
             else:
-                z3 = opm(m_feat, None, None, residual=z3)
+                z3 = opm(m_feat, opm_mask, n_msa, residual=z3)
             dram_peak("trunk msa block: after opm")
             if not self._msa_update_first:
                 m_feat = update_msa(m_feat, z3, pwa, tm)
@@ -2823,15 +4129,14 @@ class Trunk(_KeyedWeights):
         _TRUNK_TAP_CALL += 1
         return z3
 
-    def __call__(self, feat, s_inputs, relp, token_bonds, progress_fn=None, n_cycles=None):
-        """feat: dict with template_* / msa / has_deletion / deletion_value / asym_id (host
-        tensors). s_inputs (N,449), relp (N,N,139), token_bonds (N,N) host. n_cycles is the
-        number of recycling iterations (default: the checkpoint's own, via trunk_recycles --
-        10 for protenix-v2/OpenDDE, 4 for the v0.5.0 lineage). Returns
-        (s_trunk (N,384), z_trunk (1,N,N,256)) as ttnn tensors."""
+    def host_inputs(self, feat, relp, token_bonds, n_real):
+        """Everything the trunk builds from its inputs on the host alone: the token-axis padding,
+        the template features, the MSA feature, each rounded to the dtype it is uploaded in. No
+        device call, so fold() runs it on the host lane while the chip computes the input
+        embedder; __call__ only uploads what this returns."""
         import torch
         import torch.nn.functional as F
-        N = n_real = s_inputs.shape[0]
+        N = n_real
         # Bucket the TOKEN axis. Everything below then runs at the padded N and the exit slices
         # back, so no site inside this method needs to know the real length -- only the three
         # reduce-over-tokens families need the masks: TriangleMultiplication (contracts a token
@@ -2839,14 +4144,23 @@ class Trunk(_KeyedWeights):
         # contracts the token axis). OuterProductMean reduces over MSA DEPTH, so a padded token
         # cannot reach a real pair through it, and the transitions/norms/linears are per-token.
         from .token_axis import pad_amount, token_pad_masks_torch
+        # Mol-1-constraint widens the token-bond projection by its condition channels (mol1_constraint.py),
+        # so the masks ride beside the bonds; all zero when the input names no constraint.
+        token_bonds = token_bonds.unsqueeze(-1)
+        width = self.trunk_input._w["linear_no_bias_token_bond.weight"].shape[1]
+        cp = feat.get("constraint_pair")
+        if width > 1:
+            token_bonds = torch.cat([token_bonds, cp.to(token_bonds) if cp is not None
+                                     else token_bonds.new_zeros(N, N, width - 1)], -1)
+        elif cp is not None:
+            raise ValueError("site / contact / exclusion constraints need the Mol-1-constraint weights")
         pad = pad_amount(N, _token_pad_multiple()) if _token_bucket() else 0
-        pmask_tt = attn_tt = None
+        m1 = pm_pad = at_pad = None
         if pad:
             N = n_real + pad
             q = _pad_poison()
-            s_inputs = F.pad(s_inputs, (0, 0, 0, pad), value=q)
             relp = F.pad(relp, (0, 0, 0, pad, 0, pad), value=q)
-            token_bonds = F.pad(token_bonds, (0, pad, 0, pad), value=q)
+            token_bonds = F.pad(token_bonds, (0, 0, 0, pad, 0, pad), value=q)
             feat = dict(feat)
             # -1 matches no real chain, so the padded rows and columns are never "same chain".
             feat["asym_id"] = F.pad(feat["asym_id"], (0, pad), value=-1)
@@ -2865,9 +4179,7 @@ class Trunk(_KeyedWeights):
                     feat[k] = F.pad(feat[k], (0, 0, 0, pad, 0, pad), value=q)
             # Outer-product pair mask and additive -1e9 attention mask, both from the shared
             # helper -- the reasons they are that shape and not simpler are recorded there.
-            m1, _pm, _at = token_pad_masks_torch(n_real, N)
-            pmask_tt, attn_tt = self._up(_pm), self._up(_at)
-        s_init, z_init = self.trunk_input(self._up(s_inputs), self._up(relp), self._up(token_bonds.unsqueeze(-1)))
+            m1, pm_pad, at_pad = token_pad_masks_torch(n_real, N)
         # template feature concat (per template). Offline (no-template) inference omits
         # template_* entirely -> nt=0, template embedder skipped (the reference's
         # use_template=False path carries all-zero template geometry, a negligible update).
@@ -2886,15 +4198,55 @@ class Trunk(_KeyedWeights):
             uv = feat["template_unit_vector"][t] * mc[..., None] * pm[..., None]
             bb = (feat["template_backbone_frame_mask"][t] * mc * pm).unsqueeze(-1)
             te_at.append(torch.cat([dg, pb, aai, aaj, uv, bb], -1))
+        # msa feature
+        # Built in bf16, the dtype it is uploaded in: the one-hot and has_deletion are exact and
+        # torch rounds deletion_value as the fp32 upload did, so the device tensor is identical,
+        # and at 730 tokens x 9,947 rows the host build and tilize drop from 3.3 s to 1.0 s.
+        bf = torch.bfloat16
+        msa = F.one_hot(feat["msa"].long(), 32).to(bf)
+        ms = torch.cat([msa, feat["has_deletion"].to(bf).unsqueeze(-1),
+                        feat["deletion_value"].float().to(bf).unsqueeze(-1)], -1).unsqueeze(0)
+        relp_g = (self.trunk_input.relp_index(relp)
+                  if _T.lever("relp_gather") and getattr(self.trunk_input, "dtype", ttnn.bfloat16) == ttnn.bfloat16
+                  else None)
+        return dict(N=N, pad=pad, feat=feat, relp=self._host_cast(relp), relp_g=relp_g,
+                    token_bonds=self._host_cast(token_bonds),
+                    pm_pad=pm_pad, at_pad=at_pad, nt=nt,
+                    te_at=[self._host_cast(t.unsqueeze(0)) for t in te_at], ms=ms)
+
+    def __call__(self, feat, s_inputs, relp, token_bonds, progress_fn=None, n_cycles=None, host=None,
+                 msa_sample=None):
+        """feat: dict with template_* / msa / has_deletion / deletion_value / asym_id (host
+        tensors). s_inputs (N,449), relp (N,N,139), token_bonds (N,N) host. n_cycles is the
+        number of recycling iterations (default: the checkpoint's own, via trunk_recycles --
+        10 for protenix-v2/OpenDDE, 4 for the v0.5.0 lineage). msa_sample=(depth, generator)
+        gives every cycle its own random alignment rows, as the reference MSAModules do: `depth`
+        rows valid-first for OpenDDE (msa_cycle_rows), or depth None for Protenix's uniformly
+        random depth (msa_cycle_rows_random); None feeds the whole alignment to every cycle.
+        `host` is `host_inputs` of the
+        same feat, relp and token_bonds, already built (fold() builds it on the host lane while
+        the chip runs the input embedder); None builds it here. Returns
+        (s_trunk (N,384), z_trunk (1,N,N,256)) as ttnn tensors."""
+        import torch
+        import torch.nn.functional as F
+        n_real = s_inputs.shape[0]
+        if host is None:
+            host = self.host_inputs(feat, relp, token_bonds, n_real)
+        N, pad, feat, nt, ms = host["N"], host["pad"], host["feat"], host["nt"], host.pop("ms")
+        pmask_tt = attn_tt = None
+        if pad:
+            s_inputs = F.pad(s_inputs, (0, 0, 0, pad), value=_pad_poison())
+            pmask_tt, attn_tt = self._up(host["pm_pad"]), self._up(host["at_pad"])
+        relp_g = host.get("relp_g")
+        s_init, z_init = self.trunk_input(self._up(s_inputs),
+                                          relp_g if relp_g is not None else self._up(host["relp"]),
+                                          self._up(host["token_bonds"]))
         # te_at is cycle-invariant: upload + project it once here instead of re-uploading
         # ~57 MB x nt on every recycle cycle inside _template. Per-fold local on purpose:
         # N varies between targets, so never cache this on self.
-        tpl_a = [self._lin(self._up(t.unsqueeze(0)), "template_embedder.linear_no_bias_a.weight")
-                 for t in te_at]
+        tpl_a = [self._lin(self._up(t), "template_embedder.linear_no_bias_a.weight")
+                 for t in host.pop("te_at")]
         nse_d = self._noisy_structure_dist(feat, N)
-        # msa feature
-        msa = F.one_hot(feat["msa"].long(), 32).float()
-        ms = torch.cat([msa, feat["has_deletion"].unsqueeze(-1), feat["deletion_value"].unsqueeze(-1)], -1).unsqueeze(0)
         # The MSA representation is this trunk's DRAM limiter on a 12 GiB part: it scales as
         # depth * tokens, and a deep-MSA target OOMs right here. Tag the upload and the
         # projection SEPARATELY, with shape and dtype, because the two are the same number of
@@ -2907,56 +4259,231 @@ class Trunk(_KeyedWeights):
         dram_peak(f"trunk msa pre-upload [ms={tuple(ms.shape)} {ms.dtype}"
                   f" -> dtype={getattr(self, 'dtype', ttnn.bfloat16)}]")
         # Deep-MSA offload: every read of the pristine m_feat is row-local (PWA/Transition per
-        # row, OPM per chunk), so past 1 GiB `msa_embed` builds it one depth chunk at a time on
-        # the host and update_msa streams it back up a chunk at a time. Neither the whole `ms`
-        # upload nor a full-size device copy of m_feat enters the per-cycle peak.
+        # row, OPM per chunk), so past 1 GiB of feature `msa_embed` builds it one depth chunk at a
+        # time on the host and update_msa streams it back up a chunk at a time. Neither the whole
+        # `ms` upload nor a full-size device copy of m_feat enters the per-cycle peak. Below that,
+        # m_feat stays on the chip up to `MSA_JOIN_MAX_BYTES`, a size decided by the input alone.
         s_m = self._lin(self._up(s_inputs), "msa_module.linear_no_bias_s.weight")
-        m_feat = msa_embed(ms, lambda x: ttnn.add(
-            self._lin(x, "msa_module.linear_no_bias_m.weight"), s_m))
-        ttnn.deallocate(s_m)
-        dram_peak(f"trunk m_feat built [{tuple(m_feat.shape)} {m_feat.dtype}]")
-        z3 = ttnn.reshape(ttnn.mul(z_init, 0.0), (1, N, N, self.C_Z))
+        m_key = (N, ms.shape[1] * N * self._w["msa_module.linear_no_bias_m.weight"].shape[0] * 2)
+        m_proj = lambda x: ttnn.add(self._lin(x, "msa_module.linear_no_bias_m.weight"), s_m)
+        n_cycles = self.N_CYCLES if n_cycles is None else n_cycles
+        rows = table = next_rows = None
+        if msa_sample is not None:
+            depth, gen = msa_sample
+            msa = feat["msa"][:, :n_real]
+            rows = (msa_cycle_rows_random(msa.shape[0], n_cycles, gen) if depth is None
+                    else msa_cycle_rows(msa, n_cycles, depth, gen))
+        if rows is None:
+            m_feat = msa_embed(ms, m_proj, keep=m_key[1])
+            ttnn.deallocate(s_m)
+            dram_peak(f"trunk m_feat built [{tuple(m_feat.shape)} {m_feat.dtype}]")
+        else:
+            # The embedding is per alignment row, so embedding a cycle's rows equals picking them
+            # out of the embedded whole; only the picked rows are built, padded to a few depths
+            # (msa_row_bucket) and masked past the draw, and the host lane cuts the next cycle's rows
+            # while this one runs. A fixed depth (OpenDDE's 1280) is one shape already: padding it
+            # to the next 1024 would run every per-row op on 2048 rows, 60 % of them zeros.
+            m_feat = None
+            n_rows = ms.shape[1]
+            step = 1024 if depth is None else 32
+            bucket = lambda c: msa_row_bucket(len(rows[c]), n_rows, step)
+            cut = lambda c: hostlane.submit(msa_rows_host, ms, rows[c], bucket(c))
+            # The cycle's rows are picked on the chip from the alignment, uploaded once, when every cycle
+            # would upload its rows in one piece, a test on the input alone: the host
+            # then sends row indices, not up to ~0.9 GB of rows the chip waits for (1.5 s a cycle at
+            # 9,216 rows x 736 tokens on a Wormhole host). Otherwise the host lane cuts the next cycle's
+            # rows while this one runs. Both hand the MSA module the same bf16 tensor.
+            if msa_upload_whole(msa_row_bucket(n_rows, n_rows, step), *ms.shape[2:]):
+                table = msa_rows_table(ms)
+            else:
+                next_rows = cut(0)
         # Both are read once per cycle and never written, so past 1 GiB they wait on the host.
         z_init, tpl_a = host_park(z_init), host_park(tpl_a)
-        s = ttnn.mul(s_init, 0.0)
-        n_cycles = self.N_CYCLES if n_cycles is None else n_cycles
-        for cyc in range(n_cycles):
-            # AF3 trains the recycling stack with every cycle but the LAST under no_grad, so
-            # the tape holds one cycle instead of n_cycles of them. That is upstream's own
-            # structure, not doing less of the model's work: all the cycles still run and the
-            # last one still sees what the one before it produced. With no tape installed
-            # no_grad only flips a flag nothing reads, so inference is untouched.
-            with ops.recycle_region(cyc, n_cycles - 1):
-                if progress_fn:
-                    progress_fn("trunk", step=cyc, total=n_cycles)
-                zc = self._lin(self._ln(z3, "layernorm_z_cycle.weight", "layernorm_z_cycle.bias"), "linear_no_bias_z_cycle.weight")
-                zi = host_unpark(z_init)
-                z3 = ttnn.add(ttnn.reshape(zi, (1, N, N, self.C_Z)), zc)
-                if zi is not z_init:
-                    ttnn.deallocate(zi)
-                if nse_d is not None:
-                    z3 = ttnn.add(z3, self._noisy_structure(z3, nse_d))
-                # Gate on BOTH the feature's template slots and the checkpoint's own template
-                # pairformer depth. `nt` counts slots and protenix_data.dummy_template_features
-                # always emits 4, so `nt > 0` alone is not a statement about the model. Upstream
-                # v0.5.0 pairformer.py:1000 returns literal 0 from TemplateEmbedder.forward when
-                # n_blocks < 1, and the v0.5.0 base checkpoint ships 0 blocks: its five template
-                # projections are dead weight. Without `self.TPL` the port would add
-                # linear_u(relu(mean(LN(tpl_a + linear_z(LN(z)))))) to z on every recycling cycle
-                # where upstream adds nothing. Inert for protenix-v2 and opendde, which both ship
-                # a 2-block stack (pinned by tests/test_protenix_template_gate.py).
-                if nt > 0 and self.TPL:
-                    z3 = self._template(z3, tpl_a, N, nt, pmask_tt, attn_tt)
-                z3 = self._msa(z3, m_feat, pmask_tt, attn_tt)
-                sc = self._lin(self._ln(s, "layernorm_s.weight", "layernorm_s.bias"), "linear_no_bias_s.weight")
-                s = ttnn.add(s_init, sc)
-                s, z3 = self.PF(ttnn.reshape(s, (1, N, 384)), z3, pmask_tt, attn_tt, attn_tt)
-                s = ttnn.reshape(s, (N, 384))
-                # The one region cycle 0's MSA taps did not cover: the s update and the trunk-level
-                # Pairformer. Cheap to tap every cycle -- z3 is ~62 MB here, not m_feat's ~0.7 GiB --
-                # so this both tests cycle 0 and, if cycle 0 matches, names the first cycle that does not.
-                trunk_tap(f"cyc{cyc}_after_PF:s", s, always=True)
-                trunk_tap(f"cyc{cyc}_after_PF:z3", z3, always=True)
+
+        def start():
+            # Cycle 0's inputs, rebuilt from z_init and s_init whenever the trunk (re)starts.
+            zi = host_unpark(z_init)
+            z3 = ttnn.reshape(ttnn.mul(zi, 0.0), (1, N, N, self.C_Z))
+            if zi is not z_init:
+                ttnn.deallocate(zi)
+            return [z3, ttnn.mul(s_init, 0.0)]
+
+        def cycle(cyc, carry, m_feat, rows=None):
+            # Unpacked and cleared, so the cycle's input pair dies at its first rebind exactly as
+            # it did inline. `rows` marks a cycle's own row draw, freed with its mask once the
+            # MSA module has read it.
+            z3, s = carry
+            carry.clear()
+            zc = self._lin(self._ln(z3, "layernorm_z_cycle.weight", "layernorm_z_cycle.bias"), "linear_no_bias_z_cycle.weight")
+            # The previous pair, zc and an unparked z_init are each a whole pair tensor (2 GiB in
+            # bf16 at 2048 tokens, C_Z 256), and zc used to live to the end of the cycle: the add
+            # held four of them and --fast died on the fourth on a 12 GiB Wormhole chip. The old
+            # pair goes once zc is made, and zc and the upload go right after the add. Still
+            # `ttnn.add`: `add_` into the upload saves one more pair but moved exact's l2048
+            # digest on Blackhole.
+            free = not ops.taping()
+            if free:
+                ttnn.deallocate(z3)
+            zi = host_unpark(z_init)
+            z3 = ttnn.add(ttnn.reshape(zi, (1, N, N, self.C_Z)), zc)
+            if zi is not z_init:
+                ttnn.deallocate(zi)
+            if free:
+                ttnn.deallocate(zc)
+            del zc
+            if nse_d is not None:
+                z3 = ttnn.add(z3, self._noisy_structure(z3, nse_d))
+            # Gate on BOTH the feature's template slots and the checkpoint's own template
+            # pairformer depth. `nt` counts slots and protenix_data.dummy_template_features
+            # always emits 4, so `nt > 0` alone is not a statement about the model. Upstream
+            # v0.5.0 pairformer.py:1000 returns literal 0 from TemplateEmbedder.forward when
+            # n_blocks < 1, and the v0.5.0 base checkpoint ships 0 blocks: its five template
+            # projections are dead weight. Without `self.TPL` the port would add
+            # linear_u(relu(mean(LN(tpl_a + linear_z(LN(z)))))) to z on every recycling cycle
+            # where upstream adds nothing. Inert for protenix-v2 and opendde, which both ship
+            # a 2-block stack (pinned by tests/test_protenix_template_gate.py).
+            if nt > 0 and self.TPL:
+                z3 = self._template(z3, tpl_a, N, nt, pmask_tt, attn_tt)
+            z3 = self._msa(z3, m_feat, pmask_tt, attn_tt, rows)
+            if rows is not None and not ops.taping():
+                # Held through the Pairformer, the draw left the 1536-token OpenDDE trunk's
+                # transition no room to join its blocks on device from cycle 1 on, and every
+                # later recycle took the host join: ~12 min instead of ~4:20 on a Wormhole chip.
+                # A list of chunks was consumed by the blocks, which free each one they replace.
+                if not torch.is_tensor(m_feat) and not isinstance(m_feat, list):
+                    ttnn.deallocate(m_feat)
+                ttnn.deallocate(rows[0])
+                del m_feat, rows
+            sc = self._lin(self._ln(s, "layernorm_s.weight", "layernorm_s.bias"), "linear_no_bias_s.weight")
+            s = ttnn.add(s_init, sc, dtype=ttnn.float32)
+            s, z3 = self.PF(ttnn.reshape(s, (1, N, 384)), z3, pmask_tt, attn_tt, attn_tt)
+            s = ttnn.reshape(s, (N, 384))
+            # The one region cycle 0's MSA taps did not cover: the s update and the trunk-level
+            # Pairformer. Cheap to tap every cycle -- z3 is ~62 MB here, not m_feat's ~0.7 GiB --
+            # so this both tests cycle 0 and, if cycle 0 matches, names the first cycle that does not.
+            trunk_tap(f"cyc{cyc}_after_PF:s", s, always=True)
+            trunk_tap(f"cyc{cyc}_after_PF:z3", z3, always=True)
+            return [z3, s]
+
+        def sampled(cyc, carry, x=None, park=False):
+            # One cycle over its sampled rows, the real ones first then zero rows to its bucket: the
+            # host cut x [1, bucket, N, c], or, with x None, rows gathered on the chip from `table`.
+            # `park` builds the cycle's m in depth chunks on the host and streams it, as a refused
+            # resident cycle does below.
+            # An m the MSA blocks would cut into depth chunks anyway is BUILT as those chunks, one
+            # fixed size whatever the draw. Built whole, the m changed size every cycle and left DRAM
+            # holes no later deep draw could use: 7ua2-assembly1 (712 tokens) was refused its
+            # 2.96 GiB m at cycle 7 of 20 on a Wormhole chip with 414 MiB a bank free. Padding every
+            # cycle to the fold's deepest draw fixed that and cost 4-7 % on Blackhole at 512 and
+            # 1024 tokens, per-row work on rows no cycle drew.
+            r, Bc = rows[cyc], bucket(cyc)
+            row_bytes = m_key[1] // ms.shape[1]
+            if _msa_take_whole_path(Bc * row_bytes):
+                if x is None:
+                    x = msa_rows_device(table, r, Bc, N)
+                m_c = msa_embed(x, m_proj, keep=Bc * row_bytes, park=park)
+            else:
+                # Parked where msa_embed would park the whole m: a host cut past one upload whose m
+                # is past what the chip joins.
+                park = park or (x is not None and not msa_upload_whole(*x.shape[1:])
+                                and Bc * row_bytes > MSA_JOIN_MAX_BYTES)
+                C = _msa_row_chunk_size()
+                m_c = msa_embed_chunks((msa_rows_device(table, r[s:s + C], min(C, Bc - s), N) if x is None
+                                        else x[:, s:s + C] for s in range(0, Bc, C)), m_proj, park=park)
+            mask = ttnn.from_torch(msa_rows_mask(len(r), Bc), layout=ttnn.TILE_LAYOUT, device=get_device(),
+                                   dtype=ttnn.bfloat16)
+            carry = cycle(cyc, carry, m_c, (mask, len(r)))
+            del m_c, mask
+            return carry
+
+        # Where a restart begins: cycle 0, or the carry a past-1-GiB pair left on the host after its last cycle.
+        # Such a pair already keeps z_init on the host (host_park), and `from_device` is one DMA of the same
+        # tile bytes: ~2 GiB once a ~290 s cycle at 2048 tokens, where a refused cycle 7 of 10 would
+        # otherwise redo seven cycles.
+        # A sampled fold whose pair is a 32nd of the chip keeps the carry before each cycle that draws more
+        # rows than any cycle before it in this mode, the cycles a refusal lands on. At 1024 Mol-1 tokens on
+        # a Wormhole chip a deep draw late in the fold was refused and the restart redid up to 19 cycles
+        # from cycle 0, so a fold's time hung on its seed: 937 s to 2352 s for one input, and a gang of 8
+        # seeds waits for the slowest.
+        resume = [0, None]
+        keep = z_init.storage_type() != ttnn.StorageType.DEVICE and not ops.taping()
+        mark = (rows is not None and not keep and not ops.taping()
+                and 32 * N * N * self.C_Z * 2 >= dram_bytes())
+
+        def run(mode, m_feat, next_rows):
+            # Every cycle in one mode, from `resume`. `rows` was drawn for all cycles up front, so a
+            # restart sees the same rows.
+            c0, h = resume
+            carry = start() if h is None else [ttnn.to_device(t, get_device()) for t in h]
+            marks = deeper_than_before([bucket(c) for c in range(c0, n_cycles)], c0) if mark else ()
+            for cyc in range(c0, n_cycles):
+                # AF3 trains the recycling stack with every cycle but the LAST under no_grad, so
+                # the tape holds one cycle instead of n_cycles of them. That is upstream's own
+                # structure, not doing less of the model's work: all the cycles still run and the
+                # last one still sees what the one before it produced. With no tape installed
+                # no_grad only flips a flag nothing reads, so inference is untouched.
+                with ops.recycle_region(cyc, n_cycles - 1):
+                    if progress_fn:
+                        progress_fn("trunk", step=cyc, total=n_cycles)
+                    if mode == "table":
+                        carry = sampled(cyc, carry)
+                    elif rows is not None:
+                        x, _ = next_rows.result()
+                        if cyc + 1 < n_cycles:
+                            next_rows = cut(cyc + 1)
+                        carry = sampled(cyc, carry, x, park=mode == "park")
+                    else:
+                        carry = cycle(cyc, carry, m_feat)
+                    if cyc + 1 < n_cycles and (keep or cyc + 1 in marks):
+                        resume[:] = [cyc + 1, [ttnn.from_device(t) for t in carry]]
+            return carry
+
+        # Crash guard, not a regime. A cycle DRAM refuses restarts the trunk from `resume` one mode
+        # lighter, for THIS fold only: rows picked on the chip from the resident alignment ("table"),
+        # then rows cut on the host ("cut"), then each cycle's m built and streamed in depth chunks
+        # ("park"); a resident m ("chip") streams from the host ("host"). Restarting, rather than
+        # re-running the refused cycle from inputs kept on the chip, means no cycle ever holds its
+        # input pair there past its first op: kept, that pair (0.94 GB at 1024 Mol-1 tokens) was what a 1024-token
+        # cycle ran out of DRAM for. A row count drawn afresh every cycle changes the MSA shapes
+        # every cycle, so a deep draw late in the fold can find the chip's DRAM in pieces where the
+        # full-depth path reuses its blocks: 7ua2-assembly1 (712 tokens, 18,611 rows) was refused
+        # 2.96 GiB at cycle 7 of 20 on a Wormhole chip. Nothing is remembered across folds, because
+        # a process-wide switch made a served answer depend on what the process folded before
+        # (state/spd-msaresid.md). The restart runs outside the handler: the traceback pins every
+        # tensor the refused run made.
+        if rows is None:
+            mode = "host" if torch.is_tensor(m_feat) else "chip"
+        else:
+            mode = "table" if table is not None else "cut"
+
+        def step_down(mode):
+            nonlocal table, m_feat, next_rows
+            what = (f"the MSA {tuple(m_feat.shape)}" if rows is None else
+                    f"the MSA {tuple(ms.shape)}" if mode == "table" else "each cycle's MSA rows")
+            how = {"table": "cutting each cycle's rows on the host", "cut": "streaming each cycle's rows from the host",
+                   "chip": "streaming it from the host"}[mode]
+            print(f"[tt-bio] DRAM refused a recycling cycle with {what} on the chip; restarting the trunk {how} for "
+                  f"the rest of this fold. The tt-metal 'Out of Memory' line above is expected and handled.",
+                  file=sys.stderr, flush=True)
+            if mode == "table":
+                ttnn.deallocate(table)
+                table = None
+            elif mode == "chip":
+                h = ttnn.to_torch(m_feat)
+                ttnn.deallocate(m_feat)
+                m_feat = h
+            gc.collect()
+            _T.forget_trimul_inproj_refusals()
+            if rows is not None:
+                next_rows = cut(resume[0])
+
+        carry = restart_lighter(lambda mode: run(mode, m_feat, next_rows), mode,
+                                {"table": "cut", "cut": "park", "chip": "host"}, step_down)
+        z3, s = carry
+        if rows is not None:
+            ttnn.deallocate(s_m)
+            if table is not None:
+                ttnn.deallocate(table)
         for t in [z_init, *tpl_a]:
             if t.storage_type() == ttnn.StorageType.DEVICE:
                 ttnn.deallocate(t)
@@ -3009,10 +4536,13 @@ def merge_conds(diffusion_module, conds):
     for key in ("atxE_bias", "atxD_bias"):
         z_pre = [c[key][0] for c in conds]
         m[key] = ([cat([z[b] for z in z_pre]) for b in range(len(z_pre[0]))],
-                  cat([c[key][1] for c in conds]))
+                  None if conds[0][key][1] is None else cat([c[key][1] for c in conds]))
     if conds[0].get("dit_block_biases") is not None:
         m["dit_block_biases"] = [cat([_T.host_unpark(c["dit_block_biases"][b]) for c in conds])
                                  for b in range(len(conds[0]["dit_block_biases"]))]
+    # dict(conds[0]) carried member 0's atom conditioning terms; the merged c_la has one row
+    # block per member, so its terms are recomputed from it.
+    diffusion_module._atom_terms(m)
     m["_members"] = B
     return m
 
@@ -3051,7 +4581,8 @@ def step_scale_schedule(step_scale, n_step):
 def edm_sample(diffusion_module, cond, n_atoms, *, multiplicity=1, max_parallel_samples=None,
                member_seeds=None, n_step=200, gamma0=0.8, gamma_min=1.0,
                noise_scale=1.003, step_scale=1.5, sigma_data=16.0, s_max=160.0, s_min=4e-4,
-               rho=7.0, seed=None, trace=False, progress_fn=None, dump_fn=None):
+               rho=7.0, seed=None, trace=False, progress_fn=None, dump_fn=None, guidance=None,
+               draws=None):
     """AF3 EDM ancestral sampler for Protenix-v2 (same family as Boltz-2's
     AtomDiffusion.sample; reuses tt_bio.boltz2.compute_random_augmentation). Produces
     atom coords by iteratively denoising from noise with diffusion_module.denoise.
@@ -3080,20 +4611,35 @@ def edm_sample(diffusion_module, cond, n_atoms, *, multiplicity=1, max_parallel_
     seed-to-seed noise floor (PCC parity, the established diffusion-leg bar). This matches
     boltz2.AtomDiffusion.sample, which also uses one stream for its multiplicity batch.
 
+    guidance (tt_bio.tfg.Guidance) replaces the Euler update of each step with its own
+    ``step``, which may correct the denoised estimate and the sampled state (OpenDDE's
+    constraint guidance). None leaves every step exactly as it was.
+
     step_scale (eta) is a float by default; PXDesign passes upstream's schedule dict
     ({"type": "piecewise_65", "min": 1.0, "max": 2.5}) -- see step_scale_schedule.
 
     trace=True replays a captured ttnn trace of the denoise device stream (lossless;
-    collapses per-step dispatch on dispatch-bound diffusion). The captured trace is fixed
-    at (1,N,3), so trace=True with multiplicity>1 falls back to the untraced denoise
-    (correctness first; a batched trace would need re-capture per (N,M)). Requires the
-    device to have been opened with get_device(trace="protenix")."""
+    collapses per-step dispatch on dispatch-bound diffusion), captured once per fold at the
+    first chunk's (N, M); a shorter tail chunk runs untraced. Requires the device to have
+    been opened with get_device(trace="protenix").
+
+    draws replays an upstream sampler's random draws instead of the host RNG, so a fold can be
+    graded against an upstream trajectory rather than against the seed floor: an iterator of
+    (tag, tensor) in upstream Protenix / Mol-1 order for one sample, ("init", noise) then per
+    step ("rot", R), ("trans", t), ("eps", noise). Upstream rotates x -> R x, this loop x @ R,
+    hence the transpose."""
     import torch
     from .boltz2 import compute_random_augmentation
+    from .runtime import serial_host
     M = max(1, int(multiplicity))
-    # trace is captured at (1,N,3): keep it only for the unbatched path; fall back to
-    # the untraced (but batch-aware) denoise for M>1 so the device forward is correct.
-    _denoise = (diffusion_module.denoise_traced if trace and M == 1 else diffusion_module.denoise)
+    if draws is not None:
+        assert M == 1 and member_seeds is None, "a replayed draw stream is one sample's"
+
+        def _take(tag, shape_):
+            got, v = next(draws)
+            assert got == tag, f"draw stream gives {got!r} where the sampler draws {tag!r}"
+            return v.float().reshape(shape_)
+    _denoise = diffusion_module.denoise_traced if trace else diffusion_module.denoise
     if seed is not None:
         torch.manual_seed(seed)
     inv_rho = 1.0 / rho
@@ -3139,6 +4685,8 @@ def edm_sample(diffusion_module, cond, n_atoms, *, multiplicity=1, max_parallel_
                 _states[_b] = torch.get_rng_state()
             return outs
         x = sigmas[0] * torch.cat(_per_member(lambda: torch.randn((1, n_atoms, 3))), 0)
+    elif draws is not None:
+        x = sigmas[0] * _take("init", shape)
     else:
         x = sigmas[0] * torch.randn(shape)
     if dump_fn is not None:                          # optional trajectory dump (default off)
@@ -3154,27 +4702,47 @@ def edm_sample(diffusion_module, cond, n_atoms, *, multiplicity=1, max_parallel_
     # A multi-target batch concatenates its conditioning per member, so a chunk would slice
     # the coordinate stream but not the conditioning: it runs whole or not at all.
     narrowest = M if "_members" in cond else 1
-    for k in range(n_step):
-        if progress_fn:
-            progress_fn("diffusion", step=k, total=n_step)
+    if guidance is not None and "_members" in cond:
+        raise ValueError("guidance belongs to one target; fold guided targets one at a time")
+    xdev, xdt = x.device, x.dtype
+
+    def _draw(k):
+        """Step k's augmentation and noise, `(R, tr, eps, t_hat, sigma_t, eta)`, in draw order."""
         sigma_tm, sigma_t, gamma = sigmas[k].item(), sigmas[k + 1].item(), gammas[k + 1].item()
-        if _per_member is not None:
-            _aug = _per_member(lambda: compute_random_augmentation(1, device=x.device, dtype=x.dtype))
-            R = torch.cat([a[0] for a in _aug], 0)
-            tr = torch.cat([a[1] for a in _aug], 0)
-        else:
-            R, tr = compute_random_augmentation(M, device=x.device, dtype=x.dtype)
-        x = x - x.mean(dim=-2, keepdim=True)
-        x = torch.einsum("bmd,bds->bms", x, R) + tr
+        with serial_host():   # atom-sized host math, cheaper on one thread than fanned out
+            if _per_member is not None:
+                _aug = _per_member(lambda: compute_random_augmentation(1, device=xdev, dtype=xdt))
+                R = torch.cat([a[0] for a in _aug], 0)
+                tr = torch.cat([a[1] for a in _aug], 0)
+            elif draws is not None:
+                R, tr = _take("rot", (1, 3, 3)).transpose(-1, -2), _take("trans", (1, 1, 3))
+            else:
+                R, tr = compute_random_augmentation(M, device=xdev, dtype=xdt)
         t_hat = sigma_tm * (1 + gamma)
         noise_var = noise_scale ** 2 * (t_hat ** 2 - sigma_tm ** 2)
-        if noise_var <= 0:
+        if draws is not None:                        # upstream draws eps at every step, even at zero scale
+            eps = max(noise_var, 0.0) ** 0.5 * _take("eps", shape)
+        elif noise_var <= 0:
             eps = torch.zeros(shape)
         elif _per_member is not None:
             eps = (noise_var ** 0.5) * torch.cat(
                 _per_member(lambda: torch.randn((1, n_atoms, 3))), 0)
         else:
             eps = (noise_var ** 0.5) * torch.randn(shape)
+        return R, tr, eps, t_hat, sigma_t, etas[k]
+
+    # edm_device: the trajectory stays on the card; the host only draws and stages each step.
+    if (trace and guidance is None and dump_fn is None and width >= M and _T.lever("edm_device")
+            and not os.environ.get("TT_BIO_TRUNK_TAP") and hasattr(diffusion_module, "rollout_ok")
+            and diffusion_module.rollout_ok(cond, M)):
+        return diffusion_module.rollout_device(x, cond, n_step, _draw, progress_fn)
+    for k in range(n_step):
+        if progress_fn:
+            progress_fn("diffusion", step=k, total=n_step)
+        R, tr, eps, t_hat, sigma_t, _ = _draw(k)
+        with serial_host():
+            x = x - x.mean(dim=-2, keepdim=True)
+            x = torch.einsum("bmd,bds->bms", x, R) + tr
         x_noisy = x + eps
         t_dev = torch.tensor([t_hat], dtype=torch.float32)
         denoised, width = denoise_in_chunks(
@@ -3182,8 +4750,12 @@ def edm_sample(diffusion_module, cond, n_atoms, *, multiplicity=1, max_parallel_
             narrowest=narrowest, tag="protenix diffusion")
         dram_peak(f"edm step {k}")
         trunk_tap_host(f"edm_denoised[step{k}]", denoised)
-        d = (x_noisy - denoised) / t_hat
-        x = x_noisy + etas[k] * (sigma_t - t_hat) * d
+        if guidance is None:
+            d = (x_noisy - denoised) / t_hat
+            x = x_noisy + etas[k] * (sigma_t - t_hat) * d
+        else:
+            x = guidance.step(x_noisy, denoised, t_hat=t_hat, sigma_t=sigma_t, eta=etas[k],
+                              step=k, n_step=n_step)
         trunk_tap_host(f"edm_x[step{k}]", x)
         if dump_fn is not None:                      # per-step coords (noise -> structure)
             for _m in range(M):
@@ -3196,15 +4768,16 @@ class TrunkInput(_KeyedWeights, Module):
     s_init = linear_sinit(s_inputs); z_init = zinit1(s_init)[:,None] + zinit2(s_init)[None]
     + relative_position_encoding(relp) + token_bond(token_bonds). All LinearNoBias.
     Reference: protenix/model/protenix.py get_pairformer_output (lines 208-226).
-    Validated vs real v2 golden (PCC 0.999997). (Constraint embedder omitted: the
-    inference feat carries no active constraints for plain folding.)"""
+    Validated vs real v2 golden (PCC 0.999997). Mol-1-constraint's conditioner is folded into
+    the token-bond projection at load (mol1_constraint.fold_weights), so token_bonds may carry
+    1 + 5 channels."""
 
     def __init__(self, state_dict, compute_kernel_config):
         super().__init__(state_dict, compute_kernel_config)
         self._w = {k: v for k, v in self.weights.data.items()}
 
     def __call__(self, s_inputs, relp, token_bonds):
-        """s_inputs (N,449); relp (N,N,139); token_bonds (N,N,1). Returns (s_init (N,c_s),
+        """s_inputs (N,449); relp (N,N,139); token_bonds (N,N,1), or (N,N,6) under Mol-1-constraint. Returns (s_init (N,c_s),
         z_init (N,N,c_z))."""
         N = s_inputs.shape[0]
         s_init = self._lin(s_inputs, "linear_no_bias_sinit.weight")
@@ -3212,6 +4785,45 @@ class TrunkInput(_KeyedWeights, Module):
         z1 = ttnn.reshape(self._lin(s_init, "linear_no_bias_zinit1.weight"), (N, 1, cz))
         z2 = ttnn.reshape(self._lin(s_init, "linear_no_bias_zinit2.weight"), (1, N, cz))
         z = ttnn.add(z1, z2)
-        z = ttnn.add(z, self._lin(relp, "relative_position_encoding.linear_no_bias.weight"))
+        rel = (self.relp_gather(*relp, N) if isinstance(relp, tuple)
+               else self._lin(relp, "relative_position_encoding.linear_no_bias.weight"))
+        z = ttnn.add(z, rel)
         z = ttnn.add(z, self._lin(token_bonds, "linear_no_bias_token_bond.weight"))
         return s_init, z
+
+    # relp_gather: column k of the 139-wide one-hot -> its digit in one joint id per pair,
+    # ((d_res * 66 + d_tok) * 2 + same_entity) * 6 + d_chain. Exact in fp32 (max 52271).
+    _RELP_CODE = torch.cat([torch.arange(66) * 792, torch.arange(66) * 12, torch.tensor([6]),
+                            torch.arange(6)]).float()
+
+    def relp_index(self, relp):
+        """Host half of `relp_gather`, run on the host lane: `(index [N, N] int32, table [U, c_z])`.
+
+        Each pair's relp row is a one-hot of four offsets (or all zero in a token-bucket pad), so
+        the projection is the sum of at most four weight rows. The table holds that sum once per
+        distinct row of this fold, in fp32 from the bf16 weights the device multiplies, rounded
+        once to bf16; the device then gathers rows instead of reading a 139-wide tensor.
+        None when relp is not a 0/1 one-hot (a poisoned pad), which takes the matmul path."""
+        flat = relp.reshape(-1, relp.shape[-1]).float()
+        if flat.shape[-1] != self._RELP_CODE.numel() or _pad_poison() != 0.0:
+            return None
+        ids = flat @ self._RELP_CODE + (flat.sum(-1) == 0).float() * 52272
+        uniq, first = torch.unique(ids, return_inverse=True)
+        rep = torch.zeros(uniq.numel(), dtype=torch.long).scatter_(
+            0, first, torch.arange(first.numel()))
+        w = self._w["relative_position_encoding.linear_no_bias.weight"].to(torch.bfloat16).float()
+        table = (flat[rep] @ w.t()).to(torch.bfloat16)
+        return first.reshape(relp.shape[:-1]).to(torch.int32), table
+
+    def relp_gather(self, index, table, N):
+        """Device half of `relp_gather`: the relative-position projection, [N, N, c_z] bf16."""
+        dev = get_device()
+        tab = ttnn.from_torch(table, layout=ttnn.ROW_MAJOR_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+        idx = ttnn.from_torch(index.reshape(1, -1), layout=ttnn.ROW_MAJOR_LAYOUT, device=dev,
+                              dtype=ttnn.uint32)
+        g = ttnn.embedding(idx, tab, layout=ttnn.ROW_MAJOR_LAYOUT, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+        ttnn.deallocate(idx)
+        ttnn.deallocate(tab)
+        out = ttnn.to_layout(ttnn.reshape(g, (N, N, table.shape[-1])), ttnn.TILE_LAYOUT)
+        ttnn.deallocate(g)
+        return out

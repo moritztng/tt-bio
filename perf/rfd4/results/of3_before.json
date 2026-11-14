@@ -1,0 +1,18 @@
+{
+  "tree": "/tmp/of3-premove",
+  "commit": "5dc685d76",
+  "fixture": "/home/ttuser/.coworker/wt/rfd4-beam/perf/size512/fixtures/cdk2x2_256.yaml",
+  "card": "3",
+  "row": {
+    "plddt": 0.361401,
+    "ptm": 0.194983,
+    "iptm": 0.0,
+    "confidence_score": 0.328117,
+    "n_tokens": 256,
+    "n_atoms": 2059,
+    "msa_depth": 2,
+    "n_residues": 256,
+    "n_chains": 1
+  },
+  "runtime_s": 38.0
+}

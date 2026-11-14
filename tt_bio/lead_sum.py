@@ -89,11 +89,13 @@ def _build(x, out, device, G, T):
         compile_time_args=[_gran(G), G, T] + list(ttnn.TensorAccessorArgs(x).get_compile_time_args())
         + genq_ct, runtime_args=reader_rt, common_runtime_args=[0],
         config=ttnn.ReaderConfigDescriptor())
-    # rne_add's writer reads its block size from arg 0: one tile, the rate compute produces.
+    # rne_add's writer reads its block size from arg 0: one tile, the rate compute produces. After
+    # the genq block it takes DUAL and the bfloat16 copy's accessor: 0, and out's again, unused.
+    out_ct = list(ttnn.TensorAccessorArgs(out).get_compile_time_args())
     writer = ttnn.KernelDescriptor(
         kernel_source=str(WRITER), source_type=src, core_ranges=core_grid,
-        compile_time_args=[1] + list(ttnn.TensorAccessorArgs(out).get_compile_time_args())
-        + genq_ct, runtime_args=writer_rt, common_runtime_args=[0],
+        compile_time_args=[1] + out_ct + genq_ct + [0] + out_ct,
+        runtime_args=writer_rt, common_runtime_args=[0, 0],
         config=ttnn.WriterConfigDescriptor())
     compute = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "compute_lead_sum.cpp"), source_type=src,
@@ -119,7 +121,7 @@ def lead_sum(x):
         entry = _CACHE[key] = _build(x, out, device, G, T)
     reader, writer, compute = entry["kernels"]
     reader.common_runtime_args = [x.buffer_address()]
-    writer.common_runtime_args = [out.buffer_address()]
+    writer.common_runtime_args = [out.buffer_address(), 0]
     pd = ttnn.ProgramDescriptor(kernels=[reader, writer, compute], semaphores=[],
                                 cbs=entry["cbs"])
     STATS[0] += 1

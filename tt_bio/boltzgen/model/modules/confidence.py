@@ -9,6 +9,7 @@ from tt_bio.boltzgen.model.layers.confidence_utils import (
     compute_ptms,
 )
 
+from tt_bio.boltz2 import conf_heads_bins, device_conf_heads
 from tt_bio.tenstorrent import PairformerModule as TTPairformerModule
 from tt_bio.boltzgen.model.modules.encoders import RelativePositionEncoder
 from tt_bio.boltzgen.model.modules.trunk import (
@@ -119,46 +120,6 @@ class ConfidenceModule(nn.Module):
         run_sequentially=False,
         use_kernels: bool = False,
     ):
-        if run_sequentially and multiplicity > 1:
-            assert z.shape[0] == 1, "Not supported with batch size > 1"
-            out_dicts = []
-            for sample_idx in range(multiplicity):
-                out_dicts.append(  # noqa: PERF401
-                    self.forward(
-                        s_inputs,
-                        s,
-                        z,
-                        x_pred[sample_idx : sample_idx + 1],
-                        feats,
-                        pred_distogram_logits,
-                        multiplicity=1,
-                        s_diffusion=(
-                            s_diffusion[sample_idx : sample_idx + 1]
-                            if s_diffusion is not None
-                            else None
-                        ),
-                        run_sequentially=False,
-                        use_kernels=use_kernels,
-                    )
-                )
-
-            out_dict = {}
-            for key in out_dicts[0]:
-                if key != "pair_chains_iptm" and key != "chain_pair_ipsae":
-                    out_dict[key] = torch.cat([out[key] for out in out_dicts], dim=0)
-                else:
-                    pair_chains_dict = {}
-                    for chain_idx1 in out_dicts[0][key]:
-                        chains_dict = {}
-                        for chain_idx2 in out_dicts[0][key][chain_idx1]:
-                            chains_dict[chain_idx2] = torch.cat(
-                                [out[key][chain_idx1][chain_idx2] for out in out_dicts],
-                                dim=0,
-                            )
-                        pair_chains_dict[chain_idx1] = chains_dict
-                    out_dict[key] = pair_chains_dict
-            return out_dict
-
         s_inputs = self.s_inputs_norm(s_inputs)
         if not self.no_update_s:
             s = self.s_norm(s)
@@ -166,10 +127,9 @@ class ConfidenceModule(nn.Module):
         if self.add_s_input_to_s:
             s = s + self.s_input_to_s(s_inputs)
 
+        # Everything up to here, and the pair terms below, read no sample: the sequential path
+        # used to rebuild them once per diffusion sample. Built once, they are the same tensors.
         z = self.z_norm(z)
-
-        s = s.repeat_interleave(multiplicity, 0)
-
         z = (
             z
             + self.s_to_z(s_inputs)[:, :, None, :]
@@ -181,6 +141,37 @@ class ConfidenceModule(nn.Module):
                 * self.s_to_z_prod_in2(s_inputs)[:, None, :, :]
             )
 
+        if not (run_sequentially and multiplicity > 1):
+            return self._sample(s_inputs, s, z, x_pred, feats, pred_distogram_logits,
+                                multiplicity, use_kernels)
+
+        assert z.shape[0] == 1, "Not supported with batch size > 1"
+        out_dicts = [
+            self._sample(s_inputs, s, z, x_pred[i : i + 1], feats, pred_distogram_logits,
+                         1, use_kernels)
+            for i in range(multiplicity)
+        ]
+        out_dict = {}
+        for key in out_dicts[0]:
+            if key != "pair_chains_iptm" and key != "chain_pair_ipsae":
+                out_dict[key] = torch.cat([out[key] for out in out_dicts], dim=0)
+            else:
+                pair_chains_dict = {}
+                for chain_idx1 in out_dicts[0][key]:
+                    chains_dict = {}
+                    for chain_idx2 in out_dicts[0][key][chain_idx1]:
+                        chains_dict[chain_idx2] = torch.cat(
+                            [out[key][chain_idx1][chain_idx2] for out in out_dicts],
+                            dim=0,
+                        )
+                    pair_chains_dict[chain_idx1] = chains_dict
+                out_dict[key] = pair_chains_dict
+        return out_dict
+
+    def _sample(self, s_inputs, s, z, x_pred, feats, pred_distogram_logits, multiplicity,
+                use_kernels):
+        """The per-sample part: distogram embedding, pairformer, heads."""
+        s = s.repeat_interleave(multiplicity, 0)
         z = z.repeat_interleave(multiplicity, 0)
         s_inputs = s_inputs.repeat_interleave(multiplicity, 0)
 
@@ -189,10 +180,6 @@ class ConfidenceModule(nn.Module):
         if len(x_pred.shape) == 4:
             B, mult, N, _ = x_pred.shape
             x_pred = x_pred.reshape(B * mult, N, -1)
-        else:
-            BM, N, _ = x_pred.shape
-            B = BM // multiplicity
-            mult = multiplicity
         x_pred_repr = torch.bmm(token_to_rep_atom.float(), x_pred)
         d = torch.cdist(x_pred_repr, x_pred_repr)
 
@@ -203,13 +190,24 @@ class ConfidenceModule(nn.Module):
         mask = feats["token_pad_mask"].repeat_interleave(multiplicity, 0)
         pair_mask = mask[:, :, None] * mask[:, None, :]
 
+        # Boltz-2's device heads: pae/pde/TM are reduced where the pairformer left z, and only
+        # the three [1, n, n] maps come back instead of z itself.
+        heads_device = device_conf_heads(self, multiplicity, "boltzgen")
+        seq_len = z.shape[1]
         s_t, z_t = self.pairformer_stack(
-            s, z, mask=mask, pair_mask=pair_mask, use_kernels=use_kernels
+            s, z, mask=mask, pair_mask=pair_mask, use_kernels=use_kernels,
+            **({"keep_z_device": True} if heads_device is not None else {}),
         )
 
         # AF3 has residual connections, we remove them
         s = s_t
         z = z_t
+
+        pair_dev = None
+        if heads_device is not None:
+            pair_dev = heads_device(z, feats["asym_id"], conf_heads_bins(heads_device, mask),
+                                    seq_len, int(z.shape[1]))
+            z = None
 
         out_dict = {}
 
@@ -227,6 +225,7 @@ class ConfidenceModule(nn.Module):
                 feats=feats,
                 multiplicity=multiplicity,
                 pred_distogram_logits=pred_distogram_logits,
+                pair_dev=pair_dev,
             )
         )
         return out_dict
@@ -272,6 +271,21 @@ class ConfidenceHeads(nn.Module):
                 token_s, 2 * self.max_num_atoms_per_token
             )
 
+    def _pair_logits(self, z, feats):
+        """The host pae and pde logits over ``z``."""
+        if not self.use_separate_heads:
+            return self.to_pae_logits(z), self.to_pde_logits(z + z.transpose(1, 2))
+        asym_id_token = feats["asym_id"]
+        is_same_chain = asym_id_token.unsqueeze(-1) == asym_id_token.unsqueeze(-2)
+        same = is_same_chain.float().unsqueeze(-1)
+        different = (~is_same_chain).float().unsqueeze(-1)
+        pae_logits = (self.to_pae_inter_logits(z) * different
+                      + self.to_pae_intra_logits(z) * same)
+        z_sym = z + z.transpose(1, 2)
+        pde_logits = (self.to_pde_inter_logits(z_sym) * different
+                      + self.to_pde_intra_logits(z_sym) * same)
+        return pae_logits, pde_logits
+
     def forward(
         self,
         s,  # Float['b n ts']
@@ -281,37 +295,14 @@ class ConfidenceHeads(nn.Module):
         feats,
         pred_distogram_logits,
         multiplicity=1,
+        pair_dev=None,
     ):
-        if self.use_separate_heads:
-            asym_id_token = feats["asym_id"]
-            is_same_chain = asym_id_token.unsqueeze(-1) == asym_id_token.unsqueeze(-2)
-            is_different_chain = ~is_same_chain
-
-        if self.use_separate_heads:
-            pae_intra_logits = self.to_pae_intra_logits(z)
-            pae_intra_logits = pae_intra_logits * is_same_chain.float().unsqueeze(-1)
-
-            pae_inter_logits = self.to_pae_inter_logits(z)
-            pae_inter_logits = pae_inter_logits * is_different_chain.float().unsqueeze(
-                -1
-            )
-
-            pae_logits = pae_inter_logits + pae_intra_logits
+        # `pair_dev` is {"pae", "pde", "tm"} already reduced over the bins by
+        # `tenstorrent.ConfidenceHeadsDevice`, and `z` is None: the logits never exist on the host.
+        if pair_dev is not None:
+            pae_logits = pde_logits = None
         else:
-            pae_logits = self.to_pae_logits(z)
-
-        if self.use_separate_heads:
-            pde_intra_logits = self.to_pde_intra_logits(z + z.transpose(1, 2))
-            pde_intra_logits = pde_intra_logits * is_same_chain.float().unsqueeze(-1)
-
-            pde_inter_logits = self.to_pde_inter_logits(z + z.transpose(1, 2))
-            pde_inter_logits = pde_inter_logits * is_different_chain.float().unsqueeze(
-                -1
-            )
-
-            pde_logits = pde_inter_logits + pde_intra_logits
-        else:
-            pde_logits = self.to_pde_logits(z + z.transpose(1, 2))
+            pae_logits, pde_logits = self._pair_logits(z, feats)
         resolved_logits = self.to_resolved_logits(s)
         plddt_logits = self.to_plddt_logits(s)
 
@@ -432,8 +423,11 @@ class ConfidenceHeads(nn.Module):
             ) / torch.sum(feats["atom_pad_mask"] * iplddt_weight, dim=-1)
 
         # Compute the gPDE and giPDE
-        pde = compute_aggregated_metric(pde_logits, end=32)
-        pae = compute_aggregated_metric(pae_logits, end=32)
+        if pair_dev is not None:
+            pde, pae = pair_dev["pde"], pair_dev["pae"]
+        else:
+            pde = compute_aggregated_metric(pde_logits, end=32)
+            pae = compute_aggregated_metric(pae_logits, end=32)
         pred_distogram_prob = nn.functional.softmax(
             pred_distogram_logits, dim=-1
         ).repeat_interleave(multiplicity, 0)
@@ -550,7 +544,6 @@ class ConfidenceHeads(nn.Module):
         )[None]
 
         out_dict = dict(
-            pde_logits=pde_logits,
             plddt_logits=plddt_logits,
             resolved_logits=resolved_logits,
             pde=pde,
@@ -575,8 +568,10 @@ class ConfidenceHeads(nn.Module):
         out_dict["ligand_pae_value_unweighted"] = ligand_pae_value_unweighted
         out_dict["interface_pae_value_unweighted"] = interface_pae_value_unweighted
 
-        out_dict["pae_logits"] = pae_logits
-        out_dict["pae"] = compute_aggregated_metric(pae_logits, end=32)
+        if pair_dev is None:
+            out_dict["pde_logits"] = pde_logits
+            out_dict["pae_logits"] = pae_logits
+        out_dict["pae"] = pae
 
         try:
             (
@@ -595,7 +590,11 @@ class ConfidenceHeads(nn.Module):
                 design_to_target_ipsae,
                 target_to_design_ipsae,
                 chain_pair_ipsae
-            ) = compute_ptms(pae_logits, x_pred, feats, multiplicity)
+            ) = compute_ptms(
+                pae_logits, x_pred, feats, multiplicity,
+                tm_expected_value=None if pair_dev is None else pair_dev["tm"],
+                expected_pae=None if pair_dev is None else pae,
+            )
             out_dict["ptm"] = ptm
             out_dict["iptm"] = iptm
             out_dict["ligand_iptm"] = ligand_iptm

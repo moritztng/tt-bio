@@ -4,7 +4,7 @@
     "-m",
     "tt_bio.main",
     "predict",
-    "/home/ttuser/.coworker/wt/land-standing/.landtmp/rec_p300c/perf/size512/fixtures/cdk2x2_256.yaml",
+    "/home/ttuser/.coworker/wt/rfd4-opendde-drift/perf/size512/fixtures/cdk2x2_256.yaml",
     "--model",
     "opendde",
     "--single_sequence",
@@ -15,7 +15,7 @@
     "--seed",
     "0",
     "--out_dir",
-    "/home/ttuser/.coworker/wt/land-standing/.landtmp/rec_p300c/perf/sizegate/work/out_opendde-256-rep0"
+    "/home/ttuser/.coworker/wt/rfd4-opendde-drift/perf/sizegate/work/out_opendde-256-rep0"
   ],
   "rc": 0,
   "processes": 2,
@@ -95,10 +95,10 @@
       "how": "stats",
       "counter": "tt_bio.mm_dualnoc.STATS",
       "resolved": "True",
-      "served": 8,
-      "declined": 6448,
+      "served": 145,
+      "declined": 26,
       "rejects": {
-        "memory": 6448
+        "memory": 26
       },
       "gauges": null
     },
@@ -107,7 +107,7 @@
       "how": "wrap",
       "counter": null,
       "resolved": "True",
-      "served": 405,
+      "served": 315,
       "declined": 0,
       "rejects": null,
       "gauges": null
@@ -137,11 +137,11 @@
       "how": "wrap",
       "counter": null,
       "resolved": "True",
-      "served": 8,
-      "declined": 1208,
+      "served": 4,
+      "declined": 604,
       "rejects": {
-        "l1_dest_is_faster:256x256x64": 160,
-        "l1_dest_is_faster:256x256x384": 1048
+        "l1_dest_is_faster:256x256x64": 80,
+        "l1_dest_is_faster:256x256x384": 524
       },
       "gauges": null
     },
@@ -150,11 +150,9 @@
       "how": "wrap",
       "counter": null,
       "resolved": "True",
-      "served": 0,
-      "declined": 2104,
-      "rejects": {
-        "k_tiles=12:(12,12)": 2104
-      },
+      "served": 1057,
+      "declined": 0,
+      "rejects": null,
       "gauges": null
     },
     {
@@ -163,10 +161,11 @@
       "counter": "tt_bio.trimul_tail.STATS",
       "resolved": "True",
       "served": 0,
-      "declined": 1208,
+      "declined": 17,
       "rejects": {
-        "k_tiles=2": 160,
-        "k_tiles=12": 1048
+        "act_memcfg_pair": 16,
+        "k_tiles=12": 1,
+        "t1:key=2x4x2": 144
       },
       "gauges": null
     },
@@ -175,7 +174,7 @@
       "how": "wrap",
       "counter": null,
       "resolved": "True",
-      "served": 1216,
+      "served": 2273,
       "declined": 0,
       "rejects": null,
       "gauges": null
@@ -196,11 +195,9 @@
       "counter": "tt_bio.reblock_permute.STATS",
       "resolved": "True",
       "served": 0,
-      "declined": 25792,
+      "declined": 24,
       "rejects": {
-        "gated_window_BufferType.L1": 6448,
-        "window_BufferType.L1": 12896,
-        "back_l1_src_narrow": 6448
+        "back_l1_src_narrow": 24
       },
       "gauges": null
     },
@@ -209,7 +206,7 @@
       "how": "stats",
       "counter": "tt_bio.reblock_permute.STATS_BACK",
       "resolved": "True",
-      "served": 8,
+      "served": 1200,
       "declined": 0,
       "rejects": null,
       "gauges": null
@@ -219,7 +216,7 @@
       "how": "stats",
       "counter": "tt_bio.reblock_permute.STATS_GATED",
       "resolved": "True",
-      "served": 16,
+      "served": 338,
       "declined": 0,
       "rejects": null,
       "gauges": null
@@ -229,7 +226,7 @@
       "how": "stats-shared",
       "counter": "tt_bio.reblock_permute.STATS_GATED",
       "resolved": "True",
-      "served": 16,
+      "served": 338,
       "declined": 0,
       "rejects": null,
       "gauges": null
@@ -258,6 +255,16 @@
       "flag": "SDPA_FUSED_LARGE_S",
       "how": "stats",
       "counter": "tt_bio.tenstorrent.SDPA_FUSED_LARGE_S_STATS",
+      "resolved": "True",
+      "served": 0,
+      "declined": 0,
+      "rejects": null,
+      "gauges": null
+    },
+    {
+      "flag": "SDPA_FUSED_PADDED",
+      "how": "stats",
+      "counter": "tt_bio.tenstorrent.SDPA_FUSED_PADDED_STATS",
       "resolved": "True",
       "served": 0,
       "declined": 0,
@@ -339,7 +346,7 @@
       "how": "stats",
       "counter": "tt_bio.tenstorrent.B2_TOKEN_DIT_SDPA_STATS",
       "resolved": "True",
-      "served": 0,
+      "served": 144,
       "declined": 0,
       "rejects": null,
       "gauges": null
@@ -369,8 +376,8 @@
       "how": "wrap",
       "counter": null,
       "resolved": "1.25",
-      "served": 1208,
-      "declined": 8,
+      "served": 604,
+      "declined": 4,
       "rejects": null,
       "gauges": null
     },
@@ -409,11 +416,10 @@
       "how": "stats",
       "counter": "tt_bio.tenstorrent.TRANSITION_H_CHUNK_STATS",
       "resolved": "16",
-      "served": 122,
-      "declined": 528,
+      "served": 80,
+      "declined": 524,
       "rejects": {
-        "base-unraised": 524,
-        "ratio-shrunk": 4
+        "base-unraised": 524
       },
       "gauges": null
     },

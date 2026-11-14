@@ -100,6 +100,8 @@ LEVERS = [
     # the point: it is what says the flip changed nothing below the cap.
     ("SDPA_FUSED_LARGE_S", "tt_bio.tenstorrent", "_SDPA_FUSED_LARGE_S",
      "tt_bio.tenstorrent.SDPA_FUSED_LARGE_S_STATS", "stats"),
+    ("SDPA_FUSED_PADDED", "tt_bio.tenstorrent", "_SDPA_FUSED_PADDED",
+     "tt_bio.tenstorrent.SDPA_FUSED_PADDED_STATS", "stats"),
     ("RFD3_SPARSE_BIAS", "tt_bio.rfd3_bias", "_ENABLED", "tt_bio.rfd3_bias.STATS", "stats"),
     ("RFD3_FUSED_SCORES", "tt_bio.rfd3_bias", "_FUSED_ENABLED",
      "tt_bio.rfd3_bias.FSTATS", "stats"),
