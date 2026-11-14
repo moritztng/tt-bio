@@ -4,7 +4,7 @@ sdpa_offset.py showed fp32 output accumulators + row statistics cut the generic 
 yet at model level OpenDDE got worse with them (lddt_ca -0.0006, bond error +25 % in every octave). That probe ran
 plain `_sdpa32` at 512 tokens (2 key chunks), fp32 output, HiFi4, no padding. This one runs the call the bf16 DiT
 makes under dit_qkvf: `_sdpa32_fused` on a fused bf16 qkv projection, a bf16 pair bias with padded keys masked,
-bf16 output, `_DIT_QKVF_CKC` (HiFi2), dit_mask_chain + dit_qbox, at OpenDDE's 9DBP length. Arms flip one factor
+bf16 output, HiFi2 (the call's fidelity before it moved to HiFi4), dit_mask_chain + dit_qbox, at OpenDDE's 9DBP length. Arms flip one factor
 at a time, so a wrong path names itself.
 
 usage: TT_VISIBLE_DEVICES=N python sdpa_site.py OUT.jsonl
@@ -29,17 +29,18 @@ dev = T.get_device()
 LOG = open(OUT, "a")
 s = D ** -0.5
 BASE = frozenset({"dit_mask_chain", "dit_qbox"})
+HIFI2 = (ttnn.MathFidelity.HiFi2, False, True, False)
 # arm -> (extra levers, out dtype, ckc)
-ARMS = {"def": (set(), ttnn.bfloat16, T._DIT_QKVF_CKC),
-        "acc": ({"sdpa_acc32"}, ttnn.bfloat16, T._DIT_QKVF_CKC),
-        "def_o32": (set(), ttnn.float32, T._DIT_QKVF_CKC),
-        "acc_o32": ({"sdpa_acc32"}, ttnn.float32, T._DIT_QKVF_CKC),
+ARMS = {"def": (set(), ttnn.bfloat16, HIFI2),
+        "acc": ({"sdpa_acc32"}, ttnn.bfloat16, HIFI2),
+        "def_o32": (set(), ttnn.float32, HIFI2),
+        "acc_o32": ({"sdpa_acc32"}, ttnn.float32, HIFI2),
         "acc_h4": ({"sdpa_acc32"}, ttnn.bfloat16, T._SDPA32_CKC),
         "def_h4": (set(), ttnn.bfloat16, T._SDPA32_CKC),
         "def_h3": (set(), ttnn.bfloat16, (ttnn.MathFidelity.HiFi3, False, True, False)),
         "acc_h3": ({"sdpa_acc32"}, ttnn.bfloat16, (ttnn.MathFidelity.HiFi3, False, True, False)),
-        "acc_nmc": ({"sdpa_acc32", "-dit_mask_chain"}, ttnn.bfloat16, T._DIT_QKVF_CKC),
-        "acc_nqb": ({"sdpa_acc32", "-dit_qbox"}, ttnn.bfloat16, T._DIT_QKVF_CKC)}
+        "acc_nmc": ({"sdpa_acc32", "-dit_mask_chain"}, ttnn.bfloat16, HIFI2),
+        "acc_nqb": ({"sdpa_acc32", "-dit_qbox"}, ttnn.bfloat16, HIFI2)}
 
 
 def aiclk():
