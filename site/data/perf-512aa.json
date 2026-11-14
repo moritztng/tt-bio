@@ -1799,13 +1799,13 @@
         "cells": {
           "p150a": {
             "status": "measured",
-            "s_per_batch": 0.14602,
+            "s_per_batch": 0.14262,
             "n": 7,
-            "spread_pct": 18.11,
+            "spread_pct": 6.64,
             "batch": 7,
             "aiclk_mhz": 1350,
-            "versions": "tt-bio main 00474ee92, ttnn None, qb1 p150a card 2",
-            "when": "2026-11-13T08:23:42Z",
+            "versions": "tt-bio main 2fd61c730, ttnn None, qb1 p150a card 0",
+            "when": "2026-11-14T01:02:29Z",
             "fast": {
               "s_per_batch": 0.10845,
               "n": 7,
