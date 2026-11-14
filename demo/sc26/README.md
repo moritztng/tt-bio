@@ -56,7 +56,7 @@ each fold and chip row names its model again.
 
 ## The claim
 
-The title is "More structures per dollar", with "One open stack for every model, inference and
+The title is "More proteins per dollar", with "One open stack for every model, inference and
 training, from a single card to a Galaxy supercluster" under it. The measurement behind the
 per-dollar claim: Boltz-2
 (tt-bio's defaults: 3 recycles, 200 sampling steps, as on screen) on human serum albumin residues
