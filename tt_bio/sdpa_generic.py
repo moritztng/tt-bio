@@ -861,6 +861,12 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
         assert 2 * p["B"] <= kp_w and kp_w % 8 == 0, (keypad.padded_shape, p["B"])
         extra_cbs = list(extra_cbs) + [(CB_CSS, 1, 4 * kp_w, ttnn.uint32)]
 
+    # fp32 accumulators and statistics are an accuracy upgrade, never a reason to fail: where their CBs
+    # do not fit (head dim 128 at a 256 chunk), the call keeps the factory's bf16 ones.
+    if (out_im_dtype not in (None, ttnn.bfloat16) or stats_dtype not in (None, ttnn.bfloat16)) and cb_bytes(
+            p, q.dtype, k.dtype, v.dtype, mask.dtype, out.dtype, mask_cb_tiles, extra_cbs, im_dtype,
+            out_im_dtype, stats_dtype, one_k_trim=True) > cb_budget():
+        out_im_dtype = stats_dtype = None
     cbs = [ttnn.CBDescriptor(
         total_size=n_tiles * page, core_ranges=core_grid,
         format_descriptors=[ttnn.CBFormatDescriptor(buffer_index=idx, data_format=fmt,
