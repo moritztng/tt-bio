@@ -1594,13 +1594,13 @@
             "versions": "tt-bio main 00474ee92, ttnn None, qb1 p150a card 2",
             "when": "2026-11-13T05:44:03Z",
             "fast": {
-              "s_per_batch": 0.10452,
+              "s_per_batch": 0.11769,
               "n": 7,
-              "spread_pct": 26.24,
+              "spread_pct": 39.06,
               "batch": 1,
               "aiclk_mhz": 1350,
-              "versions": "tt-bio main 023a42071, ttnn None, qb1 p150a card 2",
-              "when": "2026-11-13T09:58:06Z"
+              "versions": "tt-bio main 730f010b9, ttnn None, qb1 p150a card 2",
+              "when": "2026-11-14T01:57:13Z"
             }
           },
           "h200": {
@@ -1807,13 +1807,13 @@
             "versions": "tt-bio main 2fd61c730, ttnn None, qb1 p150a card 0",
             "when": "2026-11-14T01:02:29Z",
             "fast": {
-              "s_per_batch": 0.10845,
+              "s_per_batch": 0.11239,
               "n": 7,
-              "spread_pct": 3.25,
+              "spread_pct": 37.17,
               "batch": 7,
               "aiclk_mhz": 1350,
-              "versions": "tt-bio main 597079b10, ttnn None, qb1 p150a card 0",
-              "when": "2026-11-06T04:16:03Z"
+              "versions": "tt-bio main 730f010b9, ttnn None, qb1 p150a card 2",
+              "when": "2026-11-14T02:05:11Z"
             }
           },
           "h200": {
