@@ -971,7 +971,7 @@ LEVERS = ("lofi", "b2_atom_f32", "trimul_l1x2", "inproj_k6", "inproj_split", "ac
            "pair_bias_rms", "pair_write_res", "dit_cond_steps", "trimul_bres_hifi2", "pair_tail_small", "pair_bf16z",
            "pair_tail_cm", "pair_batch", "pair_block_hifi2", "trimul_t1g8", "trimul_tail_hifi2", "pair_bfp8z",
            "trimul_t1_fgate", "pair_x8", "pair_x8t", "tok_recycle_mm", "tok_w8", "trimul_x8", "ws_ln_resid", "dit_pad_short", "bg_featproc", "ef2_msa_ffn", "ef2_opm_proj", "trimul_t1_part",
-           "trimul_t1_3g", "trimul_t1split", "adaln_at", "dit_kl1", "mask_at_mix", "mask_at_mix_z8", "trunk_trace", "sdpa_acc32")
+           "trimul_t1_3g", "trimul_t1split", "adaln_at", "dit_kl1", "mask_at_mix", "mask_at_mix_z8", "trunk_trace")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -3423,11 +3423,10 @@ def _sdpa32_pv_l1acc(dev, k_chunk: int) -> bool:
             and not lever("dit_kc"))
 
 
-def _sdpa32_acc():
-    """sdpa_acc32: the output accumulators and the row statistics in fp32 CBs. With them bf16 the attention
-    output carries a rounding error proportional to |v|, and v carries the absolute atom position in a
-    diffusion DiT, so backbone bond error grew with the distance from the origin."""
-    return dict(out_im_dtype=ttnn.float32, stats_dtype=ttnn.float32) if lever("sdpa_acc32") else {}
+# Output accumulators and row statistics stay fp32. With them bf16 the attention output carries a rounding
+# error proportional to |v|, and v carries the absolute atom position in a diffusion DiT, so backbone bond
+# error grew with the distance from the origin. sdpa_generic falls back to bf16 where fp32 would not fit L1.
+_SDPA32_ACC = dict(out_im_dtype=ttnn.float32, stats_dtype=ttnn.float32)
 
 
 def _sdpa32(q, k, v, mask, scale: float) -> ttnn.Tensor:
@@ -3448,7 +3447,7 @@ def _sdpa32(q, k, v, mask, scale: float) -> ttnn.Tensor:
     out = ttnn.allocate_tensor_on_device(ttnn.Shape([int(q.shape[i]) for i in range(3)] + [int(v.shape[3])]), ttnn.float32,
                                          ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
     SG.sdpa(dev, q, k, v, mask, out, chunk, k_chunk, grid, _SDPA32_CKC, scale, boxes=boxes,
-            pv_l1acc=_sdpa32_pv_l1acc(dev, k_chunk), **_sdpa32_acc())
+            pv_l1acc=_sdpa32_pv_l1acc(dev, k_chunk), **_SDPA32_ACC)
     return out
 
 
@@ -3468,7 +3467,7 @@ def _sdpa32_fused(qkv, mask, scale: float, heads: int, out_dtype=ttnn.float32, c
                                          ttnn.TILE_LAYOUT, dev, memory_config or ttnn.DRAM_MEMORY_CONFIG)
     SG.sdpa(dev, qkv, qkv, qkv, mask, out, chunk, k_chunk, grid, ckc or _SDPA32_CKC, scale,
             qkv_fused=heads, boxes=boxes, mask_chain=n >= 512 and lever("dit_mask_chain"),
-            pv_l1acc=_sdpa32_pv_l1acc(dev, k_chunk), **_sdpa32_acc())
+            pv_l1acc=_sdpa32_pv_l1acc(dev, k_chunk), **_SDPA32_ACC)
     return out
 
 
