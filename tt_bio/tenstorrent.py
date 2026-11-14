@@ -835,6 +835,8 @@ _FAST_MODE = False
 #   dit_qkvf        the bf16 token DiT's attention as OpenFold3's dit_fuse runs it: one `_sdpa32_fused` program reads
 #                   the fused qkv projection and writes the heads concatenated on their padded lanes, so neither
 #                   nlp_create_qkv_heads nor the head re-assembly runs; gate and output projection as apb_cat
+#   dit_qkvf_h4     with dit_qkvf on a bf16 DiT, the attention at HiFi4 instead of HiFi2. HiFi2 drops low mantissa
+#                   bits of v in the PV product, and v carries the absolute atom position, so the error grew with |x|
 #   dit_pad_short   with dit_chunk, Boltz-2 / BoltzGen's token DiT stages its bias at the first tile multiple a 192-320
 #                   chunk divides rather than the 256 grid (`dit_bias_pad_len`): BoltzGen's 544 tokens at 576, not 768
 #   relp_gather     the Protenix family's trunk input projects relative position by one row gather from a per-fold
@@ -971,7 +973,7 @@ LEVERS = ("lofi", "b2_atom_f32", "trimul_l1x2", "inproj_k6", "inproj_split", "ac
            "pair_bias_rms", "pair_write_res", "dit_cond_steps", "trimul_bres_hifi2", "pair_tail_small", "pair_bf16z",
            "pair_tail_cm", "pair_batch", "pair_block_hifi2", "trimul_t1g8", "trimul_tail_hifi2", "pair_bfp8z",
            "trimul_t1_fgate", "pair_x8", "pair_x8t", "tok_recycle_mm", "tok_w8", "trimul_x8", "ws_ln_resid", "dit_pad_short", "bg_featproc", "ef2_msa_ffn", "ef2_opm_proj", "trimul_t1_part",
-           "trimul_t1_3g", "trimul_t1split", "adaln_at", "dit_kl1", "mask_at_mix", "mask_at_mix_z8", "trunk_trace", "sdpa_acc32")
+           "trimul_t1_3g", "trimul_t1split", "adaln_at", "dit_kl1", "mask_at_mix", "mask_at_mix_z8", "trunk_trace", "sdpa_acc32", "dit_qkvf_h4")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -14414,7 +14416,7 @@ class AttentionPairBias(Module):
             return None
         o = (_sdpa32_fused(ttnn.unsqueeze(qkv, 1), z, self.head_dim ** -0.5, self.n_heads) if fp32 else
              _sdpa32_fused(ttnn.unsqueeze(qkv, 1), z, self.head_dim ** -0.5, self.n_heads,
-                           out_dtype=ttnn.bfloat16, ckc=_DIT_QKVF_CKC))
+                           out_dtype=ttnn.bfloat16, ckc=_SDPA32_CKC if lever("dit_qkvf_h4") else _DIT_QKVF_CKC))
         ttnn.deallocate(qkv)
         o = ttnn.reshape(o, (int(o.shape[0]), n, int(o.shape[3])))
         if n > seq:

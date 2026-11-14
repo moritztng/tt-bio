@@ -35,6 +35,9 @@ ARMS = {"def": (set(), ttnn.bfloat16, T._DIT_QKVF_CKC),
         "def_o32": (set(), ttnn.float32, T._DIT_QKVF_CKC),
         "acc_o32": ({"sdpa_acc32"}, ttnn.float32, T._DIT_QKVF_CKC),
         "acc_h4": ({"sdpa_acc32"}, ttnn.bfloat16, T._SDPA32_CKC),
+        "def_h4": (set(), ttnn.bfloat16, T._SDPA32_CKC),
+        "def_h3": (set(), ttnn.bfloat16, (ttnn.MathFidelity.HiFi3, False, True, False)),
+        "acc_h3": ({"sdpa_acc32"}, ttnn.bfloat16, (ttnn.MathFidelity.HiFi3, False, True, False)),
         "acc_nmc": ({"sdpa_acc32", "-dit_mask_chain"}, ttnn.bfloat16, T._DIT_QKVF_CKC),
         "acc_nqb": ({"sdpa_acc32", "-dit_qbox"}, ttnn.bfloat16, T._DIT_QKVF_CKC)}
 
