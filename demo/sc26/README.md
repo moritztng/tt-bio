@@ -27,7 +27,9 @@ design, embeddings, affinity). It is tt-bio's own model registry (`PREDICT_MODEL
 `esmfold2-fast`, `opendde-abag` and the ESMC and SaProt sizes are checkpoints of the entry they sit
 under. BindCraft 2 is listed under design although it is not a `--model`: it is a third-party design
 loop, under its authors' licence, whose network `tt_bio.bindcraft2` runs on the card, and tt-bio is
-not affiliated with or endorsed by them. OpenFold3 and OpenBind-0 lead the structure models.
+not affiliated with or endorsed by them. Each group runs from the most state of the art and widely
+used down: structure opens with OpenFold3, OpenDDE, Mol-1 and Boltz-2, design with RFD4-Proteina and
+BindCraft 2.
 
 The screen is TT-Bio, software you run on your own cards, so the list does not stop at what JapanFold
 hosts. A quiet `local` after a name marks the four JapanFold does not offer: Protenix-v2, whose
@@ -66,8 +68,9 @@ in 180 s, 0.40 a second, median 9.79 s a fold, with the chips at a median 1350 M
 screen prints neither the basis nor the clock; both stay in the engine's logs.
 
 Two QR codes sit at the bottom left, the same size (37 modules with the quiet zone, 2 frame pixels
-a module): "Learn more" goes to https://github.com/moritztng/tt-bio and "Try it" to
-https://japanfold.aiand.com.
+a module): "Learn more" goes to https://github.com/moritztng/tt-bio and "Try it out on JapanFold",
+under the JapanFold logo (`web/app/assets/japanfold-logo-white.svg`, the official file from the
+TT-Bio Assets folder, unchanged), to https://japanfold.aiand.com.
 
 ## Time on screen
 
