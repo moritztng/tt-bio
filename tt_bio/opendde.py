@@ -507,9 +507,14 @@ TRIATT_Q10 = frozenset({"triatt_q10"})
 # separate-process A/B x5 on Galaxy chips at 1000 MHz (spd-m-opendde-2 wl2, 2026-11-06), CIFs identical on every pair:
 # median of the four warm pairs -0.85 s normal (79.4 s), -0.69 s fast (73.6 s).
 PACKER = frozenset({"ws_psilu"}) | T1_PSIG
+# Wormhole normal takes apb_cat (the token attention's heads re-assembled by one concat). Galaxy chip at 1000 MHz, warm
+# fold A/B (spd-integrate apbcat, 2026-11-12): l384 77.52 -> 75.87 s, l448 90.47 -> 88.70 s (-2 %). WH 11-set normal grade
+# (gapb, 43 paired folds): PASS, same-seed top pose median 0.114 A (A/A floor 1.409 A), ipTM -0.0013, docking 24 -> 24.
+# Not graded on Blackhole, so BH_NORMAL_LEVERS drops it.
+WH_APB = frozenset({"apb_cat"})
 NORMAL_LEVERS = (_FAMILY_NORMAL | WS_CHAIN | T2_TAIL | TRIATT_LN | BRES_NORMAL | DIT_SEAM | TRIATT_Q10 | TRIATT_K1 | PACKER
                  | {"ws_resid", "ws_resid2", "trimul_t1w8", "dit_bpad", "inproj_split", "trimul_t1_dram", "trunk_hifi2",
-                    "transition_b8", "ws_b8_plain"})
+                    "transition_b8", "ws_b8_plain"} | WH_APB)
 # Blackhole normal takes the Wormhole normal set without ws_chain (still graded FAIL on BH, above), plus the BH trimul
 # routes (trimul_bres_bh, trimul_t1_2g), ws_psilu and T1_PSIG. p150a, cdk2x2 512, one process per arm, 1 cold + 3 warm
 # folds, AICLK 1331-1350 MHz sampled during the folds (spd-m-opendde-2 l1, 2026-11-04): 52.09 -> 40.26 s (-22.7 %).
@@ -533,7 +538,7 @@ BH_DIT = WH_DIT | {"adaln_mod", "edm_device", "atom_l1"}
 BH_TRUNK = frozenset({"trimul_t1_part", "trimul_t1split", "ws_l1dest"})
 # triatt_ln_b8 stays fast-only on Blackhole: ~-0.8 s on this set (arms6), but the BH 11-set normal grade vs
 # TT_BIO_LEVERS=none (glg, 44 paired folds, 2026-11-06) FAILs, pLDDT -0.0070 [-0.0130, -0.0013] and top pose 0.634 A.
-BH_NORMAL_LEVERS = (NORMAL_LEVERS - WS_CHAIN) | {"trimul_bres_bh", "trimul_t1_2g"} | BH_DIT | BH_TRUNK
+BH_NORMAL_LEVERS = (NORMAL_LEVERS - WS_CHAIN - WH_APB) | {"trimul_bres_bh", "trimul_t1_2g"} | BH_DIT | BH_TRUNK
 FAST_LEVERS = (_T.FAST_LEVERS - {"dit_b8"}) | {"trimul_b8in", "trimul_t2w"} | WS_CHAIN
 # Wormhole fast also runs T1 on OpenDDE's c_z 384 pair (trimul_t1_c384). WH 11-set fast grade, FAST_LEVERS vs +
 # trimul_t1_c384 (spd-integrate gpsf, 2026-10-17, 44 paired folds): PASS, CA-lDDT -0.0005 [-0.0016, +0.0002], pLDDT

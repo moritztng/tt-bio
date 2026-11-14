@@ -43,17 +43,24 @@ def _atom_names(feats):
     return ["".join(map(chr, row)).rstrip() for row in codes.tolist()]
 
 
-def _residue_adjacency(asym_id, res_id):
-    """Strict same-chain, adjacent-res_id fallback (opendde/data/core/featurizer.py
-    get_polymer_residue_graph's fallback path -- the only path that applies here, since
-    tt-bio's residue-token features carry no explicit inter-residue bond graph)."""
+def _residue_adjacency(asym_id, res_id, is_std, backbone_bonds=()):
+    """Upstream get_polymer_residue_graph (opendde/data/core/featurizer.py): residue tokens i
+    and i+1 are neighbours when both are standard polymer residues of one chain whose res_id
+    steps by 1. A modified residue or a ligand (a glycan's sugars included) is tokenized per
+    atom and is nobody's neighbour. Upstream reads the edges off the chain's C-N / O3'-P bonds,
+    which for an inference input are exactly these adjacent pairs, followed by any such bond
+    the input adds (feats["polymer_backbone_bonds"], token pairs a < b): a head-to-tail
+    cyclic peptide's closing bond makes its last residue the first one's "next" and the
+    first the last one's "prev", written over the sequential edge as upstream does."""
     n = asym_id.shape[0]
     prev = torch.full((n,), -1, dtype=torch.long)
     nxt = torch.full((n,), -1, dtype=torch.long)
-    for i in range(n - 1):
-        if int(asym_id[i]) == int(asym_id[i + 1]) and int(res_id[i + 1]) - int(res_id[i]) == 1:
-            nxt[i] = i + 1
-            prev[i + 1] = i
+    edges = [(i, i + 1) for i in range(n - 1)
+             if int(asym_id[i]) == int(asym_id[i + 1]) and int(res_id[i + 1]) - int(res_id[i]) == 1]
+    for a, b in edges + [tuple(e) for e in torch.as_tensor(backbone_bonds).tolist()]:
+        if is_std[a] and is_std[b]:
+            nxt[a] = b
+            prev[b] = a
     return prev, nxt
 
 
@@ -75,11 +82,14 @@ def build_structural_token_features(feats):
     for a, t in enumerate(a2t.tolist()):
         atoms_of[t].append(a)
 
+    # A standard polymer residue is the one token kind that owns more than one atom (every
+    # modified residue and ligand is one token per atom), upstream's res_name in STD_RESIDUES.
+    is_std = [len(atoms) > 1 and mol_type[r] in _SPLIT for r, atoms in enumerate(atoms_of)]
     parent, role, twin = [], [], []
     atom_tok = torch.empty(len(names), dtype=torch.long)
     atom_tokatom = torch.empty(len(names), dtype=torch.long)
     for r, atoms in enumerate(atoms_of):
-        split = _SPLIT.get(mol_type[r]) if len(atoms) > 1 else None
+        split = _SPLIT[mol_type[r]] if is_std[r] else None
         if split is None:
             # One structural token for the whole residue token: upstream's
             # _get_atom_token_from_parent. Every atomized token lands here.
@@ -100,7 +110,8 @@ def build_structural_token_features(feats):
             atom_tokatom[members] = torch.arange(len(members))
 
     parent_t = torch.tensor(parent, dtype=torch.long)
-    prev_res, next_res = _residue_adjacency(asym_id, feats["residue_index"])
+    prev_res, next_res = _residue_adjacency(asym_id, feats["residue_index"], is_std,
+                                         feats.get("polymer_backbone_bonds", ()))
     return {
         "structural_token_index": torch.arange(len(parent), dtype=torch.long),
         "parent_residue_idx": parent_t,

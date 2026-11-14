@@ -167,11 +167,20 @@ LOAD_RETRY_S, LOAD_WAIT_MAX_S = 300, 8 * 3600
 #: minutes on 2026-10-09 and five BH legs were recorded FAIL without running. A Galaxy reached
 #: through the japanfold-ssh jump host reports a dropped hop as "Connection closed by UNKNOWN port
 #: 65535": rel-412d01dfe (10-17 08:4xZ) recorded five WH legs FAIL in 7-12 s that way.
-SSH_LOST = re.compile(r"^(ssh: connect to host .*|Timeout, server .* not responding\.|"
+#: The keepalive timeout fires mid-stream, so it lands on whatever line the leg had half written:
+#: rel-72875f231 pytest_device:1/4 bh (11-12 21:45Z) read "....Timeout, server tt-quietbox not
+#: responding." when qb1 went dark at 82 % and was recorded FAIL instead of retried.
+SSH_LOST = re.compile(r"(?:^(?:ssh: connect to host .*|"
                       r"client_loop: send disconnect: .*|Connection to .* closed by remote host\.|"
                       r"Connection closed by \S+ port \d+|"
-                      r"kex_exchange_identification: .*|ssh_dispatch_run_fatal: Connection to .*)$", re.M)
+                      r"kex_exchange_identification: .*|ssh_dispatch_run_fatal: Connection to .*)|"
+                      r"Timeout, server \S+ not responding\.)$", re.M)
 SSH_LOST_RETRY_S, SSH_LOST_TRIES = 120, 30
+#: A named card's leg dies with its ssh stream, so retrying it on a host that stays dark only holds it: qb1 went
+#: dark at 21:45Z on 11-12 and nine BH legs of rel-72875f231 sat in SSH_LOST_TRIES retries (hours with ssh()'s
+#: own backoff) while qb2's cards idled. After this many lost tries with no answer the card is retired and the
+#: leg goes back on its arch's queue.
+HOST_DARK_TRIES = 5
 #: A full disk on the leg's host. Another job filled qb1's root on 2026-10-10 and 116 BH legs were
 #: recorded FAIL in an hour, each at its first mkdir. Wait for space and run the leg again.
 DISK_FULL = re.compile(r"No space left on device")
@@ -375,7 +384,10 @@ PARITY_COVERS_RG = {"boltzgen", "opendde-abag", "capacity", "nesso1", "rf3-1024a
 #: Parity legs whose reference and accuracy record exist on Blackhole only. RFD4's upstream fp32
 #: goldens live on the qb hosts, and both ports were graded on Blackhole; on a Wormhole Galaxy the
 #: RFD4 golden suite would skip (a GAP) and redden a release over data that was never there.
-PARITY_CARD_TYPES = {"rfd4-trunk": ("p150a", "p300c"), "bindcraft2-afgrad-stack": ("p150a", "p300c")}
+#: The BindCraft2 gradient leg holds a ~44 GB float64 autograd reference in host RAM, so it runs on
+#: p150a only: qb2 (p300c) shares 249 GB between four legs and other rows, and the kernel OOM-killed
+#: the leg there in gates 25fb92265, 88f1ce541 and 730f010b9 (11-13), each passing on qb1 (503 GB).
+PARITY_CARD_TYPES = {"rfd4-trunk": ("p150a", "p300c"), "bindcraft2-afgrad-stack": ("p150a",)}
 
 CAP_OWED = "host-threads"   # an OWED entry: no granted host times this ladder at its baseline's cap
 
@@ -1873,6 +1885,12 @@ def make_executor(sha: str, out: Path, ledger: Ledger, keys: dict, remote_out: s
                 # The connection dropped, not the leg: run it again once the host answers.
                 lost += 1
                 time.sleep(SSH_LOST_RETRY_S)
+                if card not in (None, POOL) and lost >= HOST_DARK_TRIES and not host.answers():
+                    raise CardDead({"leg": leg.name, "arch": host.arch, "verdict": "FAIL", "rc": rc,
+                                    "worker": f"{host.name}:{card}", "card_type": host.cfg["card_type"],
+                                    "wall_s": round(time.time() - t0), "log": str(log), "ended": now(),
+                                    "sha": sha, "key": keys[(leg.name, host.arch)]},
+                                   f"{host.name} does not answer ssh")
                 continue
             if rc and DISK_FULL.search(text) and full < DISK_FULL_TRIES:
                 full += 1

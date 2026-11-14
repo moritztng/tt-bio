@@ -588,3 +588,19 @@ def test_a_candidate_with_no_new_release_notes_is_not_releasable(tmp_path):
     (tmp_path / "CHANGELOG.md").write_text(log.replace("## [Unreleased]\n", "## [Unreleased]\n- **New.**\n"))
     git("add", "."), git("commit", "-qm", "notes")
     assert rn.releasable(git("rev-parse", "HEAD"), tsha, tmp_path)
+
+
+def test_a_note_merged_under_a_released_section_is_named(tmp_path):
+    git = _repo(tmp_path)
+    log = "# Changelog\n\n## [Unreleased]\n\n## [0.1.0] - 2026-10-01\n- **Old.**\n"
+    (tmp_path / "CHANGELOG.md").write_text(log)
+    git("add", "."), git("commit", "-qm", "release"), git("tag", "-f", "v0.1.0")
+    tsha = git("rev-parse", "HEAD")
+    (tmp_path / "a.py").write_text("x = 2\n")
+    (tmp_path / "CHANGELOG.md").write_text(log + "- **Stranded.**\n")
+    git("add", "."), git("commit", "-qm", "code, note under the old release")
+    head = git("rev-parse", "HEAD")
+    assert not rn.releasable(head, tsha, tmp_path) and rn.stranded(head, tsha, tmp_path) == ["0.1.0"]
+    d = rn.decide(tmp_path, None, "main")
+    assert d["do"] == "GATE" and "notes under released 0.1.0" in d["why"]
+    assert rn.stranded(tsha, tsha, tmp_path) == []

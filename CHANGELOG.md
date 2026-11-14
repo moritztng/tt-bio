@@ -5,6 +5,27 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+### Changed
+- **OpenDDE reads the same reference conformers as upstream OpenDDE 1.2.0.** It used the CCD ideal coordinates,
+  up to 2.8 A off in intra-residue distances for amino acids and 4.1 A for nucleotides; it now downloads OpenDDE's own
+  conformer table (143 MB, once). Glycans, modified residues and cyclic peptides are also linked the way upstream
+  links them. Accuracy is unchanged within seed noise on 11 complexes and 7 ligand complexes.
+- **OpenDDE on Wormhole folds about 2 % faster in the default mode** (384 tokens 77.5 -> 75.9 s on a Galaxy chip at
+  1000 MHz). Structures agree with the previous release to 0.11 A median on 11 complexes, well inside seed noise.
+- **Jobs that share an MSA cache search each sequence once.** When several jobs in a burst need the same chain, the
+  first one searches and the others wait and read its result, for every MSA model, paired and unpaired. Before, only
+  Boltz-2 did this; the rest repeated the search in every job. Same search, same output.
+
+### Fixed
+- **A killed `tt-bio` command no longer leaves a stuck worker holding its card.** When `timeout` or a
+  `kill` ended the CLI while a worker was stuck opening its chip, the worker kept the card until someone killed it
+  by hand. It now gets SIGTERM as before and, if still alive 90 s later, SIGKILL. Embedding shards and BoltzGen
+  per-chip workers are covered too.
+- **OpenFold3 returns its coordinates in full precision.** The sampler rounded every final atom position to bfloat16,
+  0.125 A at 16-32 A from the origin and 0.5 A at 64-128 A, which distorted backbone bond lengths in large complexes.
+
+## [0.32.0] - 2026-11-12
+
 ### Added
 - **Mol-1 can be guided by what you already know about the binding.** A job that carries a `constraints` object folds
   on Molence's Mol-1-constraint weights: `site` names the residues in the binding site, `contact` the pairs that
@@ -12,6 +33,8 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   ([docs/mol1.md](docs/mol1.md#guiding-a-prediction-mol-1-constraint)). The weights download on first use, and only
   for a job that names a condition; a job without one folds on the base weights exactly as before. Thanks to
   [Molence Bio](https://github.com/molence/Mol-1) for releasing the model and the weights under Apache-2.0.
+
+## [0.31.0] - 2026-11-12
 
 ### Changed
 - **Mol-1 `--fast` is faster than the default mode.** It used to drop Mol-1's tuned kernels and ran about 1.5x slower.
