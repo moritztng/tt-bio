@@ -442,6 +442,8 @@ function drawChips() {
   const ol = $('chips');
   // a row per chip in the demo, numbered by its seat; one out of the demo gets none
   const shown = seats();
+  // replay only (no chip in the demo): the heading and its rule hide rather than sit over nothing
+  document.body.classList.toggle("nochips", !shown.length);
   if (ol.dataset.k !== shown.join()) {
     ol.dataset.k = shown.join();
     ol.innerHTML = shown.map((i, row) =>
