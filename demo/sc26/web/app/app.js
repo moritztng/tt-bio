@@ -36,16 +36,18 @@ const WORD = ['no', 'one', 'two', 'three', 'four'];
 // DESIGN_MODELS, EMBED_MODELS + SAPROT_MODELS and AFFINITY_MODELS, one entry per model (its --model values
 // first, space-separated: esmfold2-fast, opendde-abag and the ESMC/SaProt sizes are checkpoints of one
 // model), plus BindCraft 2, which is not a --model: a third-party design loop whose Evoformer tt_bio.bindcraft2
-// runs on card. OpenFold3, which the chips run, and OpenBind-0 lead (Moritz, 5 Oct 2026).
+// runs on card. Each group is ordered by how state of the art and how widely used a model is (Moritz,
+// 14 Nov 2026: structure opens OpenFold3, OpenDDE, Mol-1, Boltz-2; design opens RFD4, BindCraft 2).
 // `local` marks what runs on your own card but JapanFold, the QR beside the list, does not host:
 // Protenix-v2 (its weights need ByteDance's consent to redistribute), BindCraft 2 (hosting it needs its
 // authors' licence), Protenix-v1 and Nesso-1. A hosting licence does not cover software you run yourself.
 const LINEUP = [
-  ['Structure', [['openfold3', 'OpenFold3'], ['openbind', 'OpenBind-0'], ['boltz2', 'Boltz-2'],
-    ['esmfold2 esmfold2-fast', 'ESMFold2'], ['rf3', 'RoseTTAFold3'], ['protenix-v1', 'Protenix-v1', 'local'],
-    ['protenix-v2', 'Protenix-v2', 'local'], ['opendde opendde-abag', 'OpenDDE'], ['af2ig', 'AF2 initial guess']]],
-  ['Design', [['boltzgen', 'BoltzGen'], ['rfd3', 'RFdiffusion3'], ['pxdesign', 'PXDesign'],
-    ['bindcraft2', 'BindCraft 2', 'local']]],
+  ['Structure', [['openfold3', 'OpenFold3'], ['opendde opendde-abag', 'OpenDDE'], ['mol1', 'Mol-1'],
+    ['boltz2', 'Boltz-2'], ['rf3', 'RoseTTAFold3'], ['esmfold2 esmfold2-fast', 'ESMFold2'],
+    ['openbind', 'OpenBind-0'], ['protenix-v1', 'Protenix-v1', 'local'], ['protenix-v2', 'Protenix-v2', 'local'],
+    ['af2ig', 'AF2 initial guess']]],
+  ['Design', [['rfd4', 'RFD4-Proteina'], ['bindcraft2', 'BindCraft 2', 'local'], ['boltzgen', 'BoltzGen'],
+    ['rfd3', 'RFdiffusion3'], ['pxdesign', 'PXDesign']]],
   ['Embeddings', [['esmc-300m esmc-600m esmc-6b', 'ESMC'], ['saprot-35m saprot-650m saprot-1.3b', 'SaProt']]],
   ['Affinity', [['nesso1', 'Nesso-1', 'local']]],
 ];
