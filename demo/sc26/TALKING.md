@@ -46,14 +46,15 @@ ESMFold2 at 512 residues [4]. The case for it is per dollar: a 32-chip Galaxy do
 *Recorded folds* when it is showing folds recorded earlier on this box. A visitor's name is always
 folded live. Every time on screen comes with the clock measured during that fold [1].
 
-**2. How does it compare to a GPU?** Per chip it is slower: at 512 residues Boltz-2 takes 17.3 s
-against 7.3 s on an H200, ESMFold2 29.4 s against 7.3 s [4]. Per dollar of list price, a Galaxy
-does 3.7x to 9.3x the folds of a DGX B200 [4]. We never claim faster than an H200.
+**2. How does it compare to a GPU?** Per chip it is slower: at 512 residues OpenFold3, the model on
+screen, takes 8.1 s on a Blackhole card against 3.0 s on an H200 [4]. Per dollar of list price, a
+Galaxy does 5.3x the OpenFold3 folds of a DGX B200, and 4.2x (Boltz-2) and 3.2x (ESMFold2) for the
+others [4]. We never claim faster than an H200.
 
 **3. How much power?** Each chip draws about 30 W idle and 40 to 60 W while folding, with peaks to
 144 W, read from the driver's power counters on this box [5]. The chip's power limit reads 125 W.
-We have not measured the whole box at the wall. On rated power, a Galaxy (12 kW) does 0.9x to 2.2x
-the folds per kW of a DGX B200 (14.3 kW) [4].
+We have not measured the whole box at the wall. On rated power, a Galaxy (12 kW) does 1.8x the
+OpenFold3 folds per kW of a DGX B200 (14.3 kW), 1.1x to 1.4x for ESMFold2 and Boltz-2 [4].
 
 **4. What precision?** bfloat16 on the chip, with fp32 kept where a result is sensitive to it, such
 as Boltz-2's affinity trunk [6]. Accuracy is checked against the original PyTorch model, not
@@ -93,8 +94,8 @@ own confidence score.
 2. `PROTOCOL.md` and the engine's default-off trajectory hooks: 15 frames per ESMFold2 fold, 201
    per Boltz-2 fold including the starting noise.
 3. qb2's p300c chips report an 11x10 Tensix grid; 1.5 MB L1 per core (`docs/part-l1-budgets.md`).
-4. `site/data/perf-512aa.json`, the published benchmarks page, 512 residues, list prices and rated
-   power as sourced there. Per-dollar and per-kW ratios computed from it as the page does.
+4. `site/data/perf-512aa.json` (tt-bio main, updated 2026-11-14), the published benchmarks page, 512
+   residues, NVIDIA in the Anthropic kit's exact mode, list prices and rated power as sourced there. Per-dollar and per-kW ratios computed from it as the page does.
 5. qb2 hwmon `power1_input`, four chips, ten samples 2 s apart, 2026-10-03 01:43Z: 30 W at
    800 MHz idle, 33 to 144 W at 1312 to 1350 MHz folding; `power1_max` 125 W.
 6. `README.md` of tt-bio: installation, model table, precision notes; `LICENSE` (MIT).
