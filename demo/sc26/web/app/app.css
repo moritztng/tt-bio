@@ -139,9 +139,10 @@ footer { position: fixed; left: var(--m); right: var(--m); bottom: var(--m); hei
 #qr img { width: calc(74 * var(--p)); height: calc(74 * var(--p)); border-radius: calc(3 * var(--p)); }
 #qr p { margin: 0; font-size: calc(13 * var(--p)); line-height: 1.5; color: var(--ink3); font-weight: 400; }
 #qr b { color: var(--ink2); font-weight: 500; }
-/* JapanFold: its own lockup (TT-Bio Assets, japanfold-logo-white.svg, unchanged) over the caption;
-   logo 30 + caption 2 x 19.5 + 5 = 74, the height of the code */
-#qr .jf p img { display: block; width: auto; height: calc(30 * var(--p)); margin: 0 0 calc(5 * var(--p)) calc(-3 * var(--p)); border-radius: 0; }
+/* JapanFold: its own lockup (TT-Bio Assets, japanfold-logo-white.svg, unchanged) over the caption.
+   The mark fills y 23..77 of the 100 high file, so at 44 the negative margins drop the padding: the
+   icon top sits on the code's top edge and 44 - 10 + 1 + caption 2 x 19.5 = 74, the code's height. */
+#qr .jf p img { display: block; width: auto; height: calc(44 * var(--p)); margin: calc(-10 * var(--p)) 0 calc(1 * var(--p)) calc(-4 * var(--p)); border-radius: 0; }
 #invite { margin: 0; width: calc(432 * var(--p)); font-size: calc(22 * var(--p)); font-weight: 500; color: var(--ink); }
 #invite kbd, #typing kbd { font: inherit; font-size: 0.72em; font-weight: 600; display: inline-block; padding: 0.12em 0.5em; margin: 0 0.12em;
             border: 1px solid var(--ink3); border-radius: 0.3em; color: var(--ink); vertical-align: 0.1em; }
