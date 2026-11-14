@@ -271,8 +271,12 @@ def kv_window_kernel_dir() -> Path:
 # exp_max_diff * prev_out onto the accumulator), the final `matmul_reduce` of the row sum and the closing
 # normalisation run with whatever formats the previous stage left. With every intermediate CB bf16 those agree;
 # with fp32 output accumulators (`out_im_dtype`) the statistics are packed as fp32 into bf16 pages and the
-# accumulator is unpacked as bf16, which is why the wider CBs came back wrong. Three anchors, each behind the
-# define, so a build without it compiles the wheel's kernel unchanged.
+# accumulator is unpacked as bf16, which is why the wider CBs came back wrong. fp32 row statistics
+# (`stats_dtype`) meet bf16 scores in three more places: the row max packs into the max CB with the score
+# format and its eltwise max copies the previous max through the score unpacker; `sub_exp_block_bcast_cols`
+# reads scores and max in one op and packs the exponentials to the score CB and their partial row sums to the
+# sum CB from the same DST. Every anchor is behind the define, so a build without it compiles the wheel's
+# kernel unchanged.
 _FMT_PATCHES = (
     ("void mul_block_bcast_cols(uint32_t in0_cb, uint32_t in1_cb, uint32_t out_cb) {\n",
      "#ifdef SDPA_FMT_RECONFIG\n    reconfig_data_format(in0_cb, in1_cb);\n    pack_reconfig_data_format(out_cb);\n#endif\n"),
@@ -280,6 +284,18 @@ _FMT_PATCHES = (
      "#ifdef SDPA_FMT_RECONFIG\n    pack_reconfig_data_format(out_cb);\n#endif\n"),
     ("            cb_pop_front(cb_qk_im, qk_chunk_tiles);\n            reconfig_data_format(alias_prev_max, alias_cur_max);\n",
      "#ifdef SDPA_FMT_RECONFIG\n            pack_reconfig_data_format(cb_exp_max_diff);\n#endif\n"),
+    ("            reconfig_data_format(cb_qk_im, cb_identity_scale_in);\n",
+     "#ifdef SDPA_FMT_RECONFIG\n            pack_reconfig_data_format(alias_cur_max);\n#endif\n"),
+    ("            cb_wait_front(prev_cb, g * dst_tiles);\n",
+     "#ifdef SDPA_FMT_RECONFIG\n            reconfig_data_format_srca(prev_cb);\n#endif\n"),
+    ("                copy_tile(prev_cb, (row_start_idx + i), cur_max_dst_idx);\n            }\n",
+     "#ifdef SDPA_FMT_RECONFIG\n            reconfig_data_format_srca(in0_cb);\n#endif\n"),
+    ("void sub_exp_block_bcast_cols_inplace(uint32_t in1_cb, uint32_t reduce_cb, uint32_t cols) {\n",
+     "#ifdef SDPA_FMT_RECONFIG\n    reconfig_data_format(in0_cb, in1_cb);\n#endif\n"),
+    ("            tile_regs_wait();\n\n            if constexpr (write_result_inplace) {\n",
+     "#ifdef SDPA_FMT_RECONFIG\n                pack_reconfig_data_format(in0_cb);\n#endif\n"),
+    ("                // to reduce row x cols tiles to rows x 1 tiles.\n",
+     "#ifdef SDPA_FMT_RECONFIG\n                pack_reconfig_data_format(reduce_cb);\n#endif\n"),
 )
 
 
@@ -961,7 +977,7 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
         # The block row-max LLK streams the score tiles at bf16's tile stride (its own header says
         # the operand must be bfloat16_b), so a narrower score CB takes the per-tile reduce.
         defines["QK_TILEWISE_MAX"] = "1"
-    if out_im_dtype not in (None, ttnn.bfloat16):
+    if out_im_dtype not in (None, ttnn.bfloat16) or stats_dtype not in (None, ttnn.bfloat16):
         defines["SDPA_FMT_RECONFIG"] = "1"
     if kv_window is not None:
         defines.update(KV_WINDOW_NB=str(kv_window[0]), KV_WINDOW_NKH=str(int(k.padded_shape[1])),

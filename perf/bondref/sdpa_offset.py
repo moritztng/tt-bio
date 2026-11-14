@@ -10,7 +10,8 @@ usage: TT_VISIBLE_DEVICES=N python sdpa_offset.py OUT.jsonl
 Arms: stock (ttnn fused SDPA, bf16, Boltz-2's token DiT), stock_vn (dit_vnorm: 1.0 in v's first pad lane, output
 divided by it), s32 (`_sdpa32`, fp32 operands, bf16 CBs), s32_vn, s32_st32 (fp32 row statistics only),
 s32_o32 (fp32 output accumulators), s32_o32_vn, s32_o32_st32, s32_all32 (score, output and statistics CBs fp32),
-g16 / g16_o32 / g16_o32_vn (bf16 operands through sdpa_generic, bf16 or fp32 output accumulators, fp32 output).
+g16 / g16_o32 / g16_o32_vn / g16_st32 / g16_o32_st32 (bf16 operands through sdpa_generic, bf16 or fp32 output
+accumulators and row statistics, fp32 output).
 ARMS=a,b,... in the environment restricts the run to those arms.
 Per arm and offset: rms and max |o - o64| over the real lanes, and us per call.
 """
@@ -102,7 +103,9 @@ for C in OFFS:
                     "stock_vn": lambda: T._vnorm_divide(T.fused_sdpa(Q, K, Vn, attn_mask=B, scale=s), D),
                     "g16": lambda: g16(V),
                     "g16_o32": lambda: g16(V, out_im_dtype=ttnn.float32),
-                    "g16_o32_vn": lambda: T._vnorm_divide(g16(Vn, out_im_dtype=ttnn.float32), D)}
+                    "g16_o32_vn": lambda: T._vnorm_divide(g16(Vn, out_im_dtype=ttnn.float32), D),
+                    "g16_st32": lambda: g16(V, stats_dtype=ttnn.float32),
+                    "g16_o32_st32": lambda: g16(V, out_im_dtype=ttnn.float32, stats_dtype=ttnn.float32)}
         else:
             br = bias_h / s
             o64 = ref(qr[..., :D], kr[..., :D], vr[..., :D], br * s)
