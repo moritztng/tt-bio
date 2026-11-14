@@ -151,14 +151,19 @@ WH_LEVERS_FAST = LEVERS_FAST | {"triatt_ln", "apb_ln", "dit_cond_jit", "trimul_s
 # On Blackhole ie_dev reads p300c 512 x 1 fast -0.25 s paired median (5/5 warm pairs, AICLK ~1350; iebh) and passes the
 # same 44-fold fast grade (giebh, 2026-10-21): top pose median 1.106 A (floor 2.438 A), CA-lDDT +0.0001 [-0.0006, +0.0007],
 # docking 24 -> 24.
-BH_LEVERS_FAST = LEVERS_FAST | {"dit_shoist", "ie_dev"}
+# dit_qkvf (the token DiT's attention as one generic SDPA program off the fused q|k|v projection, at HiFi4) is on in
+# both Blackhole sets. The stock fused SDPA it replaces keeps its softmax state at a precision that scales with |v|, and
+# v carries the absolute atom position, so backbone C-N error doubled with each octave of distance from the origin. 9DBP
+# seed 101 x 5 samples, rms C-N error at |x| 64-128 A: normal 0.130 -> 0.077, fast 0.133 -> 0.076. p150a 512 x 1 normal
+# at AICLK median 1350: 20.77 -> 20.23 s (dit_qkvf at HiFi2), 19.49 -> 19.51 s against a 19.93 s repeat (HiFi4).
+BH_LEVERS_FAST = LEVERS_FAST | {"dit_shoist", "ie_dev", "dit_qkvf"}
 # Blackhole normal adds the fast set's fusions that change no arithmetic or only regroup an fp32 modulate: triatt_tail,
 # adaln_mod, transition_ws, ws_resid. p150a 512 x 1, in-process pairs at AICLK ~1349 MHz: -0.60 s median (l0bh,
 # spd-m-boltz2-3, 2026-11-05). 44-fold normal grade on p150a against TT_BIO_LEVERS=none (gsbh): PASS, top pose median
 # 1.374 A (A/A seed floor 2.318 A), CA-lDDT +0.0002 [-0.0011, +0.0013], DockQ -0.0050 [-0.0147, +0.0036], pLDDT +0.0008,
 # docking 24 -> 24 with no flips. LRMSD moves only on folds neither arm docks (LRMSD 30-120 A); on the 24 docked folds
 # its median moves -0.02 A.
-BH_LEVERS_NORMAL = LEVERS_NORMAL | {"triatt_tail", "adaln_mod", "transition_ws", "ws_resid"}
+BH_LEVERS_NORMAL = LEVERS_NORMAL | {"triatt_tail", "adaln_mod", "transition_ws", "ws_resid", "dit_qkvf"}
 
 
 def _under_levers(method):
