@@ -2,7 +2,7 @@
  "insulin": {
   "pdb": "3I40",
   "matched_ca": 51,
-  "ca_rmsd": 1.2,
+  "ca_rmsd": 1.19,
   "ca_within_2A": 0.961,
   "per_chain": {
    "A": {
@@ -39,29 +39,29 @@
  "haemoglobin": {
   "pdb": "2DN2",
   "matched_ca": 574,
-  "ca_rmsd": 1.93,
-  "ca_within_2A": 0.674,
+  "ca_rmsd": 1.92,
+  "ca_within_2A": 0.681,
   "per_chain": {
    "A": {
     "role": "alpha",
     "ref_chain": "A",
     "matched": 141,
     "of": 141,
-    "ca_rmsd": 0.41
+    "ca_rmsd": 0.4
    },
    "B": {
     "role": "beta",
     "ref_chain": "B",
     "matched": 146,
     "of": 146,
-    "ca_rmsd": 0.56
+    "ca_rmsd": 0.55
    },
    "C": {
     "role": "alpha",
     "ref_chain": "C",
     "matched": 141,
     "of": 141,
-    "ca_rmsd": 0.35
+    "ca_rmsd": 0.36
    },
    "D": {
     "role": "beta",
@@ -75,15 +75,15 @@
    {
     "pdb": "2DN1-assembly1",
     "matched_ca": 570,
-    "ca_rmsd": 0.82,
-    "ca_within_2A": 0.989,
+    "ca_rmsd": 0.85,
+    "ca_within_2A": 0.991,
     "per_chain": {
      "A": {
       "role": "alpha",
       "ref_chain": "A",
       "matched": 140,
       "of": 141,
-      "ca_rmsd": 0.59
+      "ca_rmsd": 0.6
      },
      "B": {
       "role": "beta",
@@ -97,14 +97,14 @@
       "ref_chain": "C",
       "matched": 140,
       "of": 141,
-      "ca_rmsd": 0.6
+      "ca_rmsd": 0.61
      },
      "D": {
       "role": "beta",
       "ref_chain": "D",
       "matched": 145,
       "of": 146,
-      "ca_rmsd": 0.47
+      "ca_rmsd": 0.48
      }
     }
    }
@@ -125,83 +125,32 @@
    }
   }
  },
- "spike-ace2": {
-  "pdb": "6M0J",
-  "matched_ca": 791,
-  "ca_rmsd": 32.78,
-  "ca_within_2A": 0.0,
-  "per_chain": {
-   "A": {
-    "role": "human ACE2 receptor",
-    "ref_chain": "A",
-    "matched": 597,
-    "of": 603,
-    "ca_rmsd": 3.33
-   },
-   "B": {
-    "role": "spike receptor-binding domain",
-    "ref_chain": "E",
-    "matched": 194,
-    "of": 229,
-    "ca_rmsd": 2.05
-   }
-  }
- },
- "antibody": {
-  "pdb": "7C01",
-  "matched_ca": 628,
-  "ca_rmsd": 15.74,
-  "ca_within_2A": 0.011,
-  "per_chain": {
-   "H": {
-    "role": "antibody heavy chain (Fab)",
-    "ref_chain": "H",
-    "matched": 218,
-    "of": 233,
-    "ca_rmsd": 3.69
-   },
-   "L": {
-    "role": "antibody light chain (Fab)",
-    "ref_chain": "L",
-    "matched": 215,
-    "of": 217,
-    "ca_rmsd": 3.37
-   },
-   "B": {
-    "role": "spike receptor-binding domain",
-    "ref_chain": "A",
-    "matched": 195,
-    "of": 229,
-    "ca_rmsd": 5.14
-   }
-  }
- },
  "designed-binder": {
   "pdb": "7JZU",
   "matched_ca": 248,
-  "ca_rmsd": 2.52,
-  "ca_within_2A": 0.786,
+  "ca_rmsd": 2.4,
+  "ca_within_2A": 0.794,
   "per_chain": {
    "A": {
     "role": "designed binder LCB1",
     "ref_chain": "A",
     "matched": 55,
     "of": 61,
-    "ca_rmsd": 0.6
+    "ca_rmsd": 0.61
    },
    "B": {
     "role": "spike receptor-binding domain",
     "ref_chain": "B",
     "matched": 193,
     "of": 229,
-    "ca_rmsd": 2.82
+    "ca_rmsd": 2.68
    }
   }
  },
  "petase": {
   "pdb": "5XJH",
   "matched_ca": 259,
-  "ca_rmsd": 0.62,
+  "ca_rmsd": 0.61,
   "ca_within_2A": 0.992,
   "per_chain": {
    "A": {
@@ -209,14 +158,14 @@
     "ref_chain": "A",
     "matched": 259,
     "of": 279,
-    "ca_rmsd": 0.62
+    "ca_rmsd": 0.61
    }
   }
  },
  "lysozyme": {
   "pdb": "1LZ1",
   "matched_ca": 130,
-  "ca_rmsd": 0.39,
+  "ca_rmsd": 0.41,
   "ca_within_2A": 1.0,
   "per_chain": {
    "A": {
@@ -224,14 +173,14 @@
     "ref_chain": "A",
     "matched": 130,
     "of": 130,
-    "ca_rmsd": 0.39
+    "ca_rmsd": 0.41
    }
   }
  },
  "top7": {
   "pdb": "1QYS",
   "matched_ca": 92,
-  "ca_rmsd": 0.93,
+  "ca_rmsd": 0.91,
   "ca_within_2A": 0.967,
   "per_chain": {
    "A": {
@@ -239,101 +188,101 @@
     "ref_chain": "A",
     "matched": 92,
     "of": 93,
-    "ca_rmsd": 0.93
+    "ca_rmsd": 0.91
    }
   }
  },
  "tcr-hla": {
   "pdb": "1AO7",
   "matched_ca": 707,
-  "ca_rmsd": 1.37,
-  "ca_within_2A": 0.905,
+  "ca_rmsd": 1.35,
+  "ca_within_2A": 0.907,
   "per_chain": {
    "A": {
     "role": "HLA-A*02:01",
     "ref_chain": "A",
     "matched": 274,
     "of": 275,
-    "ca_rmsd": 0.86
+    "ca_rmsd": 0.81
    },
    "B": {
     "role": "beta-2 microglobulin",
     "ref_chain": "B",
     "matched": 100,
     "of": 100,
-    "ca_rmsd": 0.37
+    "ca_rmsd": 0.35
    },
    "C": {
     "role": "Tax peptide (HTLV-1)",
     "ref_chain": "C",
     "matched": 9,
     "of": 9,
-    "ca_rmsd": 0.18
+    "ca_rmsd": 0.21
    },
    "D": {
     "role": "T cell receptor alpha",
     "ref_chain": "D",
     "matched": 115,
     "of": 204,
-    "ca_rmsd": 0.83
+    "ca_rmsd": 0.84
    },
    "E": {
     "role": "T cell receptor beta",
     "ref_chain": "E",
     "matched": 209,
     "of": 245,
-    "ca_rmsd": 0.71
+    "ca_rmsd": 0.73
    }
   }
  },
  "keytruda": {
   "pdb": "5GGS",
   "matched_ca": 549,
-  "ca_rmsd": 4.73,
-  "ca_within_2A": 0.137,
+  "ca_rmsd": 4.37,
+  "ca_within_2A": 0.151,
   "per_chain": {
    "H": {
     "role": "pembrolizumab heavy chain (Fab)",
     "ref_chain": "A",
     "matched": 219,
     "of": 232,
-    "ca_rmsd": 4.21
+    "ca_rmsd": 3.97
    },
    "L": {
     "role": "pembrolizumab light chain (Fab)",
     "ref_chain": "B",
     "matched": 217,
     "of": 218,
-    "ca_rmsd": 3.94
+    "ca_rmsd": 3.81
    },
    "P": {
     "role": "PD-1",
     "ref_chain": "Z",
     "matched": 113,
     "of": 123,
-    "ca_rmsd": 1.85
+    "ca_rmsd": 1.75
    }
   }
  },
  "paxlovid": {
   "pdb": "7SI9-assembly1",
   "matched_ca": 612,
-  "ca_rmsd": 0.48,
-  "ca_within_2A": 0.995,
+  "ca_rmsd": 0.47,
+  "ca_within_2A": 0.993,
   "per_chain": {
    "A": {
     "role": "main protease (Mpro)",
     "ref_chain": "A",
     "matched": 306,
     "of": 306,
-    "ca_rmsd": 0.47
+    "ca_rmsd": 0.46
    },
    "B": {
     "role": "main protease (Mpro)",
     "ref_chain": "A-2",
     "matched": 306,
     "of": 306,
-    "ca_rmsd": 0.47
+    "ca_rmsd": 0.45
    }
   }
  }
