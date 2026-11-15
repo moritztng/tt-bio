@@ -8,6 +8,7 @@ measures, per length L and batch B (the DiT's samples), the three ways tt_bio ru
   qkvf:  _sdpa32_fused straight out of the fused qkv, bf16 out, _DIT_QKVF_CKC (dit_qkvf, fast today)
 with rel_rms / max_abs of the logical rows against a float64 softmax attention of the same bf16 inputs.
   TT_VISIBLE_DEVICES=N python perf/spd_m_opendde/ditattn_ab.py --L 384 512 768 1024 --b 5 --out OUT.jsonl
+--sweep q:k[:a] adds stock arms at explicit SDPA chunk pairs (a: exp_approx_mode) (the shipped pick was tuned at B=5; the board cell runs B=1).
 """
 import argparse
 import json
@@ -20,6 +21,8 @@ ap = argparse.ArgumentParser()
 ap.add_argument("--L", type=int, nargs="+", default=[384, 512, 768, 1024])
 ap.add_argument("--b", type=int, nargs="+", default=[5])
 ap.add_argument("--chain", type=int, default=1, help="dit_mask_chain on (fast's WH set has it)")
+ap.add_argument("--sweep", nargs="*", default=[], help="extra stock arms at explicit q:k chunk pairs, e.g. 128:256")
+ap.add_argument("--arms", nargs="*", default=["stock", "pm", "qkvf"])
 ap.add_argument("--out", type=Path, required=True)
 a = ap.parse_args()
 os.environ.setdefault("TT_BIO_LEVERS", "normal")
@@ -108,8 +111,19 @@ for B in a.b:
             o = T.token_dit_sdpa_pm(qq, kk, vv, db, scale)
             return stock(qq, kk, vv) if o is None else o
 
+        def chunked(qc, kc, approx):
+            cfg = ttnn.SDPAProgramConfig(compute_with_storage_grid_size=T.COMPUTE_GRID_MAIN, exp_approx_mode=approx,
+                                         q_chunk_size=qc, k_chunk_size=kc)
+            return lambda qq, kk, vv: T.fused_sdpa(qq, kk, vv, attn_mask=db, scale=scale, program_config=cfg)
+
         arms = {"stock": heads_then(stock), "pm": heads_then(pm),
                 "qkvf": lambda: T._sdpa32_fused(dq, db, scale, H, out_dtype=ttnn.bfloat16, ckc=T._DIT_QKVF_CKC)}
+        arms = {n: f for n, f in arms.items() if n in a.arms}
+        for qk in a.sweep:  # q:k[:a], a = exp_approx_mode
+            qc, kc, *ap_ = qk.split(":")
+            qc, kc = int(qc), int(kc)
+            if L % qc == 0 and L % kc == 0:
+                arms[f"q{qc}k{kc}{'a' if ap_ else ''}"] = heads_then(chunked(qc, kc, bool(ap_)))
         for name, fn in arms.items():
             rec = dict(B=B, L=L, arm=name)
             try:
