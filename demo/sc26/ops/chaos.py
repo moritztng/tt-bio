@@ -215,6 +215,10 @@ class Chaos:
                                env=env, capture_output=True)
             self.unplugged = [n for n in names if not n.startswith("HEADLESS")]
             return f"unplugged {', '.join(names) or 'nothing'}"
+        if ev == "service_restart":
+            r = subprocess.run(["systemctl", "--user", "restart", "sc26-engine.service", "sc26-kiosk.service",
+                                "sc26-watchdog.service"], capture_output=True, text=True, timeout=120)
+            return f"sc26ctl restart (engine, kiosk, watchdog): rc {r.returncode}"
         if ev == "engine_kill":
             p = unit_pid("sc26-engine.service")
             os.kill(p, signal.SIGTERM)
