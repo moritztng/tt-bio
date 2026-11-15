@@ -44,8 +44,9 @@ def read(c):
 
 
 def foreign(m):
-    """A lease that names somebody else and is still held."""
-    if not m or m.get("holder") == HOLDER:
+    """A lease that names somebody else and is still held. A stamped "released" is free even while
+    its holder lives on: a fleet loop keeps its pid between folds and stamps the file per fold."""
+    if not m or m.get("holder") == HOLDER or m.get("released"):
         return False
     return alive(m.get("pid")) or alive(m.get("detached_pid"))
 
