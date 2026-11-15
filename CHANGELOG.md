@@ -5,6 +5,14 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+### Fixed
+- **A killed `tt-bio` command no longer leaves a stuck worker holding its card.** When `timeout` or a
+  `kill` ended the CLI while a worker was stuck opening its chip, the worker kept the card until someone killed it
+  by hand. It now gets SIGTERM as before and, if still alive 90 s later, SIGKILL. Embedding shards and BoltzGen
+  per-chip workers are covered too.
+
+## [0.33.0] - 2026-11-15
+
 ### Changed
 - **OpenDDE reads the same reference conformers as upstream OpenDDE 1.2.0.** It used the CCD ideal coordinates,
   up to 2.8 A off in intra-residue distances for amino acids and 4.1 A for nucleotides; it now downloads OpenDDE's own
@@ -17,10 +25,6 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   Boltz-2 did this; the rest repeated the search in every job. Same search, same output.
 
 ### Fixed
-- **A killed `tt-bio` command no longer leaves a stuck worker holding its card.** When `timeout` or a
-  `kill` ended the CLI while a worker was stuck opening its chip, the worker kept the card until someone killed it
-  by hand. It now gets SIGTERM as before and, if still alive 90 s later, SIGKILL. Embedding shards and BoltzGen
-  per-chip workers are covered too.
 - **OpenFold3 returns its coordinates in full precision.** The sampler rounded every final atom position to bfloat16,
   0.125 A at 16-32 A from the origin and 0.5 A at 64-128 A, which distorted backbone bond lengths in large complexes.
 
