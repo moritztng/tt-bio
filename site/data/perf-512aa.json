@@ -654,12 +654,12 @@
       "cells": {
         "p150a": {
           "status": "measured",
-          "s_per_fold": 11.537,
+          "s_per_fold": 12.036,
           "n": 4,
-          "spread_pct": 1.07,
+          "spread_pct": 2.42,
           "aiclk_mhz": 1350,
-          "versions": "tt-bio main 597079b10, ttnn 0.68.0, qb1 p150a card 0",
-          "when": "2026-11-06T05:36:31Z",
+          "versions": "tt-bio main 523820c6d, ttnn 0.68.0, qb1 p150a card 0",
+          "when": "2026-11-15T22:55:47Z",
           "parity": "Passes both release-gate accuracy checks against the reference implementation on Blackhole (tt-bio 469ed1356)",
           "fast": {
             "s_per_fold": 10.706,
@@ -751,12 +751,12 @@
       "cells": {
         "p150a": {
           "status": "measured",
-          "s_per_fold": 7.189,
+          "s_per_fold": 7.735,
           "n": 4,
-          "spread_pct": 2.6,
+          "spread_pct": 12.46,
           "aiclk_mhz": 1350,
-          "versions": "tt-bio main 00474ee92, ttnn 0.68.0, qb1 p150a card 2",
-          "when": "2026-11-13T08:54:28Z",
+          "versions": "tt-bio main 523820c6d, ttnn 0.68.0, qb1 p150a card 0",
+          "when": "2026-11-15T22:57:46Z",
           "parity": "Passes its release-gate accuracy check against the reference implementation on Blackhole (tt-bio 469ed1356)",
           "fast": {
             "s_per_fold": 6.801,
@@ -1099,12 +1099,12 @@
         "cells": {
           "p150a": {
             "status": "measured",
-            "s_per_design": 19.39,
+            "s_per_design": 20.608,
             "n": 4,
-            "spread_pct": 10.89,
+            "spread_pct": 13.17,
             "aiclk_mhz": 1350,
-            "versions": "tt-bio main 2fd61c730 + harness perf/bmk/design_cell.py (wk/bmk-tt), ttnn 0.68.0, qb1 p150a card 0",
-            "when": "2026-11-14T00:49:23Z",
+            "versions": "tt-bio main 523820c6d + harness perf/bmk/design_cell.py (wk/bmk-tt), ttnn 0.68.0, qb1 p150a card 0",
+            "when": "2026-11-15T23:03:09Z",
             "parity": "Passes its release-gate accuracy check against the reference implementation on Blackhole (tt-bio 469ed1356)",
             "fast": {
               "s_per_design": 18.968,
