@@ -768,6 +768,8 @@ _FAST_MODE = False
 #   ws_ln_resid     ws_ln where ws_resid adds into the same x (x + f(LN(x))): the prologue reads the raw x, fc3's
 #                   fp32 dest adds into it, and neither the normalised x nor a separate LN pass goes to DRAM.
 #                   One-chunk weights only; on Wormhole ESMFold2's c_z 256 plan is over L1 and declines
+#   ws_ln_t1l1      on Wormhole, ws_ln / ws_ln_resid plans budget under T1's rule (0.85 of the L1 bank) as on Blackhole,
+#                   so Protenix-v2's c_z 256 bfp8 --fast transition takes its LayerNorm as the prologue (1181696 B)
 #   ws_l1dest       transition_ws also takes a call whose caller asked for an L1 result (the pair residual update
 #                   where it fits L1) and writes it to DRAM instead of declining to the row-blocked path
 #   edm_device      OpenFold3's traced rollout keeps the coordinates on the card: augment + EDM step in fp32 inside
@@ -969,7 +971,8 @@ LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffus
            "pair_bias_rms", "pair_write_res", "dit_cond_steps", "trimul_bres_hifi2", "pair_tail_small", "pair_bf16z",
            "pair_tail_cm", "pair_batch", "pair_block_hifi2", "trimul_t1g8", "trimul_tail_hifi2", "pair_bfp8z",
            "trimul_t1_fgate", "pair_x8", "pair_x8t", "tok_recycle_mm", "tok_w8", "trimul_x8", "ws_ln_resid", "dit_pad_short", "bg_featproc", "ef2_msa_ffn", "ef2_opm_proj", "trimul_t1_part",
-           "trimul_t1_3g", "trimul_t1split", "adaln_at", "dit_kl1", "mask_at_mix", "mask_at_mix_z8", "trunk_trace")
+           "trimul_t1_3g", "trimul_t1split", "adaln_at", "dit_kl1", "mask_at_mix", "mask_at_mix_z8", "trunk_trace",
+           "ws_ln_t1l1")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -1001,7 +1004,7 @@ UNGRADED_LEVERS = frozenset({"trunk_trace", "dit_bf16", "atom_kvcat", "bres_ta_h
                              "pair_tail_cm", "pair_batch", "pair_block_hifi2", "trimul_t1g8",
                              "trimul_tail_hifi2", "pair_bfp8z", "trimul_t1_fgate", "pair_x8", "pair_x8t",
                              "tok_recycle_mm", "tok_w8", "trimul_x8", "ws_ln_resid", "dit_pad_short", "bg_featproc", "ef2_msa_ffn", "ef2_opm_proj", "trimul_t1_part",
-                             "trimul_t1_3g", "trimul_t1split"})
+                             "trimul_t1_3g", "trimul_t1split", "ws_ln_t1l1"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
