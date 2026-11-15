@@ -916,7 +916,8 @@ _FAST_MODE = False
 #                   (L1 or DRAM, T1, pair_tail_small) is chosen on the batch's pair rows, so 16 designs of 128 tokens
 #                   run the route one 512-token design takes (state/rfd4/bets/b128.md)
 #   trimul_t1g8     T1 writes g_out as bfp8 and the tail reads it so (whole tiles, no re-tiling): the tail, DRAM-bound,
-#                   reads 47 % fewer gate bytes. At T1_G8_KEYS: RFD4's c_z 384 (state/rfd4/bets/tri7.md), Mol-1's 320 / 448
+#                   reads 47 % fewer gate bytes. At T1_G8_KEYS: RFD4's c_z 384 (state/rfd4/bets/tri7.md), Mol-1's 320 / 448,
+#                   Protenix-v2's 256
 #   trimul_t1split  T1's even [a | b] channel tiles gathered by the reader, the odd ones by the writer (T1_SPLIT), at any
 #                   key where the staging fits L1. Bit-identical: the same bytes land where the writer alone put them
 #   trimul_t1_fgate T1's gate a = p * sigmoid(g) fused in DST: p and g of a channel tile in one 2 x 2 matmul block, the
