@@ -32,7 +32,7 @@ from . import pair_add as _pair_add
 from . import pair_swiglu_ws as _pair_ws
 from . import pair_transpose_add as _pair_tr_add
 from .envflags import env_flag, env_int
-from .device_lease import device_init_lock
+from .device_lease import device_init_lock, exit_if_stuck
 from .eltwise_fusion import scale_add
 
 TRIANGLE_MULT_CHUNK_SIZE = 32
@@ -8651,37 +8651,10 @@ _device_lease = None
 _device_generation = 0
 
 
-#: A healthy single-chip open takes 1-15 s on a Galaxy (bench.jsonl ``device_open``, .114
-#: 2026-10-11). An open still running after this is a chip left dirty by a process killed
-#: mid-op: it spins in C at 100 % CPU, ignores SIGINT and SIGTERM, and never returns. It also
-#: holds the host-wide bring-up lock, so every other open on the box queues behind it (.114
-#: 2026-10-11: 21 opens waited 24 min behind one such process, 13 of 31 chips busy).
-_OPEN_WEDGE_TIMEOUT_S = 600.0
-
-
-@contextlib.contextmanager
-def _exit_if_open_wedged():
-    """End this process if the open inside the block never returns.
-
-    ``ttnn.open_device`` holds the GIL while it spins, so a Python timer thread never gets to
-    run. faulthandler's watchdog is a C thread: it dumps every thread's stack and ``_exit(1)``,
-    the code any other failed open exits with, and the kernel drops the flock and device fds.
-    The dump ends in ``open_device``; reset that chip before reusing it.
-    """
-    import faulthandler
-
-    faulthandler.dump_traceback_later(_OPEN_WEDGE_TIMEOUT_S, exit=True)
-    try:
-        yield
-    finally:
-        faulthandler.cancel_dump_traceback_later()
-
-
 def _open_device_locked(device_id, kwargs):
     """Open + configure the device with bring-up strictly serialized host-wide."""
-    with device_init_lock():
-        with _exit_if_open_wedged():
-            dev = ttnn.open_device(device_id=device_id, **kwargs)
+    with device_init_lock("open"):
+        dev = ttnn.open_device(device_id=device_id, **kwargs)
         _configure_active_compute_grid(dev)
         dev.enable_program_cache()
         return dev
@@ -8752,7 +8725,7 @@ def _close_device_locked(dev):
     raises: process exit frees its fds and its UMD mutex, and the chip needs a reset anyway.
     """
     _drain_or_raise(dev)
-    with device_init_lock():
+    with device_init_lock("close"):
         ttnn.close_device(dev)
         _release_ownership_fn()()
 
@@ -9111,12 +9084,15 @@ def _assert_local_dispatch(dev, timeout_s=None):
     respawnable failure into a card held by something nothing will call dead.
 
     A timeout now expires into the SAME `RuntimeError` path a throw takes, closing the device
-    on the way, so a wedge and a throw are one outcome for every caller."""
+    on the way, so a wedge and a throw are one outcome for every caller. That SIGALRM cannot
+    reach a `synchronize_device` blocked in native code (qb2 card 3, 2026-10-17: 57 min here),
+    so `exit_if_stuck` ends the process at twice the timeout, which is the one bound that does."""
     import torch
     if timeout_s is None:
         timeout_s = _DISPATCH_PROBE_TIMEOUT_S
     try:
-        with _probe_deadline(timeout_s):
+        with (exit_if_stuck(2 * timeout_s) if timeout_s and timeout_s > 0
+              else contextlib.nullcontext()), _probe_deadline(timeout_s):
             t = ttnn.from_torch(torch.zeros((32, 32), dtype=torch.bfloat16),
                                 layout=ttnn.TILE_LAYOUT, device=dev)
             ttnn.add(t, t)
@@ -9287,14 +9263,17 @@ def get_device(trace=None):
         # a backtrace blaming TT_VISIBLE_DEVICES for a chip that is simply not there.
         # And a chip the operators quarantined (DRAM bit flips, folds off the majority) is refused
         # by name: the box agent keeps it out of its pool, but a direct pin went straight to it.
-        from tt_bio.runtime import (refuse_missing_device_nodes, refuse_quarantined_chips,
-                                    visible_device_indices)
+        from tt_bio.runtime import (refuse_dead_chips, refuse_missing_device_nodes,
+                                    refuse_quarantined_chips, visible_device_indices)
         visible = os.environ.get("TT_VISIBLE_DEVICES")
         if visible is not None:
             pinned = visible_device_indices(visible)
             refuse_missing_device_nodes(pinned)
             refuse_quarantined_chips(pinned)
-        from tt_bio.device_lease import CardSetLease, arm_orphan_guard
+        from tt_bio.device_lease import CardSetLease, arm_orphan_guard, physical_cards
+        # A chip whose ARC firmware is dead would park the open below inside the host-wide
+        # bring-up lock; refuse it in seconds instead, from sysfs, opening nothing.
+        refuse_dead_chips([int(c) for c in physical_cards()])
         arm_orphan_guard()
         # Normally None here. A cleanup() that failed to hand the chip back keeps its lease
         # on purpose (the card is genuinely still held), and flock is per open file

@@ -10,6 +10,12 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   `kill` ended the CLI while a worker was stuck opening its chip, the worker kept the card until someone killed it
   by hand. It now gets SIGTERM as before and, if still alive 90 s later, SIGKILL. Embedding shards and BoltzGen
   per-chip workers are covered too.
+- **One dead chip no longer stalls device opens on every other chip of the host.** Opens are serialized host-wide, so
+  an open that never returned held every other chip's open behind it. A chip whose ARC firmware has stopped is now
+  refused in about 2 s with an error naming the chip and its reset command, before anything is opened. A process still
+  inside an open or close after 10 minutes exits and frees the host for the next open, and the check that a fresh chip
+  can run a program, which once hung 57 minutes on its own card, ends after 4. A waiting open prints which process
+  holds the host lock and since when.
 
 ## [0.33.0] - 2026-11-15
 

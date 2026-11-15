@@ -13,6 +13,7 @@ import os
 import subprocess
 import re
 import socket
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -527,6 +528,82 @@ def refuse_missing_device_nodes(indices) -> None:
         f"`ls /dev/tenstorrent`, `tt-smi -ls` and `dmesg | grep -i tenstorrent` on this host, and "
         f"reload the driver or reset that chip before pinning to it."
     )
+
+
+#: How long a chip's ARC heartbeat may stand still before the chip is called dead. The kernel
+#: driver publishes the counter as ``tt_heartbeat``; it advanced 10-11 per second on every chip
+#: measured on 2026-11-15 (all 32 Wormhole chips of the Galaxy .107, the four p300 chips of
+#: qb2, pc's p150a), so 2 s is ~20 ticks of margin and a live chip passes in ~0.1 s.
+HEARTBEAT_WINDOW_S = 2.0
+_SYSFS_CLASS = "/sys/class/tenstorrent"
+
+
+class ChipNeedsResetError(RuntimeError):
+    """A chip's ARC firmware is not running, so opening it would hang instead of failing."""
+
+
+def dead_heartbeats(indices, window_s: float | None = None,
+                    sysfs: str | None = None) -> dict[int, str]:
+    """UMD index -> why its ARC is dead, for each of ``indices`` whose heartbeat does not advance.
+
+    Reads sysfs only: no device node is opened, so it is safe on a chip someone else holds and
+    on one that is wedged. A chip whose driver publishes no ``tt_heartbeat`` (an older tt-kmd) or
+    that sysfs does not list is skipped: unknown is not dead.
+    """
+    window_s = HEARTBEAT_WINDOW_S if window_s is None else window_s
+    sysfs = sysfs or _SYSFS_CLASS
+    nodes = umd_index_to_dev_node()
+
+    def read(index):
+        with open(f"{sysfs}/tenstorrent!{nodes[index]}/tt_heartbeat") as f:
+            return int(f.read().strip())
+
+    first, dead = {}, {}
+    for index in indices:
+        if index not in nodes:
+            continue
+        try:
+            first[index] = read(index)
+        except FileNotFoundError:
+            continue
+        except (OSError, ValueError) as e:
+            dead[index] = f"its ARC telemetry cannot be read ({getattr(e, 'strerror', None) or e})"
+            continue
+        if first[index] == ARC_DEAD:
+            dead[index] = "its ARC telemetry reads 0xffffffff (firmware dead or chip off the PCIe bus)"
+            del first[index]
+    end = time.monotonic() + window_s
+    while first and time.monotonic() < end:
+        time.sleep(0.05)
+        for index in list(first):
+            try:
+                if read(index) != first[index]:
+                    del first[index]
+            except (OSError, ValueError):
+                pass
+    for index, value in first.items():
+        dead[index] = f"its ARC heartbeat stayed at {value} for {window_s:g} s"
+    return dead
+
+
+def refuse_dead_chips(indices) -> None:
+    """Fail in seconds, before any lease or lock, on a chip whose ARC firmware is not running.
+
+    ``ttnn.open_device`` on such a chip does not fail, it parks in UMD's bring-up holding the
+    host-wide device-init lock, and every other chip's open on the host queues behind it
+    (qb1 2026-09-17: one chip's open parked and all four cards waited). This catches the
+    dead-ARC and off-bus chip before it gets that far. A chip whose ARC runs but whose cores are wedged
+    passes here; the deadline in ``device_lease.device_init_lock`` bounds that case.
+    """
+    dead = dead_heartbeats(indices)
+    if not dead:
+        return
+    nodes = umd_index_to_dev_node()
+    named = "; ".join(f"chip {i} (/dev/tenstorrent/{nodes[i]}): {why}" for i, why in sorted(dead.items()))
+    raise ChipNeedsResetError(
+        f"Tenstorrent chip(s) {sorted(dead)} need a reset before they can be opened: {named}. "
+        f"Reset with `tt-smi -r {' '.join(str(i) for i in sorted(dead))}` (on a p300, reset both "
+        f"chips of the board), or pin to another chip.")
 
 
 def detect_tenstorrent_devices(device_ids: str | None, num_devices: int, max_workers: int) -> list[int]:
