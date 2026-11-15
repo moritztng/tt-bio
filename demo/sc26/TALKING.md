@@ -19,15 +19,15 @@ model is: blue is confident, orange is a guess. The same software is open source
 
 ## Two minutes, for an HPC engineer
 
-The model on screen is **Boltz-2**, the open protein-structure model. Each of the four Blackhole
-chips holds its own resident copy and folds one protein at a time: four independent folds in
-flight, no fold split across chips. A 76-residue protein takes about 5 s with all 200 sampling
-steps; a 300-residue one about 10 s. Kept busy, the four chips finish 0.40 folds a second at
-300 residues, at the chip's top clock of 1350 MHz [1]. The screen shows each fold's real time; the
+The model on screen is **OpenFold3**, the open AlphaFold3-class structure model. Each Blackhole
+chip holds its own resident copy and folds one protein at a time: independent folds in flight, no
+fold split across chips. With all 200 sampling steps and 3 recycles, insulin (51 amino acids) takes
+2.3 s, PETase (279) 5.4 s and haemoglobin (574, four chains) 13.0 s, at a median clock of 1318 to
+1350 MHz against the chip's top clock of 1350 MHz [1]. The screen shows each fold's real time; the
 clock sampled during it is in the engine's logs.
 
 What you see is the diffusion sampler's real trajectory: the starting noise and all 200 sampler
-steps of a Boltz-2 fold, streamed from the chip [2]. The screen counts them ("Diffusion step 90 of
+steps of an OpenFold3 fold, streamed from the chip [2]. The screen counts them ("Diffusion step 90 of
 200"); between two consecutive states there is at most a 0.12 s blend.
 The last frame is the scored structure, drawn as a cartoon coloured by pLDDT on the AlphaFold scale.
 
@@ -88,11 +88,11 @@ own confidence score.
 
 ## Sources
 
-1. qb2, Boltz-2 through the booth engine, 2026-10-04, AICLK median 1350 MHz during each fold:
-   attract folds 20 aa 3.5 s, 56 aa 3.3 s, 76 aa 5.1 s; human serum albumin 1-300, four chips,
-   72 folds in 180 s, median 9.79 s (`claim/tt-quietbox2-boltz2-hsa300.json`).
+1. qb2 chip 3, OpenFold3 through the booth engine on tt-bio main, 2026-11-15 06:00-06:17Z, warm
+   folds with MSAs, AICLK sampled during each fold (median 1300 to 1350 MHz): the 11 gallery
+   recordings, 2.3 s (insulin, 51 aa) to 32.5 s (TCR on HLA, 833 aa) (`gallery/manifest.json`).
 2. `PROTOCOL.md` and the engine's default-off trajectory hooks: 15 frames per ESMFold2 fold, 201
-   per Boltz-2 fold including the starting noise.
+   per OpenFold3 fold including the starting noise.
 3. qb2's p300c chips report an 11x10 Tensix grid; 1.5 MB L1 per core (`docs/part-l1-budgets.md`).
 4. `site/data/perf-512aa.json` (tt-bio main, updated 2026-11-14), the published benchmarks page, 512
    residues, NVIDIA in the Anthropic kit's exact mode, list prices and rated power as sourced there. Per-dollar and per-kW ratios computed from it as the page does.
