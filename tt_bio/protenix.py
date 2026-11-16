@@ -230,8 +230,12 @@ X8_WH = frozenset({"trimul_x8"})
 # 44 paired folds over 4 seeds, PASS: same-seed top pose median 1.118 A vs the 4.872 A A/A floor, CA-lDDT +0.0008 [-0.0012,
 # +0.0034], DockQ -0.012 [-0.028, -0.001], docking 22/44 -> 22/44. Separate processes on a p300 chip at 1350 MHz (bht1d):
 # warm 12.47 / 11.87 / 12.05 / 12.11 -> 9.85 / 9.74 / 9.95 s.
+# trimul_t1g8: T1 writes g_out bfp8 and the DRAM-bound fused tail reads it so. Device kernel seconds from a Tracy census of
+# cdk2x2 512 x 1 on a p300 chip, AICLK 1350 MHz median in-run, the shipped Blackhole fast set written out (spd-m-protenix-6
+# dcb, 2026-11-16): 18.26 -> 17.62 s, the tail 2.12 -> 1.66 s and T1 2.12 -> 1.99 s. Measured on device time because
+# that host's wall clock moved +-2 s under load.
 BH_V2_FAST = frozenset({"triatt_ln", "ws_ln", "ws_lofi", "trimul_sig6", "trimul_t1w8", "trimul_bres_bh", "ws_psilu",
-                        "trimul_t1_dram"}) | TRIATT_LN_B8_FAST
+                        "trimul_t1_dram", "trimul_t1g8"}) | TRIATT_LN_B8_FAST
 # dit_shoist and trimul_t1w8 (T1's resident weights bfp8, c_z 256 in one launch) in Protenix-v2's Wormhole normal set.
 # Wormhole 512-token normal grade, shipped Protenix-v2 Wormhole normal set vs + both, 44 paired folds (spd-m-protenix
 # gstn, 2026-10-20), PASS: same-seed top pose median 0.221 A vs the 0.6 A bar (1.145 A A/A floor), CA-lDDT +0.0002
