@@ -115,3 +115,7 @@ def test_wh_ln_prologue_fits_c256_bfp8_under_t1_rule(monkeypatch, on):
     monkeypatch.setattr(W, "_ln_vec_ok", lambda v, k: True)
     assert W.eligible(x, w12, w3)
     assert W.eligible(x, w12, w3, ln=(g, g)) == on
+    # x + f(LN(x)) (ws_ln_resid, which ws_resid routes the pair transition to first): the residual is the raw x row
+    # the prologue holds (WS_RES_X), so no residual CB joins the plan and it fits exactly where the plain prologue does.
+    assert W.eligible(x, w12, w3, ln=(g, g), resid=x) == on
+    assert not W.eligible(x, w12, w3, ln=(g, g), resid=_t([1, 512, 512, 256]))

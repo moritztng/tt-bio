@@ -24,6 +24,9 @@
 // reused as srcA truncates t to srcA's bf16 first: rel_rms 0.0037 -> 0.0046 at c 256.)
 // WS_RESID2: the seed is c_20 + c_24 (z and the chained partial of the earlier hidden chunks), added by the FPU into
 // the fp32 dest, so z + partial + t is rounded once and the transition's residual add is not a pass of its own.
+// WS_RES_X (with WS_LN and WS_RESID, the residual being x itself: `ws_ln_resid`): the seed is the raw x row the
+// prologue already holds in c_5, kept there until fc3 is done, so c_20 and the reader's second read of x go. Same
+// values as the c_20 copy: bit-identical, one row tile of L1 less.
 // WS_RELU (AF2's Transition): fc3(relu(x @ w1 + b1)) + b3. c_1 holds w1 alone and there is no gate; each bias is a
 // CB of tiles whose 32 rows all carry the vector (c_21 = b1, NH tiles; c_22 = b3, CT tiles), copied into dest as the
 // seed its matmul accumulates on, so the bias costs no pass and is summed in fp32 with the products.
@@ -91,7 +94,7 @@ constexpr uint32_t KC = 2, cb_acc = 19, SLOT = 4;
 // sum over k of in0[k] x in1[k * s + b], N output tiles, into cb_acc: KC K tiles per dest pass, the packer adds the passes
 // With `seed` (a CB holding N tiles at its front) the first pass starts from them instead of zero.
 template <uint32_t K, uint32_t N>
-void mm_acc(uint32_t in0, uint32_t in1, uint32_t s, uint32_t b, int32_t seed = -1) {
+void mm_acc(uint32_t in0, uint32_t in1, uint32_t s, uint32_t b, int32_t seed = -1, uint32_t i0 = 0) {
     static_assert(K % KC == 0 && N <= SLOT);
     mm_block_init_short(in0, in1, false, N, 1, K);
     reconfig_data_format(in1, in0);
@@ -100,7 +103,7 @@ void mm_acc(uint32_t in0, uint32_t in1, uint32_t s, uint32_t b, int32_t seed = -
     for (uint32_t k0 = 0; k0 < K; k0 += KC) {
         tile_regs_acquire();
         if (seed >= 0 && k0 == 0) {
-            seed_res<N>(seed, in0, in1, K, 0);
+            seed_res<N>(seed, in0, in1, K, i0);
         }
         for (uint32_t k = k0; k < k0 + KC; ++k) {
             matmul_block(in0, in1, k, k * s + b, 0, false, N, 1, K);
@@ -201,7 +204,13 @@ void kernel_main() {
     constexpr uint32_t OG = CT < 4 ? CT : CT % 4 == 0 ? 4 : 2;
 #endif
     static_assert(NH % SW == 0 && CT % OG == 0);
-    constexpr uint32_t cb_x = 0, cb_w12 = 1, cb_w3 = 2, cb_gate = 3, cb_hid = 4, cb_out = 16, cb_res = 20;
+#ifdef WS_RES_X
+    static_assert(CT == KT);
+    constexpr uint32_t cb_res = 5;   // the raw x row, held from the prologue until fc3 is done
+#else
+    constexpr uint32_t cb_res = 20;
+#endif
+    constexpr uint32_t cb_x = 0, cb_w12 = 1, cb_w3 = 2, cb_gate = 3, cb_hid = 4, cb_out = 16;
 #ifdef WS_RELU
     constexpr uint32_t cb_b1 = 21, cb_b3 = 22, W12 = NH;   // c_1 is w1 alone, [KT, NH]
 #else
@@ -244,10 +253,16 @@ void kernel_main() {
     for (uint32_t r = 0; r < count; ++r) {
 #ifdef WS_LN
         cb_reserve_back(cb_x, KT);
-#ifdef WS_RMS
-        ln_prologue::rms_norm_row<LnCbs>(cb_x, [](uint32_t i) { pack_tile<true>(0, cb_x, i); });
+#ifdef WS_RES_X
+        constexpr bool keep_x = true;
 #else
-        ln_prologue::layer_norm_row<LnCbs>(cb_x, [](uint32_t i) { pack_tile<true>(0, cb_x, i); });
+        constexpr bool keep_x = false;
+#endif
+        auto pack_x = [](uint32_t i) { pack_tile<true>(0, cb_x, i); };
+#ifdef WS_RMS
+        ln_prologue::rms_norm_row<LnCbs, decltype(pack_x), keep_x>(cb_x, pack_x);
+#else
+        ln_prologue::layer_norm_row<LnCbs, decltype(pack_x), keep_x>(cb_x, pack_x);
 #endif
         cb_push_back(cb_x, KT);
 #endif
@@ -426,7 +441,12 @@ void kernel_main() {
         reconfig_data_format(cb_w3, cb_hid);
 #endif
         for (uint32_t c = 0; c < CT; c += OG) {
-#ifdef WS_RESID
+#ifdef WS_RES_X
+            const uint32_t ri = c;   // c_5 holds the whole row, popped after the loop
+#else
+            constexpr uint32_t ri = 0;
+#endif
+#if defined(WS_RESID) && !defined(WS_RES_X)
             cb_wait_front(cb_res, OG);
 #ifdef WS_RESID2
             cb_wait_front(24, OG);
@@ -434,7 +454,7 @@ void kernel_main() {
 #endif
 #ifdef WS_L1ACC
 #ifdef WS_RESID
-            mm_acc<NH, OG>(cb_hid, cb_w3, CT, c, cb_res);
+            mm_acc<NH, OG>(cb_hid, cb_w3, CT, c, cb_res, ri);
 #else
             mm_acc<NH, OG>(cb_hid, cb_w3, CT, c);
 #endif
@@ -453,7 +473,7 @@ void kernel_main() {
             reconfig_data_format(cb_w3, cb_hid);
 #endif
 #if defined(WS_RESID) && !defined(WS_RES32)
-            seed_res<OG>(cb_res, cb_hid, cb_w3, NH, 0);
+            seed_res<OG>(cb_res, cb_hid, cb_w3, NH, ri);
 #endif
 #ifndef WS_NO_FC3
             for (uint32_t k = 0; k < NH; ++k) {
@@ -471,7 +491,7 @@ void kernel_main() {
                 add_binary_tile(i, OG + i, i);
             }
 #endif
-#ifdef WS_RESID
+#if defined(WS_RESID) && !defined(WS_RES_X)
             cb_pop_front(cb_res, OG);
 #ifdef WS_RESID2
             cb_pop_front(24, OG);
@@ -501,5 +521,8 @@ void kernel_main() {
 #endif
         }
         cb_pop_front(cb_hid, NH);
+#ifdef WS_RES_X
+        cb_pop_front(cb_res, KT);
+#endif
     }
 }

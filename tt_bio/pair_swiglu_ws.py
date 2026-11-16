@@ -121,6 +121,16 @@ def _res_depth(base, ct, n_res) -> int:
     return 2 if base + n_res * 2 * ct * _TILE <= _L1_BUDGET else 1
 
 
+# WS_RES_X on; False runs `x + f(LN(x))` with the residual re-read into c_20 (perf/spd_m_protenix6/resx_parity.py's
+# bit-identity reference only).
+RES_X = True
+
+
+def _res_x(x, ln, resid, resid2) -> bool:
+    """The prologue's raw x row is the residual (`x + f(LN(x))`): fc3 seeds from it in c_5 (WS_RES_X), no c_20."""
+    return RES_X and bool(ln) and resid is x and resid2 is None
+
+
 def eligible(x, w12, w3, ln=(), l1acc=False, resid=None, resid2=None) -> bool:
     """bfloat16 TILE interleaved x, bf16/bfp8 TILE interleaved weights, hidden a multiple of 4 tiles, output
     width at most 4 tiles or a multiple of 2, and the weights plus the streaming CBs inside `_L1_BUDGET`. With
@@ -151,7 +161,7 @@ def eligible(x, w12, w3, ln=(), l1acc=False, resid=None, resid2=None) -> bool:
             return False
     base = (_l1_bytes(kt, nh, ct, w12.dtype, x.dtype) + (ln_bytes(kt) if ln else 0)
             + (_SW * 2 * _TILE if l1acc else 0))
-    n_res = (resid is not None) + (resid2 is not None)
+    n_res = (resid is not None and not _res_x(x, ln, resid, resid2)) + (resid2 is not None)
     return base + n_res * _res_depth(base, ct, n_res) * ct * _TILE <= (_ln_budget() if ln else _L1_BUDGET)
 
 
@@ -190,7 +200,7 @@ def _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines, silu_poly
         rd = x.dtype if nocopy else ttnn.float32       # bfloat8_b under pair_bfp8z (WS_Z8)
         cbs = ([cb(X_CB, kt, x.dtype), cb(W3_CB, nh * ct, w3.dtype), cb(HID_CB, nh), cb(OUT_CB, ct, rd)]
                + ([] if nocopy else [cb(OUTB_CB, ct)]) + [cb(RES_CB, ct, rd)] + cbs[4:])
-    elif ("WS_RESID", "1") in defines:
+    elif ("WS_RESID", "1") in defines and ("WS_RES_X", "1") not in defines:
         base = (_l1_bytes(kt, nh, ct, w12.dtype, x.dtype) + (ln_bytes(kt) if ln is not None else 0)
                 + (_SW * 2 * _TILE if ("WS_L1ACC", "1") in defines else 0))
         depth = _res_depth(base, ct, 1 + (resid2 is not None)) * ct
@@ -309,6 +319,8 @@ def pair_swiglu(x, w12, w3, fidelity=ttnn.MathFidelity.HiFi4, defines=(), silu_p
         ln = (ln[0], ln[0], ln[2])   # the reader loads a beta either way; the RMS prologue never reads it
         defines = tuple(defines) + (("WS_RMS", "1"),)
     assert resid_src is None or resid is not None
+    if resid_src is None and _res_x(x, ln, resid, resid2):
+        defines = tuple(defines) + (("WS_RES_X", "1"),)
     return _run(x, w12, w3, fidelity, defines, silu_poly, ln, resid, resid2=resid2, rows=rows, resid_src=resid_src)
 
 

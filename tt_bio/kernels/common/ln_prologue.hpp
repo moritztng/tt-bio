@@ -109,14 +109,14 @@ ALWI void rstd() {
     cb_wait_front(C::rstd, 1);
 }
 
-// Kt tiles at the front of C::x (popped) -> pack(i) for every channel tile i, `out` the CB pack
-// writes to (its data format is configured here).
-template <class C, class Pack>
+// Kt tiles at the front of C::x (popped unless KEEP_X: the caller reads the raw row again and pops it) -> pack(i)
+// for every channel tile i, `out` the CB pack writes to (its data format is configured here).
+template <class C, class Pack, bool KEEP_X = false>
 ALWI void layer_norm_row(uint32_t out, Pack pack) {
     row_mean<C>(C::x, C::mean, false);                    // mean
     cb_wait_front(C::mean, 1);
     stage<C, SUB_COL, LN_BLK>(C::x, C::mean, C::xc);              // xc = x - mean
-    cb_pop_front(C::x, C::Kt);
+    if constexpr (!KEEP_X) cb_pop_front(C::x, C::Kt);
     cb_pop_front(C::mean, 1);
     cb_wait_front(C::xc, C::Kt);
     if constexpr (LN_ABL & 2) {
@@ -164,14 +164,14 @@ ALWI void layer_norm_row(uint32_t out, Pack pack) {
 
 // RMSNorm, as ttnn.rms_norm: x * rsqrt(mean(x^2) + eps) * gamma, no centring and no beta. Same CBs
 // and contract as layer_norm_row; C::beta and C::xc are not touched.
-template <class C, class Pack>
+template <class C, class Pack, bool KEEP_X = false>
 ALWI void rms_norm_row(uint32_t out, Pack pack) {
     cb_wait_front(C::x, C::Kt);
     stage<C, MUL>(C::x, C::x, C::tmp);                    // x^2
     row_mean<C>(C::tmp, C::var, true);                    // mean(x^2)
     rstd<C>();
     stage<C, MUL_COL>(C::x, C::rstd, C::tmp);             // x * rstd
-    cb_pop_front(C::x, C::Kt);
+    if constexpr (!KEEP_X) cb_pop_front(C::x, C::Kt);
     cb_pop_front(C::rstd, 1);
     cb_wait_front(C::tmp, C::Kt);
     reconfig_data_format(C::tmp, C::gamma);               // * gamma, packed by the caller's hook

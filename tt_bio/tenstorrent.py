@@ -769,7 +769,8 @@ _FAST_MODE = False
 #                   fp32 dest adds into it, and neither the normalised x nor a separate LN pass goes to DRAM.
 #                   One-chunk weights only; on Wormhole ESMFold2's c_z 256 plan is over L1 and declines
 #   ws_ln_t1l1      on Wormhole, ws_ln / ws_ln_resid plans budget under T1's rule (0.85 of the L1 bank) as on Blackhole,
-#                   so Protenix-v2's c_z 256 bfp8 --fast transition takes its LayerNorm as the prologue (1181696 B)
+#                   so Protenix-v2's c_z 256 bfp8 --fast transition takes its LayerNorm as the prologue (1181696 B; with
+#                   ws_ln_resid the residual is the prologue's own raw x row, so the plan is the same size)
 #   ws_l1dest       transition_ws also takes a call whose caller asked for an L1 result (the pair residual update
 #                   where it fits L1) and writes it to DRAM instead of declining to the row-blocked path
 #   edm_device      OpenFold3's traced rollout keeps the coordinates on the card: augment + EDM step in fp32 inside
