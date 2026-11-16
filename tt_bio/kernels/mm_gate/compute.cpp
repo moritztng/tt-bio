@@ -14,6 +14,9 @@
 #include "api/compute/eltwise_unary/eltwise_unary.h"
 #include "api/compute/eltwise_unary/binop_with_scalar.h"
 #include "api/compute/eltwise_binary_sfpu.h"
+#ifdef MM_ROWSTATS
+#include "api/compute/eltwise_unary/fill.h"
+#endif
 #if defined(MM_GATE_PACK_SFPU) && defined(TRISC_PACK)
 #include "llk_math_eltwise_unary_sfpu_silu.h"
 #include "llk_math_eltwise_binary_sfpu_binop.h"
@@ -210,11 +213,79 @@ void add_bias_block(uint32_t in_cb, uint32_t bias_cb, uint32_t out_cb, uint32_t 
 // tt-bio mm_resid: the block's residual add as the epilogue, out = resid + (x W + bias). The bias is added as
 // add_bias_block does it, then the residual's tile (c_5, the [M, N] block the non-writing DM kernel reads) is added
 // to dest on the FPU, DG tiles at a time so each init serves several tiles. One rounding to the output format.
+#ifdef MM_ROWSTATS
+// tt-bio in-matmul LayerNorm, producer half: the row statistics of the bf16 x this epilogue writes, for the next
+// LayerNorm's consumer matmul. Each output row of the block is also packed to c_10 (bf16: the exact values the
+// consumer reads); x^2 is squared from those in fp32 dest and packed bf16 to c_11 (rounded once, so the reduction
+// below reads every operand exactly at any fidelity; perf/spd_m_esmc/lnacc.py grades this as `pc`); one ones-matmul
+// pass over the row's N block accumulates sum x and sum x^2 in fp32 dest, every column holding the row's partial;
+// both tiles go out fp32 through c_12, one [sum x, sum x^2] pair per (M tile, N block). c_13 holds a ones tile.
+constexpr uint32_t RS_X_CB = tt::CBIndex::c_10, RS_SQ_CB = tt::CBIndex::c_11, RS_ST_CB = tt::CBIndex::c_12,
+                   RS_ONES_CB = tt::CBIndex::c_13;
+
+void rowstats_ones() {
+    cb_reserve_back(RS_ONES_CB, 1);
+    pack_reconfig_data_format(RS_ONES_CB);
+    fill_tile_init();
+    tile_regs_acquire();
+    fill_tile(0, 1.0f);
+    tile_regs_commit();
+    tile_regs_wait();
+    pack_tile(0, RS_ONES_CB);
+    tile_regs_release();
+    cb_push_back(RS_ONES_CB, 1);
+    cb_wait_front(RS_ONES_CB, 1);
+}
+
+void rowstats_row(uint32_t N_block_tiles) {
+    cb_wait_front(RS_X_CB, N_block_tiles);
+    cb_reserve_back(RS_SQ_CB, N_block_tiles);
+    copy_tile_to_dst_init_short(RS_X_CB);
+    reconfig_data_format_srca(RS_X_CB);
+    pack_reconfig_data_format(RS_SQ_CB);
+    square_tile_init();
+    for (uint32_t n = 0; n < N_block_tiles; n++) {
+        tile_regs_acquire();
+        copy_tile(RS_X_CB, n, 0);
+        square_tile(0);
+        tile_regs_commit();
+        tile_regs_wait();
+        pack_tile(0, RS_SQ_CB);
+        tile_regs_release();
+    }
+    cb_push_back(RS_SQ_CB, N_block_tiles);
+    cb_wait_front(RS_SQ_CB, N_block_tiles);
+    cb_reserve_back(RS_ST_CB, 2);
+    mm_init_short(RS_X_CB, RS_ONES_CB);
+    reconfig_data_format(RS_ONES_CB, RS_X_CB);
+    pack_reconfig_data_format(RS_ST_CB);
+    tile_regs_acquire();
+    for (uint32_t n = 0; n < N_block_tiles; n++) {
+        matmul_tiles(RS_X_CB, RS_ONES_CB, n, 0, 0);
+    }
+    for (uint32_t n = 0; n < N_block_tiles; n++) {
+        matmul_tiles(RS_SQ_CB, RS_ONES_CB, n, 0, 1);
+    }
+    tile_regs_commit();
+    tile_regs_wait();
+    pack_tile(0, RS_ST_CB);
+    pack_tile(1, RS_ST_CB);
+    tile_regs_release();
+    cb_push_back(RS_ST_CB, 2);
+    cb_pop_front(RS_X_CB, N_block_tiles);
+    cb_pop_front(RS_SQ_CB, N_block_tiles);
+}
+#endif
+
 void add_bias_resid_block(
     uint32_t in_cb, uint32_t bias_cb, uint32_t resid_cb, uint32_t out_cb, uint32_t M_block_tiles, uint32_t N_block_tiles) {
     const uint32_t dg = N_block_tiles % 4 == 0 ? 4 : N_block_tiles % 2 == 0 ? 2 : 1;
     pack_reconfig_data_format(out_cb);
     for (uint32_t m = 0; m < M_block_tiles; m++) {
+#ifdef MM_ROWSTATS
+        cb_reserve_back(RS_X_CB, N_block_tiles);
+        pack_reconfig_data_format(out_cb);
+#endif
         for (uint32_t n0 = 0; n0 < N_block_tiles; n0 += dg) {
             const uint32_t t0 = m * N_block_tiles + n0;
             tile_regs_acquire();
@@ -234,9 +305,18 @@ void add_bias_resid_block(
             for (uint32_t j = 0; j < dg; j++) {
                 pack_tile(j, out_cb);
             }
+#ifdef MM_ROWSTATS
+            for (uint32_t j = 0; j < dg; j++) {
+                pack_tile(j, RS_X_CB);   // same format as out_cb (bf16), so no packer reconfig between the two
+            }
+#endif
             tile_regs_release();
         }
         cb_push_back(out_cb, N_block_tiles);
+#ifdef MM_ROWSTATS
+        cb_push_back(RS_X_CB, N_block_tiles);
+        rowstats_row(N_block_tiles);
+#endif
     }
 }
 #endif
@@ -490,6 +570,9 @@ void kernel_main() {
     SFPU_OP_INIT_ACTIVATION
 #endif
 
+#ifdef MM_ROWSTATS
+    rowstats_ones();
+#endif
     mm_init(in0_cb, in1_cb, intermediate_cb);
 
     constexpr uint32_t in0_block_num_tiles = M_block_tiles * K_block_tiles;
