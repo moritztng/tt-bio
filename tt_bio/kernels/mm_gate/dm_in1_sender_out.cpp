@@ -54,6 +54,10 @@ void kernel_main() {
     // tt-bio mm_resid: the residual's address, before the outputs'
     const uint32_t resid_addr = get_arg_val<uint32_t>(argidx++);
 #endif
+#ifdef MM_LN_RSTD
+    // tt-bio in-matmul LayerNorm: the producer's row statistics, read by the non-writing kernel
+    const uint32_t ln_stats_addr = get_arg_val<uint32_t>(argidx++);
+#endif
 #ifdef MM_ROWSTATS
     // tt-bio in-matmul LayerNorm: the row statistics tensor's address, after the residual's
     const uint32_t rowstats_addr = get_arg_val<uint32_t>(argidx++);
@@ -93,6 +97,11 @@ void kernel_main() {
     constexpr uint32_t resid_tile_size = get_tile_size(tt::CBIndex::c_5);
     constexpr auto resid_args = TensorAccessorArgs<in2_args.next_compile_time_args_offset()>();
     const auto resid_reader = TensorAccessor(resid_args, resid_addr, resid_tile_size);
+#endif
+#ifdef MM_LN_RSTD
+    constexpr uint32_t ln_stats_tile_size = get_tile_size(tt::CBIndex::c_15);
+    constexpr auto ln_stats_args = TensorAccessorArgs<in2_args.next_compile_time_args_offset()>();
+    const auto ln_stats_reader = TensorAccessor(ln_stats_args, ln_stats_addr, ln_stats_tile_size);
 #endif
 #ifdef MM_ROWSTATS
     constexpr uint32_t rowstats_tile_size = get_tile_size(tt::CBIndex::c_12);
@@ -315,6 +324,11 @@ void kernel_main() {
 #ifdef MM_ROPE_T
             if constexpr (!is_output_writer) {
                 read_rope_block<M_block_tiles>(rope_cos, rope_sin, rope_tile_size, m_tile, m_tile_end);
+            }
+#endif
+#ifdef MM_LN_RSTD
+            if constexpr (!is_output_writer) {
+                read_ln_stats_block<M_block_tiles>(ln_stats_reader, ln_stats_tile_size, m_tile, m_tile_end, M_tiles);
             }
 #endif
 #ifdef MM_RESID

@@ -17,6 +17,9 @@
 #ifdef MM_ROWSTATS
 #include "api/compute/eltwise_unary/fill.h"
 #endif
+#ifdef MM_LN_RSTD
+#include "api/compute/eltwise_unary/rsqrt.h"
+#endif
 #if defined(MM_GATE_PACK_SFPU) && defined(TRISC_PACK)
 #include "llk_math_eltwise_unary_sfpu_silu.h"
 #include "llk_math_eltwise_binary_sfpu_binop.h"
@@ -106,6 +109,56 @@ void rope_block(
 }
 #endif
 
+#ifdef MM_LN_RSTD
+// tt-bio in-matmul LayerNorm, consumer half. The weight is C diag(gamma) W (built on the host in float64, C the
+// centring matrix), so LayerNorm(x) W = rstd * (x W'') + beta W and the matmul reads the raw residual. c_15 holds the
+// M block's row statistics from the producer (mm_resid rowstats: per row tile MM_LN_NB pairs of fp32 tiles, sum x and
+// sum x^2 over one producer N block); ln_rstd_block reduces them in fp32 dest to rstd = rsqrt(E x^2 - (E x)^2 + eps)
+// over the row's MM_LN_K columns (scalars as float bits MM_LN_INVK / MM_LN_EPS) into c_14, every column of a tile the
+// row's value. beta W arrives as the bias (c_4) from a tensor whose 32 rows all hold it, so it adds tile to tile.
+constexpr uint32_t LN_ST_CB = tt::CBIndex::c_15, LN_R_CB = tt::CBIndex::c_14;
+
+void ln_rstd_block(uint32_t M_block_tiles) {
+    constexpr uint32_t nst = 2 * MM_LN_NB;
+    cb_reserve_back(LN_R_CB, M_block_tiles);
+    pack_reconfig_data_format(LN_R_CB);
+    for (uint32_t m = 0; m < M_block_tiles; m++) {
+        cb_wait_front(LN_ST_CB, nst);
+        tile_regs_acquire();
+        copy_tile_to_dst_init_short(LN_ST_CB);
+        reconfig_data_format_srca(LN_ST_CB);
+        copy_tile(LN_ST_CB, 0, 0);
+        copy_tile(LN_ST_CB, 1, 1);
+        for (uint32_t b = 1; b < MM_LN_NB; b++) {
+            copy_tile_to_dst_init_short(LN_ST_CB);   // the SFPU init below may move the datacopy's address mods
+            copy_tile(LN_ST_CB, 2 * b, 2);
+            copy_tile(LN_ST_CB, 2 * b + 1, 3);
+            add_binary_tile_init();
+            add_binary_tile(0, 2, 0);
+            add_binary_tile(1, 3, 1);
+        }
+        binop_with_scalar_tile_init();
+        mul_unary_tile(0, MM_LN_INVK);   // E x
+        mul_unary_tile(1, MM_LN_INVK);   // E x^2
+        mul_binary_tile_init();
+        mul_binary_tile(0, 0, 2);        // (E x)^2
+        sub_binary_tile_init();
+        sub_binary_tile(1, 2, 1);
+        binop_with_scalar_tile_init();
+        add_unary_tile(1, MM_LN_EPS);
+        rsqrt_tile_init();
+        rsqrt_tile(1);
+        tile_regs_commit();
+        tile_regs_wait();
+        pack_tile(1, LN_R_CB);
+        tile_regs_release();
+        cb_pop_front(LN_ST_CB, nst);
+    }
+    cb_push_back(LN_R_CB, M_block_tiles);
+    cb_wait_front(LN_R_CB, M_block_tiles);
+}
+#endif
+
 #ifdef MM_GATED
 // tt-bio mm_gate: the SwiGLU gate as the matmul's epilogue. Each row of the accumulated block holds fc1's N_block / 2
 // tiles then fc2's (the weight is interleaved [W1_j | W2_j] per half block), so the row's output is
@@ -114,7 +167,11 @@ void gate_block(uint32_t in_cb, uint32_t out_cb, uint32_t M_block_tiles, uint32_
     // MM_GATE_GROUP output tiles per dest acquire: fc1's in dest [0, g), fc2's in [g, 2g), so the silu and multiply
     // SFPU inits run once a group instead of once a tile. 2 * g tiles must fit one dest half (4 under fp32 acc).
 #ifndef MM_GATE_GROUP
+#ifdef MM_LN_RSTD
+#define MM_GATE_GROUP 1   // dest slots 2 and 3 carry the row's rstd and beta W
+#else
 #define MM_GATE_GROUP 2
+#endif
 #endif
     // MM_GATE_PROBE (benchmarks only, wrong output): 1 skips the silu, 2 also the multiply (copy and pack only).
     constexpr uint32_t g = MM_GATE_GROUP;
@@ -127,10 +184,29 @@ void gate_block(uint32_t in_cb, uint32_t out_cb, uint32_t M_block_tiles, uint32_
             const uint32_t c = half - n0 < g ? half - n0 : g;
             tile_regs_acquire();
             copy_tile_to_dst_init_short(in_cb);
+#ifdef MM_LN_RSTD
+            reconfig_data_format_srca(in_cb);
+#endif
             for (uint32_t i = 0; i < c; i++) {
                 copy_tile(in_cb, row + n0 + i, i);
                 copy_tile(in_cb, row + half + n0 + i, g + i);
             }
+#ifdef MM_LN_RSTD
+            // LayerNorm(x) W1 = rstd * acc1 + beta W1, the same for W2, in fp32 dest before the gate (g is 1)
+            copy_tile_to_dst_init_short(LN_R_CB);
+            reconfig_data_format_srca(LN_R_CB);
+            copy_tile(LN_R_CB, m, 2);
+            mul_binary_tile_init();
+            mul_binary_tile(0, 2, 0);
+            mul_binary_tile(1, 2, 1);
+            copy_tile_to_dst_init_short(tt::CBIndex::c_4);
+            reconfig_data_format_srca(tt::CBIndex::c_4);
+            copy_tile(tt::CBIndex::c_4, n0, 2);
+            copy_tile(tt::CBIndex::c_4, half + n0, 3);
+            add_binary_tile_init();
+            add_binary_tile(0, 2, 0);
+            add_binary_tile(1, 3, 1);
+#endif
 #ifdef MM_GATE_PACK_SFPU
             // MATH only copies; PACK runs the silu and multiply on its own dest half (the fc12g / silu_f32 handoff:
             // a tile_regs_wait() that also points the SFPU at the packer's half), so MATH moves on to the next copy
@@ -652,10 +728,18 @@ void kernel_main() {
             PACK((llk_pack_reconfig_l1_acc(0)));
 
 #ifdef MM_GATED
+#ifdef MM_LN_RSTD
+            ln_rstd_block(M_block_tiles);
+            cb_wait_front(in2_cb, N_block_tiles);
+#endif
             cb_reserve_back(out_cb, out_block_num_tiles / 2);
             cb_wait_front(intermediate_cb, out_block_num_tiles);
             gate_block(intermediate_cb, out_cb, M_block_tiles, N_block_tiles);
             cb_pop_front(intermediate_cb, out_block_num_tiles);
+#ifdef MM_LN_RSTD
+            cb_pop_front(in2_cb, N_block_tiles);
+            cb_pop_front(LN_R_CB, M_block_tiles);
+#endif
 #else
             cb_reserve_back(out_cb, out_block_num_tiles);
 #ifndef FUSE_TERNARY

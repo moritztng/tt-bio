@@ -591,3 +591,28 @@ void write_rowstats(
     }
 }
 #endif
+
+#ifdef MM_LN_RSTD
+/**
+ * tt-bio in-matmul LayerNorm, consumer half: the M block's row statistics, one row tile's 2 * MM_LN_NB fp32 tiles at
+ * a time into c_15 (compute.cpp ln_rstd_block). Rows past the block's end or the real M push unread tiles, which the
+ * compute kernel turns into an rstd the writer never stores.
+ */
+template <uint32_t M_block_tiles, typename TensorAccessorType>
+void read_ln_stats_block(
+    const TensorAccessorType& acc, uint32_t tile_size, uint32_t m_start, uint32_t m_end, uint32_t M_tiles) {
+    constexpr uint32_t cb = tt::CBIndex::c_15, nst = 2 * MM_LN_NB;
+    for (uint32_t i = 0; i < M_block_tiles; i++) {
+        const uint32_t m = m_start + i;
+        cb_reserve_back(cb, nst);
+        if (m < m_end && m < M_tiles) {
+            uint32_t ptr = get_write_ptr(cb);
+            for (uint32_t t = 0; t < nst; t++, ptr += tile_size) {
+                noc_async_read_tile(m * nst + t, acc, ptr);
+            }
+            noc_async_read_barrier();
+        }
+        cb_push_back(cb, nst);
+    }
+}
+#endif

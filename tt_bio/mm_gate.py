@@ -94,12 +94,28 @@ def overlay_ok() -> bool:
     return "silu_f32" in os.environ.get("TT_BIO_METAL_OVERLAY", "").split(",")
 
 
-def gated(x, w12, cfg, ckc, grid, out_dtype=ttnn.bfloat16, probe=0, pack_sfpu=False):
+def _f32_bits(v: float) -> str:
+    import struct
+    return f"{struct.unpack('<I', struct.pack('<f', v))[0]:#x}u"
+
+
+def ln_weights(gamma: torch.Tensor, beta: torch.Tensor, w: torch.Tensor):
+    """(C diag(gamma) W, beta W replicated over 32 rows) in float64 for an in-matmul LayerNorm over W [K, N]: then
+    LayerNorm(x) W = rstd(x) * (x @ W'') + beta W, C = I - 1/K the centring matrix. Cast them to the device dtype."""
+    g, b, w = gamma.double(), beta.double(), w.double()
+    wg = g[:, None] * w
+    return wg - wg.mean(0, keepdim=True), (b @ w).expand(32, -1).contiguous()
+
+
+def gated(x, w12, cfg, ckc, grid, out_dtype=ttnn.bfloat16, probe=0, pack_sfpu=False, ln=None):
     """silu(x @ W1) * (x @ W2) for the interleaved `w12`, [.., N] in DRAM, or None when `plan` declines.
     `cfg` is minimal_matmul's (M_block, K_block, N_block, subblock_h, subblock_w) in tiles; the interleave
     group must be N_block / 2 tiles. `probe` (benchmarks only, wrong output) drops the epilogue's silu (1) or silu
     and multiply (2), to time its parts. `pack_sfpu` runs the epilogue's silu and multiply on the PACK thread (the
-    silu is calculate_silu_f32 there only under the silu_f32 metal overlay)."""
+    silu is calculate_silu_f32 there only under the silu_f32 metal overlay).
+    `ln` = (stats, bias32): x is the raw residual and w12 the interleaved `ln_weights` W'' of the LayerNorm before this
+    FFN; stats is the producer's `mm_resid.matmul_add(..., rowstats=True)` output and bias32 the interleaved beta W
+    [32, N2]. The epilogue scales the accumulator by the row's rstd and adds beta W before the gate."""
     n2 = int(w12.shape[-1])
     lay = layout(x.volume() // int(x.shape[-1]), n2, cfg[2], grid)
     if lay is None:
@@ -110,21 +126,40 @@ def gated(x, w12, cfg, ckc, grid, out_dtype=ttnn.bfloat16, probe=0, pack_sfpu=Fa
     out = ttnn.allocate_tensor_on_device(ttnn.Shape(shape), out_dtype, ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
     ck = MG.ckc_args(ckc)
-    key = (spec(x), spec(w12), spec(out), tuple(cfg), tuple(grid), tuple(str(c) for c in ck), probe, pack_sfpu)
+    stats, bias = ln if ln is not None else (None, None)
+    key = (spec(x), spec(w12), spec(out), tuple(cfg), tuple(grid), tuple(str(c) for c in ck), probe, pack_sfpu,
+           ln is not None and (spec(stats), spec(bias)))
     entry = _CACHE.get(key)
     if entry is None:
-        entry = MG.build(dev, x, w12, [out], (tuple(cfg), tuple(grid)), ck, defines={"MM_GATED": 1},
-                         kernel_dir=KERNEL_DIR, transpose=lay[0], n_align=cfg[2])
+        defines = {"MM_GATED": 1}
+        if ln is not None:
+            k = int(x.shape[-1])
+            defines.update(MM_LN_RSTD=1, MM_LN_NB=int(stats.padded_shape[-1]) // 64,
+                           MM_LN_INVK=_f32_bits(1.0 / k), MM_LN_EPS=_f32_bits(1e-5))
+        entry = MG.build(dev, x, w12, [out], (tuple(cfg), tuple(grid)), ck, defines=defines,
+                         kernel_dir=KERNEL_DIR, transpose=lay[0], n_align=cfg[2], bias=bias,
+                         extra=(stats,) if ln is not None else ())
+        if ln is not None:   # c_15 one row tile's statistics, c_14 the M block's rstd (compute.cpp ln_rstd_block)
+            core_grid = ttnn.CoreRangeSet([ttnn.CoreRange(ttnn.CoreCoord(0, 0),
+                                                          ttnn.CoreCoord(grid[0] - 1, grid[1] - 1))])
+            f32 = MG.tile_bytes(ttnn.float32)
+            entry["cbs"] += [MG._cb(15, core_grid, f32, 2 * defines["MM_LN_NB"], ttnn.float32),
+                             MG._cb(14, core_grid, f32, cfg[0], ttnn.float32)]
         compute = entry["kernels"][4]
         compute.kernel_source = str(KERNEL_DIR / "compute.cpp")
-        compute.defines = ([("MM_GATED", "1")] + ([("MM_GATE_PROBE", str(probe))] if probe else [])
+        compute.defines = ([(k_, str(v)) for k_, v in defines.items()]
+                           + ([("MM_GATE_PROBE", str(probe))] if probe else [])
                            + ([("MM_GATE_PACK_SFPU", "1")] if pack_sfpu else []))
         entry["pd"] = ttnn.ProgramDescriptor(kernels=entry["kernels"], semaphores=entry["semaphores"],
                                              cbs=entry["cbs"])
+        entry["extra"] = (stats.buffer_address(),) if ln is not None else ()
         _CACHE[key] = entry
-    addrs = (x.buffer_address(), w12.buffer_address(), (out.buffer_address(),))
-    if addrs != entry["addrs"]:
-        MG.rebind(entry, *addrs)
-    ttnn.generic_op([x, w12, out], entry["pd"])
+    addrs = (x.buffer_address(), w12.buffer_address(), (out.buffer_address(),)) + (
+        (bias.buffer_address(),) if ln is not None else ())
+    extra = (stats.buffer_address(),) if ln is not None else ()
+    if addrs != entry["addrs"] or extra != entry.get("extra", ()):
+        MG.rebind(entry, *addrs, extra_addrs=extra)
+        entry["extra"] = extra
+    ttnn.generic_op([x, w12, *((stats, bias) if ln is not None else ()), out], entry["pd"])
     STATS[0] += 1
     return out
