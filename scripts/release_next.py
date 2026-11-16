@@ -188,7 +188,7 @@ OK = ("PASS", "REUSED", "BLOCKED", "SEEDED")
 
 def failures(d: Path, waived: dict | None = None) -> tuple[list[str], list[str]]:
     """(the ladder models to re-record, every other failed leg as "<leg> <arch>") of gate `d`.
-    A ladder leg is re-recorded when it only drifted or when it is waived; any other waived leg
+    A ladder leg is re-recorded when it only drifted or when it ran and is waived; any other waived leg
     stops counting. So does a leg whose key has passed since: a rerun of the same code, packages
     and card type (a partial gate_fanout run) after the card, not the tree, failed it. A leg is
     judged by its latest run on the gate's commit in any run dir beside `d`: the runner's own files
@@ -205,7 +205,9 @@ def failures(d: Path, waived: dict | None = None) -> tuple[list[str], list[str]]
         log = Path(r.get("log") or "")
         text = log.read_text(errors="replace") if r["leg"].startswith("ladder:") and log.is_file() else ""
         lines = [ln for ln in text.splitlines() if FINDING.match(ln)]
-        if r["leg"].startswith("ladder:") and (name in (waived or {}) or (
+        # A waived UNRUN ladder has nothing to re-record: no card of its type ran (qb1 dark, 11-16), and
+        # re-recording it would refold every model of the gate on the cards that did answer.
+        if r["leg"].startswith("ladder:") and (name in (waived or {}) and r.get("verdict") != "UNRUN" or (
                 "size-ladder drift vs the recorded baseline" in text and lines and all(map(is_drift, lines)))):
             drift.add(r["leg"].split(":", 1)[1].split("@", 1)[0])
         elif name not in (waived or {}):
