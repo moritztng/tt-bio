@@ -1211,6 +1211,8 @@ def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved
         # T2m: work is (it, jt, part) units of R = 32 / P rows i, R / Mb blocks each.
         chunk, c_off, P = moved
         St, Cp = int(chunk.shape[2]) // TILE, c_off // TILE
+        b8 = chunk.dtype == ttnn.bfloat8_b
+        assert not b8 or (Cp == 0 and P in _B8_STAGE and not T2_SBIG and not T2_S1K), "T2_B8: one chunk, P 1 or 2"
         units = St * St * P
         u0 = 0
         for c in range(ncores):
@@ -1246,7 +1248,8 @@ def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved
             + acc(wp) + acc(wg if gate else wp) + acc(ln_w) + acc(ln_b)
             + acc(ex[0] if EXTRA & 1 else wp) + acc(ex[1] if EXTRA & 2 else wp),
             runtime_args=rd, common_runtime_args=[0] * (8 + len(mc)),
-            defines=([("T2MCAST", "1")] if mcast else []) + ([("T2_ROT", "1")] if rot else []) + _t2m_dm_defines(grow),
+            defines=([("T2MCAST", "1")] if mcast else []) + ([("T2_ROT", "1")] if rot else []) + _t2m_dm_defines(grow)
+            + ([("T2_B8", "1")] if b8 else []),
             config=ttnn.ReaderConfigDescriptor())
         writer = ttnn.KernelDescriptor(
             kernel_source=str(d / "writer_moved.cpp"), source_type=src, core_ranges=core_grid,
@@ -1290,10 +1293,11 @@ def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved
     if res32:
         cbs.append(_cb(21, core_grid, 2 * blk))
     if moved is not None:
-        cbs.append(_cb(15, core_grid, 2 * (kt - Cp) if grow else 2))
+        cbs.append(_cb_fmt(15, core_grid, 2 * (kt - Cp) if grow else 2, chunk.dtype))
         if Cp:
             cbs.append(_cb(18, core_grid, 2 * Cp))
-        stage = (kt - Cp) * TILE * 2 * (TILE // P) * TILE     # each channel's part: two faces' rows
+        # each channel's part: two faces' rows; bfp8 (T2_B8) the whole tile's 64 exponent bytes and two faces' mantissas
+        stage = (kt - Cp) * TILE * (_B8_STAGE[P] if b8 else 2 * (TILE // P) * TILE)
         fmt = ttnn.CBFormatDescriptor(buffer_index=24, data_format=ttnn.bfloat16, page_size=stage)
         cbs.append(ttnn.CBDescriptor(total_size=stage, core_ranges=core_grid, format_descriptors=[fmt]))
     nbias = (EXTRA & 1) + (EXTRA >> 1 & 1)
@@ -1441,6 +1445,13 @@ def set_t2cm(on: bool) -> bool:
     return prev
 
 
+def _t2cm_b8_ok(stream16, wg, ex, prev) -> bool:
+    """A bfp8 xcm (`trimul_t2cm_b8`): plain form, one chunk, no extras; the gather copies its exponent groups."""
+    from .tenstorrent import lever
+    return (lever("trimul_t2cm_b8") and not stream16 and wg is None and prev is None
+            and all(t is None for t in (ex or ())))
+
+
 def t2cm_eligible(xcm, ln_w, ln_b, wp, g, resid, ckc=None, wg=None, ex=None, prev=None, own_switch=False,
                   stream16=False):
     """None when T2CM serves `resid += T2(xcm permuted to [1, S, S, K])`, else the reason it does not.
@@ -1464,7 +1475,8 @@ def t2cm_eligible(xcm, ln_w, ln_b, wp, g, resid, ckc=None, wg=None, ex=None, pre
         if t is None or t.layout != ttnn.TILE_LAYOUT:
             return "dtype"
         # a plain-form g may be bfp8 (trimul_t1g8), as in fused_tail_ln; so may the stream16 z (pair_bfp8z)
-        b8 = t.dtype == ttnn.bfloat8_b and (t is g and wg is None or t is resid and stream16)
+        b8 = t.dtype == ttnn.bfloat8_b and (t is g and wg is None or t is resid and stream16
+                                            or t is xcm and _t2cm_b8_ok(stream16, wg, ex, prev))
         if t.dtype != ttnn.bfloat16 and not b8:
             return "dtype"
         if t.memory_config() != ttnn.DRAM_MEMORY_CONFIG:
@@ -1506,6 +1518,9 @@ def t2cm_eligible(xcm, ln_w, ln_b, wp, g, resid, ckc=None, wg=None, ex=None, pre
 # off (spd-m-protenix cmn, 2026-10-19): 60.39 -> 59.38 s median, 4 of 5 pairs faster, CIFs byte-identical.
 # Blackhole keeps P = 2 until measured there.
 T2CM_MAX_P = {"wormhole_b0": 1, "blackhole": 2}
+# T2_B8 stage bytes per channel by row parts P: the whole bfp8 tile (P 1), or its 64 exponent bytes and the part's two
+# faces of mantissas (P 2; reads stay 64-byte aligned).
+_B8_STAGE = {1: 1088, 2: 64 + 512}
 
 
 def t2cm_fit(wp, gate=False, extra=0, cp=0):

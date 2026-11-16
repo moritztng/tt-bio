@@ -40,6 +40,13 @@
 #ifndef T2_SBIG
 #define T2_SBIG 0
 #endif
+// T2_B8 (trimul_t2cm_b8): x is bfp8_b, a tile = 64 exponent bytes (face f row r at f * 16 + r) and four faces of
+// 16-byte mantissa rows. One face row of x shares one exponent and is exactly one face row of the gathered tile, so
+// the gather copies mantissa rows (16 B, by NoC) and their exponent bytes (by store) unchanged: c_15 is a bfp8 tile
+// holding x's own values. P = 1 stages whole tiles; P = 2 stages the 64 exponent bytes and the part's two faces.
+#ifndef T2_B8
+#define T2_B8 0
+#endif
 // T2_SSTR (bench only, 0 in every model path): the stage's per-channel reads step T2_SSTR pages instead of St * St
 // (wrapping inside x), which moves them to other banks and DRAM rows. Wrong values; prices a page order.
 #ifndef T2_SSTR
@@ -84,7 +91,10 @@ void kernel_main() {
     constexpr uint32_t NBIAS = (EXTRA & 1) + ((EXTRA >> 1) & 1);
     constexpr uint32_t TILE_BYTES = 2048, FACE_BYTES = 512, FACE_ROW_BYTES = 32;
     constexpr uint32_t PART_ROW_BYTES = R * FACE_ROW_BYTES;
-    constexpr uint32_t STAGE_TILE = 2 * PART_ROW_BYTES;
+    constexpr uint32_t B8_TILE = 1088, B8_EXP = 64, B8_FACE = 256, B8_ROW = 16;
+    static_assert(!T2_B8 || (Cp == 0 && P <= 2 && !T2_SBIG && !T2_S1K), "T2_B8: one chunk, P 1 or 2");
+    constexpr uint32_t STAGE_TILE = T2_B8 ? (P == 1 ? B8_TILE : B8_EXP + 2 * B8_FACE) : 2 * PART_ROW_BYTES;
+    constexpr uint32_t IN_TILE = T2_B8 ? B8_TILE : TILE_BYTES;   // one c_15 page
 
     generate_reduce_scaler(cb_scaler, SCALER);
     {
@@ -159,6 +169,12 @@ void kernel_main() {
                 const uint64_t a = sx.get_noc_addr(T2_ROT ? c * StSt + slot : page, off);
                 if constexpr (T2_DMABL & 2) {
                     (void)a;
+                } else if constexpr (T2_B8 && P == 1) {
+                    noc_async_read(sx.get_noc_addr(T2_ROT ? c * StSt + slot : page, 0), dst, B8_TILE);
+                } else if constexpr (T2_B8) {
+                    const uint32_t pg = T2_ROT ? c * StSt + slot : page;
+                    noc_async_read(sx.get_noc_addr(pg, 0), dst, B8_EXP);
+                    noc_async_read(sx.get_noc_addr(pg, B8_EXP + part * 2 * B8_FACE), dst + B8_EXP, 2 * B8_FACE);
                 } else if constexpr (P == 1) {
                     noc_async_read(a, dst, TILE_BYTES);         // the whole tile, faces in place
                 } else if constexpr (P == 2 && T2_S1K) {
@@ -183,12 +199,34 @@ void kernel_main() {
                 noc_async_read_barrier();
                 cb_push_back(cb_prev, Cp);
             }
-            noc_async_read_one_packet_set_state(stage_noc, FACE_ROW_BYTES);
+            noc_async_read_one_packet_set_state(stage_noc, T2_B8 ? B8_ROW : FACE_ROW_BYTES);
             if constexpr (T2_GROW) cb_reserve_back(cb_in, Clt);
             const uint32_t row0 = get_write_ptr(cb_in);
             for (uint32_t ct = 0; ct < Clt; ++ct) {
                 if constexpr (!T2_GROW) cb_reserve_back(cb_in, 1);
-                const uint32_t d = T2_GROW ? row0 + ct * TILE_BYTES : get_write_ptr(cb_in);
+                const uint32_t d = T2_GROW ? row0 + ct * IN_TILE : get_write_ptr(cb_in);
+                if constexpr (T2_B8) {
+                    // x row gr of channel c (faces fl, fl + 1, row gr % 16) -> gathered row c (faces fc, fc + 1)
+                    const uint32_t gr = part * R + il, fl = (gr / 16) * 2;
+                    const uint32_t m0 = B8_EXP + (P == 1 ? fl * B8_FACE : 0) + (gr % 16) * B8_ROW;
+                    const uint32_t e0 = fl * 16 + gr % 16;
+                    const uint32_t base = stage + ct * 32 * STAGE_TILE;
+                    volatile tt_l1_ptr uint8_t* de = reinterpret_cast<volatile tt_l1_ptr uint8_t*>(d);
+                    volatile tt_l1_ptr uint8_t* se = reinterpret_cast<volatile tt_l1_ptr uint8_t*>(base);
+                    for (uint32_t c = 0; c < 32; ++c) {
+                        const uint32_t fc = (c / 16) * 2, rc = c % 16, sc = base + c * STAGE_TILE;
+                        const uint32_t md = d + B8_EXP + fc * B8_FACE + rc * B8_ROW;
+                        noc_async_read_one_packet_with_state(sc + m0, md);
+                        noc_async_read_one_packet_with_state(sc + m0 + B8_FACE, md + B8_FACE);
+                        de[fc * 16 + rc] = se[c * STAGE_TILE + e0];
+                        de[(fc + 1) * 16 + rc] = se[c * STAGE_TILE + e0 + 16];
+                    }
+                    if constexpr (!T2_GROW) {
+                        noc_async_read_barrier();
+                        cb_push_back(cb_in, 1);
+                    }
+                    continue;
+                }
                 // P = 1 stages whole tiles (row il: faces 2 * (il / 16) and + 1); P > 1 stages each
                 // part's left face rows, then its right ones.
                 uint32_t s0 = stage + ct * 32 * STAGE_TILE +

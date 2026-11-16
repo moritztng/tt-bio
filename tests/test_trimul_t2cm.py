@@ -151,3 +151,23 @@ def test_rfd4_bf16_stream_form(monkeypatch):
     assert TTL._t2cm_parts(torch.zeros(256, 384)) == 1
     # measured on 110 cores: wins at 384 / 512, loses or is noise at 256 / 288 / 320 / 352 / 448, so those keep the move
     assert [n for n in (256, 288, 320, 352, 384, 448, 512) if TTL.t2cm_stream16_fits(n, 110)] == [384, 512]
+
+
+def test_b8_xcm_only_under_its_lever(monkeypatch):
+    """`trimul_t2cm_b8`: a bfp8 channel-major x is T2CM's only with the lever, plain form, one chunk."""
+    monkeypatch.setattr(T, "_l1_bank_bytes", lambda: L1_BH_BANK)
+    monkeypatch.setattr(T, "arch_name", lambda: "blackhole")
+    assert "trimul_t2cm_b8" in T.LEVERS
+    a = _args(K=256, N=256)
+    a["xcm"] = _Fake([1, 256, 512, 512], dtype=ttnn.bfloat8_b)
+    with T.levers("trimul_t2,trimul_t2cm"):
+        assert TTL.t2cm_eligible(**a) == "dtype"
+    with T.levers("trimul_t2,trimul_t2cm,trimul_t2cm_b8"):
+        assert TTL.t2cm_eligible(**a) is None
+        assert TTL.t2cm_eligible(**a, stream16=True) in ("dtype", "off")
+
+
+def test_b8_reader_copies_exponent_groups():
+    src = (KDIR / "reader_moved.cpp").read_text()
+    assert "T2_B8" in src and "B8_TILE = 1088" in src
+    assert TTL._B8_STAGE == {1: 1088, 2: 64 + 512}

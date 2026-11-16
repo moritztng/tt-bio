@@ -941,6 +941,9 @@ _FAST_MODE = False
 #   trimul_x8       pair_x8 for one fold: where the one-pass move back (`permute_back_pk`) takes the triangle
 #                   contraction's channel-major output into the bf16 pair, the contraction (bmm_res or ttnn.matmul)
 #                   writes it as bfp8, halving the one tensor written and read between them. Never where T2CM reads x.
+#   trimul_t2cm_b8  trimul_x8 where T2CM reads x too: the contraction writes x as bfp8 and T2CM's gather copies its
+#                   16-value exponent groups whole (one row of x is one row of the gathered tile), so the tail reads
+#                   the same values as trimul_x8's move back to bf16 and neither the move nor a bf16 x is written
 #   tok_recycle_mm  RFD4's pair recycle projection ([n*n, 384] x [384, 384]) on `_pair_proj_minimal_matmul`, one K block
 #                   like the shipped linear (state/rfd4/bets/tok512.md)
 #   tok_w8          RFD4's token transition and attention projections with bfp8 weights at HiFi2 (state/rfd4/bets/tok512.md)
@@ -975,7 +978,7 @@ LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffus
            "pair_tail_cm", "pair_batch", "pair_block_hifi2", "trimul_t1g8", "trimul_tail_hifi2", "pair_bfp8z",
            "trimul_t1_fgate", "pair_x8", "pair_x8t", "tok_recycle_mm", "tok_w8", "trimul_x8", "ws_ln_resid", "dit_pad_short", "bg_featproc", "ef2_msa_ffn", "ef2_opm_proj", "trimul_t1_part",
            "trimul_t1_3g", "trimul_t1split", "adaln_at", "dit_kl1", "mask_at_mix", "mask_at_mix_z8", "trunk_trace", "dit_qkvf_h4",
-           "ws_ln_t1l1")
+           "ws_ln_t1l1", "trimul_t2cm_b8")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -11535,6 +11538,8 @@ class TriangleMultiplication(Module):
                  or (lever("trimul_t2cm") and (_trimul_tail.T2 or lever("trimul_t2"))
                      and H >= _trimul_tail.MIN_N and add_to_input and not ops.taping()
                      and self.p_out_bias is None and _trimul_tail.t2cm_fit(self.out_p_weight) is None))
+        # `trimul_t2cm_b8`: T2CM reads the bfp8 x trimul_x8 writes (plain form only).
+        cm8 = cm_on and not cm16 and not af2 and lever("trimul_t2cm_b8")
         tma_key = ("tma", H, batch, self._hidden, bool(self.ending))
 
         def rows_tail_now():
@@ -11555,7 +11560,7 @@ class TriangleMultiplication(Module):
             # Whether the contraction writes x as bfp8: RFD4's batch under `pair_x8`, or one fold under `trimul_x8`
             # where the one-pass move back takes x into a bf16 pair (never T2CM, which reads bf16 only).
             return _reblock.back_x8_ok(out_mc, batch) and (batch > 1 or (
-                not cm_on and large_seq and _TRIMUL_BACK_INTO and not _TRIMUL_RAW_CHANNEL_MOVES and not host_acc
+                (not cm_on or cm8) and large_seq and _TRIMUL_BACK_INTO and not _TRIMUL_RAW_CHANNEL_MOVES and not host_acc
                 and not keep_chunks))
 
         def keeps_whole(xc, into):
