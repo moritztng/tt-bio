@@ -182,8 +182,12 @@ BH_LEVERS_FAST = LEVERS_FAST | {"dit_shoist", "ie_dev", "dit_qkvf", "dit_qkvf_h4
 # atom_l1 is placement only and folds byte-identical CIFs on Blackhole too: p300c 512 x 1 normal, 4 in-process pairs at
 # AICLK 1325-1350 MHz, -1.03 s median, 3/4 pairs -0.9 to -1.4 s (l1bh, spd-m-boltz2-4, 2026-11-16). Fast reads -0.14 s
 # (2/4 pairs), inside noise, so fast leaves it off.
+# trimul_t2 (triangle multiplication's tail as one fused kernel, as Wormhole normal runs it): p300c 512 x 1 normal, 4
+# in-process pairs at AICLK 1325-1350 MHz, -0.30 s median, 4/4 pairs (l1bh). 44-fold normal grade on p300c vs the set
+# before dit_qkvf (g3bh, spd-m-boltz2-4, 2026-11-16): PASS, top pose median 1.474 A (floor 2.525 A), DockQ +0.0103
+# [+0.0021, +0.0202], CA-lDDT +0.0006 [+0.0001, +0.0012], docking 24 -> 24.
 BH_LEVERS_NORMAL = LEVERS_NORMAL | {"triatt_tail", "adaln_mod", "transition_ws", "ws_resid", "atom_l1", "dit_qkvf",
-                                   "dit_qkvf_h4"}
+                                   "dit_qkvf_h4", "trimul_t2"}
 
 
 def _under_levers(method):
