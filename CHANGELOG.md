@@ -6,6 +6,9 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 ## [Unreleased]
 
 ### Changed
+- **Protenix-v2 `--fast` is about 3 % faster on Blackhole.** Triangle multiplication writes its gated output in bfp8
+  for the memory-bound tail. On a 512-residue complex the chip time drops 18.3 -> 17.6 s; accuracy stays inside the
+  fast-mode bar on 44 paired folds of the 11-complex test set.
 - **Boltz-2 `--fast` is about 1 % faster on Wormhole.** The pair transition's SiLU now overlaps its matmuls. Output is
   byte-identical; 512 residues read 0.16 s faster per fold (median of 3 warm pairs), normal mode about 0.1 s.
 - **ESMFold2 is about 2 % faster on Wormhole when the MSA is no deeper than the encoder's limit.** The MSA encoder's pair
