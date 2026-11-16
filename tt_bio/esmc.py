@@ -578,6 +578,17 @@ MM_FUSE_STATS = [0, 0]
 # dit_minimal_matmul_addcmul_fused, same blocking. The in-matmul LayerNorm's row statistics would be written by that
 # program's epilogue, so it must first match the wheel's op on its own.
 _LIN_RESID_MM = False
+# A/B switch (off): the in-matmul LayerNorm at the FFN site. out_proj's residual matmul (mm_resid) also writes the row
+# statistics of the x it produces; the FFN gate (mm_gate ln=) reads that raw x against W'' = C diag(gamma) W and
+# applies rstd and beta W in its epilogue, so the FFN's layer_norm is gone. perf/spd_m_esmc/lnacc.py grades the
+# arithmetic (`pc`) above the shipped path at every site.
+_LN_IN_MM = False
+_LN_STATS = [None]   # the statistics out_proj wrote, taken by the next FFN call
+
+
+def _take_ln_stats():
+    st, _LN_STATS[0] = _LN_STATS[0], None
+    return st
 LIN6B_STATS = [0]  # projections served by _lin6b_program
 
 
@@ -756,14 +767,17 @@ class _MMLin:
         MM_FUSE_STATS[0] += 1
         return tuple(out)
 
-    def _lin_resid(self, x, w, resid):
-        """resid + x @ w in one matmul, or None where it does not serve (the caller adds)."""
+    def _lin_resid(self, x, w, resid, rowstats: bool = False):
+        """resid + x @ w in one matmul, or None where it does not serve (the caller adds). `rowstats`: the output's
+        row statistics go to _LN_STATS for the next LayerNorm's consumer (mm_resid only)."""
         if not (_ESMC_MM_RESID and w.dtype == ttnn.bfloat16 and self._mm_ok(x, w)):
             return None
-        if _LIN_RESID_MM and _ESMC_MM_CFG:
-            out = self._lin_resid_mm(x, w, resid)
+        if (_LIN_RESID_MM or rowstats) and _ESMC_MM_CFG:
+            out = self._lin_resid_mm(x, w, resid, rowstats)
             if out is not None:
                 MM_FUSE_STATS[1] += 1
+                if rowstats:
+                    out, _LN_STATS[0] = out
                 return out
         n = int(w.shape[-1])
         ones = getattr(self, "_ones_row", None)
@@ -779,7 +793,7 @@ class _MMLin:
         MM_FUSE_STATS[1] += 1
         return out
 
-    def _lin_resid_mm(self, x, w, resid):
+    def _lin_resid_mm(self, x, w, resid, rowstats: bool = False):
         """resid + x @ w through tt-bio's mm_resid program (kernels/mm_gate MM_RESID) at _mm_config's blocking, the
         epilogue an in-matmul LayerNorm's row statistics would ride on. ESMC's projections carry no bias: a zero row."""
         from tt_bio import mm_resid
@@ -791,7 +805,7 @@ class _MMLin:
         c = _mm_config(x, w, self.mm_exact_acc)["config"]
         g = c.compute_with_storage_grid_size
         cfg = (c.M_block_size, c.K_block_size, c.N_block_size, c.subblock_h, c.subblock_w)
-        return mm_resid.matmul_add(x, w, zero, resid, cfg, (int(g.x), int(g.y)), self._mm_ck(w))
+        return mm_resid.matmul_add(x, w, zero, resid, cfg, (int(g.x), int(g.y)), self._mm_ck(w), rowstats=rowstats)
 
     def _lin(self, x, w, bias=None, dtype=None, **kw):
         mm = self._mm_on()
@@ -966,7 +980,7 @@ class Attention(_MMLin, Module):
 
         o = lm_sdpa(q, k, v, attn_mask, scale=head_dim**-0.5, merge=True)  # [B, L, d_model]
         ttnn.deallocate(q); ttnn.deallocate(k); ttnn.deallocate(v)
-        out = self._lin_resid(o, self.out_weight, x) if resid else None
+        out = self._lin_resid(o, self.out_weight, x, rowstats=_LN_IN_MM and not self.lm_large and _dtype() == ttnn.bfloat16) if resid else None
         added = out is not None
         if not added:
             out = self._lin(o, self.out_weight)
@@ -1420,7 +1434,7 @@ class SwiGLUFFN(_MMLin, Module):
             self.fc1_weight = ttnn.concat([self.fc1_a_weight, self.fc1_b_weight], dim=-1)
         return self.fc1_weight
 
-    def _mm_gate(self, x_norm, l1_gated: bool):
+    def _mm_gate(self, x_norm, l1_gated: bool, ln_stats=None):
         """silu(x_norm @ fc1a) * (x_norm @ fc1b) as one gated minimal_matmul (mm_gate), or None where it does not
         serve. The interleaved weight is built on the first call from the two device halves (an exact round trip,
         block-fp8 included: every interleave group is whole tiles), so a model that never reaches it holds none."""
@@ -1446,6 +1460,25 @@ class SwiGLUFFN(_MMLin, Module):
             MM_GATE_STATS[1] += 1
             return None
         group = cfg[2] // 2 * 32
+        if ln_stats is not None:
+            # in-matmul LayerNorm (_LN_IN_MM): x_norm is the raw residual; W'' and beta W from the float weights.
+            # Only under fp32 dest: the row statistics reduced in a 16-bit dest lose the outlier rows (lnacc `pd`).
+            if large or _mm_bf16_acc(w, self.mm_exact_acc) or not all(
+                    k in self.weights for k in ("0.weight", "0.bias", "1.weight")):
+                return None
+            if getattr(self, "_w12ln", None) is None or self._w12ln_group != group:
+                g_, b_, w_ = (self.weights[k].float() for k in ("0.weight", "0.bias", "1.weight"))
+                ff = w_.shape[0] // 2
+                (w1, b1), (w2, b2) = (mm_gate.ln_weights(g_, b_, h.t()) for h in (w_[:ff], w_[ff:]))
+                dev = x_norm.device()
+                self._w12ln = ttnn.from_torch(mm_gate.interleave(w1.float(), w2.float(), group), dtype=w.dtype,
+                                              layout=ttnn.TILE_LAYOUT, device=dev)
+                self._b12ln = ttnn.from_torch(mm_gate.interleave(b1.float(), b2.float(), group), dtype=ttnn.bfloat16,
+                                              layout=ttnn.TILE_LAYOUT, device=dev)
+                self._w12ln_group = group
+            out = mm_gate.gated(x_norm, self._w12ln, cfg, ck, grid, pack_sfpu=True, ln=(ln_stats, self._b12ln))
+            MM_GATE_STATS[0 if out is not None else 1] += 1
+            return out
         if getattr(self, "_w12", None) is None or self._w12_group != group:
             w12 = mm_gate.interleave(ttnn.to_torch(w), ttnn.to_torch(self.fc1_b_weight), group)
             self._w12 = ttnn.from_torch(w12, dtype=w.dtype, layout=ttnn.TILE_LAYOUT, device=x_norm.device())
@@ -1455,7 +1488,7 @@ class SwiGLUFFN(_MMLin, Module):
         return out
 
     def _ffn(self, x: ttnn.Tensor, split: bool = False, l1_gated: bool = False,
-             out_mc=None, resid: bool = False) -> ttnn.Tensor:
+             out_mc=None, resid: bool = False, ln_stats=None) -> ttnn.Tensor:
         """`out_mc` is fc2's output memory config; `None` -- every caller but lever F -- leaves
         the op byte-identical to the call that had no such keyword.
 
@@ -1467,6 +1500,11 @@ class SwiGLUFFN(_MMLin, Module):
         `AttributeError: fc1_a_weight` the moment a refusal fired. The branch therefore reads
         the layout this module actually holds instead of trusting the caller to know it.
         """
+        if ln_stats is not None:   # _LN_IN_MM: the gate reads x itself and normalises in its epilogue
+            gated = self._mm_gate(x, l1_gated, ln_stats=ln_stats) if split and self.split_swiglu else None
+            ttnn.deallocate(ln_stats)
+            if gated is not None:
+                return self._fc2(gated, x, resid, out_mc)
         ck = self.compute_kernel_config
         ln = dict(weight=self.norm_weight, bias=self.norm_bias,
                   epsilon=1e-5, compute_kernel_config=ck)
@@ -1574,6 +1612,10 @@ class SwiGLUFFN(_MMLin, Module):
             _free_norm(x_norm, x)
             gated = ttnn.multiply(ttnn.silu(x1), x2)
             ttnn.deallocate(x1); ttnn.deallocate(x2)
+        return self._fc2(gated, x, resid, out_mc)
+
+    def _fc2(self, gated, x, resid: bool, out_mc):
+        """fc2 of the gated activation (freed), with the residual add fused where it serves."""
         out = self._lin_resid(gated, self.fc2_weight, x) if resid and out_mc is None else None
         if out is None:
             out = self._lin(gated, self.fc2_weight,
@@ -1804,9 +1846,13 @@ class SwiGLUFFN(_MMLin, Module):
         # row-blocked above it, on its own budget.
         from tt_bio import tenstorrent
         L = x.shape[1]
+        st = _take_ln_stats()
         split, rows = self._split_plan(x)
         SPLIT_STATS[0 if split else 1] += 1
         rows = rows or self._rows_after_refusal(x)
+        if st is not None and (rows or not resid):
+            ttnn.deallocate(st)
+            st = None
         if rows:
             return self._row_blocked(x, rows, residual=False)
         if len(x.shape) == 4:
@@ -1814,12 +1860,15 @@ class SwiGLUFFN(_MMLin, Module):
         else:
             t = tenstorrent.SMALL_GRID_SEQ_TILE
             chunk = t if (t and L > t and not self._lm_whole(x, L)) else 0
+        if st is not None and chunk:
+            ttnn.deallocate(st)
+            st = None
         try:
             if chunk:
                 parts = ttnn.chunk(x, -(-L // chunk), dim=1)
                 return ttnn.concat([self._ffn(p, split=split) for p in parts], dim=1)
             WINDOW_FALLBACK_STATS[1] += 1
-            return self._ffn(x, split=split, resid=resid)
+            return self._ffn(x, split=split, resid=resid, ln_stats=st)
         except Exception as exc:
             # Above PAIR_FFN_ROW_BLOCK_SEQ neither lever applies -- the row block is outside its
             # measured byte-identical window and pair_row_tile returns 0 on a big grid -- so fc1
