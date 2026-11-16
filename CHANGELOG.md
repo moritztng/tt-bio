@@ -19,6 +19,10 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   unchanged on 44 paired folds of the 11-complex test set.
 
 ### Fixed
+- **Boltz-2 on Blackhole places atoms far from the origin more precisely.** The diffusion model's attention ran at a
+  lower matmul fidelity that dropped low bits of atom positions, so bond-length error grew with distance from the
+  origin. It now runs at full fidelity in both modes: CA-lDDT rises slightly on the 11-complex test set, docking is
+  unchanged and 512 residues fold at the same speed.
 - **A killed `tt-bio` command no longer leaves a stuck worker holding its card.** When `timeout` or a
   `kill` ended the CLI while a worker was stuck opening its chip, the worker kept the card until someone killed it
   by hand. It now gets SIGTERM as before and, if still alive 90 s later, SIGKILL. Embedding shards and BoltzGen
