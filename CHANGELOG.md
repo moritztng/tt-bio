@@ -6,6 +6,10 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 ## [Unreleased]
 
 ### Changed
+- **Boltz-2 is faster on Blackhole: `--fast` about 5 %, normal mode about 2 %.** In fast mode the pair LayerNorm runs
+  inside triangle attention's projections; in normal mode triangle multiplication's tail runs as one fused kernel, as
+  both already do on Wormhole. 512 residues: fast 0.57 s, normal 0.30 s faster per fold; accuracy unchanged on 44
+  paired folds of the 11-complex test set.
 - **Boltz-2 `--fast` is about 1 % faster on Wormhole.** The pair transition's SiLU now overlaps its matmuls. Output is
   byte-identical; 512 residues read 0.16 s faster per fold (median of 3 warm pairs), normal mode about 0.1 s.
 - **ESMFold2 is about 2 % faster on Wormhole when the MSA is no deeper than the encoder's limit.** The MSA encoder's pair
