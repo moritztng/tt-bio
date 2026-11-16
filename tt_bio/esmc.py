@@ -574,6 +574,10 @@ FFN_LN_L1_STATS = [0, 0]
 _ESMC_FAST_RESID_BF16 = env_flag("TT_BIO_ESMC_FAST_RESID_BF16", True)
 #: [qkv split matmuls, residual-fused projections] served, read by the A/B harness.
 MM_FUSE_STATS = [0, 0]
+# A/B switch (off): the residual-fused projections through tt-bio's mm_resid program instead of the wheel's
+# dit_minimal_matmul_addcmul_fused, same blocking. The in-matmul LayerNorm's row statistics would be written by that
+# program's epilogue, so it must first match the wheel's op on its own.
+_LIN_RESID_MM = False
 LIN6B_STATS = [0]  # projections served by _lin6b_program
 
 
@@ -756,6 +760,11 @@ class _MMLin:
         """resid + x @ w in one matmul, or None where it does not serve (the caller adds)."""
         if not (_ESMC_MM_RESID and w.dtype == ttnn.bfloat16 and self._mm_ok(x, w)):
             return None
+        if _LIN_RESID_MM and _ESMC_MM_CFG:
+            out = self._lin_resid_mm(x, w, resid)
+            if out is not None:
+                MM_FUSE_STATS[1] += 1
+                return out
         n = int(w.shape[-1])
         ones = getattr(self, "_ones_row", None)
         if ones is None or int(ones.shape[-1]) != n:
@@ -769,6 +778,20 @@ class _MMLin:
             return None
         MM_FUSE_STATS[1] += 1
         return out
+
+    def _lin_resid_mm(self, x, w, resid):
+        """resid + x @ w through tt-bio's mm_resid program (kernels/mm_gate MM_RESID) at _mm_config's blocking, the
+        epilogue an in-matmul LayerNorm's row statistics would ride on. ESMC's projections carry no bias: a zero row."""
+        from tt_bio import mm_resid
+        n = int(w.shape[-1])
+        zero = getattr(self, "_zero_row", None)
+        if zero is None or int(zero.shape[-1]) != n:
+            zero = self._zero_row = ttnn.from_torch(torch.zeros(1, n), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT,
+                                                    device=x.device())
+        c = _mm_config(x, w, self.mm_exact_acc)["config"]
+        g = c.compute_with_storage_grid_size
+        cfg = (c.M_block_size, c.K_block_size, c.N_block_size, c.subblock_h, c.subblock_w)
+        return mm_resid.matmul_add(x, w, zero, resid, cfg, (int(g.x), int(g.y)), self._mm_ck(w))
 
     def _lin(self, x, w, bias=None, dtype=None, **kw):
         mm = self._mm_on()
