@@ -32,6 +32,15 @@ def grade(tag, x, g, b, W):
         C = torch.eye(d, dtype=torch.float64) - 1.0 / d
         Wc = q(C @ (g[:, None] * W)); bw = (b @ W)                     # in-matmul: centred gamma-folded W
         out["mm_" + mode] = (r.double() * (xb.float() @ Wc.float()).double()) + bw
+        # ps: producer stats from the residual matmul's epilogue, x in fp32 dest: packs bf16(x) and bf16(x^2) and row-sums
+        # them per 32-column tile (the finest partial) (fp32 partials); the consumer sums the partials and takes E x^2 - (E x)^2
+        x32 = x.float(); p1 = bf(x32).float().reshape(L, -1, 32).sum(-1); p2 = bf(x32 * x32).float().reshape(L, -1, 32).sum(-1)
+        m1 = p1.sum(-1, keepdim=True) / d; rp = torch.rsqrt(p2.sum(-1, keepdim=True) / d - m1 * m1 + 1e-5)
+        out["ps_" + mode] = (rp.double() * (xb.float() @ Wc.float()).double()) + bw
+        # pb: the same partials taken from the bf16 x the consumer reads (x packed bf16 first), x^2 exact in fp32
+        b1 = xf.reshape(L, -1, 32).sum(-1); b2 = (xf * xf).reshape(L, -1, 32).sum(-1)
+        m3 = b1.sum(-1, keepdim=True) / d; rb = torch.rsqrt(b2.sum(-1, keepdim=True) / d - m3 * m3 + 1e-5)
+        out["pb_" + mode] = (rb.double() * (xb.float() @ Wc.float()).double()) + bw
         Wg = q(W); gw = g @ Wg                                          # gamma on in0, mean as a correction
         acc = (bf(xb * g).float() @ Wg.float()).double()
         out["mg_" + mode] = r.double() * (acc - m.double() * gw) + bw
