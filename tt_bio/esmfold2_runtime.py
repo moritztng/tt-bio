@@ -850,7 +850,6 @@ class _KeepDraws:
 # L^2 x 256, and the upload. On the device the LM encoder's output never leaves it. Declined
 # (host path) when the MSA draw itself changes per loop.
 _DEVICE_INJECTION = True
-_MSA_RESIDENT = True  # A/B switch (spd-m-esmfold-4 mra), removed before shipping
 INJECTION_STATS = [0, 0]  # [loops served on the device, loops on the host]
 
 
@@ -1057,11 +1056,12 @@ def _install_resident_trunk_loop(model):
         # The MSA encoder reads z_init and the loop's MSA draw. With one draw for every loop
         # (an MSA no deeper than max_depth) its output is the same in every loop, so it is
         # encoded once even when the LM dropout makes the rest of the injection per-loop.
-        # When the injection is built on the device that pair stays there: the host round trip
-        # it replaces downloaded and re-uploaded the same bf16 values (L^2 x 128, 0.6 s at 512 aa on Wormhole).
+        # When the injection is built on the device that pair stays there. The host round trip it
+        # replaces downloaded and re-uploaded the same bf16 values (L^2 x 128): 0.4 s of a 512 aa
+        # fold and 1.1 s at 748 aa on Wormhole.
         msa_fixed = None
         if msa_loops is not None and len(msa_loops) == 1:
-            if _MSA_RESIDENT and _DEVICE_INJECTION and per_loop and overwrite and isinstance(lm_z, _DevPair):
+            if _DEVICE_INJECTION and per_loop and overwrite and isinstance(lm_z, _DevPair):
                 x_pair = z_init.t if isinstance(z_init, _DevPair) else z_init
                 out = self.msa_encoder(x_pair=x_pair, to_host=False, **msa_loops[0])
                 if out.dtype != ttnn.bfloat16:
