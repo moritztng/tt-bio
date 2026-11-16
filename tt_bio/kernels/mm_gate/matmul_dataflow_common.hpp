@@ -561,3 +561,33 @@ void write_block_sync_granular_split(
     }
     noc_async_writes_flushed();
 }
+
+#ifdef MM_ROWSTATS
+/**
+ * tt-bio in-matmul LayerNorm, producer half: drain one output block's row statistics (compute.cpp rowstats_row: per
+ * row tile two fp32 tiles, sum x and sum x^2 over the block's real columns, every column holding the row's value) to
+ * tiles (m, 2 g) and (m, 2 g + 1) of the [M, 2 * MM_ROWSTATS_NB] stats tensor, g = the block's index along N. The
+ * host aligns every core's N range to whole blocks, so n_tile / N_block_tiles is that index. Rows past the real M and
+ * blocks wholly in the N padding are popped unwritten.
+ */
+template <uint32_t M_block_tiles, uint32_t N_block_tiles, typename TensorAccessorType>
+void write_rowstats(
+    const TensorAccessorType& acc, uint32_t tile_bytes, uint32_t m_start, uint32_t m_end, uint32_t M_tiles,
+    uint32_t n_tile) {
+    constexpr uint32_t cb = tt::CBIndex::c_12;
+    const bool real_n = n_tile < MM_ROWSTATS_N;
+    const uint32_t col = 2 * (n_tile / N_block_tiles);
+    for (uint32_t i = 0; i < M_block_tiles; i++) {
+        cb_wait_front(cb, 2);
+        const uint32_t m = m_start + i;
+        if (real_n && m < m_end && m < M_tiles) {
+            const uint32_t ptr = get_read_ptr(cb);
+            const uint32_t tile_id = m * (2 * MM_ROWSTATS_NB) + col;
+            noc_async_write_tile(tile_id, acc, ptr);
+            noc_async_write_tile(tile_id + 1, acc, ptr + tile_bytes);
+            noc_async_writes_flushed();
+        }
+        cb_pop_front(cb, 2);
+    }
+}
+#endif
