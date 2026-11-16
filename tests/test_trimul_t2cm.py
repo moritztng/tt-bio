@@ -171,3 +171,10 @@ def test_b8_reader_copies_exponent_groups():
     src = (KDIR / "reader_moved.cpp").read_text()
     assert "T2_B8" in src and "B8_TILE = 1088" in src
     assert TTL._B8_STAGE == {1: 1088, 2: 64 + 512}
+
+
+def test_b8_stage_drops_the_bf16_1k_read():
+    """T2_S1K (on in production) is the bf16 stage's read form; the bfp8 stage must not get it (its static_assert)."""
+    assert TTL.T2_S1K
+    assert ("T2_S1K", "1") in TTL._t2m_dm_defines(True)
+    assert all(k != "T2_S1K" for k, _ in TTL._t2m_dm_defines(True, b8=True))

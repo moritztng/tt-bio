@@ -1212,7 +1212,7 @@ def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved
         chunk, c_off, P = moved
         St, Cp = int(chunk.shape[2]) // TILE, c_off // TILE
         b8 = chunk.dtype == ttnn.bfloat8_b
-        assert not b8 or (Cp == 0 and P in _B8_STAGE and not T2_SBIG and not T2_S1K), "T2_B8: one chunk, P 1 or 2"
+        assert not b8 or (Cp == 0 and P in _B8_STAGE and not T2_SBIG), "T2_B8: one chunk, P 1 or 2"
         units = St * St * P
         u0 = 0
         for c in range(ncores):
@@ -1248,7 +1248,7 @@ def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved
             + acc(wp) + acc(wg if gate else wp) + acc(ln_w) + acc(ln_b)
             + acc(ex[0] if EXTRA & 1 else wp) + acc(ex[1] if EXTRA & 2 else wp),
             runtime_args=rd, common_runtime_args=[0] * (8 + len(mc)),
-            defines=([("T2MCAST", "1")] if mcast else []) + ([("T2_ROT", "1")] if rot else []) + _t2m_dm_defines(grow)
+            defines=([("T2MCAST", "1")] if mcast else []) + ([("T2_ROT", "1")] if rot else []) + _t2m_dm_defines(grow, b8)
             + ([("T2_B8", "1")] if b8 else []),
             config=ttnn.ReaderConfigDescriptor())
         writer = ttnn.KernelDescriptor(
@@ -1308,8 +1308,9 @@ def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved
     return {"kernels": [reader, writer, compute], "cbs": cbs, "mc": mc, "sems": sems}
 
 
-def _t2m_dm_defines(grow):
-    return [(k, str(int(v))) for k, v in (("T2_DMABL", T2_DMABL), ("T2_GROW", grow), ("T2_S1K", T2_S1K),
+def _t2m_dm_defines(grow, b8=False):
+    # T2_S1K is the bf16 stage's 1 KB read; a bfp8 stage (T2_B8) has its own exponent + mantissa reads
+    return [(k, str(int(v))) for k, v in (("T2_DMABL", T2_DMABL), ("T2_GROW", grow), ("T2_S1K", T2_S1K and not b8),
                                               ("T2_SBIG", T2_SBIG), ("T2_SSTR", T2_SSTR)) if v]
 
 
