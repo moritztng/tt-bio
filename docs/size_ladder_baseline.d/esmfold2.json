@@ -2,26 +2,26 @@
   "assembled_by": "scripts/release_gate.py --model size-ladder",
   "cards": {
     "tt-galaxy-wh-l": {
-      "recorded": "2026-11-06",
-      "host": "UF-EV-A4-GWH02",
-      "commit": "b46cbc7c5",
+      "recorded": "2026-11-16",
+      "host": "UF-EV-A5-GWH02",
+      "commit": "5b35553df",
       "host_threads": 2,
       "models": {
         "esmfold2": {
           "grid": "8x9",
-          "recorded": "2026-11-06",
-          "host": "UF-EV-A4-GWH02",
-          "commit": "b46cbc7c5",
+          "recorded": "2026-11-16",
+          "host": "UF-EV-A5-GWH02",
+          "commit": "5b35553df",
           "host_threads": 2,
           "runtime_s": {
-            "256": 11.4,
-            "512": 26.5,
-            "640": 35.5,
-            "768": 54.5,
-            "896": 67.4,
-            "1024": 89.4,
-            "1280": 259.9,
-            "1536": 468.4
+            "256": 11.1,
+            "512": 25.5,
+            "640": 34.6,
+            "768": 53.6,
+            "896": 66.2,
+            "1024": 88.0,
+            "1280": 256.2,
+            "1536": 910.8
           },
           "levers": {
             "256": {
@@ -1668,11 +1668,10 @@
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": 0,
+                "served": 128,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "wrap",
-                "reason": "right shape, wrong dtype \u2014 the same forced --fast as TRIMUL_IN_PROJ_DUAL_NOC. The clause is `dtype:(8,32)`, and that 8 is `k_tiles`, which is exactly what this lever requires (it is scoped to a single K block; boltz-2 is permanently excluded because c_z=128 gives 4). So ESMFold2 is the one model whose pair projection fits this lever and it is refused only because Wormhole forces bf8 weights. Widening the guard is a PARITY decision, not an engineering one \u2014 the tuned config and the fallback accumulate K in different block orders, so it will not be torch.equal. Predicted from the code in wh-perf-esmfold2.md 4.2 on 2026-08-16 and left unmeasured; this clause count is the measurement it was missing."
+                "frac": 1.0,
+                "how": "wrap"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -1683,11 +1682,10 @@
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 0,
+                "served": 128,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "wrap",
-                "reason": "no call site on this path: 0 served AND 0 declined at every rung \u2014 `_qkv_mm_config` is not reached by ESMFold2's attention, which builds its own padded q/kv projections (tt_bio/esmfold2.py:254-280)."
+                "frac": 1.0,
+                "how": "wrap"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "True",
@@ -1713,19 +1711,17 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 0,
+                "served": 256,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "no call site at any rung: 0 served and 0 declined at all six. The gated variant is not on ESMFold2's path (the same reading boltz-2's baseline records for this lever)."
+                "frac": 1.0,
+                "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 0,
+                "served": 256,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats-shared",
-                "reason": "declines all 0 calls: it unlocks the gated channel move, which is only offered once the trimul's pair tensors are in DRAM. At 256 aa they are L1-resident -- REBLOCK_PERMUTE refuses every call here on window_BufferType.L1 -- so nothing is offered at this rung; it serves every call from 512 up. Default on since 7bfa4ad19 [carried from p300c] [carried from p150a] [carried from rung 256]"
+                "frac": 1.0,
+                "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -2192,15 +2188,15 @@
             "1536": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
-                "served": 80,
-                "declined": 148,
+                "served": 160,
+                "declined": 296,
                 "frac": 0.3508771929824561,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
-                "served": 80,
-                "declined": 148,
+                "served": 160,
+                "declined": 296,
                 "frac": 0.3508771929824561,
                 "how": "stats-shared"
               },
@@ -2285,7 +2281,7 @@
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": 27936,
+                "served": 55728,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -2300,14 +2296,14 @@
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 27936,
+                "served": 55728,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "True",
-                "served": 1,
+                "served": 2,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -2322,26 +2318,24 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 9312,
+                "served": 18576,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 0,
+                "served": 384,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "no call site at any rung: 0 served and 0 declined at all six. The gated variant is not on ESMFold2's path (the same reading boltz-2's baseline records for this lever). [carried from rung 1024]"
+                "frac": 1.0,
+                "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 0,
+                "served": 384,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats-shared",
-                "reason": "declines all 0 calls: it unlocks the gated channel move, which is only offered once the trimul's pair tensors are in DRAM. At 256 aa they are L1-resident -- REBLOCK_PERMUTE refuses every call here on window_BufferType.L1 -- so nothing is offered at this rung; it serves every call from 512 up. Default on since 7bfa4ad19 [carried from p300c] [carried from p150a] [carried from rung 256]"
+                "frac": 1.0,
+                "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -2500,41 +2494,41 @@
           },
           "runtime_reps_s": {
             "256": [
-              11.5,
               11.2,
-              11.4,
-              11.6,
-              10.8
+              10.9,
+              11.1,
+              10.5,
+              11.3
             ],
             "512": [
-              26.5,
-              26.4,
-              26.6,
-              26.2,
-              26.5
+              25.6,
+              25.0,
+              24.3,
+              25.7,
+              25.5
             ],
             "640": [
-              35.5
+              34.6
             ],
             "768": [
-              54.5
+              53.6
             ],
             "896": [
-              67.4
+              66.2
             ],
             "1024": [
-              89.4
+              88.0
             ],
             "1280": [
-              259.9
+              256.2
             ],
             "1536": [
-              468.4
+              910.8
             ]
           },
           "aiclk": {
             "256": {
-              "card": "20",
+              "card": "13",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -2544,10 +2538,10 @@
                 1000,
                 1000
               ],
-              "n": 30
+              "n": 25
             },
             "512": {
-              "card": "20",
+              "card": "13",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -2557,118 +2551,118 @@
                 1000,
                 1000
               ],
-              "n": 45
+              "n": 40
             },
             "640": {
-              "card": "20",
-              "min": 940,
+              "card": "13",
+              "min": 500,
+              "max": 1000,
+              "rep_median": [
+                1000
+              ],
+              "n": 10
+            },
+            "768": {
+              "card": "13",
+              "min": 500,
+              "max": 1000,
+              "rep_median": [
+                1000
+              ],
+              "n": 14
+            },
+            "896": {
+              "card": "13",
+              "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
               "n": 16
             },
-            "768": {
-              "card": "20",
-              "min": 500,
-              "max": 1000,
-              "rep_median": [
-                1000
-              ],
-              "n": 15
-            },
-            "896": {
-              "card": "20",
-              "min": 500,
-              "max": 1000,
-              "rep_median": [
-                1000
-              ],
-              "n": 17
-            },
             "1024": {
-              "card": "20",
+              "card": "13",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 22
+              "n": 20
             },
             "1280": {
-              "card": "20",
+              "card": "13",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 56
+              "n": 54
             },
             "1536": {
-              "card": "20",
+              "card": "13",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 97
+              "n": 184
             }
           },
           "load": {
             "256": {
-              "max": 0.12,
+              "max": 0.06,
               "rep_median": [
-                0.12,
-                0.11,
-                0.1,
-                0.1,
-                0.1
+                0.05,
+                0.06,
+                0.05,
+                0.05,
+                0.05
               ]
             },
             "512": {
-              "max": 0.17,
+              "max": 0.1,
               "rep_median": [
-                0.09,
-                0.09,
-                0.07,
+                0.04,
+                0.05,
                 0.08,
-                0.15
+                0.1,
+                0.09
               ]
             },
             "640": {
-              "max": 0.43,
+              "max": 0.13,
               "rep_median": [
-                0.24
+                0.12
               ]
             },
             "768": {
-              "max": 0.46,
+              "max": 0.24,
               "rep_median": [
-                0.45
+                0.16
               ]
             },
             "896": {
-              "max": 0.54,
+              "max": 0.13,
               "rep_median": [
-                0.51
+                0.11
               ]
             },
             "1024": {
-              "max": 0.51,
+              "max": 0.1,
               "rep_median": [
-                0.48
+                0.1
               ]
             },
             "1280": {
-              "max": 0.49,
+              "max": 0.2,
               "rep_median": [
-                0.46
+                0.12
               ]
             },
             "1536": {
-              "max": 1.36,
+              "max": 0.2,
               "rep_median": [
-                0.41
+                0.15
               ]
             }
           },
@@ -2764,7 +2758,7 @@
               "chain_break_frac": 1.0,
               "ca_ca_median_A": 80.2205,
               "radius_of_gyration_A": 77.415,
-              "plddt_mean": 0.261817,
+              "plddt_mean": 0.260229,
               "geometry_ok": false,
               "geometry_fail": [
                 "median CA-CA 80.220 A outside [3.6, 4.0]",
@@ -2807,29 +2801,29 @@
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0057,
+          "sigma_runtime_512": 0.023,
           "exponents": {
             "256->512": {
-              "k": 1.217,
+              "k": 1.2,
               "tol": 0.5
             },
             "512->768": {
-              "k": 1.778,
+              "k": 1.832,
               "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.028,
-            "512": 0.0057
+            "256": 0.0287,
+            "512": 0.023
           },
           "exponents_measured": {
-            "256->512": 1.217,
-            "512->640": 1.31,
-            "640->768": 2.351,
-            "768->896": 1.378,
-            "896->1024": 2.115,
-            "1024->1280": 4.782,
-            "1280->1536": 3.231
+            "256->512": 1.2,
+            "512->640": 1.368,
+            "640->768": 2.401,
+            "768->896": 1.37,
+            "896->1024": 2.132,
+            "1024->1280": 4.789,
+            "1280->1536": 6.957
           }
         }
       }
@@ -6388,24 +6382,24 @@
       }
     },
     "p300c": {
-      "recorded": "2026-11-05",
+      "recorded": "2026-11-16",
       "host": "tt-quietbox2",
-      "commit": "b46cbc7c5",
+      "commit": "5b35553df",
       "host_threads": 5,
       "models": {
         "esmfold2": {
           "grid": "11x10",
-          "recorded": "2026-11-05",
+          "recorded": "2026-11-16",
           "host": "tt-quietbox2",
-          "commit": "b46cbc7c5",
+          "commit": "5b35553df",
           "host_threads": 5,
           "runtime_s": {
-            "256": 6.3,
-            "512": 11.9,
-            "640": 17.6,
-            "768": 25.9,
-            "896": 34.5,
-            "1024": 44.3
+            "256": 8.4,
+            "512": 13.1,
+            "640": 21.8,
+            "768": 35.1,
+            "896": 49.2,
+            "1024": 65.0
           },
           "levers": {
             "256": {
@@ -8283,139 +8277,139 @@
           },
           "runtime_reps_s": {
             "256": [
-              6.1,
-              6.3,
-              7.1,
-              5.5,
-              6.5
+              8.7,
+              7.9,
+              8.4,
+              7.6,
+              8.9
             ],
             "512": [
-              11.5,
-              11.9,
-              11.9,
-              11.8,
-              12.1
+              13.7,
+              12.9,
+              12.9,
+              13.1,
+              13.4
             ],
             "640": [
-              17.6
+              21.8
             ],
             "768": [
-              25.9
+              35.1
             ],
             "896": [
-              34.5
+              49.2
             ],
             "1024": [
-              44.3
+              65.0
             ]
           },
           "aiclk": {
             "256": {
-              "card": "0",
+              "card": "3",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1350,
-                1350,
-                1350,
-                1350,
+                1337,
+                1318,
+                1343,
+                1268,
                 1350
               ],
-              "n": 20
+              "n": 27
             },
             "512": {
-              "card": "0",
+              "card": "3",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1343,
-                1306,
-                1350,
-                1275,
-                1337
+                1268,
+                1187,
+                1187,
+                1262,
+                1006
               ],
-              "n": 25
+              "n": 30
             },
             "640": {
-              "card": "0",
+              "card": "3",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1287
-              ],
-              "n": 6
-            },
-            "768": {
-              "card": "0",
-              "min": 800,
-              "max": 1350,
-              "rep_median": [
-                1262
+                906
               ],
               "n": 8
             },
-            "896": {
-              "card": "0",
+            "768": {
+              "card": "3",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1212
+                893
               ],
               "n": 10
             },
-            "1024": {
-              "card": "0",
+            "896": {
+              "card": "3",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1231
+                800
               ],
-              "n": 12
+              "n": 13
+            },
+            "1024": {
+              "card": "3",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                800
+              ],
+              "n": 16
             }
           },
           "load": {
             "256": {
-              "max": 0.39,
+              "max": 0.8,
               "rep_median": [
-                0.3,
-                0.29,
-                0.33,
                 0.34,
-                0.39
+                0.48,
+                0.61,
+                0.78,
+                0.73
               ]
             },
             "512": {
-              "max": 0.39,
+              "max": 0.66,
               "rep_median": [
-                0.34,
-                0.34,
-                0.37,
-                0.38,
-                0.36
+                0.64,
+                0.58,
+                0.51,
+                0.45,
+                0.5
               ]
             },
             "640": {
-              "max": 0.42,
+              "max": 0.45,
               "rep_median": [
-                0.4
+                0.44
               ]
             },
             "768": {
-              "max": 0.36,
+              "max": 0.43,
               "rep_median": [
-                0.35
+                0.39
               ]
             },
             "896": {
-              "max": 0.33,
+              "max": 0.46,
               "rep_median": [
-                0.32
+                0.43
               ]
             },
             "1024": {
-              "max": 0.29,
+              "max": 0.43,
               "rep_median": [
-                0.27
+                0.41
               ]
             }
           },
@@ -8491,59 +8485,59 @@
               "file": "cdk2x2_896.cif",
               "steps": 6,
               "n_ca": 896,
-              "clash_frac": 0.0435,
+              "clash_frac": 0.0391,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 79.5543,
-              "radius_of_gyration_A": 80.175,
-              "plddt_mean": 0.271129,
+              "ca_ca_median_A": 79.8009,
+              "radius_of_gyration_A": 80.115,
+              "plddt_mean": 0.270985,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 79.554 A outside [3.6, 4.0]",
+                "median CA-CA 79.801 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "4.3% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 80.2 A outside [14.6, 72.8]"
+                "3.9% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 80.1 A outside [14.6, 72.8]"
               ]
             },
             "1024": {
               "file": "cdk2x2_1024.cif",
               "steps": 6,
               "n_ca": 1024,
-              "clash_frac": 0.041,
+              "clash_frac": 0.0371,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 80.2028,
-              "radius_of_gyration_A": 77.758,
-              "plddt_mean": 0.263266,
+              "ca_ca_median_A": 80.1889,
+              "radius_of_gyration_A": 77.749,
+              "plddt_mean": 0.263767,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 80.203 A outside [3.6, 4.0]",
+                "median CA-CA 80.189 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "4.1% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 77.8 A outside [15.3, 76.6]"
+                "3.7% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 77.7 A outside [15.3, 76.6]"
               ]
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0185,
+          "sigma_runtime_512": 0.0262,
           "exponents": {
             "256->512": {
-              "k": 0.918,
+              "k": 0.641,
               "tol": 0.5
             },
             "512->768": {
-              "k": 1.918,
+              "k": 2.431,
               "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.0926,
-            "512": 0.0185
+            "256": 0.0654,
+            "512": 0.0262
           },
           "exponents_measured": {
-            "256->512": 0.918,
-            "512->640": 1.754,
-            "640->768": 2.119,
-            "768->896": 1.86,
-            "896->1024": 1.872
+            "256->512": 0.641,
+            "512->640": 2.282,
+            "640->768": 2.612,
+            "768->896": 2.191,
+            "896->1024": 2.086
           }
         }
       }

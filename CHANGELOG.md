@@ -5,6 +5,8 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+## [0.34.0] - 2026-11-16
+
 ### Changed
 - **ESMFold2 is about 2 % faster on Wormhole when the MSA is no deeper than the encoder's limit.** The MSA encoder's pair
   now stays on the chip instead of a round trip through the host. Output is unchanged: 512 residues 23.3 -> 22.8 s,
