@@ -14,6 +14,9 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   accuracy unchanged on 44 paired folds of the 11-complex test set.
 - **Boltz-2 normal mode is about 1 s faster on Blackhole.** The atom transformer keeps its intermediates in L1 as it
   already does on Wormhole. Output is byte-identical; 512 residues read 1.0 s faster per fold (median of 4 pairs).
+- **Boltz-2 normal mode is about 6 % faster on Wormhole.** Triangle multiplication's output tail runs as one fused
+  kernel, as it already does in `--fast`. 512 residues read 1.3 s faster per fold (median of 4 pairs); accuracy
+  unchanged on 44 paired folds of the 11-complex test set.
 
 ### Fixed
 - **A killed `tt-bio` command no longer leaves a stuck worker holding its card.** When `timeout` or a

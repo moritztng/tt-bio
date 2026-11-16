@@ -123,9 +123,14 @@ LEVERS_FAST = frozenset({"acc_off", "diffusion_bf16", "dit_sdpa", "transition_b8
 # as a stack (gswh): vs TT_BIO_LEVERS=none top pose median 1.145 A (floor 2.386 A), CA-lDDT +0.0019 [+0.0007, +0.0033],
 # DockQ +0.0108 [+0.0035, +0.0189], docking 24 -> 24; vs the previous Wormhole normal set 1.290 A (floor 2.283 A),
 # CA-lDDT +0.0018 [+0.0008, +0.0028], docking 24 -> 24.
+# trimul_t2 alone (the tail as one fused kernel, without T1's in-projection cut) on top of that set: 44-fold normal
+# grade (g2wh, spd-m-boltz2-4, 2026-11-16), PASS vs the set: top pose median 1.353 A (floor 2.359 A), DockQ -0.0063
+# [-0.0176, +0.0022], CA-lDDT -0.0003 [-0.0010, +0.0002], docking 24 -> 24; vs TT_BIO_LEVERS=none PASS, CA-lDDT
+# +0.0016 [+0.0004, +0.0030]. Galaxy chip 512 x 1 (1000 MHz) -1.29 s median, 4/4 in-process pairs (l1wh). trimul_gin
+# fails the same grade (DockQ -0.0084 [-0.0167, -0.0019]), so Wormhole normal stays off it.
 WH_LEVERS_NORMAL = LEVERS_NORMAL | {"atom_l1", "trimul_bres", "triatt_tail", "triatt_k1", "triatt_ln", "apb_ln",
                                     "dit_cond_jit", "dit_cond_jcat", "dit_cond_steps", "adaln_mod", "transition_ws",
-                                    "ws_resid", "trimul_sig6"}
+                                    "ws_resid", "trimul_sig6", "trimul_t2"}
 # triatt_ln_b8 + triatt_ln_b8g (triatt_ln writes q, k, v and the gate bfp8): 512-token set fast grade, 44 paired folds
 # (spd-gap-small gtlb2, 2026-10-19), PASS: top pose median 1.566 A (floor 2.245 A), CA-lDDT +0.0003 [-0.0006, +0.0013],
 # docking 24 -> 24; Galaxy chip 512 x 1 (1000 MHz) -0.98 s median, 5/5 warm pairs (tlb2).
