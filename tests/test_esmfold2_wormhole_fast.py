@@ -33,6 +33,9 @@ def test_wormhole_lm_is_bfp8_in_both_modes(monkeypatch, wormhole, fast, lm_b8):
     built = {}
     monkeypatch.setattr(rt, "patch_esmfold2", lambda model, **k: built.update(k) or model)
     monkeypatch.setattr(tenstorrent, "_FAST_MODE", False)
+    # The loader reserves the diffusion trace region by opening the device: a CPU test opens none
+    # (on a host without a card arch_name() reads "invalid" and the open raised, rel-b5a33aabf).
+    monkeypatch.setattr(tenstorrent, "get_device", lambda **k: None)
     rt.load_ttnn_esmfold2(fast=fast)
     # The LM's weight format follows the arch, the mode follows the caller; `_FAST_MODE` stays off
     # (esmfold2_runtime.fold_scope).
