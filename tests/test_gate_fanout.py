@@ -31,6 +31,7 @@ def _no_real_bad_marks(tmp_path, monkeypatch):
     monkeypatch.setattr(gf, "LOCAL_BLOCKS", tmp_path / "pc-state")
     monkeypatch.setattr(gf, "BAD_MARKS", (f"{tmp_path}/locks/chip{{card}}.BAD",
                                           f"{tmp_path}/host-state/cardblock-{{host}}-{{card}}"))
+    monkeypatch.setattr(gf, "CHIP_RECOVER", tmp_path / "no-chip-recover.py")
 
 
 def _legs():
@@ -1445,6 +1446,16 @@ def test_a_dead_card_is_retired_and_its_leg_runs_on_another_card(tmp_path):
     assert sorted(r["leg"] for r in res) == sorted(lg.name for lg in legs)
     assert {r["verdict"] for r in res} == {"PASS"}
     assert {c for c, _ in ran} == {0}
+
+
+def test_a_retired_card_is_handed_to_chip_recover_as_dirty(tmp_path, monkeypatch):
+    hook = tmp_path / "chip_recover.py"
+    hook.write_text("import sys, pathlib; pathlib.Path(sys.argv[0]).with_suffix('.args').write_text(' '.join(sys.argv[1:]))\n")
+    monkeypatch.setattr(gf, "CHIP_RECOVER", hook)
+    gf.report_dead_card("qb2", 3, "tail\nCARD_OPEN")
+    assert hook.with_suffix(".args").read_text() == "release qb2 3 --holder release-gate --dead CARD_OPEN"
+    gf.report_dead_card("qb2", 3, "")              # an empty reason still hands the card off
+    assert hook.with_suffix(".args").read_text().endswith("--dead ?")
 
 
 def test_a_leg_that_kills_two_cards_is_recorded_as_it_ran(tmp_path):

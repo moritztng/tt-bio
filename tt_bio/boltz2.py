@@ -163,7 +163,13 @@ WH_LEVERS_FAST = LEVERS_FAST | {"triatt_ln", "apb_ln", "dit_cond_jit", "trimul_s
 # On Blackhole ie_dev reads p300c 512 x 1 fast -0.25 s paired median (5/5 warm pairs, AICLK ~1350; iebh) and passes the
 # same 44-fold fast grade (giebh, 2026-10-21): top pose median 1.106 A (floor 2.438 A), CA-lDDT +0.0001 [-0.0006, +0.0007],
 # docking 24 -> 24.
-BH_LEVERS_FAST = LEVERS_FAST | {"dit_shoist", "ie_dev"}
+# dit_qkvf + dit_qkvf_h4 (the token DiT's attention as one generic SDPA program off the fused q|k|v projection, at
+# HiFi4) are on in both Blackhole sets. The stock fused SDPA they replace runs the PV product at HiFi2, which drops low
+# mantissa bits of v, and v carries the absolute atom position, so backbone C-N error doubled with each octave of
+# distance from the origin. 11-set x seeds 101-104 x 5 on p300c, rms C-N error at |x| 64-128 A: normal 0.134 -> 0.082,
+# fast 0.136 -> 0.074. Grades vs main: normal CA-lDDT +0.0067 [+0.0039, +0.0105] (7 cpx), fast +0.0051 [+0.0032,
+# +0.0078] (6 cpx), docking unchanged. p300c 512 x 1 normal, AICLK median 1331-1343: 19.49 -> 19.51 s (repeat 19.93 s).
+BH_LEVERS_FAST = LEVERS_FAST | {"dit_shoist", "ie_dev", "dit_qkvf", "dit_qkvf_h4"}
 # Blackhole normal adds the fast set's fusions that change no arithmetic or only regroup an fp32 modulate: triatt_tail,
 # adaln_mod, transition_ws, ws_resid. p150a 512 x 1, in-process pairs at AICLK ~1349 MHz: -0.60 s median (l0bh,
 # spd-m-boltz2-3, 2026-11-05). 44-fold normal grade on p150a against TT_BIO_LEVERS=none (gsbh): PASS, top pose median
@@ -173,7 +179,8 @@ BH_LEVERS_FAST = LEVERS_FAST | {"dit_shoist", "ie_dev"}
 # atom_l1 is placement only and folds byte-identical CIFs on Blackhole too: p300c 512 x 1 normal, 4 in-process pairs at
 # AICLK 1325-1350 MHz, -1.03 s median, 3/4 pairs -0.9 to -1.4 s (l1bh, spd-m-boltz2-4, 2026-11-16). Fast reads -0.14 s
 # (2/4 pairs), inside noise, so fast leaves it off.
-BH_LEVERS_NORMAL = LEVERS_NORMAL | {"triatt_tail", "adaln_mod", "transition_ws", "ws_resid", "atom_l1"}
+BH_LEVERS_NORMAL = LEVERS_NORMAL | {"triatt_tail", "adaln_mod", "transition_ws", "ws_resid", "atom_l1", "dit_qkvf",
+                                   "dit_qkvf_h4"}
 
 
 def _under_levers(method):

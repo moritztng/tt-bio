@@ -447,6 +447,22 @@ def test_a_gate_whose_every_failure_is_waived_is_cut(tmp_path):
     assert (d["do"], d["sha"], d["waived"]) == ("CUT", x, {"perf wh": "no Wormhole baseline yet"})
 
 
+def test_a_waived_unrun_ladder_is_cut_without_a_record_run(tmp_path):
+    """Gate 5b35553df (11-16): qb1, the only p150a host, was dark, so its 1152-1536 ladders never ran.
+    Waiving them must not re-record ten models whose ladders nothing measured."""
+    git = _repo(tmp_path)
+    (tmp_path / "a.py").write_text("x = 2\n")
+    git("commit", "-qam", "staging1")
+    x = git("rev-parse", "HEAD")
+    gates = tmp_path / "gates"
+    g = _plan(gates, "gx", x, tmp_path)
+    (g / "verdict.json").write_text(json.dumps({"pass": False, "results": [
+        {"leg": "ladder:m@1152-1280", "arch": "bh", "verdict": "UNRUN"}]}))
+    assert rn.decide(tmp_path, gates, "main")["do"] == "FIX"
+    (g / "WAIVE").write_text("ladder:m@1152-1280 bh  # no p150a card in service\n")
+    assert rn.decide(tmp_path, gates, "main")["do"] == "CUT"
+
+
 def test_a_failed_leg_whose_key_passed_since_stops_blocking(tmp_path, monkeypatch):
     """Gate 8b2f8acaa (10-13): ladder:boltz2 bh died on a card a previous leg left dirty; a partial
     run of the same key on a clean card filed the pass the verdict lacked."""

@@ -9,6 +9,9 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 - **ESMFold2 is about 2 % faster on Wormhole when the MSA is no deeper than the encoder's limit.** The MSA encoder's pair
   now stays on the chip instead of a round trip through the host. Output is unchanged: 512 residues 23.3 -> 22.8 s,
   748 residues 54.9 -> 53.7 s.
+- **Protenix-v2 normal mode is about 3 % faster on Wormhole.** Triangle multiplication hands its tail a bfp8 input and
+  keeps its gate output in bfp8, and the diffusion transformer uses the attention set OpenDDE already runs. 512 residues
+  49.4 -> 48.1 s per warm fold; accuracy unchanged on 44 paired folds of the 11-complex test set.
 - **Protenix-v2 `--fast` is about 2 % faster on Wormhole.** The pair transition's LayerNorm and residual now run inside
   its fused kernel, and triangle multiplication keeps one more intermediate in bfp8. 512 residues 42.3 -> 41.4 s;
   accuracy unchanged on 44 paired folds of the 11-complex test set.
@@ -19,6 +22,10 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   unchanged on 44 paired folds of the 11-complex test set.
 
 ### Fixed
+- **Boltz-2 on Blackhole places atoms far from the origin more precisely.** The diffusion model's attention ran at a
+  lower matmul fidelity that dropped low bits of atom positions, so bond-length error grew with distance from the
+  origin. It now runs at full fidelity in both modes: CA-lDDT rises slightly on the 11-complex test set, docking is
+  unchanged and 512 residues fold at the same speed.
 - **A killed `tt-bio` command no longer leaves a stuck worker holding its card.** When `timeout` or a
   `kill` ended the CLI while a worker was stuck opening its chip, the worker kept the card until someone killed it
   by hand. It now gets SIGTERM as before and, if still alive 90 s later, SIGKILL. Embedding shards and BoltzGen
