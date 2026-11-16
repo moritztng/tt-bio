@@ -1089,9 +1089,10 @@ def t2_eligible(x, ln_w, ln_b, wp, g, resid, wg=None, copy=None, stream16=False)
             return "dtype"
         # A plain-form g_out may be bfp8 (trimul_b8in writes it so): CB 5 takes g's format and
         # compute unpacks it into DEST like the bf16 tile, so b8in and T2 stack.
-        # So may RFD4's moved x under `pair_x8t` (stream16 only): CB 0 takes x's format, the LN unpacks it.
+        # So may the moved x under `pair_x8t`: CB 0 takes x's format, the LN unpacks it. A bfp8 resid is
+        # RFD4's stream16 z only (`pair_bfp8z`).
         if t.dtype != ttnn.bfloat16 and not (t is g and wg is None and t.dtype == ttnn.bfloat8_b) and not (
-                (t is resid or t is x) and stream16 and copy is None and t.dtype == ttnn.bfloat8_b):
+                (t is x or t is resid and stream16) and copy is None and t.dtype == ttnn.bfloat8_b):
             return "dtype"
         if t.memory_config() != ttnn.DRAM_MEMORY_CONFIG and not (
                 (t is x or t is g) and t.memory_config() == ttnn.L1_MEMORY_CONFIG and lever("pair_tail_small")):

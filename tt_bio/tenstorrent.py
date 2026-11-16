@@ -936,8 +936,8 @@ _FAST_MODE = False
 #                   move back (`permute_back_pk`) takes it, which reads it so and writes bf16: the one tensor written and
 #                   read through DRAM between them halves. bfp8 blocks run along j inside one channel, and the tail
 #                   layer-norms the result next (state/rfd4/bets/tri224.md)
-#   pair_x8t        with pair_x8, the move writes bfp8 too and the tail (T2, stream16) reads it so: blocks then run along
-#                   channels before the tail's LayerNorm, and the packer truncates (state/rfd4/bets/tri224.md)
+#   pair_x8t        with pair_x8 or trimul_x8, the move writes bfp8 too and the tail (T2) reads it so: blocks then run
+#                   along channels before the tail's LayerNorm, and the packer truncates (state/rfd4/bets/tri224.md)
 #   trimul_x8       pair_x8 for one fold: where the one-pass move back (`permute_back_pk`) takes the triangle
 #                   contraction's channel-major output into the bf16 pair, the contraction (bmm_res or ttnn.matmul)
 #                   writes it as bfp8, halving the one tensor written and read between them. Never where T2CM reads x.
