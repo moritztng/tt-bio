@@ -40,7 +40,7 @@ for _ in $(seq $NMAX); do
   echo "$S" > $OUT/ssh; echo "$I $O" > $OUT/instance
   R(){ rsync -a -e "${S% root@*}" "$@"; }; H=root@$HOST
   $S 'mkdir -p /root/kc' &&
-    R $P/rfd4_gpu.py $P/rfd4_arms.py $P/$BOX $H:/root/kc/ &&
+    R $P/rfd4_gpu.py $P/rfd4_arms.py $P/box_rfd4.sh $P/$BOX $H:/root/kc/ &&
     R $S4/inputs/ $H:/root/kc/inputs/ && echo "$I $O" | timeout 30 $S 'cat > /root/kc/instance' ||
     { destroy $I "push failed"; continue; }
   # BOXENV carries the box script's knobs across ssh (CELLS, FINAL_WARM, CUDA_VISIBLE_DEVICES). An env var
