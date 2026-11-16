@@ -200,7 +200,8 @@ def test_boltz2_mode_sets_name_only_known_levers():
         "trimul_t1", "triatt_ln_b8", "triatt_ln_b8g", "ws_psilu"}
     assert B.BH_LEVERS_NORMAL - B.LEVERS_NORMAL == {"triatt_tail", "adaln_mod", "transition_ws", "ws_resid", "atom_l1",
                                                     "dit_qkvf", "dit_qkvf_h4", "trimul_t2"}
-    assert B.BH_LEVERS_FAST - B.LEVERS_FAST == {"dit_shoist", "ie_dev", "dit_qkvf", "dit_qkvf_h4"}
+    assert B.BH_LEVERS_FAST - B.LEVERS_FAST == {"dit_shoist", "ie_dev", "dit_qkvf", "dit_qkvf_h4", "triatt_ln", "triatt_ln_b8",
+                                                "triatt_ln_b8g"}
 
 
 def test_pxdesign_wormhole_set_names_only_known_levers():
