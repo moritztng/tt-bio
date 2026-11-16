@@ -237,7 +237,7 @@ void rowstats_ones() {
     cb_wait_front(RS_ONES_CB, 1);
 }
 
-void rowstats_row(uint32_t N_block_tiles) {
+void rowstats_row(uint32_t N_block_tiles, uint32_t valid) {
     cb_wait_front(RS_X_CB, N_block_tiles);
     cb_reserve_back(RS_SQ_CB, N_block_tiles);
     copy_tile_to_dst_init_short(RS_X_CB);
@@ -260,10 +260,10 @@ void rowstats_row(uint32_t N_block_tiles) {
     reconfig_data_format(RS_ONES_CB, RS_X_CB);
     pack_reconfig_data_format(RS_ST_CB);
     tile_regs_acquire();
-    for (uint32_t n = 0; n < N_block_tiles; n++) {
+    for (uint32_t n = 0; n < valid; n++) {   // padding columns past the real N hold no data: never summed
         matmul_tiles(RS_X_CB, RS_ONES_CB, n, 0, 0);
     }
-    for (uint32_t n = 0; n < N_block_tiles; n++) {
+    for (uint32_t n = 0; n < valid; n++) {
         matmul_tiles(RS_SQ_CB, RS_ONES_CB, n, 0, 1);
     }
     tile_regs_commit();
@@ -278,7 +278,8 @@ void rowstats_row(uint32_t N_block_tiles) {
 #endif
 
 void add_bias_resid_block(
-    uint32_t in_cb, uint32_t bias_cb, uint32_t resid_cb, uint32_t out_cb, uint32_t M_block_tiles, uint32_t N_block_tiles) {
+    uint32_t in_cb, uint32_t bias_cb, uint32_t resid_cb, uint32_t out_cb, uint32_t M_block_tiles, uint32_t N_block_tiles,
+    uint32_t rs_valid = 0) {
     const uint32_t dg = N_block_tiles % 4 == 0 ? 4 : N_block_tiles % 2 == 0 ? 2 : 1;
     pack_reconfig_data_format(out_cb);
     for (uint32_t m = 0; m < M_block_tiles; m++) {
@@ -315,7 +316,7 @@ void add_bias_resid_block(
         cb_push_back(out_cb, N_block_tiles);
 #ifdef MM_ROWSTATS
         cb_push_back(RS_X_CB, N_block_tiles);
-        rowstats_row(N_block_tiles);
+        rowstats_row(N_block_tiles, rs_valid);
 #endif
     }
 }
@@ -671,7 +672,14 @@ void kernel_main() {
             cb_pop_front(tt::CBIndex::c_8, M_block_tiles);
 #elif defined(MM_RESID)
             cb_wait_front(tt::CBIndex::c_5, out_block_num_tiles);
-            add_bias_resid_block(intermediate_cb, in2_cb, tt::CBIndex::c_5, out_cb, M_block_tiles, N_block_tiles);
+#ifdef MM_ROWSTATS
+            // MM_ROWSTATS_N: the real N in tiles; the block's tiles past it are the layout's padding
+            const uint32_t rs_valid = n_tile >= MM_ROWSTATS_N ? 0 : std::min(N_block_tiles, MM_ROWSTATS_N - n_tile);
+#else
+            constexpr uint32_t rs_valid = 0;
+#endif
+            add_bias_resid_block(
+                intermediate_cb, in2_cb, tt::CBIndex::c_5, out_cb, M_block_tiles, N_block_tiles, rs_valid);
             cb_pop_front(tt::CBIndex::c_5, out_block_num_tiles);
 #elif defined(MM_EPI_PROBE)
             // benchmarks only, wrong output: the epilogue's unpack / bias / pack skipped, to time its share

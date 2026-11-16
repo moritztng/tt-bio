@@ -56,6 +56,10 @@ void kernel_main() {
     // tt-bio mm_resid: the residual's address, before the outputs'
     const uint32_t resid_addr = get_arg_val<uint32_t>(argidx++);
 #endif
+#ifdef MM_ROWSTATS
+    // tt-bio in-matmul LayerNorm: the row statistics tensor's address, after the residual's
+    const uint32_t rowstats_addr = get_arg_val<uint32_t>(argidx++);
+#endif
 
 #ifdef FUSE_TERNARY
     // Fuse addcmul - read runtime addresses before setting out_addr_rt_arg_idx
@@ -91,6 +95,11 @@ void kernel_main() {
     constexpr uint32_t resid_tile_size = get_tile_size(tt::CBIndex::c_5);
     constexpr auto resid_args = TensorAccessorArgs<in2_args.next_compile_time_args_offset()>();
     const auto resid_reader = TensorAccessor(resid_args, resid_addr, resid_tile_size);
+#endif
+#ifdef MM_ROWSTATS
+    constexpr uint32_t rowstats_tile_size = get_tile_size(tt::CBIndex::c_12);
+    constexpr auto rowstats_args = TensorAccessorArgs<resid_args.next_compile_time_args_offset()>();
+    const auto rowstats_writer = TensorAccessor(rowstats_args, rowstats_addr, rowstats_tile_size);
 #endif
 
 #ifdef FUSE_TERNARY
@@ -266,6 +275,11 @@ void kernel_main() {
                                 defer_write_n_tile_end >> G);
                         }
                         cb_pop_front(cb_id_out, out_cb_block_tiles);
+#ifdef MM_ROWSTATS
+                        write_rowstats<M_block_tiles, N_block_tiles>(
+                            rowstats_writer, rowstats_tile_size, defer_write_m_tile, defer_write_m_tile_end, M_tiles,
+                            defer_write_n_tile);
+#endif
                     }
                 }
 
@@ -413,6 +427,10 @@ void kernel_main() {
                             n_tile >> G,
                             n_tile_end >> G);
                     }
+#ifdef MM_ROWSTATS
+                    write_rowstats<M_block_tiles, N_block_tiles>(
+                        rowstats_writer, rowstats_tile_size, m_tile, m_tile_end, M_tiles, n_tile);
+#endif
                 }
             }
         }
