@@ -6,17 +6,23 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 ## [Unreleased]
 
 ### Changed
-- **ESMFold2 is about 2 % faster on Wormhole when the MSA is no deeper than the encoder's limit.** The MSA encoder's pair
-  now stays on the chip instead of a round trip through the host. Output is unchanged: 512 residues 23.3 -> 22.8 s,
-  748 residues 54.9 -> 53.7 s.
+- **Boltz-2 is faster on Blackhole: `--fast` about 5 %, normal mode about 2 %.** In fast mode the pair LayerNorm runs
+  inside triangle attention's projections; in normal mode triangle multiplication's tail runs as one fused kernel, as
+  both already do on Wormhole. 512 residues: fast 0.57 s, normal 0.30 s faster per fold; accuracy unchanged on 44
+  paired folds of the 11-complex test set.
+- **Protenix-v2 `--fast` is about 3 % faster on Blackhole.** Triangle multiplication writes its gated output in bfp8
+  for the memory-bound tail. On a 512-residue complex the chip time drops 18.3 -> 17.6 s; accuracy stays inside the
+  fast-mode bar on 44 paired folds of the 11-complex test set.
+- **Boltz-2 `--fast` is about 1 % faster on Wormhole.** The pair transition's SiLU now overlaps its matmuls. Output is
+  byte-identical; 512 residues read 0.16 s faster per fold (median of 3 warm pairs), normal mode about 0.1 s.
 - **Protenix-v2 normal mode is about 3 % faster on Wormhole.** Triangle multiplication hands its tail a bfp8 input and
   keeps its gate output in bfp8, and the diffusion transformer uses the attention set OpenDDE already runs. 512 residues
   49.4 -> 48.1 s per warm fold; accuracy unchanged on 44 paired folds of the 11-complex test set.
-- **Protenix-v2 `--fast` is about 2 % faster on Wormhole.** The pair transition's LayerNorm and residual now run inside
-  its fused kernel, and triangle multiplication keeps one more intermediate in bfp8. 512 residues 42.3 -> 41.4 s;
-  accuracy unchanged on 44 paired folds of the 11-complex test set.
 - **Boltz-2 normal mode is about 1 s faster on Blackhole.** The atom transformer keeps its intermediates in L1 as it
   already does on Wormhole. Output is byte-identical; 512 residues read 1.0 s faster per fold (median of 4 pairs).
+- **Boltz-2 normal mode is about 18 % faster on Wormhole.** Triangle multiplication's input projection runs as one fused
+  kernel and triangle attention writes its LayerNorm outputs in bfp8, both as `--fast` already does. 512 residues
+  21.5 -> 17.7 s per fold (median of 4 pairs); accuracy unchanged on 44 paired folds of the 11-complex test set.
 - **Boltz-2 normal mode is about 6 % faster on Wormhole.** Triangle multiplication's output tail runs as one fused
   kernel, as it already does in `--fast`. 512 residues read 1.3 s faster per fold (median of 4 pairs); accuracy
   unchanged on 44 paired folds of the 11-complex test set.
@@ -26,6 +32,18 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   lower matmul fidelity that dropped low bits of atom positions, so bond-length error grew with distance from the
   origin. It now runs at full fidelity in both modes: CA-lDDT rises slightly on the 11-complex test set, docking is
   unchanged and 512 residues fold at the same speed.
+
+## [0.34.0] - 2026-11-16
+
+### Changed
+- **ESMFold2 is about 2 % faster on Wormhole when the MSA is no deeper than the encoder's limit.** The MSA encoder's pair
+  now stays on the chip instead of a round trip through the host. Output is unchanged: 512 residues 23.3 -> 22.8 s,
+  748 residues 54.9 -> 53.7 s.
+- **Protenix-v2 `--fast` is about 2 % faster on Wormhole.** The pair transition's LayerNorm and residual now run inside
+  its fused kernel, and triangle multiplication keeps one more intermediate in bfp8. 512 residues 42.3 -> 41.4 s;
+  accuracy unchanged on 44 paired folds of the 11-complex test set.
+
+### Fixed
 - **A killed `tt-bio` command no longer leaves a stuck worker holding its card.** When `timeout` or a
   `kill` ended the CLI while a worker was stuck opening its chip, the worker kept the card until someone killed it
   by hand. It now gets SIGTERM as before and, if still alive 90 s later, SIGKILL. Embedding shards and BoltzGen

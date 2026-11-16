@@ -128,9 +128,16 @@ LEVERS_FAST = frozenset({"acc_off", "diffusion_bf16", "dit_sdpa", "transition_b8
 # [-0.0176, +0.0022], CA-lDDT -0.0003 [-0.0010, +0.0002], docking 24 -> 24; vs TT_BIO_LEVERS=none PASS, CA-lDDT
 # +0.0016 [+0.0004, +0.0030]. Galaxy chip 512 x 1 (1000 MHz) -1.29 s median, 4/4 in-process pairs (l1wh). trimul_gin
 # fails the same grade (DockQ -0.0084 [-0.0167, -0.0019]), so Wormhole normal stays off it.
+# trimul_t1 + triatt_ln_b8 + triatt_ln_b8g on top, graded as a stack (g3wh, spd-m-boltz2-4, 2026-11-16): PASS vs the
+# set, top pose median 1.566 A (floor 2.500 A), DockQ +0.0022 [-0.0053, +0.0109], TM -0.0053 [-0.0137, +0.0015],
+# docking 24 -> 24; vs TT_BIO_LEVERS=none PASS, DockQ +0.0065 [+0.0008, +0.0129], CA-lDDT +0.0019 [+0.0008, +0.0031].
+# Either half alone fails the same grade on TM (t1 -0.0097 [-0.0163, -0.0039], ln_b8 pair -0.0133 [-0.0274, -0.0023]),
+# so the stack goes in whole or not at all. Galaxy chip 512 x 1 (1000 MHz), in-process pairs on the set: trimul_t1
+# -2.93 s (3/3 warm), the ln_b8 pair -0.75 s (3/4) (l3wh); the stack -3.83 s, 21.49 -> 17.66 s, 4/4 (l4wh).
 WH_LEVERS_NORMAL = LEVERS_NORMAL | {"atom_l1", "trimul_bres", "triatt_tail", "triatt_k1", "triatt_ln", "apb_ln",
                                     "dit_cond_jit", "dit_cond_jcat", "dit_cond_steps", "adaln_mod", "transition_ws",
-                                    "ws_resid", "trimul_sig6", "trimul_t2"}
+                                    "ws_resid", "trimul_sig6", "trimul_t2", "trimul_t1", "triatt_ln_b8",
+                                    "triatt_ln_b8g", "ws_psilu"}
 # triatt_ln_b8 + triatt_ln_b8g (triatt_ln writes q, k, v and the gate bfp8): 512-token set fast grade, 44 paired folds
 # (spd-gap-small gtlb2, 2026-10-19), PASS: top pose median 1.566 A (floor 2.245 A), CA-lDDT +0.0003 [-0.0006, +0.0013],
 # docking 24 -> 24; Galaxy chip 512 x 1 (1000 MHz) -0.98 s median, 5/5 warm pairs (tlb2).
@@ -150,9 +157,12 @@ WH_LEVERS_NORMAL = LEVERS_NORMAL | {"atom_l1", "trimul_bres", "triatt_tail", "tr
 # (9LV4, 9W8A); the 35-row page fixture contracts two K tiles, so it gains nothing there.
 # dit_cond_steps (the token DiT conditioning of 4096 // tokens steps as one tall linear): Galaxy chip 512 x 1 (1000 MHz)
 # -0.36 s paired median, 10/12 pairs faster, CIFs bit-identical in all 12 pairs (cs3, 2026-10-22), so no grade.
+# ws_psilu (the pair SwiGLU's silu on the packer thread, overlapping the matmuls) is in both Wormhole sets: CIFs
+# identical in all 8 pairs, Galaxy chip 512 x 1 (1000 MHz) on main 3aeb1e4ac, warm pairs fast -0.15/-0.18/-0.17 s,
+# normal +0.03/-0.10/-0.10 s (l6wh, spd-m-boltz2-4, 2026-11-16).
 WH_LEVERS_FAST = LEVERS_FAST | {"triatt_ln", "apb_ln", "dit_cond_jit", "trimul_sig6", "dit_cond_jcat", "triatt_k1",
                                 "atom_l1", "triatt_ln_b8", "triatt_ln_b8g", "dit_shard", "trimul_bres", "ie_dev", "opm_b8cfg",
-                                "dit_cond_steps"}
+                                "dit_cond_steps", "ws_psilu"}
 # On Blackhole ie_dev reads p300c 512 x 1 fast -0.25 s paired median (5/5 warm pairs, AICLK ~1350; iebh) and passes the
 # same 44-fold fast grade (giebh, 2026-10-21): top pose median 1.106 A (floor 2.438 A), CA-lDDT +0.0001 [-0.0006, +0.0007],
 # docking 24 -> 24.
@@ -162,7 +172,13 @@ WH_LEVERS_FAST = LEVERS_FAST | {"triatt_ln", "apb_ln", "dit_cond_jit", "trimul_s
 # distance from the origin. 11-set x seeds 101-104 x 5 on p300c, rms C-N error at |x| 64-128 A: normal 0.134 -> 0.082,
 # fast 0.136 -> 0.074. Grades vs main: normal CA-lDDT +0.0067 [+0.0039, +0.0105] (7 cpx), fast +0.0051 [+0.0032,
 # +0.0078] (6 cpx), docking unchanged. p300c 512 x 1 normal, AICLK median 1331-1343: 19.49 -> 19.51 s (repeat 19.93 s).
-BH_LEVERS_FAST = LEVERS_FAST | {"dit_shoist", "ie_dev", "dit_qkvf", "dit_qkvf_h4"}
+# triatt_ln + triatt_ln_b8 + triatt_ln_b8g (the pair LayerNorm fused into triangle attention's projections, writing
+# q, k, v and the gate bfp8, as Wormhole fast runs it): p300c 512 x 1 fast, 4 in-process pairs at AICLK 1325-1350 MHz,
+# -0.57 s median, 3/4 pairs (l1bhf). 44-fold fast grade vs the set before dit_qkvf (g3bhf, spd-m-boltz2-4, 2026-11-16):
+# PASS, top pose median 1.440 A (floor 2.326 A), DockQ +0.0084 [+0.0013, +0.0174], CA-lDDT -0.0004 [-0.0018, +0.0007],
+# docking 24 -> 24.
+BH_LEVERS_FAST = LEVERS_FAST | {"dit_shoist", "ie_dev", "dit_qkvf", "dit_qkvf_h4", "triatt_ln", "triatt_ln_b8",
+                                "triatt_ln_b8g"}
 # Blackhole normal adds the fast set's fusions that change no arithmetic or only regroup an fp32 modulate: triatt_tail,
 # adaln_mod, transition_ws, ws_resid. p150a 512 x 1, in-process pairs at AICLK ~1349 MHz: -0.60 s median (l0bh,
 # spd-m-boltz2-3, 2026-11-05). 44-fold normal grade on p150a against TT_BIO_LEVERS=none (gsbh): PASS, top pose median
@@ -172,8 +188,12 @@ BH_LEVERS_FAST = LEVERS_FAST | {"dit_shoist", "ie_dev", "dit_qkvf", "dit_qkvf_h4
 # atom_l1 is placement only and folds byte-identical CIFs on Blackhole too: p300c 512 x 1 normal, 4 in-process pairs at
 # AICLK 1325-1350 MHz, -1.03 s median, 3/4 pairs -0.9 to -1.4 s (l1bh, spd-m-boltz2-4, 2026-11-16). Fast reads -0.14 s
 # (2/4 pairs), inside noise, so fast leaves it off.
+# trimul_t2 (triangle multiplication's tail as one fused kernel, as Wormhole normal runs it): p300c 512 x 1 normal, 4
+# in-process pairs at AICLK 1325-1350 MHz, -0.30 s median, 4/4 pairs (l1bh). 44-fold normal grade on p300c vs the set
+# before dit_qkvf (g3bh, spd-m-boltz2-4, 2026-11-16): PASS, top pose median 1.474 A (floor 2.525 A), DockQ +0.0103
+# [+0.0021, +0.0202], CA-lDDT +0.0006 [+0.0001, +0.0012], docking 24 -> 24.
 BH_LEVERS_NORMAL = LEVERS_NORMAL | {"triatt_tail", "adaln_mod", "transition_ws", "ws_resid", "atom_l1", "dit_qkvf",
-                                   "dit_qkvf_h4"}
+                                   "dit_qkvf_h4", "trimul_t2"}
 
 
 def _under_levers(method):
