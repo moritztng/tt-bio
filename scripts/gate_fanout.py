@@ -155,6 +155,23 @@ POOL_POLL_S = 30
 #: gate.json listed it as a worker though both marks were set.
 BAD_MARKS = ("~/spd/locks/chip{card}.BAD", "~/.coworker/state/cardblock-{host}-{card}")
 LOCAL_BLOCKS = Path(os.environ.get("COWORKER_DIR", Path.home() / ".coworker")) / "state"
+#: A card the probe proved dead goes to the fleet's recovery path, which resets and verifies it and
+#: puts it back. Retiring it only for this run left qb2:3 idle and listed healthy for 3 h on 11-16:
+#: its ARC was alive, so nothing else could tell it opened and would not dispatch.
+CHIP_RECOVER = LOCAL_BLOCKS.parent / "scripts" / "chip_recover.py"
+
+
+def report_dead_card(host: str, card, why: str) -> None:
+    """Hand a dead card to chip_recover (it ignores hosts it does not own). Best effort: the gate
+    has already retired the card, so a missing or failing hook costs only the hand-off."""
+    if not CHIP_RECOVER.exists():
+        return
+    try:
+        subprocess.run([sys.executable, str(CHIP_RECOVER), "release", host, str(card),
+                        "--holder", "release-gate", "--dead", why.splitlines()[-1][-300:] if why else "?"],
+                       capture_output=True, timeout=120)
+    except (OSError, subprocess.SubprocessError):
+        pass
 LOAD_REFUSAL = "refusing to run the gate. host load:"
 #: The scripts that refuse to start above gate_guard's load ceiling. On a pool host the ceiling is
 #: the wrong guard: the pool's per-chip queue bounds the fan-out, and a busy pool keeps a Galaxy's
@@ -1684,6 +1701,7 @@ class Gate:
                     self.inflight[queue] -= 1
                 print(f"retired {host.name}:{card} for this run, its card is dead: {dead.splitlines()[-1]}"
                       + (f"; {leg.name} goes back on the queue" if again else ""), flush=True)
+                report_dead_card(host.name, card, dead)
                 if not again:
                     self._record(res)
                 with host.lock:
