@@ -61,6 +61,13 @@ def sha(p, n=64):
     return hashlib.sha256(Path(p).read_bytes()).hexdigest()[:n]
 
 
+def cif_digest(p):
+    """sha256 of a CIF without its `_entry.time` stamp: RFD4's writer stamps the wall clock, so the raw file digest moved
+    every rep while the structure was byte-identical (WH 11-16, five reps, normal and fast)."""
+    body = b"".join(l for l in Path(p).read_bytes().splitlines(True) if not l.startswith(b"_entry.time"))
+    return hashlib.sha256(body).hexdigest()[:16]
+
+
 def tree_sha():
     f = TREE / "TREE_SHA"
     return f.read_text().strip() if f.exists() else subprocess.run(
@@ -191,7 +198,7 @@ def rfd4():
                         on_design=lambda _id, n, _cif: tokens.append(n))
         f = {"tag": rep(i), "fold_s": round(time.perf_counter() - t0, 3), "seed": 42,
              "n_token": tokens[0] if tokens else None,
-             "cif_sha256": sha(cifs[0], 16) if len(cifs) == 1 else None}
+             "cif_sha256": cif_digest(cifs[0]) if len(cifs) == 1 else None}
         res["folds"].append(f)
         designed.append(cifs)
         print(json.dumps(f), flush=True)
