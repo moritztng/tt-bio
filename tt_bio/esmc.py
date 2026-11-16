@@ -271,8 +271,21 @@ _ESMC_LN_SPLIT = (env_flag("TT_BIO_ESMC_LN_SPLIT", False)
                   if os.environ.get("TT_BIO_ESMC_LN_SPLIT", "").strip() else None)
 
 
+# Benchmark probe only, WRONG output: the LM's two per-layer LayerNorms return x itself, so an A/B reads the most that
+# moving the norm into the consuming matmul (row stats + rstd in its epilogue) could save end to end.
+_LN_SKIP_PROBE = False
+
+
+def _free_norm(x_norm, x):
+    """Free a layer norm's output unless the probe handed back x itself."""
+    if x_norm is not x:
+        ttnn.deallocate(x_norm)
+
+
 def _ln(x, weight, bias, ck, memory_config=None):
     """ttnn.layer_norm(x, weight, bias, eps 1e-5), through ln_split when it is on and serves the shape."""
+    if _LN_SKIP_PROBE:
+        return x
     on = _ESMC_LN_SPLIT
     if on is None:
         from tt_bio import tenstorrent
@@ -848,7 +861,7 @@ class Attention(_MMLin, Module):
             ttnn.deallocate(qkv)
             return q, k, v
         finally:
-            ttnn.deallocate(x_norm)
+            _free_norm(x_norm, x)
 
     def _qk_heads(self, q, k, v):
         """LayerNorm(q), LayerNorm(k) and v re-packed and split into per-head [B, H, L, d_head]
@@ -1434,8 +1447,8 @@ class SwiGLUFFN(_MMLin, Module):
         ck = self.compute_kernel_config
         ln = dict(weight=self.norm_weight, bias=self.norm_bias,
                   epsilon=1e-5, compute_kernel_config=ck)
-        x_norm = None
-        if l1_gated and _PAIR_FFN_L1_LN:
+        x_norm = x if _LN_SKIP_PROBE else None
+        if x_norm is None and l1_gated and _PAIR_FFN_L1_LN:
             key = tuple(x.padded_shape)
             if key not in _L1_LN_REFUSED:
                 try:
@@ -1466,14 +1479,14 @@ class SwiGLUFFN(_MMLin, Module):
                 dtype=self.fc1_weight.dtype,
                 fuse_swiglu=True,
             )
-            ttnn.deallocate(x_norm)
+            _free_norm(x_norm, x)
         elif split and self.split_swiglu and (gated := self._mm_gate(x_norm, l1_gated)) is not None:
-            ttnn.deallocate(x_norm)
+            _free_norm(x_norm, x)
         elif split and self.split_swiglu:
             from tt_bio import tenstorrent as _T
             out = self._sharded(x_norm, out_mc) if _T.lever("transition_shard") else None
             if out is not None:
-                ttnn.deallocate(x_norm)
+                _free_norm(x_norm, x)
                 return out
             if l1_gated and _PAIR_FFN_L1_FC1:
                 L1_FC1_STATS[0] += 2
@@ -1501,7 +1514,7 @@ class SwiGLUFFN(_MMLin, Module):
                                activation="silu" if _SWIGLU_SILU_FC1 else None)
                 h2 = self._lin(x_norm, self.fc1_b_weight, dtype=dt)
                 silu_done = _SWIGLU_SILU_FC1
-            ttnn.deallocate(x_norm)
+            _free_norm(x_norm, x)
             act = dict(input_tensor_a_activations=[] if silu_done else [ttnn.UnaryOpType.SILU])
             gated = None
             key = tuple(h1.padded_shape)
@@ -1535,7 +1548,7 @@ class SwiGLUFFN(_MMLin, Module):
                 h = self._lin(x_norm, self._fc1_full())
                 x1, x2 = ttnn.chunk(h, 2, dim=-1)
                 ttnn.deallocate(h)
-            ttnn.deallocate(x_norm)
+            _free_norm(x_norm, x)
             gated = ttnn.multiply(ttnn.silu(x1), x2)
             ttnn.deallocate(x1); ttnn.deallocate(x2)
         out = self._lin_resid(gated, self.fc2_weight, x) if resid and out_mc is None else None
