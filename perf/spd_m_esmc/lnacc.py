@@ -41,6 +41,18 @@ def grade(tag, x, g, b, W):
         b1 = xf.reshape(L, -1, 32).sum(-1); b2 = (xf * xf).reshape(L, -1, 32).sum(-1)
         m3 = b1.sum(-1, keepdim=True) / d; rb = torch.rsqrt(b2.sum(-1, keepdim=True) / d - m3 * m3 + 1e-5)
         out["pb_" + mode] = (rb.double() * (xb.float() @ Wc.float()).double()) + bw
+        # pc: as pb with x^2 packed bf16 (round to nearest), so a ones-matmul reads every operand exactly at any fidelity
+        c2 = bf(xf * xf).float().reshape(L, -1, 32).sum(-1); rc = torch.rsqrt(c2.sum(-1, keepdim=True) / d - m3 * m3 + 1e-5)
+        out["pc_" + mode] = (rc.double() * (xb.float() @ Wc.float()).double()) + bw
+        # pd: as pc in a 16-bit dest (bf16-accumulating producer): each tile's 32-term row sum lands in dest and is
+        # rounded to bf16 at every add over a 3-tile N block; the fp32 consumer sums the block partials
+        def blk(t):
+            t = t.reshape(L, -1, 3, 32).sum(-1); acc = torch.zeros_like(t[..., 0])
+            for j in range(3):
+                acc = bf((acc + t[..., j]).double()).float()
+            return acc.sum(-1, keepdim=True)
+        d1, d2 = blk(xf), blk(bf(xf * xf).float()); m4 = d1 / d; rd = torch.rsqrt(d2 / d - m4 * m4 + 1e-5)
+        out["pd_" + mode] = (rd.double() * (xb.float() @ Wc.float()).double()) + bw
         Wg = q(W); gw = g @ Wg                                          # gamma on in0, mean as a correction
         acc = (bf(xb * g).float() @ Wg.float()).double()
         out["mg_" + mode] = r.double() * (acc - m.double() * gw) + bw
