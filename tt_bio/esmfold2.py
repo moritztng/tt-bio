@@ -1985,12 +1985,6 @@ class MSAEncoderModel(Module):
         return pair
 
 
-# A/B switch (spd-m-esmfold-4 enf), removed before shipping: the MSA encoder's matmuls at the trunk's fidelity
-# (HiFi3 on Wormhole --fast, HiFi2 on Blackhole --fast) instead of HiFi4. Normal mode's trunk is HiFi4, so no change there.
-MSA_TRUNK_FIDELITY = False
-MSA_FIDELITY_SEEN = []  # fidelity name each encoder call ran at
-
-
 class MSAEncoder(TorchWrapper):
     """MSA encoder: refine pair using an MSA. forward(x_pair, x_inputs, msa_oh, has_deletion, deletion_value, msa_mask)."""
 
@@ -2003,10 +1997,6 @@ class MSAEncoder(TorchWrapper):
 
     def forward(self, x_pair, x_inputs, msa_oh, has_deletion, deletion_value, msa_mask, to_host=True):
         """`to_host=False` returns the device pair, for a caller that keeps the injection on the chip."""
-        ck = self.compute_kernel_config
-        ck.math_fidelity = (trunk_compute_kernel_config(ck).math_fidelity if MSA_TRUNK_FIDELITY
-                            else ttnn.MathFidelity.HiFi4)
-        MSA_FIDELITY_SEEN.append(str(ck.math_fidelity))
         m_feat = torch.cat([msa_oh, has_deletion.unsqueeze(-1), deletion_value.unsqueeze(-1)], dim=-1)  # [B,L,M,35]
         mask_f = msa_mask.float()
         n_valid = (mask_f @ mask_f.transpose(-1, -2)).clamp(min=1.0).unsqueeze(-1)  # [B,L,L,1]
