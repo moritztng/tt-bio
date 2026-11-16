@@ -172,7 +172,13 @@ WH_LEVERS_FAST = LEVERS_FAST | {"triatt_ln", "apb_ln", "dit_cond_jit", "trimul_s
 # distance from the origin. 11-set x seeds 101-104 x 5 on p300c, rms C-N error at |x| 64-128 A: normal 0.134 -> 0.082,
 # fast 0.136 -> 0.074. Grades vs main: normal CA-lDDT +0.0067 [+0.0039, +0.0105] (7 cpx), fast +0.0051 [+0.0032,
 # +0.0078] (6 cpx), docking unchanged. p300c 512 x 1 normal, AICLK median 1331-1343: 19.49 -> 19.51 s (repeat 19.93 s).
-BH_LEVERS_FAST = LEVERS_FAST | {"dit_shoist", "ie_dev", "dit_qkvf", "dit_qkvf_h4"}
+# triatt_ln + triatt_ln_b8 + triatt_ln_b8g (the pair LayerNorm fused into triangle attention's projections, writing
+# q, k, v and the gate bfp8, as Wormhole fast runs it): p300c 512 x 1 fast, 4 in-process pairs at AICLK 1325-1350 MHz,
+# -0.57 s median, 3/4 pairs (l1bhf). 44-fold fast grade vs the set before dit_qkvf (g3bhf, spd-m-boltz2-4, 2026-11-16):
+# PASS, top pose median 1.440 A (floor 2.326 A), DockQ +0.0084 [+0.0013, +0.0174], CA-lDDT -0.0004 [-0.0018, +0.0007],
+# docking 24 -> 24.
+BH_LEVERS_FAST = LEVERS_FAST | {"dit_shoist", "ie_dev", "dit_qkvf", "dit_qkvf_h4", "triatt_ln", "triatt_ln_b8",
+                                "triatt_ln_b8g"}
 # Blackhole normal adds the fast set's fusions that change no arithmetic or only regroup an fp32 modulate: triatt_tail,
 # adaln_mod, transition_ws, ws_resid. p150a 512 x 1, in-process pairs at AICLK ~1349 MHz: -0.60 s median (l0bh,
 # spd-m-boltz2-3, 2026-11-05). 44-fold normal grade on p150a against TT_BIO_LEVERS=none (gsbh): PASS, top pose median
