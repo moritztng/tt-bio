@@ -882,8 +882,40 @@ class Attention(_MMLin, Module):
         self.k_ln_weight = self.torch_to_tt("k_ln.weight")
         self.out_weight = self.torch_to_tt("out_proj.weight", transform=_scaled_t(out_scale), dtype=_dtype())
 
-    def _qkv(self, x, ln_mc=None):
-        """q, k, v projections of LayerNorm(x), the layer norm written to `ln_mc` (DRAM if None)."""
+    def _qkv_ln(self, x, ln_stats):
+        """q, k, v of LayerNorm(x) with the norm inside the split matmul (_LN_IN_MM), or None where it does not serve.
+        x is the raw residual and `ln_stats` the previous fc2's row statistics; the weight is the LN_FOLD qkv weight
+        centred over K (W'' = C diag(gamma) W) and the epilogue applies the row's rstd and adds beta W."""
+        rows = x.volume() // int(x.shape[-1])
+        if not (self.ln_fold and _ESMC_MM_CFG and self.qkv_weight is not None and self._mm_ok(x, self.qkv_weight)
+                and int(ln_stats.padded_shape[-2]) == -(-rows // 32) * 32
+                and not _mm_bf16_acc(self.qkv_weight, self.mm_exact_acc)
+                and all(k in self.weights for k in ("layernorm_qkv.0.weight", "layernorm_qkv.0.bias",
+                                                     "layernorm_qkv.1.weight"))):
+            return None
+        from tt_bio import mm_gate
+        if getattr(self, "_qkv_wln", None) is None:
+            g_, b_, w_ = (self.weights["layernorm_qkv." + k].float() for k in ("0.weight", "0.bias", "1.weight"))
+            wc, bw = mm_gate.ln_weights(g_, b_, w_.t())
+            dev = x.device()
+            self._qkv_wln = ttnn.from_torch(wc.float(), dtype=self.qkv_weight.dtype, layout=ttnn.TILE_LAYOUT,
+                                            device=dev)
+            self._qkv_bln = ttnn.from_torch(bw.float(), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)
+        c = _mm_config(x, self.qkv_weight, self.mm_exact_acc)["config"]
+        g = c.compute_with_storage_grid_size
+        cfg = (c.M_block_size, c.K_block_size, c.N_block_size, c.subblock_h, c.subblock_w)
+        out = mm_gate.ln_split(x, self._qkv_wln, 3, cfg, self._mm_ck(self.qkv_weight), (int(g.x), int(g.y)),
+                               ln_stats, self._qkv_bln, out_dtype=_dtype(ttnn.bfloat16))
+        MM_FUSE_STATS[0] += 1
+        return out
+
+    def _qkv(self, x, ln_mc=None, ln_stats=None):
+        """q, k, v projections of LayerNorm(x), the layer norm written to `ln_mc` (DRAM if None). With `ln_stats`
+        (x's row statistics, _LN_IN_MM) the norm runs inside the qkv matmul where that serves."""
+        if ln_stats is not None:
+            out = self._qkv_ln(x, ln_stats)
+            if out is not None:
+                return out
         w, b = (None, None) if self.ln_fold else (self.in_norm_weight, self.in_norm_bias)
         x_norm = _ln(x, w, b, self.compute_kernel_config, ln_mc)
         try:
@@ -946,7 +978,11 @@ class Attention(_MMLin, Module):
         head_dim = d_model // self.n_heads
 
         key = tuple(x.padded_shape)
-        if _ESMC_QK_L1 and self.qk_l1 and key not in _QK_L1_REFUSED:
+        st = _take_ln_stats()
+        if st is not None:
+            q, k, v = self._qkv(x, ln_stats=st)
+            ttnn.deallocate(st)
+        elif _ESMC_QK_L1 and self.qk_l1 and key not in _QK_L1_REFUSED:
             try:
                 q, k, v = self._qkv(x, ttnn.L1_MEMORY_CONFIG)
             except Exception as exc:
@@ -1616,7 +1652,9 @@ class SwiGLUFFN(_MMLin, Module):
 
     def _fc2(self, gated, x, resid: bool, out_mc):
         """fc2 of the gated activation (freed), with the residual add fused where it serves."""
-        out = self._lin_resid(gated, self.fc2_weight, x) if resid and out_mc is None else None
+        # _LN_IN_MM: the output's row statistics for the next layer's qkv (the model frees the last layer's)
+        rs = _LN_IN_MM and getattr(self, "lm_large", None) is False and _dtype() == ttnn.bfloat16   # ESMC blocks only
+        out = self._lin_resid(gated, self.fc2_weight, x, rowstats=rs) if resid and out_mc is None else None
         if out is None:
             out = self._lin(gated, self.fc2_weight,
                             **({"memory_config": out_mc} if out_mc is not None else {}))
@@ -2011,6 +2049,9 @@ class ESMCModel(Module):
         x = self.embed(tokens)
         for block in self.blocks:
             x = block(x, cos, sin, attn_mask, key_valid)
+        st = _take_ln_stats()   # _LN_IN_MM: the last fc2's row statistics, no qkv after it
+        if st is not None:
+            ttnn.deallocate(st)
         emb = ttnn.layer_norm(
             x, weight=self.norm_weight, epsilon=1e-5,
             compute_kernel_config=self.compute_kernel_config,

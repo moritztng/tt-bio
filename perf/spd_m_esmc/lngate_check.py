@@ -104,6 +104,46 @@ def main() -> int:
             print(json.dumps(row), flush=True)
             out.write(json.dumps(row) + "\n")
             out.flush()
+        # the attention site: q, k, v of LN(x) by the split matmul (normal mode, bf16 weights, fp32 dest)
+        if "normal" in a.modes.split(","):
+            wq = torch.randn(d, 3 * d, generator=gen) * d ** -0.5
+            ref = xn @ wq.double()
+            ck = ttnn.init_device_compute_kernel_config(dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi4,
+                                                        math_approx_mode=False, fp32_dest_acc_en=True,
+                                                        packer_l1_acc=True)
+            wgd = ttnn.from_torch((gamma[:, None] * wq).to(torch.bfloat16), layout=ttnn.TILE_LAYOUT, device=dev)
+            bwd = ttnn.from_torch((beta.double() @ wq.double()).float()[None], layout=ttnn.TILE_LAYOUT, device=dev,
+                                  dtype=ttnn.bfloat16)
+            mc = esmc._mm_config(xd3, wgd)
+            c = mc["config"]
+            qcfg = (c.M_block_size, c.K_block_size, c.N_block_size, c.subblock_h, c.subblock_w)
+            wc, bw = mm_gate.ln_weights(gamma, beta, wq)
+            wcd = ttnn.from_torch(wc.float(), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)
+            bwd32 = ttnn.from_torch(bw.float(), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)
+            lnck = ttnn.init_device_compute_kernel_config(dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi4,
+                                                          math_approx_mode=False, fp32_dest_acc_en=True)
+
+            def today():   # LN_FOLD as shipped: affine-free LayerNorm, then the split matmul over gamma W + beta W
+                xn_ = ttnn.layer_norm(xd3, epsilon=1e-5, compute_kernel_config=lnck,
+                                      memory_config=ttnn.L1_MEMORY_CONFIG)
+                o = ttnn.experimental.minimal_matmul_split(xn_, wgd, chunks=3, bias_tensor=bwd, compute_kernel_config=ck,
+                                                           dtype=ttnn.bfloat16, memory_config=ttnn.DRAM_MEMORY_CONFIG,
+                                                           **mc)
+                ttnn.deallocate(xn_)
+                return tuple(o)
+            lnmm = lambda: mm_gate.ln_split(xd3, wcd, 3, qcfg, ck, grid, st, bwd32)  # noqa: E731
+            row = {"shape": name, "mode": "normal", "site": "qkv", "cfg": qcfg}
+            for arm, fn in (("today", today), ("lnmm", lnmm)):
+                o = fn()
+                got = torch.cat([ttnn.to_torch(t).double().reshape(ROWS, d) for t in o], -1)
+                for t in o:
+                    ttnn.deallocate(t)
+                row[arm + "_rel_l2"] = ((got - ref).norm() / ref.norm()).item()
+                row[arm + "_finite"] = bool(torch.isfinite(got).all())
+                row[arm + "_ms"] = timed(lambda fn=fn: [ttnn.deallocate(t) for t in fn()], dev, a.repeat, a.inner)
+            print(json.dumps(row), flush=True)
+            out.write(json.dumps(row) + "\n")
+            out.flush()
     return 0
 
 

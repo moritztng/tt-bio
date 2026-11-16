@@ -163,3 +163,46 @@ def gated(x, w12, cfg, ckc, grid, out_dtype=ttnn.bfloat16, probe=0, pack_sfpu=Fa
     ttnn.generic_op([x, w12, *((stats, bias) if ln is not None else ()), out], entry["pd"])
     STATS[0] += 1
     return out
+
+
+_SPLIT_CACHE = {}
+
+
+def ln_split(x, w, chunks, cfg, ckc, grid, stats, bias32, out_dtype=ttnn.bfloat16):
+    """The in-matmul LayerNorm at a plain projection split into `chunks` equal outputs along N (ESMC's qkv):
+    rstd * (x @ W'') + beta W, x the raw residual, w the column-centred `ln_weights` W'' [K, N], stats the producer's
+    `mm_resid.matmul_add(..., rowstats=True)` output, bias32 beta W [32, N]. Same blocking and layout as the wheel's
+    minimal_matmul_split at `cfg`; the epilogue is compute.cpp's ln_rstd_block + ln_bias_block."""
+    dev = x.device()
+    n = int(w.shape[-1])
+    shape = [int(d) for d in x.shape][:-1] + [n // chunks]
+    outs = [ttnn.allocate_tensor_on_device(ttnn.Shape(shape), out_dtype, ttnn.TILE_LAYOUT, dev,
+                                           ttnn.DRAM_MEMORY_CONFIG) for _ in range(chunks)]
+    spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
+    ck = MG.ckc_args(ckc)
+    key = (spec(x), spec(w), spec(outs[0]), chunks, tuple(cfg), tuple(grid), tuple(str(c) for c in ck),
+           spec(stats), spec(bias32))
+    entry = _SPLIT_CACHE.get(key)
+    if entry is None:
+        defines = {"MM_LN_RSTD": 1, "MM_LN_NB": int(stats.padded_shape[-1]) // 64,
+                   "MM_LN_INVK": _f32_bits(1.0 / int(x.shape[-1])), "MM_LN_EPS": _f32_bits(1e-5)}
+        entry = MG.build(dev, x, w, outs, (tuple(cfg), tuple(grid)), ck, defines=defines, kernel_dir=KERNEL_DIR,
+                         bias=bias32, extra=(stats,))
+        core_grid = ttnn.CoreRangeSet([ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(grid[0] - 1, grid[1] - 1))])
+        f32 = MG.tile_bytes(ttnn.float32)
+        entry["cbs"] += [MG._cb(15, core_grid, f32, 2 * defines["MM_LN_NB"], ttnn.float32),
+                         MG._cb(14, core_grid, f32, cfg[0], ttnn.float32)]
+        compute = entry["kernels"][4]
+        compute.kernel_source = str(KERNEL_DIR / "compute.cpp")
+        compute.defines = [("FUSE_BIAS", "1")] + [(k_, str(v)) for k_, v in defines.items()]
+        entry["pd"] = ttnn.ProgramDescriptor(kernels=entry["kernels"], semaphores=entry["semaphores"], cbs=entry["cbs"])
+        entry["extra"] = (stats.buffer_address(),)
+        _SPLIT_CACHE[key] = entry
+    addrs = (x.buffer_address(), w.buffer_address(), tuple(o.buffer_address() for o in outs), bias32.buffer_address())
+    extra = (stats.buffer_address(),)
+    if addrs != entry["addrs"] or extra != entry.get("extra", ()):
+        MG.rebind(entry, *addrs, extra_addrs=extra)
+        entry["extra"] = extra
+    ttnn.generic_op([x, w, stats, bias32, *outs], entry["pd"])
+    STATS[0] += 1
+    return tuple(outs)
