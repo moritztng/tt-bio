@@ -12,6 +12,8 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 - **Protenix-v2 `--fast` is about 2 % faster on Wormhole.** The pair transition's LayerNorm and residual now run inside
   its fused kernel, and triangle multiplication keeps one more intermediate in bfp8. 512 residues 42.3 -> 41.4 s;
   accuracy unchanged on 44 paired folds of the 11-complex test set.
+- **Boltz-2 normal mode is about 1 s faster on Blackhole.** The atom transformer keeps its intermediates in L1 as it
+  already does on Wormhole. Output is byte-identical; 512 residues read 1.0 s faster per fold (median of 4 pairs).
 
 ### Fixed
 - **A killed `tt-bio` command no longer leaves a stuck worker holding its card.** When `timeout` or a

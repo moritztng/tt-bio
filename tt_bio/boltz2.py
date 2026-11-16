@@ -158,7 +158,10 @@ BH_LEVERS_FAST = LEVERS_FAST | {"dit_shoist", "ie_dev"}
 # 1.374 A (A/A seed floor 2.318 A), CA-lDDT +0.0002 [-0.0011, +0.0013], DockQ -0.0050 [-0.0147, +0.0036], pLDDT +0.0008,
 # docking 24 -> 24 with no flips. LRMSD moves only on folds neither arm docks (LRMSD 30-120 A); on the 24 docked folds
 # its median moves -0.02 A.
-BH_LEVERS_NORMAL = LEVERS_NORMAL | {"triatt_tail", "adaln_mod", "transition_ws", "ws_resid"}
+# atom_l1 is placement only and folds byte-identical CIFs on Blackhole too: p300c 512 x 1 normal, 4 in-process pairs at
+# AICLK 1325-1350 MHz, -1.03 s median, 3/4 pairs -0.9 to -1.4 s (l1bh, spd-m-boltz2-4, 2026-11-16). Fast reads -0.14 s
+# (2/4 pairs), inside noise, so fast leaves it off.
+BH_LEVERS_NORMAL = LEVERS_NORMAL | {"triatt_tail", "adaln_mod", "transition_ws", "ws_resid", "atom_l1"}
 
 
 def _under_levers(method):
