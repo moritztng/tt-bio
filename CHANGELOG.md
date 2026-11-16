@@ -6,6 +6,10 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 ## [Unreleased]
 
 ### Changed
+- **Boltz-2 is faster on Blackhole: `--fast` about 5 %, normal mode about 2 %.** In fast mode the pair LayerNorm runs
+  inside triangle attention's projections; in normal mode triangle multiplication's tail runs as one fused kernel, as
+  both already do on Wormhole. 512 residues: fast 0.57 s, normal 0.30 s faster per fold; accuracy unchanged on 44
+  paired folds of the 11-complex test set.
 - **Protenix-v2 `--fast` is about 3 % faster on Blackhole.** Triangle multiplication writes its gated output in bfp8
   for the memory-bound tail. On a 512-residue complex the chip time drops 18.3 -> 17.6 s; accuracy stays inside the
   fast-mode bar on 44 paired folds of the 11-complex test set.
