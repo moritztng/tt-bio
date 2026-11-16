@@ -3,6 +3,7 @@
 
     python perf/bmk/design_cell.py --model boltzgen --repeat 4 --out OUT/result.json [--fast]
     python perf/bmk/design_cell.py --model rfd3     --repeat 4 --out OUT/result.json [--fast]
+    python perf/bmk/design_cell.py --model rfd4     --repeat 4 --out OUT/result.json [--fast]
     python perf/bmk/design_cell.py --model pxdesign --repeat 4 --out OUT/result.json
     python perf/bmk/design_cell.py --model nesso1   --repeat 4 --out OUT/result.json
 
@@ -17,6 +18,12 @@ first rep compiles and is dropped; the next --repeat reps are the cell (warm med
   rfd3      `tt_bio.rfd3.design.run_design` on perf/dsfix/fixtures/rfd3_R4.json (9q6y chain A, 585 target residues,
             100-residue binder), 200 timesteps, seed 42, batch 1. Cell = the sampler call (the region the page has
             always published); the whole run_design call is kept as wall_s. Same seed every rep, so the CIF digest
+            must not move.
+  rfd4      `tt_bio.rfd4.design` on perf/dsfix/fixtures/rfd4_S336.yaml (PD-L1 crop, 115 target + 221 designed
+            residues, 336 tokens = the served median), shipped defaults (recipe thinking_medium, 180 trunk passes,
+            60 steps), seed 42, one design a call. The engine, its weights and the device come up once, outside the
+            cell; the cell is the whole `design()` call, which is what a served request pays per design: spec parse,
+            featurisation, every sampler step, the decode and the CIF written. Same seed every rep, so the digest
             must not move.
   pxdesign  featurise + `ProtenixDesign.design` + write_design_cifs on perf/pxdesign/targets/laczc_512_nomsa.yaml
             (512 target residues, 80-residue binder, 592 tokens), n_step 400, one backbone per call, checkpoint load
@@ -35,7 +42,7 @@ import argparse, hashlib, json, os, re, shutil, statistics, subprocess, sys, tem
 from pathlib import Path
 
 ap = argparse.ArgumentParser()
-ap.add_argument("--model", required=True, choices=("boltzgen", "rfd3", "pxdesign", "nesso1"))
+ap.add_argument("--model", required=True, choices=("boltzgen", "rfd3", "rfd4", "pxdesign", "nesso1"))
 ap.add_argument("--fast", action="store_true")
 ap.add_argument("--repeat", type=int, default=4, help="warm reps in the cell (one cold rep is added and dropped)")
 ap.add_argument("--out", type=Path, required=True)
@@ -46,6 +53,7 @@ if a.fast and a.model in ("pxdesign", "nesso1"):
 TREE = Path.cwd()
 sys.path.insert(0, str(TREE))
 FIX = {"boltzgen": "perf/dsfix/fixtures/bg_R3.yaml", "rfd3": "perf/dsfix/fixtures/rfd3_R4.json",
+       "rfd4": "perf/dsfix/fixtures/rfd4_S336.yaml",
        "pxdesign": "perf/pxdesign/targets/laczc_512_nomsa.yaml", "nesso1": "perf/nesso1/inputs/ladder/aa512/cdk2_512.yaml"}
 
 
@@ -159,6 +167,42 @@ def rfd3():
             res["errors"] += cif_check(c, [685])
     if len({f["cif_sha256"] for f in res["folds"]}) != 1:
         res["errors"].append("seed 42 CIF digest moved between reps")
+
+
+def rfd4():
+    import torch
+    import tt_bio.tenstorrent as T
+    from tt_bio import rfd4 as R
+    from tt_bio.main import ensure_p300_mesh_descriptor
+    from tt_bio.rfd4.engine import get_engine
+    from tt_bio.tenstorrent import set_fast_mode
+    torch.set_grad_enabled(False)
+    ensure_p300_mesh_descriptor()
+    set_fast_mode(a.fast)        # the trunk picks its lever set when it is built, so before get_engine
+    t = time.perf_counter()
+    engine = get_engine()        # weights and device come up once, outside every cell
+    res["model_init_s"] = round(time.perf_counter() - t, 3)
+    tokens, designed = [], []
+    for i in range(a.repeat + 1):
+        d = work / f"r{i}"
+        tokens.clear()
+        t0 = time.perf_counter()
+        cifs = R.design(TREE / FIX["rfd4"], d, num_designs=1, seed=42, engine=engine,
+                        on_design=lambda _id, n, _cif: tokens.append(n))
+        f = {"tag": rep(i), "fold_s": round(time.perf_counter() - t0, 3), "seed": 42,
+             "n_token": tokens[0] if tokens else None,
+             "cif_sha256": sha(cifs[0], 16) if len(cifs) == 1 else None}
+        res["folds"].append(f)
+        designed.append(cifs)
+        print(json.dumps(f), flush=True)
+        if len(cifs) != 1:
+            res["errors"].append(f"rep {i}: {len(cifs)} designs, want 1")
+            continue
+        # contig "221-221, /0, A17-131": a 221-residue designed chain and the 115-residue target
+        res["errors"] += cif_check(cifs[0], [221, 115])
+    if len({f["cif_sha256"] for f in res["folds"]}) != 1:
+        res["errors"].append("seed 42 design digest moved between reps")
+    T.cleanup()
 
 
 def pxdesign():
@@ -278,7 +322,7 @@ def nesso1():
 
 
 try:
-    {"boltzgen": boltzgen, "rfd3": rfd3, "pxdesign": pxdesign, "nesso1": nesso1}[a.model]()
+    {"boltzgen": boltzgen, "rfd3": rfd3, "rfd4": rfd4, "pxdesign": pxdesign, "nesso1": nesso1}[a.model]()
 except Exception as e:
     import traceback
     res["errors"].append(f"{type(e).__name__}: {e}")

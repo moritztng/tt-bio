@@ -1,0 +1,30 @@
+# RFD4-Proteina gapboard fixture: a 221-residue de-novo binder against the PD-L1 crop
+# (chain A, residues 17-131 = 115 residues), 336 total tokens.
+#
+# 336 is the size JapanFold actually serves. Over the 30 days to 2026-11-16 (24,238 succeeded RFD4
+# jobs, 191,290 designs, 2,017.6 billable chip-hours, read from the ops ledger):
+#   rfd4 / rfd4-binder   15,839 + 1,636 jobs, 1,459.3 chip-h, design-weighted median 268 tokens
+#   rfd4-scaffold         6,763 jobs,           558.3 chip-h, median 336 tokens (5,480 of them in the 320 bucket)
+#   all three together                        2,017.6 chip-h, design-weighted median 333 tokens
+# Both served kinds run the same engine path (japanfold/engines.py::_rfd4_argv): the protocol id picks
+# the contig shape, not a different model, so one cell at 336 covers both. The chip-hour-weighted
+# median is higher (418) because the long tail at 448-455 is expensive per design, not common.
+#
+# Conditions are the frozen fair-protocol family's (state/rfd4/inputs/pdl1-*.yaml, PROTOCOL.md):
+# the target's backbone is conditioned absolutely, its sequence is given, and three interface
+# hotspots are set. Shipped defaults otherwise (recipe thinking_medium = 180 trunk passes, 60 steps).
+pdl1_binder_336:
+  input: ../../rfd4/cond/inputs/5o45_cropped.cif.zst
+  contig: "221-221, /0, A17-131"
+  conditions:
+    C_CRDGRP:
+      1:
+        - select: "sel('A/*/*/[N,CA,C,O]') and not has_nan_coord()"
+    C_SEQ:
+      true:
+        - select: "sel('A')"
+    C_HOT:
+      true:
+        - select: "sel('A/*/56/[CG,OH]')"
+        - select: "sel('A/*/115/[CG,SD]')"
+        - select: "sel('A/*/123/[CD2,OH]')"
