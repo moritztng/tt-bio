@@ -159,6 +159,48 @@ void ln_rstd_block(uint32_t M_block_tiles) {
 }
 #endif
 
+#ifdef MM_LN_RSTD
+// The plain (split) projection's epilogue under the in-matmul LayerNorm: out = rstd * acc + beta W, two output tiles
+// per dest acquire (slots 0-1 the accumulator, 2-3 rstd then beta W), all in fp32 dest, one pack.
+void ln_bias_block(uint32_t in_cb, uint32_t bias_cb, uint32_t out_cb, uint32_t M_block_tiles, uint32_t N_block_tiles) {
+    pack_reconfig_data_format(out_cb);
+    for (uint32_t m = 0; m < M_block_tiles; m++) {
+        for (uint32_t n0 = 0; n0 < N_block_tiles; n0 += 2) {
+            const uint32_t c = N_block_tiles - n0 < 2 ? N_block_tiles - n0 : 2;
+            tile_regs_acquire();
+            copy_tile_to_dst_init_short(in_cb);
+            reconfig_data_format_srca(in_cb);
+            for (uint32_t i = 0; i < c; i++) {
+                copy_tile(in_cb, m * N_block_tiles + n0 + i, i);
+            }
+            copy_tile_to_dst_init_short(LN_R_CB);
+            reconfig_data_format_srca(LN_R_CB);
+            copy_tile(LN_R_CB, m, 2);
+            mul_binary_tile_init();
+            for (uint32_t i = 0; i < c; i++) {
+                mul_binary_tile(i, 2, i);
+            }
+            copy_tile_to_dst_init_short(bias_cb);
+            reconfig_data_format_srca(bias_cb);
+            for (uint32_t i = 0; i < c; i++) {
+                copy_tile(bias_cb, n0 + i, 2 + i);
+            }
+            add_binary_tile_init();
+            for (uint32_t i = 0; i < c; i++) {
+                add_binary_tile(i, 2 + i, i);
+            }
+            tile_regs_commit();
+            tile_regs_wait();
+            for (uint32_t i = 0; i < c; i++) {
+                pack_tile(i, out_cb);
+            }
+            tile_regs_release();
+        }
+        cb_push_back(out_cb, N_block_tiles);
+    }
+}
+#endif
+
 #ifdef MM_GATED
 // tt-bio mm_gate: the SwiGLU gate as the matmul's epilogue. Each row of the accumulated block holds fc1's N_block / 2
 // tiles then fc2's (the weight is interleaved [W1_j | W2_j] per half block), so the row's output is
@@ -765,6 +807,10 @@ void kernel_main() {
             add_bias_resid_block(
                 intermediate_cb, in2_cb, tt::CBIndex::c_5, out_cb, M_block_tiles, N_block_tiles, rs_valid);
             cb_pop_front(tt::CBIndex::c_5, out_block_num_tiles);
+#elif defined(MM_LN_RSTD)
+            ln_rstd_block(M_block_tiles);
+            ln_bias_block(intermediate_cb, in2_cb, out_cb, M_block_tiles, N_block_tiles);
+            cb_pop_front(LN_R_CB, M_block_tiles);
 #elif defined(MM_EPI_PROBE)
             // benchmarks only, wrong output: the epilogue's unpack / bias / pack skipped, to time its share
             cb_push_back(out_cb, out_block_num_tiles);
