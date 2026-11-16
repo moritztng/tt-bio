@@ -647,10 +647,10 @@ void kernel_main() {
     SFPU_OP_INIT_ACTIVATION
 #endif
 
-#ifdef MM_ROWSTATS
-    rowstats_ones();
-#endif
     mm_init(in0_cb, in1_cb, intermediate_cb);
+#ifdef MM_ROWSTATS
+    rowstats_ones();   // after mm_init's hardware configure; every block re-inits the matmul before its K loop
+#endif
 
     constexpr uint32_t in0_block_num_tiles = M_block_tiles * K_block_tiles;
     constexpr uint32_t in1_block_num_tiles = K_block_tiles * N_block_tiles;
