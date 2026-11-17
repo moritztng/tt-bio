@@ -5,6 +5,8 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+## [0.35.0] - 2026-11-17
+
 ### Changed
 - **Boltz-2 is faster on Blackhole: `--fast` about 5 %, normal mode about 2 %.** In fast mode the pair LayerNorm runs
   inside triangle attention's projections; in normal mode triangle multiplication's tail runs as one fused kernel, as
