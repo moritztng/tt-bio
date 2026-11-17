@@ -120,6 +120,10 @@ for n in [int(s) for s in A.ns.split(",") if s]:
         ttnn.deallocate(p)
         return z
 
+    def upz():
+        z = up(h["z"])
+        return ttnn.typecast(z, ttnn.bfloat8_b) if A.z8 else z
+
     try:
         z = upz()
         out = ttnn.to_torch(incumbent(z)).reshape(ref.shape)
@@ -128,10 +132,6 @@ for n in [int(s) for s in A.ns.split(",") if s]:
         ttnn.deallocate(z)
     except Exception as e:                                                    # noqa: BLE001
         rec["inc_err"] = str(e).splitlines()[0][:300]
-
-    def upz():
-        z = up(h["z"])
-        return ttnn.typecast(z, ttnn.bfloat8_b) if A.z8 else z
 
     def t2(z):
         return TT.fused_tail_ln(d["x"], d["gamma"], d["beta"], d["w"], d["g"], z, ckc, grid, wg=wg,
