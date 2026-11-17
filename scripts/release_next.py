@@ -238,7 +238,16 @@ def record_run(gates: Path | None, sha: str) -> tuple[str, Path | None]:
     if d is None or not (d / "plan.json").exists():
         return "none", None
     if (d / "verdict.json").exists():
-        return ("pass" if json.loads((d / "verdict.json").read_text()).get("pass") else "fail"), d
+        v = json.loads((d / "verdict.json").read_text())
+        if v.get("pass"):
+            return "pass", d
+        # A record leg waived in the run's own WAIVE stops counting, as a gate leg does: with no
+        # p150a in service (11-17) rec-b5a33aabf's two p150a legs were UNRUN, the gate's p150a ladders
+        # were UNRUN too, so nothing there drifted and the old fragments stay right.
+        bad = [r for r in v.get("results", []) if r.get("verdict") not in OK]
+        if bad and not failures(d, waivers(d))[1]:
+            return "pass", d
+        return "fail", d
     return ("running" if _alive(json.loads((d / "plan.json").read_text())) else "none"), d
 
 
