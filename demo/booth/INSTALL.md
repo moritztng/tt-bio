@@ -120,7 +120,23 @@ or reboot. Try this once after installing, so you know it works before you need 
 
 ### Screens the booth session cannot drive (the SC26 booth box)
 
-On the SC26 booth box (Samsung 4K TV on the AMD board HDMI), the booth session's compositor (sway) never shows a new frame on the TV. The chips fold, but the screen stays black or on a still image. A modeset to 1080p, a DPMS toggle, a fresh sway and `WLR_DRM_NO_ATOMIC=1` all left it the same. The normal Ubuntu (GNOME) session does drive the TV. The booth kiosk does not run under GNOME yet: Firefox started from `booth-kiosk` there never loaded the app. Until it does, a box like this runs only `booth-engine`, logs into GNOME, and shows a browser or the fallback video started by hand. Check that a browser really shows the app with `ss -tan | grep 8626`: the page holds one WebSocket to the engine, and with no ESTAB line nothing is live, whatever the process list says.
+On the SC26 booth box (Samsung 4K TV on the AMD board HDMI), the booth session's compositor (sway) never shows a new frame on the TV: the chips fold, the screen stays black or on a still image. A modeset to 1080p, a DPMS toggle, a fresh sway and `WLR_DRM_NO_ATOMIC=1` did not change that. The normal Ubuntu (GNOME) session drives the TV fine, so that box runs the demo there:
+
+* it logs straight into GNOME (`Session = ubuntu` in `/var/lib/AccountsService/users/$USER`; the booth original is kept in `/root/$USER.accsvc.booth`), and only `booth-engine` starts at login;
+* a GNOME autostart entry runs `demo/booth/ops/session/gnome-live.sh`, which keeps the app open in a Firefox kiosk with its own profile;
+* `booth-kiosk` and `booth-watchdog` stay off. The kiosk's Firefox never loaded the app under GNOME, and the watchdog cannot take screenshots there. So `boothctl health` reports NOT HEALTHY for the missing watchdog even when everything works.
+
+The autostart entry, `~/.config/autostart/booth-live.desktop`:
+
+    [Desktop Entry]
+    Type=Application
+    Name=booth-live
+    Exec=sh -c "sleep 3; gsettings set org.gnome.desktop.session idle-delay 0; gsettings set org.gnome.desktop.screensaver lock-enabled false; exec $HOME/tt-bio-booth/demo/booth/ops/session/gnome-live.sh"
+    X-GNOME-Autostart-enabled=true
+
+Also `systemctl --user disable tt-hello-world.service`, or the factory welcome video plays over the demo after every login. Do not switch such a box back to the booth session.
+
+To check that the screen really shows the app, run `ss -tan | grep 8626`: the page holds one ESTAB WebSocket to the engine. With none, nothing is live, whatever the process list says. On that box `boothctl status` covers the chips.
 
 To go back to a normal Ubuntu desktop after the event: `~/tt-bio-booth/demo/booth/ops/boothctl uninstall`, then reboot.
 
