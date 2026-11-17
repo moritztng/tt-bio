@@ -307,8 +307,13 @@ for j in A["jobs"]:
         # A card goes to the lowest prio digit waiting for it, as pool.sh does on a Galaxy: a waiter leaves a card to a live,
         # unstarted waiter of lower digit that wants it ($1.want) and is not held off by a booking ($1.w), and hands the
         # dispatch flock on. 10-20 qb2: prio-8 backfill placed first held both cards for hours over four prio-3 row jobs.
+        # A waiter refreshes $1.w only while it holds the dispatch flock, so a $1.w older than WFRESH_S is the trace of a
+        # booking that has since lapsed: 11-17 qb2, a release window set .w on six prio-3 grade waiters at 09:50Z, they went
+        # back to queue for the flock behind a prio-8 holder, and prio-8 backfill took every card that freed for 40+ min.
         w = (NODE + 'hi() { local f p b=${1##*/}; for f in "$J"/[0-9]-*.sh; do p=${f##*/}; [ "${p%%-*}" -lt "${b%%-*}" ] 2>/dev/null || continue; '
-             '[ -e "$f.start" ] || [ -e "$f.end" ] || [ -e "$f.w" ] && continue; grep -qw "$2" "$f.want" 2>/dev/null || continue; '
+             '[ -e "$f.start" ] || [ -e "$f.end" ] && continue; '
+             '[ $(($(date +%s) - $(stat -c %Y "$f.w" 2>/dev/null || echo 0))) -lt "${WFRESH_S:-120}" ] && continue; '
+             'grep -qw "$2" "$f.want" 2>/dev/null || continue; '
              'kill -0 "$(cat "$f.pid" 2>/dev/null)" 2>/dev/null && return 0; done; return 1; }; '
              'echo "$2" > "$1.want"; exec 8>"$(dirname "$1")/.dispatch"; flock -w 86400 8 || { echo flockbusy > "$1.end"; exit 3; }; '
              'J="$(dirname "$1")"; D=$((SECONDS + 86400)); while :; do W=; Y=; for c in $2; do [ -e ~/spd/locks/chip$c.BAD ] && continue; dead $c && continue; held $c && continue; '

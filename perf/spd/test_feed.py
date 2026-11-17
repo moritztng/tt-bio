@@ -360,6 +360,26 @@ def test_a_freed_bh_card_goes_to_the_lowest_prio_waiter_not_the_first_placed(tmp
     assert (j / "3-hi.sh.start").stat().st_mtime < (j / "8-lo.sh.start").stat().st_mtime
 
 
+def test_a_stale_booking_mark_does_not_hide_a_lower_digit_waiter(tmp_path):
+    # 11-17 qb2: six prio-3 grade waiters kept the .w a lapsed release window left at 09:50Z while they queued for the
+    # dispatch flock, and the prio-8 holder took every card that freed for 40+ min. The prio-3 waiter here is a live
+    # process that never gets the flock, as theirs did not.
+    j = tmp_path / "spd/feed/jobs"; j.mkdir(parents=True)
+    other = subprocess.Popen(["sleep", "30"])
+    try:
+        (j / "3-hi.sh").write_text(""); (j / "3-hi.sh.want").write_text("5\n"); (j / "3-hi.sh.pid").write_text(str(other.pid))
+        (j / "3-hi.sh.w").touch(); os.utime(j / "3-hi.sh.w", (time.time() - 600,) * 2)
+        gone = {}
+        def stop():
+            other.terminate(); other.wait(); gone["t"] = time.time()   # reaped: a zombie still answers kill -0
+        __import__("threading").Timer(1.5, stop).start()
+        sh = _place_bh(tmp_path, [5], "echo card $CHIP\n", name="8-lo.sh")
+        assert Path(f"{sh}.log").read_text() == "card 5\n"
+        assert Path(f"{sh}.start").stat().st_mtime >= gone["t"]   # the free card waited for the prio-3 waiter
+    finally:
+        other.kill()
+
+
 def test_a_waiter_held_off_by_a_booking_does_not_block_a_lower_prio_one(tmp_path):
     now = int(time.time())
     _book(tmp_path, (now + 2000, now + 5000, "cfd3-k4", "5"))
