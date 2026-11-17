@@ -5,6 +5,8 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+## [0.36.0] - 2026-11-17
+
 ### Changed
 - **OpenFold3 normal mode is about 3 % faster on Wormhole.** The diffusion transformer's attention runs its key
   dimension in one chunk and carries the pair-bias mask in bf16. 512 residues 15.4 -> 15.0 s per fold; accuracy
