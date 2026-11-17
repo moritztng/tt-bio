@@ -258,7 +258,7 @@ void kernel_main() {
 #else
         constexpr bool keep_x = false;
 #endif
-        auto pack_x = [](uint32_t i) { pack_tile<true>(0, cb_x, i); };
+        auto pack_x = [](uint32_t i, uint32_t d = 0) { pack_tile<true>(d, cb_x, i); };
 #ifdef WS_RMS
         ln_prologue::rms_norm_row<LnCbs, decltype(pack_x), keep_x>(cb_x, pack_x);
 #else
