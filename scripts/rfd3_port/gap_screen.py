@@ -71,7 +71,7 @@ FIXTURE = opts.get("fixture", "perf/dsfix/fixtures/rfd3_R4.json")
 BATCH = int(opts.get("batch", 1))
 FAST = opts.get("fast", "0") == "1"
 knobs = set(ARM.split("+")) - {"exact"}
-assert knobs <= {"lofi", "w8", "acco", "idxfree", "binsfree", "dkfree", "hsplit", "dprof"} | set(ENV_KNOBS), knobs
+assert knobs <= {"lofi", "w8", "acco", "idxfree", "binsfree", "dkfree", "mvfree", "hsplit", "dprof"} | set(ENV_KNOBS), knobs
 
 pick = [ttnn.MathFidelity.LoFi] if "lofi" in knobs else []
 if pick or "acco" in knobs:
@@ -158,6 +158,41 @@ if "dkfree" in knobs:
                 self.book[self.key] = out.clone()
             return out
     _dk.Pending = _Replay
+
+# mvfree: the same for Wormhole's split index (_MoverIndex: movers' rows on the card, static rows on the host tree), which
+# neither idxfree nor dkfree sees. A replayed step launches nothing and waits on nothing.
+if "mvfree" in knobs:
+    _mv_launch = M._MoverIndex.launch.__func__
+
+    class _MvHit:
+        def __init__(self, v):
+            self.v = v
+
+        def result(self):
+            IDX[0] += 1
+            return self.v.clone()
+
+    class _MvRec:
+        book = {}
+
+        def __init__(self, real, key):
+            self.real, self.key = real, key
+
+        def result(self):
+            IDX[1] += 1
+            out = self.real.result()
+            if _rec[0]:
+                self.book[self.key] = out.clone()
+            return out
+
+    def _mv_replay(cls, device, X_L, parts):
+        key = (hashlib.sha256(X_L.detach().float().contiguous().numpy().tobytes()).hexdigest(), tuple(X_L.shape), parts["k"])
+        hit = _MvRec.book.get(key)
+        if hit is not None and not _rec[0]:
+            return _MvHit(hit)
+        real = _mv_launch(cls, device, X_L, parts)
+        return None if real is None else _MvRec(real, key)
+    M._MoverIndex.launch = classmethod(_mv_replay)
 
 # hsplit: host seconds inside each region's call (enqueue only for device regions; no sync is added), so a region whose
 # enqueue time is close to its Tracy device time is dispatch-bound. to_torch is the blocking readback (waits on the card).
@@ -248,7 +283,7 @@ rec = {"arm": ARM, "steps": STEPS, "fixture": FIXTURE, "batch": BATCH, "fast": F
 s, d, _ = fold("warm", SEEDS[0])
 rec["warm_s"] = s
 print("[screen %s] warmup %.3f s %s  w8 %s" % (ARM, s, d, W8), flush=True)
-if knobs & {"idxfree", "binsfree", "dkfree"}:
+if knobs & {"idxfree", "binsfree", "dkfree", "mvfree"}:
     _rec[0] = False
     rec["idx_warm_built"] = IDX[1]
     IDX[:] = [0, 0]
