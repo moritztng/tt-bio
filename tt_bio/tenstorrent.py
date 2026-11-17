@@ -11939,9 +11939,12 @@ class TriangleMultiplication(Module):
                     if into:
                         # Each chunk lands in its own channel slice of one output tensor, so the
                         # concat below never runs. Bit-exact: the same bytes in the same order.
-                        # `pair_x8`: a bfp8 chunk moves into a bf16 output, or a bfp8 one under `pair_x8t`.
+                        # `pair_x8`: a bfp8 chunk moves into a bf16 output, or a bfp8 one under `pair_x8t` where a T2
+                        # form reads the output projection's key. Nothing else reads a bfp8 x: Protenix-v2's template
+                        # trimul (c 64, key 2x2) took the unfused tail on it and clashed in L1 (spd-fix-bhpair).
                         out_dt = x_chunk.dtype
-                        if x_chunk.dtype == ttnn.bfloat8_b and not lever("pair_x8t"):
+                        if x_chunk.dtype == ttnn.bfloat8_b and not (lever("pair_x8t") and _trimul_tail.t2_key(
+                                *(_trimul_tail._tiles(int(d)) for d in self.out_p_weight.shape[-2:]), True)):
                             out_dt = ttnn.bfloat16
                         if x_out is None and x_out_pre is not None:
                             if x_out_pre.dtype == out_dt:
@@ -12303,6 +12306,10 @@ class TriangleMultiplication(Module):
                     ttnn.deallocate(g_out_fused)
                 return fused
         t2m_flush()
+        if x.dtype == ttnn.bfloat8_b:
+            # A `pair_x8t` x whose T2 declined at run time: the unfused tail below is planned for bf16.
+            x8, x = x, ttnn.typecast(x, ttnn.bfloat16)
+            ttnn.deallocate(x8)
         try:
             xn = x if x_normed else ttnn.layer_norm(
                 x,

@@ -1101,6 +1101,13 @@ def t2_eligible(x, ln_w, ln_b, wp, g, resid, wg=None, copy=None, stream16=False)
                          ln_w, ln_b, wp, g, resid, wg, res32=copy is not None or stream16)
 
 
+def t2_key(kt, nt, res32=False):
+    """Whether some T2 form serves the (kt, nt) key; `res32` admits the float32-stream form's keys."""
+    from .tenstorrent import lever
+    return ((kt, nt) in T2_KEYS or (t2_wide(kt, nt) and lever("trimul_t2w"))
+            or ((kt, nt) in T2_RES32_KEYS and res32))
+
+
 def _t2_shape_why(xs, xps, ln_w, ln_b, wp, g, resid, wg=None, res32=False):
     """T2's checks on everything but x's own dtype / memory: `xs` / `xps` are x's logical and padded
     shape in the [.., S, S, K] layout T2 reads (T2CM passes its channel-major x's shape permuted)."""
@@ -1108,9 +1115,7 @@ def _t2_shape_why(xs, xps, ln_w, ln_b, wp, g, resid, wg=None, res32=False):
         return "weight_shape"
     K, N = int(wp.shape[-2]), int(wp.shape[-1])
     kt, nt = _tiles(K), _tiles(N)
-    from .tenstorrent import lever
-    if ((kt, nt) not in T2_KEYS and not (t2_wide(kt, nt) and lever("trimul_t2w"))
-            and not ((kt, nt) in T2_RES32_KEYS and res32) or K % TILE or N % TILE):
+    if not t2_key(kt, nt, res32) or K % TILE or N % TILE:
         return f"key={kt}x{nt}"
     if xs[-1] != K or xps[-1] != K:
         return "act_k"
