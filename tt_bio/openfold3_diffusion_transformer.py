@@ -263,18 +263,12 @@ class _DiTBlock(Module):
             ttnn.deallocate(t)
         return out
 
-    def _fused_mask(self, z, mask_bias):
-        """`_sdpa32_mask` at the format `dit_mask16` / `dit_mask8` name (`sdpa32_mask_lowp`): the attention reads the
-        [1, 16, N, N] mask in every block of every step (16 MB fp32 at 512 tokens), the rollout builds it once per
-        block. On a p150a the bf16 A/B was noise (< 0.1 s), so Blackhole keeps fp32 and its digest."""
-        return _T.sdpa32_mask_lowp(self._sdpa32_mask(z, mask_bias))
-
     def _call_fused(self, a, s, z, mask_bias, tok_mask_col, cache, s_hat, tok_ones, hoist=()):
         """`__call__` under dit_fuse (`_sdpa32`): the same block in 23 ttnn calls, 17 with `hoist`."""
         l1 = self.l1(a)
         lin = lambda *a, **k: self._lin(*a, **l1, **k)  # noqa: E731
         a_ln = self._fuse_adaln(a, s_hat, 0, hoist)
-        bias = _cached(cache, (id(self), "pair_bias32"), lambda: self._fused_mask(z, mask_bias))
+        bias = _cached(cache, (id(self), "pair_bias32"), lambda: self._sdpa32_mask(z, mask_bias))
         qkv = lin(a_ln, self.qkv_w, bias=self.qkv_b)
         qkv = ttnn.unsqueeze(qkv, 1)
         o = _T._sdpa32_fused(qkv, bias, HEAD_DIM ** -0.5, N_HEADS, out_dtype=self._act_dtype,
@@ -434,14 +428,17 @@ class _DiTBlock(Module):
         return o
 
     def _sdpa32_mask(self, z, mask_bias):
-        """The pair bias as `_sdpa32`'s fp32 mask. `_sdpa32` scales mask and scores together, so
-        the bias is divided by the scale; the token axis is padded to `sdpa32_rows`."""
+        """The pair bias as `_sdpa32`'s mask, fused block or plain. `_sdpa32` scales mask and scores together, so
+        the bias is divided by the scale; the token axis is padded to `sdpa32_rows`. fp32 unless `dit_mask16` /
+        `dit_mask8` name a lower format (`sdpa32_mask_lowp`): the attention reads the [1, 16, N, N] mask in every
+        block of every step (16 MB fp32 at 512 tokens), the rollout builds it once per block. On a p150a the bf16
+        A/B was noise (< 0.1 s), so Blackhole keeps fp32 and its digest."""
         zb = self._pair_bias(z, mask_bias)
         b = ttnn.multiply(zb, HEAD_DIM ** 0.5, dtype=ttnn.float32)
         ttnn.deallocate(zb)
         m = _T.sdpa32_mask(b)
         ttnn.deallocate(b)
-        return m
+        return _T.sdpa32_mask_lowp(m)
 
     def _attend32(self, q, k, v, mask, cache):
         """softmax(q k^T * scale + bias) v as one `_sdpa32` program; the stack padded the token
