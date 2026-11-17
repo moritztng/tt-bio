@@ -116,6 +116,20 @@ or reboot. Try this once after installing, so you know it works before you need 
 | After the reboot the screen shows the normal Ubuntu login, not the demo | The install did not finish: log in, run `~/tt-bio-booth/demo/booth/install.py`, and reboot. |
 | The demo runs but `boothctl health` says NOT HEALTHY for more than 15 minutes | Reboot once. If it is still not healthy, play the fallback video and call Moritz. |
 
+| The chips fold (`boothctl status` shows them busy) but the screen stays on the poster or a still image | The booth session's compositor cannot drive this screen. That was the case on the SC26 booth box with a Samsung 4K TV on the board's HDMI. Switch to the GNOME display, below. |
+
+### GNOME display (the SC26 booth box)
+
+On the SC26 booth box (Samsung 4K TV on the AMD board HDMI), the booth session's compositor (sway) never shows a new frame on the TV, while GNOME does. That box therefore logs straight into the normal Ubuntu (GNOME) session, and the same booth units run inside it. The browser restarts itself as usual, and the watchdog checks the page and the frame rate. It cannot take screenshots under GNOME, so `boothctl health` reports the page frame rate instead. Do not switch that box back to the booth session. To set up another box this way:
+
+    sudo cp /var/lib/AccountsService/users/$USER /root/$USER.accsvc.booth
+    sudo sed -i 's/^Session *=.*/Session = ubuntu/' /var/lib/AccountsService/users/$USER
+    gsettings set org.gnome.desktop.session idle-delay 0
+    gsettings set org.gnome.desktop.screensaver lock-enabled false
+    sudo systemctl restart gdm
+
+After the login, `boothctl start`. The fallback video (`boothctl video`) needs the booth session, so on a GNOME box play `~/booth-video/booth-loop.mp4` in any player in full screen instead.
+
 To go back to a normal Ubuntu desktop after the event: `~/tt-bio-booth/demo/booth/ops/boothctl uninstall`, then reboot.
 
 ## Who to call
