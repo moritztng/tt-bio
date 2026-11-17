@@ -14,10 +14,20 @@ import argparse, json, statistics, sys, time, traceback
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # perf/ for clocksample
 ap = argparse.ArgumentParser()
 ap.add_argument("--ns", default="64,128,512")
 ap.add_argument("--reps", type=int, default=10)
 ap.add_argument("--c", type=int, default=128)
+ap.add_argument("--hidden", type=int, default=0,
+                help="x's channels (the LN width and Wp's K) when it is not --c: RFD4's tail is 256 -> 384")
+ap.add_argument("--stream16", action="store_true",
+                help="RFD4's form: z is the trunk's pair stream, written in place (fused_tail_ln(stream16=True))")
+ap.add_argument("--z8", action="store_true", help="with --stream16: z as bfp8_b (lever pair_bfp8z / mask_at_mix_z8)")
+ap.add_argument("--hifi2", action="store_true", help="the p GEMM at HiFi2 at its key (lever trimul_tail_hifi2)")
+ap.add_argument("--ab", default="",
+                help="comma list NAME=VALUE of trimul_tail knobs (T2_ZW, T2_GROW, T2_S1K, T2_SBIG, T2_SSTR, T2_MCAST=off,"
+                     " BLOCK=M:K:N:sh:sw): after the default T2, each alone, its bit-equality to the default and its time")
 ap.add_argument("--gate", action="store_true",
                 help="GATE form: g is the trimul's input norm and T2 computes sigmoid(g @ wg) itself")
 ap.add_argument("--block", default=None,
@@ -36,6 +46,7 @@ ensure_p300_mesh_descriptor()
 import torch, ttnn
 from tt_bio import tenstorrent as T, trimul_tail as TT, mm_generic as MG
 from tt_bio.af2 import compute_kernel_config
+import clocksample
 
 dev = T.get_device()
 kcfg = T.trunk_compute_kernel_config(compute_kernel_config())
@@ -43,14 +54,17 @@ ckc = MG.ckc_args(kcfg)
 grid = tuple(T.COMPUTE_GRID_MAIN)
 TT.set_t2(True)
 C = A.c
-TT.T2_KEYS.add((C // 32, C // 32))   # measurement only: the model path keeps its own keys
+K = A.hidden or C
+KEY = (K // 32, C // 32)
+TT.T2_KEYS.add(KEY)   # measurement only: the model path keeps its own keys
+TT.T2_HIFI2 = A.hifi2
 if A.block:
-    TT.T2_BLOCK[(C // 32, C // 32)] = tuple(int(v) for v in A.block.split(","))
+    TT.T2_BLOCK[KEY] = tuple(int(v) for v in A.block.split(","))
 gen = torch.Generator().manual_seed(0)
 up = lambda t: ttnn.from_torch(t.to(torch.bfloat16), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT,
                                device=dev, memory_config=ttnn.DRAM_MEMORY_CONFIG)
 print(json.dumps({"grid": grid, "ckc": [str(c) for c in ckc], "c": C, "gate": A.gate, "gb8": A.gb8,
-                  "block": TT._t2_block(C // 32, C // 32)}), flush=True)
+                  "k": K, "stream16": A.stream16, "z8": A.z8, "hifi2": A.hifi2, "block": TT._t2_block(*KEY)}), flush=True)
 
 
 def rel(a, r):
@@ -72,11 +86,12 @@ def timed(f, reps):
 bad = 0
 for n in [int(s) for s in A.ns.split(",") if s]:
     rec = {"n": n}
+    clk = clocksample.during(period=0.5).__enter__()   # AICLK during this N's timed calls
     # Magnitudes like the tail's: x_out O(1) with a per-row offset (LN must remove it), z O(1).
-    h = {"x": (torch.randn(1, n, n, C, generator=gen) * 2 + torch.randn(1, n, n, 1, generator=gen)),
+    h = {"x": (torch.randn(1, n, n, K, generator=gen) * 2 + torch.randn(1, n, n, 1, generator=gen)),
          "g": torch.randn(1, n, n, C, generator=gen), "z": torch.randn(1, n, n, C, generator=gen),
-         "w": torch.randn(C, C, generator=gen) / C ** 0.5,
-         "gamma": 1 + 0.1 * torch.randn(C, generator=gen), "beta": 0.1 * torch.randn(C, generator=gen)}
+         "w": torch.randn(K, C, generator=gen) / K ** 0.5,
+         "gamma": 1 + 0.1 * torch.randn(K, generator=gen), "beta": 0.1 * torch.randn(K, generator=gen)}
     if A.gate:
         h["wg"] = torch.randn(C, C, generator=gen) / C ** 0.5
     h = {k: v.to(torch.bfloat16) for k, v in h.items()}
@@ -106,7 +121,7 @@ for n in [int(s) for s in A.ns.split(",") if s]:
         return z
 
     try:
-        z = up(h["z"])
+        z = upz()
         out = ttnn.to_torch(incumbent(z)).reshape(ref.shape)
         rec["inc_rel_rms_f64"], rec["inc_max_abs"] = rel(out, ref)
         rec["inc_ms"] = timed(lambda: incumbent(z), A.reps)
@@ -114,10 +129,18 @@ for n in [int(s) for s in A.ns.split(",") if s]:
     except Exception as e:                                                    # noqa: BLE001
         rec["inc_err"] = str(e).splitlines()[0][:300]
 
-    try:
+    def upz():
         z = up(h["z"])
-        rec["t2_why"] = TT.t2_eligible(d["x"], d["gamma"], d["beta"], d["w"], d["g"], z, wg)
-        y = TT.fused_tail_ln(d["x"], d["gamma"], d["beta"], d["w"], d["g"], z, ckc, grid, wg=wg)
+        return ttnn.typecast(z, ttnn.bfloat8_b) if A.z8 else z
+
+    def t2(z):
+        return TT.fused_tail_ln(d["x"], d["gamma"], d["beta"], d["w"], d["g"], z, ckc, grid, wg=wg,
+                                stream16=A.stream16)
+
+    try:
+        z = upz()
+        rec["t2_why"] = TT.t2_eligible(d["x"], d["gamma"], d["beta"], d["w"], d["g"], z, wg, stream16=A.stream16)
+        y = t2(z)
         if y is None:
             rec["t2_err"] = f"declined: {rec['t2_why']}"
         else:
@@ -125,16 +148,41 @@ for n in [int(s) for s in A.ns.split(",") if s]:
             out = ttnn.to_torch(y).reshape(ref.shape)
             rec["t2_finite"] = bool(torch.isfinite(out).all())
             rec["t2_rel_rms_f64"], rec["t2_max_abs"] = rel(out, ref)
-            rec["t2_ms"] = timed(lambda: TT.fused_tail_ln(d["x"], d["gamma"], d["beta"], d["w"],
-                                                          d["g"], z, ckc, grid, wg=wg), A.reps)
+            rec["t2_ms"] = timed(lambda: t2(z), A.reps)
             rec["t2_GBps"] = round(4 * P / rec["t2_ms"] / 1e6, 1)
+            rec["t2_TFps"] = round(2 * n * n * K * C / rec["t2_ms"] / 1e9, 2)
             if "inc_ms" in rec:
                 rec["speedup"] = round(rec["inc_ms"] / rec["t2_ms"], 3)
             for m in [int(v) for v in A.abl.split(",") if v]:
                 TT.T2_ABL = m
-                rec[f"t2_ms_abl{m}"] = timed(lambda: TT.fused_tail_ln(
-                    d["x"], d["gamma"], d["beta"], d["w"], d["g"], z, ckc, grid, wg=wg), A.reps)
+                rec[f"t2_ms_abl{m}"] = timed(lambda: t2(z), A.reps)
             TT.T2_ABL = 0
+            if A.ab:
+                ref_out = ttnn.to_torch(t2(upz()))
+                for kv in A.ab.split(","):
+                    k, v = kv.split("=")
+                    if k == "BLOCK":
+                        name, prev, val = "T2_BLOCK", dict(TT.T2_BLOCK), {**TT.T2_BLOCK, KEY: tuple(int(t) for t in v.split(":"))}
+                    elif k == "T2_MCAST":
+                        name, prev, val = k, set(TT.T2_MCAST), set(TT.T2_MCAST) - {KEY} if v == "off" else set(TT.T2_MCAST) | {KEY}
+                    else:
+                        name, prev, val = k, getattr(TT, k), type(getattr(TT, k))(int(v))
+                    setattr(TT, name, val)
+                    try:
+                        zz = upz()
+                        o = t2(zz)
+                        if o is None:
+                            rec[f"ab_{kv}"] = "declined"
+                        else:
+                            same = bool(torch.equal(ttnn.to_torch(o), ref_out))
+                            ttnn.deallocate(zz)
+                            zz = upz()
+                            rec[f"ab_{kv}"] = {"ms": timed(lambda: t2(zz), A.reps), "bitexact": same}
+                        ttnn.deallocate(zz)
+                    except Exception as e:                                    # noqa: BLE001
+                        rec[f"ab_{kv}"] = "err: " + str(e).splitlines()[0][:200]
+                    finally:
+                        setattr(TT, name, prev)
         ttnn.deallocate(z)
     except Exception as e:                                                    # noqa: BLE001
         rec["t2_err"] = str(e).splitlines()[0][:300]
@@ -160,6 +208,8 @@ for n in [int(s) for s in A.ns.split(",") if s]:
         finally:
             TT.T2_FOLD = False
         bad += "fold_err" in rec
+    clk.__exit__(None, None, None)
+    rec["aiclk"] = clk.summary()
     rec["t2_stats"] = list(TT.T2_STATS)
     bad += "t2_err" in rec or "inc_err" in rec
     print(json.dumps(rec), flush=True)
