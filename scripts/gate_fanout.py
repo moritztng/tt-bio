@@ -1531,6 +1531,38 @@ class Gate:
         self.inflight: dict = {}   # queue -> legs started and not yet recorded or put back
         self.results: list = []
         self.mu = threading.Lock()
+        self.changed = threading.Condition(self.mu)  # a worker left, so a benched chip re-counts
+        self.alive = len(workers)  # workers not yet returned
+        self.benched = 0           # of those, waiting for their chip's mark to clear
+
+    def _bench(self, host: Host, card, mark: str) -> bool:
+        """A chip marked bad sits out until its mark clears, while any other worker still runs; False
+        once every live worker is benched, so a gate with no chip left still finishes. Leaving for
+        good at the first sight of a mark cost a release on 11-17: qb2:2 and :3 were cleared at
+        14:58Z, the gate ran WH legs until 20:23Z, and all 158 BH legs ended UNRUN."""
+        print(f"benched {host.name}:{card}, its chip is marked bad: {mark}; it rejoins when cleared", flush=True)
+        with self.mu:
+            self.benched += 1
+        try:
+            while True:
+                with self.mu:
+                    if self.benched >= self.alive:
+                        return False
+                    self.changed.wait(POOL_POLL_S)
+                if not host.marked_bad(card):   # an ssh: never under the lock
+                    print(f"{host.name}:{card} rejoins, its mark cleared", flush=True)
+                    return True
+        finally:
+            with self.mu:
+                self.benched -= 1
+
+    def _worker(self, host: Host, card) -> None:
+        try:
+            self.worker(host, card)
+        finally:
+            with self.mu:
+                self.alive -= 1
+                self.changed.notify_all()
 
     @staticmethod
     def _queue(host: Host, card) -> str:
@@ -1638,7 +1670,8 @@ class Gate:
         queue = self._queue(host, card)
         while True:
             if card not in (None, POOL) and (mark := host.marked_bad(card)):
-                print(f"skipped {host.name}:{card} for this run, its chip is marked bad: {mark}", flush=True)
+                if self._bench(host, card, mark):
+                    continue
                 return
             with host.lock:
                 while host.timed_running:
@@ -1712,7 +1745,7 @@ class Gate:
                 self.inflight[queue] -= 1
 
     def run(self) -> list:
-        ts = [threading.Thread(target=self.worker, args=w, daemon=True) for w in self.workers]
+        ts = [threading.Thread(target=self._worker, args=w, daemon=True) for w in self.workers]
         for t in ts:
             t.start()
         for t in ts:

@@ -1795,3 +1795,26 @@ def test_a_pool_job_declares_its_expected_wall_as_its_cap_so_a_reserved_lend_can
     assert "timeout" in job and f"\n# cap: {gf.BUDGET['ladder']}\n" in job   # unknown wall: no reserve fits it
     leg.known_s = 3900
     assert "\n# cap: 3900\n" in gf.pool_job(h, leg, str(tmp_path / "r"), "x")
+
+
+def test_a_chip_whose_mark_clears_mid_gate_rejoins_it(tmp_path, monkeypatch):
+    """11-17: qb2:2 and :3 were cleared at 14:58Z, the gate ran WH legs until 20:23Z, and every BH leg
+    ended UNRUN because a worker that saw a mark once left for good. A benched chip waits while any
+    other worker runs, and rejoins when its mark goes."""
+    monkeypatch.setattr(gf, "POOL_POLL_S", 0.05)
+    (tmp_path / "locks").mkdir()
+    mark = tmp_path / "locks" / "chip0.BAD"
+    mark.touch()
+    h = _host("qb2", "bh", tmp_path)
+    legs = [lg for lg in _legs() if lg.card]
+    ran = []
+
+    def execute(host, card, leg):
+        ran.append(card)
+        if card == 1:                  # the other chip holds the gate open, then the mark clears
+            mark.unlink(missing_ok=True)
+            time.sleep(0.5)
+        return {"leg": leg.name, "arch": "bh", "verdict": "PASS", "worker": f"qb2:{card}"}
+
+    res = gf.Gate({"bh": list(legs)}, [(h, 0), (h, 1)], set(), execute, tmp_path).run()
+    assert 0 in ran and len(res) == len(legs)
