@@ -2244,10 +2244,12 @@ def _dense_attention_mask(indices):
 def _dit_mask_device(f, X_ca, n_keys, n_seq_neighbours, device, dtype):
     """_dense_attention_mask(_create_attention_indices(...)) on the card, as a [B, 1, I, I] TILE tensor: tt_bio.dknn
     writes each design's rows and a scatter of zeros into a -1e4 template turns them into the mask. None where the host
-    builds it (the multi-chain index, or more tokens than one core's L1 holds)."""
+    builds it (a batch of designs, the multi-chain index, or more tokens than one core's L1 holds)."""
     from .. import dknn
     X = X_ca if X_ca.ndim == 3 else X_ca.unsqueeze(0)
     B, I = int(X.shape[0]), int(X.shape[1])
+    if B != 1:   # two designs' masks did not come back on BH (test hung at batch 2); a batch keeps the host mask
+        return None
     parts = _attention_index_prefix(f, torch.arange(I), n_keys, n_seq_neighbours)
     if "single" not in parts or not dknn.fits(I, parts["k"]):
         return None
@@ -2260,17 +2262,13 @@ def _dit_mask_device(f, X_ca, n_keys, n_seq_neighbours, device, dtype):
                             layout=ttnn.ROW_MAJOR_LAYOUT, device=device)
             for shape, v in (((1, 1, I, I), -1e4), ((1, 1, I, k), 0.0)))
     full, zeros = const
-    out = []
-    for x in X:
-        rows = dknn.neighbours(device, x.detach().float().cpu().numpy(), mask, k)
-        idx = rows if int(rows.shape[1]) == k else ttnn.slice(rows, [0, 0], [I, k])
-        idx = ttnn.typecast(ttnn.reshape(idx, (1, 1, I, k)), ttnn.uint32)
-        m = ttnn.scatter(full, 3, idx, zeros)
-        ttnn.deallocate(idx)
-        if idx is not rows:
-            ttnn.deallocate(rows)
-        out.append(m)
-    m = out[0] if B == 1 else ttnn.concat(out, 0)
+    rows = dknn.neighbours(device, X[0].detach().float().cpu().numpy(), mask, k)
+    idx = rows if int(rows.shape[1]) == k else ttnn.slice(rows, [0, 0], [I, k])
+    idx = ttnn.typecast(ttnn.reshape(idx, (1, 1, I, k)), ttnn.uint32)
+    m = ttnn.scatter(full, 3, idx, zeros)
+    ttnn.deallocate(idx)
+    if idx is not rows:
+        ttnn.deallocate(rows)
     return ttnn.to_layout(m, ttnn.TILE_LAYOUT)
 
 

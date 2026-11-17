@@ -20,6 +20,9 @@ def test_device_mask_equals_host_mask(batch, sigma):
     walk = np.cumsum(rng.normal(size=(I, 3)) * 3.8, 0)
     x = torch.from_numpy(np.stack([walk + rng.normal(size=(I, 3)) * sigma for _ in range(batch)]).astype(np.float32))
     f = {"asym_id": torch.zeros(I, dtype=torch.long), "unindexing_pair_mask": torch.zeros(I, I, dtype=torch.bool)}
+    if batch > 1:   # a batch keeps the host mask
+        assert M._dit_mask_device(f, x, K, SEQ, dev, ttnn.bfloat16) is None
+        return
     host = M._tt(M._dense_attention_mask(M._create_attention_indices(f, x, torch.arange(I), K, SEQ)),
                  dev, ttnn.bfloat16)
     got = M._dit_mask_device(f, x, K, SEQ, dev, ttnn.bfloat16)
