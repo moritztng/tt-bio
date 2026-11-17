@@ -1717,6 +1717,24 @@ T1_NB = {(12, 16, 12): 8}
 # so a, b and g_out are bit-identical. At OpenDDE's c_z 384 (3 launches) the layer_norm was 4.67 of T1's 16.18 ms
 # at 512 on a Wormhole Galaxy chip, 1000 MHz (t1abl, ABL 1). A/B knob; True is production.
 T1_LN1 = True
+# LayerNorm finish fused in DST (ln_prologue.hpp LN_FUSE): * rstd, * gamma and + beta in one pass, gamma and beta read
+# as whole tiles (`_rows32`), so two fp32 Kt-tile round trips through L1 per row tile go. Not bit-identical (DST
+# feeds the multiply instead of an fp32 CB), same operations in the same order. Per plan key like T1_NB; an int
+# (bench knob) applies to every key. On Wormhole T1's layer_norm is 0.62 of 3.12 ms a call at RFD4's 352-token cell
+# with matmuls and data movement hidden under it (t1wh, ABL 1 / 6 / 112, 1000 MHz).
+T1_LNF = {}
+_ROWS32: dict = {}
+
+
+def _rows32(v):
+    """`v` (a norm parameter: bf16, tiled, K values in row 0) with every one of its tile's 32 rows the [K] vector,
+    made once per tensor. The entry holds `v`, so the id it is keyed on stays its."""
+    hit = _ROWS32.get(id(v))
+    if hit is None:
+        t = ttnn.to_torch(v).reshape(1, -1).expand(TILE, -1).contiguous()
+        hit = _ROWS32[id(v)] = (v, ttnn.from_torch(t, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=v.device(),
+                                                   memory_config=v.memory_config()))
+    return hit[1]
 # Row tiles per work item: 32 = one unit (b, xt, yt) per item; 16 = each unit as two items, rows 0-15 and
 # 16-31, which are faces 0-1 and 2-3 of every [B, C, S, S] tile the writer gathers, so the two halves
 # write disjoint bytes. Every row is computed exactly as in the whole unit (same LN, same K order).
@@ -1989,12 +2007,12 @@ def t1_w8(wpT, wgT, wgo):
 
 
 def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, il, nb, b8=False, group=0, ln1=0, xn=None,
-              split=False, mcast=False, fg=False):
+              split=False, mcast=False, fg=False, lnf=False):
     """The program of channel group `group` of the T1_PLANS entry for this call, `il` row tiles per item.
     `ln1` (T1_LN1): 1 the launch also writes xn into `xn`, 2 it reads xn as `x` and runs no layer_norm.
     `split` (T1_SPLIT): the reader gathers the even channel tiles. `mcast` (T1_MCAST): core (0, 0) reads the
     weights and multicasts them; the entry's "mc" common args and "sems" go with every launch. `fg` (t1_fgate):
-    the gate is fused in DST."""
+    the gate is fused in DST. `lnf` (T1_LNF): the layer_norm finishes in DST; ln_w / ln_b are `_rows32`'s."""
     import struct
     shp = [int(d) for d in x.shape]
     B = shp[0] if len(shp) == 4 else 1
@@ -2048,7 +2066,7 @@ def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, il, nb, 
         kernel_source=str(d / "compute.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[kt, qn, T1_SBW, int(mask is not None), _sigpoly(), RNE, ng, q0, ct2, il],
         defines=abl + xout + pre + sp + ([("T1FGATE", "1")] if fg else [])
-        + ([("LN_BLK", str(T1_LN_BLK))] if T1_LN_BLK != 1 else []), runtime_args=cp,
+        + ([("LN_BLK", str(T1_LN_BLK))] if T1_LN_BLK != 1 else []) + ([("LN_FUSE", "1")] if lnf else []), runtime_args=cp,
         # fp32 DEST always, as T2: the LayerNorm statistics live in fp32 CBs. The fidelity stays
         # the caller's, so the projections run as the incumbent in-projection runs them.
         config=ttnn.ComputeConfigDescriptor(
@@ -2107,13 +2125,17 @@ def fused_in_ln(x, ln_w, ln_b, wpT, wgT, wgo, ckc, grid, mask=None, eps=1e-5, b8
            tuple(str(c) for c in ckc), mask is not None, float(eps), _sigpoly(), RNE, nb,
            T1_RB, T1_SBW, T1_ABL, _t1_psig(), b8, il, w8, split, mcast, g8, fg, T1_FGD if fg else 0, T1_ZPRE, T1_ZIL,
            T1_LN_BLK, T1_WFL)
+    lnf = bool(_t1_knob(T1_LNF, pkey, 0))
+    if lnf:
+        ln_w, ln_b = _rows32(ln_w), _rows32(ln_b)
+    key += (lnf,)
     xn = alloc(shp) if T1_LN1 and groups > 1 else None
     for g in range(groups):
         ln1 = 0 if xn is None else 1 if g == 0 else 2
         entry = _CACHE.get(key + (g, ln1))
         if entry is None:
             entry = _CACHE[key + (g, ln1)] = _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask,
-                                                       eps, il, nb, b8, g, ln1, xn, split, mcast, fg)
+                                                       eps, il, nb, b8, g, ln1, xn, split, mcast, fg, lnf)
         reader, writer, _ = entry["kernels"]
         src = xn if ln1 == 2 else x
         reader.common_runtime_args = [src.buffer_address(), wpT.buffer_address(), wgT.buffer_address(),

@@ -35,6 +35,13 @@
 #ifndef LN_BLK
 #define LN_BLK 1
 #endif
+// LN_FUSE: layer_norm_row's last three Kt-tile passes (* rstd, * gamma, + beta) run as one: xc * rstd lands in DST and
+// gamma and beta are applied there by dest reuse, four tiles per acquire, so the two fp32 intermediates are never
+// packed and unpacked. Needs gamma and beta as whole tiles (every row the [K] vector; the host replicates them) and
+// a pack hook taking (channel tile, DST index). Same operations in the same order, only the fp32 round trips go.
+#ifndef LN_FUSE
+#define LN_FUSE 0
+#endif
 
 namespace ln_prologue {
 
@@ -126,6 +133,30 @@ ALWI void layer_norm_row(uint32_t out, Pack pack) {
         row_mean<C>(C::tmp, C::var, true);                // var (biased, as layer_norm)
     }
     rstd<C>();                                            // rstd = rsqrt(var + eps)
+    if constexpr (LN_FUSE && !(LN_ABL & 1)) {
+        pack_reconfig_data_format(out);
+        for (uint32_t i0 = 0; i0 < C::Kt; i0 += 4) {
+            const uint32_t n = C::Kt - i0 < 4 ? C::Kt - i0 : 4;
+            reconfig_data_format(C::xc, C::rstd);
+            mul_bcast_cols_init_short(C::xc, C::rstd);
+            tile_regs_acquire();
+            for (uint32_t j = 0; j < n; ++j) mul_tiles_bcast_cols(C::xc, C::rstd, i0 + j, 0, j);   // xc * rstd
+            reconfig_data_format_srca(C::xc, C::gamma);
+            binary_dest_reuse_tiles_init<ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCB>(C::gamma);
+            for (uint32_t j = 0; j < n; ++j)                                                          // * gamma
+                binary_dest_reuse_tiles<ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCB>(C::gamma, i0 + j, j);
+            binary_dest_reuse_tiles_init<ELWADD, EltwiseBinaryReuseDestType::DEST_TO_SRCB>(C::beta);
+            for (uint32_t j = 0; j < n; ++j)                                                          // + beta
+                binary_dest_reuse_tiles<ELWADD, EltwiseBinaryReuseDestType::DEST_TO_SRCB>(C::beta, i0 + j, j);
+            tile_regs_commit();
+            tile_regs_wait();
+            for (uint32_t j = 0; j < n; ++j) pack(i0 + j, j);
+            tile_regs_release();
+        }
+        cb_pop_front(C::xc, C::Kt);
+        cb_pop_front(C::rstd, 1);
+        return;
+    }
     stage<C, MUL_COL, LN_BLK>(C::xc, C::rstd, C::tmp);            // norm = xc * rstd
     cb_pop_front(C::xc, C::Kt);
     cb_pop_front(C::rstd, 1);

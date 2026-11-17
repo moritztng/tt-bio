@@ -55,7 +55,7 @@ TT.set_t1(True)
 TT.T1_C256 = 1
 for kv in [v for v in A.set.split(",") if v]:
     k, v = kv.split("=")
-    assert k in ("T1_RB", "T1_SBW", "GIN_MOVE_NB", "T1_NB", "T1_B8", "T1_ROWS", "SIGPOLY", "T1_PSIG", "T1_SPLIT", "T1_MCAST", "T1_G8", "T1_FG", "T1_FGD", "T1_ZPRE", "T1_ZIL"), k
+    assert k in ("T1_RB", "T1_SBW", "GIN_MOVE_NB", "T1_NB", "T1_B8", "T1_ROWS", "SIGPOLY", "T1_PSIG", "T1_SPLIT", "T1_MCAST", "T1_G8", "T1_FG", "T1_FGD", "T1_ZPRE", "T1_ZIL", "T1_LNF"), k
     setattr(TT, k, int(v))
 C, h = A.c, A.hidden
 gen = torch.Generator().manual_seed(0)
@@ -291,6 +291,8 @@ for n in [int(s) for s in A.ns.split(",") if s]:
                         continue
                     ttnn.synchronize_device(dev)
                     rec[f"ab_{k}={v}_equal"] = [bool(torch.equal(ttnn.to_torch(o), t)) for o, t in zip(outs, base)]
+                    for kk, o in zip("abg", outs):
+                        rec[f"ab_{k}={v}_{kk}_rel_rms_f64"] = rel(ttnn.to_torch(o).reshape(ref[kk].shape), ref[kk])[0]
                     free(outs)
                     rec[f"ab_{k}={v}_ms"] = timed(lambda: free(f()), A.reps)
                     setattr(TT, k, prev)

@@ -125,13 +125,13 @@ ALWI void layer_norm_row(uint32_t il) {
     }
     if constexpr (T1XOUT) {
         cb_reserve_back(xo_cb, Kt);
-        ln_prologue::layer_norm_row<LnCbs>(xn_cb, [il](uint32_t i) {
-            pack_tile<true>(0, xn_cb, i * IL + il);
-            pack_tile<true>(0, xo_cb, i);
+        ln_prologue::layer_norm_row<LnCbs>(xn_cb, [il](uint32_t i, uint32_t d = 0) {
+            pack_tile<true>(d, xn_cb, i * IL + il);
+            pack_tile<true>(d, xo_cb, i);
         });
         cb_push_back(xo_cb, Kt);
     } else {
-        ln_prologue::layer_norm_row<LnCbs>(xn_cb, [il](uint32_t i) { pack_tile<true>(0, xn_cb, i * IL + il); });
+        ln_prologue::layer_norm_row<LnCbs>(xn_cb, [il](uint32_t i, uint32_t d = 0) { pack_tile<true>(d, xn_cb, i * IL + il); });
     }
 }
 
