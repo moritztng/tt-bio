@@ -210,8 +210,10 @@ _RESIDENT_STEP = env_flag("RFD3_RESIDENT_STEP", True)
 _DIT_PAD_ONCE = env_flag("RFD3_DIT_PAD_ONCE", True)
 # The DiT's q, k and v come out of one [768, 3 * 1024] projection and one program (qk_rope_heads.rms_heads_packed) does
 # both RMSNorms in fp32 and writes the per-head SDPA inputs, in place of three linears, two rms_norm, a concat and
-# nlp_create_qkv_heads: 7 ops a block become 2. Needs the tile-aligned rows of RFD3_DIT_PAD_ONCE.
-_DIT_QKV_HEADS = env_flag("RFD3_DIT_QKV_HEADS", False)
+# nlp_create_qkv_heads: 7 ops a block become 2. Needs the tile-aligned rows of RFD3_DIT_PAD_ONCE. Exact (CIF digests
+# equal on both archs). Page cell, seeds 60,61 x2 interleaved: Wormhole @1000 MHz fast 35.98 -> 35.09 s/design; p150a
+# @1350 flat (fast 17.39 -> 17.39, normal 17.72 -> 17.50). RFD3_DIT_QKV_HEADS=0 restores the separate ops.
+_DIT_QKV_HEADS = env_flag("RFD3_DIT_QKV_HEADS", True)
 # The per-step neighbour graph is the largest single host cost in a design. At the page fixture
 # (6051 atoms) the ledger puts it at 51.9 + 19.8 ms of an 84.8 ms host body, and P3.7 measured
 # 54.3 ms/step of that reaching the wall. It is one chain -- cdist -> masked_fill_ -> topk -- over
