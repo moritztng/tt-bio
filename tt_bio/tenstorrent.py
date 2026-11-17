@@ -11944,7 +11944,7 @@ class TriangleMultiplication(Module):
                         # trimul (c 64, key 2x2) took the unfused tail on it and clashed in L1 (spd-fix-bhpair).
                         out_dt = x_chunk.dtype
                         if x_chunk.dtype == ttnn.bfloat8_b and not (lever("pair_x8t") and _trimul_tail.t2_key(
-                                *(_trimul_tail._tiles(int(d)) for d in self.out_p_weight.shape[-2:]), True)):
+                                *(_trimul_tail._tiles(int(self.out_p_weight.shape[i])) for i in (-2, -1)), True)):
                             out_dt = ttnn.bfloat16
                         if x_out is None and x_out_pre is not None:
                             if x_out_pre.dtype == out_dt:
