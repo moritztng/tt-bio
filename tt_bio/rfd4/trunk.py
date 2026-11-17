@@ -729,7 +729,7 @@ SDPA_FILL = True
 #: PopVax's shape (9TH6-A + 120-mer, 620 tokens, thinking_medium): -1.26 s a design, WH paired A/B on one Galaxy
 #: chip at 1000 MHz. 35 paired seeds, binder grade PASS on all five oracle-free columns, designed-chain CA RMSD
 #: median 2.73 A against a two-seed floor of 27.28 A, ratio 0.100 against a 0.5 kill line (state/rfd4-3x.md).
-#: `mask_at_mix_z8` is NOT in the set, and the reason is worth keeping. With `mask_at_mix` it lets a padded call
+#: `mask_at_mix_z8` is in Wormhole `--fast` only (WH_FAST_LEVERS below), and the reason it is not in normal is worth keeping. With `mask_at_mix` it lets a padded call
 #: carry the bfloat8_b pair stream that `pair_bfp8z` otherwise gives an unpadded call only. 620 real tokens in the
 #: 640 bucket:
 #: whole design 82.923 -> 78.404 s (-4.52 s, 5.45 %), WH paired A/B back to back on one Galaxy chip
@@ -759,8 +759,21 @@ NORMAL_LEVERS = frozenset({"trimul_t1", "pair_mm", "pair_mm_tr", "transition_b8"
                            "pair_tail_cm", "trimul_t1b8", "pair_batch", "pair_block_hifi2",
                            "trimul_t1g8", "trimul_tail_hifi2", "pair_bfp8z", "trimul_t1_fgate", "pair_x8", "pair_x8t",
                            "tok_recycle_mm", "dit_sigf32", "tok_w8", "mask_at_mix", "trimul_sig6"})
-#: `--fast` runs the same set: its two extra levers were graded into the default (bet 23).
+#: `--fast` on Blackhole runs the same set: its two extra levers were graded into the default (bet 23).
 FAST_LEVERS = NORMAL_LEVERS
+#: Wormhole `--fast` adds `mask_at_mix_z8`. At the gapboard shape (336 tokens in the 352 bucket, thinking_medium, b1)
+#: it is -1.31 / -1.46 s on a 28.56 s design (-4.9 %), WH paired A/B on one Galaxy chip at AICLK 1000, two rounds of
+#: 6 per arm. Grade at that shape, 12 paired seeds: designed-chain CA RMSD median 6.73 A against a 28.51 A seed floor,
+#: ratio 0.236 against the 0.5 kill line, no oracle-free column failed; with the 35-seed 620-token grade above it
+#: clears the fast bar. It fails the normal trunk parity suite (above), so normal does not take it, and Blackhole
+#: is ungraded (state/spd-m-rfd4.md).
+WH_FAST_LEVERS = NORMAL_LEVERS | {"mask_at_mix_z8"}
+
+
+def mode_levers() -> frozenset:
+    """This process's RFD4 trunk lever set: the mode's set for this card's arch, or TT_BIO_LEVERS."""
+    from ..tenstorrent import is_wormhole
+    return model_levers(normal=NORMAL_LEVERS, fast=WH_FAST_LEVERS if is_wormhole() else FAST_LEVERS)
 
 
 class Trunk(Module):
@@ -791,7 +804,7 @@ class Trunk(Module):
         self.dtype = dtype or ttnn.bfloat16
         self.residual_dtype = residual_dtype or self.dtype
         self.nlayers = nlayers
-        self._levers = model_levers(normal=NORMAL_LEVERS, fast=FAST_LEVERS)
+        self._levers = mode_levers()
         self.pair_residual_dtype = pair_residual_dtype or (
             (ttnn.bfloat8_b if "pair_bfp8z" in self._levers else ttnn.bfloat16) if "pair_bf16z" in self._levers
             else self.residual_dtype)

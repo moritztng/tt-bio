@@ -65,6 +65,19 @@ def walk_bytes(obj, seen=None) -> int:
     return 0
 
 
+def caller() -> str:
+    """The tt-bio function that dispatched a `generic_op`: every fused kernel goes through it, so the op name alone
+    lumps the trunk's whole custom-kernel time into one row (oc1: 278 calls, 74 % of the call)."""
+    f = sys._getframe(2)
+    while f and (f.f_code.co_filename == __file__ or "/ttnn/" in f.f_code.co_filename):
+        f = f.f_back
+    names = []
+    while f and len(names) < 2:   # the dispatching helper and its caller: a shared runner names nothing alone
+        names.append(f"{f.f_code.co_name}@{Path(f.f_code.co_filename).stem}")
+        f = f.f_back
+    return "<".join(names) or "?"
+
+
 class Census:
     """Wraps the ttnn callables the trunk uses and records only the outermost call."""
 
@@ -89,7 +102,7 @@ class Census:
                 out = fn(*args, **kwargs)
                 ttnn.synchronize_device(census.device)
                 dt = 1e3 * (time.perf_counter() - t)
-                r = census.rows[full]
+                r = census.rows[full if full != "generic_op" else f"generic_op:{caller()}"]
                 r["n"] += 1
                 r["ms"] += dt
                 r["bytes"] += walk_bytes(args) + walk_bytes(list(kwargs.values())) + walk_bytes(out)
@@ -168,7 +181,7 @@ def main():
     census.remove()
 
     rows = {k: {**v, "ms": round(v["ms"], 3), "gb": round(v["bytes"] / 1e9, 3),
-                "family": FAMILY.get(k, "other")} for k, v in census.rows.items()}
+                "family": FAMILY.get(k.split(":")[0], "other")} for k, v in census.rows.items()}
     tot_ms = sum(r["ms"] for r in rows.values())
     fam = collections.defaultdict(lambda: {"n": 0, "ms": 0.0, "gb": 0.0})
     for k, r in rows.items():

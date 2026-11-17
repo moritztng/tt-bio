@@ -130,10 +130,10 @@ class DesignEngine:
         from tt_bio.rfd4 import network as _network
         from tt_bio.rfd4 import sampler as _sampler
         from tt_bio.rfd4.autoencoder import RFD4AutoEncoder
-        from tt_bio.rfd4.trunk import FAST_LEVERS, NORMAL_LEVERS
-        from tt_bio.tenstorrent import get_device, model_levers
+        from tt_bio.rfd4.trunk import mode_levers
+        from tt_bio.tenstorrent import get_device
 
-        if "trunk_trace" in model_levers(normal=NORMAL_LEVERS, fast=FAST_LEVERS):
+        if "trunk_trace" in mode_levers():
             # The trunk replays its calls, which needs a trace region reserved at open, and the
             # device is opened by whoever asks first -- here the autoencoder below. Only the
             # process's first open takes effect, so the capture has to be named before it.

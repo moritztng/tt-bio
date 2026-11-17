@@ -46,3 +46,15 @@ def test_trunk_hifi3_is_not_in_rfd4s_graded_set():
     assert "trunk_hifi3" not in NORMAL_LEVERS
     assert "trunk_hifi3" not in FAST_LEVERS
     assert "trunk_hifi2" not in NORMAL_LEVERS
+
+
+@pytest.mark.parametrize("wormhole", [True, False])
+def test_mask_at_mix_z8_is_wormhole_fast_only(monkeypatch, wormhole):
+    from tt_bio.rfd4 import trunk as TR
+    monkeypatch.delenv("TT_BIO_LEVERS", raising=False)
+    monkeypatch.setattr(T, "is_wormhole", lambda: wormhole)
+    monkeypatch.setattr(T, "_FAST_MODE", False)
+    assert "mask_at_mix_z8" not in TR.mode_levers()
+    monkeypatch.setattr(T, "_FAST_MODE", True)
+    assert ("mask_at_mix_z8" in TR.mode_levers()) == wormhole
+    assert TR.mode_levers() - {"mask_at_mix_z8"} == TR.NORMAL_LEVERS
