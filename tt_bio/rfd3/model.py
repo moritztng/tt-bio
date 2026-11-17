@@ -261,6 +261,11 @@ _DKNN_MOVERS = env_flag("RFD3_DKNN_MOVERS", True)
 _DKNN_STATIC = env_flag("RFD3_DKNN_STATIC", True)
 _DKNN_STATIC_CACHE: dict = {}
 _DKNN_MOVERS_MIN_L = 2048   # the atom index; the DiT's token index is too small to pay for a launch
+# The DiT's token index on the card too (tt_bio.dknn, the same rows as the host tree), scattered there straight into the
+# DiT's dense additive mask: a step then builds no token tree and no host mask and uploads no [I, I] mask, twice (recycle
+# 0 and 1). The rows are the tree's, so the mask is the host mask bit for bit.
+_DIT_DKNN = env_flag("RFD3_DIT_DKNN", False)
+_DIT_MASK_CONST: dict = {}
 # The token initializer's pair mean-pool as two index_adds instead of one-hot einsums over every atom pair (~800 GFLOP
 # at 6051 atoms): 3.74 -> 0.14 s a call at 2 threads. Same error against float64 (7.71e-9 vs 7.73e-9 mean), but the
 # order of additions differs, so 38 of 7.5M pooled values round to a different bf16 on upload. The page cell's CIFs
@@ -2232,6 +2237,49 @@ def _dense_attention_mask(indices):
     keep = torch.zeros(batch, length, length, dtype=torch.bool)
     keep.scatter_(2, indices.cpu(), True)
     return torch.where(keep, 0.0, -1e4).unsqueeze(1)
+
+
+def _dit_mask_device(f, X_ca, n_keys, n_seq_neighbours, device, dtype):
+    """_dense_attention_mask(_create_attention_indices(...)) on the card, as a [B, 1, I, I] TILE tensor: tt_bio.dknn
+    writes each design's rows and a scatter of zeros into a -1e4 template turns them into the mask. None where the host
+    builds it (the multi-chain index, or more tokens than one core's L1 holds)."""
+    from .. import dknn
+    X = X_ca if X_ca.ndim == 3 else X_ca.unsqueeze(0)
+    B, I = int(X.shape[0]), int(X.shape[1])
+    parts = _attention_index_prefix(f, torch.arange(I), n_keys, n_seq_neighbours)
+    if "single" not in parts or not dknn.fits(I, parts["k"]):
+        return None
+    mask, k = parts["single"][0], parts["k"]
+    ck = (device.id(), I, k, dtype)
+    const = _DIT_MASK_CONST.get(ck)
+    if const is None:   # the host mask's own conversions: fp32 -1e4 and 0 cast to `dtype` by torch
+        const = _DIT_MASK_CONST[ck] = tuple(
+            ttnn.from_torch(torch.full(shape, v).to(_TORCH_DTYPE.get(dtype, torch.bfloat16)), dtype=dtype,
+                            layout=ttnn.ROW_MAJOR_LAYOUT, device=device)
+            for shape, v in (((1, 1, I, I), -1e4), ((1, 1, I, k), 0.0)))
+    full, zeros = const
+    out = []
+    for x in X:
+        rows = dknn.neighbours(device, x.detach().float().cpu().numpy(), mask, k)
+        idx = rows if int(rows.shape[1]) == k else ttnn.slice(rows, [0, 0], [I, k])
+        idx = ttnn.typecast(ttnn.reshape(idx, (1, 1, I, k)), ttnn.uint32)
+        m = ttnn.scatter(full, 3, idx, zeros)
+        ttnn.deallocate(idx)
+        if idx is not rows:
+            ttnn.deallocate(rows)
+        out.append(m)
+    m = out[0] if B == 1 else ttnn.concat(out, 0)
+    return ttnn.to_layout(m, ttnn.TILE_LAYOUT)
+
+
+class _DitMask:
+    """A device DiT mask with a Future's .result(), so recycle 0 reads it where it read the host index."""
+
+    def __init__(self, m):
+        self.m = m
+
+    def result(self):
+        return self.m
 
 
 def _sparse_qk_host(p_host, indices, n_heads=4):
@@ -4209,8 +4257,9 @@ class LocalTokenTransformer(Module):
                 z = ttnn.typecast(z, dt)
         else:
             z = _tt(z.unsqueeze(0) if z.ndim == 2 else z, dev, dt)
-        mask = _tt(_dense_attention_mask(indices), dev, dt)
+        mask = indices if isinstance(indices, ttnn.Tensor) else _tt(_dense_attention_mask(indices), dev, dt)
         out = self.run_device(a, s, z, mask)
+        ttnn.deallocate(mask)
         return out if resident else ttnn.to_torch(out).float()
 
 
@@ -4823,7 +4872,9 @@ class RFD3DiffusionModule(Module):
             f["attn_future"] = _attention_indices_future(f, X_noisy_L, tok_idx, self.N_ATTN_KEYS,
                                                          self.N_ATTN_SEQ, device=dev)
             # Recycle 0's DiT index reads the same step-start coordinates, so it queues behind it.
-            f["dit_future"] = _attention_indices_future(f, X_noisy_L[..., f["is_ca"], :], torch.arange(I),
+            dm = (_dit_mask_device(f, X_noisy_L[..., f["is_ca"], :], self.DIT_KEYS, self.DIT_SEQ, dev, dt)
+                  if _DIT_DKNN else None)
+            f["dit_future"] = _DitMask(dm) if dm is not None else _attention_indices_future(f, X_noisy_L[..., f["is_ca"], :], torch.arange(I),
                                                         self.DIT_KEYS, self.DIT_SEQ)
         else:
             f["attn_indices"] = _create_attention_indices(f, X_noisy_L, tok_idx, self.N_ATTN_KEYS,
@@ -4905,8 +4956,12 @@ class RFD3DiffusionModule(Module):
         # Built before the s readback so the host works while the encoder is still on the card.
         X_L_ca = X_noisy_L[..., is_ca, :] if X_L_self is None else X_L_self[..., is_ca, :]
         fut = f.pop("dit_future", None) if X_L_self is None else None
-        dit_idx = fut.result() if fut is not None else _create_attention_indices(
-            f, X_L_ca, torch.arange(S_I.shape[-2], device=X_L_ca.device), self.DIT_KEYS, self.DIT_SEQ)
+        dit_idx = fut.result() if fut is not None else None
+        if dit_idx is None and _DIT_DKNN:
+            dit_idx = _dit_mask_device(f, X_L_ca, self.DIT_KEYS, self.DIT_SEQ, self.device, self.dtype)
+        if dit_idx is None:
+            dit_idx = _create_attention_indices(
+                f, X_L_ca, torch.arange(S_I.shape[-2], device=X_L_ca.device), self.DIT_KEYS, self.DIT_SEQ)
         S_I = s_dev if _RESIDENT_STEP else ttnn.to_torch(s_dev).float()
         A_I = self.diffusion_transformer(A_I, S_I, z_dev, dit_idx, resident=_RESIDENT_STEP)
         if not self.diffusion_token_encoder.owns(z_dev):

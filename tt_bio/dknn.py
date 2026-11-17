@@ -32,6 +32,7 @@ ASYNC_READ = env_flag("RFD3_DKNN_ASYNC_READ", True)
 _CB = (0, 8)   # first CB of BRISC's and NCRISC's six
 _CACHE: dict = {}
 _MASKS: dict = {}
+_MASKS_MAX = 4
 
 
 def _align(n, a=8):
@@ -143,7 +144,8 @@ def neighbours(device, x, mask, k, rows=None, static=None):
     L = len(x)
     hit = _MASKS.get(id(mask))
     if hit is None or hit[0] is not mask:
-        _MASKS.clear()
+        if len(_MASKS) >= _MASKS_MAX:   # one per index a design runs (atoms, the DiT's tokens), so a step never misses
+            _MASKS.pop(next(iter(_MASKS)))
         m = mask.cpu().numpy()
         n_fill = k - np.minimum(m.sum(1), k)
         hit = _MASKS[id(mask)] = (mask, _upload(mask_words(m, n_fill), device))

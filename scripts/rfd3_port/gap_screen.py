@@ -32,6 +32,7 @@ ARM is a '+'-joined set of knobs applied before the denoiser is built:
   mm2l      RFD3_DIT_MM2D_L1, with mm2d: those linears write their output to L1
   pllg      RFD3_PLL_GATHER, the atom neighbour pair features through gather_tiled, not embedding + to_layout (exact)
   dqh       RFD3_DIT_QKV_HEADS, DiT q|k|v as one projection, q/k RMSNorm + head split as one program (qk_rope_heads)
+  ddk       RFD3_DIT_DKNN, the DiT's token index on the card (dknn) scattered there into its dense mask (exact)
   at        RFD3_ATTN_THREAD, the atom neighbour index built on a worker thread
   dpb       RFD3_DPB, the DiT SDPA masks as one program (tt_bio.dit_pair_bias)
   apb       RFD3_ATOM_PB_FUSED, one pair-bias projection for all three atom blocks (default on)
