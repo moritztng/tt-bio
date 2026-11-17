@@ -620,3 +620,28 @@ def test_a_note_merged_under_a_released_section_is_named(tmp_path):
     d = rn.decide(tmp_path, None, "main")
     assert d["do"] == "GATE" and "notes under released 0.1.0" in d["why"]
     assert rn.stranded(tsha, tsha, tmp_path) == []
+
+
+def test_a_record_run_whose_failed_legs_are_all_waived_counts_as_passed(tmp_path):
+    git = _repo(tmp_path)
+    (tmp_path / "a.py").write_text("x = 2\n")
+    git("commit", "-qam", "staging with a new lever")
+    head = git("rev-parse", "main")
+    gates = tmp_path / "gates"
+    g = _plan(gates, f"rel-{head[:9]}", head, tmp_path)
+    (g / "drift.log").write_text("    FAIL m/512 SDPA: frac 0.000 -> 1.000 (started firing)\n"
+                                 "GATE FAIL — size-ladder drift vs the recorded baseline\n")
+    (g / "verdict.json").write_text(json.dumps({"pass": False, "results": [
+        {"leg": "ladder:m@512-768", "arch": "bh", "verdict": "FAIL", "log": str(g / "drift.log")}]}))
+    r = _plan(gates, f"rec-{head[:9]}", head, tmp_path, partial=True)
+    (r / "verdict.json").write_text(json.dumps({"pass": False, "results": [
+        {"leg": "record:m@p300c", "arch": "bh", "verdict": "PASS"},
+        {"leg": "record:m@p150a", "arch": "bh", "verdict": "UNRUN"}]}))
+    assert rn.decide(tmp_path, gates, "main")["do"] == "FIX"
+    (r / "WAIVE").write_text("record:m@p150a bh\n")                     # no reason: waives nothing
+    assert rn.decide(tmp_path, gates, "main")["do"] == "FIX"
+    (r / "WAIVE").write_text(f"record:m@p150a bh {head[:9]}  # no p150a in service\n")
+    d = rn.decide(tmp_path, gates, "main")
+    assert (d["do"], d["sha"], d["records"]) == ("CUT", head, str(r))
+    (r / "WAIVE").write_text("record:m@p300c bh  # waiving a pass changes nothing\n")
+    assert rn.decide(tmp_path, gates, "main")["do"] == "FIX"
