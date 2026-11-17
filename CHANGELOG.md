@@ -6,6 +6,10 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 ## [Unreleased]
 
 ### Changed
+- **Protenix-v2 normal mode is about 2 % faster on Blackhole.** Triangle multiplication writes its gated output and
+  moves the pair stream in bfp8 where a fused tail reads it, as Wormhole normal already does. Paired cold folds read
+  1.7 s faster at a median of 79 s; accuracy unchanged on 44 paired folds of the 11-complex test set (same-seed
+  structure 0.07 A apart against a 0.60 A bar, docking success 35/44 on both). `--fast` and Wormhole are unchanged.
 - **OpenFold3 normal mode is about 3 % faster on Wormhole.** The diffusion transformer's attention runs its key
   dimension in one chunk and carries the pair-bias mask in bf16. 512 residues 15.4 -> 15.0 s per fold; accuracy
   unchanged on 12 paired folds of the three complexes most sensitive to diffusion precision. OpenBind-0, `--fast` and
