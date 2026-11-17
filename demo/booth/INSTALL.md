@@ -116,19 +116,11 @@ or reboot. Try this once after installing, so you know it works before you need 
 | After the reboot the screen shows the normal Ubuntu login, not the demo | The install did not finish: log in, run `~/tt-bio-booth/demo/booth/install.py`, and reboot. |
 | The demo runs but `boothctl health` says NOT HEALTHY for more than 15 minutes | Reboot once. If it is still not healthy, play the fallback video and call Moritz. |
 
-| The chips fold (`boothctl status` shows them busy) but the screen stays on the poster or a still image | The booth session's compositor cannot drive this screen. That was the case on the SC26 booth box with a Samsung 4K TV on the board's HDMI. Switch to the GNOME display, below. |
+| The chips fold (`boothctl status` shows them busy) but the screen stays black or on a still image | The booth session's compositor cannot drive this screen. See below, then call Moritz. |
 
-### GNOME display (the SC26 booth box)
+### Screens the booth session cannot drive (the SC26 booth box)
 
-On the SC26 booth box (Samsung 4K TV on the AMD board HDMI), the booth session's compositor (sway) never shows a new frame on the TV, while GNOME does. That box therefore logs straight into the normal Ubuntu (GNOME) session, and the same booth units run inside it. The browser restarts itself as usual, and the watchdog checks the page and the frame rate. It cannot take screenshots under GNOME, so `boothctl health` reports the page frame rate instead. Do not switch that box back to the booth session. To set up another box this way:
-
-    sudo cp /var/lib/AccountsService/users/$USER /root/$USER.accsvc.booth
-    sudo sed -i 's/^Session *=.*/Session = ubuntu/' /var/lib/AccountsService/users/$USER
-    gsettings set org.gnome.desktop.session idle-delay 0
-    gsettings set org.gnome.desktop.screensaver lock-enabled false
-    sudo systemctl restart gdm
-
-After the login, `boothctl start`. The fallback video (`boothctl video`) needs the booth session, so on a GNOME box play `~/booth-video/booth-loop.mp4` in any player in full screen instead.
+On the SC26 booth box (Samsung 4K TV on the AMD board HDMI), the booth session's compositor (sway) never shows a new frame on the TV. The chips fold, but the screen stays black or on a still image. A modeset to 1080p, a DPMS toggle, a fresh sway and `WLR_DRM_NO_ATOMIC=1` all left it the same. The normal Ubuntu (GNOME) session does drive the TV. The booth kiosk does not run under GNOME yet: Firefox started from `booth-kiosk` there never loaded the app. Until it does, a box like this runs only `booth-engine`, logs into GNOME, and shows a browser or the fallback video started by hand. Check that a browser really shows the app with `ss -tan | grep 8626`: the page holds one WebSocket to the engine, and with no ESTAB line nothing is live, whatever the process list says.
 
 To go back to a normal Ubuntu desktop after the event: `~/tt-bio-booth/demo/booth/ops/boothctl uninstall`, then reboot.
 
