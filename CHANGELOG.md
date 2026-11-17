@@ -6,6 +6,10 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 ## [Unreleased]
 
 ### Changed
+- **OpenFold3 normal mode is about 3 % faster on Wormhole.** The diffusion transformer's attention runs its key
+  dimension in one chunk and carries the pair-bias mask in bf16. 512 residues 15.4 -> 15.0 s per fold; accuracy
+  unchanged on 12 paired folds of the three complexes most sensitive to diffusion precision. OpenBind-0, `--fast` and
+  Blackhole are unchanged.
 - **RFD4 `--fast` is about 5 % faster on Wormhole.** A padded design now carries the pair stream in bfp8, as an
   unpadded one already did. A 336-token design reads 1.3 to 1.5 s faster (28.6 s before); designed-chain structure
   stays well inside the fast-mode bar on 12 paired seeds at that size and 35 at 620 tokens. Normal mode and Blackhole
