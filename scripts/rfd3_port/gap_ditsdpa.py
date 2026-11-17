@@ -5,6 +5,7 @@ q/k/v [1, 16, 685, 64] bf16 with a [1, 16, n, n] bf16 additive bias (sequence pa
 `_dense_sdpa_config` serves it at n = 704 (q 64, k 352: 176 work units on a 72-core Wormhole, three passes).
 Each arm pads the key axis to n (704 or 768) and picks (q_chunk, k_chunk) dividing it; ms/call is the median of
 N batches of 10 calls between syncs; error is against float64 on the 685 real rows, and `vs_ship_max_abs` against the shipped arm.
+--qfill sweeps q chunks that do not divide 704 (ragged last chunk), ARCH_WH=0 for Blackhole's reference.
 --approx adds, at the shipped WH chunks (704, 352, 352) and BH's (704, 64, 352), arms with exp_approx_mode on and
 with the mask as bfloat8_b (the first arm stays the reference).
     python scripts/rfd3_port/gap_ditsdpa.py OUT.json [reps] [--approx]
@@ -28,6 +29,12 @@ ARMS = [(704, 64, 352), (704, 64, 704), (704, 32, 352), (704, 352, 352), (704, 6
         (768, 64, 384), (768, 96, 384), (768, 128, 384), (768, 192, 384), (768, 128, 768), (768, 128, 256),
         (768, 96, 256), (768, 64, 768)]
 ARMS = [a + (False, "bf16") for a in ARMS]
+if "--qfill" in sys.argv:
+    # q chunks that do NOT divide the 704-row axis, so (q chunks x 16 heads) can fill the grid: the last chunk is
+    # ragged. The first arm stays the shipped config (WH 352/352, BH 64/352) as the reference.
+    ship = (704, 352, 352) if os.environ.get("ARCH_WH", "1") == "1" else (704, 64, 352)
+    ARMS = [ship] + [(704, qc, kc) for kc in (352, 704) for qc in (96, 128, 160, 192, 224, 256) if (704, qc, kc) != ship]
+    ARMS = [a + (False, "bf16") for a in ARMS]
 if APPROX:
     ARMS = [(704, qc, 352, x, m) for qc in (352, 64) for x, m in
             ((False, "bf16"), (True, "bf16"), (False, "bfp8"), (True, "bfp8"))]
