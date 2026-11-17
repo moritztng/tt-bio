@@ -4,6 +4,7 @@
 # takes the seed floor from REF at the next seed, then runs the oracle-free binder grade over the two pools.
 # Summary lands in OUT/SUMMARY.txt, the binder verdict in OUT/quality-OURS.json.
 set -u
+PY=${PYTHON:-python3}  # needs numpy + biotite (pc: ~/.venvs/jfp/bin/python)
 OUT=$1 N=$2 OURS=$3 REF=${4:-base}
 WT=$(cd "$(dirname "$0")/../../.." && pwd); cd "$WT"; export PYTHONPATH=$WT:$WT/perf
 OUT=$(cd "$OUT" && pwd)
@@ -13,14 +14,14 @@ for k in $(seq 0 "$N"); do
   o=$(s "$OURS" "$k"); r=$(s "$REF" "$k"); f=$(s "$REF" $(( (k+1) % (N+1) )))
   [ -z "$o" ] || [ -z "$r" ] || [ -z "$f" ] && { echo "seed $k missing a cif" >> "$OUT/done"; continue; }
   ln -sf "$o" "$OUT/pool-$OURS/tt/"; ln -sf "$r" "$OUT/pool-$OURS/ref/"
-  nice -n 19 python perf/rfd4/e2e/grade.py --ours "$o" --upstream "$r" --floor "$f" \
+  nice -n 19 "$PY" perf/rfd4/e2e/grade.py --ours "$o" --upstream "$r" --floor "$f" \
     --out "$OUT/grade-$OURS/s$k.json" > /dev/null 2>&1 || echo "grade $OURS s$k failed" >> "$OUT/done"
 done
-nice -n 19 python perf/rfd4/quality.py grade --feature binder --tt "$OUT/pool-$OURS/tt" --ref "$OUT/pool-$OURS/ref" \
+nice -n 19 "$PY" perf/rfd4/quality.py grade --feature binder --tt "$OUT/pool-$OURS/tt" --ref "$OUT/pool-$OURS/ref" \
   --allow-no-oracle --label "spd-m-rfd4 $OURS vs $REF, 336 tokens, $((N+1)) seeds" \
   --out "$OUT/quality-$OURS.json" > "$OUT/quality-$OURS.log" 2>&1
 echo "quality rc=$?" >> "$OUT/done"
-python - "$OUT/grade-$OURS" <<'PY' >> "$OUT/SUMMARY.txt"
+"$PY" - "$OUT/grade-$OURS" <<'PY' >> "$OUT/SUMMARY.txt"
 import json, sys, glob, statistics
 rs = [json.load(open(f)) for f in sorted(glob.glob(sys.argv[1] + "/s*.json"))]
 if rs:
