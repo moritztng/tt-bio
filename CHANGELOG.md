@@ -5,6 +5,8 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+## [0.37.0] - 2026-11-18
+
 ### Changed
 - **Protenix-v2 normal mode is about 2 % faster on Blackhole.** Triangle multiplication writes its gated output and
   moves the pair stream in bfp8 where a fused tail reads it, as Wormhole normal already does. Paired cold folds read
