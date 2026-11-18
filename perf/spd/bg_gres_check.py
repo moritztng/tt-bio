@@ -4,7 +4,7 @@ token shape (514 tokens, c_s 768), the attention output projection (K 768) and t
 gate a column window of a stepped conditioning tensor as dit_cond_steps lays it out. Every arm against float64,
 rel_l2 and max_abs, then ms a call (synchronized, median of --calls).
 
-    TT_VISIBLE_DEVICES=N python perf/spd/bg_gres_check.py --out check.jsonl [--cfgs "3,4,3,1,3;..."]
+    TT_VISIBLE_DEVICES=N python perf/spd/bg_gres_check.py --mode {fast,normal} --out check.jsonl [--cfgs "2,4,4,2,4;..."]
 """
 import argparse
 import json
@@ -15,7 +15,9 @@ import time
 import torch
 import ttnn
 
-DEFAULT_CFGS = "3,4,3,1,3;3,4,3,3,1;2,4,3,2,1;3,8,3,1,3;5,4,3,1,3;3,4,6,1,3;2,8,4,2,2"
+# _DIT_STEP_MM's measured blocks first, then neighbours. K block 1 under fp32 accumulation (normal): wider K blocks
+# return wrong elements on Wormhole (tenstorrent._DIT_STEP_MM).
+CFGS = {"normal": "2,1,4,1,4;4,1,4,1,4;3,1,4,1,4;2,1,8,1,4", "fast": "2,4,4,2,4;4,4,4,2,4;2,8,4,2,4;3,4,4,1,4"}
 
 
 def main() -> int:
@@ -24,7 +26,8 @@ def main() -> int:
     ap.add_argument("--dim", type=int, default=768)
     ap.add_argument("--steps", type=int, default=4, help="steps the stacked gate tensor holds (dit_cond_steps)")
     ap.add_argument("--calls", type=int, default=30)
-    ap.add_argument("--cfgs", default=DEFAULT_CFGS)
+    ap.add_argument("--mode", choices=sorted(CFGS), default="fast")
+    ap.add_argument("--cfgs", default="")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
     torch.set_grad_enabled(False)
@@ -34,10 +37,15 @@ def main() -> int:
     from tt_bio import tenstorrent as T, mm_gres as MGR
     from tt_bio.addcmul_at import addcmul_at
     dev = T.get_device()
-    ck = ttnn.WormholeComputeKernelConfig(math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,
-                                          fp32_dest_acc_en=True, packer_l1_acc=True)
-    g = dev.compute_with_storage_grid_size()
-    grid = (g.x, g.y)
+    # the formats BoltzGen's token DiT runs (tenstorrent.dit_lowp): fast = dit_b8 on a bf16 DiT (bfp8 operands, HiFi2,
+    # bf16 accumulation and stream), normal = dit_mm16 on an fp32 DiT (bf16 operands, fp32 accumulation and stream)
+    normal = a.mode == "normal"
+    ck = ttnn.WormholeComputeKernelConfig(math_fidelity=ttnn.MathFidelity.HiFi4 if normal else ttnn.MathFidelity.HiFi2,
+                                          math_approx_mode=False, fp32_dest_acc_en=normal, packer_l1_acc=normal)
+    op_dt = ttnn.bfloat16 if normal else ttnn.bfloat8_b
+    st_dt = ttnn.float32 if normal else ttnn.bfloat16
+    cfgs = a.cfgs or CFGS[a.mode]
+    grid = tuple(T.COMPUTE_GRID_MAIN)
     n, d, S = a.tokens, a.dim, a.steps
     gen = torch.Generator().manual_seed(0)
     out = open(a.out, "a")
@@ -47,23 +55,28 @@ def main() -> int:
     row, off = 2, 2 * d
     gate = cond[row, :, off:off + d]
     for name, K in (("o_proj", d), ("b_to_a", 2 * d)):
-        x = torch.randn(1, n, K, generator=gen).to(torch.bfloat16)
-        w = (torch.randn(K, d, generator=gen) / math.sqrt(K)).to(torch.bfloat16)
-        r = (torch.randn(1, n, d, generator=gen) * 2).to(torch.bfloat16)
-        xd = ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
-        wd = ttnn.from_torch(w, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
-        rd = ttnn.from_torch(r, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
-        exact = r.double() + gate.double() * (x.double() @ w.double())
+        x = torch.randn(1, n, K, generator=gen)
+        w = torch.randn(K, d, generator=gen) / math.sqrt(K)
+        r = torch.randn(1, n, d, generator=gen) * 2
+        xd = ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, device=dev, dtype=op_dt)
+        wd = ttnn.from_torch(w, layout=ttnn.TILE_LAYOUT, device=dev, dtype=op_dt)
+        rd = ttnn.from_torch(r, layout=ttnn.TILE_LAYOUT, device=dev, dtype=st_dt)
+        # float64 of the operands as the device holds them (block-fp8 rounding is the model's, not the op's)
+        xq, wq, rq = (ttnn.to_torch(t).double().reshape(s) for t, s in ((xd, x.shape), (wd, w.shape), (rd, r.shape)))
+        exact = rq + gate.double() * (xq @ wq)
         sc = exact.norm()
-        rec = dict(shape=name, tokens=n, K=K, N=d, grid=grid, fidelity="HiFi4")
+        rec = dict(mode=a.mode, shape=name, tokens=n, K=K, N=d, grid=grid, fidelity=str(ck.math_fidelity))
 
         def ref():
-            p = ttnn.linear(xd, wd, compute_kernel_config=ck, core_grid=T.CORE_GRID_MAIN)
+            p = (T.k1_linear(xd, wd, compute_kernel_config=ck, dtype=st_dt) if normal else
+                 ttnn.linear(xd, wd, dtype=st_dt, compute_kernel_config=ck, core_grid=T.CORE_GRID_MAIN))
             o = addcmul_at(rd, p, cd, d, z_off=off, z_row=row)
+            if o is None:
+                raise RuntimeError("addcmul_at declined")
             ttnn.deallocate(p)
             return o
         fns = {"ref": ref}
-        for c in filter(None, a.cfgs.split(";")):
+        for c in filter(None, cfgs.split(";")):
             bc = tuple(int(v) for v in c.split(","))
             fns["fused_" + "_".join(map(str, bc))] = (
                 lambda bc=bc: MGR.matmul_gate_add(xd, wd, None, (cd, off, d, row), rd, bc, grid, ck))

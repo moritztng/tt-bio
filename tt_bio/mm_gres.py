@@ -45,14 +45,17 @@ def gate_window(gate, m_tiles: int):
     for d in ps[:-1]:
         rows_t *= d
     rows_t //= 32
-    r0 = 0 if row is None else row * m_tiles   # a stepped tensor stacks the steps' [M, W] blocks on its leading dim
-    if r0 + m_tiles > rows_t:
+    # a stepped tensor stacks the steps' [M, W] blocks on its leading dim; the window must be exactly one block (a
+    # sample-batched x against a gate shared across samples is a broadcast the kernel does not do)
+    per = rows_t if row is None else rows_t // ps[0]
+    if per != m_tiles:
         return None
+    r0 = 0 if row is None else row * m_tiles
     return t, r0 * wt + off // 32, wt
 
 
-def matmul_gate_add(x, w, b, gate, resid, cfg, grid, ckc, memory_config=ttnn.DRAM_MEMORY_CONFIG):
-    """resid + gate * (x @ w + b), [.., N] bf16, for block config `cfg` (M, K, N, subblock_h, subblock_w) on `grid`, or
+def matmul_gate_add(x, w, b, gate, resid, cfg, grid, ckc, memory_config=ttnn.DRAM_MEMORY_CONFIG, out_dtype=None):
+    """resid + gate * (x @ w + b), [.., N] at `out_dtype` (default the residual's), for block config `cfg` (M, K, N, subblock_h, subblock_w) on `grid`, or
     None where the residual's or the gate's tile grid is not the output's (the caller keeps the projection and the
     addcmul). `b` may be None; `gate` a tensor or a `(t, off, width, row)` window of one."""
     n = int(w.padded_shape[-1])
@@ -70,7 +73,8 @@ def matmul_gate_add(x, w, b, gate, resid, cfg, grid, ckc, memory_config=ttnn.DRA
     if b is None:
         b = _zero_row(dev, n)
     shape = [int(d) for d in x.shape][:-1] + [int(w.shape[-1])]
-    out = ttnn.allocate_tensor_on_device(ttnn.Shape(shape), ttnn.bfloat16, ttnn.TILE_LAYOUT, dev, memory_config)
+    out = ttnn.allocate_tensor_on_device(ttnn.Shape(shape), out_dtype or resid.dtype, ttnn.TILE_LAYOUT, dev,
+                                         memory_config)
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
     ck = MG.ckc_args(ckc)
     key = (spec(x), spec(w), spec(b), spec(resid), spec(g), wt, spec(out), tuple(cfg), tuple(grid),
