@@ -29,6 +29,10 @@ def main() -> int:
     ap.add_argument("--mode", choices=sorted(CFGS), default="fast")
     ap.add_argument("--cfgs", default="")
     ap.add_argument("--out", required=True)
+    ap.add_argument("--pass-file", default="", help="written when the lever's own block (the mode's first cfg, the one "
+                    "_DIT_STEP_MM serves) at the attention's o_proj shape is no less accurate than today's path "
+                    "(rel_l2 <= 1.1x ref's) and >= --min-save-us faster a call; a grid cell chains the A/B on it")
+    ap.add_argument("--min-save-us", type=float, default=10.0)
     a = ap.parse_args()
     torch.set_grad_enabled(False)
 
@@ -113,6 +117,17 @@ def main() -> int:
             pass
         print(json.dumps(rec), flush=True)
         out.write(json.dumps(rec) + "\n")
+        if name == "o_proj":
+            lead = "fused_" + cfgs.split(";")[0].replace(",", "_")
+            ok = (f"{lead}_ms" in rec and "ref_ms" in rec
+                  and rec[f"{lead}_rel_l2"] <= 1.1 * rec["ref_rel_l2"]
+                  and (rec["ref_ms"] - rec[f"{lead}_ms"]) * 1e3 >= a.min_save_us)
+            verdict = dict(verdict="PASS" if ok else "FAIL", arm=lead, **{k: rec.get(k) for k in (
+                f"{lead}_ms", "ref_ms", f"{lead}_rel_l2", "ref_rel_l2")})
+            print(json.dumps(verdict), flush=True)
+            out.write(json.dumps(verdict) + "\n")
+            if ok and a.pass_file:
+                open(a.pass_file, "w").write(json.dumps(verdict) + "\n")
     return 0
 
 

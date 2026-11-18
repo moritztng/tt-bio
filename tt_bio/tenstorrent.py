@@ -975,7 +975,7 @@ LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffus
            "pair_tail_cm", "pair_batch", "pair_block_hifi2", "trimul_t1g8", "trimul_tail_hifi2", "pair_bfp8z",
            "trimul_t1_fgate", "pair_x8", "pair_x8t", "tok_recycle_mm", "tok_w8", "trimul_x8", "ws_ln_resid", "dit_pad_short", "bg_featproc", "ef2_msa_ffn", "ef2_opm_proj", "trimul_t1_part",
            "trimul_t1_3g", "trimul_t1split", "adaln_at", "dit_kl1", "mask_at_mix", "mask_at_mix_z8", "trunk_trace", "dit_qkvf_h4",
-           "ws_ln_t1l1")
+           "ws_ln_t1l1", "dit_gres")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -1007,7 +1007,7 @@ UNGRADED_LEVERS = frozenset({"trunk_trace", "dit_bf16", "atom_kvcat", "bres_ta_h
                              "pair_tail_cm", "pair_batch", "pair_block_hifi2", "trimul_t1g8",
                              "trimul_tail_hifi2", "pair_bfp8z", "trimul_t1_fgate", "pair_x8", "pair_x8t",
                              "tok_recycle_mm", "tok_w8", "trimul_x8", "ws_ln_resid", "dit_pad_short", "bg_featproc", "ef2_msa_ffn", "ef2_opm_proj", "trimul_t1_part",
-                             "trimul_t1_3g", "trimul_t1split", "ws_ln_t1l1"})
+                             "trimul_t1_3g", "trimul_t1split", "ws_ln_t1l1", "dit_gres"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -13684,6 +13684,10 @@ def _tri_att_fused_qkv_sdpa(att, x, bias):
 _APB_BIAS_REFUSED = {}
 
 
+#: [token-DiT attention gated residuals in the output projection's epilogue (dit_gres), declined where asked]
+DIT_GRES_STATS = [0, 0]
+
+
 class AttentionPairBias(Module):
     def __init__(
         self,
@@ -14085,8 +14089,12 @@ class AttentionPairBias(Module):
         keys_indexing: "ttnn.Tensor | _AtomShiftGather | None" = None,
         seq_mask: ttnn.Tensor | None = None,
         bias_precomputed: bool = False,
+        gres=None,
     ) -> ttnn.Tensor:
+        """`gres`, when given, is `(resid, gate)`: the caller's gated residual `resid + gate * out`, which the output
+        projection then computes in its epilogue where `dit_gres` serves; `self.gres_hit` says whether it did."""
         self._load_kq_norm()
+        self.gres_hit = False
         lp, lw = self._lp or (None, None)
         cat_w = self._cat_weights()
         if lp is not None and s.dtype != lp.act:
@@ -14117,7 +14125,7 @@ class AttentionPairBias(Module):
             if cat_w is not None and lever("dit_qkvf") and (self.token_dit or self.sdpa32):
                 o = self._qkvf(qkv, z, seq, bias_precomputed, seq_mask)
                 if o is not None:
-                    return self._gate_out(s, o, cat_w)
+                    return self._gate_out(s, o, cat_w, gres)
             qkv = ttnn.unsqueeze(qkv, 1)
             q, k, v = ttnn.experimental.nlp_create_qkv_heads(
                 qkv,
@@ -14344,7 +14352,7 @@ class AttentionPairBias(Module):
             o = ttnn.experimental.nlp_concat_heads(o)
             o = ttnn.squeeze(o, 1)
             o = ttnn.reshape(o, (B, K, W, D_S))
-        return self._gate_out(s, o, cat_w)
+        return self._gate_out(s, o, cat_w, gres)
 
     def _qkvf(self, qkv, z, seq, bias_precomputed, seq_mask):
         """dit_qkvf's attention, `[B, seq, n_heads * padded_head_dim]` (bf16, fp32 under `_sdpa32`), or None where
@@ -14370,8 +14378,29 @@ class AttentionPairBias(Module):
             o = sl
         return o
 
-    def _gate_out(self, s, o, cat_w):
-        """sigmoid(s W_g) * o, then the output projection (on the padded head lanes when `cat_w`)."""
+    def _gres(self, o, o_weight, gres, ckc, k1):
+        """`resid + gate * (o @ o_weight)` as one mm_gres matmul (`dit_gres`, Wormhole token DiT), or None where it
+        does not serve: no measured block for the shape, a gate window the kernel cannot read in place, a residual
+        whose rows are not o's."""
+        if gres is None or self.atom_level or not (lever("dit_gres") and is_wormhole()):
+            return None
+        resid, gate = gres
+        blk = _DIT_STEP_MM.get((bool(k1), int(o_weight.padded_shape[-2]) // 32, int(o_weight.padded_shape[-1]) // 32))
+        if blk is None:
+            return None
+        from tt_bio import mm_gres
+        try:
+            out = mm_gres.matmul_gate_add(o, o_weight, None, tuple(gate) if isinstance(gate, _ColWin) else gate,
+                                          resid, blk, COMPUTE_GRID_MAIN, ckc)
+        except RuntimeError:   # a block the program cannot place at this shape: today's path serves it
+            out = None
+        self.gres_hit = out is not None
+        DIT_GRES_STATS[0 if self.gres_hit else 1] += 1
+        return out
+
+    def _gate_out(self, s, o, cat_w, gres=None):
+        """sigmoid(s W_g) * o, then the output projection (on the padded head lanes when `cat_w`), with the caller's
+        gated residual in its epilogue where `gres` is given and `dit_gres` serves."""
         if self._lp is not None:
             lp, lw = self._lp
             g_weight, o_weight = cat_w or (lw["g_weight"], lw["o_weight"])
@@ -14381,7 +14410,9 @@ class AttentionPairBias(Module):
             g = lp.linear(s, g_weight, dtype=o.dtype)
             o = ttnn.multiply(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID], dtype=lp.mid)
             ttnn.deallocate(g)
-            x = lp.linear(o, o_weight, dtype=lp.out)
+            x = self._gres(o, o_weight, gres, lp.ckc, lp.k1)
+            if x is None:
+                x = lp.linear(o, o_weight, dtype=lp.out)
             ttnn.deallocate(o)
             return x
         g_weight, o_weight = cat_w or (self.g_weight, self.o_weight)
@@ -14395,10 +14426,13 @@ class AttentionPairBias(Module):
             o = ttnn.typecast(o, ttnn.bfloat16)
         o = ttnn.multiply(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID], dtype=self.dtype)
         ttnn.deallocate(g)
-        x = ttnn.linear(
-            o, o_weight, compute_kernel_config=self.compute_kernel_config,
-            core_grid=CORE_GRID_MAIN,
-        )
+        x = self._gres(o, o_weight, gres, self.compute_kernel_config,
+                       bool(getattr(self.compute_kernel_config, "fp32_dest_acc_en", False)))
+        if x is None:
+            x = ttnn.linear(
+                o, o_weight, compute_kernel_config=self.compute_kernel_config,
+                core_grid=CORE_GRID_MAIN,
+            )
         ttnn.deallocate(o)
         return x
 
@@ -17006,14 +17040,6 @@ class DiffusionTransformerLayer(Module):
         """`cond`, when given, is this layer's slice of the hoisted conditioning half:
         `(attn_s_terms, attn_s_out, trans_s_terms, trans_s_out)`, both `s_out` post-sigmoid."""
         t_attn, s_o_pre, t_trans, s_o2_pre = cond if cond is not None else (None,) * 4
-        b = self.adaln(a, s, large_seq_len=large_seq_len, s_terms=t_attn)
-        if not self.atom_level:
-            # z is the bias the sampler staged once per rollout (`_stage_token_bias`): scaled, permuted and padded
-            # past the sequence, which is what `bias_precomputed` reads (finish_bias is the identity here), so q, k
-            # and v reach that width with one pad of the fused qkv instead of three.
-            b = self.attn_pair_bias(b, z, bias_precomputed=True)
-        else:
-            b = self.attn_pair_bias(b, z, keys_indexing)
         if s_o_pre is not None:
             s_o = s_o_pre
         elif self.s_o is None or self._s_o_src is not s:
@@ -17029,6 +17055,15 @@ class DiffusionTransformerLayer(Module):
                 self.s_o, self._s_o_src = s_o, s
         else:
             s_o = self.s_o
+        b = self.adaln(a, s, large_seq_len=large_seq_len, s_terms=t_attn)
+        if not self.atom_level:
+            # z is the bias the sampler staged once per rollout (`_stage_token_bias`): scaled, permuted and padded
+            # past the sequence, which is what `bias_precomputed` reads (finish_bias is the identity here), so q, k
+            # and v reach that width with one pad of the fused qkv instead of three.
+            b = self.attn_pair_bias(b, z, bias_precomputed=True,
+                                    gres=None if self.no_residual else (a, s_o))
+        else:
+            b = self.attn_pair_bias(b, z, keys_indexing)
         def gate(a):
             so = s_o
             if isinstance(so, _ColWin):
@@ -17045,6 +17080,8 @@ class DiffusionTransformerLayer(Module):
             if so is not s_o:
                 ttnn.deallocate(so)
             return out
+        # dit_gres: the attention's output projection already wrote a + s_o * b
+        gated = (lambda a: b) if getattr(self.attn_pair_bias, "gres_hit", False) else gate
         if self.no_residual:
             # transition reads the block input, so it must be evaluated BEFORE a
             # absorbs the attention output
@@ -17052,10 +17089,10 @@ class DiffusionTransformerLayer(Module):
                                   cond=None if cond is None else (t_trans, s_o2_pre))
             a = ttnn.add(gate(a), a_t)
         elif isinstance(s_o2_pre, _ColWin):
-            a = gate(a)
+            a = gated(a)
             a = self.transition(a, s, large_seq_len=large_seq_len, cond=(t_trans, s_o2_pre), residual=a)
         else:
-            a = gate(a)
+            a = gated(a)
             a_t = self.transition(a, s, large_seq_len=large_seq_len,
                                   cond=None if cond is None else (t_trans, s_o2_pre))
             a = ttnn.add(a, a_t)
