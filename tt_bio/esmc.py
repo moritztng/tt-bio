@@ -289,6 +289,11 @@ def _ln(x, weight, bias, ck, memory_config=None):
 # shsdpa writes its output with the heads already concatenated ([B, L, H * D]) instead of nlp_concat_heads after it:
 # only the writer's tile addresses change (sdpa_generic merged_out), so the output is bit-identical.
 _LM_SDPA_MERGED = env_flag("TT_BIO_LM_SDPA_MERGED", True)
+# ESMC's q/k LayerNorm split across two kernels it already runs: mm_rope's qkv epilogue applies the centring (folded
+# into the weight), the norm weight and RoPE and writes each row's partial sum of squares; shsdpa scales Q and K by the
+# rows' rstd before its QK matmul. Replaces qk_rope_heads' DRAM round trip. Page (KeyPad) shapes with the packed qkv
+# weight only; anything mm_rope declines keeps today's path.
+_ESMC_QK_NORM = env_flag("TT_BIO_ESMC_QK_NORM", False)
 
 # Replay batched forwards from the trace too (ESMC.trace gated on B == 1). A 7 x 544 Blackhole batch spreads 110-127 ms
 # within one process, the signature of a host-dispatch-bound forward. Same captured program, so output is bit-identical
@@ -423,13 +428,14 @@ def _lm_mask_into(attn_mask, lens, dst):
         ttnn.copy_host_to_device_tensor(_sdpa_mask(attn_mask, dtype=dst.dtype), dst)
 
 
-def lm_sdpa(q, k, v, attn_mask, scale: float, merge: bool = False, ckc=None, out_dtype=None):
+def lm_sdpa(q, k, v, attn_mask, scale: float, merge: bool = False, ckc=None, out_dtype=None, qk_rstd=None):
     """The language models' fused SDPA at the _lm_sdpa_chunks config, or `shsdpa` for a KeyPad mask. A shape whose
     few-k-chunk program the device refuses (its circular buffers clash with L1 tensors) runs at the k64 config from
     then on. `merge` returns the heads concatenated, [B, L, H * D]: shsdpa writes that layout itself (_LM_SDPA_MERGED),
     the stock op is followed by nlp_concat_heads. `ckc` overrides shsdpa's kernel config (fidelity, approx, fp32 dest,
     full sync); None keeps its HiFi2. `out_dtype` narrows the merged shsdpa output (packed from its fp32 dest), which
-    is bf16 for block-fp8 q, k, v (_ESMC_QKRH_BF8); every other path returns q's dtype."""
+    is bf16 for block-fp8 q, k, v (_ESMC_QKRH_BF8); every other path returns q's dtype. `qk_rstd` (KeyPad only): the
+    rows' q/k LayerNorm rstd, which shsdpa applies to q and k (_ESMC_QK_NORM)."""
     if isinstance(attn_mask, KeyPad):
         # Interleaved DRAM or L1 (SaProt's RoPE leaves q, k in L1): the reader addresses each through its own accessor.
         if int(q.shape[-1]) % 32 == 0 and all(t.dtype in (ttnn.bfloat16, ttnn.bfloat8_b) and not t.is_sharded()
@@ -438,9 +444,11 @@ def lm_sdpa(q, k, v, attn_mask, scale: float, merge: bool = False, ckc=None, out
             SHSDPA_STATS[0] += 1
             if merge and _LM_SDPA_MERGED:
                 return ttnn.squeeze(shsdpa.sdpa(q, k, v, scale, attn_mask, ckc=ckc or shsdpa.HIFI2, merged=True,
-                                                out_dtype=out_dtype or ttnn.bfloat16), 1)
-            o = shsdpa.sdpa(q, k, v, scale, attn_mask, ckc=ckc or shsdpa.HIFI2, out_dtype=ttnn.bfloat16)
+                                                out_dtype=out_dtype or ttnn.bfloat16, qk_rstd=qk_rstd), 1)
+            o = shsdpa.sdpa(q, k, v, scale, attn_mask, ckc=ckc or shsdpa.HIFI2, out_dtype=ttnn.bfloat16,
+                            qk_rstd=qk_rstd)
             return _concat_heads(o) if merge else o
+        assert qk_rstd is None, "qk_rstd needs shsdpa"
         SHSDPA_STATS[1] += 1
         # A head dim off the tile, or q/k/v not bf16 interleaved: the stock op over the full mask, its rows the same.
         attn_mask = ttnn.repeat(attn_mask.row, (1, 1, int(q.padded_shape[2]) // 32, 1))
@@ -887,6 +895,47 @@ class Attention(_MMLin, Module):
             ttnn.deallocate(t)
         return self._split_heads(qkv, self.n_heads)
 
+    def _qk_norm_heads(self, x, cos, sin):
+        """(q, k, v, rstd) from mm_rope with the q/k LayerNorm in its epilogue (_ESMC_QK_NORM), or None where it does not
+        serve. The folded, permuted qkv weight is built from the device weight on first use for this layout."""
+        from tt_bio import mm_rope
+        w = self.qkv_weight
+        n = int(w.shape[-1])
+        d = n // 3
+        rows = x.volume() // int(x.shape[-1])
+        mc = _mm_config(x, w, self.mm_exact_acc)["config"]
+        cfg = (mc.M_block_size, mc.K_block_size, mc.N_block_size, mc.subblock_h, mc.subblock_w)
+        g = x.device().compute_with_storage_grid_size()
+        transposed = rows > n
+        nc = mm_rope.cols(n // 32, g.y if transposed else g.x, cfg[2])
+        if nc is None:
+            return None
+        held = getattr(self, "_qkn", None)
+        if held is None or held[0] != (nc, cfg[2]):
+            wt = ttnn.to_torch(w).double().reshape(int(w.shape[-2]), n)
+            bt = (ttnn.to_torch(self.qkv_bias).double().reshape(-1)[:n] if self.qkv_bias is not None
+                  else torch.zeros(n, dtype=torch.float64))
+            gq, gk = (ttnn.to_torch(t).double().reshape(-1)[:d] for t in (self.q_ln_weight, self.k_ln_weight))
+            wf, bg = mm_rope.qk_norm_fold(wt, bt, gq, gk, d)
+            dev = x.device()
+            held = self._qkn = ((nc, cfg[2]),
+                                ttnn.from_torch(mm_rope.permute(wf, nc, cfg[2]), dtype=w.dtype, layout=ttnn.TILE_LAYOUT,
+                                                device=dev),
+                                ttnn.from_torch(mm_rope.permute(bg, nc, cfg[2]), dtype=ttnn.bfloat16,
+                                                layout=ttnn.TILE_LAYOUT, device=dev))
+        nw, nb = (None, None) if self.ln_fold else (self.in_norm_weight, self.in_norm_bias)
+        x_norm = _ln(x, nw, nb, self.compute_kernel_config)
+        grid = (g.x, nc) if transposed else (nc, g.y)
+        out = mm_rope.qkv_rope_heads(x_norm, held[1], held[2], cos, sin, self.n_heads, cfg, grid, self._mm_ck(w),
+                                     ncols=nc, qk_norm=True)
+        ttnn.deallocate(x_norm)
+        if out is None:
+            return None
+        q, k, v, st = out
+        r = mm_rope.qk_rstd(st, d)
+        ttnn.deallocate(st)
+        return q, k, v, r
+
     def __call__(self, x: ttnn.Tensor, cos: ttnn.Tensor, sin: ttnn.Tensor,
                  attn_mask: ttnn.Tensor | None = None,
                  key_valid: ttnn.Tensor | None = None, resid: bool = False):
@@ -894,6 +943,15 @@ class Attention(_MMLin, Module):
         ck = self.compute_kernel_config
         d_model = x.shape[-1]
         head_dim = d_model // self.n_heads
+        qkn = (self._qk_norm_heads(x, cos, sin)
+               if _ESMC_QK_NORM and isinstance(attn_mask, KeyPad) and self.qkv_weight is not None and self._mm_ok(
+                   x, self.qkv_weight) else None)
+        if qkn is not None:
+            q, k, v, r = qkn
+            o = lm_sdpa(q, k, v, attn_mask, scale=head_dim**-0.5, merge=True, qk_rstd=r)
+            for t in qkn:
+                ttnn.deallocate(t)
+            return self._out(o, x, resid)
 
         key = tuple(x.padded_shape)
         if _ESMC_QK_L1 and self.qk_l1 and key not in _QK_L1_REFUSED:
@@ -930,6 +988,10 @@ class Attention(_MMLin, Module):
 
         o = lm_sdpa(q, k, v, attn_mask, scale=head_dim**-0.5, merge=True)  # [B, L, d_model]
         ttnn.deallocate(q); ttnn.deallocate(k); ttnn.deallocate(v)
+        return self._out(o, x, resid)
+
+    def _out(self, o, x, resid: bool):
+        """out_proj(o), freeing o; with `resid`, (x + that, True) when the matmul fused the add, else (that, False)."""
         out = self._lin_resid(o, self.out_weight, x) if resid else None
         added = out is not None
         if not added:
