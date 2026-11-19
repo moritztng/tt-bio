@@ -215,8 +215,13 @@ BH_LEVERS_NORMAL = LEVERS_NORMAL | HOST_LEVERS | {"dit_qkvf", "dit_pad_short", "
 # +0.022 [+0.003, +0.044], iptm -0.005, complex_plddt +0.002, filter 64/64.
 # opm_jd in both sets, and trimul_bres + atom_l1 in normal (fast had them), leave the CIFs byte-identical in both modes
 # (bpl, qb2 p300 chip at ~1330 MHz, 2026-11-01): trunk 6.70 -> 6.26 s normal, 6.25 -> 6.00 fast.
+# Fast also reads the windowed atom attention's key windows in place (atom_kvw, as both Wormhole sets do). On a p300 chip
+# at 1350 MHz modal in both arms (kvwbh, 2026-11-19): 18.32 -> 17.45 s/design; normal reads -1.3 % and stays off. Fast
+# grade of the set vs TT_BIO_LEVERS=none (bg_R3, 5 seeds x 8 designs, 2026-11-19): PASS, median paired design CA 4.36 A
+# vs a 9.55 A seed floor, design_iptm -0.010 [-0.048, +0.026], design_ptm +0.032 [+0.012, +0.057], complex_plddt
+# +0.001 [-0.005, +0.007], filter 40/40.
 BH_LEVERS_FAST = LEVERS_FAST | HOST_LEVERS | {"atom_l1", "dit_qkvf", "dit_chunk", "dit_pad_short",
-                                "dit_bpad", "dit_shard", "dit_fc123g", "dit_shoist"}
+                                "dit_bpad", "dit_shard", "dit_fc123g", "dit_shoist", "atom_kvw"}
 
 
 def design_levers() -> frozenset:
