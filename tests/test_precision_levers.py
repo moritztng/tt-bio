@@ -240,7 +240,7 @@ def test_boltzgen_mode_sets_name_only_known_levers():
                                                 "trimul_sig6", "triatt_ln_b8", "triatt_ln_b8g", "trimul_t1w8",
                                                 "ws_psilu", "trimul_t1_psig"} | B.WH_KVW_STACK
     assert B.BH_LEVERS_FAST - B.LEVERS_FAST - B.HOST_LEVERS == {"atom_l1", "dit_qkvf", "dit_chunk", "dit_pad_short",
-                                                "dit_bpad", "dit_shard", "dit_fc123g", "dit_shoist"}
+                                                "dit_bpad", "dit_shard", "dit_fc123g", "dit_shoist", "atom_kvw"}
     assert B.BH_LEVERS_FAST <= set(T.LEVERS) | T.UNGRADED_LEVERS
     assert B.WH_LEVERS_FAST <= set(T.LEVERS) | T.UNGRADED_LEVERS
 
