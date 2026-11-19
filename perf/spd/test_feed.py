@@ -128,7 +128,8 @@ def test_a_recalled_chips_sigint_does_not_quarantine_the_cell(tmp_path, monkeypa
     box.exists |= {"~/o/1/A/b/bench.jsonl", "~/o/1/B/b/bench.jsonl", "~/o/2/B/b/bench.jsonl"}
     run(tmp_path)
     name = box.queue.pop()
-    for at, rc in ((100, "130"), (200, "143"), (300, "130")):
+    # 11-19 spd-m-opendde-5: python exits 1 on the recall's SIGINT; pool.sh marks that end "1 recall"
+    for at, rc in ((100, "130"), (200, "143"), (300, "1 recall"), (400, "1 recall"), (500, "1 recall")):
         box.ended[name] = {"state": "ended", "dur": 40, "rc": rc, "at": at, "tail": "Aborted!"}
         run(tmp_path)
         assert box.queue == [name]
