@@ -241,6 +241,81 @@ void add_bias_resid_block(
 }
 #endif
 
+#ifdef MM_GRES
+// tt-bio mm_gres: the DiT's gated residual as the epilogue, out = resid + gate * (x W + bias). The bias is added as
+// add_bias_resid_block adds it, then the gate's tile (c_6) multiplies dest and the residual's (c_5) is added, both on
+// the FPU with dest as srcA, DG tiles per init. One rounding to the output format where today's path rounds x W, the
+// product and the sum.
+void add_bias_gate_resid_block(
+    uint32_t in_cb, uint32_t bias_cb, uint32_t gate_cb, uint32_t resid_cb, uint32_t out_cb, uint32_t M_block_tiles,
+    uint32_t N_block_tiles) {
+#ifdef MM_GRES_FP32
+    // fp32 stream (normal mode): the FPU reads dest and the residual through srcA/srcB, which hold tf32, so the
+    // FPU epilogue rounds an fp32 residual to 10 mantissa bits (rel_l2 5.2e-4 against float64 where the stream's
+    // own addcmul reads 1.3e-4). Here x W (no bias: the DiT sites have none) and the residual are unpacked straight
+    // to dest at fp32 and the gate multiply and residual add run on the SFPU, two dest slots a tile.
+    const uint32_t dg = N_block_tiles % 2 == 0 ? 2 : 1;
+#else
+    const uint32_t dg = N_block_tiles % 4 == 0 ? 4 : N_block_tiles % 2 == 0 ? 2 : 1;
+#endif
+    pack_reconfig_data_format(out_cb);
+    for (uint32_t m = 0; m < M_block_tiles; m++) {
+        for (uint32_t n0 = 0; n0 < N_block_tiles; n0 += dg) {
+            const uint32_t t0 = m * N_block_tiles + n0;
+            tile_regs_acquire();
+#ifdef MM_GRES_FP32
+            reconfig_data_format_srca(in_cb);
+            copy_tile_to_dst_init_short(in_cb);
+            for (uint32_t j = 0; j < dg; j++) {
+                copy_tile(in_cb, t0 + j, j);
+            }
+            copy_tile_to_dst_init_short_with_dt(in_cb, gate_cb);
+            for (uint32_t j = 0; j < dg; j++) {
+                copy_tile(gate_cb, t0 + j, dg + j);
+            }
+            mul_binary_tile_init();
+            for (uint32_t j = 0; j < dg; j++) {
+                mul_binary_tile(j, dg + j, j);
+            }
+            copy_tile_to_dst_init_short_with_dt(gate_cb, resid_cb);
+            for (uint32_t j = 0; j < dg; j++) {
+                copy_tile(resid_cb, t0 + j, dg + j);
+            }
+            add_binary_tile_init();
+            for (uint32_t j = 0; j < dg; j++) {
+                add_binary_tile(j, dg + j, j);
+            }
+#else
+            add_bcast_rows_init_short(in_cb, bias_cb);
+            reconfig_data_format(in_cb, bias_cb);
+            for (uint32_t j = 0; j < dg; j++) {
+                add_tiles_bcast<BroadcastType::ROW>(in_cb, bias_cb, t0 + j, n0 + j, j);
+            }
+            binary_dest_reuse_tiles_init<EltwiseBinaryType::ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(gate_cb);
+            reconfig_data_format_srcb(gate_cb);
+            for (uint32_t j = 0; j < dg; j++) {
+                binary_dest_reuse_tiles<EltwiseBinaryType::ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(
+                    gate_cb, t0 + j, j);
+            }
+            binary_dest_reuse_tiles_init<EltwiseBinaryType::ELWADD, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(resid_cb);
+            reconfig_data_format_srcb(resid_cb);
+            for (uint32_t j = 0; j < dg; j++) {
+                binary_dest_reuse_tiles<EltwiseBinaryType::ELWADD, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(
+                    resid_cb, t0 + j, j);
+            }
+#endif
+            tile_regs_commit();
+            tile_regs_wait();
+            for (uint32_t j = 0; j < dg; j++) {
+                pack_tile(j, out_cb);
+            }
+            tile_regs_release();
+        }
+        cb_push_back(out_cb, N_block_tiles);
+    }
+}
+#endif
+
 void add_bias_and_addcmul_block(
     uint32_t intermediate_cb,
     uint32_t bias_cb,
@@ -586,6 +661,13 @@ void kernel_main() {
             rope_block(intermediate_cb, in2_cb, out_cb, M_block_tiles, N_block_tiles, n_tile - N_start_tile);
             cb_pop_front(tt::CBIndex::c_7, M_block_tiles);
             cb_pop_front(tt::CBIndex::c_8, M_block_tiles);
+#elif defined(MM_GRES)
+            cb_wait_front(tt::CBIndex::c_5, out_block_num_tiles);
+            cb_wait_front(tt::CBIndex::c_6, out_block_num_tiles);
+            add_bias_gate_resid_block(
+                intermediate_cb, in2_cb, tt::CBIndex::c_6, tt::CBIndex::c_5, out_cb, M_block_tiles, N_block_tiles);
+            cb_pop_front(tt::CBIndex::c_6, out_block_num_tiles);
+            cb_pop_front(tt::CBIndex::c_5, out_block_num_tiles);
 #elif defined(MM_RESID)
             cb_wait_front(tt::CBIndex::c_5, out_block_num_tiles);
             add_bias_resid_block(intermediate_cb, in2_cb, tt::CBIndex::c_5, out_cb, M_block_tiles, N_block_tiles);

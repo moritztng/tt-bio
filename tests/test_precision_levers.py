@@ -223,7 +223,9 @@ def test_boltzgen_mode_sets_name_only_known_levers():
                                                     "trimul_t1", "trimul_t2", "dit_pad_short", "adaln_mod", "dit_qkvf",
                                                     "dit_bpad", "dit_shard", "dit_fc123g", "apb_ln", "ws_l1dest",
                                                     "ws_resid", "trimul_t2cm", "trimul_bres", "opm_jd", "dit_kl1",
-                                                    "adaln_at", "ws_psilu", "trimul_t1_psig"}
+                                                    "adaln_at", "ws_psilu", "trimul_t1_psig"} | B.WH_KVW_STACK
+    assert B.WH_KVW_STACK == {"atom_kvw", "ws_ln_resid", "ws_ln_t1l1", "trimul_t1split", "trimul_sig6", "trimul_x8",
+                              "pair_x8t"}
     assert B.WH_LEVERS_NORMAL <= set(T.LEVERS) | T.UNGRADED_LEVERS
     # The trunk group left both Blackhole sets on 2026-11-02: graded against TT_BIO_LEVERS=none the shipped stack cost
     # design_iptm 0.041 normal / 0.040 fast, and the trunk group is the group both the seed-cluster bootstrap and the
@@ -236,10 +238,11 @@ def test_boltzgen_mode_sets_name_only_known_levers():
                                                 "dit_bpad", "dit_shard", "dit_fc123g", "apb_ln", "ws_l1dest", "ws_resid",
                                                 "trimul_t2cm", "opm_jd", "dit_kc", "adaln_at", "dit_kl1",
                                                 "trimul_sig6", "triatt_ln_b8", "triatt_ln_b8g", "trimul_t1w8",
-                                                "ws_psilu", "trimul_t1_psig"}
+                                                "ws_psilu", "trimul_t1_psig"} | B.WH_KVW_STACK
     assert B.BH_LEVERS_FAST - B.LEVERS_FAST - B.HOST_LEVERS == {"atom_l1", "dit_qkvf", "dit_chunk", "dit_pad_short",
                                                 "dit_bpad", "dit_shard", "dit_fc123g", "dit_shoist"}
     assert B.BH_LEVERS_FAST <= set(T.LEVERS) | T.UNGRADED_LEVERS
+    assert B.WH_LEVERS_FAST <= set(T.LEVERS) | T.UNGRADED_LEVERS
 
 
 def test_protenix_family_normal_set():

@@ -54,6 +54,11 @@ void kernel_main() {
     // tt-bio mm_resid: the residual's address, before the outputs'
     const uint32_t resid_addr = get_arg_val<uint32_t>(argidx++);
 #endif
+#ifdef MM_GRES
+    // tt-bio mm_gres: the gate's address and the page of its window's first tile, before the outputs'
+    const uint32_t gate_addr = get_arg_val<uint32_t>(argidx++);
+    const uint32_t gate_page0 = get_arg_val<uint32_t>(argidx++);
+#endif
 
 #ifdef FUSE_TERNARY
     // Fuse addcmul - read runtime addresses before setting out_addr_rt_arg_idx
@@ -89,6 +94,11 @@ void kernel_main() {
     constexpr uint32_t resid_tile_size = get_tile_size(tt::CBIndex::c_5);
     constexpr auto resid_args = TensorAccessorArgs<in2_args.next_compile_time_args_offset()>();
     const auto resid_reader = TensorAccessor(resid_args, resid_addr, resid_tile_size);
+#endif
+#ifdef MM_GRES
+    constexpr uint32_t gate_tile_size = get_tile_size(tt::CBIndex::c_6);
+    constexpr auto gate_args = TensorAccessorArgs<resid_args.next_compile_time_args_offset()>();
+    const auto gate_reader = TensorAccessor(gate_args, gate_addr, gate_tile_size);
 #endif
 
 #ifdef FUSE_TERNARY
@@ -307,6 +317,10 @@ void kernel_main() {
             if constexpr (!is_output_writer) {
                 read_resid_block<M_block_tiles, N_block_tiles>(
                     resid_reader, out_shape, resid_tile_size, m_tile, m_tile_end, n_tile, n_tile_end);
+#ifdef MM_GRES
+                read_gate_block<M_block_tiles, N_block_tiles, MM_GRES_GATE_WT>(
+                    gate_reader, out_shape, gate_tile_size, gate_page0, m_tile, m_tile_end, n_tile, n_tile_end);
+#endif
             }
 #endif
 

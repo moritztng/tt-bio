@@ -98,10 +98,20 @@ HOST_LEVERS = frozenset({"bg_featproc"})
 # ws_l1dest, ws_resid, trimul_t2cm): 37.6 -> 33.9 s/design at 1000 MHz (whx2, 2026-10-31). trimul_bres and opm_jd on
 # top leave the CIFs byte-identical: 34.0 -> 33.0 (wnl, 2026-11-01). Normal grade vs exact WH normal over seeds 0-7 (64
 # designs, 2026-11-01): PASS, design_ptm +0.016 [+0.008, +0.025], iptm -0.019 [-0.041, +0.002], filter 64/64.
+# Both Wormhole sets take the windowed atom attention reading its key windows in place (atom_kvw: one fused q|k|v
+# linear, one head split, kv_window SDPA over the 160-key superset) and six shared pair-stack levers: the transition's
+# LayerNorm in-kernel (ws_ln_resid, ws_ln_t1l1), T1 split (trimul_t1split), the six-tile sigmoid (trimul_sig6) and T2's
+# tail reading the moved x as bfp8 (trimul_x8, pair_x8t). On a Galaxy chip at 1000 MHz (kvw, b s k k s b, 6 designs,
+# 2026-11-19): fast 28.95 -> 27.98 s/design, normal 30.03 -> 29.37. Graded with each set vs TT_BIO_LEVERS=none (8 seeds x
+# 8 designs, 2026-11-19): normal PASS, median paired design CA 4.33 A vs a 10.27 A seed floor, design_ptm +0.006
+# [-0.008, +0.024], iptm -0.003 [-0.024, +0.019], complex_plddt -0.001, filter 64/64; fast PASS, iptm +0.004,
+# design_ptm +0.003, complex_plddt +0.001, filter 64/64.
+WH_KVW_STACK = frozenset({"atom_kvw", "ws_ln_resid", "ws_ln_t1l1", "trimul_t1split", "trimul_sig6", "trimul_x8",
+                          "pair_x8t"})
 WH_LEVERS_NORMAL = LEVERS_NORMAL | HOST_LEVERS | {"atom_l1", "transition_ws", "triatt_ln", "dit_cond_steps", "trimul_t1",
                                     "trimul_t2", "dit_pad_short", "adaln_mod", "dit_qkvf", "dit_bpad", "dit_shard",
                                     "dit_fc123g", "apb_ln", "ws_l1dest", "ws_resid", "trimul_t2cm", "trimul_bres",
-                                    "opm_jd", "dit_kl1", "adaln_at", "ws_psilu", "trimul_t1_psig"}
+                                    "opm_jd", "dit_kl1", "adaln_at", "ws_psilu", "trimul_t1_psig"} | WH_KVW_STACK
 # dit_kl1 (both Wormhole sets) keeps the token DiT attention at the full k chunk with the PV sums added in L1, so the
 # Wormhole fp32-dest erratum guard holds without the 32-key chunk: ~-1.2 ms a diffusion step at 1000 MHz (kl1ab,
 # 2026-11-03, b l l b). Graded as a stack with device z_init on Wormhole vs TT_BIO_LEVERS=none (seed-cluster bootstrap,
@@ -141,7 +151,7 @@ WH_LEVERS_FAST = LEVERS_FAST | HOST_LEVERS | {"atom_l1", "trimul_bres", "trimul_
                                 "dit_cond_steps", "dit_qkvf", "dit_chunk", "dit_pad_short", "dit_bpad", "dit_shard",
                                 "dit_fc123g", "apb_ln", "ws_l1dest", "ws_resid", "trimul_t2cm", "opm_jd", "dit_kc",
                                 "adaln_at", "dit_kl1", "trimul_sig6", "triatt_ln_b8",
-                                "triatt_ln_b8g", "trimul_t1w8", "ws_psilu", "trimul_t1_psig"}
+                                "triatt_ln_b8g", "trimul_t1w8", "ws_psilu", "trimul_t1_psig"} | WH_KVW_STACK
 # Blackhole fast runs the same trunk kernels Boltz-2 uses on Blackhole (T1/T2 trimul with the column-major T2, banded
 # residual, two-buffer L1) plus atom_l1. Graded as one stack by the fast protocol (bg_grade.py, bg_R3, seeds 0-3 x 8
 # designs vs exact BH normal, 2026-10-26): design_ptm -0.000, complex_plddt -0.005, iptm +0.004, filter 32/32 vs 32/32.
