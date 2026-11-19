@@ -295,18 +295,8 @@ void add_bias_block(uint32_t in_cb, uint32_t bias_cb, uint32_t out_cb, uint32_t 
     }
 }
 
-#ifdef MM_RESID
-// tt-bio mm_resid: the block's residual add as the epilogue, out = resid + (x W + bias). The bias is added as
-// add_bias_block does it, then the residual's tile (c_5, the [M, N] block the non-writing DM kernel reads) is added
-// to dest on the FPU, DG tiles at a time so each init serves several tiles. One rounding to the output format.
 #ifdef MM_ROWSTATS
-// tt-bio in-matmul LayerNorm, producer half: the row statistics of the bf16 x this epilogue writes, for the next
-// LayerNorm's consumer matmul. Each output row of the block is also packed to c_10 (bf16: the exact values the
-// consumer reads); x^2 is squared from those in fp32 dest and packed bf16 to c_11 (rounded once, so the reduction
-// below reads every operand exactly at any fidelity; perf/spd_m_esmc/lnacc.py grades this as `pc`); one ones-matmul
-// pass over the row's N block accumulates sum x and sum x^2 in fp32 dest, every column holding the row's partial;
-// both tiles go out fp32 through c_12, one [sum x, sum x^2] pair per (M tile, N block). c_13 holds a ones tile.
-
+// c_13 holds a ones tile for the row-statistics reductions (mm_resid and mm_rope qk_norm).
 void rowstats_ones() {
     cb_reserve_back(RS_ONES_CB, 1);
     pack_reconfig_data_format(RS_ONES_CB);
@@ -320,6 +310,19 @@ void rowstats_ones() {
     cb_push_back(RS_ONES_CB, 1);
     cb_wait_front(RS_ONES_CB, 1);
 }
+#endif
+
+#ifdef MM_RESID
+// tt-bio mm_resid: the block's residual add as the epilogue, out = resid + (x W + bias). The bias is added as
+// add_bias_block does it, then the residual's tile (c_5, the [M, N] block the non-writing DM kernel reads) is added
+// to dest on the FPU, DG tiles at a time so each init serves several tiles. One rounding to the output format.
+#ifdef MM_ROWSTATS
+// tt-bio in-matmul LayerNorm, producer half: the row statistics of the bf16 x this epilogue writes, for the next
+// LayerNorm's consumer matmul. Each output row of the block is also packed to c_10 (bf16: the exact values the
+// consumer reads); x^2 is squared from those in fp32 dest and packed bf16 to c_11 (rounded once, so the reduction
+// below reads every operand exactly at any fidelity; perf/spd_m_esmc/lnacc.py grades this as `pc`); one ones-matmul
+// pass over the row's N block accumulates sum x and sum x^2 in fp32 dest, every column holding the row's partial;
+// both tiles go out fp32 through c_12, one [sum x, sum x^2] pair per (M tile, N block).
 
 void rowstats_row(uint32_t N_block_tiles, uint32_t valid) {
     cb_wait_front(RS_X_CB, N_block_tiles);
