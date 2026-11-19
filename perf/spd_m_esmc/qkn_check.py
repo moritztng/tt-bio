@@ -41,6 +41,7 @@ def main() -> int:
     ap.add_argument("--fast", action="store_true")
     ap.add_argument("--pad", type=int, default=0, help="pad q, k, v to this many heads (300M: 18 fills 9 in1 cores)")
     ap.add_argument("--out", required=True)
+    ap.add_argument("--diag", action="store_true", help="split the producer's cost into its parts, skip the SDPA stage")
     args = ap.parse_args()
     model = esmc.load_esmc(args.model, fast=args.fast, trace=True)
     mod = model.module
@@ -136,6 +137,43 @@ def main() -> int:
     print(json.dumps(rec), flush=True)
     with open(args.out, "a") as f:
         f.write(json.dumps(rec) + "\n")
+
+    if args.diag:   # device ms a layer of each producer part; the QKN_DIAG_* arms give wrong output on purpose
+        wp = ttnn.from_torch(mm_rope.permute(wf, nc, cfg[2]), dtype=w.dtype, layout=ttnn.TILE_LAYOUT, device=dev)
+        bp = ttnn.from_torch(mm_rope.permute(bg[:1], nc, cfg[2]), dtype=ttnn.bfloat16,
+                             layout=ttnn.TILE_LAYOUT, device=dev)
+        xn0 = esmc._ln(x, *((None, None) if attn.ln_fold else (attn.in_norm_weight, attn.in_norm_bias)),
+                       attn.compute_kernel_config, ln_mc)
+
+        def rope_only(qkn, defs=()):
+            def fn():
+                mm_rope.PROBE_DEFINES.update({k_: 1 for k_ in defs})
+                try:
+                    out = mm_rope.qkv_rope_heads(xn0, wd if qkn else wp, bd if qkn else bp, cos, sin, hp, cfg, grid,
+                                                 ck, ncols=nc, qk_norm=qkn)
+                finally:
+                    mm_rope.PROBE_DEFINES.clear()
+                return tuple(out)
+            return fn
+
+        q_, k_, v_, st_ = rope_only(True)()
+        for t in (q_, k_, v_):
+            ttnn.deallocate(t)
+        drec = {k_: rec[k_] for k_ in ("model", "fast", "pad", "rows", "n_layers")}
+        drec["stage"] = "diag"
+        drec["ln_ms"] = dev_ms(lambda: (esmc._ln(x, *((None, None) if attn.ln_fold else (attn.in_norm_weight,
+                               attn.in_norm_bias)), attn.compute_kernel_config, ln_mc),), dev)
+        drec["rope_plain_ms"] = dev_ms(rope_only(False), dev)
+        drec["rope_qkn_ms"] = dev_ms(rope_only(True), dev)
+        drec["rope_qkn_nostat_ms"] = dev_ms(rope_only(True, ("QKN_DIAG_NOSTAT",)), dev)
+        drec["rope_qkn_nosq_ms"] = dev_ms(rope_only(True, ("QKN_DIAG_NOSQ",)), dev)
+        drec["rope_qkn_nosq_nostat_ms"] = dev_ms(rope_only(True, ("QKN_DIAG_NOSQ", "QKN_DIAG_NOSTAT")), dev)
+        drec["rope_probe_ms"] = dev_ms(rope_only(False, ("MM_ROPE_STATS_PROBE",)), dev)
+        drec["rstd_ms"] = dev_ms(lambda: (mm_rope.qk_rstd(st_, d),), dev)
+        print(json.dumps(drec), flush=True)
+        with open(args.out, "a") as f:
+            f.write(json.dumps(drec) + "\n")
+        return 0
 
     # The consumer: shsdpa with qk_rstd (Q *= rq, K *= rk in the kernel) on the fused q, k, v against today's shsdpa on
     # today's, both graded against float64 attention over the page's 514 real keys; plus the fused heads without rstd

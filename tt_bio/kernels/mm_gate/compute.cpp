@@ -88,12 +88,16 @@ void rope_block(
                     bias_cb);
                 binary_dest_reuse_tiles<EltwiseBinaryType::ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(
                     bias_cb, N_block_tiles + n, 1);
+#ifndef QKN_DIAG_NOSQ   // benchmarks only (qkn_check --diag): skip the square and its pack, wrong statistics
                 square_tile_init();
                 square_tile(0);
+#endif
                 tile_regs_commit();
                 tile_regs_wait();
                 pack_tile(1, tmp_cb);
+#ifndef QKN_DIAG_NOSQ
                 pack_tile(0, RS_SQ_CB);   // bf16 like tmp_cb: no packer reconfig
+#endif
                 tile_regs_release();
                 add_bcast_rows_init_short(in_cb, bias_cb);
                 continue;
@@ -124,9 +128,11 @@ void rope_block(
         reconfig_data_format(RS_ONES_CB, RS_SQ_CB);
         pack_reconfig_data_format(RS_ST_CB);
         tile_regs_acquire();   // a block with no q / k tiles writes zeros (dest is cleared on release)
+#ifndef QKN_DIAG_NOSTAT   // benchmarks only (qkn_check --diag): skip the ones-matmul pass, zero statistics
         for (uint32_t n = 0; n < nqk; n++) {
             matmul_tiles(RS_SQ_CB, RS_ONES_CB, n, 0, r * P + j0 + n < KT ? 0 : 1);
         }
+#endif
         tile_regs_commit();
         tile_regs_wait();
         pack_tile(0, RS_ST_CB);
