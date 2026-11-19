@@ -6,6 +6,8 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 ## [Unreleased]
 
 ### Changed
+- **OpenDDE `--fast` is about 2 % faster on Wormhole.** Two more shared pair-stack kernels run in fast mode. A
+  512-token complex 71.7 -> 70.4 s; structure accuracy unchanged on 44 paired folds.
 - **BoltzGen is about 3 % faster on Wormhole in both modes.** The atom attention reads its key windows in place, and
   the pair stack runs six more of the shared kernel levers. A 514-token design 28.95 -> 27.98 s in `--fast`,
   30.03 -> 29.37 s in normal mode; design quality unchanged on 64 paired designs per mode. Blackhole is unchanged.
