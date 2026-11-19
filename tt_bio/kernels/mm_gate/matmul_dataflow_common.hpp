@@ -573,10 +573,15 @@ void write_block_sync_granular_split(
 template <uint32_t M_block_tiles, uint32_t N_block_tiles, typename TensorAccessorType>
 void write_rowstats(
     const TensorAccessorType& acc, uint32_t tile_bytes, uint32_t m_start, uint32_t m_end, uint32_t M_tiles,
-    uint32_t n_tile) {
+    uint32_t n_tile, uint32_t n_start) {
     constexpr uint32_t cb = tt::CBIndex::c_12;
     const bool real_n = n_tile < MM_ROWSTATS_N;
+#ifdef MM_ROPE_T
+    // mm_rope's q/k LayerNorm: core r's MM_ROPE_T tiles need not be whole blocks, so its blocks are r BPC .. r BPC + BPC - 1
+    const uint32_t col = 2 * ((n_start / MM_ROPE_T) * MM_ROPE_QKN_BPC + (n_tile - n_start) / N_block_tiles);
+#else
     const uint32_t col = 2 * (n_tile / N_block_tiles);
+#endif
     for (uint32_t i = 0; i < M_block_tiles; i++) {
         cb_wait_front(cb, 2);
         const uint32_t m = m_start + i;

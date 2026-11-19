@@ -17,6 +17,10 @@
 #ifdef MM_ROWSTATS
 #include "api/compute/eltwise_unary/fill.h"
 #endif
+#ifdef MM_ROWSTATS
+constexpr uint32_t RS_X_CB = tt::CBIndex::c_10, RS_SQ_CB = tt::CBIndex::c_11, RS_ST_CB = tt::CBIndex::c_12,
+                   RS_ONES_CB = tt::CBIndex::c_13;
+#endif
 #if defined(MM_GATE_PACK_SFPU) && defined(TRISC_PACK)
 #include "llk_math_eltwise_unary_sfpu_silu.h"
 #include "llk_math_eltwise_binary_sfpu_binop.h"
@@ -50,11 +54,26 @@ void copy_block(uint32_t in_cb, uint32_t out_cb, uint32_t M_block_tiles, uint32_
 // core-local columns j0 + n < MM_ROPE_P, the host's weight permutation) is rotated with the row's cos / sin tile
 // (c_7 / c_8, tile m) as qk_rope_heads' QKRH_SFPU does it, out_a = a cos - b sin, out_b = b cos + a sin, all four
 // products in fp32 dest; v tiles are copied.
+//
+// MM_ROWSTATS (ESMC's q/k LayerNorm, producer half): the host folds the norm's centring into the weight and bias and
+// passes the norm weight g as the bias tensor's second tile row (c_4 holds [bias | g] a block). A q / k tile's biased y
+// is squared to RS_SQ_CB and multiplied by g before the rotation; one ones-matmul pass a row sums y^2 over the core's
+// q tiles into dest 0 and its k tiles into dest 1, every column holding the row's partial, and both go out fp32 as
+// one [q, k] pair per (row tile, block). The host sums the pairs over blocks into the rows' rstd, which commutes with
+// the rotation and is applied in SDPA. `r` is the core's index along N (its tiles are original r P .. r P + P - 1).
 void rope_block(
-    uint32_t in_cb, uint32_t bias_cb, uint32_t out_cb, uint32_t M_block_tiles, uint32_t N_block_tiles, uint32_t j0) {
+    uint32_t in_cb, uint32_t bias_cb, uint32_t out_cb, uint32_t M_block_tiles, uint32_t N_block_tiles, uint32_t j0,
+    uint32_t r = 0) {
     constexpr uint32_t cos_cb = tt::CBIndex::c_7, sin_cb = tt::CBIndex::c_8, tmp_cb = tt::CBIndex::c_9;
     constexpr uint32_t P = MM_ROPE_P;
+#ifdef MM_ROWSTATS
+    const uint32_t nqk = j0 < P ? std::min(N_block_tiles, P - j0) : 0;
+    constexpr uint32_t KT = MM_ROPE_V0 / 2;   // q is the first KT tiles of the unpermuted qkv
+#endif
     for (uint32_t m = 0; m < M_block_tiles; m++) {
+#ifdef MM_ROWSTATS
+        cb_reserve_back(RS_SQ_CB, N_block_tiles);
+#endif
         cb_reserve_back(tmp_cb, N_block_tiles);
         add_bcast_rows_init_short(in_cb, bias_cb);
         reconfig_data_format(in_cb, bias_cb);
@@ -62,6 +81,24 @@ void rope_block(
         for (uint32_t n = 0; n < N_block_tiles; n++) {
             tile_regs_acquire();
             add_tiles_bcast<BroadcastType::ROW>(in_cb, bias_cb, m * N_block_tiles + n, n, 0);
+#ifdef MM_ROWSTATS
+            if (n < nqk) {   // dest 1 = g y for the rotation, dest 0 = y^2 for the statistics
+                add_tiles_bcast<BroadcastType::ROW>(in_cb, bias_cb, m * N_block_tiles + n, n, 1);
+                binary_dest_reuse_tiles_init<EltwiseBinaryType::ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(
+                    bias_cb);
+                binary_dest_reuse_tiles<EltwiseBinaryType::ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(
+                    bias_cb, N_block_tiles + n, 1);
+                square_tile_init();
+                square_tile(0);
+                tile_regs_commit();
+                tile_regs_wait();
+                pack_tile(1, tmp_cb);
+                pack_tile(0, RS_SQ_CB);   // bf16 like tmp_cb: no packer reconfig
+                tile_regs_release();
+                add_bcast_rows_init_short(in_cb, bias_cb);
+                continue;
+            }
+#endif
 #ifdef MM_ROPE_STATS_PROBE
             // benchmarks only, wrong output: the q/k LayerNorm weight g as a dest-reuse multiply on q / k tiles
             if (j0 + n < P) {
@@ -79,6 +116,25 @@ void rope_block(
         }
         cb_push_back(tmp_cb, N_block_tiles);
         cb_wait_front(tmp_cb, N_block_tiles);
+#ifdef MM_ROWSTATS
+        cb_push_back(RS_SQ_CB, N_block_tiles);
+        cb_wait_front(RS_SQ_CB, N_block_tiles);
+        cb_reserve_back(RS_ST_CB, 2);
+        mm_init_short(RS_SQ_CB, RS_ONES_CB);
+        reconfig_data_format(RS_ONES_CB, RS_SQ_CB);
+        pack_reconfig_data_format(RS_ST_CB);
+        tile_regs_acquire();   // a block with no q / k tiles writes zeros (dest is cleared on release)
+        for (uint32_t n = 0; n < nqk; n++) {
+            matmul_tiles(RS_SQ_CB, RS_ONES_CB, n, 0, r * P + j0 + n < KT ? 0 : 1);
+        }
+        tile_regs_commit();
+        tile_regs_wait();
+        pack_tile(0, RS_ST_CB);
+        pack_tile(1, RS_ST_CB);
+        tile_regs_release();
+        cb_push_back(RS_ST_CB, 2);
+        cb_pop_front(RS_SQ_CB, N_block_tiles);
+#endif
 #ifdef MM_ROPE_STATS_PROBE
         // benchmarks only: the q/k row statistics' math, diag(y y^T) accumulated in one dest over the row's q / k
         // tiles (one matmul_tiles each), then the diagonal mask and ones reduction once a row; results discarded. Prices
@@ -250,8 +306,6 @@ void add_bias_block(uint32_t in_cb, uint32_t bias_cb, uint32_t out_cb, uint32_t 
 // below reads every operand exactly at any fidelity; perf/spd_m_esmc/lnacc.py grades this as `pc`); one ones-matmul
 // pass over the row's N block accumulates sum x and sum x^2 in fp32 dest, every column holding the row's partial;
 // both tiles go out fp32 through c_12, one [sum x, sum x^2] pair per (M tile, N block). c_13 holds a ones tile.
-constexpr uint32_t RS_X_CB = tt::CBIndex::c_10, RS_SQ_CB = tt::CBIndex::c_11, RS_ST_CB = tt::CBIndex::c_12,
-                   RS_ONES_CB = tt::CBIndex::c_13;
 
 void rowstats_ones() {
     cb_reserve_back(RS_ONES_CB, 1);
@@ -594,6 +648,11 @@ void kernel_main() {
     constexpr uint32_t intermediate_cb = tt::CBIndex::c_3;
 
     constexpr uint32_t in2_cb = tt::CBIndex::c_4;
+#if defined(MM_ROPE_T) && defined(MM_ROWSTATS)
+    constexpr uint32_t IN2_TILES = 2 * N_block_tiles;   // [bias | q/k LayerNorm weight]
+#else
+    constexpr uint32_t IN2_TILES = N_block_tiles;
+#endif
     constexpr uint32_t ternary_a_cb = tt::CBIndex::c_5;
     constexpr uint32_t ternary_b_cb = tt::CBIndex::c_6;
 
@@ -693,11 +752,13 @@ void kernel_main() {
 #ifndef FUSE_BIAS
             copy_block(intermediate_cb, out_cb, M_block_tiles, N_block_tiles);
 #else
-            cb_wait_front(in2_cb, N_block_tiles);
+            cb_wait_front(in2_cb, IN2_TILES);
 #ifdef MM_ROPE_T
             cb_wait_front(tt::CBIndex::c_7, M_block_tiles);
             cb_wait_front(tt::CBIndex::c_8, M_block_tiles);
-            rope_block(intermediate_cb, in2_cb, out_cb, M_block_tiles, N_block_tiles, n_tile - N_start_tile);
+            rope_block(
+                intermediate_cb, in2_cb, out_cb, M_block_tiles, N_block_tiles, n_tile - N_start_tile,
+                N_start_tile / MM_ROPE_T);
             cb_pop_front(tt::CBIndex::c_7, M_block_tiles);
             cb_pop_front(tt::CBIndex::c_8, M_block_tiles);
 #elif defined(MM_RESID)
@@ -717,7 +778,7 @@ void kernel_main() {
 #else
             add_bias_block(intermediate_cb, in2_cb, out_cb, M_block_tiles, N_block_tiles);
 #endif
-            cb_pop_front(in2_cb, N_block_tiles);
+            cb_pop_front(in2_cb, IN2_TILES);
 #endif  // FUSE_BIAS
             cb_pop_front(intermediate_cb, out_block_num_tiles);
 

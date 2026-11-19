@@ -96,7 +96,11 @@ void kernel_main() {
 #endif
 #ifdef MM_ROWSTATS
     constexpr uint32_t rowstats_tile_size = get_tile_size(tt::CBIndex::c_12);
+#ifdef MM_ROPE_T
+    constexpr auto rowstats_args = TensorAccessorArgs<sin_args.next_compile_time_args_offset()>();
+#else
     constexpr auto rowstats_args = TensorAccessorArgs<resid_args.next_compile_time_args_offset()>();
+#endif
     const auto rowstats_writer = TensorAccessor(rowstats_args, rowstats_addr, rowstats_tile_size);
 #endif
 
@@ -142,6 +146,11 @@ void kernel_main() {
     constexpr uint32_t cb_id_out = tt::CBIndex::c_2;
 #ifdef FUSE_BIAS
     constexpr uint32_t cb_id_in2 = tt::CBIndex::c_4;
+#if defined(MM_ROPE_T) && defined(MM_ROWSTATS)
+    constexpr uint32_t IN2_TILES = 2 * N_block_tiles;
+#else
+    constexpr uint32_t IN2_TILES = N_block_tiles;
+#endif
 #endif
 
 #ifdef FUSE_AG
@@ -241,7 +250,7 @@ void kernel_main() {
 #ifdef MM_ROWSTATS
                         write_rowstats<M_block_tiles, N_block_tiles>(
                             rowstats_writer, rowstats_tile_size, defer_write_m_tile, defer_write_m_tile_end, M_tiles,
-                            defer_write_n_tile);
+                            defer_write_n_tile, N_start_tile);
 #endif
                     }
                 }
@@ -300,16 +309,21 @@ void kernel_main() {
             }
 #ifdef FUSE_BIAS
             if constexpr (!is_output_writer) {
-                cb_reserve_back(cb_id_in2, N_block_tiles);
+                cb_reserve_back(cb_id_in2, IN2_TILES);
 
                 uint32_t l1_write_addr_in2 = get_write_ptr(cb_id_in2);
                 for (uint32_t n_tile_id = n_tile; n_tile_id < n_tile_end; n_tile_id++) {
                     noc_async_read_tile(n_tile_id, in2_reader, l1_write_addr_in2);
+#if defined(MM_ROPE_T) && defined(MM_ROWSTATS)
+                    // the q/k LayerNorm weight: the bias tensor's second tile row, N_block tiles after the bias
+                    noc_async_read_tile(
+                        n_tile_id + MM_ROPE_QKN_W, in2_reader, l1_write_addr_in2 + N_block_tiles * in2_tile_size);
+#endif
                     l1_write_addr_in2 += in2_tile_size;
                 }
                 noc_async_read_barrier();
 
-                cb_push_back(cb_id_in2, N_block_tiles);
+                cb_push_back(cb_id_in2, IN2_TILES);
             }
 #endif
 #ifdef MM_ROPE_T
@@ -382,7 +396,7 @@ void kernel_main() {
                     }
 #ifdef MM_ROWSTATS
                     write_rowstats<M_block_tiles, N_block_tiles>(
-                        rowstats_writer, rowstats_tile_size, m_tile, m_tile_end, M_tiles, n_tile);
+                        rowstats_writer, rowstats_tile_size, m_tile, m_tile_end, M_tiles, n_tile, N_start_tile);
 #endif
                 }
             }
