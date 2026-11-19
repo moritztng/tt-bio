@@ -184,6 +184,18 @@ def _remap_legacy_state_dict_keys(state: dict) -> dict:
     }
 
 
+def read_checkpoint(checkpoint_path: str, map_location: str = "cpu") -> dict:
+    """``torch.load`` a BoltzGen checkpoint, memory-mapped.
+
+    The shipping checkpoints pickle hyper_parameters referencing deleted training-only classes
+    (boltzgen.model.validation.*), so the load runs under the legacy-pickle finder. mmap leaves the
+    1.9 GB of fp32 weights in the page cache until the device upload reads them: 0.3 s instead of
+    1.2-1.8 s on a quiet Galaxy host, and 3.3 s mid-run.
+    """
+    with _legacy_pickle_compat():
+        return torch.load(checkpoint_path, map_location=map_location, weights_only=False, mmap=True)
+
+
 def load_boltz_checkpoint(
     checkpoint_path: str,
     *,
@@ -200,8 +212,7 @@ def load_boltz_checkpoint(
     """
     from tt_bio.boltzgen.model.models.boltz import Boltz
 
-    with _legacy_pickle_compat():
-        ckpt = torch.load(checkpoint_path, map_location=map_location, weights_only=False, mmap=True)
+    ckpt = read_checkpoint(checkpoint_path, map_location)
     sig = inspect.signature(Boltz.__init__).parameters
     hp = {k: v for k, v in ckpt["hyper_parameters"].items() if k in sig}
     hp.update({k: v for k, v in constructor_overrides.items() if k in sig})
