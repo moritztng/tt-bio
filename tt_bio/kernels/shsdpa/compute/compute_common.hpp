@@ -709,6 +709,32 @@ void add_row_bcast_inplace(uint32_t in0_cb, uint32_t in1_cb, uint32_t num_tiles,
     cb_push_back(in0_cb, num_tiles);
 }
 
+#ifdef QK_RSTD
+// ESMC's q/k LayerNorm, consumer half: q and k arrive centred and g-scaled; each row is multiplied by its rstd here,
+// before the QK matmul. out (n_tiles) = in * r[row] (column broadcast of the r tile's column 0); pops in and r_tiles
+// of r. `transposed`: in's tiles are column-major (K, read transposed: tile i is row i % rows), else row-major.
+void qkr_scale(uint32_t in_cb, uint32_t r_cb, uint32_t out_cb, uint32_t n_tiles, uint32_t rows, bool transposed) {
+    const uint32_t cols = n_tiles / rows;
+    cb_wait_front(in_cb, n_tiles);
+    cb_wait_front(r_cb, rows);
+    cb_reserve_back(out_cb, n_tiles);
+    reconfig_data_format(in_cb, r_cb);
+    pack_reconfig_data_format(out_cb);
+    mul_bcast_cols_init_short(in_cb, r_cb);
+    for (uint32_t i = 0; i < n_tiles; i++) {
+        tile_regs_acquire();
+        mul_tiles_bcast_cols(in_cb, r_cb, i, transposed ? i % rows : i / cols, 0);
+        tile_regs_commit();
+        tile_regs_wait();
+        pack_tile(0, out_cb);
+        tile_regs_release();
+    }
+    cb_push_back(out_cb, n_tiles);
+    cb_pop_front(in_cb, n_tiles);
+    cb_pop_front(r_cb, rows);
+}
+#endif
+
 #ifdef RQK_SCALE_PROBE
 // benchmarks only, wrong output: in0 (num_tiles) *= in1's tile 0, in place, in1 kept. One FPU multiply a score tile, the
 // price of scaling every key column by its k LayerNorm rstd (a row broadcast of rk) before the max and exp.
@@ -1996,6 +2022,14 @@ void sdpa_inner_loop(
 
         uint32_t processed_k_chunks = 0;
 
+#ifdef QK_RSTD
+        // the QK matmul reads the rstd-scaled copies; Q is scaled once a chunk (c_0 is popped here, the copy at the end)
+        const uint32_t qk_in0 = QKR_QS_CB, qk_in1 = QKR_KS_CB;
+        qkr_scale(cb_q_in, QKR_RQ_CB, QKR_QS_CB, q_chunk_tiles, Sq_chunk_t, false);
+#else
+        const uint32_t qk_in0 = cb_q_in, qk_in1 = cb_k_in;
+#endif
+
         for (uint32_t k_chunk = iter_k_chunk_start; k_chunk < k_chunk_end; ++k_chunk) {
             if constexpr (sdpa_type == RING) {
                 const bool kv_chunk_is_joint = k_chunk >= num_local_k_chunks;
@@ -2023,7 +2057,10 @@ void sdpa_inner_loop(
              *
              * matmul_blocks internally waits on both inputs
              */
-            reconfig_data_format(cb_k_in, cb_q_in);
+#ifdef QK_RSTD
+            qkr_scale(cb_k_in, QKR_RK_CB, QKR_KS_CB, k_chunk_tiles, Sk_chunk_t, true);
+#endif
+            reconfig_data_format(qk_in1, qk_in0);
             pack_reconfig_data_format(cb_qk_im);
 #if defined(PERSISTENT_MASK) && defined(QK_MASK_PRELOAD)
             // Only where the add below would run on every k chunk: a provided mask, nothing causal,
@@ -2034,8 +2071,8 @@ void sdpa_inner_loop(
             {
             SHSDPA_ZONE("QK");
             matmul_blocks(
-                cb_q_in,
-                cb_k_in,
+                qk_in0,
+                qk_in1,
                 cb_qk_im,
                 Sq_chunk_t,
                 Sk_chunk_t,
@@ -2398,7 +2435,7 @@ void sdpa_inner_loop(
         // When q_per_core == 1, Q is identical across ring iterations so we keep it
         // fronted in the CB and only pop on the last iteration to avoid redundant DRAM re-reads.
         if (q_per_core > 1 || is_last_ring_iter) {
-            cb_pop_front(cb_q_in, q_chunk_tiles);
+            cb_pop_front(qk_in0, q_chunk_tiles);
         }
     }
 

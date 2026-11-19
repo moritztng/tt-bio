@@ -265,6 +265,13 @@ void kernel_main() {
     constexpr uint32_t skip_src_cols = (use_mla && mla_kv_overlap) ? DHt - vDHt : 0;
 
     const auto q_tile_shape = TensorTileShape(B, NQH, valid_Sqt, DHt);
+#ifdef QK_RSTD
+    // ESMC's q/k LayerNorm rstd, [B * Sqt tile rows, 2 tile columns]: column 0 rq, column 1 rk. A row block's tiles
+    // are read with the other column skipped and zero-padded past the valid rows, like the q / k they scale.
+    constexpr uint32_t qkr_tile_bytes = get_tile_size(QKR_RQ_CB);
+    constexpr auto qkr_args = TensorAccessorArgs<QKR_ACC>();
+    const auto qkr_reader = TensorAccessor(qkr_args, get_arg_val<uint32_t>(QKR_ADDR_ARG), qkr_tile_bytes);
+#endif
 #ifdef GATE_EPILOGUE
     constexpr uint32_t gate_tile_bytes = get_tile_size(cb_gate_in);
     const auto gate_reader = TensorAccessor(gate_args, gate_addr, gate_tile_bytes);
@@ -505,6 +512,11 @@ void kernel_main() {
                     const uint32_t q_row_tile_count = q_row_end_tile - q_row_start_tile;
                     uint32_t q_read_tile_id = q_tile_shape.id_of(nb, nq, read_offset + q_row_start_tile, 0);
 
+#ifdef QK_RSTD
+                    read_chunk_with_padding<qkr_tile_bytes>(
+                        qkr_reader, QKR_RQ_CB, 2 * (nb * Sqt + q_row_start_tile), q_row_tile_count, 1, Sq_chunk_t, 1,
+                        barrier_threshold, false, 1);
+#endif
                     // Q read is deferred into the K loop (k_chunk==0) for subblock interleaving.
                     // When use_q_subblock_push is false, Q is read in full before the K loop (original behavior).
 #ifdef SH_ABL_KV
@@ -625,6 +637,11 @@ void kernel_main() {
                             }
                         }
 
+#ifdef QK_RSTD
+                        read_chunk_with_padding<qkr_tile_bytes>(
+                            qkr_reader, QKR_RK_CB, 2 * (nb * Skt + kv_row_start_tile) + 1, kv_row_tile_count, 1,
+                            Sk_chunk_t, 1, barrier_threshold, false, 1);
+#endif
                         // Forward K chunk to next core(s): initiate async write (NOC write channel)
                         // For mcast: send linked data + companion semaphore back-to-back.
                         // The companion must be issued immediately after the linked write —

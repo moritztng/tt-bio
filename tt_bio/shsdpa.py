@@ -101,10 +101,11 @@ def plan(B, H, S, cores, k_chunk=None, max_qt=None):
 
 
 def sdpa(q, k, v, scale, pad, q_chunk=None, k_chunk=None, split=None, ckc=HIFI2, grid=None, defines=None,
-         merged=False, exp_approx=False, out_dtype=None):
+         merged=False, exp_approx=False, out_dtype=None, qk_rstd=None):
     """softmax(q k^T * scale, padded keys masked) v for bf16 [B, H, S, D] interleaved tensors (DRAM or L1); `pad` is the device
     `key_pad` pair built at the same k_chunk. `merged` writes the heads side by side, [B, 1, S, H * D], as
-    nlp_concat_heads would (bit-identical). `out_dtype` (default q's) is the output's storage dtype."""
+    nlp_concat_heads would (bit-identical). `out_dtype` (default q's) is the output's storage dtype. `qk_rstd`: ESMC's q/k
+    LayerNorm rstd from `mm_rope.qk_rstd`, applied to q and k inside the kernel (`sdpa_generic.build`)."""
     from . import tenstorrent as T
     k_chunk = k_chunk or k_chunk_default()
     B, H, S, D = (int(d) for d in q.shape)
@@ -124,7 +125,8 @@ def sdpa(q, k, v, scale, pad, q_chunk=None, k_chunk=None, split=None, ckc=HIFI2,
         try:
             return SG.sdpa(dev, q, k, v, row, out, q_chunk, k_chunk, grid, ckc, scale, split=split,
                            kernel_dir=KERNEL_DIR, keypad=table, defines_extra=defines,
-                           merged_out=merged, exp_approx_mode=exp_approx)
+                           merged_out=merged, exp_approx_mode=exp_approx,
+                           **({} if qk_rstd is None else {"qk_rstd": qk_rstd}))
         except Exception as exc:
             if not auto or q_chunk == 32:
                 raise

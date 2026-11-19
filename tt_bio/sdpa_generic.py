@@ -645,6 +645,16 @@ def fuse_qkv_cbs(p, Ct, x_buffer_factor=2, dtype=ttnn.bfloat16):
 
 
 CB_GATE_IN = 12
+CB_QKR = (14, 15, 18, 19)   # rq, rk, scaled Q, scaled K
+
+
+def qk_rstd_cbs(p, q_dtype, k_dtype, r_dtype):
+    """The q/k LayerNorm scale's CBs: a q chunk's rq tiles and a k chunk's rk tiles (double-buffered, read
+    beside q / k), and the scaled Q chunk and K chunk the QK matmul reads instead of c_0 / c_1."""
+    rb = tile_bytes(r_dtype)
+    return [(CB_QKR[0], 2 * p["Sq_chunk_t"], rb, r_dtype), (CB_QKR[1], 2 * p["Sk_chunk_t"], rb, r_dtype),
+            (CB_QKR[2], p["Sq_chunk_t"] * p["DHt"], tile_bytes(q_dtype), q_dtype),
+            (CB_QKR[3], p["Sk_chunk_t"] * p["DHt"], tile_bytes(k_dtype), k_dtype)]
 
 
 def gate_cbs(p, gate_buffer_factor=2, dtype=ttnn.bfloat16):
@@ -686,8 +696,12 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
           split=None, kv_buffer_factor=2, fuse_qkv=None, gate=None, im_dtype=None,
           out_im_dtype=None, stats_dtype=None, kv_window=None, qkv_fused=None, css=None,
           keypad=None, merged_out=False, rows=None, kv_chain=False, boxes=None,
-          mask_chain=False, pv_l1acc=False):
+          mask_chain=False, pv_l1acc=False, qk_rstd=None):
     """The ProgramDescriptor for the fold's SDPA call.
+
+    `qk_rstd` is ESMC's q/k LayerNorm rstd, `[B * Sq, 64]` bf16 (`mm_rope.qk_rstd`): each tile's column
+    0 holds the row's rq (tile column 0) and rk (tile column 1). Q is scaled by rq and K by rk inside the
+    kernel before the QK matmul, so q and k arrive centred and g-scaled but not yet normalised.
 
     `rows` is the real sequence length when q, k and v are head-pitched `[B, H, rows + 32, DH]`
     (`triatt_ln.head_pitch`); the output stays `[B, H, rows, DH]`. Plain reads only.
@@ -811,6 +825,10 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
         extra_cbs = list(extra_cbs) + gate_cbs(p, gate_buffer_factor, gate_t.dtype)
     if css is not None:
         extra_cbs = list(extra_cbs) + [(CB_CSS, 1, 4 * css_w, ttnn.uint32)]
+    if qk_rstd is not None:
+        assert [int(d) for d in qk_rstd.padded_shape] == [p["B"] * p["Sq"], 64] and p["Sq"] == p["Sk"], \
+            (qk_rstd.padded_shape, p["B"], p["Sq"])
+        extra_cbs = list(extra_cbs) + qk_rstd_cbs(p, q.dtype, k.dtype, qk_rstd.dtype)
     kp_w = None if keypad is None else int(keypad.padded_shape[-1])
     if keypad is not None:
         assert 2 * p["B"] <= kp_w and kp_w % 8 == 0, (keypad.padded_shape, p["B"])
@@ -866,6 +884,9 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
     kp_acc = len(reader_ct)
     if keypad is not None:
         reader_ct += acc(keypad)
+    qkr_acc = len(reader_ct)
+    if qk_rstd is not None:
+        reader_ct += acc(qk_rstd)
 
     writer_ct = [
         p["B"], p["NQH"], p["NKH"], p["Sqt"], p["valid_Sqt"], p["Sk"], p["DHt"], p["vDHt"],
@@ -956,6 +977,13 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
         assert fuse_qkv is None and gate is None and css is None
         defines.update(KEYPAD="1", KEYPAD_ACC=str(kp_acc), KEYPAD_ADDR_ARG="31", KEYPAD_CB=str(CB_CSS),
                        KEYPAD_W=str(kp_w))
+    if qk_rstd is not None:
+        # its address is the reader's last runtime arg, after the 31 base args and css / keypad
+        assert fuse_qkv is None and gate is None
+        defines.update(QK_RSTD="1", QKR_ACC=str(qkr_acc),
+                       QKR_ADDR_ARG=str(31 + (css is not None) + (keypad is not None)),
+                       QKR_RQ_CB=str(CB_QKR[0]), QKR_RK_CB=str(CB_QKR[1]), QKR_QS_CB=str(CB_QKR[2]),
+                       QKR_KS_CB=str(CB_QKR[3]))
     if defines_extra:
         defines.update({str(a): str(b) for a, b in dict(defines_extra).items()})
     chained = bool(kv_chain and boxes is None and p["q_pf"] > 1 and p["nh_per_core"] == 1 and p["q_per_core"] == 1
@@ -1013,6 +1041,7 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
     css_tail = ([], []) if css is None else ([css[0].buffer_address()], list(css[1]))
 
     kp_tail = [] if keypad is None else [keypad.buffer_address()]
+    qkr_tail = [] if qk_rstd is None else [qk_rstd.buffer_address()]
 
     def chain_args(i, lb, ln, lq, lqe):
         # reader_interleaved.cpp chain block: participant, injector, sink, batch, head, q start, q count,
@@ -1049,7 +1078,7 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
         rr.append((core, [q_a, k_a, v_a, m_a, 0, 0, 0, i, lb, lbe, ln, lne, lq, lqe, 1, 0, 0]
                    + chain_args(i, lb, ln, lq, lqe)    # chain metadata, no-chain zeros unless kv_chain
                    + ([] if fuse_qkv is None else [x_a, w_a])
-                   + ([] if gate is None else [g_a]) + css_tail[0] + kp_tail))
+                   + ([] if gate is None else [g_a]) + css_tail[0] + kp_tail + qkr_tail))
         wr.append((core, [o_a, i, lb, lbe, ln, lne, lq, lqe, 1, 0, 0, 0]))
         cr.append((core, [i, lb, lbe, ln, lne, lq, lqe, 1, 0, 0] + css_tail[1]))
 
@@ -1075,7 +1104,8 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
             "fuse": None if fuse_qkv is None else (Ct, proj_h, x_a, w_a),
             "gate": None if gate is None else g_a,
             "css": None if css is None else (css_tail[0][0], tuple(css_tail[1])),
-            "kp": None if keypad is None else kp_tail[0]}
+            "kp": None if keypad is None else kp_tail[0],
+            "qkr": None if qk_rstd is None else qkr_tail[0]}
 
 
 def _uniform_dataformat(q, k, v, out, mask):
@@ -1135,7 +1165,8 @@ def sdpa(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scal
            kw.get("kv_window"), kw.get("qkv_fused"), kw.get("css") is not None, bool(kw.get("merged_out")),
            kw.get("rows"), bool(kw.get("kv_chain")), kw.get("boxes"), bool(kw.get("mask_chain")),
            bool(kw.get("pv_l1acc")),
-           None if kw.get("keypad") is None else str(kw["keypad"].padded_shape))
+           None if kw.get("keypad") is None else str(kw["keypad"].padded_shape),
+           None if kw.get("qk_rstd") is None else (str(kw["qk_rstd"].padded_shape), str(kw["qk_rstd"].dtype)))
     e = _CACHE.get(key)
     if e is None:
         e = _CACHE[key] = build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid,
@@ -1150,9 +1181,11 @@ def sdpa(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scal
     css_bind = None if css is None else (css[0].buffer_address(), tuple(css[1]))
     kp = kw.get("keypad")
     kp_addr = None if kp is None else kp.buffer_address()
-    bound = (addrs, fuse_addrs, gate_addr, css_bind, kp_addr)
+    qkr = kw.get("qk_rstd")
+    qkr_addr = None if qkr is None else qkr.buffer_address()
+    bound = (addrs, fuse_addrs, gate_addr, css_bind, kp_addr, qkr_addr)
     held = (e["addrs"], None if fuse is None else e["fuse"][2:], None if gate is None else e["gate"],
-            e.get("css"), e.get("kp"))
+            e.get("css"), e.get("kp"), e.get("qkr"))
     if bound != held:
         pd = bound_descriptor(e, bound)
         if pd is None:
@@ -1160,16 +1193,20 @@ def sdpa(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scal
             rr, wr, cr = e["rt"]
             for _, a in rr:
                 a[0], a[1], a[2], a[3] = addrs[0], addrs[1], addrs[2], addrs[3]
-                # The two levers are mutually exclusive (`build` asserts it), so whichever is on
-                # owns the tail of the reader's runtime args.
+                # qk_rstd's address is always last; of the others, mutually exclusive (`build`
+                # asserts it), whichever is on owns the tail before it.
+                t = len(a)
+                if qkr is not None:
+                    a[-1] = qkr_addr
+                    t -= 1
                 if fuse is not None:
-                    a[-2], a[-1] = fuse_addrs
+                    a[t - 2], a[t - 1] = fuse_addrs
                 elif gate is not None:
-                    a[-1] = gate_addr
+                    a[t - 1] = gate_addr
                 elif css is not None:
-                    a[-1] = css_bind[0]
+                    a[t - 1] = css_bind[0]
                 elif kp is not None:
-                    a[-1] = kp_addr
+                    a[t - 1] = kp_addr
             for _, a in wr:
                 a[0] = addrs[4]
             if css is not None:
@@ -1193,6 +1230,7 @@ def sdpa(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scal
             e["gate"] = gate_addr
         e["css"] = css_bind
         e["kp"] = kp_addr
+        e["qkr"] = qkr_addr
     # The fold's reader never touches q/k/v -- they are here for their shapes, and the tensors the
     # program actually reads are x and w.
     operands = [q, k, v, mask, out] if fuse is None else [fuse[0], fuse[1], mask, out]
@@ -1204,5 +1242,7 @@ def sdpa(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scal
         operands = operands + [css[0]]
     if kp is not None:
         operands = operands + [kp]
+    if qkr is not None:
+        operands = operands + [qkr]
     ttnn.generic_op(operands, e["pd"])
     return out
