@@ -15,6 +15,7 @@ from tt_bio.mm_gate import KERNEL_DIR
 STATS = [0, 0]   # runs, declines
 _CACHE: dict = {}
 _L1_REFUSED: set = set()   # head shapes whose L1 q / k the device refused (allocation or a CB clash)
+PROBE_DEFINES: dict = {}   # benchmarks only (perf/spd_m_esmc/ropeceil.py): extra compute defines, e.g. MM_ROPE_STATS_PROBE
 
 
 def layout(n_tiles: int, ncols: int, n_block: int):
@@ -102,10 +103,11 @@ def qkv_rope_heads(x, w, b, cos, sin, n_heads: int, cfg, grid, ckc, half: bool =
     spec = lambda u: (str(u.padded_shape), str(u.dtype), str(u.memory_config()))
     ck = MG.ckc_args(ckc)
     key = (spec(x), spec(w), spec(b), spec(cos), tuple(cfg), tuple(grid), tuple(str(c) for c in ck), half,
+           tuple(sorted(PROBE_DEFINES.items())),
            tuple(o.memory_config().buffer_type for o in outs))
     entry = _CACHE.get(key)
     rope = {"MM_HEADS_ST": seq_len // 32, "MM_ROPE_T": t, "MM_ROPE_P": p, "MM_ROPE_V0": v0,
-            **({"MM_HALF_PAIRS": 1, "MM_HEADS_H": n_heads} if half else {})}
+            **({"MM_HALF_PAIRS": 1, "MM_HEADS_H": n_heads} if half else {}), **PROBE_DEFINES}
     if entry is None:
         entry = MG.build(dev, x, w, outs, (tuple(cfg), tuple(grid)), ck, defines=rope, kernel_dir=KERNEL_DIR, bias=b,
                          extra=(cos, sin))

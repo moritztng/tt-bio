@@ -62,6 +62,16 @@ void rope_block(
         for (uint32_t n = 0; n < N_block_tiles; n++) {
             tile_regs_acquire();
             add_tiles_bcast<BroadcastType::ROW>(in_cb, bias_cb, m * N_block_tiles + n, n, 0);
+#ifdef MM_ROPE_STATS_PROBE
+            // benchmarks only, wrong output: the q/k LayerNorm weight g as a dest-reuse multiply on q / k tiles
+            if (j0 + n < P) {
+                binary_dest_reuse_tiles_init<EltwiseBinaryType::ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(
+                    bias_cb);
+                binary_dest_reuse_tiles<EltwiseBinaryType::ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(
+                    bias_cb, n, 0);
+                add_bcast_rows_init_short(in_cb, bias_cb);
+            }
+#endif
             tile_regs_commit();
             tile_regs_wait();
             pack_tile(0, tmp_cb);
@@ -69,6 +79,26 @@ void rope_block(
         }
         cb_push_back(tmp_cb, N_block_tiles);
         cb_wait_front(tmp_cb, N_block_tiles);
+#ifdef MM_ROPE_STATS_PROBE
+        // benchmarks only: the q/k row statistics' math, diag(y y^T) accumulated in one dest over the row's q / k
+        // tiles (one matmul_tiles each), then the diagonal mask and ones reduction once a row; results discarded. Prices
+        // the in-epilogue q/k LayerNorm producer before it is built.
+        mm_init_short(tmp_cb, tmp_cb, 1);
+        reconfig_data_format(tmp_cb, tmp_cb);
+        tile_regs_acquire();
+        for (uint32_t n = 0; n < N_block_tiles && j0 + n < P; n++) {
+            matmul_tiles(tmp_cb, tmp_cb, n, n, 0);
+        }
+        tile_regs_commit();
+        tile_regs_wait();
+        tile_regs_release();
+        tile_regs_acquire();
+        matmul_tiles(tmp_cb, tmp_cb, 0, 0, 0);
+        matmul_tiles(tmp_cb, tmp_cb, 0, 0, 1);
+        tile_regs_commit();
+        tile_regs_wait();
+        tile_regs_release();
+#endif
         pack_reconfig_data_format(out_cb);
         for (uint32_t n = 0; n < N_block_tiles;) {
             tile_regs_acquire();

@@ -10,6 +10,8 @@ rstd inside SDPA; this probe leaves the norm out (q, k unnormalised) and times o
     pad18   = 300M only: 3 zero heads added to each of q, k, v so the qkv splits whole heads over all 9 in1 cores
 
 v has no norm, so mmrope's v heads must match today's (rel_l2 printed). Device ms a call by trace replay.
+*_stats: the same arm with MM_ROPE_STATS_PROBE, the q/k LayerNorm producer's epilogue math (g multiply, diag(y y^T)
+accumulation) with its results discarded: what the real producer will cost on top, minus its tiny stats write.
 
     python3 perf/spd_m_esmc/ropeceil.py --model esmc-600m [--fast] --out ropeceil.jsonl
 """
@@ -105,6 +107,16 @@ def main() -> int:
             ttnn.deallocate(t)
     else:
         rec["mmrope"] = None
+    def stats(fn):   # the same program plus the q/k LayerNorm producer's math (MM_ROPE_STATS_PROBE, wrong output)
+        mm_rope.PROBE_DEFINES["MM_ROPE_STATS_PROBE"] = 1
+        try:
+            return dev_ms(fn, dev)
+        finally:
+            mm_rope.PROBE_DEFINES.clear()
+
+    if rec["mmrope"] is not None:
+        fn, _ = arm(wt, bt, H)
+        rec["mmrope_stats"] = stats(fn)
     if args.model == "esmc-300m":   # 15 heads split over 6 of 9 in1 cores; 18 (3 zero) over all 9
         hp = 18
         pad = lambda t: torch.cat([torch.cat([c, torch.zeros(*c.shape[:-1], (hp - H) * 64)], -1)
@@ -113,9 +125,10 @@ def main() -> int:
         if fn is not None:
             rec["pad18_cols"] = where
             rec["pad18"] = dev_ms(fn, dev)
+            rec["pad18_stats"] = stats(fn)
     for t in ref:
         ttnn.deallocate(t)
-    for k in ("mmrope", "pad18"):
+    for k in ("mmrope", "pad18", "mmrope_stats", "pad18_stats"):
         if rec.get(k):
             rec[f"{k}_saved_page_ms"] = round((rec["today"] - rec[k]) * rec["n_layers"], 3)
     print(json.dumps(rec), flush=True)
