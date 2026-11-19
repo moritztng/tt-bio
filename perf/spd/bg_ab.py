@@ -2,7 +2,7 @@
 """bg_ab.py --arm NAME=TREE[:fast,flag][@+lever+lever] ... --order a,b,b,a --out OUT.json : interleaved BoltzGen page A/B, one chip, seeded.
 
 Each run is perf/bmk/design_cell.py's BoltzGen cell (`tt-bio design --model boltzgen --steps design` on
-perf/dsfix/fixtures/bg_R3.yaml, one design = the wall between consecutive `batch k/N` stamps, the cold design and the
+perf/dsfix/fixtures/bg_R3.yaml (or --fixture), one design = the wall between consecutive `batch k/N` stamps, the cold design and the
 one paying the checkpoint switch dropped) with `--seed` added, so arms that compute the same thing write the same CIFs.
 Run from anywhere with TT_VISIBLE_DEVICES set; each arm runs its own tree (PYTHONPATH and cwd = TREE). `@+a+b` runs the
 arm under TT_BIO_LEVERS = that tree's BoltzGen set for the mode (LEVERS_NORMAL / LEVERS_FAST, WH_LEVERS_* with --wh) plus a and b.
@@ -21,6 +21,8 @@ ap.add_argument("--designs", type=int, default=6)
 ap.add_argument("--wh", action="store_true", help="base an @ arm on the tree's Wormhole set (WH_LEVERS_*) where it has one")
 ap.add_argument("--bh", action="store_true", help="base an @ arm on the tree's Blackhole set (BH_LEVERS_*) where it has one")
 ap.add_argument("--seed", type=int, default=0)
+ap.add_argument("--fixture", type=Path, default=Path(__file__).resolve().parents[1] / "dsfix/fixtures/bg_R3.yaml",
+                help="design YAML, taken from THIS checkout so an older arm tree can run a newer fixture")
 ap.add_argument("--timeout", type=int, default=1500)
 ap.add_argument("--out", type=Path, required=True)
 a = ap.parse_args()
@@ -53,7 +55,7 @@ for i, name in enumerate(a.order.split(",")):
     tree, fast, env, cli = arms[name]
     out = work / f"{i}-{name}"
     subprocess.run(["rm", "-rf", str(out)])
-    cmd = [sys.executable, "-u", "-m", "tt_bio.main", "design", "perf/dsfix/fixtures/bg_R3.yaml", "--model", "boltzgen",
+    cmd = [sys.executable, "-u", "-m", "tt_bio.main", "design", str(a.fixture.resolve()), "--model", "boltzgen",
            "--steps", "design", "--num_designs", str(a.designs), "--out_dir", str(out), "--seed", str(a.seed),
            "--debug", "--log"] + (["--fast"] if fast else []) + cli
     run = {"arm": name, "tree": str(tree), "fast": fast, "cli": cli, "levers": env.get("TT_BIO_LEVERS"), "started": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
