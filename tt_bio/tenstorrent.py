@@ -14371,7 +14371,7 @@ class AttentionPairBias(Module):
         atom on the stream framed by ATOM_KVW_LEAD zero rows at each end, one head split cuts it, and the SDPA
         reader takes window i's queries and its ATOM_KVW_KEYS-key superset straight from that frame. The superset
         bias is today's bias with -1e9 on the extra keys, built once per bias tensor (one a layer a fold)."""
-        ok = (lever("atom_kvw") and isinstance(keys_indexing, _AtomShiftGather) and not self.kq_norm
+        ok = (lever("atom_kvw") and z is not None and isinstance(keys_indexing, _AtomShiftGather) and not self.kq_norm
               and self._lp is None and self.dtype != ttnn.float32 and not (_FP32_SOFTMAX or self.fp32_softmax)
               and self.head_dim % 32 == 0 and int(s.shape[2]) == ATOM_WINDOW
               and len(z.shape) == 4 and int(z.shape[-1]) == ATOM_DIM and int(z.shape[-2]) == ATOM_WINDOW
