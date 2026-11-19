@@ -8,7 +8,9 @@ Every model shares these caches, so the rules have to agree across all of them:
 * a cache hit requires a non-empty file, so a zero-byte artifact from a failed
   producer is redone instead of being accepted forever,
 * the MSA cache key is ``sha256(sequence)[:16]``, so the same sequence is searched
-  once no matter which model asked for it.
+  once no matter which model asked for it,
+* a key is searched by one process at a time (:func:`single_flight`), so jobs that
+  start together and share a chain wait for one search instead of each running it.
 
 Before this module the publish rule was written five times with two producers
 missing the rename, six of seven MSA readers gated on bare ``Path.exists()``, and
@@ -21,6 +23,7 @@ Stdlib only, no ttnn: the CLI and the worker both import this at module scope.
 
 from __future__ import annotations
 
+import fcntl
 import hashlib
 import os
 import shutil
@@ -108,6 +111,43 @@ def publish_file(src, dst) -> None:
     """Copy a produced file into the cache."""
     with staged(dst) as tmp:
         shutil.copy2(src, tmp)
+
+
+def single_flight(lock_dir, keys, missing, search) -> None:
+    """Call ``search(todo)`` so that every key in ``keys`` is searched by at most one process
+    sharing ``lock_dir`` at a time, and not at all once one of them produced it.
+
+    ``missing(key)`` tells whether the key's result is still absent from the cache. The keys
+    whose lock is free are taken without waiting and searched together in one call, so
+    distinct keys still run side by side. A key another process holds is waited for and then
+    searched only if that search left nothing behind. A burst of jobs that share a chain (one
+    antigen against many binders, the same input sharded) used to search it once per job, all
+    at the same moment: 29 jobs on one Galaxy ran ~8x the distinct work. The locks are flocks,
+    which the kernel drops when their holder dies, so a killed search never blocks a waiter.
+    """
+    lock_dir = Path(lock_dir)
+    lock_dir.mkdir(parents=True, exist_ok=True)
+    held, busy = {}, []
+    try:
+        for k in sorted(set(keys)):
+            f = open(lock_dir / f".{k}.lock", "a")
+            try:
+                fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                held[k] = f
+            except BlockingIOError:
+                f.close()
+                busy.append(k)
+        todo = [k for k in held if missing(k)]
+        if todo:
+            search(todo)
+    finally:
+        for f in held.values():
+            f.close()  # the flock goes with its last descriptor
+    for k in busy:
+        with open(lock_dir / f".{k}.lock", "a") as f:
+            fcntl.flock(f, fcntl.LOCK_EX)
+            if missing(k):
+                search([k])
 
 
 class TrunkCache:

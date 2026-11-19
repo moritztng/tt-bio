@@ -22,6 +22,8 @@ passed as None and every multiply by it is skipped: x * 1 is x, bit for bit (`tr
 
 from __future__ import annotations
 
+import logging
+
 import ttnn
 
 import torch
@@ -32,8 +34,12 @@ from .. import outer_residual
 from .. import rne_add
 from ..envflags import env_flag
 from ..tenstorrent import (CORE_GRID_MAIN, Module, TriangleMultiplication, WeightScope, _pair_proj_minimal_matmul,
-                           _sdpa_program_config_for_lengths, bfp8_fidelity, download, fused_sdpa, lever,
-                           lever_scope, model_levers, refusals_learned, under_lever_scope, upload)
+                           TraceScratch, _sdpa_program_config_for_lengths, bfp8_fidelity, device_generation,
+                           download, dram_rise, fused_sdpa,
+                           lever, lever_scope, model_levers, refusals_learned, trace_region_size,
+                           under_lever_scope, upload)
+
+_log = logging.getLogger(__name__)
 
 EPS = 1e-5
 NEG_INF = -1e4
@@ -592,17 +598,19 @@ class PairUpdate(Module):
                 (lambda h: self._transition(h, pair_mask_c), True))
         # `pair_bf16z`: a bf16 stream is its own copy (zb is z), which the fused programs below write in place
         fused = zb is not z or lever("pair_bf16z")
+        # no residual mask to apply: no padded token (the triangle mask is None), or `mask_at_mix` dropped it
+        unmasked = pair_mask is None or pair_mask_c is None
         for sub, own_mask in subs:
             u = None
-            if not own_mask and pair_mask is None and fused and whole and lever("pair_tail"):
-                # no padded token: the triangle's output tail adds into the pair stream in the same program,
+            if not own_mask and unmasked and fused and whole and lever("pair_tail"):
+                # no residual mask: the triangle's output tail adds into the pair stream in the same program,
                 # z and zb written in place
                 tri = self.tri_out if sub is subs[0][0] else self.tri_in
-                u = tri(zb, None, stream32=z)
+                u = tri(zb, pair_mask, stream32=z)
                 if tri.took_residual:
                     continue
-            if own_mask and pair_mask is None and self.tr_ws is not None and fused:
-                # the transition with no padded token: its residual write rides the same program, in place
+            if own_mask and unmasked and self.tr_ws is not None and fused:
+                # the transition with no residual mask: its residual write rides the same program, in place
                 both = self._transition_block(zb, resid=z)
                 if both is not None:
                     z, zb = both
@@ -710,15 +718,62 @@ SDPA_FILL = True
 #: 256 1.023x, 128 1.033x; whole design at 512 1.012x. z rel RMS vs float64 0.050 -> 0.052 at 512 and 224. 31 designs:
 #: designed chain 5.7 A median against a 40.0 A seed floor at 512, 3.1 against 21.4 at 224, binder grade PASS at both
 #: (state/rfd4/bets/tok512.md).
+#: `mask_at_mix`: a padded call masks only where tokens mix (the attention keys, the triangle multiplication's a and
+#: b), drops every per-token and per-pair residual mask and zeroes the pads once on the way out, so it runs the
+#: unpadded call's fused programs. 620 real tokens in the 640 bucket: traced trunk 382.2 -> 202.2 ms a design a pass
+#: (1.89x), whole design 71.8 -> 39.5 s (1.82x, 1250-1331 MHz). A no-op on an unpadded call. z rel RMS vs float64
+#: 0.0175 -> 0.0195 padded. 31 designs at 620: designed chain 3.93 A median against a 25.7 A seed floor, binder grade
+#: PASS (state/bat-lever.md).
+#: `trimul_sig6`: the trimul kernels' gate sigmoid as a degree-6 polynomial instead of degree 8 (max |error| 7.4e-4
+#: against 3.0e-4, about a third fewer SFPU instructions a gate), already default on four other models. On RFD4 at
+#: PopVax's shape (9TH6-A + 120-mer, 620 tokens, thinking_medium): -1.26 s a design, WH paired A/B on one Galaxy
+#: chip at 1000 MHz. 35 paired seeds, binder grade PASS on all five oracle-free columns, designed-chain CA RMSD
+#: median 2.73 A against a two-seed floor of 27.28 A, ratio 0.100 against a 0.5 kill line (state/rfd4-3x.md).
+#: `mask_at_mix_z8` is in Wormhole `--fast` only (WH_FAST_LEVERS below), and the reason it is not in normal is worth keeping. With `mask_at_mix` it lets a padded call
+#: carry the bfloat8_b pair stream that `pair_bfp8z` otherwise gives an unpadded call only. 620 real tokens in the
+#: 640 bucket:
+#: whole design 82.923 -> 78.404 s (-4.52 s, 5.45 %), WH paired A/B back to back on one Galaxy chip
+#: (UF-EV-A4-GWH02 card 15), AICLK median 1000 on every design. 35 paired seeds, binder grade PASS: radius of
+#: gyration KS p 0.693 with a median delta of 0.222 A inside the 0.354 A two-seed floor, designed-chain CA RMSD
+#: median 5.92 A against a 27.83 A floor, ratio 0.213 against a 0.5 kill line (state/rfd4-3x.md). An earlier grade
+#: read this lever's RoG at p 0.040 before the two-seed floor existed; the regrade at 35 paired seeds is what stands.
+#: It stays opt-in anyway, because the trunk parity suite rejects it: at 100 real tokens in a 128 bucket the z
+#: stream lands 4.632e-02 from the float64 reference against a bf16-mixed floor of 8.066e-03, 5.7x its floor, and
+#: five more cases breach by 3.7-5.7x. The absolute bar passes in every one; it is the floor that is left behind,
+#: which is the signal that the stream is no longer running the precision recipe the floor models.
+#: The obvious guess -- a bfp8 tile shares an exponent across its block, so more pad should serve the real lanes
+#: worse -- is WRONG, and a pad-fraction sweep on one chip says so. z error over its bf16-mixed floor, lever off
+#: then on, bucket 128: 0.0 % pad 5.765 / 5.765, 3.1 % 1.955 / 5.776, 6.2 % 1.946 / 5.778, 12.5 % 1.922 / 5.741,
+#: 21.9 % 1.899 / 5.743. One pad token costs what 28 cost. So the lever CANNOT be scoped by a pad-fraction
+#: threshold, and PopVax's 620-in-640 is not a safe shape for it -- only a shape whose structural grade was not
+#: sensitive to the loss. The cause is not located here and was not located by state/rfd4/bets/z8.md either,
+#: which reached the same action from a different metric: gate a bfp8 pair stream off padded calls.
+#: Note for whoever next touches this: at 0 % pad the two arms are identical at 5.765, because `pair_bfp8z`
+#: already makes the stream bfp8 when nothing is padded. Main therefore ships ~5.77x this floor on every unpadded
+#: call while the suite rejects the same 5.77x on a padded one. That asymmetry is unexplained. It is NOT a reason
+#: to widen a floor or a bar -- the bar is what caught this lever -- but it is where the next look should start.
 NORMAL_LEVERS = frozenset({"trimul_t1", "pair_mm", "pair_mm_tr", "transition_b8", "trimul_gin", "trimul_gin_w8",
                            "pair_block", "pair_tail", "trimul_t1_dram", "pair_bias_rms",
                            "pair_write_res", "trimul_t1_psig", "trimul_gin_hifi2", "trimul_t1w8", "pair_tail_small",
                            "trimul_bres", "trimul_bres_hifi2", "pair_bf16z",
                            "pair_tail_cm", "trimul_t1b8", "pair_batch", "pair_block_hifi2",
                            "trimul_t1g8", "trimul_tail_hifi2", "pair_bfp8z", "trimul_t1_fgate", "pair_x8", "pair_x8t",
-                           "tok_recycle_mm", "dit_sigf32", "tok_w8"})
-#: `--fast` runs the same set: its two extra levers were graded into the default (bet 23).
+                           "tok_recycle_mm", "dit_sigf32", "tok_w8", "mask_at_mix", "trimul_sig6"})
+#: `--fast` on Blackhole runs the same set: its two extra levers were graded into the default (bet 23).
 FAST_LEVERS = NORMAL_LEVERS
+#: Wormhole `--fast` adds `mask_at_mix_z8`. At the gapboard shape (336 tokens in the 352 bucket, thinking_medium, b1)
+#: it is -1.31 / -1.46 s on a 28.56 s design (-4.9 %), WH paired A/B on one Galaxy chip at AICLK 1000, two rounds of
+#: 6 per arm. Grade at that shape, 12 paired seeds: designed-chain CA RMSD median 6.73 A against a 28.51 A seed floor,
+#: ratio 0.236 against the 0.5 kill line, no oracle-free column failed; with the 35-seed 620-token grade above it
+#: clears the fast bar. It fails the normal trunk parity suite (above), so normal does not take it, and Blackhole
+#: is ungraded (state/spd-m-rfd4.md).
+WH_FAST_LEVERS = NORMAL_LEVERS | {"mask_at_mix_z8"}
+
+
+def mode_levers() -> frozenset:
+    """This process's RFD4 trunk lever set: the mode's set for this card's arch, or TT_BIO_LEVERS."""
+    from ..tenstorrent import is_wormhole
+    return model_levers(normal=NORMAL_LEVERS, fast=WH_FAST_LEVERS if is_wormhole() else FAST_LEVERS)
 
 
 class Trunk(Module):
@@ -749,7 +804,7 @@ class Trunk(Module):
         self.dtype = dtype or ttnn.bfloat16
         self.residual_dtype = residual_dtype or self.dtype
         self.nlayers = nlayers
-        self._levers = model_levers(normal=NORMAL_LEVERS, fast=FAST_LEVERS)
+        self._levers = mode_levers()
         self.pair_residual_dtype = pair_residual_dtype or (
             (ttnn.bfloat8_b if "pair_bfp8z" in self._levers else ttnn.bfloat16) if "pair_bf16z" in self._levers
             else self.residual_dtype)
@@ -788,9 +843,16 @@ class Trunk(Module):
     def _group_biases(self, k, zb, mask_scaled):
         """The pre-scaled [b, heads, n, n] pair bias of every block in `bias_groups[k]`."""
         g = self.bias_groups[k]
-        if self.bias_wts is not None and mask_scaled is None and dit_pair_bias.rms_eligible(zb, self.bias_wts[k]):
-            return dit_pair_bias.rms_pair_bias(zb, self.bias_wts[k], EPS, self.n_heads, n_out=len(g),
-                                               fidelity=self.compute_kernel_config.math_fidelity)
+        if (self.bias_wts is not None and (mask_scaled is None or lever("mask_at_mix"))
+                and dit_pair_bias.rms_eligible(zb, self.bias_wts[k])):
+            out = dit_pair_bias.rms_pair_bias(zb, self.bias_wts[k], EPS, self.n_heads, n_out=len(g),
+                                              fidelity=self.compute_kernel_config.math_fidelity)
+            if mask_scaled is None:
+                return out
+            masked = [ttnn.add(t, mask_scaled) for t in out]
+            for t in out:
+                ttnn.deallocate(t)
+            return masked
         both = pair_biases(zb, self.bias_ws[k], mask_scaled, self.compute_kernel_config, self.dtype)
         if len(g) == 1:
             return [both]
@@ -830,6 +892,11 @@ class Trunk(Module):
         """One trunk pass. Consumes `s` and `z` (frees them) and returns the new pair. `zb`, when given, is
         z's `dtype` copy, made by whoever wrote z, and is consumed too."""
         mask, bias_mask, pair_mask, pair_mask_c, res_mask, res_pair_mask_c = masks
+        if mask is not None and lever("mask_at_mix"):
+            # Only the attention (over keys) and the triangle multiplication (over the third token) mix tokens; both
+            # keep their masks. Every other op is per token or per pair, so a padded token cannot reach a real one
+            # through it, and the residual masks go: the pass runs the unpadded path's fused programs.
+            mask = pair_mask_c = res_mask = None
         ckc = self.compute_kernel_config
         cn = _rms(cond, None, ckc)  # every adaptive norm of the pass reads rms0(cond)
         mask_scaled = None if bias_mask is None else ttnn.multiply(bias_mask, self.head_dim ** 0.5)
@@ -863,9 +930,12 @@ class Trunk(Module):
     def pair_dtype(self, masks):
         """The pair stream's dtype for a call with these `trunk_masks`. `pair_bfp8z` stores it bfloat8_b only when no
         token is padded, where every z write is one of the fused programs; a padded call reads z far past the float64
-        model of bfp8 storage (state/rfd4/bets/z8.md), so it keeps the bfloat16 stream, main's path bit for bit."""
+        model of bfp8 storage (state/rfd4/bets/z8.md), so it keeps the bfloat16 stream, main's path bit for bit.
+        `mask_at_mix_z8` is that decision re-opened for a padded call that now runs the fused programs: it is a
+        precision trade with its own grade, so it is a lever of its own and `mask_at_mix` alone does not take it."""
         zd = self.pair_residual_dtype
-        return ttnn.bfloat16 if zd == ttnn.bfloat8_b and masks[0] is not None else zd
+        padded_ok = "mask_at_mix" in self._levers and "mask_at_mix_z8" in self._levers
+        return ttnn.bfloat16 if zd == ttnn.bfloat8_b and masks[0] is not None and not padded_ok else zd
 
     @under_lever_scope
     def __call__(self, s_init, z_init, conds, masks):
@@ -896,6 +966,12 @@ class Trunk(Module):
                 ttnn.deallocate(s)
                 ttnn.deallocate(z)
             s, z = self.run_pass(s_in, z_in, c, masks, zb=zb)
+        if res_mask is not None and lever("mask_at_mix"):
+            # the passes left the padded tokens unmasked; the call hands them back as zeros, as upstream does
+            ms, mz = _masked_copy(s, res_mask, self.residual_dtype), _masked_copy(z, res_pair_mask_c, zd)
+            ttnn.deallocate(s)
+            ttnn.deallocate(z)
+            s, z = ms, mz
         for t, given in zip((s_init, z_init), inputs):
             if t is not given:
                 ttnn.deallocate(t)
@@ -908,6 +984,10 @@ class Trunk(Module):
         if cached is not None and cached[0] is device and torch.equal(cached[1], mask):
             return cached[2]
         if cached is not None and cached[0] is device:
+            # A capture reads these mask tensors at the addresses they had when it was taken, and a
+            # trace key is shapes and dtypes, which a different mask of the same shape matches. So
+            # the captures go with the masks they were taken against, before the masks are freed.
+            self.release_traces(device)
             for t in {id(t): t for t in cached[2] if t is not None}.values():
                 if t.is_allocated():
                     ttnn.deallocate(t)
@@ -964,6 +1044,12 @@ class Trunk(Module):
         # on the old one; run it again, so a process's first design equals its repeats. Every
         # refusal site remembers its plan, so the count settles; the cap only bounds a site that
         # someday does not.
+        replayed = self.replay(device, s, z, cs, masks)
+        if replayed is not None:
+            for t in (s, z, *cs):
+                if t.is_allocated():
+                    ttnn.deallocate(t)
+            return n, pair, replayed, None, tuple(self._ran)
         for _ in range(3):
             learned = refusals_learned()
             s_out, z_out = self(s, z, cs, masks)
@@ -971,7 +1057,126 @@ class Trunk(Module):
                 break
             ttnn.deallocate(s_out)
             ttnn.deallocate(z_out)
+        self.after_pass(device, s, z, cs, masks)
         return n, pair, (s_out, z_out), (s, z, *cs), tuple(self._ran)
+
+    @property
+    def traces(self) -> dict:
+        """A capture per recycle depth and input shape: `{key: {tid, s, z, cs, out, ran}}`."""
+        return self.__dict__.setdefault("_traces", {})
+
+    def traces_wanted(self) -> bool:
+        """Whether this trunk replays its calls. The lever asks for it; the device has to have
+        reserved a trace region at open (`engine.DesignEngine` does when the lever is in the set),
+        and a run that reserved none simply stays eager."""
+        # A trunk a caller built without `__init__` (a stand-in in the work-counting tests, a subclass
+        # that never resolved a lever set) has no `_levers` and simply does not replay.
+        return "trunk_trace" in getattr(self, "_levers", ()) and trace_region_size() > 0
+
+    @staticmethod
+    def trace_key(s, z, cs):
+        # The device generation is part of the key: `cleanup()` closes the device and a later open
+        # gets a fresh one, so a capture taken on the old device names a program that no longer
+        # exists. Keyed this way, a trunk that outlives its device captures again instead.
+        return device_generation(), len(cs), tuple(s.shape), s.dtype, tuple(z.shape), z.dtype
+
+    def replay(self, device, s, z, cs, masks):
+        """This call's `(s_out, z_out)` from its capture, or None if there is none to replay.
+
+        The capture's own input buffers are what the program reads, so the step's tensors are copied
+        into them and the replay writes the same output tensors every time: `collect` reads them and
+        must not free them. `self` is unchanged by a replay, so `_ran` is restored from the captured
+        call rather than counted again -- the work is the captured call's, pass for pass."""
+        if not self.traces_wanted():
+            return None
+        tr = self.traces.get(self.trace_key(s, z, cs))
+        if tr is None:
+            return None
+        ttnn.copy(s, tr["s"])
+        ttnn.copy(z, tr["z"])
+        for c, buf in zip(cs, tr["cs"]):
+            ttnn.copy(c, buf)
+        ttnn.execute_trace(device, tr["tid"], cq_id=0, blocking=False)
+        self._ran = tr["ran"]
+        return tr["out"]
+
+    def after_pass(self, device, s, z, cs, masks):
+        """Capture this shape once the eager calls before it have settled every lazy cache.
+
+        Two eager calls first, as esmfold2's diffusion step does: a capture that records a cache
+        being filled replays the fill, and a program that allocates during capture is the one the
+        fence exists for. A capture that throws leaves the shape eager for the rest of the run
+        rather than taking the process down -- the trunk is correct either way, only slower."""
+        if not self.traces_wanted():
+            return
+        key = self.trace_key(s, z, cs)
+        if key in self.traces or key in self.__dict__.setdefault("_trace_failed", set()):
+            return
+        warm = self.__dict__.setdefault("_trace_warm", {})
+        warm[key] = warm.get(key, 0) + 1
+        if warm[key] < 2:
+            return
+        bufs = ttnn.clone(s), ttnn.clone(z), [ttnn.clone(c) for c in cs]
+        ttnn.synchronize_device(device)
+        # The second eager call is measured, not just warmed: `need` is what this call allocates in
+        # DRAM, and the capture must happen inside a hole at least that large.
+        rise = self.__dict__.setdefault("_trace_rise", {})
+        if key not in rise:
+            out, rise[key] = dram_rise(device, lambda: self(bufs[0], bufs[1], bufs[2], masks))
+            for tensor in out:
+                if tensor.is_allocated():
+                    ttnn.deallocate(tensor)
+        scratch = self.__dict__.get("_trace_scratch")
+        if scratch is None or scratch.dev is not device:
+            scratch = self._trace_scratch = TraceScratch(device)
+        need = rise[key] + rise[key] // 4 + scratch.CHUNK
+        held = {}
+        try:
+            # A replay writes its intermediates at the addresses they had during capture, and the
+            # allocator calls those free the moment the capture ends. Unfenced, the next eager
+            # tensor -- the pair build, the decoder, the next step's upload -- lands there and the
+            # following replay overwrites it: BC2 replayed exactly for 16 calls and then went wrong.
+            # So every capture runs inside TraceScratch's hole, which nothing eager can enter.
+            def run():
+                held["out"] = self(bufs[0], bufs[1], bufs[2], masks)
+
+            tids = scratch.capture(need, max(need, 6 * need // 4), [run])
+            if tids is None:
+                raise RuntimeError(f"no DRAM hole of {need >> 20} MiB for the capture")
+            tid, out = tids[0], held["out"]
+        except Exception as exc:  # noqa: BLE001 -- a trace region too small, a program that refuses
+            # Said out loud, as autograd's recompute captures do: an arm whose captures were all
+            # refused is an EAGER arm, and without this it reads in the numbers as "tracing bought
+            # nothing" instead of "tracing never happened".
+            print(f"[trace] rfd4 trunk: capture refused at depth {len(cs)}, staying eager: "
+                  f"{str(exc).splitlines()[0][:200]}", flush=True)
+            self._trace_failed.add(key)
+            for buf in (bufs[0], bufs[1], *bufs[2]):
+                if buf.is_allocated():
+                    ttnn.deallocate(buf)
+            return
+        self.traces[key] = {"tid": tid, "s": bufs[0], "z": bufs[1], "cs": bufs[2], "out": out,
+                            "ran": tuple(self._ran)}
+        print(f"[trace] rfd4 trunk: captured depth {len(cs)} at {tuple(s.shape)}, "
+              f"{len(self.traces)} live", flush=True)
+
+    def release_traces(self, device):
+        """Free every capture, the buffers it reads and writes, and the hole they were taken in."""
+        for tr in self.traces.values():
+            try:
+                ttnn.release_trace(device, tr["tid"])
+            except Exception:  # noqa: BLE001 -- a closed device has released them already
+                pass
+            for t in (tr["s"], tr["z"], *tr["cs"], *tr["out"]):
+                if t.is_allocated():
+                    ttnn.deallocate(t)
+        self.traces.clear()
+        scratch = self.__dict__.pop("_trace_scratch", None)
+        if scratch is not None:
+            # The hole outlives the captures; released, its bytes go back to ordinary allocation.
+            scratch.release()
+        self.__dict__.pop("_trace_rise", None)
+        self.__dict__.pop("_trace_warm", None)
 
     def collect(self, pending):
         """The `(s, z)` of a `launch`, back on the host, and its device tensors freed."""
@@ -980,7 +1185,9 @@ class Trunk(Module):
         self.counted["passes"] += passes * b
         self.counted["blocks"] += blocks * b
         out = download(s_out)[:, :n], download(z_out)[:, :n, :n] if pair else None
-        for t in (*inputs, s_out, z_out):
+        # `inputs is None` is a replayed call: its tensors are the capture's own and the next
+        # replay writes them again, so freeing them here would free the program's buffers.
+        for t in (*inputs, s_out, z_out) if inputs is not None else ():
             if t.is_allocated():
                 ttnn.deallocate(t)
         return out

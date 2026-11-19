@@ -765,6 +765,32 @@ def test_every_rung_refused_is_an_error_and_not_an_empty_pass(rg_fresh, monkeypa
     assert "is above this model's size guard" in out["error"]
 
 
+def test_a_part_above_the_ceiling_is_judged_against_the_baseline_refusals(rg_fresh, monkeypatch,
+                                                                         tmp_path):
+    """opendde's 1152-1280 part on a p150a capped at 1024 is all refusals. The baseline recorded
+    the same refusals, so the part passes; split off from the rungs that fold it used to fail
+    as "every rung requested is above this model's size guard" (gate rel-2cca84e6a). A ceiling
+    that moved still fails, and off a part the all-refused error stands."""
+    monkeypatch.setattr(rg_fresh, "_run_census_fold",
+                        lambda *a, **k: {"refused": "has 1152 residues, cap is 1024"})
+    monkeypatch.setattr(rg_fresh, "SIZE_LADDER_AGAINST", "abc1234")
+    monkeypatch.setattr(rg_fresh, "_size_ladder_ab",
+                        lambda *a, **k: pytest.fail("A/B folded for a part with no rung"))
+    base = {"reps": 1, "refused": {"1152": "cap 1024", "1280": "cap 1024"},
+            "levers": {}, "runtime_s": {"1024": 400.0}}
+    leg = rg_fresh._size_ladder_check_model("opendde", (1152, 1280), base, tmp_path, part=True)
+    assert leg["gate"] is True, leg
+
+    moved = rg_fresh._size_ladder_check_model("opendde", (1152, 1280),
+                                              {**base, "refused": {"1280": "cap 1152"},
+                                               "levers": {"1152": {}}}, tmp_path, part=True)
+    assert moved["gate"] is False
+    assert "opendde/1152: folded when the baseline was recorded, now refused" in moved["error"]
+
+    whole = rg_fresh._size_ladder_check_model("opendde", (1152, 1280), base, tmp_path)
+    assert whole["gate"] is False and "is above this model's size guard" in whole["error"]
+
+
 def test_check_flags_a_ceiling_that_moved_in_either_direction(rg_fresh, monkeypatch, tmp_path):
     """A size that folded at the last release and is now refused has no timing to compare,
     so the exponent leg cannot see it. Neither can the census leg. This is the only thing
@@ -839,6 +865,37 @@ def test_rungs_arg_cannot_narrow_the_check(rg_fresh, tmp_path):
                                    models=["openfold3"], rungs=(256,))
     assert out["gate"] is False
     assert "RECORD-mode resume aid" in out["error"]
+    part = rg_fresh.run_size_ladder(False, False, tmp_path / "b.json",
+                                    models=["openfold3"], rungs=(256,), part=True)
+    assert "RECORD-mode resume aid" not in (part["error"] or "")   # a gate part reaches the check
+    assert rg_fresh.SIZE_LADDER_PARTS
+
+
+def test_a_part_refuses_an_exponent_interval_it_shares_with_another_part(rg_fresh, tmp_path,
+                                                                        monkeypatch):
+    """gate_fanout's first group keeps 256, 512 and 768 together because the exponents read
+    them. A part holding one end of an interval would skip it, and so would the part holding
+    the other, so the interval would go unread with every part green. Refused before any fold."""
+    base = tmp_path / "size_ladder_baseline.json"
+    entry = _baseline()
+    entry["exponents"] = {"256->512": {"k": 1.4, "tol": 0.3}, "512->768": {"k": 3.2, "tol": 0.4}}
+    base.write_text(json.dumps({"cards": {"tt-galaxy-wh l": {"models": {"boltz2": entry}}}}))
+    monkeypatch.setattr(rg_fresh, "_size_ladder_card_type", lambda: "tt-galaxy-wh l")
+    folded = []
+    monkeypatch.setattr(rg_fresh, "_size_ladder_check_model",
+                        lambda m, rungs, *a, **k: folded.append(tuple(rungs)) or
+                        {"model": m, "gate": True, "error": None, "findings": []})
+    split = rg_fresh.run_size_ladder(False, False, base, models=["boltz2"], rungs=(512, 640),
+                                     part=True)
+    assert split["gate"] is False and "256->512, 512->768" in split["error"] and not folded
+    whole = rg_fresh.run_size_ladder(False, False, base, models=["boltz2"],
+                                     rungs=(256, 512, 640, 768), part=True)
+    assert whole["gate"] and folded == [(256, 512, 640, 768)]
+    assert rg_fresh.run_size_ladder(False, False, base, models=["boltz2"], rungs=(896, 1024),
+                                    part=True)["gate"]
+    monkeypatch.setattr(rg_fresh, "_size_ladder_model_rungs", lambda m, want=None, card=None: ())
+    empty = rg_fresh.run_size_ladder(False, False, base, models=["boltz2"], rungs=(1408,), part=True)
+    assert empty["gate"] is False and "without a fold" in empty["error"]
 
 
 def test_a_model_fragment_does_not_touch_the_shared_baseline(rg_fresh, tmp_path):

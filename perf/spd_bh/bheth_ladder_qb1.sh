@@ -29,7 +29,7 @@ take(){  # poll the cards for up to 12 h; on success fd 9 holds card $CARD
   while [ "$(date +%s)" -lt $end ]; do
     [ "$(df -BG --output=avail / | tail -1 | tr -dc 0-9)" -ge 20 ] || { sleep 60; continue; }
     for c in ${QB1_CARDS:-1 0 2 3}; do
-      pgrep -f "flock_first.sh $HOME/spd_qb1_card$c.lock " >/dev/null && continue
+      pgrep -f "flock_first.sh (--book [^ ]+ [0-9]+ )?$HOME/spd_qb1_card$c.lock " >/dev/null && continue
       exec 9>>~/spd_qb1_card$c.lock; flock -n 9 && { CARD=$c; return 0; }; exec 9>&-
     done
     sleep 30

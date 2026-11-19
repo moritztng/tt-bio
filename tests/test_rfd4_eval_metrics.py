@@ -534,7 +534,8 @@ def test_the_designed_chain_subset_is_non_empty_for_either_chain_label(tmp_path,
     out = tmp_path / "out"
     (out / "evaluation_samples").mkdir(parents=True)
     cached = out / "evaluation_samples" / "binder_generated_975e6ee5"
-    shutil.copytree(GOLDENS / "ppi" / "refold_binder_generated_975e6ee5", cached)
+    # copyfile, not copytree's default copy2: the Galaxy gate trees are read-only and the JSON is rewritten below
+    shutil.copytree(GOLDENS / "ppi" / "refold_binder_generated_975e6ee5", cached, copy_function=shutil.copyfile)
     confidences = next(cached.glob("*_confidences.json"))
     values = json.loads(confidences.read_text())
     assert values["chain_of_interest"] == "A_1"

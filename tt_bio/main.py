@@ -91,7 +91,8 @@ from tt_bio import __version__, size_limits, weights
 from tt_bio.data import const
 from tt_bio.data.mol import load_molecules
 from tt_bio.data.msa import run_mmseqs2
-from tt_bio.cache import EMPTY_MSA, cached, paired_msa_dir, publish_file, publish_text, seq_hash
+from tt_bio.cache import (EMPTY_MSA, cached, paired_msa_dir, publish_file, publish_text, seq_hash,
+                          single_flight)
 from tt_bio.data.parse import parse_a3m, parse_csv, parse_fasta, parse_yaml
 from tt_bio.data.pdb import write_atom_array
 from tt_bio.data.types import Coords, Input, Interface
@@ -711,9 +712,16 @@ def _paired_by_chain(seqs: list[str], dbbase: Path, mmseqs: str | None, colabfol
         idx, load, thr = f"{db}.idx", ("--db-load-mode", "2"), ("--threads", threads)
 
         def chain(seq: str, key: str) -> Path:
-            done = cache / key
-            if (done / "ok").is_file():
-                return done
+            done = got = cache / key
+
+            def run(_):
+                nonlocal got
+                got = search(seq, key, done)
+
+            single_flight(cache, [key], lambda _: not (done / "ok").is_file(), run)
+            return got
+
+        def search(seq: str, key: str, done: Path) -> Path:
             c = tmp / f"chain_{key}"
             c.mkdir(parents=True)
             (c / "q.fas").write_text(f">101\n{seq}\n")
@@ -732,11 +740,10 @@ def _paired_by_chain(seqs: list[str], dbbase: Path, mmseqs: str | None, colabfol
             for f in [*c.glob("prof*"), *c.glob("ral*")]:
                 f.rename(keep / f.name)
             (keep / "ok").touch()
-            shutil.rmtree(done, ignore_errors=True)   # a half-pruned entry
-            cache.mkdir(parents=True, exist_ok=True)
+            shutil.rmtree(done, ignore_errors=True)   # a half-pruned entry; we hold its lock
             try:
                 keep.rename(done)
-            except OSError:                            # a concurrent search published it first
+            except OSError:                            # an engine without the lock published it first
                 return keep
             return done
 
@@ -828,41 +835,29 @@ def search_boltz2_msas(prot, target_id, msa_dir, *, use_msa, msa_db_path, use_en
         to_gen = {h: q for h, q in prot.items()
                   if not cached(msa_dir / f"{h}.a3m") and not cached(msa_dir / f"{h}.csv")}
     if to_gen:
-        # Serialize MSA generation per sequence across all workers sharing this
-        # msa_dir: each sequence is searched once and reused, never redundantly
-        # re-searched in parallel (which both wasted CPU and raced on the shared
-        # a3m file). Locks are taken in sorted-hash order so concurrent
-        # multi-chain targets can't deadlock.
-        locks = []
-        try:
-            for h in sorted(to_gen):
-                lf = open(msa_dir / f".{h}.lock", "w")
-                fcntl.flock(lf, fcntl.LOCK_EX)
-                locks.append(lf)
-            # Re-check under the locks: another worker may have produced some of
-            # these while we waited, so only generate what is still missing.
-            if pdir is not None:
-                to_gen = prot if not all(cached(pdir / f"{h}.csv") for h in prot) else {}
-            else:
-                to_gen = {h: s for h, s in to_gen.items()
-                          if not cached(msa_dir / f"{h}.a3m")
-                          and not cached(msa_dir / f"{h}.csv")}
-            if to_gen and msa_db_path:
-                compute_msa_offline(to_gen, target_id, msa_dir, msa_db_path,
+        # One search per complex (paired) or per sequence across every worker sharing this
+        # msa_dir: a second job waits for the first and reads its files (cache.single_flight).
+        def search(todo):
+            gen = prot if pdir is not None else {h: to_gen[h] for h in todo}
+            if msa_db_path:
+                compute_msa_offline(gen, target_id, msa_dir, msa_db_path,
                                     use_env=use_envdb, pairing_strategy=msa_strategy)
-            elif to_gen and use_msa:
-                compute_msa(to_gen, target_id, msa_dir, msa_url, msa_strategy, msa_user, msa_pass, api_key)
-            elif to_gen:
+            elif use_msa:
+                compute_msa(gen, target_id, msa_dir, msa_url, msa_strategy, msa_user, msa_pass, api_key)
+            else:
                 raise RuntimeError(
                     "No MSA for this target and no source to search one with. Use:\n"
                     "  --use_msa_server        the online ColabFold server\n"
                     "  --msa_db_path <dir>     a local ColabFold DB (`tt-bio msa` downloads one)\n"
                     "  --single_sequence       fold without an MSA, at a large accuracy cost"
                 )
-        finally:
-            for lf in locks:
-                fcntl.flock(lf, fcntl.LOCK_UN)
-                lf.close()
+
+        if pdir is not None:
+            single_flight(pdir.parent, [pdir.name],
+                          lambda _: not all(cached(pdir / f"{h}.csv") for h in prot), search)
+        else:
+            single_flight(msa_dir, to_gen, lambda h: not cached(msa_dir / f"{h}.a3m")
+                          and not cached(msa_dir / f"{h}.csv"), search)
     return pdir
 
 
@@ -1439,7 +1434,8 @@ def _spawn_worker_processes(controller_url: str, workers: list, debug: bool) -> 
     _cap_worker_threads(len(workers))
     # So orphaned workers self-terminate (see run_worker_loop): spawn children
     # inherit this; workers of a `tt-bio worker` pool never see it.
-    os.environ["TT_BIO_PARENT_PID"] = str(os.getpid())
+    from tt_bio.device_lease import orphan_guard_env
+    os.environ.update(orphan_guard_env())
     procs = []
     for worker in workers:
         proc = ctx.Process(
@@ -2948,6 +2944,8 @@ def _read_bio_constraints(path):
                     "Bond constraint needs atom1 and atom2 as [chain, residue, atom].")
             bonds.append(((str(a1[0]), int(a1[1]), str(a1[2])),
                           (str(a2[0]), int(a2[1]), str(a2[2]))))
+        elif _is_mol1_condition(c):
+            continue                      # Mol-1-constraint, read by _read_mol1_constraints
         elif "pocket" in c or "contact" in c:
             kind = "pocket" if "pocket" in c else "contact"
             raise click.ClickException(
@@ -2957,6 +2955,37 @@ def _read_bio_constraints(path):
         else:
             raise click.ClickException(f"Unsupported constraint for Protenix: {c}")
     return bonds
+
+
+def _is_mol1_condition(item) -> bool:
+    """A `constraints:` list item in Mol-1-constraint's shape: `site`, `exclusion`, or a `contact` given as
+    `pairs` / `token_pairs` (a Boltz contact names token1 / token2 instead)."""
+    if "site" in item or "exclusion" in item:
+        return True
+    c = item.get("contact")
+    return isinstance(c, dict) and bool({"pairs", "token_pairs"} & set(c))
+
+
+def _read_mol1_constraints(path) -> dict | None:
+    """The input's Mol-1-constraint conditions (SITE / CONTACT / EXCLUSION), parsed by upstream's rules
+    (`mol1_constraint.parse`), or None when it names none. Each kind is one list item, as in upstream's
+    `constraints` object; an upstream JSON input is converted to the same items."""
+    if path.suffix.lower() not in (".yml", ".yaml"):
+        return None
+    import yaml
+    from tt_bio import mol1_constraint
+    doc = yaml.safe_load(path.read_text()) or {}
+    merged = {}
+    for c in doc.get("constraints", []) or []:
+        if isinstance(c, dict) and _is_mol1_condition(c):
+            for k, v in c.items():
+                if k in merged:
+                    raise click.ClickException(f"Give one '{k}' constraint per input; list all its residues in it.")
+                merged[k] = v
+    try:
+        return mol1_constraint.parse(merged or None)
+    except ValueError as e:
+        raise click.ClickException(str(e))
 
 
 def _read_cyclic(path) -> list[str]:
@@ -3236,12 +3265,13 @@ def _generate_paired_a3m(seqs, target_id, msa_dir, msa_server_url,
     if not all(cached(pdir / f"{k}.a3m") for k in seqs):
         if not search:
             return None
-        pdir.mkdir(parents=True, exist_ok=True)
-        if msa_db_path:
-            compute_msa_offline(seqs, target_id, pdir, msa_db_path, use_env=use_envdb,
-                                pairing_strategy=msa_pairing_strategy, pair=True,
-                                chain_cache=Path(msa_dir) / "paired-chain-v1")
-        else:
+        def search_complex(_):
+            pdir.mkdir(parents=True, exist_ok=True)
+            if msa_db_path:
+                compute_msa_offline(seqs, target_id, pdir, msa_db_path, use_env=use_envdb,
+                                    pairing_strategy=msa_pairing_strategy, pair=True,
+                                    chain_cache=Path(msa_dir) / "paired-chain-v1")
+                return
             headers = ({"Content-Type": "application/json", "X-API-Key": api_key_value}
                        if api_key_value else None)
             keys = sorted(seqs, key=seqs.get)   # one order per complex, whatever the chain order
@@ -3252,6 +3282,9 @@ def _generate_paired_a3m(seqs, target_id, msa_dir, msa_server_url,
                               msa_server_password=msa_server_password, auth_headers=headers)
             for i, k in enumerate(keys):
                 publish_text(pdir / f"{k}.a3m", res[i])
+
+        single_flight(pdir.parent, [pdir.name],
+                      lambda _: not all(cached(pdir / f"{k}.a3m") for k in seqs), search_complex)
     return {k: (pdir / f"{k}.a3m").read_text() for k in seqs}
 
 
@@ -3873,6 +3906,13 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
             done = discover_jobs(data, struct_dir, output_format, override=True)
             click.echo("All predictions complete" if done else "No input files found")
             return
+
+        # Mol-1 inputs that name a site / contact / exclusion fold on the Mol-1-constraint weights, as upstream's
+        # `mol cpred` does. The run takes one checkpoint, so an unconstrained input beside them folds on those weights
+        # too, with the conditions all zero; --checkpoint overrides the choice.
+        if model == "mol1" and not checkpoint and any(_read_mol1_constraints(j.path) for j in jobs):
+            checkpoint = str(weights.fetch("mol1-constraint", root=Path(cache).expanduser() if cache else None))
+            click.echo("Inputs carry Mol-1 constraints: folding with the Mol-1-constraint weights.")
 
         # Read every input NOW and refuse what this model cannot honour, before the weights
         # download and the first device open. The worker checks again -- that is the

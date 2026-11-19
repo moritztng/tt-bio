@@ -107,8 +107,10 @@ def test_guided_opendde_builds_fp32_under_fast(monkeypatch, model, guided, prec,
     seen = {}
     monkeypatch.setattr(O.OpenDDE, "load_from_checkpoint",
                         staticmethod(lambda path, **kw: seen.update(kw) or object()))
+    # Untraced: on Blackhole the trace default reopens the chip with a trace region (0333b9d45),
+    # which this card-free test must not reach.
     cfg = {"model": model, "fast": True, "opendde_ckpt": "ck.pt", "use_tfg_guidance": guided,
-           "diffusion_precision": prec}
+           "diffusion_precision": prec, "trace": False}
     W._WorkerState("tenstorrent").load_model(cfg)
     assert seen["diffusion_fp32"] is want
     unguided = {**cfg, "use_tfg_guidance": False}

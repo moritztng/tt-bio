@@ -99,3 +99,23 @@ def test_ln_resid_budget_is_blackhole_only(monkeypatch, wormhole):
     # Plans without the prologue keep the shared budget on both arches.
     assert W.eligible(x, w12, w3, resid=x)
     assert W._ln_budget() == (W._L1_BUDGET if wormhole else int(0.85 * 1461760))
+
+
+@pytest.mark.parametrize("on", [False, True])
+def test_wh_ln_prologue_fits_c256_bfp8_under_t1_rule(monkeypatch, on):
+    # Protenix-v2's --fast pair transition (c_z 256, bfp8 weights, one chunk) takes the LayerNorm prologue on a Wormhole
+    # Galaxy chip (1395424 B L1 bank) only under ws_ln_t1l1; without it the norm stays a separate pass.
+    from tt_bio import tenstorrent as T
+    monkeypatch.setattr(T, "is_wormhole", lambda: True)
+    monkeypatch.setattr(T, "_l1_bank_bytes", lambda: 1395424)
+    monkeypatch.setattr(T, "lever", lambda name: on and name == "ws_ln_t1l1")
+    assert W.hidden_chunks(8, 32, 8, ttnn.bfloat8_b) == [32]
+    x, w12, w3 = _t([1, 512, 512, 256]), _t([256, 2048], ttnn.bfloat8_b), _t([1024, 256], ttnn.bfloat8_b)
+    g = _t([1, 256])
+    monkeypatch.setattr(W, "_ln_vec_ok", lambda v, k: True)
+    assert W.eligible(x, w12, w3)
+    assert W.eligible(x, w12, w3, ln=(g, g)) == on
+    # x + f(LN(x)) (ws_ln_resid, which ws_resid routes the pair transition to first): the residual is the raw x row
+    # the prologue holds (WS_RES_X), so no residual CB joins the plan and it fits exactly where the plain prologue does.
+    assert W.eligible(x, w12, w3, ln=(g, g), resid=x) == on
+    assert not W.eligible(x, w12, w3, ln=(g, g), resid=_t([1, 512, 512, 256]))

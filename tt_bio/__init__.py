@@ -24,6 +24,12 @@ from tt_bio.runtime import cap_malloc_arenas as _cap_malloc_arenas  # noqa: E402
 
 _cap_malloc_arenas(_env_int("TT_BIO_MALLOC_ARENAS", 2))
 
+# Every process that opens a device starts tt-metal's bundled OpenMPI, whose tcp BTL would otherwise
+# listen on the LAN for the whole fold. Spawned workers inherit the default from here.
+from tt_bio.runtime import keep_mpi_local as _keep_mpi_local  # noqa: E402
+
+_keep_mpi_local()
+
 # Blackhole only: JIT-build every kernel with the 2 KiB DRAM-read split of tt-metal#59622 (a NoC stall that hangs
 # the chip). It redirects the runtime root, so it has to run before anything imports ttnn. See tt_bio.metal_overlay.
 from tt_bio.metal_overlay import ensure_bh_dram_read_split as _ensure_bh_dram_read_split  # noqa: E402

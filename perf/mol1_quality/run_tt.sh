@@ -42,7 +42,7 @@ worker() {  # chip
         echo "$(date -u +%FT%TZ) TT-STOP chip=$chip window over"; return 0
       fi
       # release legs keep absolute priority (book.py): a gate queued on this card's flock gets it at the fold boundary
-      if pgrep -f "flock_first[.]sh $HOME/spd_${LOCK_HOST}_${LOCK_UNIT}$chip[.]lock( |\$)" > /dev/null; then
+      if pgrep -f "flock_first[.]sh (--book [^ ]+ [0-9]+ )?$HOME/spd_${LOCK_HOST}_${LOCK_UNIT}$chip[.]lock( |\$)" > /dev/null; then
         echo "$(date -u +%FT%TZ) TT-STOP chip=$chip gate waiting"; return 0
       fi
       mkdir -p "$d"

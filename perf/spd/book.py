@@ -40,11 +40,19 @@ gate a06d92c6d FAILed on DeviceInUseError.
 neither, held:unbooked if its flock is held or its node open, unless the caller's own booking (--except) covers CARD.
 Why: on 11-05 it printed nothing for qb1 cards 1-3 and qb2 cards 1-2 while feed jobs ran on them, so a caller probing
 for a free card read busy cards as free.
+
+A blocked card (blocked(): a fleet cardblock ~/.coworker/state/cardblock-<box>-<node> or the feed's ~/spd/locks/chipN.BAD)
+takes no new booking: `add` refuses it (rc 3), `next` prints now, `active` prints blocked:<marker>. Recovery uses the same
+marker (scripts/chip_recover.py in the coworker repo: a dirty chip, its draining p300 sibling, a fenced slot), so a chip
+comes back to every booker at the moment its block is renamed. `take` (a release leg already holding the card flock) only
+warns. Why: on 11-15 a fold booked qb2 chip 3 through `add` while cardblock-qb2-3 (fault since 11-12) stood, and
+hung 30 min; the block was visible only to fleet.sh.
 """
 import fcntl
 import glob
 import os
 import re
+import socket
 import sys
 import time
 
@@ -56,6 +64,10 @@ LAPSE_S = 1800
 GAP_S = 300
 LOCKS = os.environ.get("SPD_CARD_LOCKS", H + "/spd_*.lock")
 PROC_LOCKS = os.environ.get("SPD_PROC_LOCKS", "/proc/locks")
+BLOCKS = os.environ.get("SPD_CARDBLOCKS", H + "/.coworker/state")
+BAD = os.environ.get("SPD_LOCKS", H + "/spd/locks")
+BOX = os.environ.get("SPD_BOX") or {"tt-quietbox": "qb1", "tt-quietbox2": "qb2"}.get(socket.gethostname(),
+                                                                                     socket.gethostname())
 
 
 def read(now):
@@ -98,15 +110,29 @@ def feed_end(cards):
     return max(feed_running(cards).values(), default=0)
 
 
-def busy_now():
-    """Card indices (feed numbering: sysfs nodes sorted by PCI address) whose device node some process holds open."""
+def nodes():
+    """/dev/tenstorrent node names in feed numbering (sysfs nodes sorted by PCI address): card i is nodes()[i]."""
     sy = os.environ.get("TT_SYSFS", "/sys/class/tenstorrent")
     try:
-        nodes = sorted((os.path.basename(os.path.realpath(d + "/device")), d.rsplit("!", 1)[-1])
-                       for d in glob.glob(sy + "/*"))
+        return [n for _, n in sorted((os.path.basename(os.path.realpath(d + "/device")), d.rsplit("!", 1)[-1])
+                                     for d in glob.glob(sy + "/*"))]
     except OSError:
-        return set()
-    card = {"/dev/tenstorrent/" + n: i for i, (_, n) in enumerate(nodes)}
+        return []
+
+
+def blocked(card):
+    """Why `card` must take no new work (the marker's name), or None. The one availability check of the box."""
+    ns = nodes()
+    node = ns[card] if card < len(ns) else str(card)
+    for f in ("%s/cardblock-%s-%s" % (BLOCKS, BOX, node), "%s/chip%d.BAD" % (BAD, card)):
+        if os.path.isfile(f):
+            return os.path.basename(f)
+    return None
+
+
+def busy_now():
+    """Card indices (feed numbering: sysfs nodes sorted by PCI address) whose device node some process holds open."""
+    card = {"/dev/tenstorrent/" + n: i for i, n in enumerate(nodes())}
     out = set()
     for fd in glob.glob("/proc/[0-9]*/fd/*"):
         try:
@@ -222,6 +248,10 @@ def main(a):
         opt = lambda k: a[a.index(k) + 1] if k in a else None
         if a[0] == "add":
             owner, cards, dur = a[1], {int(c) for c in a[2].split(",")}, int(a[3])
+            why = {c: b for c in sorted(cards) if (b := blocked(c))}
+            if why:
+                print(" ".join("card %d blocked: %s" % kv for kv in why.items()), file=sys.stderr)
+                return 3
             rows = [r for r in rows if r[2] != owner]
             s = now if "--now" in a else earliest(rows, cards, dur, max(now, feed_end(cards),
                                                                         now + 60 if flocked(cards) else 0))
@@ -230,6 +260,9 @@ def main(a):
             print(s, s + dur)
         elif a[0] == "take":
             owner, cards, dur = a[1], {int(c) for c in a[2].split(",")}, int(a[3])
+            for c in sorted(cards):
+                if blocked(c):
+                    print("warning: card %d blocked: %s" % (c, blocked(c)), file=sys.stderr)
             rows = take(rows, owner, cards, dur, now, opt("--note") or "")
             write(rows)
             print(now, now + dur)
@@ -238,9 +271,9 @@ def main(a):
         elif a[0] in ("next", "active"):
             c, x = int(a[1]), opt("--except")
             if a[0] == "next":
-                print(min([r[0] for r in rows if c in r[3] and r[2] != x], default=NEVER))
+                print(now if blocked(c) else min([r[0] for r in rows if c in r[3] and r[2] != x], default=NEVER))
             else:
-                on = holders(rows, c, now, x)
+                on = ["blocked:" + blocked(c)] if blocked(c) else holders(rows, c, now, x)
                 print(" ".join(on))
                 return 0 if on else 1
         elif a[0] == "list":

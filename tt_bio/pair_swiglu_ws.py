@@ -48,10 +48,13 @@ _L1_BUDGET = 1100 * 1024
 def _ln_budget() -> int:
     """The budget a plan with the LayerNorm prologue checks against. On Blackhole it is T1's rule, 0.85 of the
     allocator's bank (1242496 B on a p150a), which T1 holds in the same trunk: ESMFold2's c_z 256 bfp8 transition
-    with the prologue and its residual takes 1230848 B. Wormhole keeps `_L1_BUDGET`, and plans without the
-    prologue keep it on both arches, so no model's chunking or routing moves."""
-    from .tenstorrent import _l1_bank_bytes, is_wormhole
-    return _L1_BUDGET if is_wormhole() else max(_L1_BUDGET, int(0.85 * _l1_bank_bytes()))
+    with the prologue and its residual takes 1230848 B. Wormhole takes the same rule under `ws_ln_t1l1` (1186110 B of
+    a Galaxy chip's 1395424 B bank), where Protenix-v2's --fast c_z 256 bfp8 plan takes 1181696 B; else it keeps
+    `_L1_BUDGET`. Plans without the prologue keep `_L1_BUDGET` on both arches, so no other chunking or routing moves."""
+    from .tenstorrent import _l1_bank_bytes, is_wormhole, lever
+    if is_wormhole() and not lever("ws_ln_t1l1"):
+        return _L1_BUDGET
+    return max(_L1_BUDGET, int(0.85 * _l1_bank_bytes()))
 
 
 # One core reads the weights from DRAM and multicasts them to the grid, where every core would otherwise read all of them
@@ -100,8 +103,9 @@ def hidden_chunks(kt, nh, ct, dtype) -> list[int]:
 
 
 def ln_bytes(kt) -> int:
-    """The LayerNorm prologue's extra L1: raw x (2 kt), gamma, beta (kt each), the scaler, and the fp32 CBs."""
-    return (4 * kt + 1) * _TILE + (4 + 2 * kt) * 2 * _TILE
+    """The LayerNorm prologue's extra L1: raw x (2 kt), gamma, beta (kt each), the scaler and the fp32 CBs, less the
+    normed x going single-buffered (kt of `_l1_bytes`' 2 kt): compute alone fills and drains it."""
+    return (3 * kt + 1) * _TILE + (4 + 2 * kt) * 2 * _TILE
 
 
 def _ln_vec_ok(v, k) -> bool:
@@ -115,6 +119,16 @@ def _res_depth(base, ct, n_res) -> int:
     """Row tiles each residual CB holds: 2 (read ahead) where both fit beside `base` bytes, else 1. OpenDDE's normal
     c_z 384 chunk takes two residuals only single-buffered (1.163 MB against the 1.100 MB budget)."""
     return 2 if base + n_res * 2 * ct * _TILE <= _L1_BUDGET else 1
+
+
+# WS_RES_X on; False runs `x + f(LN(x))` with the residual re-read into c_20 (perf/spd_m_protenix6/resx_parity.py's
+# bit-identity reference only).
+RES_X = True
+
+
+def _res_x(x, ln, resid, resid2) -> bool:
+    """The prologue's raw x row is the residual (`x + f(LN(x))`): fc3 seeds from it in c_5 (WS_RES_X), no c_20."""
+    return RES_X and bool(ln) and resid is x and resid2 is None
 
 
 def eligible(x, w12, w3, ln=(), l1acc=False, resid=None, resid2=None) -> bool:
@@ -147,7 +161,7 @@ def eligible(x, w12, w3, ln=(), l1acc=False, resid=None, resid2=None) -> bool:
             return False
     base = (_l1_bytes(kt, nh, ct, w12.dtype, x.dtype) + (ln_bytes(kt) if ln else 0)
             + (_SW * 2 * _TILE if l1acc else 0))
-    n_res = (resid is not None) + (resid2 is not None)
+    n_res = (resid is not None and not _res_x(x, ln, resid, resid2)) + (resid2 is not None)
     return base + n_res * _res_depth(base, ct, n_res) * ct * _TILE <= (_ln_budget() if ln else _L1_BUDGET)
 
 
@@ -186,7 +200,7 @@ def _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines, silu_poly
         rd = x.dtype if nocopy else ttnn.float32       # bfloat8_b under pair_bfp8z (WS_Z8)
         cbs = ([cb(X_CB, kt, x.dtype), cb(W3_CB, nh * ct, w3.dtype), cb(HID_CB, nh), cb(OUT_CB, ct, rd)]
                + ([] if nocopy else [cb(OUTB_CB, ct)]) + [cb(RES_CB, ct, rd)] + cbs[4:])
-    elif ("WS_RESID", "1") in defines:
+    elif ("WS_RESID", "1") in defines and ("WS_RES_X", "1") not in defines:
         base = (_l1_bytes(kt, nh, ct, w12.dtype, x.dtype) + (ln_bytes(kt) if ln is not None else 0)
                 + (_SW * 2 * _TILE if ("WS_L1ACC", "1") in defines else 0))
         depth = _res_depth(base, ct, 1 + (resid2 is not None)) * ct
@@ -194,7 +208,9 @@ def _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines, silu_poly
     scaler = eps_bits = 0
     if ln is not None:
         import struct
-        cbs[0] = cb(X_CB, kt if res32 else 2 * kt)   # the normalised x the matmuls read, bf16
+        # The normalised x the matmuls read, bf16. One row deep: the packer writes it only after the unpacker has
+        # popped the last row, and the math thread cannot start that row's norm earlier anyway. Bit-identical.
+        cbs[0] = cb(X_CB, kt)
         cbs += [cb(XRAW_CB, 2 * kt, x.dtype), cb(GAMMA_CB, kt), cb(BETA_CB, kt), cb(SCALER_CB, 1)]
         cbs += [cb(i, kt if n is None else n, ttnn.float32) for i, n in LN_F32_CBS]
         inv = struct.unpack("<I", struct.pack("<f", 1.0 / (32 * kt)))[0] >> 16
@@ -303,6 +319,8 @@ def pair_swiglu(x, w12, w3, fidelity=ttnn.MathFidelity.HiFi4, defines=(), silu_p
         ln = (ln[0], ln[0], ln[2])   # the reader loads a beta either way; the RMS prologue never reads it
         defines = tuple(defines) + (("WS_RMS", "1"),)
     assert resid_src is None or resid is not None
+    if resid_src is None and _res_x(x, ln, resid, resid2):
+        defines = tuple(defines) + (("WS_RES_X", "1"),)
     return _run(x, w12, w3, fidelity, defines, silu_poly, ln, resid, resid2=resid2, rows=rows, resid_src=resid_src)
 
 

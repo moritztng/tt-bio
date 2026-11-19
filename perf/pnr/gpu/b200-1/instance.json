@@ -71,7 +71,6 @@
  "internet_down_cost_per_tb": 2.5,
  "internet_up_cost_per_tb": 3.75,
  "is_bid": false,
- "jupyter_token": "REDACTED",
  "label": "pnr-gpu-b200-1",
  "local_ipaddrs": "10.104.126.138 172.17.0.1 \n",
  "logo": "/static/logos/vastai_small2.png",

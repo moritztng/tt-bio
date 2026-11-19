@@ -14,7 +14,8 @@ H, HD, C_M, TOK = 8, 8, 128, 64
 def _module(**attrs):
     """A PairWeightedAveraging without the checkpoint load: the real methods, the given attributes."""
     mod = object.__new__(T.PairWeightedAveraging)
-    vars(mod).update(attrs)
+    for k, v in attrs.items():  # setattr, so Module's compute_kernel_config setter sees its value
+        setattr(mod, k, v)
     return mod
 
 

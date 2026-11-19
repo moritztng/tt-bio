@@ -35,8 +35,10 @@ Galaxies: jobs go to ~/spd/pool/queue/ and pool.sh starts them. qb1/qb2 have no 
 a waiter that takes the first usable card of its box to come free (its CHIPS.md flock free, no release leg on it);
 the job itself gets a private LOCK so run_chip.sh does not wait on its own card. Waiters queue for cards through one
 dispatch flock per box, so they start in about the order they were placed. A BH job still waiting after STEAL_S moves
-to a free card on another BH box its cell allows; a Galaxy that offers no chip for STEAL_S hands its queued feed jobs
-back to the fill, which places them on a pool with room.
+to a free card on another BH box its cell allows, and a Galaxy job waiting that long moves to another Galaxy with idle
+chips and an empty queue; a Galaxy that offers no chip for STEAL_S hands its queued feed jobs back to the fill, which
+places them on a pool with room. The pass the last placed cell of an experiment turns done, its row is woken (fill tier
+excepted).
 """
 import argparse
 import hashlib
@@ -65,7 +67,7 @@ TICK_S = 600   # feed's own cadence (tick.d). A queued job expected to run short
 INIT_FAIL = ("failed to initialize FW|ARC core .* failed to start|Failed to set initial power state"
              "|waiting for active ethernet core")   # 10-16 qb2 board (0,1) after a TERMed mesh run
 MAX_FAILS = 3
-STEAL_S = 900   # a BH job still waiting this long moves to a free card on another BH box its cell allows
+STEAL_S = 900   # a job still waiting this long moves to a free card or chip on another box of its kind
 # BH boxes: SPD cards and their flocks (state/spd/CHIPS.md). A chip kept off the feed has ~/spd/locks/chip<N>.BAD on its
 # host (qb2 chip 0 since the 2026-10-14 slot swap: marginal at 1350 MHz, and feed trees predate the AICLK cap).
 # `reset` resets a card after a capped job (see run_cmd). qb1 only: each p150a is its own board, while a qb2 p300c
@@ -144,7 +146,11 @@ if A["kind"] == "galaxy":
     # that as "ended rc 130" made the feed place a second copy elsewhere and miss this one as a twin (.108 11-03: kl1ab
     # ran on chips 8 and 14 at once into one out dir). A copy still running stays running.
     for n in q:
-        if "-f-" in n and out["jobs"].get(n, {}).get("state") != "running": out["jobs"][n] = {"state": "queued"}
+        if "-f-" in n and out["jobs"].get(n, {}).get("state") != "running":
+            out["jobs"][n] = {"state": "queued", "age": int(now - os.path.getmtime(P + "/queue/" + n))}
+    # idle chips another Galaxy's stuck jobs may take: none while this pool's own queue (any digit) waits for them
+    busy = sum(1 for r in glob.glob(P + "/running/*.sh") if not os.path.exists(r + ".end"))
+    out["free"] = 0 if q or out["paused"] else max(0, out["healthy"] - busy)
     # sweep: renamed-dead entries (.moved/.stopped/.dup/...) older than 2 h go to archive/<day>/<dir>/
     arch = P + "/archive/" + time.strftime("%Y%m%d"); moved = 0
     for d in [P + "/queue", P + "/running"] + glob.glob(P + "/backlog/*"):
@@ -301,8 +307,13 @@ for j in A["jobs"]:
         # A card goes to the lowest prio digit waiting for it, as pool.sh does on a Galaxy: a waiter leaves a card to a live,
         # unstarted waiter of lower digit that wants it ($1.want) and is not held off by a booking ($1.w), and hands the
         # dispatch flock on. 10-20 qb2: prio-8 backfill placed first held both cards for hours over four prio-3 row jobs.
+        # A waiter refreshes $1.w only while it holds the dispatch flock, so a $1.w older than WFRESH_S is the trace of a
+        # booking that has since lapsed: 11-17 qb2, a release window set .w on six prio-3 grade waiters at 09:50Z, they went
+        # back to queue for the flock behind a prio-8 holder, and prio-8 backfill took every card that freed for 40+ min.
         w = (NODE + 'hi() { local f p b=${1##*/}; for f in "$J"/[0-9]-*.sh; do p=${f##*/}; [ "${p%%-*}" -lt "${b%%-*}" ] 2>/dev/null || continue; '
-             '[ -e "$f.start" ] || [ -e "$f.end" ] || [ -e "$f.w" ] && continue; grep -qw "$2" "$f.want" 2>/dev/null || continue; '
+             '[ -e "$f.start" ] || [ -e "$f.end" ] && continue; '
+             '[ $(($(date +%s) - $(stat -c %Y "$f.w" 2>/dev/null || echo 0))) -lt "${WFRESH_S:-120}" ] && continue; '
+             'grep -qw "$2" "$f.want" 2>/dev/null || continue; '
              'kill -0 "$(cat "$f.pid" 2>/dev/null)" 2>/dev/null && return 0; done; return 1; }; '
              'echo "$2" > "$1.want"; exec 8>"$(dirname "$1")/.dispatch"; flock -w 86400 8 || { echo flockbusy > "$1.end"; exit 3; }; '
              'J="$(dirname "$1")"; D=$((SECONDS + 86400)); while :; do W=; Y=; for c in $2; do [ -e ~/spd/locks/chip$c.BAD ] && continue; dead $c && continue; held $c && continue; '
@@ -531,7 +542,7 @@ def cells(grid_dir, log=print, lead=frozenset(), done=frozenset()):
                 h = hashlib.sha1(body.encode()).hexdigest()[:6]
                 cid = re.sub(r"[^A-Za-z0-9_.]+", "_", "-".join(map(str, vals))) or "x"
                 key = f"{row}/{e['name']}/{cid}"
-                out.append({"key": key, "row": row, "hash": h, "arch": e.get("arch", "wh"), "pinned": bool(e.get("pinned")),
+                out.append({"key": key, "row": row, "tier": tier, "hash": h, "arch": e.get("arch", "wh"), "pinned": bool(e.get("pinned")),
                             "hosts": [str(x) for x in e.get("hosts", [])], "cap": int(e.get("cap", 7200)),
                             "name": f"{prio}-{row}-f-{e['name']}-{cid}-{h}.sh", "body": body,
                             "done": [render(p, ctx) for p in e["done"]],
@@ -673,6 +684,43 @@ def steal(cs, ledger, st, P, stamp, dry, log):
                 continue
             st[n]["queued"] -= 1; st[b]["queued"] += 1
             ledger[c["key"]] = dict(ledger.get(c["key"], {}), host=b, state="queued", placed=stamp)
+    # Galaxies: a job queued STEAL_S behind its own pool moves to another Galaxy with idle chips and nothing queued, the
+    # lowest prio digit first (pool.sh's order), then the oldest. 11-17: .108 held ~300 queued while .110-.112 lent
+    # chips sat idle, because only BH jobs moved.
+    for b in [n for n in st if P[n]["kind"] == "galaxy" and not st[n].get("paused")]:
+        while st[b].get("free", 0) > 0:
+            cand = [(int(name[0]), -j["age"], n, name) for n in st if P[n]["kind"] == "galaxy" and n != b
+                    for name, j in st[n]["jobs"].items()
+                    if j["state"] == "queued" and j.get("age", 0) >= STEAL_S and name in by and name[0].isdigit()
+                    and runs(P[b], by[name]) and all(st[b]["exists"].get(x) for x in by[name]["requires"])]
+            if not cand:
+                break
+            _, age, n, name = min(cand); c = by[name]
+            st[n]["jobs"][name]["state"] = "moving"; st[b]["free"] -= 1
+            log(f"steal {c['key']}: waited {-age // 60} min on {n} -> {b}")
+            if dry:
+                continue
+            try:
+                if name not in remote(P[n]["ssh"], WITHDRAW, {"names": [name], "kind": "galaxy"}):
+                    continue
+                remote(P[b]["ssh"], PLACE, {"kind": "galaxy", "jobs": [{"name": name, "body": c["body"], "cap": c["cap"]}]})
+            except Exception as e:
+                log(f"steal {c['key']} failed: {e}")
+                continue
+            st[n]["queued"] -= 1; st[b]["queued"] += 1
+            ledger[c["key"]] = dict(ledger.get(c["key"], {}), host=b, state="queued", placed=stamp)
+
+
+def wake_done(cs, before, log, wake_row):
+    """Wake a row the pass the last placed cell of one of its experiments turns done, so it reads the result now instead
+    of on its defer (11-17: spd-m-rfd4 slept to 01:10Z on cells done at 23:35Z). Fill-tier experiments wake nobody."""
+    exps = {}
+    for c in cs:
+        if c["tier"] != TIERS["fill"]:
+            exps.setdefault(c["key"].rsplit("/", 1)[0], []).append(c)
+    for e, group in exps.items():
+        if all(c["is_done"] for c in group) and any(before.get(c["key"]) not in (None, "done") for c in group):
+            wake_row(group[0]["row"], f"{e}: all {len(group)} cell(s) done")
 
 
 def main(argv=None):
@@ -718,6 +766,7 @@ def main(argv=None):
     # turned 825 qb2-done cells undone and feed queued 29 of them, graded days before, on qb1's four chips
     dark |= set(P) - set(st)
     # 1. account every ledger entry: done, pending, or a failed attempt
+    before = {k: L.get("state") for k, L in ledger.items()}
     for c in cs:
         L = ledger.get(c["key"])
         hosts = [n for n in st if P[n]["arch"] == c["arch"]]
@@ -755,6 +804,8 @@ def main(argv=None):
             L["state"] = "lost"                  # vanished from queue/running without an end: place again
         elif L.get("state") in ("queued", "running") and L.get("host") not in P:
             L["state"] = "lost"                  # its box went dark or back to JapanFold: 10-14 qb2 held 11 cells 1.5 h
+    if not a.dry_run:
+        wake_done(cs, before, log, lambda row, why: wake(R, row, why, log))
     keys = {c["key"] for c in cs}           # a cell its row dropped from the grid while its box was dark: nobody's now
     for k, L in ledger.items():
         if k not in keys and L.get("state") in ("queued", "running") and L.get("host") not in P:

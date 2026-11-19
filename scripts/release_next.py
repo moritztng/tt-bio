@@ -188,7 +188,7 @@ OK = ("PASS", "REUSED", "BLOCKED", "SEEDED")
 
 def failures(d: Path, waived: dict | None = None) -> tuple[list[str], list[str]]:
     """(the ladder models to re-record, every other failed leg as "<leg> <arch>") of gate `d`.
-    A ladder leg is re-recorded when it only drifted or when it is waived; any other waived leg
+    A ladder leg is re-recorded when it only drifted or when it ran and is waived; any other waived leg
     stops counting. So does a leg whose key has passed since: a rerun of the same code, packages
     and card type (a partial gate_fanout run) after the card, not the tree, failed it. A leg is
     judged by its latest run on the gate's commit in any run dir beside `d`: the runner's own files
@@ -205,7 +205,9 @@ def failures(d: Path, waived: dict | None = None) -> tuple[list[str], list[str]]
         log = Path(r.get("log") or "")
         text = log.read_text(errors="replace") if r["leg"].startswith("ladder:") and log.is_file() else ""
         lines = [ln for ln in text.splitlines() if FINDING.match(ln)]
-        if r["leg"].startswith("ladder:") and (name in (waived or {}) or (
+        # A waived UNRUN ladder has nothing to re-record: no card of its type ran (qb1 dark, 11-16), and
+        # re-recording it would refold every model of the gate on the cards that did answer.
+        if r["leg"].startswith("ladder:") and (name in (waived or {}) and r.get("verdict") != "UNRUN" or (
                 "size-ladder drift vs the recorded baseline" in text and lines and all(map(is_drift, lines)))):
             drift.add(r["leg"].split(":", 1)[1].split("@", 1)[0])
         elif name not in (waived or {}):
@@ -236,7 +238,16 @@ def record_run(gates: Path | None, sha: str) -> tuple[str, Path | None]:
     if d is None or not (d / "plan.json").exists():
         return "none", None
     if (d / "verdict.json").exists():
-        return ("pass" if json.loads((d / "verdict.json").read_text()).get("pass") else "fail"), d
+        v = json.loads((d / "verdict.json").read_text())
+        if v.get("pass"):
+            return "pass", d
+        # A record leg waived in the run's own WAIVE stops counting, as a gate leg does: with no
+        # p150a in service (11-17) rec-b5a33aabf's two p150a legs were UNRUN, the gate's p150a ladders
+        # were UNRUN too, so nothing there drifted and the old fragments stay right.
+        bad = [r for r in v.get("results", []) if r.get("verdict") not in OK]
+        if bad and not failures(d, waivers(d))[1]:
+            return "pass", d
+        return "fail", d
     return ("running" if _alive(json.loads((d / "plan.json").read_text())) else "none"), d
 
 
@@ -313,6 +324,20 @@ def releasable(sha: str, tsha: str, repo: Path = REPO) -> bool:
         return True                                    # no CHANGELOG to read: the cut decides
 
 
+def stranded(sha: str, tsha: str, repo: Path = REPO) -> list[str]:
+    """Names of released CHANGELOG sections at `sha` that gained bullets the last release's
+    CHANGELOG does not carry. Such a note is invisible to `notes`, so a candidate whose only notes
+    sit there is never releasable and the train holds without a word (0564a3f0a, 11-13: a branch cut
+    before 0.31.0 merged its OpenDDE note under [0.31.0]; 0.33.0 waited on three passed gates)."""
+    try:
+        new, old = (git("show", f"{s}:CHANGELOG.md", repo=repo) for s in (sha, tsha))
+    except subprocess.CalledProcessError:
+        return []
+    have = {b.strip() for m in SECTION.finditer(old) for b in BULLET.findall(m["body"])}
+    return [m["name"] for m in SECTION.finditer(new) if m["name"] != "Unreleased"
+            and any(b.strip() not in have for b in BULLET.findall(m["body"]))]
+
+
 def passed_since(gates: Path | None, tsha: str, repo: Path = REPO, ref: str = "origin/main"
                  ) -> tuple[str, Path] | None:
     """(sha, dir) of the newest commit after the last release whose full gate passed, or None.
@@ -365,27 +390,34 @@ def _since(gates: Path | None, tsha: str, repo: Path = REPO, ref: str = "origin/
     return out
 
 
-def lost_record(gates: Path | None, tsha: str, repo: Path = REPO, ref: str = "origin/main"
-                ) -> tuple[str, Path, list] | None:
-    """(sha, gate dir, models) of a candidate after the last release whose gate failed only on
-    ladder drift and whose record run lost its runner before writing a verdict. Nothing else
-    restarts it once main has moved on: decide() records only the commit it targets (pc's
-    maintenance reboot stopped rec-5e250928a 10-16 17:25Z with 23 of 27 legs recorded, and the
-    train gated main's head instead). gate_fanout resumes it in place, keeping its PASSes."""
+def owed_record(gates: Path | None, tsha: str, repo: Path = REPO, ref: str = "origin/main"
+                ) -> tuple[str, Path, list, Path | None] | None:
+    """(sha, gate dir, models, record dir or None) of the newest candidate after the last release
+    whose gate failed only on ladder drift (or waived ladders) when it has no record run: none was
+    started, or one lost its runner before writing a verdict. decide() records only the commit it
+    targets, so once main moves on nothing else starts it: rel-cc61bed92 (11-09) failed only on two
+    waived legs, one of them ladder:protenix-v1 bh, and the train gated main's head bef29b514 for a
+    day instead of the ~30 min record run that cuts 0.30.0. pc's maintenance reboot stopped
+    rec-5e250928a 10-16 17:25Z with 23 of 27 legs recorded the same way; gate_fanout resumes such a
+    run in place, keeping its PASSes. Only the newest such gate is owed, so a failed record run
+    does not walk the train back through older ones. It runs beside a running full gate."""
+    runs = []
     for p, plan in _since(gates, tsha, repo, ref):
-        sha, d = plan["sha"], p.parent
+        d = p.parent
         try:
             if not (d / "verdict.json").exists() or json.loads((d / "verdict.json").read_text()).get("pass"):
                 continue
-            state, rd = record_run(gates, sha)
-            if state != "none" or rd is None:
-                continue
             drift, other = failures(d, waivers(d, gates, repo, ref))
-        except ValueError:
+            if drift and not other:
+                ct = int(git("show", "-s", "--format=%ct", plan["sha"], repo=repo))
+                runs.append((ct, p.stat().st_mtime, plan["sha"], d, drift))
+        except (ValueError, subprocess.CalledProcessError):
             continue
-        if drift and not other:
-            return sha, d, drift
-    return None
+    if not runs:
+        return None
+    _, _, sha, d, drift = max(runs)
+    state, rd = record_run(gates, sha)
+    return (sha, d, drift, rd) if state == "none" else None
 
 
 #: How long a failed gate stays the candidate with no FIXES before the train gates main's head
@@ -421,6 +453,13 @@ def frozen(gates: Path | None, tsha: str, repo: Path = REPO, ref: str = "origin/
     sha = json.loads((d / "plan.json").read_text())["sha"]
     if not failed or passed(gates, d, sha, repo, ref):
         return None
+    # A commit from before main merged the release back was graded on the baselines the release
+    # replaced: fixed forward, it re-fails the drift the release recorded, so gate main's head
+    # (rel-cf9e4c6b0, 11-06: v0.27.0's eleven re-recorded ladders failed again on cf9 + its fix).
+    if tsha and all(subprocess.run(["git", "-C", str(repo), "merge-base", "--is-ancestor", *ab],
+                                   capture_output=True).returncode == rc
+                    for ab, rc in (((tsha, ref), 0), ((tsha, sha), 1))):
+        return None
     last = max(f.stat().st_mtime for f in (v, d / "FIXES") if f.exists())
     if (now or time.time()) - last >= FIX_HOLD_S:
         return None
@@ -452,6 +491,13 @@ def running_gates(gates: Path | None, partial: bool = False) -> list[str]:
 
 
 def decide(repo: Path = REPO, gates: Path | None = None, ref: str = "origin/main") -> dict:
+    d = _decide(repo, gates, ref)
+    if d["do"] != "CUT" and d.get("last_release_sha") and (s := stranded(d["main"], d["last_release_sha"], repo)):
+        d["why"] += f"; CHANGELOG at main's head has notes under released {', '.join(s)}: move them to [Unreleased]"
+    return d
+
+
+def _decide(repo: Path = REPO, gates: Path | None = None, ref: str = "origin/main") -> dict:
     head = git("rev-parse", ref, repo=repo)
     tag, tsha = last_release(repo)
     out = {"main": head, "last_release": tag, "last_release_sha": tsha,
@@ -467,10 +513,12 @@ def decide(repo: Path = REPO, gates: Path | None = None, ref: str = "origin/main
                 "waived": waivers(d, gates, repo, ref),
                 "why": f"gate passed on every arch: {d}/VERDICT.md{nxt}"
                        + (f"; size ladders re-recorded in {rec}" if rec != d else "")}
-    if lost := lost_record(gates, tsha, repo, ref):
-        sha, d, models = lost
+    if owed := owed_record(gates, tsha, repo, ref):
+        sha, d, models, rd = owed
         return {**out, "do": "RECORD", "sha": sha, "gate": str(d), "models": models,
-                "why": f"the record run {gates}/rec-{sha[:9]} lost its runner; resume it"}
+                "why": f"the record run {rd} lost its runner; resume it" if rd else
+                       f"gate failed only on size-ladder drift ({', '.join(models)}): {d}/VERDICT.md; "
+                       f"re-record them, the record run is owed"}
     target, what = head, "main's head"
     if fz := frozen(gates, tsha, repo, ref):
         base, fd, fl = fz

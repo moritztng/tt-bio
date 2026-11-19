@@ -1,6 +1,6 @@
 # scripts/abb3_port/step_gate.py at its default and at the --micro 8 value that does not fit, on
 # qb2 card 3 (/dev/tenstorrent/3), Blackhole p300c, 34.23 GB of DRAM (8 banks x 4 278 190 016 B).
-RECORDED-AT: cc3cbaf09fc829c4028a1ca1138b460b851e8a28 scripts/abb3_port/step_gate.py
+RECORDED-AT: 049ebbf9c8228c630e383fec16d000a447df6974 scripts/abb3_port/step_gate.py
 #
 # TREE: wk/bcp-land 3e617f520, origin/main 2e2cbacb4 plus BCP (lnbw). Replaces the record taken at
 # 93edb1b24, whose import closure changed in tt_bio/autograd.py when lnbw was wired into the layer-norm
@@ -117,6 +117,78 @@ RECORDED-AT: cc3cbaf09fc829c4028a1ca1138b460b851e8a28 scripts/abb3_port/step_gat
 # qb2:0, p300c, the gate's wheel venv with the tree on PYTHONPATH. Losses 4.9937 / 4.9918 / 4.9911 at
 # steps 1, 5, 10, 500 taped parameters and the 30981 MB DRAM peak as in the 8208d6ed3 record; --micro 8
 # still OOMs, on a 67,108,864 B request. Median 18.787 s at AICLK median 1350 (min 1337). A fit record,
+# not a perf claim.
+#
+# RE-RECORDED by the release gate (gate_fanout.py record:abb3) at b46cbc7c5, 08:57-09:07Z 2026-11-05,
+# qb2:2, p300c, the gate's wheel venv with the tree on PYTHONPATH. Losses 4.9937 / 4.9918 / 4.9911 at
+# steps 1, 5, 10, 500 taped parameters and the 30981 MB DRAM peak as in the cc3cbaf09 record; --micro 8
+# still OOMs, on a 67,108,864 B request. Median 19.211 s at AICLK median 1350 (min 1343). A fit record,
+# not a perf claim.
+#
+# RE-RECORDED by the release gate (gate_fanout.py record:abb3) at e0cfe5c47, 06:20-06:37Z 2026-11-07,
+# qb2:1, p300c, the gate's wheel venv with the tree on PYTHONPATH. Losses 4.9937 / 4.9918 / 4.9911 at
+# steps 1, 5, 10, 500 taped parameters and the 30981 MB DRAM peak as in the b46cbc7c5 record; --micro 8
+# still OOMs, on a 67,108,864 B request. Median 19.572 s at AICLK median 1350 (min 1331). A fit record,
+# not a perf claim.
+#
+# RE-RECORDED by the release gate (gate_fanout.py record:abb3) at 80a0147a5, 01:48-01:57Z 2026-11-08,
+# qb2:0, p300c, the gate's wheel venv with the tree on PYTHONPATH. Losses 4.9937 / 4.9918 / 4.9911 at
+# steps 1, 5, 10, 500 taped parameters and the 30981 MB DRAM peak as in the e0cfe5c47 record; --micro 8
+# still OOMs, on a 67,108,864 B request. Median 19.510 s at AICLK median 1350 (min 1343). A fit record,
+# not a perf claim.
+#
+# RE-RECORDED by the release gate (gate_fanout.py record:abb3) at bef29b514, 10:57-11:06Z 2026-11-09,
+# qb2:3, p300c, the gate's wheel venv with the tree on PYTHONPATH. Losses 4.9937 / 4.9918 / 4.9911 at
+# steps 1, 5, 10, 500 taped parameters and the 30981 MB DRAM peak as in the 80a0147a5 record; --micro 8
+# still OOMs, on a 67,108,864 B request. Median 20.007 s at AICLK median 1350 (min 1337). A fit record,
+# not a perf claim.
+#
+# RE-RECORDED by the release gate (gate_fanout.py record:abb3) at 53688fdf1, 00:33-00:42Z 2026-11-11,
+# qb2:2, p300c, the gate's wheel venv with the tree on PYTHONPATH. Losses 4.9937 / 4.9918 / 4.9911 at
+# steps 1, 5, 10, 500 taped parameters and the 30981 MB DRAM peak as in the bef29b514 record; --micro 8
+# still OOMs, on a 67,108,864 B request. Median 19.412 s at AICLK median 1350 (min 1343). A fit record,
+# not a perf claim.
+#
+# RE-RECORDED by the release gate (gate_fanout.py record:abb3) at 15ddbdf54, 08:27-08:39Z 2026-11-12,
+# qb2:1, p300c, the gate's wheel venv with the tree on PYTHONPATH. Losses 4.9937 / 4.9918 / 4.9911 at
+# steps 1, 5, 10, 500 taped parameters and the 30981 MB DRAM peak as in the 53688fdf1 record; --micro 8
+# still OOMs, on a 67,108,864 B request. Median 21.559 s at AICLK median 1350 (min 1343). A fit record,
+# not a perf claim.
+#
+# RE-RECORDED by the release gate (gate_fanout.py record:abb3) at be0f8447d, 14:09-14:18Z 2026-11-12,
+# qb2:2, p300c, the gate's wheel venv with the tree on PYTHONPATH. Losses 4.9937 / 4.9918 / 4.9911 at
+# steps 1, 5, 10, 500 taped parameters and the 30981 MB DRAM peak as in the 15ddbdf54 record; --micro 8
+# still OOMs, on a 67,108,864 B request. Median 19.499 s at AICLK median 1350 (min 1343). A fit record,
+# not a perf claim.
+#
+# RE-RECORDED by the release gate (gate_fanout.py record:abb3) at 730f010b9, 21:59-22:10Z 2026-11-13,
+# qb2:2, p300c, the gate's wheel venv with the tree on PYTHONPATH. Losses 4.9937 / 4.9918 / 4.9911 at
+# steps 1, 5, 10, 500 taped parameters and the 30981 MB DRAM peak as in the be0f8447d record; --micro 8
+# still OOMs, on a 67,108,864 B request. Median 23.213 s at AICLK median 1350 (min 1343). A fit record,
+# not a perf claim.
+#
+# RE-RECORDED by the release gate (gate_fanout.py record:abb3) at 5b35553df, 05:04-05:15Z 2026-11-16,
+# qb2:2, p300c, the gate's wheel venv with the tree on PYTHONPATH. Losses 4.9937 / 4.9918 / 4.9911 at
+# steps 1, 5, 10, 500 taped parameters and the 30981 MB DRAM peak as in the 730f010b9 record; --micro 8
+# still OOMs, on a 67,108,864 B request. Median 20.555 s at AICLK median 1350 (min 1343). A fit record,
+# not a perf claim.
+#
+# RE-RECORDED by the release gate (gate_fanout.py record:abb3) at b5a33aabf, 18:46-18:56Z 2026-11-16,
+# qb2:0, p300c, the gate's wheel venv with the tree on PYTHONPATH. Losses 4.9937 / 4.9918 / 4.9911 at
+# steps 1, 5, 10, 500 taped parameters and the 30981 MB DRAM peak as in the 5b35553df record; --micro 8
+# still OOMs, on a 67,108,864 B request. Median 20.101 s at AICLK median 1350 (min 1331). A fit record,
+# not a perf claim.
+#
+# RE-RECORDED by the release gate (gate_fanout.py record:abb3) at 10f61d357, 05:06-05:16Z 2026-11-17,
+# qb2:0, p300c, the gate's wheel venv with the tree on PYTHONPATH. Losses 4.9937 / 4.9918 / 4.9911 at
+# steps 1, 5, 10, 500 taped parameters and the 30981 MB DRAM peak as in the b5a33aabf record; --micro 8
+# still OOMs, on a 67,108,864 B request. Median 19.825 s at AICLK median 1350 (min 1193). A fit record,
+# not a perf claim.
+#
+# RE-RECORDED by the release gate (gate_fanout.py record:abb3) at 049ebbf9c, 22:20-22:29Z 2026-11-17,
+# qb2:1, p300c, the gate's wheel venv with the tree on PYTHONPATH. Losses 4.9937 / 4.9918 / 4.9911 at
+# steps 1, 5, 10, 500 taped parameters and the 30981 MB DRAM peak as in the 10f61d357 record; --micro 8
+# still OOMs, on a 67,108,864 B request. Median 19.502 s at AICLK median 1350 (min 1337). A fit record,
 # not a perf claim.
 #
 == --micro 8 --accumulate 8 --steps 1 --warmup 1 ==

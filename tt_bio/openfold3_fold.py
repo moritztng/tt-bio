@@ -179,7 +179,21 @@ WH_NORMAL_LEVERS = NORMAL_LEVERS - {"trimul_t2cm"} | {"trimul_bres"}
 # the stack reruns in DRAM and dit_fuse alone is -3 to +1 %. OpenBind-0 (fp32 DiT) is refused L1 at every graded size
 # on Blackhole and was slower on 10 of 10 complexes (+5 to +7 %), so it stays out there.
 NORMAL_MODEL_LEVERS = {"openfold3": frozenset({"dit_s16", "diffusion_bf16", "dit_fuse", "dit_l1"})}
-WH_NORMAL_MODEL_LEVERS = {**NORMAL_MODEL_LEVERS, "openbind": frozenset({"dit_fuse", "dit_l1"})}
+# OpenBind-0 on Wormhole normal also takes dit_kl1 + apb_ln + trimul_sig6. They were graded with triatt_hifi2 as one stack
+# (nxg, 2026-11-12, 11 complexes x 4 seeds): PASS, every CI covers 0 or favours the stack, pLDDT -0.0007, same-seed top
+# pose median 0.526 A (seed floor 1.105 A, kill bar 0.60 A). Page fold at 1000 MHz 17.39 -> 16.82 s with all four (kla).
+# triatt_hifi2 stays out of normal: it is a HiFi2 fp32-dest matmul on Wormhole, the class that hung prod OpenDDE on 7-10 %
+# of leases (`hifi2_allowed`), and dropping a fidelity cut only moves the stack toward the reference. OpenFold3 FAILED the
+# same stack (DockQ -0.0066 [-0.0129, -0.0005], TM -0.0019 [-0.0039, -0.0003]) and keeps its set.
+# OpenFold3 on Wormhole normal adds dit_kc + dit_mask16 (full k chunk, bf16 pair-bias mask in the DiT attention; the
+# probe reads 0 wrong pixels). Grade dkg (2026-11-17), 9DBP 9LV4 9TY2 x 4 seeds, the three complexes that failed the
+# bfp8 DiT stack: PASS, every CI covers 0, pLDDT -0.0000, same-seed top pose median 0.089 A (seed floor 0.587 A, kill
+# bar 0.60 A), docking 12 -> 12/12. Page fold at 1000 MHz, off/on/on/off processes (dka): 15.42 -> 14.99 s (-2.8 %).
+# dit_sigf32 on top read 14.74 s but FAILED (iRMSD +0.010 [+0.006, +0.017]); the bfp8 stack with dit_b8, dit_mask8 and
+# triatt_ln_b8 FAILED too (dxg, DockQ -0.028 [-0.051, -0.005]).
+WH_NORMAL_MODEL_LEVERS = {**NORMAL_MODEL_LEVERS,
+                          "openfold3": NORMAL_MODEL_LEVERS["openfold3"] | {"dit_kc", "dit_mask16"},
+                          "openbind": frozenset({"dit_fuse", "dit_l1", "dit_kl1", "apb_ln", "trimul_sig6"})}
 # ws_lofi leaves Wormhole fast (LoFi hangs Wormhole chips, tenstorrent.lofi_allowed): with it OpenFold3 9PCQ hung in
 # 3 of 3 processes, without it 48 of 48 folds clean (pcqc, 2026-10-20). It had saved 0.12 / 0.07 s at the page cell.
 # trimul_t2cm leaves Wormhole fast too: plain T2 + reblock_permute_back is faster there at the page cell. Galaxy chip at

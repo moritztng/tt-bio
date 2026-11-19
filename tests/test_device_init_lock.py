@@ -210,7 +210,7 @@ import os, re, sys
 sys.path.insert(0, os.environ["REPO"])
 from tt_bio import device_lease as dl, tenstorrent as tt
 dl.DEVICE_INIT_LOCK_PATH = os.environ["LOCK"]
-tt._OPEN_WEDGE_TIMEOUT_S = 1.0
+dl.INIT_LOCK_DEADLINE_S = 1.0
 class Dev:
     def enable_program_cache(self): pass
 def wedged(**kw):

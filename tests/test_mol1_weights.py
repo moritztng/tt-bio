@@ -98,13 +98,15 @@ def test_a_conformer_only_cache_is_not_adopted(tmp_path):
     assert weights.status("mol1-ccd", root=tmp_path).state == "missing"
 
 
-def test_only_mol1_folds_read_their_own_conformers(tmp_path, monkeypatch):
+def test_mol1_and_opendde_folds_read_their_own_conformers(tmp_path, monkeypatch):
     from tt_bio import weights
     from tt_bio.worker import _ensure_local_artifacts
     monkeypatch.setenv("TT_BIO_CACHE", str(tmp_path))
     monkeypatch.setattr(weights, "fetch", lambda key, **k: tmp_path / key)
-    cfgs = {m: {"model": m, "msa_dir": None} for m in ("mol1", "protenix-v2")}
+    cfgs = {m: {"model": m, "msa_dir": None} for m in ("mol1", "opendde", "opendde-abag", "protenix-v2")}
     for cfg in cfgs.values():
         _ensure_local_artifacts(cfg)
     assert cfgs["mol1"]["conformer_table"] == str(tmp_path / "mol1-ccd" / "ccd_table.npz")
+    for m in ("opendde", "opendde-abag"):
+        assert cfgs[m]["conformer_table"] == str(tmp_path / "opendde-ccd" / "ccd_table.npz")
     assert "conformer_table" not in cfgs["protenix-v2"]

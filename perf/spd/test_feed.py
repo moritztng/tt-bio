@@ -360,6 +360,26 @@ def test_a_freed_bh_card_goes_to_the_lowest_prio_waiter_not_the_first_placed(tmp
     assert (j / "3-hi.sh.start").stat().st_mtime < (j / "8-lo.sh.start").stat().st_mtime
 
 
+def test_a_stale_booking_mark_does_not_hide_a_lower_digit_waiter(tmp_path):
+    # 11-17 qb2: six prio-3 grade waiters kept the .w a lapsed release window left at 09:50Z while they queued for the
+    # dispatch flock, and the prio-8 holder took every card that freed for 40+ min. The prio-3 waiter here is a live
+    # process that never gets the flock, as theirs did not.
+    j = tmp_path / "spd/feed/jobs"; j.mkdir(parents=True)
+    other = subprocess.Popen(["sleep", "30"])
+    try:
+        (j / "3-hi.sh").write_text(""); (j / "3-hi.sh.want").write_text("5\n"); (j / "3-hi.sh.pid").write_text(str(other.pid))
+        (j / "3-hi.sh.w").touch(); os.utime(j / "3-hi.sh.w", (time.time() - 600,) * 2)
+        gone = {}
+        def stop():
+            other.terminate(); other.wait(); gone["t"] = time.time()   # reaped: a zombie still answers kill -0
+        __import__("threading").Timer(1.5, stop).start()
+        sh = _place_bh(tmp_path, [5], "echo card $CHIP\n", name="8-lo.sh")
+        assert Path(f"{sh}.log").read_text() == "card 5\n"
+        assert Path(f"{sh}.start").stat().st_mtime >= gone["t"]   # the free card waited for the prio-3 waiter
+    finally:
+        other.kill()
+
+
 def test_a_waiter_held_off_by_a_booking_does_not_block_a_lower_prio_one(tmp_path):
     now = int(time.time())
     _book(tmp_path, (now + 2000, now + 5000, "cfd3-k4", "5"))
@@ -435,7 +455,7 @@ def test_probe_reads_a_requeued_recall_as_queued_not_ended(tmp_path):
     r = subprocess.run([sys.executable, "-c", feed.PROBE], input=json.dumps(a) + "\n", capture_output=True, text=True,
                        env={"HOME": str(tmp_path)}, check=True)
     jobs = json.loads(r.stdout)["jobs"]
-    assert jobs["3-a-f-x.sh"] == {"state": "queued"} and jobs["3-b-f-y.sh"] == {"state": "running"}
+    assert jobs["3-a-f-x.sh"]["state"] == "queued" and jobs["3-b-f-y.sh"] == {"state": "running"}
 
 
 def test_a_galaxy_just_gone_to_zero_chips_keeps_its_queue(tmp_path, monkeypatch):
@@ -1103,3 +1123,122 @@ def test_probe_archives_bh_jobs_that_ended_over_a_day_ago(tmp_path):
     r = subprocess.run([sys.executable, "-c", feed.PROBE], input=json.dumps(a) + "\n", capture_output=True, text=True,
                        env={"HOME": str(tmp_path), "PATH": "/usr/bin:/bin"}, check=True)
     assert "4-new.sh" in json.loads(r.stdout)["jobs"]
+
+
+def test_last_placed_cell_done_wakes_its_row_once(tmp_path, monkeypatch):
+    box = make_pool(tmp_path, monkeypatch, healthy=2)
+    box.exists |= {"~/o/1/A/b/bench.jsonl", "~/o/1/B/b/bench.jsonl"}
+    nb = tmp_path / "state/notbefore"; nb.mkdir(parents=True)
+    run(tmp_path)
+    assert len(box.queue) == 2
+    (nb / "spd-x").write_text("x")
+    box.exists.add("~/o/2/A/b/bench.jsonl"); box.queue.remove(box.queue[0])
+    run(tmp_path)
+    assert (nb / "spd-x").exists()                     # one cell still pending: no wake
+    box.exists.add("~/o/2/B/b/bench.jsonl"); box.queue.clear()
+    run(tmp_path)
+    assert not (nb / "spd-x").exists()
+    assert "woke spd-x: spd-x/g: all 4 cell(s) done" in (tmp_path / "state/spd/feed/feed.log").read_text()
+    (nb / "spd-x").write_text("x")
+    run(tmp_path)
+    assert (nb / "spd-x").exists()                     # already done last pass: no second wake
+
+
+def test_fill_tier_and_cells_never_placed_wake_nobody(tmp_path, monkeypatch):
+    for tier in ("fill", "red"):
+        d = tmp_path / tier
+        box = make_pool(d, monkeypatch, tier=tier, healthy=2)
+        box.exists |= {"~/o/1/A/b/bench.jsonl", "~/o/1/B/b/bench.jsonl"}
+        nb = d / "state/notbefore"; nb.mkdir(parents=True)
+        run(d)
+        (nb / "spd-x").write_text("x")
+        box.exists |= {"~/o/2/A/b/bench.jsonl", "~/o/2/B/b/bench.jsonl"}; box.queue.clear()
+        run(d)
+        assert (nb / "spd-x").exists() == (tier == "fill"), tier
+    d = tmp_path / "done"                               # every cell done before the feed placed any: nothing to wake for
+    box = make_pool(d, monkeypatch, healthy=2)
+    box.exists |= {f"~/o/{s}/{c}/b/bench.jsonl" for s in (1, 2) for c in "AB"}
+    nb = d / "state/notbefore"; nb.mkdir(parents=True); (nb / "spd-x").write_text("x")
+    run(d)
+    assert (nb / "spd-x").exists()
+
+
+TREE = "~/spd/spd-m-rfd4/trees/abc1234/run.sh"
+
+
+def _cell(name, hosts=()):
+    return {"name": name, "key": "spd-m-rfd4/t1lnf/" + name, "body": "echo " + name, "cap": 600, "arch": "wh",
+            "hosts": list(hosts), "requires": [TREE], "done": ["/x/" + name]}
+
+
+def _gx(name):
+    return {"name": name, "ssh": "ubuntu@" + name, "kind": "galaxy", "arch": "wh"}
+
+
+def _gst(jobs=None, free=0, has=True, paused=False):
+    return {"jobs": dict(jobs or {}), "free": free, "queued": len(jobs or {}), "exists": {TREE: has}, "paused": paused}
+
+
+def _steal(cs, st, P, monkeypatch):
+    calls, ledger = [], {}
+
+    def remote(ssh, script, payload, timeout=120):
+        calls.append((ssh, "withdraw" if script is feed.WITHDRAW else "place", payload))
+        return payload["names"] if script is feed.WITHDRAW else len(payload["jobs"])
+    monkeypatch.setattr(feed, "remote", remote)
+    feed.steal(cs, ledger, st, P, "now", False, lambda m: None)
+    return calls, ledger
+
+
+def test_galaxy_job_moves_to_an_idle_galaxy(monkeypatch):
+    old = feed.STEAL_S + 60
+    cs = [_cell("8-a-f-1"), _cell("3-b-f-2"), _cell("3-c-f-3")]
+    P = {n: _gx(n) for n in ("108", "110", "111", "112")}
+    st = {"108": _gst({"8-a-f-1": {"state": "queued", "age": old + 900}, "3-b-f-2": {"state": "queued", "age": old},
+                       "3-c-f-3": {"state": "queued", "age": 60}}),
+          "110": _gst(free=1), "111": _gst(free=3, has=False), "112": _gst(free=5, paused=True)}
+    calls, ledger = _steal(cs, st, P, monkeypatch)
+    # the prio-3 job goes before the older prio-8 one; .111 lacks the tree, .112 is paused; .110 has one idle chip
+    assert [(s, k, p["names"] if k == "withdraw" else [j["name"] for j in p["jobs"]]) for s, k, p in calls] == [
+        ("ubuntu@108", "withdraw", ["3-b-f-2"]), ("ubuntu@110", "place", ["3-b-f-2"])], calls
+    assert calls[0][2]["kind"] == "galaxy" and calls[1][2]["kind"] == "galaxy" and "cards" not in calls[1][2]["jobs"][0]
+    assert ledger["spd-m-rfd4/t1lnf/3-b-f-2"]["host"] == "110", ledger
+    assert st["108"]["queued"] == 2 and st["110"]["queued"] == 1
+
+
+def test_galaxy_pins_and_young_jobs_stay(monkeypatch):
+    cs = [_cell("3-b-f-2", hosts=["108"]), _cell("3-c-f-3")]
+    P = {n: _gx(n) for n in ("108", "110")}
+    st = {"108": _gst({"3-b-f-2": {"state": "queued", "age": feed.STEAL_S * 2},
+                       "3-c-f-3": {"state": "queued", "age": feed.STEAL_S - 1}}), "110": _gst(free=4)}
+    assert _steal(cs, st, P, monkeypatch)[0] == []
+
+
+def test_steal_never_crosses_kinds(monkeypatch):
+    cs = [_cell("3-b-f-2")]
+    P = {"108": _gx("108"), "qb1": {"name": "qb1", "ssh": "qb1", "kind": "bh", "arch": "wh", "lock": "/l{c}"}}
+    st = {"108": _gst({"3-b-f-2": {"state": "queued", "age": feed.STEAL_S * 2}}), "qb1": _gst(free=[0])}
+    assert _steal(cs, st, P, monkeypatch)[0] == []
+
+
+def test_galaxy_probe_reports_queue_age_and_idle_chips(tmp_path):
+    P = tmp_path / "spd/pool"
+    for d in ("queue", "running"):
+        (P / d).mkdir(parents=True)
+    lend = tmp_path / "japanfold/state/agent/lend"; lend.mkdir(parents=True)
+    for i in range(4):
+        (lend / f"{i}.lent").write_text(json.dumps({"recall_at": None if i < 3 else 1}))
+    (P / "running/20261117-c1-5-x.sh").write_text("")                     # one running job
+    (P / "running/20261117-c2-5-y.sh").write_text(""); (P / "running/20261117-c2-5-y.sh.end").write_text("0")
+    a = {"kind": "galaxy", "lend": True, "paths": [], "sweep": False, "outdirs": {}}
+    run_probe = lambda: json.loads(subprocess.run([sys.executable, "-c", feed.PROBE], input=json.dumps(a) + "\n",
+                                                  capture_output=True, text=True, env=dict(os.environ, HOME=str(tmp_path)),
+                                                  check=True).stdout)
+    out = run_probe()
+    assert out["healthy"] == 3 and out["free"] == 2, out                  # 3 lent, one running
+    q = P / "queue/3-b-f-2.sh"; q.write_text("echo"); t = time.time() - 1000; os.utime(q, (t, t))
+    out = run_probe()
+    assert out["free"] == 0, out                                           # its own queue takes the chips
+    assert out["jobs"]["3-b-f-2.sh"]["state"] == "queued" and 990 <= out["jobs"]["3-b-f-2.sh"]["age"] <= 1100, out
+    q.unlink(); (P / "PAUSE").write_text("")
+    assert run_probe()["free"] == 0

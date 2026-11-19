@@ -35,6 +35,7 @@ class _Trunk(trunk_mod.Trunk):
 
     def __init__(self, learn_on):
         self.dtype = self.residual_dtype = self.pair_residual_dtype = None
+        self._levers = frozenset()
         self.learn_on, self.calls, self.outs = set(learn_on), 0, []
 
     def masks_for(self, mask, device):

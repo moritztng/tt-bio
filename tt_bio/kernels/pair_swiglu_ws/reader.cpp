@@ -9,7 +9,8 @@
 // Under WS_LN the raw x streams into c_5 instead and the LayerNorm's gamma / beta (Kt tiles each, row 0 carries
 // the [K] vector), the 1/K reduce scaler and an fp32 eps tile are read once into c_8 / c_9 / c_10 / c_11.
 //
-// Under WS_RESID the residual's row tile (CT pages) follows each x row tile into c_20, and under WS_RESID2 the second
+// Under WS_RESID the residual's row tile (CT pages) follows each x row tile into c_20 (not under WS_RES_X: the residual
+// is x, which compute keeps in c_5), and under WS_RESID2 the second
 // residual's into c_24 (common runtime arg 8).
 //
 // Under WS_RES32 the residual is float32 (its pages are 4 KB; `tr` is c_20's page size either way).
@@ -67,9 +68,9 @@ void kernel_main() {
 #else
     constexpr auto r_args = TensorAccessorArgs<w3_args.next_compile_time_args_offset()>();
 #endif
-    const auto sr = TensorAccessor(r_args, get_common_arg_val<uint32_t>(5));
+    [[maybe_unused]] const auto sr = TensorAccessor(r_args, get_common_arg_val<uint32_t>(5));   // unread under WS_RES_X
     constexpr uint32_t cb_res = 20;
-    const uint32_t tr = get_tile_size(cb_res);
+    [[maybe_unused]] const uint32_t tr = get_tile_size(cb_res);
 #ifdef WS_RESID2
     constexpr auto r2_args = TensorAccessorArgs<r_args.next_compile_time_args_offset()>();
     const auto sr2 = TensorAccessor(r2_args, get_common_arg_val<uint32_t>(8));
@@ -211,7 +212,7 @@ void kernel_main() {
             noc_async_read_page(r * KT + k, sb3, wd);
         }
 #endif
-#ifdef WS_RESID
+#if defined(WS_RESID) && !defined(WS_RES_X)
         noc_async_read_barrier();
         cb_push_back(cb_x, KT);
         cb_reserve_back(cb_res, CT);
@@ -228,13 +229,13 @@ void kernel_main() {
 #endif
 #endif
         noc_async_read_barrier();
-#ifndef WS_RESID
+#if !defined(WS_RESID) || defined(WS_RES_X)
         cb_push_back(cb_x, KT);
 #endif
 #ifdef WS_RELU_BW
         cb_push_back(cb_dy, KT);
 #endif
-#ifdef WS_RESID
+#if defined(WS_RESID) && !defined(WS_RES_X)
         cb_push_back(cb_res, CT);
 #ifdef WS_RESID2
         cb_push_back(cb_res2, CT);

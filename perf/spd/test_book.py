@@ -92,3 +92,27 @@ assert book.holders(rows, 3, t0, busy=free) == ["held:unbooked"]
 open(book.PROC_LOCKS, "w").write("1: -> FLOCK  ADVISORY  WRITE 4242 00:2a:%d 0 EOF\n" % os.stat(lk).st_ino)
 assert book.holders(rows, 3, t0, busy=free) == []            # a waiter on the flock holds nothing
 print("ok")
+
+# a cardblock or chipN.BAD keeps every booker off the card: add refuses, next is now, active names the marker
+import io, contextlib
+bd = tempfile.mkdtemp()
+book.BLOCKS, book.BAD, book.BOX = bd, bd, "qb2"
+os.environ["TT_SYSFS"] = bd + "/nosysfs"            # no sysfs: card i is node i
+open(bd + "/cardblock-qb2-3", "w").write("# holder: fault\n")   # 11-12: qb2 chip 3 faulted, a fold booked it anyway
+assert book.blocked(3) == "cardblock-qb2-3" and book.blocked(2) is None
+open(bd + "/chip1.BAD", "w").write("feed\n")
+assert book.blocked(1) == "chip1.BAD"
+err, out = io.StringIO(), io.StringIO()
+with contextlib.redirect_stderr(err):
+    assert book.main(["add", "fold-c3", "3", "3600"]) == 3
+assert "card 3 blocked: cardblock-qb2-3" in err.getvalue()
+assert not os.path.exists(book.F) or "fold-c3" not in open(book.F).read()
+with contextlib.redirect_stdout(out):
+    assert book.main(["active", "3"]) == 0 and book.main(["next", "3"]) == 0
+assert out.getvalue().split()[0] == "blocked:cardblock-qb2-3" and int(out.getvalue().split()[1]) > 10**9
+os.rename(bd + "/cardblock-qb2-3", bd + "/cardblock-qb2-3.cleared-x-verified")   # chip_recover's clear
+with contextlib.redirect_stdout(io.StringIO()):
+    assert book.main(["add", "fold-c3", "3", "3600"]) == 0
+assert "fold-c3" in open(book.F).read()
+os.environ.pop("TT_SYSFS")
+print("blocked ok")

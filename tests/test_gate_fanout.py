@@ -31,6 +31,7 @@ def _no_real_bad_marks(tmp_path, monkeypatch):
     monkeypatch.setattr(gf, "LOCAL_BLOCKS", tmp_path / "pc-state")
     monkeypatch.setattr(gf, "BAD_MARKS", (f"{tmp_path}/locks/chip{{card}}.BAD",
                                           f"{tmp_path}/host-state/cardblock-{{host}}-{{card}}"))
+    monkeypatch.setattr(gf, "CHIP_RECOVER", tmp_path / "no-chip-recover.py")
 
 
 def _legs():
@@ -253,6 +254,8 @@ def test_capacity_size_guard_refusal_passes_only_when_the_baseline_records_it():
 def test_a_dropped_ssh_connection_is_not_a_leg_result():
     assert gf.SSH_LOST.search("# leg\nssh: connect to host 192.168.178.70 port 22: No route to host\n")
     assert gf.SSH_LOST.search("Timeout, server 192.168.178.70 not responding.\n")
+    # the keepalive timeout lands on the leg's half-written line (rel-72875f231 pytest_device:1/4 bh)
+    assert gf.SSH_LOST.search("....... [ 79%]\n.......Timeout, server tt-quietbox not responding.\n")
     assert gf.SSH_LOST.search("ssh_dispatch_run_fatal: Connection to 192.168.178.70 port 22: Broken pipe\n")
     assert gf.SSH_LOST.search("cannot queue /q/0-x.sh:\nConnection closed by UNKNOWN port 65535\n")
     assert not gf.SSH_LOST.search("FAILED tests/test_x.py::test_ssh_connect_to_host\n")
@@ -283,6 +286,9 @@ def test_a_contended_card_is_not_a_leg_result():
     assert gf.CONTENDED.search("[pxdesign] measurement error: design [pxdesign] rep 2/3 exited 75 after 123s: "
                                "device contention, nothing ran: physical card 3 on tt-quietbox is in use\n")
     assert gf.CONTENDED.search("waited 120s. Refusing to open it concurrently (would wedge)\n")
+    assert gf.CONTENDED.search("tt-quietbox2:1 is leased by worker:some-row (pid 2262127). Nothing was "
+                               "measured. Wait for the card, or point --workers at a free one; do NOT reset it.\n")
+    assert gf.CONTENDED.search("# esmfold2-cocrystal: device contention, nothing ran: tt_bio.device_lease.DeviceInUseError\n")
     assert not gf.CONTENDED.search("GATE FAIL — regressed beyond ±15%: boltzgen\n")
 
 
@@ -861,6 +867,39 @@ def test_a_pool_leg_notes_a_recall_of_its_chip(tmp_path, monkeypatch):
     assert rc == 130 and gf.GIVEN_BACK in (tmp_path / "leg.log").read_text()
 
 
+@pytest.mark.parametrize("rc, given_back", [(130, True), (1, False)])
+def test_a_recall_just_before_the_start_still_reads_as_a_give_back(tmp_path, monkeypatch, rc, given_back):
+    """.108, 11-19 15:41:58Z: the agent recalled chip 10, the pool started ux:saprot-35m on it a second later and
+    the SIGINT killed it at rc 130. The recall predates `boot`; a signal exit still reads as given back, a plain
+    failure does not."""
+    monkeypatch.setattr(gf, "POOL_POLL_S", 0.05)
+    queue = tmp_path / "pool" / "queue"
+    queue.mkdir(parents=True)
+    lend = tmp_path / "japanfold" / "state" / "agent" / "lend"
+    lend.mkdir(parents=True)
+    recalled = lend / "7.recalled"
+    recalled.touch()
+    os.utime(recalled, (time.time() - 5, time.time() - 5))
+    sha = "b" * 40
+    (tmp_path / "trees" / sha[:12]).mkdir(parents=True)
+    h = gf.Host("g", {"arch": "wh", "card_type": "w", "root": str(tmp_path), "ssh": "localhost",
+                      "lock": str(tmp_path / "chip{card}.lock"), "python": sys.executable,
+                      "pool": {"queue": str(queue), "prio": 0}}, sha)
+    leg = gf.Leg("ux:x", ["PY", "-c", f"import sys; sys.exit({rc})"], "ux")
+
+    def pool():
+        while not (jobs := list(queue.glob("*.sh"))):
+            time.sleep(0.02)
+        subprocess.run(["bash", str(jobs[0])], env={"CHIP": "7", "HOME": str(tmp_path),
+                                                    "PATH": "/usr/bin:/bin"}, check=True)
+    t = threading.Thread(target=pool)
+    t.start()
+    with open(tmp_path / "leg.log", "w") as f:
+        got = gf.run_in_pool(h, gf.POOL, leg, str(tmp_path / "o" / "run1" / "wh" / "ux_x"), f)
+    t.join()
+    assert got == rc and (gf.GIVEN_BACK in (tmp_path / "leg.log").read_text()) == given_back
+
+
 def test_a_recalled_legs_straggling_child_does_not_overwrite_the_give_back_note(tmp_path, monkeypatch):
     """A recalled fold's child outlives the SIGINT (the agent SIGTERMs it seconds later) and still holds the
     leg's log. Opened with `>`, its last line overwrote the give-back note at the shared offset and the
@@ -911,7 +950,8 @@ def test_a_pool_leg_stopped_by_a_give_back_runs_again(tmp_path, monkeypatch):
     assert len(calls) == backs + 1
 
 
-def test_a_pool_leg_that_died_opening_its_chip_runs_again(tmp_path, monkeypatch):
+@pytest.mark.parametrize("card", [gf.POOL, 2])
+def test_a_leg_that_died_opening_its_chip_runs_again(tmp_path, monkeypatch, card):
     calls, deaths = [], gf.INIT_FAILED_TRIES
 
     def fake_run(host, card, leg, rdir, f):
@@ -922,13 +962,15 @@ def test_a_pool_leg_that_died_opening_its_chip_runs_again(tmp_path, monkeypatch)
         f.write("##LEG-START 5\nok\n")
         return 0
     monkeypatch.setattr(gf, "run_in_pool", fake_run)
+    monkeypatch.setattr(gf, "run_over_ssh", fake_run)
     h = gf.Host("g", {"arch": "wh", "card_type": "w", "root": "/r"}, "c" * 40)
+    h.card_dead = lambda c: None   # the probe read the card alive (11-11: another job held its flock)
     ex = gf.make_executor("c" * 40, tmp_path, gf.Ledger(tmp_path / "l"), {("ux:x", "wh"): "k"}, "o")
-    assert ex(h, gf.POOL, gf.Leg("ux:x", ["PY"], "ux"))["verdict"] == "PASS"
+    assert ex(h, card, gf.Leg("ux:x", ["PY"], "ux"))["verdict"] == "PASS"
     assert len(calls) == gf.INIT_FAILED_TRIES + 1
     calls.clear()
     monkeypatch.setattr(gf, "INIT_FAILED_TRIES", 0)   # out of tries: the init failure is the leg's result
-    assert ex(h, gf.POOL, gf.Leg("ux:x", ["PY"], "ux"))["verdict"] == "FAIL"
+    assert ex(h, card, gf.Leg("ux:x", ["PY"], "ux"))["verdict"] == "FAIL"
     assert gf.INIT_FAILED.search("TT_FATAL: Read unexpected run_mailbox value from core (x=25,y=17)")
 
 
@@ -983,6 +1025,34 @@ def test_a_leg_that_reports_its_card_unresettable_retires_the_card_without_a_pro
     with pytest.raises(gf.CardDead) as e:
         ex(h, 1, gf.Leg("ladder:m", ["PY"], "ladder"))
     assert "could not be reset" in e.value.why
+
+
+@pytest.mark.parametrize("answers", [True, False])
+def test_a_leg_on_a_host_that_stays_dark_goes_back_on_the_queue(tmp_path, monkeypatch, answers):
+    """rel-72875f231, 11-12: qb1 went dark and its legs retried there for hours while qb2 idled."""
+    monkeypatch.setattr(gf, "SSH_LOST_RETRY_S", 0)
+    calls = []
+
+    def fake_run(host, card, leg, rdir, f):
+        calls.append(card)
+        if len(calls) <= gf.HOST_DARK_TRIES:
+            f.write("##LEG-START 5\n....Timeout, server q not responding.\n" if len(calls) == 1
+                    else "ssh: connect to host 192.168.178.70 port 22: No route to host\n")
+            return 255
+        f.write("##LEG-START 5\nok\n")
+        return 0
+    monkeypatch.setattr(gf, "run_over_ssh", fake_run)
+    monkeypatch.setattr(gf.Host, "answers", lambda self: answers)
+    h = gf.Host("q", {"arch": "bh", "card_type": "p", "root": "/r"}, "c" * 40)
+    h.card_dead = lambda c: None
+    ex = gf.make_executor("c" * 40, tmp_path, gf.Ledger(tmp_path / "l"), {("ux:x", "bh"): "k"}, "o")
+    if answers:     # a host that answers again only dropped the connection: the leg runs there again
+        assert ex(h, 1, gf.Leg("ux:x", ["PY"], "ux"))["verdict"] == "PASS"
+        return
+    with pytest.raises(gf.CardDead) as e:
+        ex(h, 1, gf.Leg("ux:x", ["PY"], "ux"))
+    assert len(calls) == gf.HOST_DARK_TRIES and "does not answer ssh" in e.value.why
+    assert e.value.res["verdict"] == "FAIL" and e.value.res["worker"] == "q:1"
 
 
 def test_a_second_run_of_a_leg_keeps_the_first_runs_log(tmp_path, monkeypatch):
@@ -1324,13 +1394,28 @@ def test_a_pass_is_reused_on_a_commit_that_changed_nothing_the_leg_read(tmp_path
     assert not gf.reads_match(a, c, ["m/a.py", "dir:m"], repo)
     assert gf.reads_match(a, c, ["m/a.py"], repo)                  # import-system listings are not kept
     assert not gf.reads_match(a, d, ["m/a.py"], repo)
+    assert gf.reads_match(a, b, ["m/a.py", "pyproject.toml"], repo)  # a release's version bump
+    f = commit({"pyproject.toml": 'version = "2"\ndependencies = ["x"]\n'}, "f: a dependency")
+    assert not gf.reads_match(a, f, ["pyproject.toml"], repo)
     np = [gf.content_hash(s, repo, python=False) for s in (a, b, d)]
     assert np[0] == np[1] == np[2]                                 # .py and the version line only
     e = commit({"k/x.cpp": "2"}, "e")
     assert gf.content_hash(e, repo, python=False) != np[0]
     f = commit({"k/fix.json": "1"}, "f: a fixture only Python reads")
     assert gf.content_hash(f, repo, python=False) != gf.content_hash(e, repo, python=False)
-    assert gf.content_hash(f, repo, python=False, data=False) == gf.content_hash(e, repo, python=False, data=False)
+    assert gf.content_hash(f, repo, **gf.SCOPES[0]) == gf.content_hash(e, repo, **gf.SCOPES[0])
+
+    # A perf note and CI's build pins are read by no leg's non-Python reader: the scope holds, and a
+    # row filed under the scope that still keyed them counts at the later commit (scopes_at).
+    g = commit({"perf/note.txt": "1", ".github/pins.txt": "1"}, "g: a note and CI pins")
+    h = commit({"perf/note.txt": "2", ".github/pins.txt": "2"}, "h: both change")
+    i = commit({"k/x.cpp": "3"}, "i: a kernel")
+    assert gf.content_hash(g, repo, **gf.SCOPES[0]) == gf.content_hash(h, repo, **gf.SCOPES[0])
+    assert gf.content_hash(g, repo, **gf.SCOPES[1]) != gf.content_hash(h, repo, **gf.SCOPES[1])
+    now, olds = gf.scopes_at(h, {g, i, "0" * 40}, repo)
+    assert now == gf.content_hash(h, repo, **gf.SCOPES[0])
+    assert gf.content_hash(g, repo, **gf.SCOPES[1]) in olds and gf.content_hash(h, repo, **gf.SCOPES[1]) in olds
+    assert gf.content_hash(i, repo, **gf.SCOPES[1]) not in olds    # a kernel change keys every leg anew
 
     led = gf.Ledger(tmp_path / "led")
     row = {"leg": "parity:m", "verdict": "PASS", "sha": a, "ended": "1", "worker": "h:0", "log": "l",
@@ -1394,6 +1479,16 @@ def test_a_dead_card_is_retired_and_its_leg_runs_on_another_card(tmp_path):
     assert sorted(r["leg"] for r in res) == sorted(lg.name for lg in legs)
     assert {r["verdict"] for r in res} == {"PASS"}
     assert {c for c, _ in ran} == {0}
+
+
+def test_a_retired_card_is_handed_to_chip_recover_as_dirty(tmp_path, monkeypatch):
+    hook = tmp_path / "chip_recover.py"
+    hook.write_text("import sys, pathlib; pathlib.Path(sys.argv[0]).with_suffix('.args').write_text(' '.join(sys.argv[1:]))\n")
+    monkeypatch.setattr(gf, "CHIP_RECOVER", hook)
+    gf.report_dead_card("qb2", 3, "tail\nCARD_OPEN")
+    assert hook.with_suffix(".args").read_text() == "release qb2 3 --holder release-gate --dead CARD_OPEN"
+    gf.report_dead_card("qb2", 3, "")              # an empty reason still hands the card off
+    assert hook.with_suffix(".args").read_text().endswith("--dead ?")
 
 
 def test_a_leg_that_kills_two_cards_is_recorded_as_it_ran(tmp_path):
@@ -1658,6 +1753,38 @@ def test_a_serving_galaxy_that_lends_no_chip_reads_as_paused(tmp_path, monkeypat
     assert not paused(gf.NONE_LENT_S)                 # no agent: an SPD box, its own pool rules
 
 
+def test_a_box_glx_elastic_is_draining_for_the_pool_keeps_its_legs(tmp_path, monkeypatch):
+    """While glx_elastic drains a box it lends to a pool borrower, the agent is still up and lends no chip. That box is
+    about to run every pool job, so it is neither paused nor in lend mode. rel-cc61bed92 (11-09): .110's drain for the
+    gate read as "no chip lent" and both whole-box legs were taken back to a serving box 6 min before the lend landed."""
+    stub = tmp_path / "bin"
+    stub.mkdir()
+    (stub / "systemctl").write_text("#!/bin/sh\nexit 0\n")
+    (stub / "systemctl").chmod(0o755)
+    (tmp_path / "japanfold" / "state" / "agent" / "lend").mkdir(parents=True)
+    (tmp_path / "spd" / "galaxy").mkdir(parents=True)
+    (tmp_path / "spd" / "galaxy" / "pool.sh").write_text("#!/bin/bash\nLEND_SKIP='(^|[-_])(openbind|openfold3|of3)'\n")
+    (tmp_path / "glx").mkdir()
+    (tmp_path / "glx" / "LENDING").write_text("rel since 1794200760\n")
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("PATH", f"{stub}:{os.environ['PATH']}")
+    h = gf.Host("g110", {"arch": "wh", "card_type": "wh", "root": str(tmp_path), "ssh": "localhost",
+                         "pool": {"queue": str(tmp_path / "pool" / "queue")}}, "f" * 40)
+
+    def lent(leg, ago=0):
+        h.lend = (float("-inf"),) + h.lend[1:]
+        h.read_lend()
+        if ago and h.lend[4] is not None:
+            h.lend = h.lend[:4] + (h.lend[4] - ago,) + h.lend[5:]
+        return h.lent(gf.Leg(leg, [], leg.split(":")[0]))
+
+    assert not lent("ladder:opendde", gf.NONE_LENT_S) and not lent("ladder:openfold3")
+    (tmp_path / "glx" / "LENDING").unlink()              # lend abandoned: the box serves again
+    assert lent("ladder:openfold3")                       # lend mode skips OF3 again at once
+    assert not lent("ladder:opendde")                     # and the no-chip clock starts over
+    assert lent("ladder:opendde", gf.NONE_LENT_S)
+
+
 def test_lend_mode_holds_no_leg_its_pool_skips(tmp_path, monkeypatch):
     """A serving box with chips lent never starts a LEND_SKIP job (OpenFold3 family), so for those legs it reads as
     paused and only they go elsewhere. rel-f4177cee0: 16 WH OF3-family legs sat 38 h in .107's lend-mode queue."""
@@ -1701,3 +1828,26 @@ def test_a_pool_job_declares_its_expected_wall_as_its_cap_so_a_reserved_lend_can
     assert "timeout" in job and f"\n# cap: {gf.BUDGET['ladder']}\n" in job   # unknown wall: no reserve fits it
     leg.known_s = 3900
     assert "\n# cap: 3900\n" in gf.pool_job(h, leg, str(tmp_path / "r"), "x")
+
+
+def test_a_chip_whose_mark_clears_mid_gate_rejoins_it(tmp_path, monkeypatch):
+    """11-17: qb2:2 and :3 were cleared at 14:58Z, the gate ran WH legs until 20:23Z, and every BH leg
+    ended UNRUN because a worker that saw a mark once left for good. A benched chip waits while any
+    other worker runs, and rejoins when its mark goes."""
+    monkeypatch.setattr(gf, "POOL_POLL_S", 0.05)
+    (tmp_path / "locks").mkdir()
+    mark = tmp_path / "locks" / "chip0.BAD"
+    mark.touch()
+    h = _host("qb2", "bh", tmp_path)
+    legs = [lg for lg in _legs() if lg.card]
+    ran = []
+
+    def execute(host, card, leg):
+        ran.append(card)
+        if card == 1:                  # the other chip holds the gate open, then the mark clears
+            mark.unlink(missing_ok=True)
+            time.sleep(0.5)
+        return {"leg": leg.name, "arch": "bh", "verdict": "PASS", "worker": f"qb2:{card}"}
+
+    res = gf.Gate({"bh": list(legs)}, [(h, 0), (h, 1)], set(), execute, tmp_path).run()
+    assert 0 in ran and len(res) == len(legs)

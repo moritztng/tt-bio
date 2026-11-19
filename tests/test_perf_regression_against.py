@@ -183,3 +183,19 @@ def test_save_baselines_replaces_a_readonly_file(tmp_path):
     m.BASELINE_FILE = f
     m.save_baselines({"cards": {}})
     assert json.loads(f.read_text()) == {"cards": {}}
+
+
+def test_a_contended_regression_is_measured_once_more_and_the_better_read_graded(monkeypatch):
+    m = _module()
+    reads = iter([dict(model="rfd3", unit="designs/s", direction="higher", throughput=0.08, contended=True),
+                  dict(model="rfd3", unit="designs/s", direction="higher", throughput=0.124)])
+    monkeypatch.setattr(m, "_assert_full_model_coverage", lambda: None)
+    monkeypatch.setattr(m, "_run_measure", lambda model: next(reads))
+    monkeypatch.setattr(m, "load_baselines", lambda: {})
+    monkeypatch.setattr(m, "detect_card_type", lambda: "tt-galaxy-wh-l")
+    monkeypatch.setattr(m, "detect_machine_id", lambda: "g112")
+    monkeypatch.setattr(m, "card_baselines", lambda *a: {"rfd3": {"value": 0.1248}})
+    graded = []
+    monkeypatch.setattr(m, "_print_table", lambda rows, *a: graded.extend(rows) or True)
+    assert m.cmd_gate(Namespace(model=["rfd3"], update_baseline=False, threshold=15.0)) == 0
+    assert [r["throughput"] for r in graded] == [0.124]

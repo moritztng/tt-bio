@@ -33,7 +33,7 @@ from tt_bio.host_controller import (HEARTBEAT_PER_LEASE, LEASE_S, ControllerClie
                                     run_config_hash)
 from tt_bio.envflags import env_flag
 from tt_bio import ranking as rank
-from tt_bio.cache import EMPTY_MSA, cached, msa_pinned, seq_hash, staged
+from tt_bio.cache import EMPTY_MSA, cached, msa_pinned, seq_hash, single_flight, staged
 from tt_bio.capabilities import check_capabilities
 
 
@@ -170,11 +170,7 @@ def _ensure_local_artifacts(cfg: dict[str, Any]) -> None:
         cfg["msa_dir"] = _resolve_msa_dir(cfg.get("msa_dir"), cache)
         cfg["protenix_ckpt"] = cfg.get("checkpoint") or str(weights.fetch(cfg["model"]))
         cfg["mol_dir"] = str(weights.fetch("mols"))    # CCD templates for nucleic acids / ligands
-        # A checkpoint that ships its own reference conformers (Mol-1) reads them instead of the
-        # CCD ideal coordinates, as upstream does.
-        for art in weights.artifacts_for(cfg["model"]):
-            if art.derived and art.derived.producer == "rdkit-conformers":
-                cfg.setdefault("conformer_table", str(weights.fetch(art.key) / "ccd_table.npz"))
+        _own_conformers(cfg)
         return
     # OpenFold3 / OpenBind: $TT_BIO_OPENFOLD3 / $OF3_CKPT or $TT_BIO_OPENBIND, else the
     # local cache, else upstream's bucket. The artifact key is the model id, so the
@@ -197,6 +193,7 @@ def _ensure_local_artifacts(cfg: dict[str, Any]) -> None:
     if cfg.get("model", "boltz2") in ("opendde", "opendde-abag"):
         cfg["opendde_ckpt"] = os.environ.get("TT_BIO_OPENDDE") or os.environ.get("OPENDDE_CKPT")
         cfg["mol_dir"] = str(weights.fetch("mols"))
+        _own_conformers(cfg)
         return
     # AF2-IG reads one member out of DeepMind's 4 GB parameter archive (weights.py:
     # `af2-params`), and folds single-sequence, so it needs no MSA dir and no molecule
@@ -569,6 +566,15 @@ def _target_seed(path, cfg) -> int:
     return int(cfg.get("seed") or 0)
 
 
+def _own_conformers(cfg) -> None:
+    """A checkpoint that ships its own reference conformers (Mol-1, OpenDDE) reads them instead of
+    the CCD ideal coordinates, as upstream does: cfg["conformer_table"] names its ccd_table.npz."""
+    from tt_bio import weights
+    for art in weights.artifacts_for(cfg["model"]):
+        if art.derived and art.derived.producer == "rdkit-conformers":
+            cfg.setdefault("conformer_table", str(weights.fetch(art.key) / "ccd_table.npz"))
+
+
 @functools.lru_cache(maxsize=2)
 def _conformer_table(path):
     """A model's own reference conformers (protenix_data.load_conformer_table), read once per path; None
@@ -666,11 +672,11 @@ def search_msas(path, chains, cfg, progress=None) -> None:
         return
     if progress:
         progress("msa")
-    _generate_esmfold2_a3m(
-        need, path.stem, msa_dir, cfg.get("msa_db_path"), cfg.get("use_envdb", False),
+    single_flight(msa_dir, need, lambda h: not cached(msa_dir / f"{h}.a3m"), lambda todo: _generate_esmfold2_a3m(
+        {h: need[h] for h in todo}, path.stem, msa_dir, cfg.get("msa_db_path"), cfg.get("use_envdb", False),
         cfg.get("msa_server_url"), cfg.get("msa_pairing_strategy"),
         cfg.get("msa_server_username"), cfg.get("msa_server_password"),
-        cfg.get("api_key_value"), msa_endpoint=cfg.get("msa_endpoint"))
+        cfg.get("api_key_value"), msa_endpoint=cfg.get("msa_endpoint")))
 
 
 def _msa_source(cfg) -> bool:
@@ -1340,9 +1346,11 @@ class _WorkerState:
                 num_timesteps=int(cfg.get("sampling_steps") or 200))
         elif model_id in ("opendde", "opendde-abag"):
             from tt_bio.opendde import OpenDDE
-            from tt_bio.tenstorrent import get_device
+            from tt_bio.tenstorrent import cleanup, get_device
 
-            if cfg.get("trace"):
+            # OpenDDE denoises through Protenix-v2's sampler, so it takes the family's trace rule.
+            if _protenix_trace(cfg) and not _protenix_region_reserved():
+                cleanup()
                 get_device(trace="protenix")
 
             prec = diffusion_precision(cfg)
@@ -1740,11 +1748,13 @@ class _WorkerState:
         tmpl_dir = cfg.get("template_structures")
         if tmpl_map:
             _prefetch_template_structures(tmpl_map, Path(tmpl_dir))
-        feats = build_complex_features(chain_specs, chain_ids=[cid for cid, _s, _sp, _mt, _mods in chains],
+        feats = build_complex_features(chain_specs, mol_dir=cfg.get("mol_dir"),
+                                       chain_ids=[cid for cid, _s, _sp, _mt, _mods in chains],
                                        bonds=bonds, paired_a3ms=paired_a3ms,
                                        modifications=[mods for *_x, mods in chains],
                                        templates=[tmpl_map.get(cid) for cid, *_r in chains],
-                                       template_dir=tmpl_dir)
+                                       template_dir=tmpl_dir,
+                                       conformer_table=_conformer_table(cfg.get("conformer_table")))
 
         # OpenDDE.fold rides the Protenix-v2 trunk + EDM sampler, so the same
         # progress_fn path reports trunk iterations and diffusion steps — no
@@ -1763,7 +1773,7 @@ class _WorkerState:
             coords, conf = self.model.fold(
                 feats, n_step=cfg["sampling_steps"], n_sample=n_sample,
                 seed=_target_seed(path, cfg), progress_fn=report_progress,
-                n_cycles=cfg.get("recycling_steps"), trace=cfg.get("trace", False),
+                n_cycles=cfg.get("recycling_steps"), trace=_protenix_trace(cfg) and _protenix_region_reserved(),
                 return_confidence=True, max_parallel_samples=cfg.get("max_parallel_samples"),
                 distogram=bool(cfg.get("write_pae")), guidance=guidance, trunk_cache=trunk_cache)
         confs = conf if isinstance(conf, list) else [conf]
@@ -1776,10 +1786,14 @@ class _WorkerState:
         """Sequences -> (optional per-chain MSA) -> model-ready features for one target.
         Shared by the single and batched protenix entry points."""
         from tt_bio.esmfold2 import report_progress
-        from tt_bio.main import _read_bio_bonds, _read_bio_chains
+        from tt_bio.main import _read_bio_bonds, _read_bio_chains, _read_mol1_constraints
         from tt_bio.protenix_data import build_complex_features
 
         model = cfg.get("model", "protenix-v2")
+        conditions = _read_mol1_constraints(path)
+        if conditions and model != "mol1":
+            raise RuntimeError(f"site / contact / exclusion constraints are Mol-1-constraint's; {model} has no "
+                               "conditioner. Use --model mol1.")
         chains = _read_bio_chains(path)
         if not chains:
             raise RuntimeError("no protein/nucleic-acid sequences")
@@ -1812,7 +1826,8 @@ class _WorkerState:
                                        modifications=[mods for *_x, mods in chains],
                                        templates=[tmpl_map.get(cid) for cid, *_r in chains],
                                        template_dir=tmpl_dir,
-                                       conformer_table=_conformer_table(cfg.get("conformer_table")))
+                                       conformer_table=_conformer_table(cfg.get("conformer_table")),
+                                       constraints=conditions)
         # A JSON input's MSA features are built exactly as upstream builds them, from the sidecar alignments
         # plus the searched ones for chains it left out. Ordinary YAML/FASTA inputs have no sidecar.
         if side and not cfg.get("single_sequence"):
@@ -2366,9 +2381,11 @@ def _install_orphan_guard(dispatcher_pid: int) -> None:
 
     A worker can afford the SIGTERM handler ``_install_signal_handlers`` puts on
     top of this, which unwinds through close_device and leaves the chip clean,
-    because ``run_worker_loop``'s heartbeat catches a worker too deep in ttnn to
-    take the signal 60 s later. A process with no such backstop must leave SIGTERM
-    at its default disposition instead, or a wedged chip is held forever.
+    because a worker too deep in ttnn to take the signal is still caught: by the
+    heartbeat 60 s later if the interpreter runs, and by the guard's reaper with
+    SIGKILL if it does not (a worker wedged in the bring-up dispatch probe, before
+    the heartbeat starts). A process with neither backstop must leave SIGTERM at its
+    default disposition instead.
 
     Workers are started from the dispatcher's main thread
     (``main._spawn_worker_processes``, ``_supervise_worker_processes``), which is

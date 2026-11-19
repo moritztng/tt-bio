@@ -1051,11 +1051,25 @@ def _install_resident_trunk_loop(model):
             dram_peak("esmfold2/msa-encoder")
             return msa_pair if overwrite else (_host(z_init) + msa_pair)
 
+        # The injection is loop-invariant only when no loop redraws its LM dropout or MSA rows.
+        per_loop = (use_lm and bool(lm_p)) or (msa_loops is not None and len(msa_loops) > 1)
         # The MSA encoder reads z_init and the loop's MSA draw. With one draw for every loop
         # (an MSA no deeper than max_depth) its output is the same in every loop, so it is
         # encoded once even when the LM dropout makes the rest of the injection per-loop.
-        msa_fixed = msa_inject(msa_loops[0]) if msa_loops is not None and len(msa_loops) == 1 \
-            else None
+        # When the injection is built on the device that pair stays there. The host round trip it
+        # replaces downloaded and re-uploaded the same bf16 values (L^2 x 128): 0.4 s of a 512 aa
+        # fold and 1.1 s at 748 aa on Wormhole.
+        msa_fixed = None
+        if msa_loops is not None and len(msa_loops) == 1:
+            if _DEVICE_INJECTION and per_loop and overwrite and isinstance(lm_z, _DevPair):
+                x_pair = z_init.t if isinstance(z_init, _DevPair) else z_init
+                out = self.msa_encoder(x_pair=x_pair, to_host=False, **msa_loops[0])
+                if out.dtype != ttnn.bfloat16:
+                    out = ttnn.typecast(out, ttnn.bfloat16)
+                msa_fixed = _DevPair(out, lm_z.seq_len)
+                dram_peak("esmfold2/msa-encoder")
+            else:
+                msa_fixed = msa_inject(msa_loops[0])
         if msa_fixed is not None and overwrite and isinstance(z_init, _DevPair):
             ttnn.deallocate(z_init.t)  # nothing reads z_init past the MSA encoder
 
@@ -1085,8 +1099,6 @@ def _install_resident_trunk_loop(model):
             real = torch.zeros(1, Lp + pad, Lp + pad)
             real[:, :Lp, :Lp] = 1.0
             mask = ftw._from_torch(real)
-        # The injection is loop-invariant only when no loop redraws its LM dropout or MSA rows.
-        per_loop = (use_lm and bool(lm_p)) or (msa_loops is not None and len(msa_loops) > 1)
         # A per-loop MSA draw is encoded on the device each loop (overwrite: the MSA pair IS the base).
         msa_dev = msa_loops is not None and msa_fixed is None
         on_dev = (_DEVICE_INJECTION and per_loop and isinstance(lm_z, _DevPair)
@@ -1791,7 +1803,13 @@ _WH_EXTRA = "+lm_gate_ng+ef2_atom_rope+ws_psilu+atom_l1"
 # ESMFold2 512 aa 25.11 -> 24.63 s, -Fast 512 14.74 -> 14.53 s, -Fast 256 5.30 -> 5.17 s, -Fast 1024 52.62 -> 52.47 s.
 # Fast-bar grade wgw8g (same chip, WH --fast set vs + this, 4 seeds x 5 samples): -Fast 11 complexes CA-lDDT +0.0008
 # [-0.0002, +0.0022], docking 23 -> 24 of 44; ESMFold2 10 complexes +0.0028 [-0.0000, +0.0073], docking 28 -> 27 of 40.
-_WH_FAST_EXTRA = "+dit_shoist+trunk_hifi2+trimul_t2fold+trimul_bres_b8+trimul_gin_w8"
+# trimul_x8 on top writes the trimul einsum's x as bfp8 into permute_back_pk, halving that pair tensor's DRAM traffic.
+# In-process A/B on 5738bda46, repeat 3, .107 at 1000 MHz (wx8): ESMFold2 --fast 512 22.91 -> 22.59 s, -Fast --fast 512
+# 13.43 -> 13.29 s. Fast-bar grade on the same chip (gx8ef, 11 complexes x 4 seeds): ESMFold2 --fast CA-lDDT +0.0020
+# [+0.0003, +0.0043], top-pose median 0.37 A vs 1.59 A seed floor, docking 31 -> 32 of 44; -Fast --fast (gx8ff) CA-lDDT
+# -0.0000 [-0.0012, +0.0011], top-pose median 0.71 A vs 1.41 A seed floor, docking 24 of 44 both. Not in the normal set: the
+# normal-bar grade gx8en (35 of 44 folds) fails on interface RMSD, +0.72 A [+0.01, +2.12], one binding-mode flip at 35.8 A.
+_WH_FAST_EXTRA = "+dit_shoist+trunk_hifi2+trimul_t2fold+trimul_bres_b8+trimul_gin_w8+trimul_x8"
 # lm_sdpa_stock keeps the LM's stock SDPA over the full mask on both arches (esmc._key_lens, shsdpa elsewhere);
 # lm_ln_stock its ttnn.layer_norm where ESMC runs ln_split (esmc._ln).
 _LM_STOCK = "+lm_sdpa_stock+lm_ln_stock"

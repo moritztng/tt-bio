@@ -1,0 +1,16 @@
+benchlock: pnr-tt acquired after 3s, loadavg 1.50 2.20 2.46
+2026-11-06 00:55:06.259 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+[mol1] cold 59.414s plddt=0.767606 cif=['0d5f9f7abe1de576']
+[mol1] warm 0 49.610s plddt=0.767606 cif=['0d5f9f7abe1de576']
+[mol1] warm 1 49.572s plddt=0.767606 cif=['0d5f9f7abe1de576']
+[mol1] warm 2 49.762s plddt=0.767606 cif=['0d5f9f7abe1de576']
+[mol1] warm 3 49.638s plddt=0.767606 cif=['0d5f9f7abe1de576']
+[mol1] warm 4 49.601s plddt=0.767606 cif=['0d5f9f7abe1de576']
+[mol1] median 49.610s spread 0.190s aiclk median 1350 min 1343 MHz
+[mol1] reach {'adaln_calls': 0, 'adaln_with_s_terms': 0, 'adaln_s_terms_calls': 0}
+[mol1] latches {'l1_out': {'served': 1920, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}, 'bmm_cfg': {'served': 11604, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}}
+[mol1] FP32_SOFTMAX_STATS {'calls': 0, 'blocked': 0, 'blocks': 0, 'fused': 0, 'unfused': 0, 'l1': 0, 'l1_blocks': 0, 'l1_refused': 0, 'l1_cores': 0, 'l1_free_retired': 0, 'l1_free_walked': 0, 'l1_padded_diverged': 0, 'dram_narrowed': 0}
+[mol1] TRIMUL_ROUTES {'gated-move|defer': 1920, 't1|defer': 12528} {'GIN_MOVE_STATS': [0, 0], 'RES_STATS': [0, 0], 'T1_STATS': [12528, 1920], 'T2_STATS': [12528, 1920], 'T2CM_STATS': [0, 0], 'MASK_STATS': [0]} BMM_RES served/declined [14448, 0]
+wrote /home/ttuser/.coworker/wt/pnr-tt/perf/pnr/tt/run-1105T1810-mol1/mol1/result.json
+benchlock: pnr-tt released, rc=0, loadavg 5.58 4.18 3.25

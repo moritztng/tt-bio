@@ -797,6 +797,9 @@ SIZE_LADDER_EXTRA_RUNGS = {"rf3": (1088,)}
 # 850 and 1100 residues (docs/large-targets.md). Two rungs rather than four: 1536 is the bar,
 # and 1280 is what says where a model that folds 1024 but not 1536 stops. Every other board
 # pays for them only if it adds them here.
+#: This release_gate checks one PART of a ladder (--size-ladder-part); gate_fanout.py splits a
+#: ladder into rung-group legs only when the tree under test sets it.
+SIZE_LADDER_PARTS = True
 SIZE_LADDER_CARD_RUNGS = {"p150a": (1152, 1280, 1408, 1536),
                           "tt-galaxy-wh-l": (1280, 1536)}
 # Every rung any board's ladder walks. This is the `rungs` key in the shared json, which
@@ -4092,19 +4095,25 @@ def _size_ladder_fill_reasons(levers: dict, old_levers: dict, inherited=()) -> i
 
 
 def _size_ladder_check_model(model: str, rungs, base_model: dict, workdir: Path,
-                             timings_differ: str | None = None) -> dict:
+                             timings_differ: str | None = None, part: bool = False) -> dict:
     pre = _size_ladder_precondition(model)
     if pre:
         return {"model": model, "gate": False, "error": pre, "findings": [pre]}
     reps = base_model.get("reps", 1)
     _size_ladder_fold_timeouts(model, base_model.get("runtime_s"))
     meas = _size_ladder_measure_model(model, rungs, workdir, reps, reps)
+    if part and meas.get("refused") and meas.get("error") and not meas.get("runtime_s"):
+        # A part above the model's ceiling, e.g. opendde's 1152-1280 group on a p150a capped at
+        # 1024. Whole, the ladder folds the rungs below and these refusals are cells the
+        # comparator checks against the baseline's; split off, they are all this part has, so
+        # hand them to the comparator instead of failing a ceiling the baseline agrees with.
+        meas = {"levers": {}, "runtime_s": {}, "refused": meas["refused"], "drift": []}
     if meas.get("error"):
         return {"model": model, "gate": False, "error": meas["error"],
                 "findings": [meas["error"]],
                 "runtime_s": meas.get("runtime_s") or {}, "partial": True}
     ab = None
-    if SIZE_LADDER_AGAINST:
+    if SIZE_LADDER_AGAINST and meas["runtime_s"]:
         got = _size_ladder_ab(model, [int(r) for r in meas["runtime_s"]], workdir,
                               SIZE_LADDER_AGAINST)
         ab = got.get("ab")
@@ -4112,6 +4121,13 @@ def _size_ladder_check_model(model: str, rungs, base_model: dict, workdir: Path,
             print(f"  [size-ladder] {model}: no A/B ({got['error']}); timing against the "
                   f"recorded baseline", flush=True)
     return _size_ladder_compare(base_model, meas, model, rungs, timings_differ, ab)
+
+
+def _size_ladder_split_intervals(base_model: dict, rungs) -> list:
+    """Baseline exponent intervals with exactly one end among `rungs`."""
+    have = {int(r) for r in rungs}
+    return [iv for iv in (base_model.get("exponents") or {})
+            if len(have & {int(x) for x in iv.split("->")}) == 1]
 
 
 def _size_ladder_threads_differ(baseline_path: Path, card: str, model: str) -> str | None:
@@ -4804,7 +4820,7 @@ def _size_ladder_arg_rungs(spec: str | None) -> tuple | None:
 
 
 def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
-                    models=None, rungs=None, fragment: bool = False) -> dict:
+                    models=None, rungs=None, fragment: bool = False, part: bool = False) -> dict:
     """The size-generality arm (see the SIZE_LADDER comment block and the module
     docstring for the standing rule it enforces).
 
@@ -4822,7 +4838,9 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
     # carries an extra top rung (SIZE_LADDER_EXTRA_RUNGS).
     want = tuple(rungs) if rungs else None
     rungs = want or _size_ladder_every_rung()
-    if not record and rungs != _size_ladder_every_rung():
+    # A PART is one rung group of a ladder whose other groups run as their own legs
+    # (gate_fanout.py): the gate's verdict needs every part, so no rung goes unread.
+    if not record and not part and rungs != _size_ladder_every_rung():
         return {"model": "size-ladder", "seconds": 0, "gate": False,
                 "card": _size_ladder_card_type(), "rungs": list(rungs),
                 "error": "--size-ladder-rungs is a RECORD-mode resume aid, not a way to "
@@ -5124,9 +5142,19 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
                 legs.append({"model": m, "gate": False, "error": err,
                              "findings": [err]})
                 continue
+            # A part reads only its own rungs, so an exponent interval with one end in another
+            # part would be skipped by every part. Refuse it before any fold instead.
+            split = part and _size_ladder_split_intervals(base_model, ladders[m])
+            if split or (part and not ladders[m]):
+                err = (f"{m}: exponent interval(s) {', '.join(split)} span two ladder parts, so no "
+                       f"part reads them; run the ladder whole or regroup the parts" if split else
+                       f"{m}: none of rungs {','.join(map(str, want))} is on its {card} ladder, "
+                       f"so this part would pass without a fold")
+                legs.append({"model": m, "gate": False, "error": err, "findings": [err]})
+                continue
             legs.append(_size_ladder_check_model(
                 m, ladders[m], base_model, workdir,
-                _size_ladder_threads_differ(baseline_path, card, m)))
+                _size_ladder_threads_differ(baseline_path, card, m), part=part))
 
     gate = bool(legs) and all(l["gate"] for l in legs)
     row = {"model": "size-ladder", "seconds": time.monotonic() - t0, "gate": gate,
@@ -5577,6 +5605,10 @@ def main() -> int:
                          "core grid, and dropped with a printed reason when it was not — a "
                          "1024-rung ladder is hours of device time per model and has to be "
                          "resumable a rung at a time, not just a model at a time.")
+    ap.add_argument("--size-ladder-part", action="store_true",
+                    help="Check only the --size-ladder-rungs subset, as one part of a ladder "
+                         "whose other parts run as separate legs (gate_fanout.py's rung groups, "
+                         "which together cover every rung). Alone it is not a size-ladder check.")
     ap.add_argument("--fast", action="store_true",
                     help="Fold with --fast so the gate exercises the block-fp8 trunk path "
                          "(bf8 weights + bf8 matmul output). Defaults off (full precision).")
@@ -5990,7 +6022,7 @@ def main() -> int:
                              args.size_ladder_models.split(",")
                              if args.size_ladder_models else None,
                              rungs=_size_ladder_arg_rungs(args.size_ladder_rungs),
-                             fragment=args.size_ladder_fragment)
+                             fragment=args.size_ladder_fragment, part=args.size_ladder_part)
         all_pass &= sl["gate"]
         rungs = sl.get("rungs") or list(_size_ladder_every_rung())
         design = [l["model"] for l in sl["legs"] if l["model"] in SIZE_LADDER_DESIGN]

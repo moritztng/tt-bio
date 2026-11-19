@@ -44,7 +44,8 @@ from . import ops
 from .tenstorrent import (Module, CORE_GRID_MAIN, get_device, dram_peak,
                           MSA_CHUNK_SIZE, batched_matmul, dram_bytes, msa_depth_chunks, host_park,
                           host_unpark, msa_embed, msa_row_bucket, msa_rows_host, msa_rows_mask, msa_rows_table,
-                          msa_rows_device, msa_upload_whole, msa_update_chunks,
+                          msa_rows_device, msa_upload_whole, msa_update_chunks, msa_embed_chunks,
+                          MSA_JOIN_MAX_BYTES,
                           pair_row_blocks,
                           row_block_after_refusal, device_generation, accurate_softmax_site,
                           softmax_ckc, host_f64_softmax_site, site_softmax, stack_samples)
@@ -116,6 +117,18 @@ TRIATT_LN = frozenset({"triatt_ln", "apb_ln"})
 # HiFi2 there.
 WS_FAST = frozenset({"ws_ln", "trimul_sig6", "ws_psilu"})
 SHOIST_FAST = frozenset({"dit_shoist"})
+# Wormhole --fast pair track: the transition's LayerNorm as the SwiGLU kernel's prologue on the resid path (ws_ln_resid
+# under T1's L1 rule, ws_ln_t1l1, its residual seeded from the prologue's x row) and T1's g_out written bfp8
+# (trimul_t1g8). Measured as one stack over the shipped Wormhole fast set, cdk2x2 512 x 1, Galaxy chip at AICLK 1000 MHz
+# sampled in every fold, 4 paired warm folds in one process (spd-m-protenix-6 lnr, 2026-11-16): 42.24 -> 41.23 s
+# steady (-0.91 s median over the three pairs after the on arm's JIT fold). The prologue alone was -0.07 s (null).
+WH_PAIR_FAST = frozenset({"ws_ln_resid", "ws_ln_t1l1", "trimul_t1g8"})
+# Wormhole normal stack: the tail reads trimul_x8's moved x as bfp8 (pair_x8t), T1's g_out bfp8 (trimul_t1g8), the DiT
+# set OpenDDE grades on Wormhole (atom_mm16, dit_qbox, dit_mask_chain, dit_qkvf) and apb_cat. Each alone was 0.2-1.2 %;
+# measured as one stack over the shipped Wormhole normal set, cdk2x2 512 x 1, Galaxy chip at AICLK 1000 MHz median in
+# every fold, 4 paired warm folds in one process (spd-m-protenix-6 x8s2, 2026-11-16): 49.42 -> 48.14 s steady
+# (-1.32 s median over the three pairs after the on arm's JIT fold).
+WH_PAIR_NORMAL = frozenset({"pair_x8t", "trimul_t1g8", "atom_mm16", "dit_qbox", "dit_mask_chain", "dit_qkvf", "apb_cat"})
 # triatt_k1: triangle attention's fused SDPA takes the whole row as one k chunk at 288-512 tokens (no rescale pass;
 # op 1.13x at [512, 4, 512, 32] on a Galaxy chip). It fires only at those sizes, so it is graded on the 512-token
 # truth set (perf/pfm_accuracy/set512.tsv), shipped Protenix-v2 Wormhole set vs + triatt_k1, 4 seeds, every fold's
@@ -217,8 +230,12 @@ X8_WH = frozenset({"trimul_x8"})
 # 44 paired folds over 4 seeds, PASS: same-seed top pose median 1.118 A vs the 4.872 A A/A floor, CA-lDDT +0.0008 [-0.0012,
 # +0.0034], DockQ -0.012 [-0.028, -0.001], docking 22/44 -> 22/44. Separate processes on a p300 chip at 1350 MHz (bht1d):
 # warm 12.47 / 11.87 / 12.05 / 12.11 -> 9.85 / 9.74 / 9.95 s.
+# trimul_t1g8: T1 writes g_out bfp8 and the DRAM-bound fused tail reads it so. Device kernel seconds from a Tracy census of
+# cdk2x2 512 x 1 on a p300 chip, AICLK 1350 MHz median in-run, the shipped Blackhole fast set written out (spd-m-protenix-6
+# dcb, 2026-11-16): 18.26 -> 17.62 s, the tail 2.12 -> 1.66 s and T1 2.12 -> 1.99 s. Measured on device time because
+# that host's wall clock moved +-2 s under load.
 BH_V2_FAST = frozenset({"triatt_ln", "ws_ln", "ws_lofi", "trimul_sig6", "trimul_t1w8", "trimul_bres_bh", "ws_psilu",
-                        "trimul_t1_dram"}) | TRIATT_LN_B8_FAST
+                        "trimul_t1_dram", "trimul_t1g8"}) | TRIATT_LN_B8_FAST
 # dit_shoist and trimul_t1w8 (T1's resident weights bfp8, c_z 256 in one launch) in Protenix-v2's Wormhole normal set.
 # Wormhole 512-token normal grade, shipped Protenix-v2 Wormhole normal set vs + both, 44 paired folds (spd-m-protenix
 # gstn, 2026-10-20), PASS: same-seed top pose median 0.221 A vs the 0.6 A bar (1.145 A A/A floor), CA-lDDT +0.0002
@@ -262,6 +279,13 @@ WH_V2_NORMAL = frozenset({"dit_shoist", "trimul_t1w8", "transition_b8", "ws_b8_p
 # CA-lDDT +0.0002 [+0.0001, +0.0004], ipTM +0.0002, docking 36 -> 36. 9TY2_512 on a p300 chip, in-process A/B x3 (bhpzn,
 # AICLK not sampled): warm -0.47 / -0.18 s on ~26.4 s.
 BH_V2_NORMAL = frozenset({"trimul_t1_2g", "trimul_t1w8", "ws_psilu", "pz_device"})
+# Protenix-v2's Blackhole normal pair stack: T1 writes g_out bfp8 (trimul_t1g8), the contraction writes x bfp8 for the move
+# back (trimul_x8) and the plain T2 tail reads that moved x as bfp8 (pair_x8t). x8 needs the row-major tail, so this mode
+# drops T2CM (BH_NORMAL_DROP). Device kernel seconds from a Tracy census of cdk2x2 512 x 1 on a p300 chip, AICLK 1350 MHz
+# median in-run, the shipped Blackhole normal set written out (spd-m-protenix-6 dcn/cmb, 2026-11-16): 22.44 -> 21.85 s;
+# trimul_t1g8 alone 21.97 s.
+BH_PAIR_NORMAL = frozenset({"trimul_t1g8", "trimul_x8", "pair_x8t"})
+BH_NORMAL_DROP = frozenset({"trimul_t2cm"})
 # dit_shoist_mm: the hoisted DiT conditioning linears on minimal_matmul (2 x 16 tile blocks, K block 1), same fidelity and
 # float64 error as ttnn.linear's schedule (shm2). Wormhole 512-token grades vs the shipped Protenix-v2 Wormhole set of each
 # mode, 44 paired folds each over 4 seeds (spd-m-protenix gshmn / gshmf, 2026-10-20), PASS: normal top pose median 0.096 A
@@ -354,8 +378,8 @@ SIZE_LEVERS_MIN_TOKENS = 512
 
 def size_levers(state_dict):
     """The levers a checkpoint's normal mode adds from `SIZE_LEVERS_MIN_TOKENS` padded tokens: `MOL1_BH_512` for Mol-1
-    on Blackhole, else none. None under --fast or a harness set (TT_BIO_LEVERS), which name the whole set."""
-    if _T._FAST_MODE or os.environ.get("TT_BIO_LEVERS") or _T.is_wormhole():
+    on Blackhole in either mode, else none. None under a harness set (TT_BIO_LEVERS), which names the whole set."""
+    if os.environ.get("TT_BIO_LEVERS") or _T.is_wormhole():
         return frozenset()
     widths = Trunk._pair_widths(state_dict)
     return MOL1_BH_512 if widths and widths <= WS_NORMAL_WIDTHS and 448 in widths else frozenset()
@@ -382,7 +406,17 @@ def _under_size_levers(method):
 # 20 cycles / 200 steps / 5 samples, warm 272.4 -> 194.1 s per prediction (-29 %; WIDE_NORMAL alone 227.1, + MOL1_T1
 # 206.9); samples matched to the base fold's 0.269 A median (max 0.937) vs the 0.60 A bar and the 1.442 A sample floor,
 # all-atom lDDT 0.996 vs 0.965. T2 (trimul_t2, t2w) is not graded on Wormhole at 320/448 and stays out.
-MOL1_WH = MOL1_T1 | DIT_MM_WH | TRIATT_Q10_WH | X8_WH | BRES_NORMAL | T1_PSIG
+# Plus trimul_t1_3g, which keeps c_z 448 on T1 at 1024 tokens (2.63 GiB of outputs, over trimul_t1_2g's 2 GiB) instead
+# of the chunk-32 channel loop, and changes nothing below ~900 tokens. Its A/B: state/mol1/evidence/wh1024-host.
+MOL1_WH = MOL1_T1 | DIT_MM_WH | TRIATT_Q10_WH | X8_WH | BRES_NORMAL | T1_PSIG | {"trimul_t1_3g"}
+# Mol-1 --fast: its tuned normal set plus the levers that pay at Mol-1 widths on that chip. Wormhole takes the bfp8
+# weights Blackhole normal takes from 512 tokens, plus trimul_gin_w8 and opm_b8cfg; Blackhole takes the shared
+# FAST_LEVERS, which cost Wormhole +12.5 s on 9DBP. Of the bfp8 pair stack Protenix-v2 grades into its --fast sets,
+# triangle attention cost Mol-1 0.04-0.05 ipTM on both chips and flipped 9W8A seed 103 off its interface on Wormhole,
+# and ws_ln, trimul_sig6 and dit_mod16 bought nothing on Wormhole, so Mol-1 takes none of it.
+# Times and the accuracy grade: state/mol1/evidence/fast/ROOT.md.
+MOL1_WH_FAST = MOL1_BH_512 | GIN_W8_FAST | OPM_B8CFG_FAST
+MOL1_BH_FAST = FAST_LEVERS
 from .eltwise_fusion import scale_add, norm_residual, gated_add
 
 
@@ -407,8 +441,9 @@ def mode_levers(state_dict):
     """The mode's lever set for a Protenix checkpoint: `FAST_LEVERS` under --fast, else `NORMAL_LEVERS`,
     plus `T2_TAIL`, `WS_CHAIN` and `QSPLIT_NORMAL` for Protenix-v2 (c_z 256), the one width their normal grades cover; Wormhole --fast takes
     `WH_FAST_LEVERS`, and Wormhole adds `TRIATT_LN`, `DIT_MM_WH`, `TRIATT_Q10_WH` and `X8_WH` to both Protenix-v2 modes and `WS_FAST`, `TRIATT_LN_B8_FAST`, `GIN_W8_FAST`, `T1W8_FAST`,
-    `OPM_B8CFG_FAST` to its --fast and `WH_V2_NORMAL` to its normal mode; Blackhole adds `BH_V2_FAST` to Protenix-v2's --fast and `BH_V2_NORMAL` to its normal mode. Protenix-v2 takes `BRES_NORMAL`, `TRIATT_LN` and `WS_RESID_NORMAL` in normal mode, `SHOIST_FAST` and `DIT_SEAM_FAST` under --fast and `T1_PSIG` and `TRIATT_K1` in both modes on both chips.
-    Mol-1 (pair widths 448 and 320) adds `WIDE_NORMAL` to its normal mode, plus `MOL1_BH` on Blackhole and `MOL1_WH` on Wormhole."""
+    `OPM_B8CFG_FAST`, `WH_PAIR_FAST` to its --fast and `WH_V2_NORMAL`, `WH_PAIR_NORMAL` to its normal mode; Blackhole adds `BH_V2_FAST` to Protenix-v2's --fast and `BH_V2_NORMAL`, `BH_PAIR_NORMAL` to its normal mode, which drops `BH_NORMAL_DROP`. Protenix-v2 takes `BRES_NORMAL`, `TRIATT_LN` and `WS_RESID_NORMAL` in normal mode, `SHOIST_FAST` and `DIT_SEAM_FAST` under --fast and `T1_PSIG` and `TRIATT_K1` in both modes on both chips.
+    Mol-1 (pair widths 448 and 320) adds `WIDE_NORMAL` to its normal mode, plus `MOL1_BH` on Blackhole and `MOL1_WH` on Wormhole;
+    its --fast is that normal set plus `MOL1_BH_FAST` or `MOL1_WH_FAST`."""
     widths = Trunk._pair_widths(state_dict)
     v2 = widths == {256}
     wh = _T.is_wormhole()
@@ -417,10 +452,13 @@ def mode_levers(state_dict):
     ws = WIDE_NORMAL if widths and widths <= WS_NORMAL_WIDTHS and not v2 else frozenset()
     m1 = (MOL1_WH if wh else MOL1_BH) if ws and 448 in widths else frozenset()
     wh_both = TRIATT_LN | DIT_MM_WH | TRIATT_Q10_WH | X8_WH if v2 and wh else frozenset()
-    wh_v2 = WS_FAST | TRIATT_LN_B8_FAST | GIN_W8_FAST | T1W8_FAST | OPM_B8CFG_FAST
+    wh_v2 = WS_FAST | TRIATT_LN_B8_FAST | GIN_W8_FAST | T1W8_FAST | OPM_B8CFG_FAST | WH_PAIR_FAST
     fast = WH_FAST_LEVERS | wh_both | (wh_v2 if v2 else frozenset()) if wh else FAST_LEVERS | (BH_V2_FAST if v2 else frozenset())
+    if m1:
+        fast = NORMAL_LEVERS | ws | m1 | (MOL1_WH_FAST if wh else MOL1_BH_FAST)
     return _T.model_levers((NORMAL_LEVERS | T2_TAIL | WS_CHAIN | QSPLIT_NORMAL | BRES_NORMAL | TRIATT_LN | WS_RESID_NORMAL | T1_PSIG | TRIATT_K1
-                            | (WH_V2_NORMAL if wh else BH_V2_NORMAL) if v2 else NORMAL_LEVERS | ws) | wh_both | m1,
+                            | (WH_V2_NORMAL | WH_PAIR_NORMAL if wh else BH_V2_NORMAL | BH_PAIR_NORMAL) if v2 else NORMAL_LEVERS | ws)
+                           - (BH_NORMAL_DROP if v2 and not wh else frozenset()) | wh_both | m1,
                            fast | SHOIST_FAST | DIT_SEAM_FAST | T1_PSIG | TRIATT_K1 if v2 else fast)
 
 
@@ -825,7 +863,7 @@ class _KeyedWeights:
             t = t.to(torch.bfloat16)
         return t
 
-    def _opm_from_host(self, opm, t, z):
+    def _opm_from_host(self, opm, t, z, mask=None, n_msa=None):
         """`z + opm(t)` for a host-resident `t` [1, depth, tokens, c]: `t` uploaded whole, or, if
         DRAM refuses that upload or the OPM that reads it, as host-tiled depth chunks that
         OuterProductMean uploads one at a time (its chunk-list input).
@@ -837,7 +875,8 @@ class _KeyedWeights:
         whole `m` is still on the chip beside OPM's full-depth projections. The chunk list is the
         form every later MSA block already hands OPM, and it is not bit-exact against the
         whole-depth product (it reassociates the depth sum), so it runs only after a refusal. The
-        memo skips the refused attempt on later recycling cycles.
+        memo skips the refused attempt on later recycling cycles. `mask`/`n_msa` are a sampled
+        cycle's row mask and drawn row count, as for a device `m`.
 
         OPM gives back its own partial buffers before a refusal leaves it, and adds its residual
         out of place until a successful join, so the chunked retry reads the same `z`. A refusal
@@ -845,7 +884,7 @@ class _KeyedWeights:
         def whole():
             d = self._up(t)
             try:
-                return opm(d, None, None, residual=z)
+                return opm(d, mask, n_msa, residual=z)
             finally:
                 ttnn.deallocate(d)
 
@@ -855,7 +894,7 @@ class _KeyedWeights:
                                    "the depth-chunked retry has no pair to add to")
             return opm([ttnn.from_torch(t[:, s:s + r].contiguous(), layout=ttnn.TILE_LAYOUT,
                                         dtype=getattr(self, "dtype", ttnn.bfloat16))
-                        for s in range(0, t.shape[1], r)], None, None, residual=z)
+                        for s in range(0, t.shape[1], r)], mask, n_msa, residual=z)
 
         return _T.row_block_after_refusal(_UPLOAD_REFUSED_ROWS, tuple(t.shape), whole, chunked,
                                           MSA_CHUNK_SIZE, "protenix msa upload")
@@ -3145,6 +3184,8 @@ class Protenix:
         ck = torch.load(path, map_location="cpu", weights_only=True)
         ck = ck.get("model", ck)
         sd = {k[len("module."):] if k.startswith("module.") else k: v for k, v in ck.items()}
+        from .mol1_constraint import fold_weights
+        fold_weights(sd)
         # gated_move=True: the E6 fused chunk+gate forward move serves 2416 of 2416 trimul
         # channel moves at c_z=256 and is torch.equal to the sequence it replaces, so it is
         # the shipped path. Scoped to this entry point -- OpenDDE builds Protenix directly
@@ -4021,8 +4062,9 @@ class Trunk(_KeyedWeights):
 
     def _msa(self, z3, m_feat, pmask_tt=None, attn_tt=None, rows=None):
         """The MSA module's blocks on `z3`. `m_feat` is the pristine m, a device or a host tensor.
-        rows=(mask, depth) says only the first `depth` rows of a device `m_feat` are alignment
-        rows (a cycle's sampled rows padded to `msa_row_bucket`); OuterProductMean masks the rest."""
+        rows=(mask, depth) says only the first `depth` rows of `m_feat`, a tensor or a list of depth
+        chunks, are alignment rows (a cycle's sampled rows padded to its bucket); OuterProductMean
+        masks the rest."""
         opm_mask, n_msa = rows if rows is not None else (None, None)
         def update_msa(m, z, pwa, transition):
             if pwa is None:
@@ -4091,7 +4133,7 @@ class Trunk(_KeyedWeights):
             if torch.is_tensor(m_feat):
                 # Protenix-order block 0 reads the pristine m with OPM, from one transient upload
                 # or its depth chunks; update_msa below streams from host.
-                z3 = self._opm_from_host(opm, m_feat, z3)
+                z3 = self._opm_from_host(opm, m_feat, z3, opm_mask, n_msa)
             else:
                 z3 = opm(m_feat, opm_mask, n_msa, residual=z3)
             dram_peak("trunk msa block: after opm")
@@ -4126,13 +4168,23 @@ class Trunk(_KeyedWeights):
         # contracts the token axis). OuterProductMean reduces over MSA DEPTH, so a padded token
         # cannot reach a real pair through it, and the transitions/norms/linears are per-token.
         from .token_axis import pad_amount, token_pad_masks_torch
+        # Mol-1-constraint widens the token-bond projection by its condition channels (mol1_constraint.py),
+        # so the masks ride beside the bonds; all zero when the input names no constraint.
+        token_bonds = token_bonds.unsqueeze(-1)
+        width = self.trunk_input._w["linear_no_bias_token_bond.weight"].shape[1]
+        cp = feat.get("constraint_pair")
+        if width > 1:
+            token_bonds = torch.cat([token_bonds, cp.to(token_bonds) if cp is not None
+                                     else token_bonds.new_zeros(N, N, width - 1)], -1)
+        elif cp is not None:
+            raise ValueError("site / contact / exclusion constraints need the Mol-1-constraint weights")
         pad = pad_amount(N, _token_pad_multiple()) if _token_bucket() else 0
         m1 = pm_pad = at_pad = None
         if pad:
             N = n_real + pad
             q = _pad_poison()
             relp = F.pad(relp, (0, 0, 0, pad, 0, pad), value=q)
-            token_bonds = F.pad(token_bonds, (0, pad, 0, pad), value=q)
+            token_bonds = F.pad(token_bonds, (0, 0, 0, pad, 0, pad), value=q)
             feat = dict(feat)
             # -1 matches no real chain, so the padded rows and columns are never "same chain".
             feat["asym_id"] = F.pad(feat["asym_id"], (0, pad), value=-1)
@@ -4182,7 +4234,7 @@ class Trunk(_KeyedWeights):
                   if _T.lever("relp_gather") and getattr(self.trunk_input, "dtype", ttnn.bfloat16) == ttnn.bfloat16
                   else None)
         return dict(N=N, pad=pad, feat=feat, relp=self._host_cast(relp), relp_g=relp_g,
-                    token_bonds=self._host_cast(token_bonds.unsqueeze(-1)),
+                    token_bonds=self._host_cast(token_bonds),
                     pm_pad=pm_pad, at_pad=at_pad, nt=nt,
                     te_at=[self._host_cast(t.unsqueeze(0)) for t in te_at], ms=ms)
 
@@ -4252,9 +4304,9 @@ class Trunk(_KeyedWeights):
         else:
             # The embedding is per alignment row, so embedding a cycle's rows equals picking them
             # out of the embedded whole; only the picked rows are built, padded to a few depths
-            # (msa_row_bucket), and the host lane cuts the next cycle's rows while this one runs.
-            # A fixed depth (OpenDDE's 1280) is one shape already: padding it to the next 1024
-            # would run every per-row op on 2048 rows, 60 % of them zeros.
+            # (msa_row_bucket) and masked past the draw, and the host lane cuts the next cycle's rows
+            # while this one runs. A fixed depth (OpenDDE's 1280) is one shape already: padding it
+            # to the next 1024 would run every per-row op on 2048 rows, 60 % of them zeros.
             m_feat = None
             n_rows = ms.shape[1]
             step = 1024 if depth is None else 32
@@ -4321,7 +4373,9 @@ class Trunk(_KeyedWeights):
                 # Held through the Pairformer, the draw left the 1536-token OpenDDE trunk's
                 # transition no room to join its blocks on device from cycle 1 on, and every
                 # later recycle took the host join: ~12 min instead of ~4:20 on a Wormhole chip.
-                ttnn.deallocate(m_feat)
+                # A list of chunks was consumed by the blocks, which free each one they replace.
+                if not torch.is_tensor(m_feat) and not isinstance(m_feat, list):
+                    ttnn.deallocate(m_feat)
                 ttnn.deallocate(rows[0])
                 del m_feat, rows
             sc = self._lin(self._ln(s, "layernorm_s.weight", "layernorm_s.bias"), "linear_no_bias_s.weight")
@@ -4335,18 +4389,34 @@ class Trunk(_KeyedWeights):
             trunk_tap(f"cyc{cyc}_after_PF:z3", z3, always=True)
             return [z3, s]
 
-        def sampled(cyc, carry, x, park=False):
-            # One cycle over its sampled rows x [1, bucket, N, c], host or device, the real ones first.
+        def sampled(cyc, carry, x=None, park=False):
+            # One cycle over its sampled rows, the real ones first then zero rows to its bucket: the
+            # host cut x [1, bucket, N, c], or, with x None, rows gathered on the chip from `table`.
             # `park` builds the cycle's m in depth chunks on the host and streams it, as a refused
             # resident cycle does below.
-            k = len(rows[cyc])
-            m_c = msa_embed(x, m_proj, keep=x.shape[1] * m_key[1] // ms.shape[1], park=park)
-            if torch.is_tensor(m_c):
-                # Parked on the host: drop the padding there, which costs nothing.
-                return cycle(cyc, carry, m_c[:, :k])
-            mask = ttnn.from_torch(msa_rows_mask(k, m_c.shape[1]), layout=ttnn.TILE_LAYOUT, device=get_device(),
+            # An m the MSA blocks would cut into depth chunks anyway is BUILT as those chunks, one
+            # fixed size whatever the draw. Built whole, the m changed size every cycle and left DRAM
+            # holes no later deep draw could use: 7ua2-assembly1 (712 tokens) was refused its
+            # 2.96 GiB m at cycle 7 of 20 on a Wormhole chip with 414 MiB a bank free. Padding every
+            # cycle to the fold's deepest draw fixed that and cost 4-7 % on Blackhole at 512 and
+            # 1024 tokens, per-row work on rows no cycle drew.
+            r, Bc = rows[cyc], bucket(cyc)
+            row_bytes = m_key[1] // ms.shape[1]
+            if _msa_take_whole_path(Bc * row_bytes):
+                if x is None:
+                    x = msa_rows_device(table, r, Bc, N)
+                m_c = msa_embed(x, m_proj, keep=Bc * row_bytes, park=park)
+            else:
+                # Parked where msa_embed would park the whole m: a host cut past one upload whose m
+                # is past what the chip joins.
+                park = park or (x is not None and not msa_upload_whole(*x.shape[1:])
+                                and Bc * row_bytes > MSA_JOIN_MAX_BYTES)
+                C = _msa_row_chunk_size()
+                m_c = msa_embed_chunks((msa_rows_device(table, r[s:s + C], min(C, Bc - s), N) if x is None
+                                        else x[:, s:s + C] for s in range(0, Bc, C)), m_proj, park=park)
+            mask = ttnn.from_torch(msa_rows_mask(len(r), Bc), layout=ttnn.TILE_LAYOUT, device=get_device(),
                                    dtype=ttnn.bfloat16)
-            carry = cycle(cyc, carry, m_c, (mask, k))
+            carry = cycle(cyc, carry, m_c, (mask, len(r)))
             del m_c, mask
             return carry
 
@@ -4380,7 +4450,7 @@ class Trunk(_KeyedWeights):
                     if progress_fn:
                         progress_fn("trunk", step=cyc, total=n_cycles)
                     if mode == "table":
-                        carry = sampled(cyc, carry, msa_rows_device(table, rows[cyc], bucket(cyc), N))
+                        carry = sampled(cyc, carry)
                     elif rows is not None:
                         x, _ = next_rows.result()
                         if cyc + 1 < n_cycles:
@@ -4722,15 +4792,16 @@ class TrunkInput(_KeyedWeights, Module):
     s_init = linear_sinit(s_inputs); z_init = zinit1(s_init)[:,None] + zinit2(s_init)[None]
     + relative_position_encoding(relp) + token_bond(token_bonds). All LinearNoBias.
     Reference: protenix/model/protenix.py get_pairformer_output (lines 208-226).
-    Validated vs real v2 golden (PCC 0.999997). (Constraint embedder omitted: the
-    inference feat carries no active constraints for plain folding.)"""
+    Validated vs real v2 golden (PCC 0.999997). Mol-1-constraint's conditioner is folded into
+    the token-bond projection at load (mol1_constraint.fold_weights), so token_bonds may carry
+    1 + 5 channels."""
 
     def __init__(self, state_dict, compute_kernel_config):
         super().__init__(state_dict, compute_kernel_config)
         self._w = {k: v for k, v in self.weights.data.items()}
 
     def __call__(self, s_inputs, relp, token_bonds):
-        """s_inputs (N,449); relp (N,N,139); token_bonds (N,N,1). Returns (s_init (N,c_s),
+        """s_inputs (N,449); relp (N,N,139); token_bonds (N,N,1), or (N,N,6) under Mol-1-constraint. Returns (s_init (N,c_s),
         z_init (N,N,c_z))."""
         N = s_inputs.shape[0]
         s_init = self._lin(s_inputs, "linear_no_bias_sinit.weight")

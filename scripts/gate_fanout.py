@@ -49,8 +49,9 @@ key and runs fresh.
 READS. That key changes with any code change, so on its own every staging reruns every leg. Each
 gate venv therefore carries scripts/gate_reads.py, which records every tree file the leg's Python
 processes import, open for reading or list. A PASS row keeps that list and a scope key: the key
-above with only the tracked non-Python files in place of the whole tree (C++ kernels and shell
-scripts are read by something other than Python, so any change to one still reruns every leg).
+above with only the tracked files Python does not read in place of the whole tree (C++ kernels and
+shell scripts are read by something other than Python, so any change to one still reruns every leg;
+data files and notes, PY_DATA, are left to the reads, and CI configuration to nothing).
 A later commit in the same scope reuses the PASS when every file the leg read is the same blob
 there, so a staging that touched one model reruns that model's legs and the ones that import its
 files, not the gate. A row without a list reuses on identical code only.
@@ -154,6 +155,23 @@ POOL_POLL_S = 30
 #: gate.json listed it as a worker though both marks were set.
 BAD_MARKS = ("~/spd/locks/chip{card}.BAD", "~/.coworker/state/cardblock-{host}-{card}")
 LOCAL_BLOCKS = Path(os.environ.get("COWORKER_DIR", Path.home() / ".coworker")) / "state"
+#: A card the probe proved dead goes to the fleet's recovery path, which resets and verifies it and
+#: puts it back. Retiring it only for this run left qb2:3 idle and listed healthy for 3 h on 11-16:
+#: its ARC was alive, so nothing else could tell it opened and would not dispatch.
+CHIP_RECOVER = LOCAL_BLOCKS.parent / "scripts" / "chip_recover.py"
+
+
+def report_dead_card(host: str, card, why: str) -> None:
+    """Hand a dead card to chip_recover (it ignores hosts it does not own). Best effort: the gate
+    has already retired the card, so a missing or failing hook costs only the hand-off."""
+    if not CHIP_RECOVER.exists():
+        return
+    try:
+        subprocess.run([sys.executable, str(CHIP_RECOVER), "release", host, str(card),
+                        "--holder", "release-gate", "--dead", why.splitlines()[-1][-300:] if why else "?"],
+                       capture_output=True, timeout=120)
+    except (OSError, subprocess.SubprocessError):
+        pass
 LOAD_REFUSAL = "refusing to run the gate. host load:"
 #: The scripts that refuse to start above gate_guard's load ceiling. On a pool host the ceiling is
 #: the wrong guard: the pool's per-chip queue bounds the fan-out, and a busy pool keeps a Galaxy's
@@ -166,19 +184,30 @@ LOAD_RETRY_S, LOAD_WAIT_MAX_S = 300, 8 * 3600
 #: minutes on 2026-10-09 and five BH legs were recorded FAIL without running. A Galaxy reached
 #: through the japanfold-ssh jump host reports a dropped hop as "Connection closed by UNKNOWN port
 #: 65535": rel-412d01dfe (10-17 08:4xZ) recorded five WH legs FAIL in 7-12 s that way.
-SSH_LOST = re.compile(r"^(ssh: connect to host .*|Timeout, server .* not responding\.|"
+#: The keepalive timeout fires mid-stream, so it lands on whatever line the leg had half written:
+#: rel-72875f231 pytest_device:1/4 bh (11-12 21:45Z) read "....Timeout, server tt-quietbox not
+#: responding." when qb1 went dark at 82 % and was recorded FAIL instead of retried.
+SSH_LOST = re.compile(r"(?:^(?:ssh: connect to host .*|"
                       r"client_loop: send disconnect: .*|Connection to .* closed by remote host\.|"
                       r"Connection closed by \S+ port \d+|"
-                      r"kex_exchange_identification: .*|ssh_dispatch_run_fatal: Connection to .*)$", re.M)
+                      r"kex_exchange_identification: .*|ssh_dispatch_run_fatal: Connection to .*)|"
+                      r"Timeout, server \S+ not responding\.)$", re.M)
 SSH_LOST_RETRY_S, SSH_LOST_TRIES = 120, 30
+#: A named card's leg dies with its ssh stream, so retrying it on a host that stays dark only holds it: qb1 went
+#: dark at 21:45Z on 11-12 and nine BH legs of rel-72875f231 sat in SSH_LOST_TRIES retries (hours with ssh()'s
+#: own backoff) while qb2's cards idled. After this many lost tries with no answer the card is retired and the
+#: leg goes back on its arch's queue.
+HOST_DARK_TRIES = 5
 #: A full disk on the leg's host. Another job filled qb1's root on 2026-10-10 and 116 BH legs were
 #: recorded FAIL in an hour, each at its first mkdir. Wait for space and run the leg again.
 DISK_FULL = re.compile(r"No space left on device")
 DISK_FULL_RETRY_S, DISK_FULL_TRIES = 300, 12
 #: Another process held the leg's card through its device lease without taking the card's flock.
 #: The timed perf leg of gate 92d5924f5 lost two models to it on qb1 card 3 (2026-10-10 18:4xZ) and
-#: a third read -19.8 %. Nothing about the tree was measured, so the whole leg runs again.
-CONTENDED = re.compile(r"device contention, nothing ran|Refusing to open it concurrently")
+#: a third read -19.8 %. Nothing about the tree was measured, so the whole leg runs again. capacity_gate
+#: names a fleet row's lease on the card before it opens it (capacity:openfold3 of 2cca84e6a, 11-12).
+CONTENDED = re.compile(r"device contention, nothing ran|Refusing to open it concurrently|"
+                       r"is leased by .*\. Nothing was measured")
 CONTENDED_RETRY_S, CONTENDED_TRIES = 300, 3
 #: release_gate stops when a fold timed out and the card's reset was refused (its board-pair sibling
 #: was busy). Opening that card again from the same leg is unsafe, but a pool probes, and if need be
@@ -189,6 +218,9 @@ CARD_STUCK = re.compile(r"a fold timed out and its card could not be reset")
 #: an earlier job left dirty and resets them after the job that finds out: gate 412d01dfe recorded six
 #: WH legs FAIL on 2026-10-17 09:00-09:30Z this way (chips 3, 9, 10, 13, 19), each the first job on its
 #: chip, each chip "probe: OK after reset" a minute later. Run such a leg again, a bounded number of times.
+#: A fixed card too: parity:protenix-ubq-msa of gate 53688fdf1 (11-11) died this way on qb2:2 after its first
+#: seed passed, and the card probe read it alive because an spd bench took the chip's flock first, so the leg
+#: was the gate's one FAIL. A card that is really dead fails every try and the probe after the last retires it.
 INIT_FAILED = re.compile(r"failed to initialize FW|ARC core .* failed to start|"
                          r"Failed to set initial power state|Read unexpected run_mailbox value")
 INIT_FAILED_TRIES = 2
@@ -215,7 +247,12 @@ LEND_AT = "~/spd/galaxy/LEND-AT"
 #: single read between two lends took back a leg the pool would have started minutes later. rel-f4177cee0 (10-31..
 #: 11-02): perf on .111 and ladder:opendde on .112 were queued and taken back 12 times each in 40 h while both boxes
 #: ran prio-9 SPD jobs on lent chips, and the train waited 65 h on them.
-SERVING_NONE_LENT = ('{ systemctl is-active -q "japanfold-agent@$USER" || { [ ! -e ~/glx/LENT ] && '
+#: glx_elastic drains a box it lends to a pool borrower (rel, spd, mol1) for ~20 min with the agent still up, and
+#: writes ~/glx/LENDING for that span. Such a box is about to run every pool job, so it reads as neither paused nor in
+#: lend mode. rel-cc61bed92 (11-09): .110 was drained for the gate's two whole-box WH legs, the drain read as "no chip
+#: lent", the legs were taken back to a serving box 6 min into it, and the lent box then sat at 0/32 for 17 min.
+LENDING = '[ ! -e ~/glx/LENDING ] && '
+SERVING_NONE_LENT = (LENDING + '{ systemctl is-active -q "japanfold-agent@$USER" || { [ ! -e ~/glx/LENT ] && '
                      'systemctl is-enabled -q "japanfold-agent@$USER"; }; } 2>/dev/null && '
                      '! grep -qs \'"recall_at": null\' ~/japanfold/state/agent/lend/*.lent')
 #: Even with chips lent, lend mode never starts a job whose name matches pool.sh's LEND_SKIP (OpenFold3-family legs:
@@ -226,7 +263,7 @@ SERVING_NONE_LENT = ('{ systemctl is-active -q "japanfold-agent@$USER" || { [ ! 
 #: A reserved chip (the agent's lend/reserve) is the exception, as in pool.sh: it starts a LEND_SKIP job whose cap ends
 #: before the reservation. rel-1cf560aa6 (11-02) held its 17 WH OF3-family legs off .107 and .108 while both carried a
 #: 5 h reserve written for exactly those legs, and the whole-box lend they waited for never opened under user load.
-LEND_MODE = ('{ systemctl is-active -q "japanfold-agent@$USER" || { [ ! -e ~/glx/LENT ] && '
+LEND_MODE = (LENDING + '{ systemctl is-active -q "japanfold-agent@$USER" || { [ ! -e ~/glx/LENT ] && '
              'systemctl is-enabled -q "japanfold-agent@$USER"; }; } 2>/dev/null && '
              '{ sed -n "s/^LEND_SKIP=\'\\(.*\\)\'$/LENDSKIP \\1/p" ~/spd/galaxy/pool.sh; '
              'sed -n \'s/.*"reserved_until": \\([0-9][0-9]*\\).*/RESERVED \\1/p\' ~/japanfold/state/agent/lend/*.lent '
@@ -247,6 +284,11 @@ GIVEN_BACK = "the Galaxy was given back under the leg"
 #: its users need it, and touches lend/<chip>.recalled (jf-shared-chips). The leg reruns like a give-back,
 #: so its job tells the pool not to requeue it as well.
 RECALLED = "$HOME/japanfold/state/agent/lend/$CHIP.recalled"
+#: A give-back can land just BEFORE the job starts: on .108 at 15:41:58Z on 2026-11-19 the agent recalled chip 10,
+#: the pool, which had probed it at 15:41:42, started ux:saprot-35m on it at 15:41:59, and the SIGINT killed the leg
+#: at 15:42:02 with rc 130 and an empty log; the recall was older than `boot`, so rel-0e052d2ff recorded a FAIL. A
+#: leg killed by a signal (rc >= 128) whose RETURNED or recall is at most this old at its start was given back too.
+GIVE_BACK_RACE_S = 60
 #: A leg failed on a named card and the card is what failed: qb2 chip 1 stopped initialising its
 #: firmware at 06:07Z on 2026-10-12 and the runner handed it 40 more legs of gate 026b5c71c, each
 #: recorded FAIL in 15-90 s. After a failed leg on a named card the runner probes the card
@@ -364,7 +406,10 @@ PARITY_COVERS_RG = {"boltzgen", "opendde-abag", "capacity", "nesso1", "rf3-1024a
 #: Parity legs whose reference and accuracy record exist on Blackhole only. RFD4's upstream fp32
 #: goldens live on the qb hosts, and both ports were graded on Blackhole; on a Wormhole Galaxy the
 #: RFD4 golden suite would skip (a GAP) and redden a release over data that was never there.
-PARITY_CARD_TYPES = {"rfd4-trunk": ("p150a", "p300c"), "bindcraft2-afgrad-stack": ("p150a", "p300c")}
+#: The BindCraft2 gradient leg holds a ~44 GB float64 autograd reference in host RAM, so it runs on
+#: p150a only: qb2 (p300c) shares 249 GB between four legs and other rows, and the kernel OOM-killed
+#: the leg there in gates 25fb92265, 88f1ce541 and 730f010b9 (11-13), each passing on qb1 (503 GB).
+PARITY_CARD_TYPES = {"rfd4-trunk": ("p150a", "p300c"), "bindcraft2-afgrad-stack": ("p150a",)}
 
 CAP_OWED = "host-threads"   # an OWED entry: no granted host times this ladder at its baseline's cap
 
@@ -537,6 +582,19 @@ def ladder_ab(sha: str, repo: Path = REPO) -> bool:
     return p.returncode == 0
 
 
+def scopes_at(sha: str, shas, repo: Path = REPO) -> tuple:
+    """`sha`'s reuse scope hash, and the older-scope hashes (SCOPES) a ledger row may carry and still
+    count there: those of `sha` and of every commit in `shas` whose current scope equals `sha`'s."""
+    nonpy = content_hash(sha, repo, **SCOPES[0])
+
+    def same(s):
+        try:
+            return content_hash(s, repo, **SCOPES[0]) == nonpy
+        except subprocess.CalledProcessError:     # a commit this clone does not have
+            return False
+    return nonpy, {content_hash(s, repo, **v) for s in {sha, *filter(same, set(shas) - {sha})} for v in SCOPES[1:]}
+
+
 def _same_code(sha: str, content: str, repo: Path = REPO) -> bool:
     """True when `sha` is in this repo and holds the code `content` hashes."""
     try:
@@ -667,12 +725,33 @@ RUNNER_FILES_0 = tuple(f for f in RUNNER_FILES if f not in ("scripts/flock_first
 
 
 #: Data formats only Python parses in this tree: gate_reads.py sees every read of one, so the
-#: reuse scope leaves them to the leg's recorded reads like a .py file.
-PY_DATA = (".json", ".jsonl", ".yaml", ".yml", ".csv", ".tsv")
+#: reuse scope leaves them to the leg's recorded reads like a .py file. Every tracked .txt is a
+#: perf note, a resource tt_bio opens, or CI's build pins; none feeds a C++ build or a shell
+#: script, and .txt joined on 2026-11-11 after perf/abb3_port notes put 2bd90ece9 in a new scope.
+PY_DATA = (".json", ".jsonl", ".yaml", ".yml", ".csv", ".tsv", ".txt")
+#: GitHub Actions configuration. No gate leg runs it, so it leaves the reuse scope entirely.
+CI_ONLY = (".github/",)
+#: The reuse scope's definitions, newest first: (content_hash kwargs, until). A row keeps the
+#: scope key it was filed under, so a row under an older one still counts at a commit whose
+#: current scope equals its own commit's (main()).
+SCOPES = ({"python": False, "data": PY_DATA, "ci": False},
+          {"python": False, "data": PY_DATA[:-1]},         # until 2026-11-11: .txt and .github/ keyed
+          {"python": False})                               # until 2026-10-14: data files keyed
+
+
+@functools.lru_cache(maxsize=None)
+def _recorded(sha: str, repo: Path) -> frozenset:
+    """perf/*.txt at `sha` carrying a `RECORDED-AT:` line (content_hash)."""
+    p = subprocess.run(["git", "-C", str(repo), "grep", "-l", "^RECORDED-AT:", sha, "--", "perf/*.txt"],
+                       capture_output=True, text=True)
+    if p.returncode not in (0, 1):
+        raise subprocess.CalledProcessError(p.returncode, p.args, p.stdout, p.stderr)
+    return frozenset(ln.split(":", 1)[1] for ln in p.stdout.splitlines())
 
 
 def content_hash(sha: str, repo: Path = REPO, baselines: bool = False, tests: bool = False,
-                 runner: tuple = RUNNER_FILES, python: bool = True, data: bool = True) -> str:
+                 runner: tuple = RUNNER_FILES, python: bool = True, data: tuple = (),
+                 ci: bool = True) -> str:
     """Hash of every tracked file at `sha` except Markdown, from git's own blob ids.
 
     pyproject.toml is hashed without its `version =` line: the release commit bumps it, and that
@@ -685,21 +764,17 @@ def content_hash(sha: str, repo: Path = REPO, baselines: bool = False, tests: bo
     So is this runner (RUNNER_FILES): it decides where a leg runs, not what the leg computes, and
     a fix to it must not throw away a gate's worth of evidence. Test files only pytest reads
     (test_only) are keyed on the pytest legs instead; `tests=True` keeps them, the key every
-    ledger row before 2026-10-09 21Z was written under. `python=False` drops the .py files and
-    `data=False` the PY_DATA files too: the reuse scope, whose rows carry the files they read."""
-    def git(*a, ok=(0,)):
-        p = subprocess.run(["git", "-C", str(repo), *a], capture_output=True, text=True)
-        if p.returncode not in ok:
-            raise subprocess.CalledProcessError(p.returncode, a, p.stdout, p.stderr)
-        return p.stdout
-    recorded = {ln.split(":", 1)[1] for ln in git("grep", "-l", "^RECORDED-AT:", sha, "--", "perf/*.txt",
-                                                  ok=(0, 1)).splitlines()}
+    ledger row before 2026-10-09 21Z was written under. `python=False` drops the .py files,
+    `data` the files with those suffixes and `ci=False` CI_ONLY: the reuse scope (SCOPES), whose
+    rows carry the files they read."""
+    recorded = _recorded(_commit(sha, repo), repo)
     only = set() if tests else test_only(sha, repo)
     rows = []
     for ln in _ls_tree(sha, repo):
         path = ln.split("\t", 1)[-1]
         if (path.endswith(".md") or path in recorded or path in runner or path in only
-                or (not python and path.endswith(".py")) or (not data and path.endswith(PY_DATA))
+                or (not python and path.endswith(".py")) or (data and path.endswith(data))
+                or (not ci and path.startswith(CI_ONLY))
                 or (not baselines and path.startswith(_BASELINE_PATHS))):
             continue
         if path == "pyproject.toml":
@@ -710,7 +785,8 @@ def content_hash(sha: str, repo: Path = REPO, baselines: bool = False, tests: bo
 
 def reads_match(a: str, b: str, reads: list, repo: Path = REPO) -> bool:
     """True when every file a leg read at `a` (gate_reads.py) is the same blob at `b`, and every
-    directory it listed holds the same names. A file absent at both is the same file."""
+    directory it listed holds the same names. A file absent at both is the same file; pyproject.toml
+    differing only in its `version =` line is the same file (dep_spec)."""
     def tree(sha):
         return {ln.split("\t", 1)[1]: ln.split()[2] for ln in _ls_tree(sha, repo)}
     ta, tb = tree(a), tree(b)
@@ -722,6 +798,9 @@ def reads_match(a: str, b: str, reads: list, repo: Path = REPO) -> bool:
             if kids[0] != kids[1]:
                 return False
         elif ta.get(r) != tb.get(r):
+            # A release commit bumps only pyproject's version line; leg_key ignores it, so must reuse.
+            if r == "pyproject.toml" and r in ta and r in tb and dep_spec(a, repo) == dep_spec(b, repo):
+                continue
             return False
     return True
 
@@ -1122,7 +1201,13 @@ class Host:
         if "pool" in c and argv[1:2] and argv[1] in LOAD_GUARDED:
             argv += ["--load-ceiling", "0"]   # not in the leg's key: it changes nothing measured
         legpid = shlex.quote(f"{out}/leg.pid")
-        body = (f"echo \"##LEG-START $(date +%s)\"; echo $$ > {legpid}; exec timeout -s INT -k 600 {leg.budget} "
+        # The SIGINT below can land mid JIT link: make dies, tt-metal still records the kernel as built, and
+        # every later leg on the host's shared TT_METAL_CACHE that needs it TT_THROWs "cannot map elf file"
+        # on the 0-byte ELF (15ddbdf54's two boltz2 affinity legs on g110, 11-12; 119 such kernels across
+        # six Galaxies). A link writes its ELF in seconds, so one empty for 10 min is dead: drop its kernel.
+        purge = ('[ -d "$TT_METAL_CACHE" ] && timeout 120 find "$TT_METAL_CACHE" -name "*.elf" -size 0 -mmin +10 '
+                 '-printf "%h\\n" 2>/dev/null | xargs -r -n1 dirname | sort -u | xargs -r rm -rf; ')
+        body = (f"{purge}echo \"##LEG-START $(date +%s)\"; echo $$ > {legpid}; exec timeout -s INT -k 600 {leg.budget} "
                 "nice -n 10 " + " ".join(shlex.quote(a) for a in argv))
         envs = " ".join(f"{k}={shlex.quote(v)}" for k, v in env.items())
         run = f"env {envs} bash -c {shlex.quote(body)}"
@@ -1451,6 +1536,38 @@ class Gate:
         self.inflight: dict = {}   # queue -> legs started and not yet recorded or put back
         self.results: list = []
         self.mu = threading.Lock()
+        self.changed = threading.Condition(self.mu)  # a worker left, so a benched chip re-counts
+        self.alive = len(workers)  # workers not yet returned
+        self.benched = 0           # of those, waiting for their chip's mark to clear
+
+    def _bench(self, host: Host, card, mark: str) -> bool:
+        """A chip marked bad sits out until its mark clears, while any other worker still runs; False
+        once every live worker is benched, so a gate with no chip left still finishes. Leaving for
+        good at the first sight of a mark cost a release on 11-17: qb2:2 and :3 were cleared at
+        14:58Z, the gate ran WH legs until 20:23Z, and all 158 BH legs ended UNRUN."""
+        print(f"benched {host.name}:{card}, its chip is marked bad: {mark}; it rejoins when cleared", flush=True)
+        with self.mu:
+            self.benched += 1
+        try:
+            while True:
+                with self.mu:
+                    if self.benched >= self.alive:
+                        return False
+                    self.changed.wait(POOL_POLL_S)
+                if not host.marked_bad(card):   # an ssh: never under the lock
+                    print(f"{host.name}:{card} rejoins, its mark cleared", flush=True)
+                    return True
+        finally:
+            with self.mu:
+                self.benched -= 1
+
+    def _worker(self, host: Host, card) -> None:
+        try:
+            self.worker(host, card)
+        finally:
+            with self.mu:
+                self.alive -= 1
+                self.changed.notify_all()
 
     @staticmethod
     def _queue(host: Host, card) -> str:
@@ -1558,7 +1675,8 @@ class Gate:
         queue = self._queue(host, card)
         while True:
             if card not in (None, POOL) and (mark := host.marked_bad(card)):
-                print(f"skipped {host.name}:{card} for this run, its chip is marked bad: {mark}", flush=True)
+                if self._bench(host, card, mark):
+                    continue
                 return
             with host.lock:
                 while host.timed_running:
@@ -1621,6 +1739,7 @@ class Gate:
                     self.inflight[queue] -= 1
                 print(f"retired {host.name}:{card} for this run, its card is dead: {dead.splitlines()[-1]}"
                       + (f"; {leg.name} goes back on the queue" if again else ""), flush=True)
+                report_dead_card(host.name, card, dead)
                 if not again:
                     self._record(res)
                 with host.lock:
@@ -1631,7 +1750,7 @@ class Gate:
                 self.inflight[queue] -= 1
 
     def run(self) -> list:
-        ts = [threading.Thread(target=self.worker, args=w, daemon=True) for w in self.workers]
+        ts = [threading.Thread(target=self._worker, args=w, daemon=True) for w in self.workers]
         for t in ts:
             t.start()
         for t in ts:
@@ -1670,7 +1789,9 @@ def pool_job(host: Host, leg: Leg, rdir: str, name: str) -> str:
             f"mkdir -p {q(rdir)}; rm -f {q(rdir)}/rc; cat {BOOT_ID} > {q(rdir)}/boot\ncmd={q(cmd)}\n"
             f": > {q(rdir)}/leg.log\n"
             f"{{ echo \"##CHIP $CHIP\"; eval \"${{cmd//{POOL_CARD}/$CHIP}}\"; }} >> {q(rdir)}/leg.log 2>&1\n"
-            f"rc=$?; {{ [ {returned} -nt {q(rdir)}/boot ] || [ \"{RECALLED}\" -nt {q(rdir)}/boot ]; }} && "
+            f"rc=$?; {{ [ {returned} -nt {q(rdir)}/boot ] || [ \"{RECALLED}\" -nt {q(rdir)}/boot ] || "
+            f"{{ [ $rc -ge 128 ] && [ -n \"$(find {returned} \"{RECALLED}\" -maxdepth 0 -newermt "
+            f"@$(( $(stat -c %Y {q(rdir)}/boot) - {GIVE_BACK_RACE_S} )) 2>/dev/null)\" ]; }}; }} && "
             f"echo \"##{GIVEN_BACK}\" >> {q(rdir)}/leg.log\n"
             f"echo $rc > {q(rdir)}/rc.tmp && mv {q(rdir)}/rc.tmp {q(rdir)}/rc\n")
 
@@ -1822,6 +1943,12 @@ def make_executor(sha: str, out: Path, ledger: Ledger, keys: dict, remote_out: s
                 # The connection dropped, not the leg: run it again once the host answers.
                 lost += 1
                 time.sleep(SSH_LOST_RETRY_S)
+                if card not in (None, POOL) and lost >= HOST_DARK_TRIES and not host.answers():
+                    raise CardDead({"leg": leg.name, "arch": host.arch, "verdict": "FAIL", "rc": rc,
+                                    "worker": f"{host.name}:{card}", "card_type": host.cfg["card_type"],
+                                    "wall_s": round(time.time() - t0), "log": str(log), "ended": now(),
+                                    "sha": sha, "key": keys[(leg.name, host.arch)]},
+                                   f"{host.name} does not answer ssh")
                 continue
             if rc and DISK_FULL.search(text) and full < DISK_FULL_TRIES:
                 full += 1
@@ -1836,7 +1963,7 @@ def make_executor(sha: str, out: Path, ledger: Ledger, keys: dict, remote_out: s
                 continue
             if rc and card == POOL and GIVEN_BACK in text:
                 continue
-            if rc and card == POOL and INIT_FAILED.search(text) and init_failed < INIT_FAILED_TRIES:
+            if rc and INIT_FAILED.search(text) and init_failed < INIT_FAILED_TRIES:
                 init_failed += 1
                 continue
             if rc and card == POOL and CARD_STUCK.search(text) and not stuck:
@@ -2090,9 +2217,11 @@ def main() -> int:
             if r.get("sha") == sha and r["verdict"] == "PASS" and r["leg"].startswith("record:")
             and r.get("seeded") and Path(r["seeded"]).is_file()}
     # A fixture JSON changed in a fix-forward put every leg in a new scope (rel-c2b4b898e, 10-14:
-    # 240 legs planned, 0 reused, though 125 read nothing the fix touched). Rows filed in the scope
-    # that still keyed data files (until 2026-10-14) stay good where those files did not change.
-    nonpy, nonpy_old = content_hash(sha, python=False, data=False), content_hash(sha, python=False)
+    # 240 legs planned, 0 reused, though 125 read nothing the fix touched), and so did a perf note
+    # and CI's build pins (2bd90ece9, 11-11). A row filed under an older scope (SCOPES) counts at any
+    # commit whose current scope equals that of the row's own commit: what it keyed beyond the
+    # current scope is read by no leg, and its recorded reads still decide.
+    nonpy, nonpy_old = scopes_at(sha, ledger.shas())
     for lg in legs:
         on = [a for a in archs if not lg.card_types
               or any(h.arch == a and type_fits(h, lg) for h, _ in workers)] if lg.card else [archs[0]]
@@ -2116,7 +2245,7 @@ def main() -> int:
             # The same leg on any commit with the same non-Python files, whose Python read nothing
             # this commit changed (gate_reads.py), proved this commit's result too.
             scopes[(lg.name, slot)] = scope = leg_key(nonpy, env, ct, hleg, base, tst)
-            scope_old = leg_key(nonpy_old, env, ct, hleg, base, tst)
+            scope_old = [leg_key(n, env, ct, hleg, base, tst) for n in sorted(nonpy_old)]
             # Card-free legs always run: they are cheap, and pytest_cpu checks the recorded
             # measurements the key leaves out.
             # A row under an older key scheme proved the same code against the same inputs, so it
@@ -2132,8 +2261,8 @@ def main() -> int:
                     + [leg_key(runner_in[s], env, ct, hleg, base, tst) for s in match]
                     + [leg_key(content, env, ct, hleg, baseline_hash(s, "perf"), tst) for s in same if ab])
             hit = (None if args.no_reuse or not lg.card or lg.family == "record"
-                   else next(filter(None, map(ledger.get, [k, *olds])), None) or ledger.read_hit(scope, sha)
-                   or ledger.read_hit(scope_old, sha))
+                   else next(filter(None, map(ledger.get, [k, *olds])), None)
+                   or next(filter(None, (ledger.read_hit(x, sha) for x in [scope, *scope_old])), None))
             owes = owed_by(roster, ctype[a], lg)
             if not owes and not any(h.arch == a and cap_fits(roster, h, lg) for h, _ in workers):
                 owes = [CAP_OWED]

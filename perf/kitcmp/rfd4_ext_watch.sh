@@ -9,8 +9,7 @@
 set -u
 OUT=${1:?results dir} I=${2:?instance id} CAP=${3:?hard cap epoch}
 S=$(cat "$OUT/ssh"); H=$(echo "$S" | grep -oP 'root@\S+')
-K=$(cat ~/.config/vastai/vast_api_key); API=https://console.vast.ai/api/v0
-B=/home/moritz/.coworker/state/vast-budget
+. "${VL:-/home/moritz/.coworker/scripts/vast}/lib.sh"
 log(){ echo "$(date -u +%FT%TZ) ext_watch: $*"; }
 pull(){ rsync -a -e "${S% root@*}" "$H:/root/kc/rfd4/" "$OUT/rfd4/" 2>/dev/null
         rsync -a -e "${S% root@*}" "$H:/root/kc/*.log" "$OUT/" 2>/dev/null; }
@@ -28,9 +27,7 @@ while :; do
 done
 pull
 log "$I ended: $END"
-curl -s -X DELETE -H "Authorization: Bearer $K" "$API/instances/$I/" >/dev/null; sleep 10
-N=$(curl -s -H "Authorization: Bearer $K" "$API/instances/?owner=me" |
-      python3 -c 'import json,sys;print(len(json.load(sys.stdin)["instances"]))' 2>/dev/null)
+$V destroy instance $I -y >/dev/null 2>&1; sleep 10; N=$(vl_count)
 log "DESTROYED $I ($END); instances left: ${N:-?}"
 sed -i "s|^$I  .*|#$I DESTROYED $(date -u +%FT%TZ) (ext: $END), confirmed instances=${N:-?}|" $B
 # The reaper only ever touches ids listed here, so an id that is gone must leave the list.

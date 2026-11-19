@@ -17,31 +17,17 @@ MINW=${MINW:-990} MAXW=${MAXW:-1010} SLUG=${SLUG:-mol1-b200}
 # cannot carry it): qb2's key is authorized on the box, qb2 pushes dir/inputs to /root/kc/qinputs, and every pull
 # also copies the box's /root/kc/mol1/ref (with CIFs) to qb2 dir/<label>/ref.
 BOX=${BOX:-box_mol1.sh}
-P=$(cd "$(dirname "$0")" && pwd); V=~/.vast-venv/bin/vastai; B=/home/moritz/.coworker/state/vast-budget
-HOLD=/home/moritz/.coworker/state/vast-holder; S4=/home/moritz/.coworker/state/mol1
-K=$(cat ~/.config/vastai/vast_api_key); API=https://console.vast.ai/api/v0; FLOOR=${VAST_FLOOR_USD:-1}
+P=$(cd "$(dirname "$0")" && pwd)
+S4=${S4:-/home/moritz/.coworker/state/mol1}
 OUT=$P/results/$L; mkdir -p "$OUT"
 # Offers we have already paid for and lost live on disk, not in this process: a relaunch after a crash used to
 # re-pick the offer it had just destroyed (2026-10-19, offer 50255941 twice, ~$2.8).
-TRIEDF=$OUT/tried; touch "$TRIEDF"; TRIED=" $(tr '\n' ' ' < "$TRIEDF")"
-# Offers that rented but never came up on ssh, fleet-wide (the 502559xx family, four times on 11-01).
-TRIED="$TRIED$(tr '\n' ' ' < /home/moritz/.coworker/state/vast-bad-offers 2>/dev/null) "
-log(){ echo "$(date -u +%FT%TZ) $*"; }
-# A vast API blip returns an empty body; read as no credit it REFUSED and killed session mol1-b200-ref6r (11-01).
-credit(){ local c n; for n in 1 2 3 4 5; do
-  c=$(curl -s -H "Authorization: Bearer $K" "$API/users/current/" | python3 -c 'import json,sys;print(json.load(sys.stdin)["credit"])' 2>/dev/null)
-  [ -n "$c" ] && { echo "$c"; return; }; sleep 20; done; echo 0; }
-gone(){ curl -s -H "Authorization: Bearer $K" "$API/instances/?owner=me" | python3 -c 'import json,sys;print(len(json.load(sys.stdin)["instances"]))'; }
-state(){ curl -s -H "Authorization: Bearer $K" "$API/instances/?owner=me" | python3 -c 'import json,sys
-print(next((x.get("intended_status") or "" for x in json.load(sys.stdin)["instances"] if x["id"]==int(sys.argv[1])), "gone"))' $1; }
-destroy(){ curl -s -X DELETE -H "Authorization: Bearer $K" "$API/instances/$1/" >/dev/null; sleep 10
-  local n; n=$(gone); log "DESTROYED $1 ($2); instances left: $n"; rm -f $HOLD/$1
-  # The reaper only ever touches ids listed in OWNED, so an id that is gone must leave the list.
-  sed -i "/^$1\$/d" $S4/gpu/OWNED 2>/dev/null
-  sed -i "s|^$1  $CAP_H  $SLUG$|#$1 DESTROYED $(date -u +%FT%TZ) ($2), confirmed instances=$n|" $B; }
-next_offer(){ $V search offers "$Q" -o dph --raw 2>/dev/null | python3 -c 'import json,sys
-t=sys.argv[1].split()
-print(next((str(o["id"]) for o in json.load(sys.stdin) if str(o["id"]) not in t), ""))' "$TRIED"; }
+TRIEDF=$OUT/tried; touch "$TRIEDF"
+# Offer choice (cheapest secure offer, machines that failed twice skipped), the ledger line with its expected $, the
+# dollar-capped ssh wait, power check, destroy and strikes are the fleet's one copy: ~/.coworker/scripts/vast/lib.sh.
+. "${VL:-/home/moritz/.coworker/scripts/vast}/lib.sh"; VL_BY=perf/kitcmp/mol1_session.sh VL_ANY_HOSTING=${VL_ANY_HOSTING-1}
+log(){ vl_log "$@"; }
+destroy(){ vl_destroy "$@"; }
 
 # qb2 -> box: vast's ssh proxy authenticates against keys ATTACHED to the instance, so a line appended to the box's
 # authorized_keys alone was refused (session mol1-b200-ref1, 2026-11-01: gate passed, inputs never arrived, $5 spent).
@@ -72,14 +58,14 @@ while :; do
   # session that measured nothing never reads as "done" in this log (session 1, 2026-10-21).
   f=$(timeout 30 $S 'cat /root/kc/mol1/MOL1-FAILED 2>/dev/null' 2>/dev/null)
   [ -n "$f" ] && END="FAILED ($f)"
-  [ -z "$st" ] && [ "$(state $I)" != running ] && END=stopped
+  [ -z "$st" ] && [ "$(vl_state $I)" != running ] && END=stopped
   [ $(( $(date +%s) - T0 )) -ge $(python3 -c "print(int($CAP_H*3600-420))") ] && END=${END:-cap}
   [ -n "$END" ] && break
 done
 R $H:/root/kc/mol1/ $OUT/mol1/ 2>/dev/null; R $H:'/root/kc/*.log' $OUT/ 2>/dev/null; offload
 log "$I ended: $END"
 destroy $I "session end: $END"
-log "credit \$$(credit) at end"; echo "$END" > $OUT/SESSION-END; exit 0
+log "credit \$$(vl_credit) at end"; echo "$END" > $OUT/SESSION-END; exit 0
 }
 # RESUME=1 re-attaches to the box this label already rents (a watcher that died or was stopped), without renting.
 if [ -n "${RESUME:-}" ]; then
@@ -91,51 +77,18 @@ if [ -n "${RESUME:-}" ]; then
   log "resumed watching $I (started $(date -u -d @$T0 +%FT%TZ))"; watch
 fi
 
-MAXDPH=$(echo "$Q" | grep -oP 'dph<=\K[0-9.]+'); C=$(credit)
-python3 -c "import sys; sys.exit(0 if $C - $CAP_H * ${MAXDPH:-7} >= $FLOOR else 1)" ||
-  { log "REFUSED: credit \$$C - $CAP_H h x \$${MAXDPH:-7}/h would cross the \$$FLOOR floor"; exit 4; }
-log "credit \$$C at start, cap $CAP_H h"
+MAXDPH=$(echo "$Q" | grep -oP 'dph<=\K[0-9.]+')
+vl_floor_ok ${MAXDPH:-7} || { log "REFUSED: credit \$$(vl_credit) - $CAP_H h x \$${MAXDPH:-7}/h would cross the \$${VAST_FLOOR_USD:-1} floor"; exit 4; }
+log "credit \$$(vl_credit) at start, cap $CAP_H h"
 
 for _ in $(seq $NMAX); do
-  O=$(next_offer); [ -z "$O" ] && { log "no untried offer matches: $Q"; break; }
-  TRIED="$TRIED$O "; echo "$O" >> "$TRIEDF"
-  C=$(credit); python3 -c "import sys; sys.exit(0 if $C - $CAP_H * ${MAXDPH:-7} >= $FLOOR else 1)" ||
-    { log "REFUSED at offer $O: credit \$$C would cross the \$$FLOOR floor"; exit 4; }
-  echo "-  $CAP_H  $SLUG  # $L creating on offer $O" >> $B
-  I=$($V create instance $O --image nvidia/cuda:13.0.1-cudnn-devel-ubuntu24.04 --disk ${DISK:-150} --ssh --direct --label $SLUG-$L --raw 2>&1 | grep -oP "new_contract['\"]:\s*\K[0-9]+")
-  [ -z "$I" ] && { sed -i '$d' $B; log "offer $O: create failed"; continue; }
-  mkdir -p $HOLD; echo $$ > $HOLD/$I; sed -i "\$s|.*|$I  $CAP_H  $SLUG|" $B
-  # Arm the reaper in the same breath as the rental. Session 4 was armed by hand after launch, which is a
-  # window in which a killed session leaves a $8.61/h box running with no owner and no timer.
-  mkdir -p $S4/gpu; echo "$I" >> $S4/gpu/OWNED
-  python3 -c "print(int($(date +%s) + $CAP_H*3600 + 1500))" > $S4/gpu/KEEP-UNTIL
-  echo "# ^ $SLUG $L offer $O created $(date -u +%FT%TZ) by perf/kitcmp/mol1_session.sh" >> $B
-  T0=$(date +%s); log "created $I on offer $O"; S=""
-  while [ $(( $(date +%s) - T0 )) -lt 720 ]; do
-    [ $(( $(date +%s) - T0 )) -ge 120 ] && [ "$(state $I)" != running ] && break
-    # Two routes to the same box: the host's own open port, and vast's proxy. On 2026-10-19 a box that never
-    # answered on the direct port cost two rentals, so try both every poll and take whichever answers.
-    ROUTES=$($V show instance $I --raw 2>/dev/null | python3 -c 'import json,sys
-x=json.load(sys.stdin)
-if x.get("actual_status")=="running":
-    p=(x.get("ports") or {}).get("22/tcp")
-    ip=(x.get("public_ipaddr") or "").strip()
-    if p and ip: print(p[0]["HostPort"], ip)
-    if x.get("ssh_host") and x.get("ssh_port"): print(x["ssh_port"], x["ssh_host"])' 2>/dev/null)
-    while read -r PORT HOST; do
-      [ -z "${PORT:-}" ] && continue
-      S="ssh -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=15 -o ServerAliveInterval=30 -p $PORT root@$HOST"
-      timeout 30 $S true >/dev/null 2>&1 && break; S=""
-    done <<< "$ROUTES"
-    [ -n "$S" ] && break
-    sleep 30
-  done
-  [ -z "$S" ] && { destroy $I "no ssh: intended_status=$(state $I)"; continue; }
-  W=$(timeout 30 $S 'nvidia-smi --query-gpu=power.limit --format=csv,noheader,nounits' 2>/dev/null | tail -1 | cut -d. -f1)
-  log "$I up at $HOST:$PORT, power limit ${W:-?} W"
-  [ "${W:-0}" -ge "$MINW" ] && [ "${W:-0}" -le "$MAXW" ] || { destroy $I "power limit ${W:-?} W outside $MINW-$MAXW"; continue; }
+  vl_pick "$L" "$Q" "$TRIEDF" "${NEED_VRAM:-0}" || { log "no untried offer matches: $Q"; break; }
+  echo "$O" >> "$TRIEDF"
+  vl_floor_ok $ODPH || { log "REFUSED at offer $O: credit \$$(vl_credit) would cross the floor"; exit 4; }
+  vl_rent nvidia/cuda:13.0.1-cudnn-devel-ubuntu24.04 ${DISK:-150} || { log "offer $O: create failed"; continue; }
+  vl_ssh || { destroy $I "no ssh: intended_status=$(vl_state $I), see nossh-$I.log"; continue; }
+  vl_power_ok $MINW $MAXW || { destroy $I "power limit ${W:-?} W outside $MINW-$MAXW"; continue; }
   echo "$S" > $OUT/ssh; echo "$I $O" > $OUT/instance
-  H=root@$HOST
   $S 'mkdir -p /root/kc' &&
     push $P/mol1_gpu.py $P/mol1_arms.py $P/mol1_inputs.py $P/mol1_ref.py $P/$BOX $H:/root/kc/ &&
     { [ -z "${INPUTS:-}" ] || R "$INPUTS/" $H:/root/kc/inputs/; } &&

@@ -20,7 +20,7 @@ def calls(monkeypatch):
     log = []
 
     @contextlib.contextmanager
-    def lock():
+    def lock(*purpose):
         log.append("lock")
         yield
         log.append("unlock")

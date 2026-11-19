@@ -30,11 +30,13 @@ def test_a_model_names_its_own_sets_and_the_harness_switch_still_wins(monkeypatc
     assert of3.NORMAL_LEVERS <= of3.FAST_LEVERS and of3.WH_NORMAL_LEVERS <= of3.WH_FAST_LEVERS
     assert of3.WH_NORMAL_LEVERS ^ of3.NORMAL_LEVERS == {"trimul_bres", "trimul_t2cm"}
     # OpenFold3 adds the bf16 fused DiT in normal mode; OpenBind-0 failed its grade and keeps the fp32 DiT, fused on Wormhole.
-    assert of3.NORMAL_MODEL_LEVERS["openfold3"] == of3.WH_NORMAL_MODEL_LEVERS["openfold3"] == {"dit_s16", "diffusion_bf16", "dit_fuse", "dit_l1"}
+    assert of3.NORMAL_MODEL_LEVERS["openfold3"] == {"dit_s16", "diffusion_bf16", "dit_fuse", "dit_l1"}
+    assert of3.WH_NORMAL_MODEL_LEVERS["openfold3"] == of3.NORMAL_MODEL_LEVERS["openfold3"] | {"dit_kc", "dit_mask16"}
     assert set(of3.NORMAL_MODEL_LEVERS) == {"openfold3"} and set(of3.WH_NORMAL_MODEL_LEVERS) == {"openfold3", "openbind"}
-    assert of3.WH_NORMAL_MODEL_LEVERS["openbind"] == {"dit_fuse", "dit_l1"}
+    assert of3.WH_NORMAL_MODEL_LEVERS["openbind"] == {"dit_fuse", "dit_l1", "dit_kl1", "apb_ln", "trimul_sig6"}
     assert of3.NORMAL_LEVERS | of3.NORMAL_MODEL_LEVERS["openfold3"] <= of3.FAST_LEVERS
-    assert all(of3.WH_NORMAL_LEVERS | v <= of3.WH_FAST_LEVERS for v in of3.WH_NORMAL_MODEL_LEVERS.values())
+    # dit_kl1 is normal only: fast takes dit_kc, which keeps the same full k chunk with its sums in dest.
+    assert all(of3.WH_NORMAL_LEVERS | v <= of3.WH_FAST_LEVERS | {"dit_kl1"} for v in of3.WH_NORMAL_MODEL_LEVERS.values())
 
 
 def test_parse_expands_modes_and_rejects_unknown_names():
@@ -192,9 +194,15 @@ def test_boltz2_mode_sets_name_only_known_levers():
         assert s <= set(T.LEVERS) and not s & T.UNGRADED_LEVERS
     assert B.WH_LEVERS_FAST <= set(T.LEVERS) and B.WH_LEVERS_FAST - B.LEVERS_FAST == {"triatt_ln", "apb_ln", "dit_cond_jit", "trimul_sig6", "dit_cond_jcat", "triatt_k1", "atom_l1",
                                                                                           "triatt_ln_b8", "triatt_ln_b8g", "dit_shard", "trimul_bres", "ie_dev", "opm_b8cfg",
-                                                                                          "dit_cond_steps"}
-    assert B.WH_LEVERS_NORMAL - B.LEVERS_NORMAL == {"atom_l1", "trimul_bres"}
-    assert B.BH_LEVERS_FAST - B.LEVERS_FAST == {"dit_shoist", "ie_dev"}
+                                                                                          "dit_cond_steps", "ws_psilu"}
+    assert B.WH_LEVERS_NORMAL <= set(T.LEVERS) and B.WH_LEVERS_NORMAL - B.LEVERS_NORMAL == {
+        "atom_l1", "trimul_bres", "triatt_tail", "triatt_k1", "triatt_ln", "apb_ln", "dit_cond_jit", "dit_cond_jcat",
+        "dit_cond_steps", "adaln_mod", "transition_ws", "ws_resid", "trimul_sig6", "trimul_t2",
+        "trimul_t1", "triatt_ln_b8", "triatt_ln_b8g", "ws_psilu"}
+    assert B.BH_LEVERS_NORMAL - B.LEVERS_NORMAL == {"triatt_tail", "adaln_mod", "transition_ws", "ws_resid", "atom_l1",
+                                                    "dit_qkvf", "dit_qkvf_h4", "trimul_t2"}
+    assert B.BH_LEVERS_FAST - B.LEVERS_FAST == {"dit_shoist", "ie_dev", "dit_qkvf", "dit_qkvf_h4", "triatt_ln", "triatt_ln_b8",
+                                                "triatt_ln_b8g"}
 
 
 def test_pxdesign_wormhole_set_names_only_known_levers():
@@ -214,7 +222,10 @@ def test_boltzgen_mode_sets_name_only_known_levers():
     assert B.WH_LEVERS_NORMAL - B.LEVERS_NORMAL - B.HOST_LEVERS == {"atom_l1", "transition_ws", "triatt_ln", "dit_cond_steps",
                                                     "trimul_t1", "trimul_t2", "dit_pad_short", "adaln_mod", "dit_qkvf",
                                                     "dit_bpad", "dit_shard", "dit_fc123g", "apb_ln", "ws_l1dest",
-                                                    "ws_resid", "trimul_t2cm", "trimul_bres", "opm_jd", "dit_kl1"}
+                                                    "ws_resid", "trimul_t2cm", "trimul_bres", "opm_jd", "dit_kl1",
+                                                    "adaln_at", "ws_psilu", "trimul_t1_psig"} | B.WH_KVW_STACK
+    assert B.WH_KVW_STACK == {"atom_kvw", "ws_ln_resid", "ws_ln_t1l1", "trimul_t1split", "trimul_sig6", "trimul_x8",
+                              "pair_x8t"}
     assert B.WH_LEVERS_NORMAL <= set(T.LEVERS) | T.UNGRADED_LEVERS
     # The trunk group left both Blackhole sets on 2026-11-02: graded against TT_BIO_LEVERS=none the shipped stack cost
     # design_iptm 0.041 normal / 0.040 fast, and the trunk group is the group both the seed-cluster bootstrap and the
@@ -225,25 +236,28 @@ def test_boltzgen_mode_sets_name_only_known_levers():
     assert B.WH_LEVERS_FAST - B.LEVERS_FAST - B.HOST_LEVERS == {"atom_l1", "trimul_bres", "trimul_t1", "trimul_t2", "transition_ws",
                                                 "triatt_ln", "dit_cond_steps", "dit_qkvf", "dit_chunk", "dit_pad_short",
                                                 "dit_bpad", "dit_shard", "dit_fc123g", "apb_ln", "ws_l1dest", "ws_resid",
-                                                "trimul_t2cm", "opm_jd", "dit_kc", "adaln_at", "dit_kl1"}
+                                                "trimul_t2cm", "opm_jd", "dit_kc", "adaln_at", "dit_kl1",
+                                                "trimul_sig6", "triatt_ln_b8", "triatt_ln_b8g", "trimul_t1w8",
+                                                "ws_psilu", "trimul_t1_psig"} | B.WH_KVW_STACK
     assert B.BH_LEVERS_FAST - B.LEVERS_FAST - B.HOST_LEVERS == {"atom_l1", "dit_qkvf", "dit_chunk", "dit_pad_short",
                                                 "dit_bpad", "dit_shard", "dit_fc123g", "dit_shoist"}
     assert B.BH_LEVERS_FAST <= set(T.LEVERS) | T.UNGRADED_LEVERS
+    assert B.WH_LEVERS_FAST <= set(T.LEVERS) | T.UNGRADED_LEVERS
 
 
 def test_protenix_family_normal_set():
-    from tt_bio.opendde import BH_DIT, BH_NORMAL_LEVERS, BH_TRUNK, NORMAL_LEVERS as DDE
-    from tt_bio.protenix import BRES_NORMAL, NORMAL_LEVERS, T1_PSIG, T2_TAIL, TRIATT_LN, WS_CHAIN
+    from tt_bio.opendde import BH_DIT, BH_NORMAL_LEVERS, BH_TRUNK, NORMAL_LEVERS as DDE, WH_APB
+    from tt_bio.protenix import BRES_NORMAL, NORMAL_LEVERS, T2_TAIL, TRIATT_LN, WS_CHAIN
 
-    assert DDE == NORMAL_LEVERS | WS_CHAIN | T2_TAIL | TRIATT_LN | BRES_NORMAL | {"ws_resid", "ws_resid2", "trimul_t1w8", "dit_bpad", "inproj_split", "trimul_t1_dram", "trunk_hifi2", "transition_b8", "ws_b8_plain", "pz_device", "dit_mod16", "triatt_q10", "triatt_k1"} and DDE <= set(T.LEVERS)
-    assert BH_NORMAL_LEVERS == (DDE - WS_CHAIN) | {"trimul_bres_bh", "trimul_t1_2g", "ws_psilu"} | T1_PSIG | BH_DIT | BH_TRUNK
+    assert DDE == NORMAL_LEVERS | WS_CHAIN | T2_TAIL | TRIATT_LN | BRES_NORMAL | {"ws_resid", "ws_resid2", "trimul_t1w8", "dit_bpad", "inproj_split", "trimul_t1_dram", "trunk_hifi2", "transition_b8", "ws_b8_plain", "pz_device", "dit_mod16", "triatt_q10", "triatt_k1", "ws_psilu", "trimul_t1_psig", "apb_cat"} and DDE <= set(T.LEVERS)
+    assert BH_NORMAL_LEVERS == (DDE - WS_CHAIN - WH_APB) | {"trimul_bres_bh", "trimul_t1_2g"} | BH_DIT | BH_TRUNK
     assert BH_NORMAL_LEVERS <= set(T.LEVERS) | T.UNGRADED_LEVERS
     assert NORMAL_LEVERS - T.NORMAL_LEVERS == {"transition_ws", "ws_l1acc", "trimul_t1_c256", "trimul_t1_c384"}
 
 
 def test_protenix_v2_normal_takes_t2_tail(monkeypatch):
     import torch
-    from tt_bio.protenix import (BH_V2_FAST, BH_V2_NORMAL, BRES_NORMAL, DIT_SEAM_FAST, FAST_LEVERS, GIN_W8_FAST, NORMAL_LEVERS, OPM_B8CFG_FAST, QSPLIT_NORMAL, T1W8_FAST,
+    from tt_bio.protenix import (BH_NORMAL_DROP, BH_PAIR_NORMAL, BH_V2_FAST, BH_V2_NORMAL, BRES_NORMAL, DIT_SEAM_FAST, FAST_LEVERS, GIN_W8_FAST, NORMAL_LEVERS, OPM_B8CFG_FAST, QSPLIT_NORMAL, T1W8_FAST, WH_PAIR_FAST, WH_PAIR_NORMAL,
                                  T2_TAIL, SHOIST_FAST, DIT_MM_WH, T1_PSIG, TRIATT_Q10_WH, TRIATT_K1, TRIATT_LN, TRIATT_LN_B8_FAST, WH_V2_NORMAL, WS_CHAIN, WS_FAST, WS_RESID_NORMAL,
                                  WS_NORMAL, X8_WH, mode_levers)
 
@@ -255,11 +269,13 @@ def test_protenix_v2_normal_takes_t2_tail(monkeypatch):
     monkeypatch.delenv("TT_BIO_LEVERS", raising=False)
     assert WS_CHAIN == {"ws_chain"}
     monkeypatch.setattr(T, "is_wormhole", lambda: False)
-    assert mode_levers(ck(256)) == NORMAL_LEVERS | T2_TAIL | WS_CHAIN | QSPLIT_NORMAL | BRES_NORMAL | TRIATT_LN | WS_RESID_NORMAL | BH_V2_NORMAL | T1_PSIG | TRIATT_K1
+    assert (mode_levers(ck(256)) == (NORMAL_LEVERS | T2_TAIL | WS_CHAIN | QSPLIT_NORMAL | BRES_NORMAL | TRIATT_LN | WS_RESID_NORMAL | BH_V2_NORMAL
+                                     | BH_PAIR_NORMAL | T1_PSIG | TRIATT_K1) - BH_NORMAL_DROP)
+    assert "trimul_t2cm" not in mode_levers(ck(256)) and {"trimul_x8", "pair_x8t", "trimul_t1g8"} <= mode_levers(ck(256))
     assert mode_levers(ck(128)) == NORMAL_LEVERS
     monkeypatch.setattr(T, "is_wormhole", lambda: True)
     assert (mode_levers(ck(256))
-            == NORMAL_LEVERS | T2_TAIL | WS_CHAIN | QSPLIT_NORMAL | TRIATT_LN | TRIATT_K1 | BRES_NORMAL | WS_RESID_NORMAL | WH_V2_NORMAL | DIT_MM_WH | T1_PSIG | TRIATT_Q10_WH | X8_WH)
+            == NORMAL_LEVERS | T2_TAIL | WS_CHAIN | QSPLIT_NORMAL | TRIATT_LN | TRIATT_K1 | BRES_NORMAL | WS_RESID_NORMAL | WH_V2_NORMAL | WH_PAIR_NORMAL | DIT_MM_WH | T1_PSIG | TRIATT_Q10_WH | X8_WH)
     assert mode_levers(ck(128)) == NORMAL_LEVERS
     monkeypatch.setattr(T, "_FAST_MODE", True)
     monkeypatch.setattr(T, "is_wormhole", lambda: False)
@@ -267,10 +283,10 @@ def test_protenix_v2_normal_takes_t2_tail(monkeypatch):
     assert mode_levers(ck(128)) == FAST_LEVERS
     monkeypatch.setattr(T, "is_wormhole", lambda: True)
     assert (mode_levers(ck(256)) == FAST_LEVERS - {"trimul_t1_c256"} | TRIATT_LN | TRIATT_K1 | WS_FAST | TRIATT_LN_B8_FAST | GIN_W8_FAST
-            | T1W8_FAST | OPM_B8CFG_FAST | X8_WH | DIT_SEAM_FAST | SHOIST_FAST | DIT_MM_WH | T1_PSIG | TRIATT_Q10_WH)
+            | T1W8_FAST | OPM_B8CFG_FAST | WH_PAIR_FAST | X8_WH | DIT_SEAM_FAST | SHOIST_FAST | DIT_MM_WH | T1_PSIG | TRIATT_Q10_WH)
     assert mode_levers(ck(128)) == FAST_LEVERS - {"trimul_t1_c256"}
-    assert (TRIATT_LN | TRIATT_K1 | WS_FAST | TRIATT_LN_B8_FAST | GIN_W8_FAST | T1W8_FAST | OPM_B8CFG_FAST | SHOIST_FAST
-            | BRES_NORMAL | WS_RESID_NORMAL | QSPLIT_NORMAL | WH_V2_NORMAL | BH_V2_NORMAL | DIT_MM_WH | T1_PSIG | TRIATT_Q10_WH | DIT_SEAM_FAST | X8_WH <= set(T.LEVERS))
+    assert (TRIATT_LN | TRIATT_K1 | WS_FAST | TRIATT_LN_B8_FAST | GIN_W8_FAST | T1W8_FAST | OPM_B8CFG_FAST | WH_PAIR_FAST | SHOIST_FAST
+            | BRES_NORMAL | WS_RESID_NORMAL | QSPLIT_NORMAL | WH_V2_NORMAL | WH_PAIR_NORMAL | BH_V2_NORMAL | BH_PAIR_NORMAL | DIT_MM_WH | T1_PSIG | TRIATT_Q10_WH | DIT_SEAM_FAST | X8_WH <= set(T.LEVERS))
 
 
 def test_protenix_fast_set_takes_t1_c256(monkeypatch):
@@ -289,13 +305,15 @@ def test_protenix_wormhole_fast_set_drops_t1_c256():
 
 
 def test_opendde_fast_set_names_only_known_levers():
-    from tt_bio.opendde import BH_DIT, BH_FAST_LEVERS, BH_TRUNK, FAST_LEVERS, WH_FAST_LEVERS
-    from tt_bio.protenix import T1_PSIG, WS_CHAIN, WS_FAST
+    from tt_bio.opendde import BH_DIT, BH_FAST_LEVERS, BH_TRUNK, FAST_LEVERS, WH_DIT, WH_FAST_LEVERS, WH_X8
+    from tt_bio.protenix import WS_CHAIN, WS_FAST
 
     assert FAST_LEVERS <= set(T.LEVERS) and {"trimul_b8in", "trimul_t2w"} | WS_CHAIN <= FAST_LEVERS and "dit_b8" not in FAST_LEVERS
     assert WH_FAST_LEVERS - FAST_LEVERS == {"trimul_t1_c384", "triatt_ln", "apb_ln", "triatt_k1", "ws_resid2", "trimul_t1w8", "dit_bpad", "inproj_split", "trimul_t1_dram", "pz_device", "dit_mod16", "triatt_q10", "trunk_hifi2", "bres_ta_hifi3",
-                                                "triatt_ln_b8", "triatt_ln_b8g"}
-    assert BH_FAST_LEVERS == WH_FAST_LEVERS | WS_FAST | {"ws_lofi", "trimul_bres_bh", "trimul_t1_2g"} | T1_PSIG | BH_DIT | BH_TRUNK
+                                                "triatt_ln_b8", "triatt_ln_b8g", "ws_psilu", "trimul_t1_psig"} | WH_DIT | WH_X8
+    assert WH_DIT < BH_DIT
+    assert WH_X8 == {"trimul_x8", "pair_x8t"} <= set(T.LEVERS)
+    assert BH_FAST_LEVERS == (WH_FAST_LEVERS - WH_X8) | WS_FAST | {"ws_lofi", "trimul_bres_bh", "trimul_t1_2g"} | BH_DIT | BH_TRUNK
     assert BH_FAST_LEVERS <= set(T.LEVERS) | T.UNGRADED_LEVERS
 
 
@@ -324,6 +342,18 @@ def test_lofi_levers_are_inert_on_wormhole(monkeypatch):
         assert triatt_sdpa._ckc(None) == triatt_sdpa._CKC_LOFI
 
 
+def test_trunk_hifi2_runs_hifi3_on_wormhole(monkeypatch):
+    """A HiFi2 trunk matmul hangs Wormhole chips (jf-abag-hang 11-07), so trunk_hifi2 falls back to HiFi3 there."""
+    import ttnn
+    base = ttnn.WormholeComputeKernelConfig(math_fidelity=ttnn.MathFidelity.HiFi4, fp32_dest_acc_en=True)
+    monkeypatch.setattr(T, "_TRUNK_MATH_FIDELITY", "")
+    with T.levers("trunk_hifi2"):
+        monkeypatch.setattr(T, "is_wormhole", lambda: True)
+        assert T.trunk_compute_kernel_config(base).math_fidelity == ttnn.MathFidelity.HiFi3
+        monkeypatch.setattr(T, "is_wormhole", lambda: False)
+        assert T.trunk_compute_kernel_config(base).math_fidelity == ttnn.MathFidelity.HiFi2
+
+
 def test_dit_pad_short_takes_the_first_length_a_wide_chunk_divides():
     assert T.dit_bias_pad_len(512, short=True) == 512     # 256 divides it
     assert T.dit_bias_pad_len(514, short=True) == 576     # 544 is 17 tiles: 288 divides 576, the 256 grid is 768
@@ -334,9 +364,10 @@ def test_dit_pad_short_takes_the_first_length_a_wide_chunk_divides():
 
 def test_mode_levers_keys_the_transition_stack_on_pair_width(monkeypatch):
     """Mol-1's trunk runs at 448 (PairMixer blocks) and 320: it takes the normal-mode transition stack graded at
-    those widths and the triangle attention and DiT levers it shares with Protenix-v2, plus its per-chip trimul set; --fast and the one-width checkpoints keep their sets."""
+    those widths and the triangle attention and DiT levers it shares with Protenix-v2, plus its per-chip trimul set; its --fast is that set plus MOL1_WH_FAST / MOL1_BH_FAST, and the one-width checkpoints keep
+    their sets."""
     import torch
-    from tt_bio.protenix import FAST_LEVERS, MOL1_BH, MOL1_WH, NORMAL_LEVERS, WH_FAST_LEVERS, WIDE_NORMAL, WS_NORMAL, Trunk, mode_levers
+    from tt_bio.protenix import MOL1_BH, MOL1_BH_FAST, MOL1_WH, MOL1_WH_FAST, NORMAL_LEVERS, WIDE_NORMAL, WS_NORMAL, Trunk, mode_levers
 
     tr = "pairformer_stack.blocks.{}.pair_transition.layernorm1.weight"
     mol1 = {"layernorm_z_cycle.weight": torch.zeros(448), "confidence_head." + tr.format(0): torch.zeros(448),
@@ -347,7 +378,8 @@ def test_mode_levers_keys_the_transition_stack_on_pair_width(monkeypatch):
     for wh in (False, True):
         monkeypatch.setattr(T, "is_wormhole", lambda wh=wh: wh)
         monkeypatch.setattr(T, "_FAST_MODE", False)
-        assert mode_levers(mol1) == NORMAL_LEVERS | WIDE_NORMAL | (MOL1_WH if wh else MOL1_BH) and WIDE_NORMAL >= WS_NORMAL
+        normal = NORMAL_LEVERS | WIDE_NORMAL | (MOL1_WH if wh else MOL1_BH)
+        assert mode_levers(mol1) == normal and WIDE_NORMAL >= WS_NORMAL
         assert mode_levers({tr.format(0): torch.zeros(128)}) == NORMAL_LEVERS
         monkeypatch.setattr(T, "_FAST_MODE", True)
-        assert mode_levers(mol1) == (WH_FAST_LEVERS if wh else FAST_LEVERS)
+        assert mode_levers(mol1) == normal | (MOL1_WH_FAST if wh else MOL1_BH_FAST)

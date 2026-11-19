@@ -45,6 +45,8 @@ ap.add_argument("--boltz2-csv", action="store_true", help="only write the Boltz-
 ap.add_argument("--truth512", action="store_true", help="only (re)write the 512-token accuracy set from the 11-set here")
 ap.add_argument("--truth", type=int, default=None, metavar="TOKENS",
                 help="only (re)write the accuracy set cropped to TOKENS (set<TOKENS>.tsv), like --truth512")
+ap.add_argument("--crop", action="append", default=[], metavar="NAME:NA:NB",
+                help="only write complex730 cropped to A 1-NA + B 1-NB as NAME, like l512 (repeatable)")
 a = ap.parse_args()
 D = a.data
 MSA = D / "msa"
@@ -153,6 +155,11 @@ def boltz2_csvs():
 
 if a.boltz2_csv:
     boltz2_csvs()
+    raise SystemExit(0)
+if a.crop:
+    for c in a.crop:
+        name, na, nb = c.split(":")
+        crop_complex(name, int(na), int(nb))
     raise SystemExit(0)
 if a.truth512 or a.truth:
     truth512(a.truth or 512)

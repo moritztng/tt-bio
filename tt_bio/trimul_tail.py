@@ -1089,15 +1089,23 @@ def t2_eligible(x, ln_w, ln_b, wp, g, resid, wg=None, copy=None, stream16=False)
             return "dtype"
         # A plain-form g_out may be bfp8 (trimul_b8in writes it so): CB 5 takes g's format and
         # compute unpacks it into DEST like the bf16 tile, so b8in and T2 stack.
-        # So may RFD4's moved x under `pair_x8t` (stream16 only): CB 0 takes x's format, the LN unpacks it.
+        # So may the moved x under `pair_x8t`: CB 0 takes x's format, the LN unpacks it. A bfp8 resid is
+        # RFD4's stream16 z only (`pair_bfp8z`).
         if t.dtype != ttnn.bfloat16 and not (t is g and wg is None and t.dtype == ttnn.bfloat8_b) and not (
-                (t is resid or t is x) and stream16 and copy is None and t.dtype == ttnn.bfloat8_b):
+                (t is x or t is resid and stream16) and copy is None and t.dtype == ttnn.bfloat8_b):
             return "dtype"
         if t.memory_config() != ttnn.DRAM_MEMORY_CONFIG and not (
                 (t is x or t is g) and t.memory_config() == ttnn.L1_MEMORY_CONFIG and lever("pair_tail_small")):
             return "memcfg"
     return _t2_shape_why([int(d) for d in x.shape], [int(d) for d in x.padded_shape],
                          ln_w, ln_b, wp, g, resid, wg, res32=copy is not None or stream16)
+
+
+def t2_key(kt, nt, res32=False):
+    """Whether some T2 form serves the (kt, nt) key; `res32` admits the float32-stream form's keys."""
+    from .tenstorrent import lever
+    return ((kt, nt) in T2_KEYS or (t2_wide(kt, nt) and lever("trimul_t2w"))
+            or ((kt, nt) in T2_RES32_KEYS and res32))
 
 
 def _t2_shape_why(xs, xps, ln_w, ln_b, wp, g, resid, wg=None, res32=False):
@@ -1107,9 +1115,7 @@ def _t2_shape_why(xs, xps, ln_w, ln_b, wp, g, resid, wg=None, res32=False):
         return "weight_shape"
     K, N = int(wp.shape[-2]), int(wp.shape[-1])
     kt, nt = _tiles(K), _tiles(N)
-    from .tenstorrent import lever
-    if ((kt, nt) not in T2_KEYS and not (t2_wide(kt, nt) and lever("trimul_t2w"))
-            and not ((kt, nt) in T2_RES32_KEYS and res32) or K % TILE or N % TILE):
+    if not t2_key(kt, nt, res32) or K % TILE or N % TILE:
         return f"key={kt}x{nt}"
     if xs[-1] != K or xps[-1] != K:
         return "act_k"
@@ -1830,10 +1836,10 @@ def t1_cb_plan(kt, ct2, ntg, mask, rb=None, nb=None, il=None, w8=False, split=Fa
 
 T1_W_CBS = (0, 18)                # the resident weight CBs, bfp8 under trimul_t1w8
 T1_B8_CBS = (2, 21, 24, 25)       # a / b on their way out and the gather staging, bfp8 under trimul_t1b8
-# trimul_t1g8: g_out (c_19 and the DRAM tensor) bfp8 at RFD4's key and Mol-1's c_z 320 / 448 keys (whichever model
-# turns the lever on); T1_G8 forces it on for the benches.
+# trimul_t1g8: g_out (c_19 and the DRAM tensor) bfp8 at RFD4's key, Mol-1's c_z 320 / 448 keys and Protenix-v2's
+# c_z 256 (whichever model turns the lever on); T1_G8 forces it on for the benches.
 T1_G8 = False
-T1_G8_KEYS = {(12, 16, 12), (10, 20, 10), (14, 28, 14)}
+T1_G8_KEYS = {(12, 16, 12), (10, 20, 10), (14, 28, 14), (8, 16, 8)}
 # trimul_t1_fgate: p and g of a channel tile in one 2 x 2 matmul block and a = p * sigmoid(g) on the packer's SFPU in
 # DST, no p / g round trip through L1 and no FPU gate multiply (kernels/trimul_in_t1 T1FGATE). Unmasked calls with the
 # packer sigmoid only: the mask multiply has no room in a 4-tile fp32 DST half. T1_FG forces it on for the benches.

@@ -987,6 +987,13 @@ back to channel-last order reads it so and writes block-fp8 too, and the output 
 1293 MHz median), 192 1.064x and 256 1.076x; 384 and 512 run unbatched and do not change. The pair stream's error
 against float64 goes from 0.0536 to 0.0541, and the designed chain moves 2.46 A median against a 20.9 A seed-to-seed
 spread with the binder grade passing.
+A padded design (a length that is not a multiple of 32) masks only where tokens mix: the attention over keys and the
+triangle multiplication's two projections (`mask_at_mix`, RFD4's set only). Every other trunk op works per token or
+per token pair, so a pad cannot reach a real token through it, and the pads are zeroed once when the trunk returns.
+The padded call then runs the same fused kernels as an unpadded one. 620 real tokens in the 640 bucket go from 382 to
+202 ms a design per trunk pass (1.89x) and a whole design from 71.8 to 39.5 s (1.82x, 1250-1331 MHz); an unpadded
+length does not change. The pair stream's error against float64 goes from 0.0175 to 0.0195, and over 31 designs at
+620 tokens the designed chain moves 3.93 A median against a 25.7 A seed-to-seed spread with the binder grade passing.
 `TT_BIO_LEVERS=trimul_t1` restores fp32 numerics. The pair-transition matmul keys are reached
 only through RFD4's set, so no other model's linear changes kernel.
 

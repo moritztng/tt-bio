@@ -295,6 +295,53 @@ def test_full_mask_elision_is_bit_identical(monkeypatch):
 
 
 @pytest.mark.device
+def test_mask_at_mix_ragged_length(monkeypatch):
+    """`mask_at_mix` drops the trunk's per-token and per-pair residual masks on a padded call, keeping masks
+    only where tokens mix. What has to survive that is the answer on the REAL tokens, so this grades a ragged
+    100-token run against float64 run at 100 tokens with no padding at all -- the same grade and the same bar
+    as `test_trunk_run_bucketed_ragged_length`, which is the lever-off form of this test.
+
+    It also pins the other half of the rule: the padded tokens come back zero. A caller reading the bucket
+    rather than the slice must not see what the pass left in them."""
+    monkeypatch.setenv("TT_BIO_LEVERS", ",".join(sorted(TR.NORMAL_LEVERS | {"mask_at_mix"})))
+    dev = T.get_device()
+    nlayers, cycles = 4, 2
+    w = REF.trunk_weights(nlayers, DIM, DIM_PAIR, DIM_COND, HEADS, seed=21)
+    wb = {k: _bf16(v) for k, v in w.items()}
+    s0, z0, _, mask = REF.block_inputs(1, 100, DIM, DIM_PAIR, DIM_COND, seed=22)
+    g = torch.Generator().manual_seed(23)
+    conds = [torch.randn(1, 100, DIM_COND, generator=g, dtype=torch.float64) for _ in range(cycles)]
+    ref_s, ref_z = REF.trunk(w, s0, z0, conds, mask, nlayers, n_heads=HEADS)
+    fl_s, fl_z = REF.trunk(wb, s0, z0, conds, mask, nlayers, n_heads=HEADS, rnd=REF.bf16_mixed)
+    mod = TR.Trunk(_scope(w), TR.compute_kernel_config(), nlayers, HEADS, residual_dtype=ttnn.float32)
+    s, z = mod.run_bucketed(s0, z0, conds, mask, dev)
+    assert tuple(s.shape) == (1, 100, DIM) and tuple(z.shape) == (1, 100, 100, DIM_PAIR)
+    pair = mask[:, :, None] * mask[:, None, :]
+    _grade("mask_at_mix 100->128 s", s.double(), ref_s, fl_s, mask)
+    _grade("mask_at_mix 100->128 z", z.double(), ref_z, fl_z, pair)
+
+
+@pytest.mark.device
+def test_mask_at_mix_zeroes_the_padded_tokens(monkeypatch):
+    """The pad tokens of a `mask_at_mix` call come back exactly zero, as they do without the lever: the passes
+    leave them live and the call masks them once on the way out."""
+    monkeypatch.setenv("TT_BIO_LEVERS", ",".join(sorted(TR.NORMAL_LEVERS | {"mask_at_mix"})))
+    dev = T.get_device()
+    nlayers, cycles = 4, 2
+    w = REF.trunk_weights(nlayers, DIM, DIM_PAIR, DIM_COND, HEADS, seed=41)
+    s0, z0, _, mask = REF.block_inputs(1, 128, DIM, DIM_PAIR, DIM_COND, lengths=[96], seed=42)
+    g = torch.Generator().manual_seed(43)
+    conds = [torch.randn(1, 128, DIM_COND, generator=g, dtype=torch.float64) for _ in range(cycles)]
+    mod = TR.Trunk(_scope(w), TR.compute_kernel_config(), nlayers, HEADS, residual_dtype=ttnn.float32)
+    masks = TR.trunk_masks(mask, dev, residual_dtype=ttnn.float32)
+    assert masks[0] is not None, "this case has padded tokens, so the masks must be built"
+    s, z = mod(_dev(s0, dev, ttnn.float32), _dev(z0, dev, ttnn.float32), [_dev(c, dev) for c in conds], masks)
+    gs, gz = ttnn.to_torch(s), ttnn.to_torch(z)
+    assert gs[:, 96:].abs().max() == 0.0
+    assert gz[:, 96:].abs().max() == 0.0 and gz[:, :, 96:].abs().max() == 0.0
+
+
+@pytest.mark.device
 def test_trunk_run_bucketed_ragged_length():
     """`Trunk.run_bucketed` on a ragged 100-token input: it pads to the 32 bucket (128) itself, and the
     answer is graded against float64 run at 100 tokens with no padding at all."""

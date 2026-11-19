@@ -1701,6 +1701,21 @@ def cmd_gate(args) -> int:
     if new := [r for r in rows if bm and r["model"] not in bm and not r.get("failed")]:
         _seed_first(new, args, card_type, machine_id)
         baselines = load_baselines()
+    # A regression read on a contended host or a clamped clock describes the host, not the
+    # tree (_run_measure says so), yet grading it FAILed rel-2cca84e6a (protenix-v2, ratio
+    # 4.04) and rel-15ddbdf54 (rfd3, 1.25) and each cut waited on a hand waiver. Measure
+    # such a row once more and keep the better read: contention only ever slows a run.
+    for i, r in enumerate(rows):
+        b = (bm or {}).get(r["model"])
+        if not b or r.get("failed") or not (r.get("contended") or r.get("clock_low")) or \
+                _passes(float(b["value"]), r["throughput"], r["direction"], args.threshold):
+            continue
+        print(f"[{r['model']}] regressed on a contended read; measuring once more", file=sys.stderr)
+        again = _run_measure(r["model"])
+        base = float(b["value"])
+        if again and _delta_str(base, again["throughput"], r["direction"])[0] > \
+                _delta_str(base, r["throughput"], r["direction"])[0]:
+            rows[i] = dict(again, failed=False)
     ok = _print_table(rows, baselines, card_type, machine_id, args.threshold)
     return 0 if ok else 1
 

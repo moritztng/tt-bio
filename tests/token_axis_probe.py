@@ -254,13 +254,20 @@ def _program_cache_entries():
         return None
 
 
+def _write_json(path, obj):
+    # Rename into place: a worker SIGKILLed mid-dump otherwise leaves a truncated file that
+    # `merge()` cannot parse (empty census-<pid>.json failed pytest_device on rel-3154a6131).
+    with open(path + ".tmp", "w") as fh:
+        json.dump(obj, fh)
+    os.replace(path + ".tmp", path)
+
+
 def _dump():
     d = os.environ.get("TOKEN_AXIS_CENSUS_DIR")
     if not d or not COUNTS:
         return
     os.makedirs(d, exist_ok=True)
-    with open(os.path.join(d, "census-%d.json" % os.getpid()), "w") as fh:
-        json.dump(list(COUNTS.values()), fh)
+    _write_json(os.path.join(d, "census-%d.json" % os.getpid()), list(COUNTS.values()))
     # Separate file so `merge()` keeps seeing only census records. Rewritten on every periodic
     # dump, so the last value survives a SIGKILLed worker -- the same reason the census itself
     # does not wait for atexit.
@@ -278,8 +285,7 @@ def _dump():
         rec["sdpa_sites"] = {k: list(v) for k, v in
                              getattr(m, "SDPA_RAGGED_SITES", {}).items()}
     if len(rec) > 1:
-        with open(os.path.join(d, "pce-%d.json" % os.getpid()), "w") as fh:
-            json.dump(rec, fh)
+        _write_json(os.path.join(d, "pce-%d.json" % os.getpid()), rec)
 
 
 def _pce_records(d):

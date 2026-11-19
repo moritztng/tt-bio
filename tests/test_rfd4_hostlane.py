@@ -119,3 +119,30 @@ def test_prefetched_conditioning_gives_the_same_designs(case, n_designs, width):
     widths = [min(width or n_designs, n_designs - first) for first in range(0, n_designs, width or n_designs)]
     assert len(base_calls) == 180 * len(widths)
     assert len(plan_calls) == 180 * len(set(widths))
+
+
+@needs_bundle
+@pytest.mark.parametrize("n_designs, width", [(1, None), (3, 1)], ids=["one", "three_lanes"])
+def test_the_insertion_head_runs_once_per_design(case, n_designs, width):
+    """The sampler keeps the insertion logits from the final step alone, so with a plan every
+    earlier step skips that [tokens, tokens] bilinear map. The logits themselves must not move:
+    `test_prefetched_conditioning_gives_the_same_designs` holds the planned run to the unplanned
+    one, and this holds the count too."""
+    glue, _ = case
+
+    def counted(run_with_plan, sink):
+        handle = glue.insertion_q_proj.register_forward_hook(lambda *a: sink.append(1))
+        try:
+            return _run(case, run_with_plan, n_designs, width, [])
+        finally:
+            handle.remove()
+
+    base_calls, plan_calls = [], []
+    base = counted(False, base_calls)
+    ahead = counted(True, plan_calls)
+
+    assert torch.equal(base.insertion_logits, ahead.insertion_logits)
+    # Without a plan the head runs on all 60 steps of every lane; with one, only on the last.
+    lanes = len(range(0, n_designs, width or n_designs))
+    assert len(base_calls) == 60 * lanes
+    assert len(plan_calls) == lanes

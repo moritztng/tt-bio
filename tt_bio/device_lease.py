@@ -117,13 +117,13 @@ def _open_init_lock_file():
         return None
     if _init_lock_path:
         try:
-            return open(_init_lock_path, "w")
+            return open(_init_lock_path, "a+")
         except Exception:
             _init_lock_path = None      # it vanished or changed owner; resolve again
     refused = []
     for path in _init_lock_candidates():
         try:
-            f = open(path, "w")
+            f = open(path, "a+")     # never "w": truncating would erase the holder's record
         except Exception as e:
             why = getattr(e, "strerror", None) or repr(e)
             refused.append(f"{path} ({why})")
@@ -146,7 +146,7 @@ def _open_init_lock_file():
 
 
 @contextlib.contextmanager
-def device_init_lock():
+def device_init_lock(purpose="bring-up"):
     """Serialize TT device bring-up/teardown across every process on the host.
 
     Opening (or closing) a chip runs through the user-mode driver's cross-process
@@ -166,9 +166,11 @@ def device_init_lock():
     A single host-wide advisory lock makes every open/close strictly one-at-a-time,
     so the UMD init path is never raced. Blocking on purpose: a best-effort timeout
     that let opens proceed concurrently after waiting is exactly what reintroduced
-    the deadlock. The kernel drops the lock if a holder dies, and the pool
-    supervisor + per-run stall watchdog bound any pathological case, so this can
-    never wedge worse than opening unserialized. Opens are one-time per worker (the
+    the deadlock. The kernel drops the lock if a holder dies, and no holder
+    keeps it past ``INIT_LOCK_DEADLINE_S``: a section still running then is a chip that
+    will never answer, and the process ends (see ``exit_if_stuck``), which releases the
+    lock and the chip's fds. So one dead chip costs the other chips' opens at most the
+    deadline, never forever. Opens are one-time per worker (the
     chip is reused for every job, predict AND design -- design runs in-process on the
     already-open chip, never cold-opening), so serialization only lengthens startup
     slightly and never adds any runtime latency.
@@ -191,22 +193,106 @@ def device_init_lock():
         serve = open(_init_lock_path + ".serve", "a")
     except Exception:
         pass                     # no priority on this box; the lock itself still serializes
+    held = False
     try:
-        if os.environ.get(DEVICE_CLASS_ENV) == "borrow":
-            _take_behind_serve(f, serve)
-        else:
-            if serve is not None:
-                fcntl.flock(serve, fcntl.LOCK_SH)   # says "a serving open is waiting"
-            fcntl.flock(f, fcntl.LOCK_EX)  # wait our turn; do NOT proceed concurrently
-        yield
+        borrow = os.environ.get(DEVICE_CLASS_ENV) == "borrow"
+        waited = None
+        if not _lock_now(f, serve if borrow else None):
+            waited = time.time()
+            print(f"[tt-bio] {purpose} waits for the device bring-up lock {_init_lock_path}: "
+                  f"{_lock_holder(f)}", file=sys.stderr, flush=True)
+            if borrow:
+                _take_behind_serve(f, serve)
+            else:
+                if serve is not None:
+                    fcntl.flock(serve, fcntl.LOCK_SH)   # says "a serving open is waiting"
+                fcntl.flock(f, fcntl.LOCK_EX)  # wait our turn; do NOT proceed concurrently
+        if waited is not None:
+            print(f"[tt-bio] {purpose} took the device bring-up lock after "
+                  f"{time.time() - waited:.0f} s", file=sys.stderr, flush=True)
+        held = True
+        _record_holder(f, purpose)
+        with exit_if_stuck(INIT_LOCK_DEADLINE_S):
+            yield
     finally:
         for x in (f, serve):
             try:
                 if x is not None:
+                    if x is f and held:
+                        x.truncate(0)    # the record names a holder; there is none now
                     fcntl.flock(x, fcntl.LOCK_UN)
                     x.close()
             except Exception:
                 pass
+
+
+#: Longest any process may hold the bring-up lock. A healthy single-chip open takes 1-15 s on a
+#: Galaxy (bench.jsonl ``device_open``, .114 2026-10-11) and a close a few seconds. A section
+#: still running after this is a chip left dirty by a process killed mid-op: it spins in C at
+#: 100 % CPU, ignores SIGINT and SIGTERM, and never returns (.114 2026-10-11: 21 opens waited
+#: 24 min behind one such process, 13 of 31 chips busy).
+INIT_LOCK_DEADLINE_S = 600.0
+
+
+@contextlib.contextmanager
+def exit_if_stuck(seconds):
+    """End this process if the block is still running after ``seconds``.
+
+    Bounds a call into the device stack that can block forever in native code, which a Python
+    timer or ``signal.alarm`` cannot: ``ttnn.open_device`` holds the GIL while it spins, and
+    ``synchronize_device`` blocks with it released and is never interrupted. faulthandler's
+    watchdog is a C thread: it dumps every thread's stack to stderr and ``_exit(1)``s, the code
+    any other failed open exits with, and the kernel then drops this process's flocks and
+    device fds. The dump names the stuck call; reset that chip before reusing it.
+
+    faulthandler has one watchdog per process, so these blocks must not nest.
+    """
+    import faulthandler
+
+    faulthandler.dump_traceback_later(seconds, exit=True, file=2)   # fd 2: sys.stderr may be redirected
+    try:
+        yield
+    finally:
+        faulthandler.cancel_dump_traceback_later()
+
+
+def _record_holder(f, purpose):
+    """Write who holds the bring-up lock into the lock file, for the next waiter to print."""
+    try:
+        f.truncate(0)
+        f.write(json.dumps({"pid": os.getpid(), "since": time.time(), "purpose": purpose,
+                            "holder": _holder_label(),
+                            "visible": os.environ.get("TT_VISIBLE_DEVICES"),
+                            "cmd": " ".join(sys.argv)[:200]}))
+        f.flush()
+    except Exception:
+        pass                     # the record is for people; the lock does not depend on it
+
+
+def _lock_holder(f):
+    """One line naming the process that holds the bring-up lock and since when."""
+    try:
+        f.seek(0)
+        rec = json.loads(f.read() or "null")
+    except Exception:
+        rec = None
+    if not isinstance(rec, dict) or not _pid_alive(rec.get("pid")):
+        return "held by a process that left no record (an older tt-bio, or one exiting now)"
+    since = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(rec["since"]))
+    return (f"held by pid {rec['pid']} ({rec.get('holder')}, {rec.get('purpose')}, "
+            f"TT_VISIBLE_DEVICES={rec.get('visible')}, `{rec.get('cmd')}`) since {since}, "
+            f"{time.time() - rec['since']:.0f} s ago; a holder still in it at "
+            f"{INIT_LOCK_DEADLINE_S:.0f} s is ended")
+
+
+def _pid_alive(pid):
+    try:
+        os.kill(int(pid), 0)
+        return True
+    except PermissionError:
+        return True              # alive, under another account
+    except Exception:
+        return False
 
 
 #: ``borrow`` marks a process running on a chip a serving host lent it (the JapanFold agent's
@@ -214,6 +300,18 @@ def device_init_lock():
 DEVICE_CLASS_ENV = "TT_BIO_DEVICE_CLASS"
 #: How often a borrowing open looks again while a serving one waits or the lock is held.
 BORROW_POLL_S = 0.5
+
+
+def _lock_now(f, serve=None):
+    """Take the bring-up lock if it is free right now; with ``serve``, only if no serving open waits."""
+    try:
+        if serve is not None:
+            fcntl.flock(serve, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            fcntl.flock(serve, fcntl.LOCK_UN)
+        fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        return True
+    except BlockingIOError:
+        return False
 
 
 def _take_behind_serve(f, serve):
@@ -580,7 +678,63 @@ class CardSetLease:
 _ARMED = False
 
 
-def install_parent_death_guard(parent_pid: int, *, exit_code: int = 70) -> None:
+#: How long an orphan gets to unwind after its parent is gone before it is SIGKILLed. A worker's
+#: SIGTERM handler closes its chip in seconds, and its heartbeat backstop exits at ~60 s when the
+#: interpreter still runs; this is the case where neither can.
+ORPHAN_KILL_AFTER_S = 90.0
+
+# Runs in its own interpreter, so a process wedged inside a C call cannot stop it. It is the
+# guarded process's child: while ``getppid()`` names that process, a kill cannot hit a recycled
+# pid. The parent's death shows as a changed ppid in /proc, which needs no pidfd (a uv-built
+# Python has no os.pidfd_open). It ignores the group signals its guarded process gets, so a
+# `timeout` that SIGTERMs the whole group does not take the reaper down first, and it holds
+# none of the guarded process's fds, so a reader waiting for that process's EOF never waits on it.
+_REAPER_SRC = """
+import os, signal, sys, time
+for s in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+    signal.signal(s, signal.SIG_IGN)
+guarded, parent, after = int(sys.argv[1]), int(sys.argv[2]), float(sys.argv[3])
+
+def parent_of(pid):
+    try:
+        with open(f"/proc/{pid}/stat") as f:
+            return int(f.read().rsplit(")", 1)[1].split()[1])
+    except (OSError, IndexError, ValueError):
+        return None
+
+while os.getppid() == guarded and parent_of(guarded) == parent:
+    time.sleep(0.25)
+deadline = time.monotonic() + after
+while os.getppid() == guarded and time.monotonic() < deadline:
+    time.sleep(0.25)
+if os.getppid() == guarded:
+    try:
+        with open(f"/proc/{guarded}/fd/2", "w") as err:
+            err.write(f"tt-bio: pid {guarded} outlived its parent {parent} by {after:.0f}s "
+                      "without taking SIGTERM; killing it (SIGKILL)\\n")
+    except OSError:
+        pass
+    os.kill(guarded, signal.SIGKILL)
+"""
+_REAPER = None
+
+
+def _start_orphan_reaper(parent_pid: int, kill_after_s: float) -> None:
+    """SIGKILL this process ``kill_after_s`` after ``parent_pid`` stops being its parent.
+
+    The reaper exits within a quarter second of this process, so it never outlives what it guards.
+    """
+    global _REAPER
+    import subprocess
+
+    _REAPER = subprocess.Popen(
+        [sys.executable, "-I", "-S", "-c", _REAPER_SRC,
+         str(os.getpid()), str(parent_pid), str(kill_after_s)],
+        stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def install_parent_death_guard(parent_pid: int, *, exit_code: int = 70,
+                               kill_after_s: float = ORPHAN_KILL_AFTER_S) -> None:
     """Die with the process that owns this one, from inside any call.
 
     PR_SET_PDEATHSIG is delivered by the kernel the moment the parent dies, so it
@@ -590,9 +744,17 @@ def install_parent_death_guard(parent_pid: int, *, exit_code: int = 70) -> None:
     a gate scorer, held card 1 for 1 h 43 m and killed the next gate's first leg with
     DeviceInUseError.
 
+    The death signal is SIGTERM so that a worker's handler can close its chip cleanly.
+    A Python handler only runs when the interpreter does, though, and a process wedged
+    in a ttnn call never gets back to it: a predict worker stuck in the bring-up
+    dispatch probe held card 3 for 1 h 48 min after `timeout` killed its CLI
+    (2026-11-13). So a reaper process escalates to SIGKILL ``kill_after_s`` later,
+    which nothing in this process can block or delay. Stale-lease reclaim stays the
+    backstop behind both.
+
     The kernel sends the signal when the parent THREAD that created us exits, not when
     the parent process does, so a caller spawning from a thread pool must not let that
-    thread return while the child is still alive.
+    thread return while the child is still alive. The reaper watches the process.
     """
     if not parent_pid:
         return
@@ -606,6 +768,19 @@ def install_parent_death_guard(parent_pid: int, *, exit_code: int = 70) -> None:
     # is sent if it is already gone, so re-check by hand.
     if os.getppid() != parent_pid:
         os._exit(exit_code)
+    try:
+        _start_orphan_reaper(parent_pid, kill_after_s)
+    except OSError:
+        pass
+
+
+def orphan_guard_env() -> dict:
+    """Environment that lets a child this process spawns arm its guard against us.
+
+    Merge it into the env of any child that can open a device. The child arms in
+    ``arm_orphan_guard``, which every device open and every CLI entry point calls.
+    """
+    return {"TT_BIO_PARENT_PID": str(os.getpid())}
 
 
 def arm_orphan_guard() -> None:

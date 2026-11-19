@@ -1,5 +1,5 @@
-"""Mol-1's levers reach Mol-1 alone: protenix.mode_levers adds them only at c_z 448 in normal mode, MOL1_BH on Blackhole
-and MOL1_WH on Wormhole, and leaves every other checkpoint's set as it was.
+"""Mol-1's levers reach Mol-1 alone: protenix.mode_levers adds them only at c_z 448, MOL1_BH on Blackhole and MOL1_WH
+on Wormhole, its --fast is that normal set plus MOL1_BH_FAST / MOL1_WH_FAST, and every other checkpoint's set is as it was.
 
 Run: TT_VISIBLE_DEVICES= python3 -m pytest tests/test_mol1_trimul_levers.py
 """
@@ -19,13 +19,13 @@ def _levers(c_z, wh, fast, monkeypatch):
 
 @pytest.mark.parametrize("wh", [False, True])
 @pytest.mark.parametrize("fast", [False, True])
-def test_mol1_set_only_at_448_normal(wh, fast, monkeypatch):
-    base = _levers(128, wh, fast, monkeypatch)
+def test_mol1_set_only_at_448(wh, fast, monkeypatch):
+    normal = _levers(128, wh, False, monkeypatch) | P.WIDE_NORMAL | (P.MOL1_WH if wh else P.MOL1_BH)
     got = _levers(448, wh, fast, monkeypatch)
-    assert got == (base if fast else base | P.WIDE_NORMAL | (P.MOL1_WH if wh else P.MOL1_BH))
+    assert got == (normal | (P.MOL1_WH_FAST if wh else P.MOL1_BH_FAST) if fast else normal)
     for c_z in (128, 256, 384):           # Protenix-v1, Protenix-v2, OpenDDE: no Mol-1 lever
         assert not _levers(c_z, wh, fast, monkeypatch) & {"trimul_t1_c320", "trimul_t1_c448"}
-    assert P.MOL1_BH | P.MOL1_WH <= set(T.LEVERS)
+    assert P.MOL1_BH | P.MOL1_WH | P.MOL1_BH_FAST | P.MOL1_WH_FAST <= set(T.LEVERS)
 
 
 def _size(c_z, wh, fast, monkeypatch, env=None):
@@ -37,10 +37,10 @@ def _size(c_z, wh, fast, monkeypatch, env=None):
     return P.size_levers({"layernorm_z_cycle.weight": torch.zeros(c_z)})
 
 
-def test_size_set_only_mol1_bh_normal(monkeypatch):
+def test_size_set_only_mol1_bh(monkeypatch):
     assert _size(448, False, False, monkeypatch) == P.MOL1_BH_512 <= set(T.LEVERS)
+    assert _size(448, False, True, monkeypatch) == P.MOL1_BH_512        # --fast is a superset of normal
     assert not _size(448, True, False, monkeypatch)          # Wormhole
-    assert not _size(448, False, True, monkeypatch)          # --fast names its whole set
     assert not _size(448, False, False, monkeypatch, env="normal")   # a harness set is exact
     for c_z in (128, 256, 384):
         assert not _size(c_z, False, False, monkeypatch)

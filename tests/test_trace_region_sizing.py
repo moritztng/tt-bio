@@ -29,6 +29,7 @@ CAPTURE_SITES = {
     "tt_bio/autograd.py": "bc2",
     "tt_bio/esmfold2.py": "esmfold2",
     "tt_bio/saprot.py": "saprot",
+    "tt_bio/rfd4/trunk.py": "rfd4",
 }
 
 

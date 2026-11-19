@@ -10,7 +10,7 @@ shape, compile) then N warm reps, each on its own seed. Every rep appends one JS
     python perf/spd/bench.py --out RUN/of3   --chip 3 --model openfold3 --inputs c730
     python perf/spd/bench.py --out RUN/bc2   --chip 3 --model bindcraft2 --warm 2
 
---model: protenix-v2 (default), protenix-v1, opendde, openfold3, openbind, boltz2, rf3, af2ig, esmfold2 or esmfold2-fast fold
+--model: protenix-v2 (default), protenix-v1, opendde, opendde-abag, openfold3, openbind, boltz2, rf3, af2ig, esmfold2 or esmfold2-fast fold
 through `Worker.load_model` and `predict_one`, the code a JapanFold worker runs, and time the model's own fold call
 (`fold`; Boltz-2's `predict_step`, RF3's `predict`, ESMFold2's `forward`; AF2-IG's `af2ig.fold`, which draws no samples
 and reads no seed, so its warm reps are repeats).
@@ -58,7 +58,7 @@ ap = argparse.ArgumentParser()
 ap.add_argument("--out", required=True, type=Path)
 ap.add_argument("--chip", required=True, type=int, help="UMD index handed to TT_VISIBLE_DEVICES")
 ap.add_argument("--model", default="protenix-v2",
-                choices=("protenix-v2", "protenix-v1", "opendde", "openfold3", "openbind", "boltz2", "rf3", "bindcraft2", "af2ig",
+                choices=("protenix-v2", "protenix-v1", "opendde", "opendde-abag", "openfold3", "openbind", "boltz2", "rf3", "bindcraft2", "af2ig",
                          "esmfold2", "esmfold2-fast"))
 ap.add_argument("--arm", default="exact")
 ap.add_argument("--inputs", default="c730")
@@ -160,7 +160,7 @@ def parse_arm(spec):
 
 ARM, ARM_ENV, FAST, LEVER_SPEC, TRACE = parse_arm(a.arm)
 PV2 = a.model == "protenix-v2"
-if LEVER_SPEC is not None and a.model in ("openfold3", "openbind", "rf3", "opendde", "boltz2", "esmfold2",
+if LEVER_SPEC is not None and a.model in ("openfold3", "openbind", "rf3", "opendde", "opendde-abag", "boltz2", "esmfold2",
                                            "esmfold2-fast"):
     # OpenFold3, OpenBind-0, RF3, OpenDDE and Boltz-2 build under `tenstorrent.model_levers()`, ESMFold2 folds under
     # `lever_scope`; all read the set from TT_BIO_LEVERS.

@@ -216,6 +216,14 @@ runs at HiFi2. At 1350 MHz the trunk of a 512-token design goes from 23.8 to 23.
 1.02x and of a 256-token one 1.03x. Over 31 seed-matched 512-token designs the designed chain moved 2.4 A median
 against the previous default, while a different seed moves it 38 A, and the binder grade passes.
 
+A design whose token count is not a multiple of 32 is padded, and the padded tokens are masked only where tokens
+mix: the attention over keys and the triangle multiplication's two projections. Every other trunk op works per token
+or per token pair, so a pad cannot reach a real token through it, and the pads are zeroed once when the trunk
+returns. The padded design then runs the same fused programs as an unpadded one. A 568-residue binder design (620
+tokens, padded to 640) goes from 71.8 to 39.5 s on a Blackhole chip (1.82x, 1250-1331 MHz); a length that is already
+a multiple of 32 does not change. Over 31 seed-matched 620-token designs the designed chain moved 3.9 A median
+against the previous default, while a different seed moves it 25.7 A, and the binder grade passes.
+
 ## Many designs at once
 
 A spec can hold any number of designs and `--num_designs` multiplies them. Locally, one card

@@ -20,29 +20,17 @@ case $GPU in
   *) echo "pnr_session.sh: unknown --gpu $GPU" >&2; exit 2;;
 esac
 L=${1:?label} CAP_H=${2:?cap hours} Q=${3:-$DQ} NMAX=${4:-6}
-MINW=${MINW:-$W0} MAXW=${MAXW:-$W1} SLUG=${SLUG:-pnr-gpu} FLOOR=${VAST_FLOOR_USD:-20}
+MINW=${MINW:-$W0} MAXW=${MAXW:-$W1} SLUG=${SLUG:-pnr-gpu} VAST_FLOOR_USD=${VAST_FLOOR_USD:-20}
 BOXENV="PNR_LABEL=$L MIN_SM=$SM ${BOXENV:-}"; [ $GPU = dry ] && BOXENV="DRY=1 $BOXENV"
-P=$(cd "$(dirname "$0")" && pwd); KC=$P/../kitcmp; V=~/.vast-venv/bin/vastai
-B=/home/moritz/.coworker/state/vast-budget HOLD=/home/moritz/.coworker/state/vast-holder
-K=$(cat ~/.config/vastai/vast_api_key); API=https://console.vast.ai/api/v0
+P=$(cd "$(dirname "$0")" && pwd); KC=$P/../kitcmp
 IMAGE=nvidia/cuda:13.0.1-cudnn-devel-ubuntu24.04
 OUT=$P/gpu/$L; mkdir -p "$OUT"; python3 $P/pnr_inputs.py $OUT/in > /dev/null || exit 3
 TRIEDF=$OUT/tried; touch "$TRIEDF"
-TRIED=" $(tr '\n' ' ' < "$TRIEDF") $(tr '\n' ' ' < /home/moritz/.coworker/state/vast-bad-offers 2>/dev/null) "
-log(){ echo "$(date -u +%FT%TZ) $*"; }
-credit(){ local c n; for n in 1 2 3 4 5; do
-  c=$(curl -s -H "Authorization: Bearer $K" "$API/users/current/" | python3 -c 'import json,sys;print(json.load(sys.stdin)["credit"])' 2>/dev/null)
-  [ -n "$c" ] && { echo "$c"; return; }; sleep 20; done; echo 0; }
-gone(){ curl -s -H "Authorization: Bearer $K" "$API/instances/?owner=me" | python3 -c 'import json,sys;print(len(json.load(sys.stdin)["instances"]))'; }
-state(){ curl -s -H "Authorization: Bearer $K" "$API/instances/?owner=me" | python3 -c 'import json,sys
-print(next((x.get("intended_status") or "" for x in json.load(sys.stdin)["instances"] if x["id"]==int(sys.argv[1])), "gone"))' $1; }
-destroy(){ curl -s -X DELETE -H "Authorization: Bearer $K" "$API/instances/$1/" >/dev/null; sleep 10
-  local n s; n=$(gone); s=$(state $1); log "DESTROYED $1 ($2); this instance over REST: $s; instances left: $n"; rm -f $HOLD/$1
-  echo "$1 $(date -u +%FT%TZ) $s" >> $OUT/destroyed
-  sed -i "s|^$1  $CAP_H  $SLUG$|#$1 DESTROYED $(date -u +%FT%TZ) ($2), REST: $s, instances=$n|" $B; }
-next_offer(){ $V search offers "$Q" -o dph --raw 2>/dev/null | python3 -c 'import json,sys
-t=sys.argv[1].split()
-print(next((str(o["id"]) for o in json.load(sys.stdin) if str(o["id"]) not in t), ""))' "$TRIED"; }
+# Offer choice, the ledger line with its expected $, the dollar-capped ssh wait, power check, destroy and machine
+# strikes are the fleet's one copy: ~/.coworker/scripts/vast/lib.sh.
+. "${VL:-/home/moritz/.coworker/scripts/vast}/lib.sh"; VL_BY=perf/pnr/pnr_session.sh VL_ANY_HOSTING=${VL_ANY_HOSTING-1}
+log(){ vl_log "$@"; }
+destroy(){ vl_destroy "$1" "$2"; echo "$1 $(date -u +%FT%TZ) $(vl_state $1)" >> $OUT/destroyed; }
 R(){ timeout 900 rsync -a --exclude '*.cif' --exclude '*.cif.gz' --exclude '*.pdb' --exclude '*.png' --exclude '*.pt' \
   --exclude '*.npz' --exclude 'bin/' -e "${S% root@*}" "$@"; }
 push(){ local n; for n in 1 2 3 4; do R "$@" && return 0; sleep 20; done; return 1; }
@@ -53,14 +41,14 @@ while :; do
   sleep 180
   R $H:/root/kc/ $OUT/box/ 2>/dev/null
   [ -n "$(timeout 30 $S 'ls /root/kc/PNR-DONE' 2>/dev/null)" ] && END=done
-  [ -z "$END" ] && [ "$(state $I)" != running ] && END=stopped
+  [ -z "$END" ] && [ "$(vl_state $I)" != running ] && END=stopped
   [ $(( $(date +%s) - T0 )) -ge $(python3 -c "print(int($CAP_H*3600-420))") ] && END=${END:-cap}
   [ -n "$END" ] && break
 done
 R $H:/root/kc/ $OUT/box/ 2>/dev/null
 log "$I ended: $END ($(tr '\n' ';' < $OUT/box/PNR-PROGRESS 2>/dev/null))"
 destroy $I "session end: $END"
-log "credit \$$(credit) at end"; echo "$END" > $OUT/SESSION-END; exit 0
+log "credit \$$(vl_credit) at end"; echo "$END" > $OUT/SESSION-END; exit 0
 }
 # RESUME=1 re-attaches to the box this label already rents (a watcher that died), without renting.
 if [ -n "${RESUME:-}" ]; then
@@ -70,48 +58,23 @@ if [ -n "${RESUME:-}" ]; then
 fi
 
 MAXDPH=$(echo "$Q" | grep -oP 'dph<=\K[0-9.]+')
-fits(){ python3 -c "import sys; sys.exit(0 if $1 - $CAP_H * $MAXDPH >= $FLOOR else 1)"; }
-C=$(credit); fits $C || { log "REFUSED: credit \$$C - $CAP_H h x \$$MAXDPH/h would cross the \$$FLOOR floor"; exit 4; }
+C=$(vl_credit); vl_floor_ok $MAXDPH || { log "REFUSED: credit \$$C - $CAP_H h x \$$MAXDPH/h would cross the \$$VAST_FLOOR_USD floor"; exit 4; }
 log "credit \$$C at start, gpu $GPU, cap $CAP_H h"; echo "$C" > $OUT/credit-start
 
 TW=$(date +%s)
 for _ in $(seq $NMAX); do
-  O=$(next_offer)
-  while [ -z "$O" ] && [ $(( $(date +%s) - TW )) -lt $(python3 -c "print(int(${WAIT_H:-0}*3600))") ]; do sleep 600; O=$(next_offer); done
-  [ -z "$O" ] && { log "no untried offer matches: $Q"; break; }
-  TRIED="$TRIED$O "; echo "$O" >> "$TRIEDF"
-  C=$(credit); fits $C || { log "REFUSED at offer $O: credit \$$C would cross the \$$FLOOR floor"; exit 4; }
-  echo "-  $CAP_H  $SLUG  # $L creating on offer $O" >> $B
-  I=$($V create instance $O --image $IMAGE --disk ${DISK:-200} --ssh --direct --label $SLUG-$L --raw 2>&1 | grep -oP "new_contract['\"]:\s*\K[0-9]+")
-  [ -z "$I" ] && { sed -i '$d' $B; log "offer $O: create failed"; continue; }
-  mkdir -p $HOLD; echo $$ > $HOLD/$I; sed -i "\$s|.*|$I  $CAP_H  $SLUG|" $B
-  echo "# ^ $SLUG $L offer $O created $(date -u +%FT%TZ) by perf/pnr/pnr_session.sh" >> $B
-  T0=$(date +%s); log "created $I on offer $O"; S=""
-  while [ $(( $(date +%s) - T0 )) -lt 720 ]; do
-    [ $(( $(date +%s) - T0 )) -ge 120 ] && [ "$(state $I)" != running ] && break
-    ROUTES=$($V show instance $I --raw 2>/dev/null | python3 -c 'import json,sys
-x=json.load(sys.stdin)
-if x.get("actual_status")=="running":
-    p=(x.get("ports") or {}).get("22/tcp")
-    ip=(x.get("public_ipaddr") or "").strip()
-    if p and ip: print(p[0]["HostPort"], ip)
-    if x.get("ssh_host") and x.get("ssh_port"): print(x["ssh_port"], x["ssh_host"])' 2>/dev/null)
-    while read -r PORT HOST; do
-      [ -z "${PORT:-}" ] && continue
-      S="ssh -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=15 -o ServerAliveInterval=30 -p $PORT root@$HOST"
-      timeout 30 $S true >/dev/null 2>&1 && break; S=""
-    done <<< "$ROUTES"
-    [ -n "$S" ] && break
-    sleep 30
-  done
-  [ -z "$S" ] && { destroy $I "no ssh: intended_status=$(state $I)"; continue; }
-  W=$(timeout 30 $S 'nvidia-smi --query-gpu=power.limit --format=csv,noheader,nounits' 2>/dev/null | tail -1 | cut -d. -f1)
-  log "$I up at $HOST:$PORT, power limit ${W:-?} W"
-  [ "${W:-0}" -ge "$MINW" ] && [ "${W:-0}" -le "$MAXW" ] || { destroy $I "power limit ${W:-?} W outside $MINW-$MAXW"; continue; }
+  vl_pick "$L" "$Q" "$TRIEDF" "${NEED_VRAM:-0}"
+  while [ -z "${O:-}" ] && [ $(( $(date +%s) - TW )) -lt $(python3 -c "print(int(${WAIT_H:-0}*3600))") ]; do sleep 600; vl_pick "$L" "$Q" "$TRIEDF" "${NEED_VRAM:-0}"; done
+  [ -z "${O:-}" ] && { log "no untried offer matches: $Q"; break; }
+  echo "$O" >> "$TRIEDF"
+  vl_floor_ok $ODPH || { log "REFUSED at offer $O: credit \$$(vl_credit) would cross the \$$VAST_FLOOR_USD floor"; exit 4; }
+  vl_rent $IMAGE ${DISK:-200} || { log "offer $O: create failed"; continue; }
+  vl_ssh || { destroy $I "no ssh: intended_status=$(vl_state $I), see nossh-$I.log"; continue; }
+  vl_power_ok $MINW $MAXW || { destroy $I "power limit ${W:-?} W outside $MINW-$MAXW"; continue; }
   BW=$(timeout 40 $S 'curl -s -o /dev/null -m 20 -w "%{speed_download}" https://download.pytorch.org/whl/cu130/torch-2.9.0%2Bcu130-cp312-cp312-manylinux_2_28_x86_64.whl' 2>/dev/null | tail -1 | cut -d. -f1)
   log "$I download ${BW:-?} B/s"
   [ "${BW:-0}" -ge ${MINBW:-20000000} ] || { destroy $I "download ${BW:-?} B/s < ${MINBW:-20000000} B/s"; continue; }
-  echo "$S" > $OUT/ssh; echo "$I $O" > $OUT/instance; H=root@$HOST
+  echo "$S" > $OUT/ssh; echo "$I $O" > $OUT/instance
   $V show instance $I --raw 2>/dev/null | python3 -c "import json,sys; d=json.load(sys.stdin); [d.pop(k) for k in list(d) if 'token' in k.lower()]; json.dump(d,sys.stdout,indent=1)" > $OUT/instance.json || true
   $S 'mkdir -p /root/kc' &&
     push $KC/box_mol1.sh $KC/mol1_gpu.py $KC/mol1_arms.py $KC/box_bc_setup.sh $KC/bc2_gpu.py $KC/bc2_traj.py $KC/bc4_arms.py \
