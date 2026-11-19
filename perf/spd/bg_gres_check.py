@@ -1,6 +1,8 @@
 """The token DiT's two gated residuals with the gate and the residual add in the output projection's epilogue
 (tt_bio/mm_gres), against today's path: ttnn.linear then addcmul_at reading the gate window in place. BoltzGen's
-token shape (514 tokens, c_s 768), the attention output projection (K 768) and the transition's b_to_a (K 1536), the
+token shape (514 tokens, c_s 768), the attention output projection on its padded head lanes (dit_qkvf, in both WH
+sets: 16 heads x 64 lanes = K 1024; gres1-3 measured K 768, which the design never runs) and the transition's b_to_a
+(K 1536), the
 gate a column window of a stepped conditioning tensor as dit_cond_steps lays it out. Every arm against float64,
 rel_l2 and max_abs, then ms a call (synchronized, median of --calls).
 
@@ -24,6 +26,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--tokens", type=int, default=514)
     ap.add_argument("--dim", type=int, default=768)
+    ap.add_argument("--heads", type=int, default=16, help="token DiT heads: o_proj reads heads x ceil32(dim/heads) lanes")
     ap.add_argument("--steps", type=int, default=4, help="steps the stacked gate tensor holds (dit_cond_steps)")
     ap.add_argument("--calls", type=int, default=30)
     ap.add_argument("--mode", choices=sorted(CFGS), default="fast")
@@ -58,7 +61,8 @@ def main() -> int:
     cd = ttnn.from_torch(cond, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
     row, off = 2, 2 * d
     gate = cond[row, :, off:off + d]
-    for name, K in (("o_proj", d), ("b_to_a", 2 * d)):
+    lanes = a.heads * -(-(d // a.heads) // 32) * 32
+    for name, K in (("o_proj", lanes), ("b_to_a", 2 * d)):
         x = torch.randn(1, n, K, generator=gen)
         w = torch.randn(K, d, generator=gen) / math.sqrt(K)
         r = torch.randn(1, n, d, generator=gen) * 2

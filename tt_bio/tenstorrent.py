@@ -3260,6 +3260,10 @@ class DitLowp(NamedTuple):
 _DIT_STEP_MM = {(True, 24, 96): (4, 1, 16, 1, 4), (True, 24, 48): (4, 1, 8, 1, 4), (True, 48, 24): (2, 1, 4, 1, 4),
                 (True, 24, 24): (2, 1, 4, 1, 4), (False, 24, 96): (2, 4, 16, 2, 4), (False, 24, 48): (2, 4, 8, 2, 4),
                 (False, 48, 24): (2, 4, 4, 2, 4), (False, 24, 24): (2, 4, 4, 2, 4)}
+# `dit_gres`'s blocks: _DIT_STEP_MM's, plus the token attention's output projection on its padded head lanes
+# (`dit_qkvf`: 16 heads x 64 lanes = K 32 tiles at c_s 768), which _DIT_STEP_MM never measured. fp32 accumulation
+# only: under bf16 accumulation the fused projection loses to ttnn.linear at 17 row tiles (perf/spd/bg_gres_check.py).
+_DIT_GRES_MM = {**_DIT_STEP_MM, (True, 32, 24): (2, 1, 4, 1, 4)}
 def _dit_step_mm(x, w, bias, lp, dtype, activation):
     """`DitLowp.linear` on minimal_matmul (`dit_step_mm`), or None where no block was measured (a fused activation
     was not)."""
@@ -14462,7 +14466,7 @@ class AttentionPairBias(Module):
         if gres is None or self.atom_level or not (lever("dit_gres") and is_wormhole()):
             return None
         resid, gate = gres
-        blk = _DIT_STEP_MM.get((bool(k1), int(o_weight.padded_shape[-2]) // 32, int(o_weight.padded_shape[-1]) // 32))
+        blk = _DIT_GRES_MM.get((bool(k1), int(o_weight.padded_shape[-2]) // 32, int(o_weight.padded_shape[-1]) // 32))
         if blk is None:
             return None
         from tt_bio import mm_gres
