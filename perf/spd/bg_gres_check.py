@@ -75,8 +75,10 @@ def main() -> int:
             p = (T.k1_linear(xd, wd, compute_kernel_config=ck, dtype=st_dt) if normal else
                  ttnn.linear(xd, wd, dtype=st_dt, compute_kernel_config=ck, core_grid=T.CORE_GRID_MAIN))
             o = addcmul_at(rd, p, cd, d, z_off=off, z_row=row)
-            if o is None:
-                raise RuntimeError("addcmul_at declined")
+            if o is None:   # the model's own fallback (DiffusionTransformerLayer.gate): cut the window, one addcmul
+                g = ttnn.typecast(ttnn.reshape(ttnn.slice(cd, [row, 0, off], [row + 1, n, off + d]), (1, n, d)), st_dt)
+                o = ttnn.addcmul(rd, g, p, value=1.0)
+                ttnn.deallocate(g)
             ttnn.deallocate(p)
             return o
         fns = {"ref": ref}
