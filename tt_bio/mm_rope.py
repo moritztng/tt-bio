@@ -177,7 +177,7 @@ def qk_norm_fold(w: torch.Tensor, b: torch.Tensor, gq: torch.Tensor, gk: torch.T
 
 
 def qk_rstd(stats, d: int, eps: float = 1e-5):
-    """[rows, 64]: columns 0-31 the rows' q rstd, 32-63 their k rstd, from `qkv_rope_heads(..., qk_norm=True)`'s
+    """[rows, 64] bf16: columns 0-31 the rows' q rstd, 32-63 their k rstd, from `qkv_rope_heads(..., qk_norm=True)`'s
     partials (even tile columns q, odd k, each column of a tile the same row sum)."""
     nb = int(stats.padded_shape[-1]) // 64
     key = ("qk_rstd", nb, d, stats.device().id())
@@ -190,8 +190,10 @@ def qk_rstd(stats, d: int, eps: float = 1e-5):
                                             device=stats.device())
     ck = ttnn.WormholeComputeKernelConfig(math_fidelity=ttnn.MathFidelity.HiFi4, fp32_dest_acc_en=True)
     var = ttnn.matmul(stats, sel, compute_kernel_config=ck)
-    out = ttnn.rsqrt(ttnn.add(var, eps))
+    r = ttnn.rsqrt(ttnn.add(var, eps))
     ttnn.deallocate(var)
+    out = ttnn.typecast(r, ttnn.bfloat16)   # shsdpa's qk_rstd multiplies bf16 q / k tiles by it
+    ttnn.deallocate(r)
     return out
 
 

@@ -16,7 +16,7 @@ import json
 import torch
 import ttnn
 
-from tt_bio import esmc, mm_rope
+from tt_bio import esmc, mm_rope, shsdpa
 from tt_bio.qk_rope_heads import qk_rope_heads
 
 from packrows import dev_ms
@@ -136,6 +136,47 @@ def main() -> int:
     print(json.dumps(rec), flush=True)
     with open(args.out, "a") as f:
         f.write(json.dumps(rec) + "\n")
+
+    # The consumer: shsdpa with qk_rstd (Q *= rq, K *= rk in the kernel) on the fused q, k, v against today's shsdpa on
+    # today's, both graded against float64 attention over the page's 514 real keys; plus the fused heads without rstd
+    # (wrong output) to isolate the scale's own cost.
+    L = 514
+    table, row = shsdpa.key_pad([L] * B, SEQ, dev)
+    pad_ = (table, row)
+    scale = 64 ** -0.5
+    vref = y[:, 2 * d:].reshape(B, SEQ, H, 64).permute(0, 2, 1, 3)
+    sc = (ref[0] @ ref[1].transpose(-1, -2)) * scale
+    sc[..., L:] = float("-inf")
+    oref = torch.softmax(sc, -1) @ vref
+
+    def att_today():
+        q, k, v = today()
+        o = shsdpa.sdpa(q, k, v, scale, pad_, out_dtype=ttnn.bfloat16)
+        for t in (q, k, v):
+            ttnn.deallocate(t)
+        return (o,)
+
+    def att_fused(use_r=True):
+        q, k, v, r = fused()
+        o = shsdpa.sdpa(q, k, v, scale, pad_, out_dtype=ttnn.bfloat16, qk_rstd=r if use_r else None)
+        for t in (q, k, v, r):
+            ttnn.deallocate(t)
+        return (o,)
+
+    rec2 = {k_: rec[k_] for k_ in ("model", "fast", "pad", "rows", "n_layers")}
+    rec2["stage"] = "sdpa"
+    ot = ttnn.to_torch(att_today()[0]).double()[:, :H, :L]
+    of = ttnn.to_torch(att_fused()[0]).double()[:, :H, :L]
+    rec2.update(att_today=rel(ot, oref[:, :, :L]), att_fused=rel(of, oref[:, :, :L]), att_fused_vs_today=rel(of, ot))
+    print(json.dumps(rec2), flush=True)
+    rec2["att_today_ms"] = dev_ms(att_today, dev)
+    rec2["att_fused_ms"] = dev_ms(att_fused, dev)
+    rec2["att_fused_nor_ms"] = dev_ms(lambda: att_fused(False), dev)
+    rec2["saved_page_ms"] = round((rec2["att_today_ms"] - rec2["att_fused_ms"]) * rec2["n_layers"], 3)
+    rec2["rstd_cost_page_ms"] = round((rec2["att_fused_ms"] - rec2["att_fused_nor_ms"]) * rec2["n_layers"], 3)
+    print(json.dumps(rec2), flush=True)
+    with open(args.out, "a") as f:
+        f.write(json.dumps(rec2) + "\n")
     return 0
 
 
