@@ -867,6 +867,39 @@ def test_a_pool_leg_notes_a_recall_of_its_chip(tmp_path, monkeypatch):
     assert rc == 130 and gf.GIVEN_BACK in (tmp_path / "leg.log").read_text()
 
 
+@pytest.mark.parametrize("rc, given_back", [(130, True), (1, False)])
+def test_a_recall_just_before_the_start_still_reads_as_a_give_back(tmp_path, monkeypatch, rc, given_back):
+    """.108, 11-19 15:41:58Z: the agent recalled chip 10, the pool started ux:saprot-35m on it a second later and
+    the SIGINT killed it at rc 130. The recall predates `boot`; a signal exit still reads as given back, a plain
+    failure does not."""
+    monkeypatch.setattr(gf, "POOL_POLL_S", 0.05)
+    queue = tmp_path / "pool" / "queue"
+    queue.mkdir(parents=True)
+    lend = tmp_path / "japanfold" / "state" / "agent" / "lend"
+    lend.mkdir(parents=True)
+    recalled = lend / "7.recalled"
+    recalled.touch()
+    os.utime(recalled, (time.time() - 5, time.time() - 5))
+    sha = "b" * 40
+    (tmp_path / "trees" / sha[:12]).mkdir(parents=True)
+    h = gf.Host("g", {"arch": "wh", "card_type": "w", "root": str(tmp_path), "ssh": "localhost",
+                      "lock": str(tmp_path / "chip{card}.lock"), "python": sys.executable,
+                      "pool": {"queue": str(queue), "prio": 0}}, sha)
+    leg = gf.Leg("ux:x", ["PY", "-c", f"import sys; sys.exit({rc})"], "ux")
+
+    def pool():
+        while not (jobs := list(queue.glob("*.sh"))):
+            time.sleep(0.02)
+        subprocess.run(["bash", str(jobs[0])], env={"CHIP": "7", "HOME": str(tmp_path),
+                                                    "PATH": "/usr/bin:/bin"}, check=True)
+    t = threading.Thread(target=pool)
+    t.start()
+    with open(tmp_path / "leg.log", "w") as f:
+        got = gf.run_in_pool(h, gf.POOL, leg, str(tmp_path / "o" / "run1" / "wh" / "ux_x"), f)
+    t.join()
+    assert got == rc and (gf.GIVEN_BACK in (tmp_path / "leg.log").read_text()) == given_back
+
+
 def test_a_recalled_legs_straggling_child_does_not_overwrite_the_give_back_note(tmp_path, monkeypatch):
     """A recalled fold's child outlives the SIGINT (the agent SIGTERMs it seconds later) and still holds the
     leg's log. Opened with `>`, its last line overwrote the give-back note at the shared offset and the

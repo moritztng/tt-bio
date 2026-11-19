@@ -284,6 +284,11 @@ GIVEN_BACK = "the Galaxy was given back under the leg"
 #: its users need it, and touches lend/<chip>.recalled (jf-shared-chips). The leg reruns like a give-back,
 #: so its job tells the pool not to requeue it as well.
 RECALLED = "$HOME/japanfold/state/agent/lend/$CHIP.recalled"
+#: A give-back can land just BEFORE the job starts: on .108 at 15:41:58Z on 2026-11-19 the agent recalled chip 10,
+#: the pool, which had probed it at 15:41:42, started ux:saprot-35m on it at 15:41:59, and the SIGINT killed the leg
+#: at 15:42:02 with rc 130 and an empty log; the recall was older than `boot`, so rel-0e052d2ff recorded a FAIL. A
+#: leg killed by a signal (rc >= 128) whose RETURNED or recall is at most this old at its start was given back too.
+GIVE_BACK_RACE_S = 60
 #: A leg failed on a named card and the card is what failed: qb2 chip 1 stopped initialising its
 #: firmware at 06:07Z on 2026-10-12 and the runner handed it 40 more legs of gate 026b5c71c, each
 #: recorded FAIL in 15-90 s. After a failed leg on a named card the runner probes the card
@@ -1784,7 +1789,9 @@ def pool_job(host: Host, leg: Leg, rdir: str, name: str) -> str:
             f"mkdir -p {q(rdir)}; rm -f {q(rdir)}/rc; cat {BOOT_ID} > {q(rdir)}/boot\ncmd={q(cmd)}\n"
             f": > {q(rdir)}/leg.log\n"
             f"{{ echo \"##CHIP $CHIP\"; eval \"${{cmd//{POOL_CARD}/$CHIP}}\"; }} >> {q(rdir)}/leg.log 2>&1\n"
-            f"rc=$?; {{ [ {returned} -nt {q(rdir)}/boot ] || [ \"{RECALLED}\" -nt {q(rdir)}/boot ]; }} && "
+            f"rc=$?; {{ [ {returned} -nt {q(rdir)}/boot ] || [ \"{RECALLED}\" -nt {q(rdir)}/boot ] || "
+            f"{{ [ $rc -ge 128 ] && [ -n \"$(find {returned} \"{RECALLED}\" -maxdepth 0 -newermt "
+            f"@$(( $(stat -c %Y {q(rdir)}/boot) - {GIVE_BACK_RACE_S} )) 2>/dev/null)\" ]; }}; }} && "
             f"echo \"##{GIVEN_BACK}\" >> {q(rdir)}/leg.log\n"
             f"echo $rc > {q(rdir)}/rc.tmp && mv {q(rdir)}/rc.tmp {q(rdir)}/rc\n")
 
