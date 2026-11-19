@@ -144,13 +144,18 @@ def main() -> int:
                              layout=ttnn.TILE_LAYOUT, device=dev)
         drec = {k_: rec[k_] for k_ in ("model", "fast", "pad", "rows", "n_layers")}
         drec["stage"] = "diag"
-        # LN first: an L1-resident xn0 left alive sits inside layer_norm's static CB region (TT_THROW, qd1 11-19)
-        drec["ln_ms"] = dev_ms(lambda: (esmc._ln(x, *((None, None) if attn.ln_fold else (attn.in_norm_weight,
-                               attn.in_norm_bias)), attn.compute_kernel_config, ln_mc),), dev)
+        # LN first, each output freed inside the call: dev_ms keeps a call's outputs alive across its 20 captured
+        # calls, and 20 L1-sharded LN outputs stack down into layer_norm's static CB region (TT_THROW, qd1 + qd2 11-19)
+        def ln_only():
+            ttnn.deallocate(esmc._ln(x, *((None, None) if attn.ln_fold else (attn.in_norm_weight,
+                                          attn.in_norm_bias)), attn.compute_kernel_config, ln_mc))
+            return ()
+
+        drec["ln_ms"] = dev_ms(ln_only, dev)
         xn0 = esmc._ln(x, *((None, None) if attn.ln_fold else (attn.in_norm_weight, attn.in_norm_bias)),
                        attn.compute_kernel_config, ln_mc)
 
-        def rope_only(qkn, defs=()):
+        def rope_only(qkn, defs=(), keep=False):   # outputs freed inside the call unless kept: q / k sit in L1
             def fn():
                 mm_rope.PROBE_DEFINES.update({k_: 1 for k_ in defs})
                 try:
@@ -158,7 +163,11 @@ def main() -> int:
                                                  ck, ncols=nc, qk_norm=qkn)
                 finally:
                     mm_rope.PROBE_DEFINES.clear()
-                return tuple(out)
+                if keep:
+                    return tuple(out)
+                for t in out:
+                    ttnn.deallocate(t)
+                return ()
             return fn
 
         drec["rope_plain_ms"] = dev_ms(rope_only(False), dev)
@@ -167,7 +176,7 @@ def main() -> int:
         drec["rope_qkn_nosq_ms"] = dev_ms(rope_only(True, ("QKN_DIAG_NOSQ",)), dev)
         drec["rope_qkn_nosq_nostat_ms"] = dev_ms(rope_only(True, ("QKN_DIAG_NOSQ", "QKN_DIAG_NOSTAT")), dev)
         drec["rope_probe_ms"] = dev_ms(rope_only(False, ("MM_ROPE_STATS_PROBE",)), dev)
-        q_, k_, v_, st_ = rope_only(True)()
+        q_, k_, v_, st_ = rope_only(True, keep=True)()
         for t in (q_, k_, v_, xn0):
             ttnn.deallocate(t)
         drec["rstd_ms"] = dev_ms(lambda: (mm_rope.qk_rstd(st_, d),), dev)
