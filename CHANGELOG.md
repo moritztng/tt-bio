@@ -14,6 +14,13 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 - **BoltzGen `--fast` is about 5 % faster on Blackhole.** The atom attention reads its key windows in place, as on
   Wormhole. A 514-token design 18.32 -> 17.45 s; design quality unchanged on 40 paired designs. Blackhole normal mode
   is unchanged.
+
+## [0.38.0] - 2026-11-19
+
+### Changed
+- **BoltzGen is about 3 % faster on Wormhole in both modes.** The atom attention reads its key windows in place, and
+  the pair stack runs six more of the shared kernel levers. A 514-token design 28.95 -> 27.98 s in `--fast`,
+  30.03 -> 29.37 s in normal mode; design quality unchanged on 64 paired designs per mode. Blackhole is unchanged.
 - **RoseTTAFold3 `--fast` is about 3 % faster on Wormhole.** It now runs the five pair-stack kernel levers Boltz-2's
   Wormhole fast mode already uses. A 512-residue fold 34.3 -> 33.0 s; every complex of the 11-complex test set folds
   2.5-4.1 % faster, accuracy unchanged on 44 paired folds (same-seed structure 0.29 A apart against a 0.60 A bar,
