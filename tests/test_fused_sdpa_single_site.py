@@ -136,9 +136,10 @@ def test_the_generic_op_route_is_only_reached_masked(monkeypatch):
     # sdpa_generic runs the same wheel kernels through ttnn.generic_op, a second way to the op.
     # tenstorrent.py imports it only to price L1. triatt_sdpa runs it, and both of its entries
     # decline a None bias. protenix runs it at one site, atom_sdpa32, whose mask is the superset
-    # bias `zs` that `_superset_bias` always builds. tenstorrent runs it at two sites, `_sdpa32`
+    # bias `zs` that `_superset_bias` always builds. tenstorrent runs it at three sites, `_sdpa32`
     # (lever dit_sdpa32) and `_sdpa32_fused` (its read-from-the-fused-projection form), which both
-    # read their mask's shape before the call, so None cannot reach them.
+    # read their mask's shape before the call, so None cannot reach them, and `_atom_kvw` (lever
+    # atom_kvw), whose mask `hit[1]` it builds from `z` and which declines a None `z` before the call.
     # OpenFold3's atom transformer runs it in `_attend_superset`, which reads `sup_b.shape` first.
     # ESMFold2's windowed atom attention runs it in `attend` with the bias `_frame` returns: `self.bias`, which
     # `__init__` always uploads, or its B-fold repeat.
@@ -172,11 +173,16 @@ def test_the_generic_op_route_is_only_reached_masked(monkeypatch):
     tcalls = [n for n in ast.walk(tt) if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
               and n.func.attr == "sdpa" and isinstance(n.func.value, ast.Name) and n.func.value.id == "SG"]
     fns = [n for n in ast.walk(tt) if isinstance(n, ast.FunctionDef) and n.name in ("_sdpa32", "_sdpa32_fused")]
-    assert len(fns) == 2 and len(tcalls) == 2
+    assert len(fns) == 2 and len(tcalls) == 3
     for fn in fns:
         call = next(c for c in tcalls if c in list(ast.walk(fn)))
         assert isinstance(call.args[4], ast.Name) and call.args[4].id == "mask"
         assert "mask.shape" in ast.unparse(fn.body[:6])
+    kvw = next(n for n in ast.walk(tt) if isinstance(n, ast.FunctionDef) and n.name == "_atom_kvw")
+    kcall = next(c for c in tcalls if c in list(ast.walk(kvw)))
+    assert ast.unparse(kcall.args[4]) == "hit[1]"
+    assert "z is not None" in ast.unparse(kvw.body[:3]) and "if not ok:\n    return None" in ast.unparse(kvw.body[:4])
+    assert "self._kvw_bias[B] = hit = (z, x)" in ast.unparse(kvw)
     calls = [n for n in ast.walk(ast.parse((PKG / "protenix.py").read_text()))
              if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute) and n.func.attr == "sdpa"
              and isinstance(n.func.value, ast.Name) and n.func.value.id == "SG"]
