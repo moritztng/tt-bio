@@ -975,7 +975,7 @@ LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffus
            "pair_tail_cm", "pair_batch", "pair_block_hifi2", "trimul_t1g8", "trimul_tail_hifi2", "pair_bfp8z",
            "trimul_t1_fgate", "pair_x8", "pair_x8t", "tok_recycle_mm", "tok_w8", "trimul_x8", "ws_ln_resid", "dit_pad_short", "bg_featproc", "ef2_msa_ffn", "ef2_opm_proj", "trimul_t1_part",
            "trimul_t1_3g", "trimul_t1split", "adaln_at", "dit_kl1", "mask_at_mix", "mask_at_mix_z8", "trunk_trace", "dit_qkvf_h4",
-           "ws_ln_t1l1", "dit_gres")
+           "ws_ln_t1l1", "dit_gres", "atom_gather_full")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -988,6 +988,8 @@ LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffus
 # graded on OpenFold3 / OpenBind-0, and the bit-exact triatt_ln (openfold3_fold.FAST_LEVERS).
 # ref_memo is host featurisation, OpenFold3 / OpenBind-0 only: one reference conformer per residue type
 # (vendored query.REF_MOL_MEMO), read by worker._predict_openfold3_one off the model's lever set.
+# atom_gather_full moves only padded atoms' rows (every padded key is masked at -1e9), so it owes byte-identical
+# CIFs, not a grade.
 # trunk_trace changes no arithmetic -- a replay is the captured program on new input-buffer contents --
 # so it owes a digest comparison rather than a fold grade. It is named here so that it stays out of
 # every shared --fast set until RFD4's own set asks for it.
@@ -1007,7 +1009,8 @@ UNGRADED_LEVERS = frozenset({"trunk_trace", "dit_bf16", "atom_kvcat", "bres_ta_h
                              "pair_tail_cm", "pair_batch", "pair_block_hifi2", "trimul_t1g8",
                              "trimul_tail_hifi2", "pair_bfp8z", "trimul_t1_fgate", "pair_x8", "pair_x8t",
                              "tok_recycle_mm", "tok_w8", "trimul_x8", "ws_ln_resid", "dit_pad_short", "bg_featproc", "ef2_msa_ffn", "ef2_opm_proj", "trimul_t1_part",
-                             "trimul_t1_3g", "trimul_t1split", "ws_ln_t1l1", "dit_gres"})
+                             "trimul_t1_3g", "trimul_t1split", "ws_ln_t1l1", "dit_gres",
+                             "atom_gather_full"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -2117,9 +2120,16 @@ def _atom_shift_gather(s: "ttnn.Tensor", windows: int, memory_config=None) -> "t
     `windows` bounds both ends of the bucket. The source is cut there so a key window straddling
     the boundary picks up zeros for the padded half exactly as the one-hot did, and the output is
     padded back out on the window axis so the padded windows gather nothing at all.
+
+    `atom_gather_full` gathers all `k` windows from the uncut source instead: no cut, no re-pad. A padded
+    atom's key then lands in a real window, and a padded window sees real keys, but every padded key carries
+    the -1e9 additive mask (`stage_atom_windows`), so its softmax weight is exactly 0 and no real atom's output
+    moves; only padded atoms' rows differ, and nothing reads them.
     """
     b, k, w, d = s.shape
     pieces = ATOM_DIM // w
+    if windows < k and lever("atom_gather_full"):
+        windows = k
     flat = ttnn.reshape(s, (b, 1, k * w, d))
     if windows < k:
         flat = flat[:, :, :windows * w, :]
