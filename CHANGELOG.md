@@ -5,6 +5,8 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+## [0.38.0] - 2026-11-19
+
 ### Changed
 - **BoltzGen is about 3 % faster on Wormhole in both modes.** The atom attention reads its key windows in place, and
   the pair stack runs six more of the shared kernel levers. A 514-token design 28.95 -> 27.98 s in `--fast`,
