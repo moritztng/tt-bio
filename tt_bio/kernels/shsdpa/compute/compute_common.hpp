@@ -709,6 +709,24 @@ void add_row_bcast_inplace(uint32_t in0_cb, uint32_t in1_cb, uint32_t num_tiles,
     cb_push_back(in0_cb, num_tiles);
 }
 
+#ifdef RQK_SCALE_PROBE
+// benchmarks only, wrong output: in0 (num_tiles) *= in1's tile 0, in place, in1 kept. One FPU multiply a score tile, the
+// price of scaling every key column by its k LayerNorm rstd (a row broadcast of rk) before the max and exp.
+void mul_tile_inplace_probe(uint32_t in0_cb, uint32_t in1_cb, uint32_t num_tiles) {
+    mul_tiles_init(in0_cb, in1_cb);
+    cb_wait_front(in0_cb, num_tiles);
+    for (uint32_t i = 0; i < num_tiles; i++) {
+        acquire_dst();
+        mul_tiles(in0_cb, in1_cb, i, 0, 0);
+        pack_tile(0, in0_cb);
+        release_dst();
+    }
+    cb_pop_front(in0_cb, num_tiles);
+    cb_reserve_back(in0_cb, num_tiles);
+    cb_push_back(in0_cb, num_tiles);
+}
+#endif
+
 template <bool pop_in1 = true>
 void add_block_inplace(uint32_t in0_cb, uint32_t in1_cb, uint32_t num_tiles,
                        uint32_t in1_base = 0) {
@@ -2137,6 +2155,11 @@ void sdpa_inner_loop(
 #endif
                 }
             }
+
+#ifdef RQK_SCALE_PROBE
+            reconfig_data_format(cb_qk_im, cb_identity_scale_in);
+            mul_tile_inplace_probe(cb_qk_im, cb_identity_scale_in, qk_chunk_tiles);
+#endif
 
             /**
              * reduce_c can perform both reduce_max and eltwise max with previous result.
