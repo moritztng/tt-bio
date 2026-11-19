@@ -5,6 +5,12 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+### Changed
+- **RoseTTAFold3 `--fast` is about 3 % faster on Wormhole.** It now runs the five pair-stack kernel levers Boltz-2's
+  Wormhole fast mode already uses. A 512-residue fold 34.3 -> 33.0 s; every complex of the 11-complex test set folds
+  2.5-4.1 % faster, accuracy unchanged on 44 paired folds (same-seed structure 0.29 A apart against a 0.60 A bar,
+  docking success 28/44 on both). Normal mode and Blackhole are unchanged.
+
 ## [0.37.0] - 2026-11-18
 
 ### Changed

@@ -81,7 +81,12 @@ LEVERS_FAST = _FAST_BASE | _TRUNK | {"trimul_t2cm"}
 # Wormhole fast, 11-set grade against the base, 44 paired folds: same-seed top pose median 0.230 A
 # against the 0.60 A bar (A/A floor 2.796 A), CA-lDDT -0.0002 [-0.0009, +0.0005], docking 28 -> 28 of
 # 44. cdk2x2_512 on a Galaxy chip at AICLK 1000: 48.1 -> 36.1 s (2026-10-26).
-WH_LEVERS_FAST = _FAST_BASE | _TRUNK | {"trimul_bres", "trimul_ibw", "trimul_tail"}
+# On top, the shared-Pairformer levers Boltz-2's Wormhole fast set took (apb_ln, trimul_sig6, ws_psilu, ws_resid,
+# opm_b8cfg): 11-set grade against the set above, 44 paired folds, PASS: same-seed top pose median 0.293 A against
+# the 0.60 A bar (A/A floor 3.148 A), CA-lDDT -0.0002 [-0.0012, +0.0006], docking 28 -> 28 of 44. Every complex
+# folds faster, median -3.2 % at AICLK 1000; cdk2x2_512 34.34 -> 33.0 s (spd-m-rf3-5 gf5, 2026-11-19).
+WH_LEVERS_FAST = _FAST_BASE | _TRUNK | {"trimul_bres", "trimul_ibw", "trimul_tail", "apb_ln", "trimul_sig6",
+                                        "ws_psilu", "ws_resid", "opm_b8cfg"}
 
 
 def _pairformer_stack(scope: WeightScope, n_blocks: int, cfg, prefix: str
