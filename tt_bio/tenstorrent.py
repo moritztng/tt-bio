@@ -975,7 +975,7 @@ LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffus
            "pair_tail_cm", "pair_batch", "pair_block_hifi2", "trimul_t1g8", "trimul_tail_hifi2", "pair_bfp8z",
            "trimul_t1_fgate", "pair_x8", "pair_x8t", "tok_recycle_mm", "tok_w8", "trimul_x8", "ws_ln_resid", "dit_pad_short", "bg_featproc", "ef2_msa_ffn", "ef2_opm_proj", "trimul_t1_part",
            "trimul_t1_3g", "trimul_t1split", "adaln_at", "dit_kl1", "mask_at_mix", "mask_at_mix_z8", "trunk_trace", "dit_qkvf_h4",
-           "ws_ln_t1l1", "dit_gres")
+           "ws_ln_t1l1", "dit_gres", "atom_kvw")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -1007,7 +1007,7 @@ UNGRADED_LEVERS = frozenset({"trunk_trace", "dit_bf16", "atom_kvcat", "bres_ta_h
                              "pair_tail_cm", "pair_batch", "pair_block_hifi2", "trimul_t1g8",
                              "trimul_tail_hifi2", "pair_bfp8z", "trimul_t1_fgate", "pair_x8", "pair_x8t",
                              "tok_recycle_mm", "tok_w8", "trimul_x8", "ws_ln_resid", "dit_pad_short", "bg_featproc", "ef2_msa_ffn", "ef2_opm_proj", "trimul_t1_part",
-                             "trimul_t1_3g", "trimul_t1split", "ws_ln_t1l1", "dit_gres"})
+                             "trimul_t1_3g", "trimul_t1split", "ws_ln_t1l1", "dit_gres", "atom_kvw"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -2057,6 +2057,15 @@ ATOM_N_LAYERS = 3
 # gather, bit-exact (torch.equal), whglx card 4, WH: perf/b2z2_elision/atom_gather_ab.py.
 ATOM_KEY_SHIFT = (ATOM_DIM - ATOM_WINDOW) // 2
 ATOM_SHIFT_GATHER_STATS = [0, 0]        # [slice+concat, one-hot matmul]
+ATOM_KVW_STATS = [0, 0]                 # [atom_kvw served, declined]
+# atom_kvw reads each query window's keys in place from a frame of the atom stream (sdpa_generic `kv_window`).
+# The centred 128-key window starts ATOM_KEY_SHIFT = 48 atoms before its queries, which is not a tile row, so the
+# kernel reads the tile-aligned superset [32 i - 64, 32 i + 96) and the 16 extra keys on each side carry -1e9.
+ATOM_KVW_LEAD = 64
+ATOM_KVW_KEYS = ATOM_DIM + 2 * (ATOM_KVW_LEAD - ATOM_KEY_SHIFT)
+# The compute config the stock fused SDPA defaults to (ttnn's sdpa: HiFi2, approx exp, no fp32 dest), so the
+# in-place read changes where keys come from and nothing else.
+_ATOM_KVW_CKC = (ttnn.MathFidelity.HiFi2, True, False, False)
 ATOM_L1_STATS = [0, 0]                  # atom_l1: [atom transformer intermediates into L1, into DRAM]
 
 
@@ -14289,66 +14298,133 @@ class AttentionPairBias(Module):
         else:
             s = ttnn.to_memory_config(s, ttnn.DRAM_MEMORY_CONFIG, dtype=_dtype())
             B, K, W, D_S = s.shape
-            mc = _atom_l1((B, K, ATOM_DIM, 2 * D_S), _dtype())
-            if isinstance(keys_indexing, _AtomShiftGather):
-                ATOM_SHIFT_GATHER_STATS[0] += 1
-                s_kv = _atom_shift_gather(s, memory_config=mc)
-            else:
-                ATOM_SHIFT_GATHER_STATS[1] += 1
-                s_kv = ttnn.reshape(s, (B, 2 * K, W // 2, -1))
-                s_kv = ttnn.permute(s_kv, (0, 2, 3, 1))
-                s_kv = ttnn.matmul(
-                    s_kv,
-                    keys_indexing,
+            o = self._atom_kvw(s, z, keys_indexing)
+            if o is None:
+                mc = _atom_l1((B, K, ATOM_DIM, 2 * D_S), _dtype())
+                if isinstance(keys_indexing, _AtomShiftGather):
+                    ATOM_SHIFT_GATHER_STATS[0] += 1
+                    s_kv = _atom_shift_gather(s, memory_config=mc)
+                else:
+                    ATOM_SHIFT_GATHER_STATS[1] += 1
+                    s_kv = ttnn.reshape(s, (B, 2 * K, W // 2, -1))
+                    s_kv = ttnn.permute(s_kv, (0, 2, 3, 1))
+                    s_kv = ttnn.matmul(
+                        s_kv,
+                        keys_indexing,
+                        compute_kernel_config=self.compute_kernel_config,
+                        core_grid=CORE_GRID_MAIN,
+                    )
+                    s_kv = ttnn.permute(s_kv, (0, 3, 1, 2))
+                    s_kv = ttnn.reshape(s_kv, (B, K, -1, D_S))
+
+                q = ttnn.linear(
+                    s,
+                    self.q_weight,
+                    bias=self.q_bias,
                     compute_kernel_config=self.compute_kernel_config,
                     core_grid=CORE_GRID_MAIN,
+                    dtype=_dtype(),
+                    memory_config=mc,
                 )
-                s_kv = ttnn.permute(s_kv, (0, 3, 1, 2))
-                s_kv = ttnn.reshape(s_kv, (B, K, -1, D_S))
+                kv = ttnn.linear(
+                    s_kv,
+                    self.kv_weight,
+                    compute_kernel_config=self.compute_kernel_config,
+                    core_grid=CORE_GRID_MAIN,
+                    dtype=_dtype(),
+                    memory_config=mc,
+                )
+                ttnn.deallocate(s_kv)
 
-            q = ttnn.linear(
-                s,
-                self.q_weight,
-                bias=self.q_bias,
-                compute_kernel_config=self.compute_kernel_config,
-                core_grid=CORE_GRID_MAIN,
-                dtype=_dtype(),
-                memory_config=mc,
-            )
-            kv = ttnn.linear(
-                s_kv,
-                self.kv_weight,
-                compute_kernel_config=self.compute_kernel_config,
-                core_grid=CORE_GRID_MAIN,
-                dtype=_dtype(),
-                memory_config=mc,
-            )
-            ttnn.deallocate(s_kv)
+                if self.kq_norm:
+                    q, kv = self._apply_kq_norm_atom(q, kv)
 
-            if self.kq_norm:
-                q, kv = self._apply_kq_norm_atom(q, kv)
-
-            if _ATOM_PAD_IN_TILE:
-                q = ttnn.pad(q, [[0, 0], [0, 0], [0, ATOM_DIM - ATOM_WINDOW], [0, 0]], 0.0)
-            else:
-                q = ttnn.to_layout(q, ttnn.ROW_MAJOR_LAYOUT)
-                q = ttnn.pad(q, [[0, 0], [0, 0], [0, ATOM_DIM - ATOM_WINDOW], [0, 0]], 0.0)
-                q = ttnn.to_layout(q, ttnn.TILE_LAYOUT, dtype=_dtype())
-            q = ttnn.reshape(q, (B * K, 1, ATOM_DIM, -1))
-            kv = ttnn.reshape(kv, (B * K, 1, ATOM_DIM, -1))
-            q, k, v = ttnn.experimental.nlp_create_qkv_heads(q, kv, num_heads=self.n_heads, num_kv_heads=self.n_heads, transpose_k_heads=False)
-            _, H, S, D_Q = q.shape
-            q = ttnn.reshape(q, (B, K * H, S, D_Q))
-            k = ttnn.reshape(k, (B, K * H, S, D_Q))
-            v = ttnn.reshape(v, (B, K * H, S, D_Q))
-            q = q[:, :, :ATOM_WINDOW, :]
-            z = ttnn.reshape(z, (1, -1, z.shape[2], z.shape[3]))
-            o = self._attention(q, k, v, z)
-            o = ttnn.reshape(o, (B * K, H, W, D_Q))
-            o = ttnn.experimental.nlp_concat_heads(o)
-            o = ttnn.squeeze(o, 1)
-            o = ttnn.reshape(o, (B, K, W, D_S))
+                if _ATOM_PAD_IN_TILE:
+                    q = ttnn.pad(q, [[0, 0], [0, 0], [0, ATOM_DIM - ATOM_WINDOW], [0, 0]], 0.0)
+                else:
+                    q = ttnn.to_layout(q, ttnn.ROW_MAJOR_LAYOUT)
+                    q = ttnn.pad(q, [[0, 0], [0, 0], [0, ATOM_DIM - ATOM_WINDOW], [0, 0]], 0.0)
+                    q = ttnn.to_layout(q, ttnn.TILE_LAYOUT, dtype=_dtype())
+                q = ttnn.reshape(q, (B * K, 1, ATOM_DIM, -1))
+                kv = ttnn.reshape(kv, (B * K, 1, ATOM_DIM, -1))
+                q, k, v = ttnn.experimental.nlp_create_qkv_heads(q, kv, num_heads=self.n_heads, num_kv_heads=self.n_heads, transpose_k_heads=False)
+                _, H, S, D_Q = q.shape
+                q = ttnn.reshape(q, (B, K * H, S, D_Q))
+                k = ttnn.reshape(k, (B, K * H, S, D_Q))
+                v = ttnn.reshape(v, (B, K * H, S, D_Q))
+                q = q[:, :, :ATOM_WINDOW, :]
+                z = ttnn.reshape(z, (1, -1, z.shape[2], z.shape[3]))
+                o = self._attention(q, k, v, z)
+                o = ttnn.reshape(o, (B * K, H, W, D_Q))
+                o = ttnn.experimental.nlp_concat_heads(o)
+                o = ttnn.squeeze(o, 1)
+                o = ttnn.reshape(o, (B, K, W, D_S))
         return self._gate_out(s, o, cat_w, gres)
+
+    def _atom_kvw(self, s, z, keys_indexing):
+        """`atom_kvw`: the windowed atom attention with every key window read in place, `[B, K, W, D_S]`, or None
+        where it does not serve.
+
+        Today's path materialises the key windows (`_atom_shift_gather`: a row-major shift, four slices and a
+        concat), projects K and V on all four copies of every atom, pads each 32-row query window to 128 rows so
+        one head split serves q and kv, and runs the stock SDPA. Here one fused q|k|v projection runs once per
+        atom on the stream framed by ATOM_KVW_LEAD zero rows at each end, one head split cuts it, and the SDPA
+        reader takes window i's queries and its ATOM_KVW_KEYS-key superset straight from that frame. The superset
+        bias is today's bias with -1e9 on the extra keys, built once per bias tensor (one a layer a fold)."""
+        ok = (lever("atom_kvw") and isinstance(keys_indexing, _AtomShiftGather) and not self.kq_norm
+              and self._lp is None and self.dtype != ttnn.float32 and not (_FP32_SOFTMAX or self.fp32_softmax)
+              and self.head_dim % 32 == 0 and int(s.shape[2]) == ATOM_WINDOW
+              and len(z.shape) == 4 and int(z.shape[-1]) == ATOM_DIM and int(z.shape[-2]) == ATOM_WINDOW
+              and int(z.shape[0]) * int(z.shape[1]) == int(s.shape[1]) * self.n_heads)
+        ATOM_KVW_STATS[0 if ok else 1] += 1
+        if not ok:
+            return None
+        from . import sdpa_generic as SG
+        B, K, W, D = (int(d) for d in s.shape)
+        H, dh, L, Wk = self.n_heads, self.head_dim, ATOM_KVW_LEAD, ATOM_KVW_KEYS
+        dev = s.device()
+        if getattr(self, "_kvw_w", None) is None:
+            w = self.weights
+            self._kvw_w = ttnn.from_torch(
+                torch.cat([w["proj_q.weight"], w["proj_k.weight"], w["proj_v.weight"]], dim=0).t().contiguous(),
+                layout=ttnn.TILE_LAYOUT, device=dev, dtype=self.dtype)
+            self._kvw_b = ttnn.from_torch(
+                torch.cat([w["proj_q.bias"], torch.zeros(2 * H * dh, dtype=w["proj_q.bias"].dtype)]),
+                layout=ttnn.TILE_LAYOUT, device=dev, dtype=self.dtype)
+            self._kvw_bias, self._kvw_zeros = {}, {}
+        hit = self._kvw_bias.get(B)
+        if hit is None or hit[0] is not z:
+            # [K, H, 32, 128] window-major -> [1, B * H * K, 32, Wk] in the kernel's head order (b H + h) K + i.
+            x = ttnn.to_layout(ttnn.typecast(ttnn.reshape(z, (K, H, W, ATOM_DIM)), ttnn.bfloat16), ttnn.ROW_MAJOR_LAYOUT)
+            x = ttnn.permute(x, (1, 0, 2, 3))
+            fill = ttnn.full((H, K, W, L - ATOM_KEY_SHIFT), -1e9, dtype=ttnn.bfloat16, layout=ttnn.ROW_MAJOR_LAYOUT,
+                             device=dev)
+            x = ttnn.concat([fill, x, fill], dim=3)
+            x = ttnn.to_layout(ttnn.reshape(x, (1, H * K, W, Wk)), ttnn.TILE_LAYOUT)
+            if B > 1:
+                x = ttnn.repeat(x, (1, B, 1, 1))
+            self._kvw_bias[B] = hit = (z, x)
+        F = 2 * L + K * W                     # L zero rows on both ends: Wk - L - W == L
+        zeros = self._kvw_zeros.get((B, D, s.dtype))
+        if zeros is None:
+            zeros = self._kvw_zeros[(B, D, s.dtype)] = ttnn.zeros((B, L, D), dtype=s.dtype,
+                                                                   layout=ttnn.TILE_LAYOUT, device=dev)
+        xs = ttnn.concat([zeros, ttnn.reshape(s, (B, K * W, D)), zeros], dim=1)
+        qkv = ttnn.linear(xs, self._kvw_w, bias=self._kvw_b, compute_kernel_config=self.compute_kernel_config,
+                          core_grid=CORE_GRID_MAIN, dtype=_dtype())
+        ttnn.deallocate(xs)
+        q, k, v = ttnn.experimental.nlp_create_qkv_heads(ttnn.reshape(qkv, (B, 1, F, 3 * H * dh)), num_heads=H,
+                                                          num_kv_heads=H, transpose_k_heads=False)
+        ttnn.deallocate(qkv)
+        q, k, v = (ttnn.reshape(t, (1, B * H, F, dh)) for t in (q, k, v))
+        o = ttnn.allocate_tensor_on_device(ttnn.Shape([1, B * H * K, W, dh]), q.dtype, ttnn.TILE_LAYOUT, dev,
+                                           ttnn.DRAM_MEMORY_CONFIG)
+        g = dev.compute_with_storage_grid_size()
+        SG.sdpa(dev, q, k, v, hit[1], o, W, Wk, (g.x, g.y), _ATOM_KVW_CKC, dh ** -0.5, kv_window=(K, Wk, L, W))
+        for t in (q, k, v):
+            ttnn.deallocate(t)
+        o = ttnn.experimental.nlp_concat_heads(ttnn.reshape(o, (B, H, K * W, dh)))
+        return ttnn.reshape(o, (B, K, W, H * dh))
 
     def _qkvf(self, qkv, z, seq, bias_precomputed, seq_mask):
         """dit_qkvf's attention, `[B, seq, n_heads * padded_head_dim]` (bf16, fp32 under `_sdpa32`), or None where
