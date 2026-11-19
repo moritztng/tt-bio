@@ -14372,7 +14372,7 @@ class AttentionPairBias(Module):
         reader takes window i's queries and its ATOM_KVW_KEYS-key superset straight from that frame. The superset
         bias is today's bias with -1e9 on the extra keys, built once per bias tensor (one a layer a fold)."""
         ok = (lever("atom_kvw") and z is not None and isinstance(keys_indexing, _AtomShiftGather) and not self.kq_norm
-              and self._lp is None and self.dtype != ttnn.float32 and not (_FP32_SOFTMAX or self.fp32_softmax)
+              and self._lp is None and not (_FP32_SOFTMAX or self.fp32_softmax)
               and self.head_dim % 32 == 0 and int(s.shape[2]) == ATOM_WINDOW
               and len(z.shape) == 4 and int(z.shape[-1]) == ATOM_DIM and int(z.shape[-2]) == ATOM_WINDOW
               and int(z.shape[0]) * int(z.shape[1]) == int(s.shape[1]) * self.n_heads)
@@ -14417,13 +14417,18 @@ class AttentionPairBias(Module):
                                                           num_kv_heads=H, transpose_k_heads=False)
         ttnn.deallocate(qkv)
         q, k, v = (ttnn.reshape(t, (1, B * H, F, dh)) for t in (q, k, v))
-        o = ttnn.allocate_tensor_on_device(ttnn.Shape([1, B * H * K, W, dh]), q.dtype, ttnn.TILE_LAYOUT, dev,
+        if q.dtype != ttnn.bfloat16:
+            # The SDPA takes bf16 only; an fp32 stream crosses into it in bf16 as today's fp32 branch does.
+            q, k, v = (ttnn.typecast(t, ttnn.bfloat16) for t in (q, k, v))
+        o = ttnn.allocate_tensor_on_device(ttnn.Shape([1, B * H * K, W, dh]), ttnn.bfloat16, ttnn.TILE_LAYOUT, dev,
                                            ttnn.DRAM_MEMORY_CONFIG)
         g = dev.compute_with_storage_grid_size()
         SG.sdpa(dev, q, k, v, hit[1], o, W, Wk, (g.x, g.y), _ATOM_KVW_CKC, dh ** -0.5, kv_window=(K, Wk, L, W))
         for t in (q, k, v):
             ttnn.deallocate(t)
         o = ttnn.experimental.nlp_concat_heads(ttnn.reshape(o, (B, H, K * W, dh)))
+        if o.dtype != s.dtype:
+            o = ttnn.typecast(o, s.dtype)
         return ttnn.reshape(o, (B, K, W, H * dh))
 
     def _qkvf(self, qkv, z, seq, bias_precomputed, seq_mask):
