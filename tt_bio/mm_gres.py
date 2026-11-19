@@ -16,6 +16,7 @@ import ttnn
 
 from tt_bio import mm_generic as MG
 from tt_bio.mm_gate import KERNEL_DIR
+from tt_bio.rne_add import _NUM_CBS
 
 STATS = [0, 0]   # runs, declines
 _CACHE: dict = {}
@@ -70,15 +71,18 @@ def matmul_gate_add(x, w, b, gate, resid, cfg, grid, ckc, memory_config=ttnn.DRA
         return None
     g, page0, wt = win
     dev = x.device()
+    ck = MG.ckc_args(ckc)
+    # fp32 accumulation into an fp32 stream with no bias: the epilogue runs on the SFPU at fp32 (compute.cpp,
+    # MM_GRES_FP32); the FPU path would round the residual to tf32
+    fp32 = bool(ck[2]) and resid.dtype == ttnn.float32 and b is None
     if b is None:
         b = _zero_row(dev, n)
     shape = [int(d) for d in x.shape][:-1] + [int(w.shape[-1])]
     out = ttnn.allocate_tensor_on_device(ttnn.Shape(shape), out_dtype or resid.dtype, ttnn.TILE_LAYOUT, dev,
                                          memory_config)
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
-    ck = MG.ckc_args(ckc)
     key = (spec(x), spec(w), spec(b), spec(resid), spec(g), wt, spec(out), tuple(cfg), tuple(grid),
-           tuple(str(c) for c in ck))
+           tuple(str(c) for c in ck), fp32)
     entry = _CACHE.get(key)
     defs = {"MM_RESID": 1, "MM_GRES": 1, "MM_GRES_GATE_WT": wt}
     if entry is None:
@@ -89,7 +93,14 @@ def matmul_gate_add(x, w, b, gate, resid, cfg, grid, ckc, memory_config=ttnn.DRA
         entry["cbs"].append(MG._cb(6, core_grid, MG.tile_bytes(g.dtype), cfg[0] * cfg[2], g.dtype))
         compute = entry["kernels"][4]
         compute.kernel_source = str(KERNEL_DIR / "compute.cpp")
-        compute.defines = [("FUSE_BIAS", "1"), ("MM_RESID", "1"), ("MM_GRES", "1")]
+        compute.defines = [("FUSE_BIAS", "1"), ("MM_RESID", "1"), ("MM_GRES", "1")] + ([("MM_GRES_FP32", "1")] if fp32 else [])
+        if fp32:
+            cfg_c = ttnn.ComputeConfigDescriptor(math_fidelity=ck[0], math_approx_mode=ck[1], fp32_dest_acc_en=True,
+                                                 dst_full_sync_en=ck[3])
+            modes = [ttnn.UnpackToDestMode.Default] * _NUM_CBS
+            modes[3] = modes[5] = ttnn.UnpackToDestMode.UnpackToDestFp32   # x W (the intermediate) and the residual
+            cfg_c.unpack_to_dest_mode = modes
+            compute.config = cfg_c
         # the DM kernels read [.., resid, gate, page0, outs]: build placed the two accessors' addresses, page0 goes
         # between them and the outputs, where rebind's extra_addrs slice (three long from here on) rewrites it
         nc = entry["n_chunks"]
