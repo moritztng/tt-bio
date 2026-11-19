@@ -142,6 +142,11 @@ def main() -> int:
         wp = ttnn.from_torch(mm_rope.permute(wf, nc, cfg[2]), dtype=w.dtype, layout=ttnn.TILE_LAYOUT, device=dev)
         bp = ttnn.from_torch(mm_rope.permute(bg[:1], nc, cfg[2]), dtype=ttnn.bfloat16,
                              layout=ttnn.TILE_LAYOUT, device=dev)
+        drec = {k_: rec[k_] for k_ in ("model", "fast", "pad", "rows", "n_layers")}
+        drec["stage"] = "diag"
+        # LN first: an L1-resident xn0 left alive sits inside layer_norm's static CB region (TT_THROW, qd1 11-19)
+        drec["ln_ms"] = dev_ms(lambda: (esmc._ln(x, *((None, None) if attn.ln_fold else (attn.in_norm_weight,
+                               attn.in_norm_bias)), attn.compute_kernel_config, ln_mc),), dev)
         xn0 = esmc._ln(x, *((None, None) if attn.ln_fold else (attn.in_norm_weight, attn.in_norm_bias)),
                        attn.compute_kernel_config, ln_mc)
 
@@ -156,19 +161,15 @@ def main() -> int:
                 return tuple(out)
             return fn
 
-        q_, k_, v_, st_ = rope_only(True)()
-        for t in (q_, k_, v_):
-            ttnn.deallocate(t)
-        drec = {k_: rec[k_] for k_ in ("model", "fast", "pad", "rows", "n_layers")}
-        drec["stage"] = "diag"
-        drec["ln_ms"] = dev_ms(lambda: (esmc._ln(x, *((None, None) if attn.ln_fold else (attn.in_norm_weight,
-                               attn.in_norm_bias)), attn.compute_kernel_config, ln_mc),), dev)
         drec["rope_plain_ms"] = dev_ms(rope_only(False), dev)
         drec["rope_qkn_ms"] = dev_ms(rope_only(True), dev)
         drec["rope_qkn_nostat_ms"] = dev_ms(rope_only(True, ("QKN_DIAG_NOSTAT",)), dev)
         drec["rope_qkn_nosq_ms"] = dev_ms(rope_only(True, ("QKN_DIAG_NOSQ",)), dev)
         drec["rope_qkn_nosq_nostat_ms"] = dev_ms(rope_only(True, ("QKN_DIAG_NOSQ", "QKN_DIAG_NOSTAT")), dev)
         drec["rope_probe_ms"] = dev_ms(rope_only(False, ("MM_ROPE_STATS_PROBE",)), dev)
+        q_, k_, v_, st_ = rope_only(True)()
+        for t in (q_, k_, v_, xn0):
+            ttnn.deallocate(t)
         drec["rstd_ms"] = dev_ms(lambda: (mm_rope.qk_rstd(st_, d),), dev)
         print(json.dumps(drec), flush=True)
         with open(args.out, "a") as f:

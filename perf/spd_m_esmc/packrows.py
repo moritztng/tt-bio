@@ -27,8 +27,10 @@ def dev_ms(fn, dev, n=20):
             ttnn.deallocate(t)
     ttnn.synchronize_device(dev)
     tid = ttnn.begin_trace_capture(dev, cq_id=0)
-    outs = [fn() for _ in range(n)]
-    ttnn.end_trace_capture(dev, tid, cq_id=0)
+    try:
+        outs = [fn() for _ in range(n)]
+    finally:   # a throw inside an open capture otherwise hangs the process at exit (drain refuses during capture)
+        ttnn.end_trace_capture(dev, tid, cq_id=0)
     ttnn.execute_trace(dev, tid, cq_id=0, blocking=True)
     t = []
     for _ in range(7):
