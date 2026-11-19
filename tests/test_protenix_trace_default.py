@@ -50,3 +50,20 @@ def test_the_cli_leaves_diffusion_trace_unset_by_default():
 
     opt = next(p for p in predict.params if p.name == "diffusion_trace")
     assert opt.default is None and "--no_diffusion_trace" in opt.secondary_opts
+
+
+@pytest.mark.parametrize("arch, region, want", [
+    ("blackhole", 0, ["cleanup", "protenix"]),      # opened without the region: close and reopen with it
+    ("blackhole", 36 << 20, []),                    # already carries it: leave the chip alone
+    ("wormhole_b0", 0, []),                         # no trace on Wormhole: nothing to reserve
+])
+def test_protenix_open_reserves_the_region_a_traced_fold_needs(monkeypatch, arch, region, want):
+    """The worker and perf/spd/bench.py both open through this, so a bench fold traces when a served one does."""
+    calls = []
+    monkeypatch.setattr(T, "arch_name", lambda: arch)
+    monkeypatch.setattr(T, "trace_region_bytes", lambda capture: 36 << 20)
+    monkeypatch.setattr(T, "trace_region_size", lambda: region)
+    monkeypatch.setattr(T, "cleanup", lambda: calls.append("cleanup"))
+    monkeypatch.setattr(T, "get_device", lambda trace=None: calls.append(trace))
+    W.protenix_open({"model": "protenix-v2"})
+    assert calls == want
