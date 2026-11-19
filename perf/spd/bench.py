@@ -490,6 +490,8 @@ if PV2:
     # What `Worker.load_model` does before it builds. Without it `load_from_checkpoint` reads fast mode
     # as off, takes NORMAL_LEVERS, and a `:fast` arm folds exact (same digest as `exact` at seed 101).
     T.set_fast_mode(FAST)
+    # and what it does before that: reserve the trace region, or the fold runs untraced (and edm_device never engages)
+    W.protenix_open(cfg0)
     # levers only when asked, so the same harness still runs a tree that predates them (main before SPD)
     state.model = P.Protenix.load_from_checkpoint(
         cfg0["protenix_ckpt"], **({} if LEVER_SET is None else dict(levers=LEVER_SET)))
@@ -501,7 +503,8 @@ else:  # JapanFold's own load: fast mode, checkpoint and config exactly as a wor
 m = state.model
 # a Protenix-family model built by the worker keeps its own fast flag and resets the global one
 BUILT_FAST = T._FAST_MODE if PV2 else getattr(m, "_fast", T._FAST_MODE)
-log(ev="build", s=time.monotonic() - t, fast=BUILT_FAST, levers=sorted(getattr(m, "_levers", ())))
+log(ev="build", s=time.monotonic() - t, fast=BUILT_FAST, levers=sorted(getattr(m, "_levers", ())),
+    trace_region=T.trace_region_size())
 LAST = {}
 # ESMFold2 has no fold method of its own: `fold_complex` calls the vendored forward through the input builder.
 FOLD_CALL = {"boltz2": "predict_step", "rf3": "predict", "esmfold2": "forward",

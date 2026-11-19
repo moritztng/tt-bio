@@ -877,6 +877,18 @@ def _protenix_region_reserved() -> bool:
     return _region_reserved("protenix")
 
 
+def protenix_open(cfg: dict[str, Any]) -> None:
+    """Open the chip a Protenix-family fold runs on: with the protenix trace region when the fold
+    replays its trace (`_protenix_trace`). The region is reserved only at open, so a chip opened
+    without it is closed and reopened. perf/spd/bench.py builds Protenix-v2 itself (lever arms) and
+    calls this too: without it the bench folded untraced, unlike every served Blackhole fold."""
+    from tt_bio.tenstorrent import cleanup, get_device
+
+    if _protenix_trace(cfg) and not _protenix_region_reserved():
+        cleanup()
+        get_device(trace="protenix")
+
+
 def _of3_family() -> tuple[str, ...]:
     """The --model ids the OpenFold3 implementation serves (preview2 and OpenBind).
 
@@ -1294,12 +1306,8 @@ class _WorkerState:
             self.model._esmc.preload()
         elif model_id in _protenix_family():
             from tt_bio.protenix import Protenix
-            from tt_bio.tenstorrent import cleanup, get_device
 
-            if _protenix_trace(cfg) and not _protenix_region_reserved():
-                # The region is reserved only at open: close a chip opened without it.
-                cleanup()
-                get_device(trace="protenix")
+            protenix_open(cfg)
 
             # Same class for both ids: c_z, the stack depths and the recycling count all come
             # off the weights (Trunk._derive_c_z / n_blocks / trunk_recycles).
@@ -1346,12 +1354,9 @@ class _WorkerState:
                 num_timesteps=int(cfg.get("sampling_steps") or 200))
         elif model_id in ("opendde", "opendde-abag"):
             from tt_bio.opendde import OpenDDE
-            from tt_bio.tenstorrent import cleanup, get_device
 
             # OpenDDE denoises through Protenix-v2's sampler, so it takes the family's trace rule.
-            if _protenix_trace(cfg) and not _protenix_region_reserved():
-                cleanup()
-                get_device(trace="protenix")
+            protenix_open(cfg)
 
             prec = diffusion_precision(cfg)
             self.model = OpenDDE.load_from_checkpoint(
