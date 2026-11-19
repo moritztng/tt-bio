@@ -975,7 +975,7 @@ LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffus
            "pair_tail_cm", "pair_batch", "pair_block_hifi2", "trimul_t1g8", "trimul_tail_hifi2", "pair_bfp8z",
            "trimul_t1_fgate", "pair_x8", "pair_x8t", "tok_recycle_mm", "tok_w8", "trimul_x8", "ws_ln_resid", "dit_pad_short", "bg_featproc", "ef2_msa_ffn", "ef2_opm_proj", "trimul_t1_part",
            "trimul_t1_3g", "trimul_t1split", "adaln_at", "dit_kl1", "mask_at_mix", "mask_at_mix_z8", "trunk_trace", "dit_qkvf_h4",
-           "ws_ln_t1l1", "dit_gres", "atom_gather_full")
+           "ws_ln_t1l1", "dit_gres")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -988,8 +988,6 @@ LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffus
 # graded on OpenFold3 / OpenBind-0, and the bit-exact triatt_ln (openfold3_fold.FAST_LEVERS).
 # ref_memo is host featurisation, OpenFold3 / OpenBind-0 only: one reference conformer per residue type
 # (vendored query.REF_MOL_MEMO), read by worker._predict_openfold3_one off the model's lever set.
-# atom_gather_full moves only padded atoms' rows (every padded key is masked at -1e9), so it owes byte-identical
-# CIFs, not a grade.
 # trunk_trace changes no arithmetic -- a replay is the captured program on new input-buffer contents --
 # so it owes a digest comparison rather than a fold grade. It is named here so that it stays out of
 # every shared --fast set until RFD4's own set asks for it.
@@ -1009,8 +1007,7 @@ UNGRADED_LEVERS = frozenset({"trunk_trace", "dit_bf16", "atom_kvcat", "bres_ta_h
                              "pair_tail_cm", "pair_batch", "pair_block_hifi2", "trimul_t1g8",
                              "trimul_tail_hifi2", "pair_bfp8z", "trimul_t1_fgate", "pair_x8", "pair_x8t",
                              "tok_recycle_mm", "tok_w8", "trimul_x8", "ws_ln_resid", "dit_pad_short", "bg_featproc", "ef2_msa_ffn", "ef2_opm_proj", "trimul_t1_part",
-                             "trimul_t1_3g", "trimul_t1split", "ws_ln_t1l1", "dit_gres",
-                             "atom_gather_full"})
+                             "trimul_t1_3g", "trimul_t1split", "ws_ln_t1l1", "dit_gres"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -2066,9 +2063,8 @@ ATOM_L1_STATS = [0, 0]                  # atom_l1: [atom transformer intermediat
 class _AtomShiftGather:
     """Stands in for the gather matrix once it has been proven to be the centred window.
 
-    Carries `windows`, the real window count the matrix gathers for: the atom axis is bucketed,
-    and the matrix is zero-padded out to the bucket, so the windows past `windows` gather nothing
-    at all. Reproducing that is what keeps the two arms byte-identical.
+    Carries `windows`, the real window count the matrix gathers for. The gather itself does not
+    need it: windows past it are masked whole, so `_atom_shift_gather` fills them from the uncut source.
 
     Cached in place of the device one-hot, so the decision is made once per fold where the torch
     matrix is in hand and every call site downstream needs one identity check, not a new argument
@@ -2110,39 +2106,29 @@ def _atom_gather_shift_windows(ki):
     return real if torch.equal(ki, want) else None
 
 
-def _atom_shift_gather(s: "ttnn.Tensor", windows: int, memory_config=None) -> "ttnn.Tensor":
+def _atom_shift_gather(s: "ttnn.Tensor", memory_config=None) -> "ttnn.Tensor":
     """The centred key window as four window-axis slices, no matmul and no permutes.
 
     One misaligned op survives: the 48-row shift, which is 48 % 32 != 0 and so cannot be a tile
     boundary move. It goes through ROW_MAJOR on 1.2 MB. A tiled `ttnn.pad` with the same front
     padding was also measured and did not reproduce the matmul path, so it is not used.
 
-    `windows` bounds both ends of the bucket. The source is cut there so a key window straddling
-    the boundary picks up zeros for the padded half exactly as the one-hot did, and the output is
-    padded back out on the window axis so the padded windows gather nothing at all.
-
-    `atom_gather_full` gathers all `k` windows from the uncut source instead: no cut, no re-pad. A padded
-    atom's key then lands in a real window, and a padded window sees real keys, but every padded key carries
-    the -1e9 additive mask (`stage_atom_windows`), so its softmax weight is exactly 0 and no real atom's output
-    moves; only padded atoms' rows differ, and nothing reads them.
+    All `k` windows gather from the uncut source, padded ones included. A padded window then sees real
+    keys and a real window may see a padded atom's row, but every padded key carries the -1e9 additive mask
+    (`stage_atom_windows`), so its softmax weight is exactly 0: only padded atoms' rows differ from a
+    one-hot gather, and nothing reads them. Cutting the source at `windows` and padding the output back
+    would only re-zero those rows, at 61 us a call on BoltzGen's design shape (3000 calls a design).
     """
     b, k, w, d = s.shape
     pieces = ATOM_DIM // w
-    if windows < k and lever("atom_gather_full"):
-        windows = k
     flat = ttnn.reshape(s, (b, 1, k * w, d))
-    if windows < k:
-        flat = flat[:, :, :windows * w, :]
     rm = ttnn.to_layout(flat, ttnn.ROW_MAJOR_LAYOUT)
-    tail = (k + pieces) * w - ATOM_KEY_SHIFT - windows * w
+    tail = pieces * w - ATOM_KEY_SHIFT
     shifted = ttnn.pad(rm, [(0, 0), (0, 0), (ATOM_KEY_SHIFT, tail), (0, 0)], 0.0)
     ttnn.deallocate(rm)
     shifted = ttnn.to_layout(shifted, ttnn.TILE_LAYOUT, dtype=s.dtype)
     src = ttnn.reshape(shifted, (b, k + pieces, w, d))
-    out = ttnn.concat([src[:, j:j + windows] for j in range(pieces)], dim=2,
-                      memory_config=None if windows < k else memory_config)
-    if windows < k:
-        out = ttnn.pad(out, [(0, 0), (0, k - windows), (0, 0), (0, 0)], 0.0, memory_config=memory_config)
+    out = ttnn.concat([src[:, j:j + k] for j in range(pieces)], dim=2, memory_config=memory_config)
     return out
 
 
@@ -14306,7 +14292,7 @@ class AttentionPairBias(Module):
             mc = _atom_l1((B, K, ATOM_DIM, 2 * D_S), _dtype())
             if isinstance(keys_indexing, _AtomShiftGather):
                 ATOM_SHIFT_GATHER_STATS[0] += 1
-                s_kv = _atom_shift_gather(s, keys_indexing.windows, memory_config=mc)
+                s_kv = _atom_shift_gather(s, memory_config=mc)
             else:
                 ATOM_SHIFT_GATHER_STATS[1] += 1
                 s_kv = ttnn.reshape(s, (B, 2 * K, W // 2, -1))

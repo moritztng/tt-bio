@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
-"""Host-only proof that the shift gather reproduces Boltz-2's one-hot gather exactly.
+"""Host-only proof that the shift gather reproduces Boltz-2's one-hot gather on every key the attention reads.
 
 No device. Runs the reference `get_indexing_matrix` / `single_to_keys` against a torch
 transcription of `_atom_shift_gather`, over the padded and unpadded cases the fold produces.
+The shift gather fills padded windows and padded keys with whatever the uncut source holds there;
+the one-hot fills them with zeros. Both are masked at -1e9 (`stage_atom_windows` contracts the
+atom pad mask with the same matrix), so values must agree exactly where that mask is 1.
 """
 import sys
 from pathlib import Path
@@ -16,15 +19,12 @@ W, H = ATOM_WINDOW, ATOM_DIM
 PIECES = H // W
 
 
-def shift_gather(s, windows):
+def shift_gather(s):
     """Torch transcription of tt_bio.tenstorrent._atom_shift_gather."""
     b, k, w, d = s.shape
-    flat = s.reshape(b, k * w, d)[:, : windows * w, :]
-    tail = (k + PIECES) * w - ATOM_KEY_SHIFT - windows * w
-    shifted = torch.nn.functional.pad(flat, (0, 0, ATOM_KEY_SHIFT, tail))
+    shifted = torch.nn.functional.pad(s.reshape(b, k * w, d), (0, 0, ATOM_KEY_SHIFT, PIECES * w - ATOM_KEY_SHIFT))
     src = shifted.reshape(b, k + PIECES, w, d)
-    out = torch.cat([src[:, j:j + windows] for j in range(PIECES)], dim=2)
-    return torch.nn.functional.pad(out, (0, 0, 0, 0, 0, k - windows))
+    return torch.cat([src[:, j:j + k] for j in range(PIECES)], dim=2)
 
 
 fails = 0
@@ -39,8 +39,11 @@ for k_real in (4, 17, 125, 128, 129, 139, 140):
         torch.manual_seed(0)
         s = torch.randn(1, k_bucket, W, 8)
         ref = single_to_keys(s.reshape(1, k_bucket * W, 8), ki, W, H)
+        atoms = torch.zeros(1, k_bucket * W, 1)
+        atoms[:, :k_real * W] = 1.0
+        read = single_to_keys(atoms, ki, W, H).expand_as(ref) > 0   # the keys stage_atom_windows leaves unmasked
         ok_w = got_w == k_real
-        ok_v = ok_w and torch.equal(shift_gather(s, got_w), ref)
+        ok_v = ok_w and bool(read.any()) and torch.equal(shift_gather(s)[read], ref[read])
         fails += not (ok_w and ok_v)
         print(f"K_real={k_real:4d} bucket={k_bucket:4d} windows={got_w} "
               f"{'OK' if ok_w and ok_v else 'FAIL'}")
