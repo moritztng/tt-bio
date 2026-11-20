@@ -234,8 +234,13 @@ X8_WH = frozenset({"trimul_x8"})
 # cdk2x2 512 x 1 on a p300 chip, AICLK 1350 MHz median in-run, the shipped Blackhole fast set written out (spd-m-protenix-6
 # dcb, 2026-11-16): 18.26 -> 17.62 s, the tail 2.12 -> 1.66 s and T1 2.12 -> 1.99 s. Measured on device time because
 # that host's wall clock moved +-2 s under load.
+# edm_device (the EDM trajectory stays on the card, as Mol-1 and OF3 already run it on Blackhole). Blackhole 512-token fast
+# grade vs the set above (spd-m-protenix-7 ge2, 2026-11-19), 44 paired folds over 4 seeds, PASS: same-seed top pose median
+# 0.220 A vs the 0.6 A bar (1.318 A A/A floor), CA-lDDT +0.0002 [-0.0002, +0.0006], iRMSD -0.12 [-0.33, -0.004], docking
+# 36/44 -> 36/44. Same folds, a p300 chip at 1325-1337 MHz median: paired warm fold -0.23 s median, -0.68 s mean, 10 of 11
+# complexes faster; the diffusion stage alone 3.49 -> 3.05 s on cdk2x2 (sp, 4 paired warm folds).
 BH_V2_FAST = frozenset({"triatt_ln", "ws_ln", "ws_lofi", "trimul_sig6", "trimul_t1w8", "trimul_bres_bh", "ws_psilu",
-                        "trimul_t1_dram", "trimul_t1g8"}) | TRIATT_LN_B8_FAST
+                        "trimul_t1_dram", "trimul_t1g8", "edm_device"}) | TRIATT_LN_B8_FAST
 # dit_shoist and trimul_t1w8 (T1's resident weights bfp8, c_z 256 in one launch) in Protenix-v2's Wormhole normal set.
 # Wormhole 512-token normal grade, shipped Protenix-v2 Wormhole normal set vs + both, 44 paired folds (spd-m-protenix
 # gstn, 2026-10-20), PASS: same-seed top pose median 0.221 A vs the 0.6 A bar (1.145 A A/A floor), CA-lDDT +0.0002

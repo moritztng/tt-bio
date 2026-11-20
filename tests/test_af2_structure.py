@@ -5,6 +5,7 @@ the same function as AlphaFold 2 multimer's `generate_monomer_rigids`: act and e
 to 1e-10, with and without dropout. Run in a subprocess because the reference needs JAX in float64,
 which a session that already imported JAX cannot switch to.
 """
+import importlib.util
 import os
 import subprocess
 import sys
@@ -18,8 +19,9 @@ PARAMS = Path(os.environ.get("JAPANFOLD_BC2_AF2_WEIGHTS", Path.home() / "bcx_e2e
     / "params_model_1_multimer_v3.npz"
 
 
-@pytest.mark.skipif(not (BC2 / "bindcraft").is_dir() or not PARAMS.is_file(),
-                    reason="needs a BindCraft 2 checkout and AF2 multimer weights")
+@pytest.mark.skipif(not (BC2 / "bindcraft").is_dir() or not PARAMS.is_file()
+                    or not all(importlib.util.find_spec(m) for m in ("jax", "haiku")),
+                    reason="needs a BindCraft 2 checkout, AF2 multimer weights, and jax + haiku")
 def test_structure_module_is_bindcraft2s_in_float64():
     r = subprocess.run([sys.executable, "perf/bc4_headdev/sm_check.py", "--bc2", str(BC2),
                         "--params", str(PARAMS), "--n", "40"],
