@@ -71,7 +71,9 @@ def test_a_process_that_keeps_writing_is_left_alone():
         log = Path(td) / "fold.log"
         killed, stalled, _, _ = _run(
             "for i in 1 2 3 4 5 6 7 8; do echo \"trunk $i/8\"; sleep 0.5; done", log,
-            budget=300, stall=2)
+            # 20x the write cadence: at stall=2 a loaded gate host starved the writer past the
+            # window (3 of 137 release gates), a false STALLED that tested the host, not watch()
+            budget=300, stall=10)
         assert stalled is False, "a live, talking process was called stalled"
         assert killed is False, "a live process was killed"
         assert log.read_text().count("trunk") == 8, "it did not run to completion"
