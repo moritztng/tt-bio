@@ -13,11 +13,11 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 - **ESMFold2 and ESMFold2-Fast `--fast` are about 5-6 % faster on Blackhole.** Triangle multiplication hands its
   gated output to the next kernel in 8-bit block floating point. A 512-residue ESMFold2 fold 10.42 -> 9.76 s,
   ESMFold2-Fast 6.63 -> 6.30 s. Accuracy holds the `--fast` bar for both models. Normal mode and Wormhole are unchanged.
-- **Boltz-2 is about 3 % faster on Wormhole, both modes.** Atom attention reads its key windows in place instead of
-  copying them, and triangle multiplication hands its intermediate to the next kernel in 8-bit block floating point;
-  `--fast` also runs the diffusion transformer's adaptive LayerNorm as one fused kernel. A 512-token fold is about
-  0.5 s faster in normal mode and 0.6 s in `--fast`. Structure accuracy unchanged on 44 paired normal folds and 44
-  paired fast folds. Blackhole is unchanged.
+- **Boltz-2 is about 2-4 % faster on Wormhole and Blackhole, both modes.** Atom attention reads its key windows in
+  place instead of copying them, and triangle multiplication hands its intermediate to the next kernel in 8-bit block
+  floating point; `--fast` also runs the diffusion transformer's adaptive LayerNorm as one fused kernel. A 512-token
+  fold is about 0.5 s faster in normal mode and 0.6 s in `--fast` on Wormhole, 0.24 s and 0.38 s on Blackhole.
+  Structure accuracy unchanged on 44 paired normal folds and 44 paired fast folds per architecture.
 
 ## [0.40.0] - 2026-11-20
 
