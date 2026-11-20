@@ -317,5 +317,19 @@ def test_token_axis_bucketing():
     assert run_checks(), "a check above printed FAIL"
 
 
+def test_bounded_rows():
+    """bounded_rows: covers n, at most 12.5 % extra past 8 quanta, ~8 widths per doubling."""
+    seen = set()
+    for n in range(1, 20000):
+        w = TA.bounded_rows(n)
+        assert w >= n and w % 32 == 0
+        if n > 8 * 32:
+            assert w <= n * 1.125 + 32, (n, w)
+        if 4096 < n <= 8192:
+            seen.add(w)
+    assert len(seen) <= 9, sorted(seen)
+    assert TA.bounded_rows(TA.bounded_rows(1000)) == TA.bounded_rows(1000)
+
+
 if __name__ == "__main__":
     sys.exit(0 if run_checks() else 1)

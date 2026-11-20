@@ -26,8 +26,6 @@ from .token_axis import bounded_rows as _group_rows
 from . import tenstorrent as _T
 from .tenstorrent import _acc_concat, concat_host_bytes, dram_peak, get_device, under_levers
 
-
-
 _BACKBONE = (STRUCTURAL_TOKEN_ROLES["protein_bb"],
              STRUCTURAL_TOKEN_ROLES["dna_bb"],
              STRUCTURAL_TOKEN_ROLES["rna_bb"])
