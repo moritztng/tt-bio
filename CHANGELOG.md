@@ -6,14 +6,6 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 ## [Unreleased]
 
 ### Changed
-- **OpenDDE `--fast` is about 2 % faster on Wormhole.** Two more shared pair-stack kernels run in fast mode. A
-  512-token complex 71.7 -> 70.4 s; structure accuracy unchanged on 44 paired folds.
-- **BoltzGen is about 3 % faster on Wormhole in both modes.** The atom attention reads its key windows in place, and
-  the pair stack runs six more of the shared kernel levers. A 514-token design 28.95 -> 27.98 s in `--fast`,
-  30.03 -> 29.37 s in normal mode; design quality unchanged on 64 paired designs per mode.
-- **BoltzGen `--fast` is about 5 % faster on Blackhole.** The atom attention reads its key windows in place, as on
-  Wormhole. A 514-token design 18.32 -> 17.45 s; design quality unchanged on 40 paired designs. Blackhole normal mode
-  is unchanged.
 - **Protenix-v2 is slightly faster on Blackhole, both modes.** The diffusion trajectory stays on the card, as Mol-1 and
   OpenFold3 already do there. The diffusion stage of a 512-token complex 3.49 -> 3.05 s in `--fast` and 5.65 -> 5.15 s
   in normal mode; a whole fold is 0.23 s (fast) and 0.39 s (normal) faster at the median. Structure accuracy unchanged
@@ -22,6 +14,18 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   one gap slot and three identical slots, so the trunk now runs the template stack once per distinct template. Output
   is bit-identical. A 512-token Protenix-v2 fold on Blackhole is about 2 % faster in both modes (24.95 -> 24.45 s
   normal, 20.23 -> 19.86 s `--fast`).
+
+## [0.39.0] - 2026-11-20
+
+### Changed
+- **OpenDDE `--fast` is about 2 % faster on Wormhole.** Two more shared pair-stack kernels run in fast mode. A
+  512-token complex 71.7 -> 70.4 s; structure accuracy unchanged on 44 paired folds.
+- **BoltzGen is about 3 % faster on Wormhole in both modes.** The atom attention reads its key windows in place, and
+  the pair stack runs six more of the shared kernel levers. A 514-token design 28.95 -> 27.98 s in `--fast`,
+  30.03 -> 29.37 s in normal mode; design quality unchanged on 64 paired designs per mode.
+- **BoltzGen `--fast` is about 5 % faster on Blackhole.** The atom attention reads its key windows in place, as on
+  Wormhole. A 514-token design 18.32 -> 17.45 s; design quality unchanged on 40 paired designs. Blackhole normal mode
+  is unchanged.
 
 ## [0.38.0] - 2026-11-19
 
