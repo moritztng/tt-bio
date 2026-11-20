@@ -17,7 +17,11 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 - **Protenix-v2 is slightly faster on Blackhole, both modes.** The diffusion trajectory stays on the card, as Mol-1 and
   OpenFold3 already do there. The diffusion stage of a 512-token complex 3.49 -> 3.05 s in `--fast` and 5.65 -> 5.15 s
   in normal mode; a whole fold is 0.23 s (fast) and 0.39 s (normal) faster at the median. Structure accuracy unchanged
-  on 44 paired fast folds and 16 paired normal folds so far. Wormhole is unchanged.
+  on 44 paired fast folds and 44 paired normal folds. Wormhole is unchanged.
+- **Protenix-v2, OpenDDE and Mol-1 skip duplicate template work.** Without real templates the template features are
+  one gap slot and three identical slots, so the trunk now runs the template stack once per distinct template. Output
+  is bit-identical. A 512-token Protenix-v2 fold on Blackhole is about 2 % faster in both modes (24.95 -> 24.45 s
+  normal, 20.23 -> 19.86 s `--fast`).
 
 ## [0.38.0] - 2026-11-19
 
