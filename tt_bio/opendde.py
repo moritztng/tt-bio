@@ -684,14 +684,17 @@ class OpenDDE:
 
     @under_levers
     def expand_and_refine(self, ifd, s_inputs_res, s_res, z_res, *,
-                          extra_attn_bias=True, return_attn_bias=False):
+                          extra_attn_bias=True, return_attn_bias=False, keep_padded=False):
         """The novel seam (opendde/model/opendde.py forward): residue-trunk (s_inputs, s, z)
         -> structural-token (s_inputs, s, z). The expander produces the structural-token
         tensors + the additive pair attention bias; the 4-block refiner then refines (s, z),
         with that bias fed to the pair/triangle attention (matching OpenDDE's
         ``extra_attn_bias``). Returns ``(s_inputs_struct, s_struct, z_struct)`` as resident
         ttnn tensors. All inputs are host tensors / the integer feature dict, as for
-        :meth:`StructuralTokenExpander.__call__`."""
+        :meth:`StructuralTokenExpander.__call__`.
+
+        ``keep_padded`` returns the refined (s, z) at the bucketed width instead of Ns (padded rows
+        are finite and masked out of every key the refiner read); s_inputs and the bias stay at Ns."""
         import ttnn
         s_inputs_st, s_st, z_st, attn_bias = self.expander(ifd, s_inputs_res, s_res, z_res)
         Ns = s_st.shape[0]
@@ -716,8 +719,8 @@ class OpenDDE:
         # confidence head were both bucketed. Same helper, same gate, on by default.
         from .tenstorrent import get_device as _gd
         s_ref, z_ref = bucketed_pairformer(self.refiner, s3, z4, _gd(),
-                                           extra_attn_bias=bias)
-        result = (s_inputs_st, ttnn.reshape(s_ref, (Ns, self.expander.c_s)), z_ref)
+                                           extra_attn_bias=bias, keep_padded=keep_padded)
+        result = (s_inputs_st, ttnn.reshape(s_ref, (int(s_ref.shape[1]), self.expander.c_s)), z_ref)
         if return_attn_bias:
             return (*result, attn_bias)
         return result
@@ -824,12 +827,20 @@ class OpenDDE:
                   if return_confidence else None)
 
         # 2) the novel seam: residue -> structural-token axis
+        # The diffusion stage runs the structural axis at the refiner's bucketed width Nw, not Ns:
+        # Ns = 2 * residues - glycines differs between proteins of one token bucket (981..1008 at
+        # 512 tokens), and every distinct length compiled its own pair-conditioning and DiT kernels
+        # on the serving host (state/spd-fix-ddefirst.md). Padded tokens are keys nobody reads (-1e9
+        # in the structural bias), map to no atom (zero S columns) and carry zero inputs.
         s_inputs_st, s_st, z_st, structural_attn_bias = self.expand_and_refine(
-            ifd, s_inputs, s_trunk, z_trunk, return_attn_bias=True)
-        dram_peak(f"refiner done [Ns={Ns}]")
-        s_inputs_struct = P._to_host(s_inputs_st, (Ns, self.expander.c_s_inputs))
-        s_struct = P._to_host(s_st, (Ns, self.expander.c_s))
-        structural_attn_bias = P._to_host(structural_attn_bias, (Ns, Ns))
+            ifd, s_inputs, s_trunk, z_trunk, return_attn_bias=True, keep_padded=True)
+        Nw = int(s_st.shape[0])
+        pad = Nw - Ns
+        dram_peak(f"refiner done [Ns={Ns}, Nw={Nw}]")
+        F = torch.nn.functional
+        s_inputs_struct = F.pad(P._to_host(s_inputs_st, (Ns, self.expander.c_s_inputs)), (0, 0, 0, pad))
+        s_struct = P._to_host(s_st, (Nw, self.expander.c_s))
+        structural_attn_bias = F.pad(P._to_host(structural_attn_bias, (Ns, Ns)), (0, pad, 0, pad), value=-1e9)
 
         # 3) diffusion pair conditioning + EDM sampler, structural-token axis
         parent = ifd["parent_residue_idx"]
@@ -840,13 +851,14 @@ class OpenDDE:
             "sym_id": feats["sym_id"].index_select(0, parent),
             "token_index": ifd["structural_token_index"],
         })
+        relp_struct = F.pad(relp_struct, (0, 0, 0, pad, 0, pad))
         # The structural pair's only consumer, so the conditioning frees it (confidence runs
         # on the residue axis): at Ns=2113 it is 3.2 GiB the confidence pairformer needs back.
         pz = P._diffusion_pair_cond(z_st, relp_struct, device=P._pz_device())
         dram_peak("structural pair conditioned")
         a2s = ifd["atom_to_structural_token_idx"]
-        S_struct = torch.zeros(N, Ns); S_struct[torch.arange(N), a2s] = 1.0
-        z_term, pz_cond = P._pair_z_seam(pz, Ns, a2s, nb, nq, nk)
+        S_struct = torch.zeros(N, Nw); S_struct[torch.arange(N), a2s] = 1.0
+        z_term, pz_cond = P._pair_z_seam(pz, Nw, a2s, nb, nq, nk)
         p_lm = p_lm + z_term
 
         cond = {"s_trunk": s_struct, "s_inputs": s_inputs_struct, "c_l": c_l,

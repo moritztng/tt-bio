@@ -480,8 +480,11 @@ def token_pad_masks_tt(N: int, Np: int, dev):
     return m1, up(pair), up(additive)
 
 
-def bucketed_pairformer(pf, s, z, dev, Np: int, extra_attn_bias=None):
+def bucketed_pairformer(pf, s, z, dev, Np: int, extra_attn_bias=None, keep_padded=False):
     """Run `pf` with its token axis padded out to `Np`, masked, and sliced back.
+
+    `keep_padded` skips the slice back for a caller that goes on running the padded axis (OpenDDE's
+    diffusion stage reads the refiner's output at `Np`, so the per-protein length never reaches it).
 
     `Np` is passed in rather than derived so the gate and the multiple stay the caller's business
     and this stays the only place the pad-mask-slice sequence is written. The trunk is not the only
@@ -516,6 +519,8 @@ def bucketed_pairformer(pf, s, z, dev, Np: int, extra_attn_bias=None):
         extra_attn_bias = ttnn.pad(
             extra_attn_bias, [(0, 0), (0, 0), (0, pad), (0, pad)], -1e9)
     so, zo = pf(s, z, pmask, attn, attn, extra_attn_bias)
+    if keep_padded:
+        return so, zo
     if so is not None:
         so = ttnn.slice(so, (0, 0, 0), (1, N, so.shape[2]))
     zo = replace_after_refusal(zo, lambda t: ttnn.slice(t, (0, 0, 0, 0), (1, N, N, t.shape[3])),

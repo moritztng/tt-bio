@@ -591,14 +591,14 @@ def bucketed_width(N: int, mult: int | None = None) -> int:
     return _w(N, mult or _token_pad_multiple()) if _token_bucket() else N
 
 
-def bucketed_pairformer(pf, s, z, dev, mult: int | None = None, extra_attn_bias=None):
+def bucketed_pairformer(pf, s, z, dev, mult: int | None = None, extra_attn_bias=None, keep_padded=False):
     """`token_axis.bucketed_pairformer` under this family's flag and multiple.
 
     The mechanism lives in token_axis.py next to the census; this is the two lines that decide
     whether protenix-v2 / opendde / opendde-abag use it and how wide.
     """
     from .token_axis import bucketed_pairformer as _bp
-    return _bp(pf, s, z, dev, bucketed_width(int(z.shape[1]), mult), extra_attn_bias)
+    return _bp(pf, s, z, dev, bucketed_width(int(z.shape[1]), mult), extra_attn_bias, keep_padded)
 
 
 def _msa_take_whole_path(nbytes):
