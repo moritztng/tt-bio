@@ -67,6 +67,13 @@ def phases(s):
             imp = sh.get("import", 0) / max(1, sum(sh.values()))
             f["import_other"] += sec * imp
             f[{"pre": "setup", "load": "build", "job#1": "first", "device_open": "device"}[top]] += sec * (1 - imp)
+    # a model that loads weights lazily inside its first prediction (ESMFold2's 6B LM): the upload prediction 1
+    # does beyond prediction 2's is weight upload, not prediction work
+    up = {t: sum(sec for tt, cat, sec in s["acc"] if tt == t and cat == "upload") for t in ("job#1", "job#2")}
+    if "job#2" in tops:
+        lazy = max(0.0, up["job#1"] - up["job#2"])
+        f["first"] -= lazy
+        f["upload"] += lazy
     total = tops["job#1"][2]
     f["setup"] += max(0.0, total - sum(f.values()))   # interpreter bookkeeping the tracer did not see
     j2 = tops.get("job#2")
@@ -99,6 +106,8 @@ for m in models:
             pairs.append((r, pc, pw))
     if not pairs:
         continue
+    if any(r != "r1" for r, _, _ in pairs):  # r1 cold ran before any weight page-cache drop; r2+ drop both
+        pairs = [p for p in pairs if p[0] != "r1"]
     fine = {k: med([pw["fine"][k] for _, _, pw in pairs]) for k in pairs[0][2]["fine"]}
     steady = med([pw["steady"] for _, _, pw in pairs] + [pc["steady"] for _, pc, _ in pairs])
     c = coarse(fine, steady)
