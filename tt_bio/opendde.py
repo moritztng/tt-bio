@@ -22,17 +22,10 @@ from .protenix import (NORMAL_LEVERS as _FAMILY_NORMAL, BRES_NORMAL, T1_PSIG, T2
 from . import hostlane
 from .envflags import env_flag
 from .opendde_data import STRUCTURAL_TOKEN_ROLES
+from .token_axis import bounded_rows as _group_rows
 from . import tenstorrent as _T
 from .tenstorrent import _acc_concat, concat_host_bytes, dram_peak, get_device, under_levers
 
-
-def _group_rows(n: int) -> int:
-    """Round a role-pair group's row count up to 32 rows times a 4-bit mantissa (8..15) times a
-    power of two: at most 12.5 % extra rows, and ~8 widths per doubling, so the set of matmul
-    shapes a host ever compiles for the pair projection is bounded instead of one per protein."""
-    t = -(-n // 32)
-    shift = max(0, t.bit_length() - 4)
-    return -(-t // (1 << shift)) * (1 << shift) * 32
 
 
 _BACKBONE = (STRUCTURAL_TOKEN_ROLES["protein_bb"],

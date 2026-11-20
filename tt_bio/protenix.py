@@ -38,7 +38,7 @@ from . import hostlane
 from .envflags import env_flag
 from .size_limits import restart_lighter
 from .sample_chunks import denoise_in_chunks, resolve_sample_chunk_width
-from .token_axis import bucket_multiple as _bucket_multiple
+from .token_axis import bucket_multiple as _bucket_multiple, bounded_rows
 from .protenix_weights import remap_adaln  # single source of all v2->tt-bio weight remaps
 from . import ops
 from .tenstorrent import (Module, CORE_GRID_MAIN, get_device, dram_peak,
@@ -3253,14 +3253,16 @@ class Protenix:
         return out
 
     @staticmethod
-    def _atom_pair_feats(ref_pos, ref_space_uid):
+    def _atom_pair_feats(ref_pos, ref_space_uid, n_real=None):
         """Algorithm 5 lines 1-3 (reference update_input_feature_dict): windowed atom-pair
         feats from ref_pos + ref_space_uid (NQ=32, NK=128, pad_left=48). Validated vs the
         reference (d_lm exact, v_lm/mask exact). Returns d_lm (nb,NQ,NK,3), v_lm (nb,NQ,NK,1),
-        mask_trunked (nb,NQ,NK)."""
+        mask_trunked (nb,NQ,NK). n_real: atoms past it are padding (zero position, uid 0, the
+        values the reference pads with) and the mask drops them as queries and keys."""
         import torch
         import torch.nn.functional as F
         N = ref_pos.shape[0]; NQ, NK, PADL = 32, 128, 48
+        R = N if n_real is None else n_real
         nb = (N + NQ - 1) // NQ; NP = nb * NQ; qpad = NP - N
         ruid = ref_space_uid.long()
         qpos = F.pad(ref_pos.float(), (0, 0, 0, qpad)).reshape(nb, NQ, 3)
@@ -3272,11 +3274,36 @@ class Protenix:
         kuid = torch.stack([kuid_p[b * NQ:b * NQ + NK] for b in range(nb)], 0)   # (nb,NK)
         d_lm = qpos[:, :, None, :] - kpos[:, None, :, :]                         # (nb,NQ,NK,3)
         v_lm = (quid[:, :, None] == kuid[:, None, :]).float().unsqueeze(-1)      # (nb,NQ,NK,1)
-        qidx = torch.arange(NP).reshape(nb, NQ); qval = (qidx < N).float()
+        qidx = torch.arange(NP).reshape(nb, NQ); qval = (qidx < R).float()
         kglob = torch.stack([torch.arange(b * NQ - PADL, b * NQ - PADL + NK) for b in range(nb)], 0)
-        kval = ((kglob >= 0) & (kglob < N)).float()
+        kval = ((kglob >= 0) & (kglob < R)).float()
         mask_trunked = qval[:, :, None] * kval[:, None, :]                      # (nb,NQ,NK)
         return d_lm, v_lm, mask_trunked
+
+    @staticmethod
+    def _pair_feat_rows(d_lm, v_lm):
+        """The windowed pair feats as the (nb*nq*nk, *) rows AtomFeaturization.p_lm reads."""
+        d = d_lm.reshape(-1, 3)
+        return d, v_lm.reshape(-1, 1), 1.0 / (1.0 + (d ** 2).sum(-1, keepdim=True))
+
+    def _embedder_atoms(self, feats, fi):
+        """Host inputs of the input embedder's atom encoder (`input_aae`), the atom axis padded
+        to `bounded_rows(N)`. Every op in that encoder compiles per atom count, so a raw count
+        compiled a fresh set of kernels for each protein new to a host (~13 s of an OpenDDE fold
+        on WH). Padded atoms carry zero features and mask, the pair mask drops them as queries
+        and keys, and the atom->token mean gives them zero weight; the output is per token, so
+        nothing after the encoder sees them. Returns (device args, host mask_trunked, Mmat)."""
+        import torch.nn.functional as F
+        N, S = fi["N"], fi["S"]
+        Mmat = S.t() / (S.t().sum(-1, keepdim=True) + 1e-6)
+        atoms = [feats["ref_pos"], fi["ref_charge_asinh"], feats["ref_mask"].reshape(N, 1), fi["f_in"]]
+        NA = bounded_rows(N)
+        if NA == N or "d_lm" in feats:
+            return atoms + [fi["d"], fi["v"], fi["invd"]], fi["mt"], Mmat
+        atoms = [F.pad(x, (0, 0, 0, NA - N)) for x in atoms]
+        d_lm, v_lm, mt = self._atom_pair_feats(atoms[0], F.pad(feats["ref_space_uid"], (0, NA - N)),
+                                               n_real=N)
+        return atoms + list(self._pair_feat_rows(d_lm, v_lm)), mt.float(), F.pad(Mmat, (0, NA - N))
 
     def _atom_feat_inputs(self, feats):
         """Build the per-atom feature tensors shared by both atom encoders. Accepts the
@@ -3294,9 +3321,7 @@ class Protenix:
         else:
             d_lm, v_lm, mt = self._atom_pair_feats(feats["ref_pos"], feats["ref_space_uid"])
         nb, nq, nk, _ = d_lm.shape
-        M = nb * nq * nk
-        d = d_lm.reshape(M, 3); v = v_lm.reshape(M, 1)
-        invd = (1.0 / (1.0 + (d_lm ** 2).sum(-1, keepdim=True))).reshape(M, 1)
+        d, v, invd = self._pair_feat_rows(d_lm, v_lm)
         a2t = feats["atom_to_token_idx"].long(); NT = int(a2t.max()) + 1
         S = torch.zeros(N, NT); S[torch.arange(N), a2t] = 1.0
         return dict(N=N, NT=NT, nb=nb, nq=nq, nk=nk, f_in=f_in, d=d, v=v, invd=invd,
@@ -3603,18 +3628,16 @@ class Protenix:
         per-cycle alignment draw when the caller has its own rule (OpenDDE), else the lever's."""
         fi = self._atom_feat_inputs(feats)
         N, NT, nb, nq, nk = fi["N"], fi["NT"], fi["nb"], fi["nq"], fi["nk"]
-        mt = fi["mt"]; S = fi["S"]
+        mt = fi["mt"]
         tt = self._tt
         # The trunk's host-only inputs (relp, padding, template and MSA features) are built on the
         # host lane while the chip runs the input embedder and the diffusion atom cache below.
         trunk_host = hostlane.submit(self._trunk_host_inputs, feats, NT)
         # 1) s_inputs (input embedder atom encoder)
-        Mmat = (S.t() / (S.t().sum(-1, keepdim=True) + 1e-6))
+        atoms, emb_mt, Mmat = self._embedder_atoms(feats, fi)
         dm = feats["deletion_mean"]; dm = dm.reshape(-1, 1) if dm.dim() == 1 else dm
-        s_inputs_tt = self.input_aae(
-            tt(feats["ref_pos"]), tt(fi["ref_charge_asinh"]), tt(feats["ref_mask"].reshape(N, 1)),
-            tt(fi["f_in"]), tt(fi["d"]), tt(fi["v"]), tt(fi["invd"]), mt, tt(Mmat),
-            tt(feats["restype"]), tt(feats["profile"]), tt(dm))
+        s_inputs_tt = self.input_aae(*map(tt, atoms), emb_mt, tt(Mmat),
+                                     tt(feats["restype"]), tt(feats["profile"]), tt(dm))
         s_inputs = self._to_host(s_inputs_tt)[:NT]
         # 2) diffusion atom cache (c_l, p_lm) -- t-independent and gate-controlled
         dtt = self.diffusion._up

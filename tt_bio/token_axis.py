@@ -402,6 +402,18 @@ def bucketed_width(N: int, mult: int) -> int:
     return N + pad_amount(N, mult)
 
 
+def bounded_rows(n: int, quantum: int = 32) -> int:
+    """Round a row count that is a property of the input up to a bounded set of widths:
+    `quantum` x (8..15) x 2^k, so at most 12.5 % extra rows and ~8 widths per doubling.
+
+    A ttnn op compiles its kernels per shape, so an axis that takes the input's raw length
+    compiles new kernels for every input a host has not seen before (~1 s each on WH). Rounding
+    to this set makes a host's kernel cache saturate instead of growing with every protein."""
+    t = -(-n // quantum)
+    shift = max(0, t.bit_length() - 4)
+    return -(-t // (1 << shift)) * (1 << shift) * quantum
+
+
 def msa_ladder() -> tuple[int, ...]:
     """The live MSA depth ladder. ON by default; ``TT_BIO_MSA_LADDER=0`` restores the single 1024.
 
