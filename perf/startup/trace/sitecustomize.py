@@ -70,9 +70,12 @@ if os.environ.get("ST_OUT"):
                 return fn(*a, **kw)
             if path and cat == "read" and a:
                 p = a[0]
-                p = getattr(p, "name", p)
+                try:  # a file object: its real path, not the name it was opened under
+                    p = os.readlink(f"/proc/self/fd/{p.fileno()}")
+                except Exception:
+                    pass
                 if isinstance(p, (str, os.PathLike)):
-                    _reads.add(os.path.abspath(os.fspath(p)))
+                    _reads.add(os.path.realpath(os.fspath(p)))
             _push(cat)
             try:
                 return fn(*a, **kw)
@@ -103,6 +106,7 @@ if os.environ.get("ST_OUT"):
         "tt_bio.esmc": {"load_esmc": "load", "embed_sequences": "job"},
         "tt_bio.rfd4.engine": {"get_engine": "load"},
         "tt_bio.rfd4": {"design": "job"},
+        "bindcraft.campaign": {"run_trajectory": "job"},   # one BindCraft 2 design trajectory = one prediction
     }
     IMPORT_TIMED = {"torch": "import_torch", "ttnn": "import_ttnn", "tt_bio": "import_tt_bio", "jax": "import_jax"}
 
@@ -176,18 +180,22 @@ if os.environ.get("ST_OUT"):
         while True:
             time.sleep(dt)
             fr = sys._current_frames().get(_main)
-            if fr is None or (_stack and _stack[-1].split("#")[0] not in TOP):
+            inner = _stack[-1].split("#")[0] if _stack else None
+            if fr is None or (inner and inner not in TOP and inner != "upload"):
                 continue
             top, imp, hot = _top(), False, None
+            if inner == "upload":  # who uploads: the innermost tt_bio caller, not counted in the residual split
+                top = "upload@" + top
             f = fr
             while f is not None:
                 fn = f.f_code.co_filename
                 if "importlib._bootstrap" in fn:
                     imp = True
-                if hot is None and ("/tt_bio/" in fn or "/bindcraft/" in fn):
+                if hot is None and (("/tt_bio/" in fn and not fn.endswith("/tt_bio/tenstorrent.py")) or "/bindcraft/" in fn):
                     hot = f"{f.f_globals.get('__name__', '?')}:{f.f_code.co_name}"
                 f = f.f_back
-            _samp[(top, "import" if imp else "own")] += 1
+            if inner != "upload":
+                _samp[(top, "import" if imp else "own")] += 1
             if not imp:
                 _hot[(top, hot or f"{fr.f_globals.get('__name__', '?')}:{fr.f_code.co_name}")] += 1
 

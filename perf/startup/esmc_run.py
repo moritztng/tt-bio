@@ -20,6 +20,5 @@ m = esmc.load_esmc("esmc-300m", fast=False, trace=esmc.trace_pays(seqs))
 for k in range(2):
     t = time.perf_counter()
     r = esmc.embed_sequences(m, seqs)
-    log.write(json.dumps(dict(ev="rep", k=k, s=time.perf_counter() - t, n=len(r),
-                              dim=int(getattr(r[0], "embedding", r[0]).shape[-1]) if r else None)) + "\n")
+    log.write(json.dumps(dict(ev="rep", k=k, s=time.perf_counter() - t, n=len(r))) + "\n")
 log.close()
