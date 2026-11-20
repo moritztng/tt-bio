@@ -1741,8 +1741,9 @@ LEVERS_FAST = ("normal+trimul_b8in+transition_ws+trimul_gin+trimul_t2g+trimul_gi
 # A/B on each Blackhole set, 512 aa page, repeat 6, qb2 p300c at AICLK 1250-1300 in both arms (t1g): ESMFold2 --fast
 # 10.42 -> 9.76 s (6/6 pairs), normal 12.00 -> 11.03 s; ESMFold2-Fast --fast 6.63 -> 6.30 s, normal 7.61 -> 7.49 s.
 # It passes the fast bar for both models (t1gfg: ESMFold2 22 paired folds, docking 17 -> 18; ESMFold2-Fast 43, top-pose
-# median 0.94 A vs 1.60 A seed floor) and fails the normal one for ESMFold2 (t1gng, 19 pairs: L-RMSD +0.18 A, CI
-# [+0.01, +0.37] excludes 0), so it is fast-only.
+# median 0.94 A vs 1.60 A seed floor). Normal bar (t1gng, 44 paired folds per model): ESMFold2 passes (top-pose median
+# 0.50 A vs 1.60 A seed floor, docking 33 -> 31), ESMFold2-Fast fails (CA-lDDT -0.0011, CI [-0.0023, -0.0001] excludes 0).
+# Both models fold under one set per mode, so it is fast-only.
 _BH_ONLY = ("trimul_t1", "trimul_t1_c256", "trimul_t2", "trimul_t2cm", "trimul_t1w8", "trimul_t1_2g", "trimul_t1_psig", "ws_ln_resid",
             "ef2_opm_proj", "trimul_t1g8")
 # Wormhole's normal mode folds with the LM in bfp8 (load_ttnn_esmfold2) and adds ef2_lm_combine to LEVERS_NORMAL.
