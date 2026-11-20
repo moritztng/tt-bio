@@ -121,27 +121,53 @@ def run_pairs(run, m):
     return pairs
 
 
+def cold_only(run, m):
+    """Cold runs of a model whose warm runs all failed: the startup is measured, the compile share is not."""
+    rs = sorted(p.name for p in (run / m).glob("r*-cold")) if (run / m).is_dir() else []
+    return [(r, ph) for r in rs for s in [summary(run / m / r)] if s for ph in [phases(s)] if ph]
+
+
+def cold_row(run, cs, warm_total=None):
+    """Bar from cold runs alone. Compile stays inside the other phases, and prediction 2 is not used as steady
+    state (it crashed, or a design trajectory's length varies with its seed)."""
+    fine = {k: med([pc["fine"][k] for _, pc in cs]) for k in cs[0][1]["fine"]}
+    c = coarse(fine, None)
+    c["compile"] = 0.0
+    return dict(run=str(run), n=len(cs), rounds=[r for r, _ in cs], fine=fine, coarse=c, steady=None, cold_only=True,
+                cold_total=med([pc["total"] for _, pc in cs]), warm_total=warm_total,
+                cold_first_job=med([pc["first_job"] for _, pc in cs]), warm_first_job=None,
+                cold_device=med([pc["fine"]["device"] for _, pc in cs]),
+                cold_runs=[round(pc["total"], 1) for _, pc in cs], warm_runs=[])
+
+
 rows = {}
 for m in NAMES:
     found = [(run, p) for run in RUNS for p in [run_pairs(run, m)] if p]
     if not found:
+        co = [(run, c) for run in RUNS for c in [cold_only(run, m)] if c]
+        if co:
+            rows[m] = cold_row(*co[-1])
         continue
     run, pairs = found[-1]
     if any(r != "r1" for r, _, _ in pairs):  # r1 cold ran before any weight page-cache drop; r2+ drop both
         pairs = [p for p in pairs if p[0] != "r1"]
+    cold_total, warm_total = med([pc["total"] for _, pc, _ in pairs]), med([pw["total"] for _, _, pw in pairs])
+    if cold_total <= warm_total:  # run-to-run variation swamps compile: the difference measures nothing
+        rows[m] = cold_row(run, [(r, pc) for r, pc, _ in pairs], warm_total)
+        continue
     fine = {k: med([pw["fine"][k] for _, _, pw in pairs]) for k in pairs[0][2]["fine"]}
     steady = med([pw["steady"] for _, _, pw in pairs] + [pc["steady"] for _, pc, _ in pairs])
     c = coarse(fine, steady)
-    c["compile"] = med([max(0.0, pc["total"] - pw["total"]) for _, pc, pw in pairs])
+    c["compile"] = cold_total - warm_total
     rows[m] = dict(run=str(run), n=len(pairs), rounds=[r for r, _, _ in pairs], fine=fine, coarse=c, steady=steady,
-                   cold_total=med([pc["total"] for _, pc, _ in pairs]), warm_total=med([pw["total"] for _, _, pw in pairs]),
+                   cold_total=cold_total, warm_total=warm_total,
                    cold_first_job=med([pc["first_job"] for _, pc, _ in pairs]),
                    warm_first_job=med([pw["first_job"] for _, _, pw in pairs]),
                    cold_device=med([pc["fine"]["device"] for _, pc, _ in pairs]),
                    cold_runs=[round(pc["total"], 1) for _, pc, _ in pairs], warm_runs=[round(pw["total"], 1) for _, _, pw in pairs])
 json.dump(rows, open(PDF.with_suffix(".json"), "w"), indent=1)
 for m, r in rows.items():
-    print(f"{m:12s} n={r['n']} cold={r['cold_total']:.1f} warm={r['warm_total']:.1f} steady={r['steady'] or 0:.1f} "
+    print(f"{m:12s} n={r['n']} cold={r['cold_total']:.1f} warm={r['warm_total'] or 0:.1f} steady={r['steady'] or 0:.1f} "
           + " ".join(f"{k}={v:.1f}" for k, v in r["coarse"].items()))
 if len(sys.argv) > 3 and sys.argv[3] == "--no-pdf":
     sys.exit(0)
@@ -171,7 +197,12 @@ with PdfPages(PDF) as pdf:
                 ax.barh(i, w, left=left, height=0.62, color=col, edgecolor=SURF, linewidth=1.2)
             left += w
         ax.text(left + xmax * 0.012, i + 0.06, f"{rows[m]['cold_total']:.0f} s", va="center", fontsize=10, weight="bold")
-        ax.text(left + xmax * 0.012, i - 0.30, f"warm cache {rows[m]['warm_total']:.0f} s", va="center", fontsize=7.5,
+        r = rows[m]
+        warm = (("warm cache " if not r.get("cold_only") else "warm cache run ") + f"{r['warm_total']:.0f} s"
+                if r["warm_total"] is not None else "warm-cache run crashed")
+        if r.get("cold_only"):
+            warm += "; compile not split out"
+        ax.text(left + xmax * 0.012, i - 0.30, warm, va="center", fontsize=7.5,
                 color=INK2)
     ax.set_yticks(range(len(order)))
     ax.set_yticklabels([f"{NAMES[m]}" for m in order], fontsize=10)
@@ -208,8 +239,8 @@ with PdfPages(PDF) as pdf:
         r, f = rows[m], rows[m]["fine"]
         vals = [f["import_torch"], f["import_ttnn"], f["import_other"], f["device"], f["ckpt"], f["read"], f["upload"],
                 f["build"], f["setup"] + f["featurize"], f["trace"], r["coarse"]["compile"],
-                r["warm_first_job"], r["steady"] or 0, r["warm_total"], r["cold_total"]]
-        cell.append([f"{v:.1f}" for v in vals] + [str(r["n"])])
+                r["warm_first_job"], r["steady"], r["warm_total"], r["cold_total"]]
+        cell.append(["-" if v is None else f"{v:.1f}" for v in vals] + [str(r["n"])])
     ax = fig.add_axes([0.03, 0.62, 0.94, 0.3])
     ax.axis("off")
     tb = ax.table(cellText=cell, rowLabels=[NAMES[m] for m in order], colLabels=cols, loc="upper center",
