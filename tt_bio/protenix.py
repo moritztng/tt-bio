@@ -3853,6 +3853,20 @@ def trunk_recycles(state_dict):
     return 4 if n_blocks(state_dict, "template_embedder.pairformer_stack") == 0 else 10
 
 
+def unique_slots(xs):
+    """(distinct, slot): the distinct tensors of xs in first-seen order, and for each element of xs
+    the index of its equal in `distinct` (torch.equal, so exact). The template embedder runs one
+    stack per distinct template and still sums one term per slot."""
+    distinct, slot = [], []
+    for x in xs:
+        j = next((j for j, d in enumerate(distinct) if torch.equal(d, x)), None)
+        if j is None:
+            j = len(distinct)
+            distinct.append(x)
+        slot.append(j)
+    return distinct, slot
+
+
 class Trunk(_KeyedWeights):
     """Protenix-v2 trunk: s_inputs -> (s_trunk, z_trunk) over 10 recycling cycles.
 
@@ -3986,8 +4000,12 @@ class Trunk(_KeyedWeights):
         c_z = Trunk._derive_c_z(state_dict)
         return w or ({c_z} if c_z else set())
 
-    def _template(self, z3, tpl_a, N, nt, pmask_tt=None, attn_tt=None):
-        # tpl_a: nt device tensors, each already `linear_no_bias_a(at)` for one template.
+    def _template(self, z3, tpl_a, tslot, pmask_tt=None, attn_tt=None):
+        # tpl_a: one device tensor per DISTINCT template, each already `linear_no_bias_a(at)`;
+        # tslot[t] names template t's entry (`unique_slots`). Equal inputs give equal stack
+        # outputs, so each distinct template runs the 2-block stack once and the mean still adds
+        # one term per slot in slot order, the same adds as running every slot. Without real
+        # templates the features are one gap slot and three identical ALA slots: 2 stacks, not 4.
         # The projection is cycle-invariant, so the caller hoists it out of the recycling
         # loop (see Trunk.__call__); passing the raw host feature concat here is a bug.
         # nt template projections read this whole normed pair tensor to write two tiles of
@@ -4001,21 +4019,21 @@ class Trunk(_KeyedWeights):
         zn = self._ln(z3, "template_embedder.layernorm_z.weight",
                       "template_embedder.layernorm_z.bias", l1=True)
         vs = []
-        for t in range(nt):
-            a = host_unpark(tpl_a[t])
+        for ta in tpl_a:
+            a = host_unpark(ta)
             vs.append(ttnn.add(a, self._lin(zn, "template_embedder.linear_no_bias_z.weight"),
                                memory_config=ttnn.DRAM_MEMORY_CONFIG))
-            if a is not tpl_a[t]:
+            if a is not ta:
                 ttnn.deallocate(a)
         ttnn.deallocate(zn)
-        u = None
-        for t in range(nt):
-            v = vs[t]
+        for i, v in enumerate(vs):
             for pl in self.TPL:
                 v = pl(None, v, pmask_tt, attn_tt, attn_tt)[1]
-            v = self._ln(v, "template_embedder.layernorm_v.weight", "template_embedder.layernorm_v.bias")
-            u = v if u is None else ttnn.add(u, v)
-        u = ttnn.multiply(u, 1.0 / (1e-7 + nt))
+            vs[i] = self._ln(v, "template_embedder.layernorm_v.weight", "template_embedder.layernorm_v.bias")
+        u = vs[tslot[0]]
+        for i in tslot[1:]:
+            u = ttnn.add(u, vs[i])
+        u = ttnn.multiply(u, 1.0 / (1e-7 + len(tslot)))
         # z + linear_u(relu(u)), the embedder's residual. Per pair position, so after DRAM refuses
         # the single pass it runs in row blocks and the old z is freed at the join: at 1536 tokens
         # the c_z=384 projection alone is 1811939328 B, refused beside z with a 96 MiB/bank run.
@@ -4232,6 +4250,7 @@ class Trunk(_KeyedWeights):
             uv = feat["template_unit_vector"][t] * mc[..., None] * pm[..., None]
             bb = (feat["template_backbone_frame_mask"][t] * mc * pm).unsqueeze(-1)
             te_at.append(torch.cat([dg, pb, aai, aaj, uv, bb], -1))
+        te_at, tslot = unique_slots(te_at)
         # msa feature
         # Built in bf16, the dtype it is uploaded in: the one-hot and has_deletion are exact and
         # torch rounds deletion_value as the fp32 upload did, so the device tensor is identical,
@@ -4245,7 +4264,7 @@ class Trunk(_KeyedWeights):
                   else None)
         return dict(N=N, pad=pad, feat=feat, relp=self._host_cast(relp), relp_g=relp_g,
                     token_bonds=self._host_cast(token_bonds),
-                    pm_pad=pm_pad, at_pad=at_pad, nt=nt,
+                    pm_pad=pm_pad, at_pad=at_pad, nt=nt, tslot=tslot,
                     te_at=[self._host_cast(t.unsqueeze(0)) for t in te_at], ms=ms)
 
     def __call__(self, feat, s_inputs, relp, token_bonds, progress_fn=None, n_cycles=None, host=None,
@@ -4377,7 +4396,7 @@ class Trunk(_KeyedWeights):
             # where upstream adds nothing. Inert for protenix-v2 and opendde, which both ship
             # a 2-block stack (pinned by tests/test_protenix_template_gate.py).
             if nt > 0 and self.TPL:
-                z3 = self._template(z3, tpl_a, N, nt, pmask_tt, attn_tt)
+                z3 = self._template(z3, tpl_a, host["tslot"], pmask_tt, attn_tt)
             z3 = self._msa(z3, m_feat, pmask_tt, attn_tt, rows)
             if rows is not None and not ops.taping():
                 # Held through the Pairformer, the draw left the 1536-token OpenDDE trunk's
