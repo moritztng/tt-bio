@@ -21,7 +21,12 @@ def test_unique_slots_exact_and_ordered():
 def test_dummy_templates_collapse_to_two_stacks():
     f = dummy_template_features(37)
     import torch.nn.functional as F
-    feats = [torch.cat([F.one_hot(f["template_aatype"][t], 32).float(), f["template_distogram"][t].sum(-1, keepdim=True)], -1)
-             for t in range(f["template_aatype"].shape[0])]
+    n = f["template_aatype"].shape[1]
+    feats = []
+    for t in range(f["template_aatype"].shape[0]):  # the concat Trunk.host_inputs builds
+        aa = F.one_hot(f["template_aatype"][t].long(), 32).float()
+        feats.append(torch.cat([f["template_distogram"][t], f["template_pseudo_beta_mask"][t].unsqueeze(-1),
+                                aa[None].expand(n, n, 32), aa[:, None].expand(n, n, 32),
+                                f["template_unit_vector"][t], f["template_backbone_frame_mask"][t].unsqueeze(-1)], -1))
     d, s = unique_slots(feats)
     assert s == [0, 1, 1, 1] and len(d) == 2
