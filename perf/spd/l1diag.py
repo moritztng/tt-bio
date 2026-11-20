@@ -5,6 +5,11 @@ and every ttnn op that raises a clash prints, on stderr under `[l1diag]`, each L
 the raising frames (locals and one level of `self` attributes) and from the garbage collector: where it is held,
 shape, dtype, layout and buffer address. The tensor whose address the message names is the one to chase.
 Diagnosis only; prints at most TT_BIO_L1DIAG_MAX (default 6) clashes per process.
+
+Only the FIRST clash block describes the run as shipped. Reading `f_locals` stores a snapshot dict on each live
+caller frame (Python 3.10), which keeps tensors those frames later drop, so every L1 allocation after the first dump
+is perturbed. This module's own frame is skipped: its locals hold the exception, whose traceback holds the frames,
+a cycle that kept a refused L1 output alive until the garbage collector ran (OpenFold3 c730, 2026-11-20).
 """
 import gc
 import os
@@ -46,6 +51,7 @@ def dump(exc):
     while f is not None:  # the callers above the op too
         frames.insert(0, f)
         f = f.f_back
+    frames = [fr for fr in frames if fr.f_code.co_filename != __file__]
     for fr in frames:
         where = f"{os.path.basename(fr.f_code.co_filename)}:{fr.f_lineno}:{fr.f_code.co_name}"
         for name, v in list(fr.f_locals.items()):
