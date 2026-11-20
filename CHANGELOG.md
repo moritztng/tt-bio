@@ -14,6 +14,10 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   `--fast` also runs the diffusion transformer's adaptive LayerNorm as one fused kernel. A 512-token fold is about
   0.5 s faster in normal mode and 0.6 s in `--fast`. Structure accuracy unchanged on 44 paired normal folds and 44
   paired fast folds. Blackhole is unchanged.
+
+## [0.40.0] - 2026-11-20
+
+### Changed
 - **Protenix-v2 is slightly faster on Blackhole, both modes.** The diffusion trajectory stays on the card, as Mol-1 and
   OpenFold3 already do there. The diffusion stage of a 512-token complex 3.49 -> 3.05 s in `--fast` and 5.65 -> 5.15 s
   in normal mode; a whole fold is 0.23 s (fast) and 0.39 s (normal) faster at the median. Structure accuracy unchanged

@@ -3624,24 +3624,24 @@
       }
     },
     "p300c": {
-      "recorded": "2026-11-08",
+      "recorded": "2026-11-20",
       "host": "tt-quietbox2",
-      "commit": "80a0147a5",
+      "commit": "54bb3a810",
       "host_threads": 5,
       "models": {
         "mol1": {
           "grid": "11x10",
-          "recorded": "2026-11-08",
+          "recorded": "2026-11-20",
           "host": "tt-quietbox2",
-          "commit": "80a0147a5",
+          "commit": "54bb3a810",
           "host_threads": 5,
           "runtime_s": {
-            "256": 21.0,
-            "512": 67.3,
-            "640": 106.7,
-            "768": 159.7,
-            "896": 226.2,
-            "1024": 290.3
+            "256": 19.3,
+            "512": 48.3,
+            "640": 78.4,
+            "768": 111.5,
+            "896": 161.6,
+            "1024": 329.8
           },
           "levers": {
             "256": {
@@ -3703,7 +3703,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 320,
+                "served": 160,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -3761,10 +3761,10 @@
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "t1:key=2x4x2": 320,
-                  "t2:key=2x2": 320
+                  "t1:key=2x4x2": 160,
+                  "t2:key=2x2": 160
                 },
-                "reason": "declines all 0 calls on t1:key=2x4x2 x320, t2:key=2x2 x320: F1_BLOCK_KEYS allow-lists only (8, 8) (tt_bio/trimul_tail.py). Mol-1's trimul tails are c_z 448 and 320 (k_tiles 14 and 10) plus the narrow-hidden ones (k_tiles 2), so F1 is inert on this model at every size: a channel-width property, not a size one. Widening the key set is a kernel fix plus a multi-model gate, not a ladder exemption"
+                "reason": "declines all 0 calls on t1:key=2x4x2 x160, t2:key=2x2 x160: F1_BLOCK_KEYS allow-lists only (8, 8) (tt_bio/trimul_tail.py). Mol-1's trimul tails are c_z 448 and 320 (k_tiles 14 and 10) plus the narrow-hidden ones (k_tiles 2), so F1 is inert on this model at every size: a channel-width property, not a size one. Widening the key set is a kernel fix plus a multi-model gate, not a ladder exemption"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -3790,28 +3790,28 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 2408,
+                "served": 2248,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 640,
+                "served": 320,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 640,
+                "served": 320,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 2088,
+                "served": 1928,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -4025,7 +4025,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 320,
+                "served": 160,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -4075,10 +4075,10 @@
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "t1:key=2x4x2": 320,
-                  "t2:key=2x2": 320
+                  "t1:key=2x4x2": 160,
+                  "t2:key=2x2": 160
                 },
-                "reason": "declines all 0 calls on t1:key=2x4x2 x320, t2:key=2x2 x320: F1_BLOCK_KEYS allow-lists only (8, 8) (tt_bio/trimul_tail.py). Mol-1's trimul tails are c_z 448 and 320 (k_tiles 14 and 10) plus the narrow-hidden ones (k_tiles 2), so F1 is inert on this model at every size: a channel-width property, not a size one. Widening the key set is a kernel fix plus a multi-model gate, not a ladder exemption"
+                "reason": "declines all 0 calls on t1:key=2x4x2 x160, t2:key=2x2 x160: F1_BLOCK_KEYS allow-lists only (8, 8) (tt_bio/trimul_tail.py). Mol-1's trimul tails are c_z 448 and 320 (k_tiles 14 and 10) plus the narrow-hidden ones (k_tiles 2), so F1 is inert on this model at every size: a channel-width property, not a size one. Widening the key set is a kernel fix plus a multi-model gate, not a ladder exemption"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -4105,35 +4105,35 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 2408,
+                "served": 2248,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 640,
+                "served": 320,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 640,
+                "served": 320,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 2088,
+                "served": 1928,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
-                "served": 2088,
+                "served": 1928,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -4338,7 +4338,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 320,
+                "served": 160,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -4388,10 +4388,10 @@
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "t1:key=2x4x2": 320,
-                  "t2:key=2x2": 320
+                  "t1:key=2x4x2": 160,
+                  "t2:key=2x2": 160
                 },
-                "reason": "declines all 0 calls on t1:key=2x4x2 x320, t2:key=2x2 x320: F1_BLOCK_KEYS allow-lists only (8, 8) (tt_bio/trimul_tail.py). Mol-1's trimul tails are c_z 448 and 320 (k_tiles 14 and 10) plus the narrow-hidden ones (k_tiles 2), so F1 is inert on this model at every size: a channel-width property, not a size one. Widening the key set is a kernel fix plus a multi-model gate, not a ladder exemption"
+                "reason": "declines all 0 calls on t1:key=2x4x2 x160, t2:key=2x2 x160: F1_BLOCK_KEYS allow-lists only (8, 8) (tt_bio/trimul_tail.py). Mol-1's trimul tails are c_z 448 and 320 (k_tiles 14 and 10) plus the narrow-hidden ones (k_tiles 2), so F1 is inert on this model at every size: a channel-width property, not a size one. Widening the key set is a kernel fix plus a multi-model gate, not a ladder exemption"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -4418,39 +4418,39 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 2408,
+                "served": 2248,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 640,
+                "served": 320,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 640,
+                "served": 320,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 2088,
-                "declined": 2088,
+                "served": 1928,
+                "declined": 1928,
                 "frac": 0.5,
                 "how": "stats",
                 "rejects": {
                   "l1_budget": 1,
-                  "pm_over_l1": 2087
+                  "pm_over_l1": 1927
                 }
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
-                "served": 2088,
+                "served": 1928,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -4655,7 +4655,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 320,
+                "served": 160,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -4705,10 +4705,10 @@
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "t1:key=2x4x2": 320,
-                  "t2:key=2x2": 320
+                  "t1:key=2x4x2": 160,
+                  "t2:key=2x2": 160
                 },
-                "reason": "declines all 0 calls on t1:key=2x4x2 x320, t2:key=2x2 x320: F1_BLOCK_KEYS allow-lists only (8, 8) (tt_bio/trimul_tail.py). Mol-1's trimul tails are c_z 448 and 320 (k_tiles 14 and 10) plus the narrow-hidden ones (k_tiles 2), so F1 is inert on this model at every size: a channel-width property, not a size one. Widening the key set is a kernel fix plus a multi-model gate, not a ladder exemption"
+                "reason": "declines all 0 calls on t1:key=2x4x2 x160, t2:key=2x2 x160: F1_BLOCK_KEYS allow-lists only (8, 8) (tt_bio/trimul_tail.py). Mol-1's trimul tails are c_z 448 and 320 (k_tiles 14 and 10) plus the narrow-hidden ones (k_tiles 2), so F1 is inert on this model at every size: a channel-width property, not a size one. Widening the key set is a kernel fix plus a multi-model gate, not a ladder exemption"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -4735,39 +4735,39 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 2408,
+                "served": 2248,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 640,
+                "served": 320,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 640,
+                "served": 320,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 2088,
-                "declined": 4176,
+                "served": 1928,
+                "declined": 3856,
                 "frac": 0.3333333333333333,
                 "how": "stats",
                 "rejects": {
                   "l1_budget": 2,
-                  "pm_over_l1": 4174
+                  "pm_over_l1": 3854
                 }
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
-                "served": 2088,
+                "served": 1928,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -4972,7 +4972,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 320,
+                "served": 160,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -5022,10 +5022,10 @@
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "t1:key=2x4x2": 320,
-                  "t2:key=2x2": 320
+                  "t1:key=2x4x2": 160,
+                  "t2:key=2x2": 160
                 },
-                "reason": "declines all 0 calls on t1:key=2x4x2 x320, t2:key=2x2 x320: F1_BLOCK_KEYS allow-lists only (8, 8) (tt_bio/trimul_tail.py). Mol-1's trimul tails are c_z 448 and 320 (k_tiles 14 and 10) plus the narrow-hidden ones (k_tiles 2), so F1 is inert on this model at every size: a channel-width property, not a size one. Widening the key set is a kernel fix plus a multi-model gate, not a ladder exemption"
+                "reason": "declines all 0 calls on t1:key=2x4x2 x160, t2:key=2x2 x160: F1_BLOCK_KEYS allow-lists only (8, 8) (tt_bio/trimul_tail.py). Mol-1's trimul tails are c_z 448 and 320 (k_tiles 14 and 10) plus the narrow-hidden ones (k_tiles 2), so F1 is inert on this model at every size: a channel-width property, not a size one. Widening the key set is a kernel fix plus a multi-model gate, not a ladder exemption"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -5052,39 +5052,39 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 2408,
+                "served": 2248,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 640,
+                "served": 320,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 640,
+                "served": 320,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 2088,
-                "declined": 640,
-                "frac": 0.7653958944281525,
+                "served": 1928,
+                "declined": 320,
+                "frac": 0.8576512455516014,
                 "how": "stats",
                 "rejects": {
                   "l1_budget": 2,
-                  "pm_over_l1": 638
+                  "pm_over_l1": 318
                 }
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
-                "served": 2088,
+                "served": 1928,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -5289,7 +5289,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 320,
+                "served": 160,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -5327,13 +5327,13 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 320,
+                "declined": 160,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=2:(2,2)": 320
+                  "k_tiles=2:(2,2)": 160
                 },
-                "reason": "declines all 320 calls on k_tiles=2:(2,2) x320: scoped to kt 8 and 12, the single-block contractions verified bit-exact (`_PAIR_PROJ_MM_KT`). Mol-1's pair projections are c_z 448 and 320 (kt 14 and 10) plus the narrow-hidden kt 2, so it never serves on this model; where it reads 0/0 the projections took the L1-output leg that sits above it. A channel-width property, not a size band"
+                "reason": "declines all 160 calls on k_tiles=2:(2,2) x160: scoped to kt 8 and 12, the single-block contractions verified bit-exact (`_PAIR_PROJ_MM_KT`). Mol-1's pair projections are c_z 448 and 320 (kt 14 and 10) plus the narrow-hidden kt 2, so it never serves on this model; where it reads 0/0 the projections took the L1-output leg that sits above it. A channel-width property, not a size band"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -5342,10 +5342,10 @@
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "t1:key=2x4x2": 320,
-                  "t2:key=2x2": 320
+                  "t1:key=2x4x2": 160,
+                  "t2:key=2x2": 160
                 },
-                "reason": "declines all 0 calls on t1:key=2x4x2 x320, t2:key=2x2 x320: F1_BLOCK_KEYS allow-lists only (8, 8) (tt_bio/trimul_tail.py). Mol-1's trimul tails are c_z 448 and 320 (k_tiles 14 and 10) plus the narrow-hidden ones (k_tiles 2), so F1 is inert on this model at every size: a channel-width property, not a size one. Widening the key set is a kernel fix plus a multi-model gate, not a ladder exemption"
+                "reason": "declines all 0 calls on t1:key=2x4x2 x160, t2:key=2x2 x160: F1_BLOCK_KEYS allow-lists only (8, 8) (tt_bio/trimul_tail.py). Mol-1's trimul tails are c_z 448 and 320 (k_tiles 14 and 10) plus the narrow-hidden ones (k_tiles 2), so F1 is inert on this model at every size: a channel-width property, not a size one. Widening the key set is a kernel fix plus a multi-model gate, not a ladder exemption"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -5372,39 +5372,39 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 2408,
+                "served": 2248,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 640,
+                "served": 320,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 640,
+                "served": 320,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 2088,
-                "declined": 640,
-                "frac": 0.7653958944281525,
+                "served": 1928,
+                "declined": 320,
+                "frac": 0.8576512455516014,
                 "how": "stats",
                 "rejects": {
                   "l1_budget": 2,
-                  "pm_over_l1": 638
+                  "pm_over_l1": 318
                 }
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
-                "served": 2088,
+                "served": 1928,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -5553,163 +5553,139 @@
           },
           "runtime_reps_s": {
             "256": [
-              19.9,
-              20.7,
-              21.0,
-              21.8,
-              21.5
+              22.2,
+              19.5,
+              19.3,
+              18.7,
+              19.1
             ],
             "512": [
-              65.9,
-              68.6,
-              67.5,
-              67.3,
-              65.1
+              48.2,
+              48.7,
+              48.7,
+              48.2,
+              48.3
             ],
             "640": [
-              105.7,
-              106.7,
-              107.5
+              78.4
             ],
             "768": [
-              157.8,
-              159.7,
-              159.7
+              111.5
             ],
             "896": [
-              224.0,
-              226.2,
-              226.6
+              161.6
             ],
             "1024": [
-              289.6,
-              291.4,
-              290.3
+              329.8
             ]
           },
           "aiclk": {
             "256": {
-              "card": "3",
+              "card": "2",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1312,
-                1318,
-                1337,
-                1300,
-                1237
+                1331,
+                1325,
+                1343,
+                1331,
+                1343
               ],
-              "n": 36
+              "n": 35
             },
             "512": {
-              "card": "3",
+              "card": "2",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                800,
-                800,
-                800,
-                800,
-                800
+                1287,
+                1262,
+                1281,
+                1275,
+                1250
               ],
-              "n": 82
+              "n": 62
             },
             "640": {
-              "card": "3",
+              "card": "2",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                800,
-                800,
-                800
+                1262
               ],
-              "n": 72
+              "n": 19
             },
             "768": {
-              "card": "3",
+              "card": "2",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                800,
-                800,
-                800
+                1237
               ],
-              "n": 104
+              "n": 25
             },
             "896": {
-              "card": "3",
+              "card": "2",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                800,
-                800,
-                800
+                1250
               ],
-              "n": 144
+              "n": 35
             },
             "1024": {
-              "card": "3",
+              "card": "2",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                800,
-                800,
-                800
+                1256
               ],
-              "n": 183
+              "n": 79
             }
           },
           "load": {
             "256": {
-              "max": 0.57,
+              "max": 0.83,
               "rep_median": [
-                0.47,
-                0.54,
-                0.52,
-                0.47,
-                0.48
+                0.75,
+                0.59,
+                0.5,
+                0.44,
+                0.41
               ]
             },
             "512": {
-              "max": 0.53,
+              "max": 0.36,
               "rep_median": [
-                0.49,
-                0.44,
-                0.43,
-                0.46,
-                0.44
+                0.34,
+                0.27,
+                0.29,
+                0.31,
+                0.3
               ]
             },
             "640": {
-              "max": 0.55,
+              "max": 0.32,
               "rep_median": [
-                0.43,
-                0.48,
-                0.45
+                0.28
               ]
             },
             "768": {
-              "max": 0.45,
+              "max": 0.28,
               "rep_median": [
-                0.41,
-                0.38,
-                0.36
+                0.26
               ]
             },
             "896": {
-              "max": 0.46,
+              "max": 0.28,
               "rep_median": [
-                0.4,
-                0.39,
-                0.37
+                0.26
               ]
             },
             "1024": {
-              "max": 0.46,
+              "max": 1.07,
               "rep_median": [
-                0.4,
-                0.38,
-                0.37
+                0.94
               ]
             }
           },
@@ -5782,16 +5758,16 @@
               "file": "cdk2x2_896_sample_0.cif",
               "steps": 6,
               "n_ca": 896,
-              "clash_frac": 0.0089,
+              "clash_frac": 0.0112,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 104.7373,
-              "radius_of_gyration_A": 110.759,
-              "plddt_mean": 0.845868,
+              "ca_ca_median_A": 104.508,
+              "radius_of_gyration_A": 110.637,
+              "plddt_mean": 0.846218,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 104.737 A outside [3.6, 4.0]",
+                "median CA-CA 104.508 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 110.8 A outside [14.6, 72.8]"
+                "radius of gyration 110.6 A outside [14.6, 72.8]"
               ]
             },
             "1024": {
@@ -5812,50 +5788,50 @@
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0207,
+          "sigma_runtime_512": 0.0053,
           "exponents": {
             "256->512": {
-              "k": 1.68,
+              "k": 1.323,
               "tol": 0.5
             },
             "512->768": {
-              "k": 2.131,
+              "k": 2.063,
               "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.0353,
-            "512": 0.0207
+            "256": 0.0706,
+            "512": 0.0053
           },
           "exponents_measured": {
-            "256->512": 1.68,
-            "512->640": 2.065,
-            "640->768": 2.212,
-            "768->896": 2.258,
-            "896->1024": 1.868
+            "256->512": 1.323,
+            "512->640": 2.171,
+            "640->768": 1.932,
+            "768->896": 2.407,
+            "896->1024": 5.342
           }
         }
       }
     },
     "tt-galaxy-wh-l": {
-      "recorded": "2026-11-08",
-      "host": "UF-EV-A6-GWH01",
-      "commit": "80a0147a5",
+      "recorded": "2026-11-20",
+      "host": "UF-EV-A4-GWH01",
+      "commit": "54bb3a810",
       "host_threads": 2,
       "models": {
         "mol1": {
           "grid": "8x9",
-          "recorded": "2026-11-08",
-          "host": "UF-EV-A6-GWH01",
-          "commit": "80a0147a5",
+          "recorded": "2026-11-20",
+          "host": "UF-EV-A4-GWH01",
+          "commit": "54bb3a810",
           "host_threads": 2,
           "runtime_s": {
-            "256": 48.2,
-            "512": 141.7,
-            "640": 253.6,
-            "768": 360.7,
-            "896": 467.9,
-            "1024": 634.5
+            "256": 53.0,
+            "512": 142.4,
+            "640": 250.8,
+            "768": 357.6,
+            "896": 462.7,
+            "1024": 625.7
           },
           "levers": {
             "256": {
@@ -5917,7 +5893,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 320,
+                "served": 160,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -5978,9 +5954,9 @@
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "t1:key=2x4x2": 320
+                  "t1:key=2x4x2": 160
                 },
-                "reason": "declines all 0 calls on t1:key=2x4x2 x320: F1_BLOCK_KEYS allow-lists only (8, 8) (tt_bio/trimul_tail.py). Mol-1's trimul tails are c_z 448 and 320 (k_tiles 14 and 10) plus the narrow-hidden ones (k_tiles 2), so F1 is inert on this model at every size: a channel-width property, not a size one. Widening the key set is a kernel fix plus a multi-model gate, not a ladder exemption"
+                "reason": "declines all 0 calls on t1:key=2x4x2 x160: F1_BLOCK_KEYS allow-lists only (8, 8) (tt_bio/trimul_tail.py). Mol-1's trimul tails are c_z 448 and 320 (k_tiles 14 and 10) plus the narrow-hidden ones (k_tiles 2), so F1 is inert on this model at every size: a channel-width property, not a size one. Widening the key set is a kernel fix plus a multi-model gate, not a ladder exemption"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -6006,28 +5982,28 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 2408,
+                "served": 2248,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 640,
+                "served": 320,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 640,
+                "served": 320,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 2088,
+                "served": 1928,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -6165,9 +6141,9 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 160,
+                "served": 80,
                 "declined": 802,
-                "frac": 0.16632016632016633,
+                "frac": 0.09070294784580499,
                 "how": "stats",
                 "rejects": {
                   "ratio-shrunk": 802
@@ -6240,7 +6216,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 320,
+                "served": 160,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -6294,9 +6270,9 @@
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "t1:key=2x4x2": 320
+                  "t1:key=2x4x2": 160
                 },
-                "reason": "declines all 0 calls on t1:key=2x4x2 x320: F1_BLOCK_KEYS allow-lists only (8, 8) (tt_bio/trimul_tail.py). Mol-1's trimul tails are c_z 448 and 320 (k_tiles 14 and 10) plus the narrow-hidden ones (k_tiles 2), so F1 is inert on this model at every size: a channel-width property, not a size one. Widening the key set is a kernel fix plus a multi-model gate, not a ladder exemption"
+                "reason": "declines all 0 calls on t1:key=2x4x2 x160: F1_BLOCK_KEYS allow-lists only (8, 8) (tt_bio/trimul_tail.py). Mol-1's trimul tails are c_z 448 and 320 (k_tiles 14 and 10) plus the narrow-hidden ones (k_tiles 2), so F1 is inert on this model at every size: a channel-width property, not a size one. Widening the key set is a kernel fix plus a multi-model gate, not a ladder exemption"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -6323,35 +6299,35 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 2408,
+                "served": 2248,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 640,
+                "served": 320,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 640,
+                "served": 320,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 2088,
+                "served": 1928,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
-                "served": 2088,
+                "served": 1928,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -6481,14 +6457,14 @@
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
                 "served": 0,
-                "declined": 162,
+                "declined": 82,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "base-unraised": 160,
+                  "base-unraised": 80,
                   "ratio-shrunk": 2
                 },
-                "reason": "declines all 162 calls on base-unraised x160, ratio-shrunk x2: only the 4-D Transition calls outside Mol-1's pair transition (that runs pair_swiglu_ws, WS_NORMAL, tt_bio/protenix.py) reach this guard, and their width puts the L1 row budget at or under the base height of 16, so the raise does not apply. The base height is the shipped default; the raise was verified only for W <= 384 (TRANSITION_H_CHUNK_BIG_MAX_W)"
+                "reason": "declines all 82 calls on base-unraised x80, ratio-shrunk x2: only the 4-D Transition calls outside Mol-1's pair transition (that runs pair_swiglu_ws, WS_NORMAL, tt_bio/protenix.py) reach this guard, and their width puts the L1 row budget at or under the base height of 16, so the raise does not apply. The base height is the shipped default; the raise was verified only for W <= 384 (TRANSITION_H_CHUNK_BIG_MAX_W)"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -6557,7 +6533,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 320,
+                "served": 160,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -6611,9 +6587,9 @@
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "t1:key=2x4x2": 320
+                  "t1:key=2x4x2": 160
                 },
-                "reason": "declines all 0 calls on t1:key=2x4x2 x320: F1_BLOCK_KEYS allow-lists only (8, 8) (tt_bio/trimul_tail.py). Mol-1's trimul tails are c_z 448 and 320 (k_tiles 14 and 10) plus the narrow-hidden ones (k_tiles 2), so F1 is inert on this model at every size: a channel-width property, not a size one. Widening the key set is a kernel fix plus a multi-model gate, not a ladder exemption"
+                "reason": "declines all 0 calls on t1:key=2x4x2 x160: F1_BLOCK_KEYS allow-lists only (8, 8) (tt_bio/trimul_tail.py). Mol-1's trimul tails are c_z 448 and 320 (k_tiles 14 and 10) plus the narrow-hidden ones (k_tiles 2), so F1 is inert on this model at every size: a channel-width property, not a size one. Widening the key set is a kernel fix plus a multi-model gate, not a ladder exemption"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -6640,39 +6616,39 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 2408,
+                "served": 2248,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 640,
+                "served": 320,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 640,
+                "served": 320,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 2088,
-                "declined": 2088,
+                "served": 1928,
+                "declined": 1928,
                 "frac": 0.5,
                 "how": "stats",
                 "rejects": {
                   "l1_budget": 1,
-                  "pm_over_l1": 2087
+                  "pm_over_l1": 1927
                 }
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
-                "served": 2088,
+                "served": 1928,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -6802,14 +6778,14 @@
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
                 "served": 0,
-                "declined": 162,
+                "declined": 82,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "base-unraised": 160,
+                  "base-unraised": 80,
                   "ratio-shrunk": 2
                 },
-                "reason": "declines all 162 calls on base-unraised x160, ratio-shrunk x2: only the 4-D Transition calls outside Mol-1's pair transition (that runs pair_swiglu_ws, WS_NORMAL, tt_bio/protenix.py) reach this guard, and their width puts the L1 row budget at or under the base height of 16, so the raise does not apply. The base height is the shipped default; the raise was verified only for W <= 384 (TRANSITION_H_CHUNK_BIG_MAX_W)"
+                "reason": "declines all 82 calls on base-unraised x80, ratio-shrunk x2: only the 4-D Transition calls outside Mol-1's pair transition (that runs pair_swiglu_ws, WS_NORMAL, tt_bio/protenix.py) reach this guard, and their width puts the L1 row budget at or under the base height of 16, so the raise does not apply. The base height is the shipped default; the raise was verified only for W <= 384 (TRANSITION_H_CHUNK_BIG_MAX_W)"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -6878,7 +6854,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 320,
+                "served": 160,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -6932,9 +6908,9 @@
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "t1:key=2x4x2": 320
+                  "t1:key=2x4x2": 160
                 },
-                "reason": "declines all 0 calls on t1:key=2x4x2 x320: F1_BLOCK_KEYS allow-lists only (8, 8) (tt_bio/trimul_tail.py). Mol-1's trimul tails are c_z 448 and 320 (k_tiles 14 and 10) plus the narrow-hidden ones (k_tiles 2), so F1 is inert on this model at every size: a channel-width property, not a size one. Widening the key set is a kernel fix plus a multi-model gate, not a ladder exemption"
+                "reason": "declines all 0 calls on t1:key=2x4x2 x160: F1_BLOCK_KEYS allow-lists only (8, 8) (tt_bio/trimul_tail.py). Mol-1's trimul tails are c_z 448 and 320 (k_tiles 14 and 10) plus the narrow-hidden ones (k_tiles 2), so F1 is inert on this model at every size: a channel-width property, not a size one. Widening the key set is a kernel fix plus a multi-model gate, not a ladder exemption"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -6961,39 +6937,39 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 2408,
+                "served": 2248,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 640,
+                "served": 320,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 640,
+                "served": 320,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 2088,
-                "declined": 3840,
-                "frac": 0.3522267206477733,
+                "served": 1928,
+                "declined": 3520,
+                "frac": 0.35389133627019087,
                 "how": "stats",
                 "rejects": {
                   "l1_budget": 2,
-                  "pm_over_l1": 3838
+                  "pm_over_l1": 3518
                 }
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
-                "served": 2088,
+                "served": 1928,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -7198,7 +7174,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 320,
+                "served": 160,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -7236,15 +7212,15 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 2408,
+                "declined": 2248,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=2:(2,2)": 320,
+                  "k_tiles=2:(2,2)": 160,
                   "k_tiles=14:(14,14)": 488,
                   "k_tiles=10:(10,10)": 1600
                 },
-                "reason": "declines all 2408 calls on k_tiles=10:(10,10) x1600, k_tiles=14:(14,14) x488, k_tiles=2:(2,2) x320: scoped to kt 8 and 12, the single-block contractions verified bit-exact (`_PAIR_PROJ_MM_KT`). Mol-1's pair projections are c_z 448 and 320 (kt 14 and 10) plus the narrow-hidden kt 2, so it never serves on this model; where it reads 0/0 the projections took the L1-output leg that sits above it. A channel-width property, not a size band"
+                "reason": "declines all 2248 calls on k_tiles=10:(10,10) x1600, k_tiles=14:(14,14) x488, k_tiles=2:(2,2) x160: scoped to kt 8 and 12, the single-block contractions verified bit-exact (`_PAIR_PROJ_MM_KT`). Mol-1's pair projections are c_z 448 and 320 (kt 14 and 10) plus the narrow-hidden kt 2, so it never serves on this model; where it reads 0/0 the projections took the L1-output leg that sits above it. A channel-width property, not a size band"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -7253,9 +7229,9 @@
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "t1:key=2x4x2": 320
+                  "t1:key=2x4x2": 160
                 },
-                "reason": "declines all 0 calls on t1:key=2x4x2 x320: F1_BLOCK_KEYS allow-lists only (8, 8) (tt_bio/trimul_tail.py). Mol-1's trimul tails are c_z 448 and 320 (k_tiles 14 and 10) plus the narrow-hidden ones (k_tiles 2), so F1 is inert on this model at every size: a channel-width property, not a size one. Widening the key set is a kernel fix plus a multi-model gate, not a ladder exemption"
+                "reason": "declines all 0 calls on t1:key=2x4x2 x160: F1_BLOCK_KEYS allow-lists only (8, 8) (tt_bio/trimul_tail.py). Mol-1's trimul tails are c_z 448 and 320 (k_tiles 14 and 10) plus the narrow-hidden ones (k_tiles 2), so F1 is inert on this model at every size: a channel-width property, not a size one. Widening the key set is a kernel fix plus a multi-model gate, not a ladder exemption"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -7282,39 +7258,39 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 2408,
+                "served": 2248,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 640,
+                "served": 320,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 640,
+                "served": 320,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 2088,
-                "declined": 640,
-                "frac": 0.7653958944281525,
+                "served": 1928,
+                "declined": 320,
+                "frac": 0.8576512455516014,
                 "how": "stats",
                 "rejects": {
                   "l1_budget": 2,
-                  "pm_over_l1": 638
+                  "pm_over_l1": 318
                 }
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
-                "served": 2088,
+                "served": 1928,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -7519,7 +7495,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 320,
+                "served": 160,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -7557,15 +7533,15 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 2408,
+                "declined": 2248,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=2:(2,2)": 320,
+                  "k_tiles=2:(2,2)": 160,
                   "k_tiles=14:(14,14)": 488,
                   "k_tiles=10:(10,10)": 1600
                 },
-                "reason": "declines all 2408 calls on k_tiles=10:(10,10) x1600, k_tiles=14:(14,14) x488, k_tiles=2:(2,2) x320: scoped to kt 8 and 12, the single-block contractions verified bit-exact (`_PAIR_PROJ_MM_KT`). Mol-1's pair projections are c_z 448 and 320 (kt 14 and 10) plus the narrow-hidden kt 2, so it never serves on this model; where it reads 0/0 the projections took the L1-output leg that sits above it. A channel-width property, not a size band [carried from p150a]"
+                "reason": "declines all 2248 calls on k_tiles=10:(10,10) x1600, k_tiles=14:(14,14) x488, k_tiles=2:(2,2) x160: scoped to kt 8 and 12, the single-block contractions verified bit-exact (`_PAIR_PROJ_MM_KT`). Mol-1's pair projections are c_z 448 and 320 (kt 14 and 10) plus the narrow-hidden kt 2, so it never serves on this model; where it reads 0/0 the projections took the L1-output leg that sits above it. A channel-width property, not a size band [carried from p150a]"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -7574,9 +7550,9 @@
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "t1:key=2x4x2": 320
+                  "t1:key=2x4x2": 160
                 },
-                "reason": "declines all 0 calls on t1:key=2x4x2 x320: F1_BLOCK_KEYS allow-lists only (8, 8) (tt_bio/trimul_tail.py). Mol-1's trimul tails are c_z 448 and 320 (k_tiles 14 and 10) plus the narrow-hidden ones (k_tiles 2), so F1 is inert on this model at every size: a channel-width property, not a size one. Widening the key set is a kernel fix plus a multi-model gate, not a ladder exemption [carried from p150a]"
+                "reason": "declines all 0 calls on t1:key=2x4x2 x160: F1_BLOCK_KEYS allow-lists only (8, 8) (tt_bio/trimul_tail.py). Mol-1's trimul tails are c_z 448 and 320 (k_tiles 14 and 10) plus the narrow-hidden ones (k_tiles 2), so F1 is inert on this model at every size: a channel-width property, not a size one. Widening the key set is a kernel fix plus a multi-model gate, not a ladder exemption [carried from p150a]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -7603,34 +7579,34 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 2408,
+                "served": 2248,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 640,
+                "served": 320,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 640,
+                "served": 320,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 2088,
-                "declined": 640,
-                "frac": 0.7653958944281525,
+                "served": 1928,
+                "declined": 320,
+                "frac": 0.8576512455516014,
                 "how": "stats",
                 "rejects": {
                   "l1_budget": 2,
-                  "pm_over_l1": 638
+                  "pm_over_l1": 318
                 }
               },
               "SDPA_WIDE_K": {
@@ -7785,35 +7761,35 @@
           },
           "runtime_reps_s": {
             "256": [
-              48.2,
-              48.1,
-              48.2,
-              48.2,
-              48.0
+              53.9,
+              53.4,
+              53.0,
+              52.7,
+              48.8
             ],
             "512": [
-              141.7,
-              141.8,
-              142.0,
-              141.6,
-              141.7
+              140.0,
+              139.1,
+              143.3,
+              142.4,
+              142.4
             ],
             "640": [
-              253.6
+              250.8
             ],
             "768": [
-              360.7
+              357.6
             ],
             "896": [
-              467.9
+              462.7
             ],
             "1024": [
-              634.5
+              625.7
             ]
           },
           "aiclk": {
             "256": {
-              "card": "16",
+              "card": "28",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -7821,103 +7797,103 @@
                 1000,
                 1000,
                 1000,
+                1000
+              ],
+              "n": 73
+            },
+            "512": {
+              "card": "28",
+              "min": 500,
+              "max": 1000,
+              "rep_median": [
+                1000,
+                1000,
+                1000,
+                1000,
+                1000
+              ],
+              "n": 160
+            },
+            "640": {
+              "card": "28",
+              "min": 500,
+              "max": 1000,
+              "rep_median": [
+                1000
+              ],
+              "n": 53
+            },
+            "768": {
+              "card": "28",
+              "min": 500,
+              "max": 1000,
+              "rep_median": [
                 1000
               ],
               "n": 74
             },
-            "512": {
-              "card": "16",
-              "min": 500,
-              "max": 1000,
-              "rep_median": [
-                1000,
-                1000,
-                1000,
-                1000,
-                1000
-              ],
-              "n": 161
-            },
-            "640": {
-              "card": "16",
-              "min": 500,
-              "max": 1000,
-              "rep_median": [
-                1000
-              ],
-              "n": 55
-            },
-            "768": {
-              "card": "16",
-              "min": 500,
-              "max": 1000,
-              "rep_median": [
-                1000
-              ],
-              "n": 76
-            },
             "896": {
-              "card": "16",
+              "card": "28",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 97
+              "n": 95
             },
             "1024": {
-              "card": "16",
+              "card": "28",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 130
+              "n": 128
             }
           },
           "load": {
             "256": {
-              "max": 0.48,
+              "max": 0.14,
               "rep_median": [
-                0.37,
-                0.45,
-                0.47,
-                0.45,
-                0.43
+                0.07,
+                0.06,
+                0.05,
+                0.04,
+                0.11
               ]
             },
             "512": {
-              "max": 0.39,
+              "max": 0.21,
               "rep_median": [
-                0.37,
-                0.35,
-                0.36,
-                0.35,
-                0.34
+                0.14,
+                0.19,
+                0.19,
+                0.18,
+                0.2
               ]
             },
             "640": {
-              "max": 0.44,
+              "max": 0.41,
               "rep_median": [
-                0.41
+                0.38
               ]
             },
             "768": {
-              "max": 0.51,
+              "max": 0.12,
               "rep_median": [
-                0.44
+                0.06
               ]
             },
             "896": {
-              "max": 2.63,
+              "max": 0.15,
               "rep_median": [
-                0.43
+                0.06
               ]
             },
             "1024": {
-              "max": 4.57,
+              "max": 0.39,
               "rep_median": [
-                0.32
+                0.08
               ]
             }
           },
@@ -8025,27 +8001,27 @@
             "1536": "'cdk2x2_1536.yaml' has 1536 residues, and mol1 is measured to handle at most 1024 residues on wormhole_b0 (measured with alignments up to 16384 rows) -- the largest size below the first measured failure. Models with a measured ceiling above 1536 on this hardware: boltz2, esmc-300m, esmc-600m, esmc-6b, esmfold2, esmfold2-fast, openbind, opendde, opendde-abag, openfold3, protenix-v1, protenix-v2, px"
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0011,
+          "sigma_runtime_512": 0.0127,
           "exponents": {
             "256->512": {
-              "k": 1.556,
+              "k": 1.426,
               "tol": 0.5
             },
             "512->768": {
-              "k": 2.304,
+              "k": 2.271,
               "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.0019,
-            "512": 0.0011
+            "256": 0.039,
+            "512": 0.0127
           },
           "exponents_measured": {
-            "256->512": 1.556,
-            "512->640": 2.608,
-            "640->768": 1.932,
-            "768->896": 1.688,
-            "896->1024": 2.281
+            "256->512": 1.426,
+            "512->640": 2.537,
+            "640->768": 1.946,
+            "768->896": 1.672,
+            "896->1024": 2.26
           }
         }
       }

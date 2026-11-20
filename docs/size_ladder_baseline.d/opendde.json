@@ -2184,24 +2184,24 @@
       }
     },
     "p300c": {
-      "recorded": "2026-11-15",
+      "recorded": "2026-11-20",
       "host": "tt-quietbox2",
-      "commit": "730f010b9",
+      "commit": "54bb3a810",
       "host_threads": 5,
       "models": {
         "opendde": {
           "grid": "11x10",
-          "recorded": "2026-11-15",
+          "recorded": "2026-11-20",
           "host": "tt-quietbox2",
-          "commit": "730f010b9",
+          "commit": "54bb3a810",
           "host_threads": 5,
           "runtime_s": {
-            "256": 13.9,
-            "512": 36.4,
-            "640": 59.3,
-            "768": 83.1,
-            "896": 125.4,
-            "1024": 170.1
+            "256": 14.0,
+            "512": 35.7,
+            "640": 56.8,
+            "768": 79.8,
+            "896": 115.6,
+            "1024": 150.9
           },
           "levers": {
             "256": {
@@ -2263,7 +2263,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 160,
+                "served": 80,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -2314,10 +2314,10 @@
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "t1:key=2x4x2": 160,
-                  "t2:key=2x2": 160
+                  "t1:key=2x4x2": 80,
+                  "t2:key=2x2": 80
                 },
-                "reason": "declines all 0 calls on t1:key=2x4x2 x160, t2:key=2x2 x160: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
+                "reason": "declines all 0 calls on t1:key=2x4x2 x80, t2:key=2x2 x80: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -2344,28 +2344,28 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 1216,
+                "served": 1136,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 320,
+                "served": 160,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 320,
+                "served": 160,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 1216,
+                "served": 1136,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -2574,7 +2574,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 160,
+                "served": 80,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -2625,10 +2625,10 @@
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "t1:key=2x4x2": 160,
-                  "t2:key=2x2": 160
+                  "t1:key=2x4x2": 80,
+                  "t2:key=2x2": 80
                 },
-                "reason": "declines all 0 calls on t1:key=2x4x2 x160, t2:key=2x2 x160: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
+                "reason": "declines all 0 calls on t1:key=2x4x2 x80, t2:key=2x2 x80: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -2655,30 +2655,30 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 1216,
+                "served": 1136,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 320,
+                "served": 160,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 320,
+                "served": 160,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 1216,
+                "served": 1136,
                 "declined": 16,
-                "frac": 0.987012987012987,
+                "frac": 0.9861111111111112,
                 "how": "stats",
                 "rejects": {
                   "l1_budget": 2,
@@ -2687,7 +2687,7 @@
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
-                "served": 1216,
+                "served": 1136,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -2889,7 +2889,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 208,
+                "served": 128,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -2939,11 +2939,11 @@
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "t1:key=2x4x2": 160,
-                  "t2:key=2x2": 160,
+                  "t1:key=2x4x2": 80,
+                  "t2:key=2x2": 80,
                   "k_tiles=12": 8
                 },
-                "reason": "declines all 8 calls on t1:key=2x4x2 x160, t2:key=2x2 x160, k_tiles=12 x8: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
+                "reason": "declines all 8 calls on t1:key=2x4x2 x80, t2:key=2x2 x80, k_tiles=12 x8: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -2969,39 +2969,39 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 1256,
+                "served": 1176,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 416,
+                "served": 256,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 416,
+                "served": 256,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 1216,
-                "declined": 1208,
-                "frac": 0.5016501650165016,
+                "served": 1136,
+                "declined": 1128,
+                "frac": 0.5017667844522968,
                 "how": "stats",
                 "rejects": {
                   "l1_budget": 1,
-                  "pm_over_l1": 1207
+                  "pm_over_l1": 1127
                 }
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
-                "served": 1216,
+                "served": 1136,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -3201,7 +3201,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 256,
+                "served": 176,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -3251,11 +3251,11 @@
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "t1:key=2x4x2": 160,
-                  "t2:key=2x2": 160,
+                  "t1:key=2x4x2": 80,
+                  "t2:key=2x2": 80,
                   "k_tiles=12": 8
                 },
-                "reason": "declines all 8 calls on t1:key=2x4x2 x160, t2:key=2x2 x160, k_tiles=12 x8: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
+                "reason": "declines all 8 calls on t1:key=2x4x2 x80, t2:key=2x2 x80, k_tiles=12 x8: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -3281,39 +3281,39 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 1304,
+                "served": 1224,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 512,
+                "served": 352,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 512,
+                "served": 352,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 1216,
-                "declined": 2424,
-                "frac": 0.33406593406593404,
+                "served": 1136,
+                "declined": 2264,
+                "frac": 0.3341176470588235,
                 "how": "stats",
                 "rejects": {
                   "l1_budget": 3,
-                  "pm_over_l1": 2421
+                  "pm_over_l1": 2261
                 }
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
-                "served": 1208,
+                "served": 1128,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -3514,7 +3514,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 256,
+                "served": 176,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -3566,10 +3566,10 @@
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "t1:key=2x4x2": 160,
-                  "t2:key=2x2": 160
+                  "t1:key=2x4x2": 80,
+                  "t2:key=2x2": 80
                 },
-                "reason": "declines all 0 calls on t1:key=2x4x2 x160, t2:key=2x2 x160: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from rung 768]"
+                "reason": "declines all 0 calls on t1:key=2x4x2 x80, t2:key=2x2 x80: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from rung 768]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -3598,40 +3598,40 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 1304,
+                "served": 1224,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 512,
+                "served": 352,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 512,
+                "served": 352,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 1248,
-                "declined": 2576,
-                "frac": 0.3263598326359833,
+                "served": 1168,
+                "declined": 2416,
+                "frac": 0.32589285714285715,
                 "how": "stats",
                 "rejects": {
                   "l1_budget": 3,
-                  "pm_over_l1": 2453,
+                  "pm_over_l1": 2293,
                   "fill_preconditions": 120
                 }
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
-                "served": 1208,
+                "served": 1128,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -3828,7 +3828,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 256,
+                "served": 176,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -3866,11 +3866,11 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 256,
-                "declined": 216,
-                "frac": 0.5423728813559322,
+                "declined": 136,
+                "frac": 0.6530612244897959,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=2:(2,2)": 160,
+                  "k_tiles=2:(2,2)": 80,
                   "k_tiles=12:(12,1)": 56
                 }
               },
@@ -3881,10 +3881,10 @@
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "t1:key=2x4x2": 160,
-                  "t2:key=2x2": 160
+                  "t1:key=2x4x2": 80,
+                  "t2:key=2x2": 80
                 },
-                "reason": "declines all 0 calls on t1:key=2x4x2 x160, t2:key=2x2 x160: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from rung 768]"
+                "reason": "declines all 0 calls on t1:key=2x4x2 x80, t2:key=2x2 x80: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from rung 768]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -3913,39 +3913,39 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 1304,
+                "served": 1224,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 512,
+                "served": 352,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 512,
+                "served": 352,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 1264,
-                "declined": 2416,
-                "frac": 0.34347826086956523,
+                "served": 1184,
+                "declined": 2256,
+                "frac": 0.34418604651162793,
                 "how": "stats",
                 "rejects": {
                   "l1_budget": 2,
-                  "pm_over_l1": 2414
+                  "pm_over_l1": 2254
                 }
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
-                "served": 1264,
+                "served": 1184,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -4086,139 +4086,139 @@
           },
           "runtime_reps_s": {
             "256": [
-              13.5,
-              13.5,
               14.1,
               13.9,
-              17.1
+              14.3,
+              14.0,
+              14.0
             ],
             "512": [
-              36.4,
-              37.5,
-              38.2,
-              36.4,
-              36.2
+              35.7,
+              35.9,
+              35.6,
+              35.6,
+              35.8
             ],
             "640": [
-              59.3
+              56.8
             ],
             "768": [
-              83.1
+              79.8
             ],
             "896": [
-              125.4
+              115.6
             ],
             "1024": [
-              170.1
+              150.9
             ]
           },
           "aiclk": {
             "256": {
-              "card": "1",
+              "card": "0",
               "min": 800,
               "max": 1350,
               "rep_median": [
+                1325,
+                1331,
                 1350,
-                1343,
-                1337,
-                1343,
+                1325,
                 1350
               ],
-              "n": 28
+              "n": 29
             },
             "512": {
-              "card": "1",
+              "card": "0",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1262,
-                1256,
+                1325,
                 1293,
-                1306,
-                1243
+                1312,
+                1300,
+                1306
               ],
-              "n": 51
+              "n": 50
             },
             "640": {
-              "card": "1",
+              "card": "0",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1243
+                1306
               ],
-              "n": 15
+              "n": 14
             },
             "768": {
-              "card": "1",
+              "card": "0",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1218
+                1268
               ],
               "n": 19
             },
             "896": {
-              "card": "1",
+              "card": "0",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1193
+                1293
               ],
-              "n": 28
+              "n": 26
             },
             "1024": {
-              "card": "1",
+              "card": "0",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1131
+                1287
               ],
-              "n": 37
+              "n": 33
             }
           },
           "load": {
             "256": {
-              "max": 0.67,
+              "max": 0.54,
               "rep_median": [
-                0.28,
-                0.28,
-                0.29,
-                0.34,
-                0.55
+                0.51,
+                0.46,
+                0.41,
+                0.39,
+                0.37
               ]
             },
             "512": {
-              "max": 0.64,
+              "max": 0.35,
               "rep_median": [
-                0.46,
-                0.43,
-                0.56,
-                0.53,
-                0.49
+                0.31,
+                0.27,
+                0.3,
+                0.31,
+                0.31
               ]
             },
             "640": {
-              "max": 0.63,
+              "max": 0.32,
               "rep_median": [
-                0.56
+                0.29
               ]
             },
             "768": {
-              "max": 0.46,
+              "max": 0.28,
               "rep_median": [
-                0.41
+                0.25
               ]
             },
             "896": {
-              "max": 0.6,
+              "max": 0.26,
               "rep_median": [
-                0.51
+                0.24
               ]
             },
             "1024": {
-              "max": 0.77,
+              "max": 0.32,
               "rep_median": [
-                0.56
+                0.29
               ]
             }
           },
@@ -4321,52 +4321,52 @@
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0236,
+          "sigma_runtime_512": 0.0037,
           "exponents": {
             "256->512": {
-              "k": 1.389,
+              "k": 1.35,
               "tol": 0.5
             },
             "512->768": {
-              "k": 2.036,
+              "k": 1.984,
               "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.1054,
-            "512": 0.0236
+            "256": 0.0108,
+            "512": 0.0037
           },
           "exponents_measured": {
-            "256->512": 1.389,
-            "512->640": 2.187,
-            "640->768": 1.851,
-            "768->896": 2.669,
-            "896->1024": 2.283
+            "256->512": 1.35,
+            "512->640": 2.081,
+            "640->768": 1.865,
+            "768->896": 2.404,
+            "896->1024": 1.996
           }
         }
       }
     },
     "tt-galaxy-wh-l": {
-      "recorded": "2026-11-14",
-      "host": "UF-EV-A4-GWH02",
-      "commit": "730f010b9",
+      "recorded": "2026-11-20",
+      "host": "UF-EV-A4-GWH01",
+      "commit": "54bb3a810",
       "host_threads": 2,
       "models": {
         "opendde": {
           "grid": "8x9",
-          "recorded": "2026-11-14",
-          "host": "UF-EV-A4-GWH02",
-          "commit": "730f010b9",
+          "recorded": "2026-11-20",
+          "host": "UF-EV-A4-GWH01",
+          "commit": "54bb3a810",
           "host_threads": 2,
           "runtime_s": {
-            "256": 30.3,
-            "512": 73.3,
-            "640": 114.1,
-            "768": 259.9,
-            "896": 321.9,
-            "1024": 449.5,
-            "1280": 1059.7,
-            "1536": 2065.4
+            "256": 32.7,
+            "512": 71.3,
+            "640": 111.3,
+            "768": 260.5,
+            "896": 321.1,
+            "1024": 443.2,
+            "1280": 1055.8,
+            "1536": 2058.9
           },
           "levers": {
             "256": {
@@ -4428,7 +4428,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 160,
+                "served": 80,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -4481,10 +4481,10 @@
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "t1:key=2x4x2": 160,
-                  "t2:key=2x2": 160
+                  "t1:key=2x4x2": 80,
+                  "t2:key=2x2": 80
                 },
-                "reason": "declines all 0 calls on t1:key=2x4x2 x160, t2:key=2x2 x160: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from p150a]"
+                "reason": "declines all 0 calls on t1:key=2x4x2 x80, t2:key=2x2 x80: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from p150a]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -4510,28 +4510,28 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 1216,
+                "served": 1136,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 320,
+                "served": 160,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 320,
+                "served": 160,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 1216,
+                "served": 1136,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -4662,9 +4662,9 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 80,
+                "served": 40,
                 "declined": 524,
-                "frac": 0.13245033112582782,
+                "frac": 0.07092198581560284,
                 "how": "stats",
                 "rejects": {
                   "ratio-shrunk": 524
@@ -4737,7 +4737,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 184,
+                "served": 104,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -4786,11 +4786,11 @@
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "t1:key=2x4x2": 160,
-                  "t2:key=2x2": 160,
+                  "t1:key=2x4x2": 80,
+                  "t2:key=2x2": 80,
                   "k_tiles=12": 8
                 },
-                "reason": "declines all 8 calls on t1:key=2x4x2 x160, t2:key=2x2 x160, k_tiles=12 x8: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from p150a]"
+                "reason": "declines all 8 calls on t1:key=2x4x2 x80, t2:key=2x2 x80, k_tiles=12 x8: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from p150a]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -4816,35 +4816,35 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 1232,
+                "served": 1152,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 368,
+                "served": 208,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 368,
+                "served": 208,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 1216,
+                "served": 1136,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
-                "served": 1208,
+                "served": 1128,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -4972,7 +4972,7 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 80,
+                "served": 40,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -5044,7 +5044,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 208,
+                "served": 128,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -5100,10 +5100,10 @@
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "t1:key=2x4x2": 160,
-                  "t2:key=2x2": 160
+                  "t1:key=2x4x2": 80,
+                  "t2:key=2x2": 80
                 },
-                "reason": "declines all 0 calls on t1:key=2x4x2 x160, t2:key=2x2 x160: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from p150a]"
+                "reason": "declines all 0 calls on t1:key=2x4x2 x80, t2:key=2x2 x80: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from p150a]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -5132,39 +5132,39 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 1256,
+                "served": 1176,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 416,
+                "served": 256,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 416,
+                "served": 256,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 1300,
-                "declined": 1208,
-                "frac": 0.518341307814992,
+                "served": 1220,
+                "declined": 1128,
+                "frac": 0.5195911413969335,
                 "how": "stats",
                 "rejects": {
                   "l1_budget": 1,
-                  "pm_over_l1": 1207
+                  "pm_over_l1": 1127
                 }
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
-                "served": 1300,
+                "served": 1220,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -5287,7 +5287,7 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 80,
+                "served": 40,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -5359,7 +5359,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 2352,
+                "served": 2272,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -5414,11 +5414,11 @@
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "t1:key=2x4x2": 160,
-                  "t2:key=2x2": 160,
+                  "t1:key=2x4x2": 80,
+                  "t2:key=2x2": 80,
                   "k_tiles=12": 1048
                 },
-                "reason": "declines all 1048 calls on k_tiles=12 x1048, t1:key=2x4x2 x160, t2:key=2x2 x160: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from p150a]"
+                "reason": "declines all 1048 calls on k_tiles=12 x1048, t1:key=2x4x2 x80, t2:key=2x2 x80: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from p150a]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -5447,39 +5447,39 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 2352,
+                "served": 2272,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 4704,
+                "served": 4544,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 4704,
+                "served": 4544,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 1412,
-                "declined": 2620,
-                "frac": 0.3501984126984127,
+                "served": 1332,
+                "declined": 2460,
+                "frac": 0.3512658227848101,
                 "how": "stats",
                 "rejects": {
                   "l1_budget": 3,
-                  "pm_over_l1": 2617
+                  "pm_over_l1": 2457
                 }
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
-                "served": 1208,
+                "served": 1128,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -5675,7 +5675,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 3400,
+                "served": 3320,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -5716,11 +5716,11 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 2320,
-                "declined": 400,
-                "frac": 0.8529411764705882,
+                "declined": 320,
+                "frac": 0.8787878787878788,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=2:(2,2)": 160,
+                  "k_tiles=2:(2,2)": 80,
                   "k_tiles=12:(12,1)": 240
                 }
               },
@@ -5731,11 +5731,11 @@
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "t1:key=2x4x2": 160,
-                  "t2:key=2x2": 160,
+                  "t1:key=2x4x2": 80,
+                  "t2:key=2x2": 80,
                   "k_tiles=12": 1048
                 },
-                "reason": "declines all 1048 calls on k_tiles=12 x1048, t1:key=2x4x2 x160, t2:key=2x2 x160: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from rung 768] [carried from p300c] [carried from p150a]"
+                "reason": "declines all 1048 calls on k_tiles=12 x1048, t1:key=2x4x2 x80, t2:key=2x2 x80: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from rung 768] [carried from p300c] [carried from p150a]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -5764,40 +5764,40 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 3400,
+                "served": 3320,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 6800,
+                "served": 6640,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 6800,
+                "served": 6640,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 1208,
-                "declined": 1041,
-                "frac": 0.5371276122721209,
+                "served": 1128,
+                "declined": 881,
+                "frac": 0.5614733698357391,
                 "how": "stats",
                 "rejects": {
                   "l1_budget": 3,
-                  "pm_over_l1": 318,
+                  "pm_over_l1": 158,
                   "fill_preconditions": 720
                 }
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
-                "served": 1208,
+                "served": 1128,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -5995,7 +5995,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 3304,
+                "served": 3224,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -6036,11 +6036,11 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 2352,
-                "declined": 440,
-                "frac": 0.8424068767908309,
+                "declined": 360,
+                "frac": 0.8672566371681416,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=2:(2,2)": 160,
+                  "k_tiles=2:(2,2)": 80,
                   "k_tiles=12:(12,1)": 280
                 }
               },
@@ -6051,11 +6051,11 @@
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "t1:key=2x4x2": 160,
-                  "t2:key=2x2": 160,
+                  "t1:key=2x4x2": 80,
+                  "t2:key=2x2": 80,
                   "k_tiles=12": 1048
                 },
-                "reason": "declines all 1048 calls on k_tiles=12 x1048, t1:key=2x4x2 x160, t2:key=2x2 x160: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from rung 768] [carried from p300c] [carried from p150a]"
+                "reason": "declines all 1048 calls on k_tiles=12 x1048, t1:key=2x4x2 x80, t2:key=2x2 x80: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from rung 768] [carried from p300c] [carried from p150a]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -6084,34 +6084,34 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 3400,
+                "served": 3320,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 10640,
+                "served": 10480,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 10640,
+                "served": 10480,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 1208,
-                "declined": 1441,
-                "frac": 0.4560211400528501,
+                "served": 1128,
+                "declined": 1281,
+                "frac": 0.46824408468244083,
                 "how": "stats",
                 "rejects": {
                   "l1_budget": 3,
-                  "pm_over_l1": 318,
+                  "pm_over_l1": 158,
                   "fill_preconditions": 1120
                 }
               },
@@ -6319,7 +6319,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 6448,
+                "served": 6368,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -6349,13 +6349,13 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 11112,
-                "declined": 22224,
+                "served": 10952,
+                "declined": 21904,
                 "frac": 0.3333333333333333,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:1280x416x64": 480,
-                  "l1_dest_is_faster:1280x32x64": 160,
+                  "l1_dest_is_faster:1280x416x64": 240,
+                  "l1_dest_is_faster:1280x32x64": 80,
                   "l1_dest_is_faster:1280x64x384": 20960,
                   "l1_dest_is_faster:2496x32x384": 624
                 }
@@ -6363,12 +6363,12 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 21280,
-                "declined": 16164,
-                "frac": 0.5683153509240466,
+                "declined": 14284,
+                "frac": 0.5983578900011247,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=2:(2,2)": 3200,
-                  "k_tiles=2:(2,1)": 560,
+                  "k_tiles=2:(2,2)": 1600,
+                  "k_tiles=2:(2,1)": 280,
                   "k_tiles=12:(12,1)": 12404
                 }
               },
@@ -6382,9 +6382,9 @@
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 60172,
+                "served": 59332,
                 "declined": 12404,
-                "frac": 0.8290895061728395,
+                "frac": 0.827088212334114,
                 "how": "wrap",
                 "rejects": {
                   "no_mm_block:(12,1)": 12404
@@ -6407,30 +6407,30 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 6544,
+                "served": 6464,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 17888,
+                "served": 17728,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 17888,
+                "served": 17728,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 12612,
+                "served": 12332,
                 "declined": 1059,
-                "frac": 0.9225367566381392,
+                "frac": 0.920917033828691,
                 "how": "stats",
                 "rejects": {
                   "l1_budget": 1,
@@ -6439,16 +6439,16 @@
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
-                "served": 12612,
+                "served": 12332,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
-                "served": 12612,
+                "served": 12332,
                 "declined": 352,
-                "frac": 0.9728478864547979,
+                "frac": 0.9722485020498266,
                 "how": "stats"
               },
               "SDPA_FUSED_PADDED": {
@@ -6475,21 +6475,21 @@
               },
               "TRIATT_HEAD_MAJOR_QKV": {
                 "resolved": "True",
-                "served": 12964,
+                "served": 12684,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
-                "served": 12964,
+                "served": 12684,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
-                "served": 12964,
+                "served": 12684,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -6534,7 +6534,7 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 11112,
+                "served": 10952,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -6639,7 +6639,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 12896,
+                "served": 12736,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -6669,25 +6669,25 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 25720,
-                "declined": 51104,
-                "frac": 0.33479121107987087,
+                "served": 25520,
+                "declined": 50704,
+                "frac": 0.3348026868178002,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:1536x352x64": 640,
-                  "l1_dest_is_faster:1536x128x64": 160,
+                  "l1_dest_is_faster:1536x352x64": 320,
+                  "l1_dest_is_faster:1536x128x64": 80,
                   "l1_dest_is_faster:1536x32x384": 50304
                 }
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 25536,
-                "declined": 31840,
-                "frac": 0.44506413831567204,
+                "declined": 29600,
+                "frac": 0.4631456761462565,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=2:(2,2)": 3840,
-                  "k_tiles=2:(2,1)": 640,
+                  "k_tiles=2:(2,2)": 1920,
+                  "k_tiles=2:(2,1)": 320,
                   "k_tiles=12:(12,1)": 27360
                 }
               },
@@ -6701,9 +6701,9 @@
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 109536,
+                "served": 108576,
                 "declined": 27360,
-                "frac": 0.800140252454418,
+                "frac": 0.798728813559322,
                 "how": "wrap",
                 "rejects": {
                   "no_mm_block:(12,1)": 27360
@@ -6726,30 +6726,30 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 13002,
+                "served": 12840,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 36038,
+                "served": 35530,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 36038,
+                "served": 35530,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 27888,
+                "served": 27568,
                 "declined": 118,
-                "frac": 0.9957866171534672,
+                "frac": 0.9957379180813407,
                 "how": "stats",
                 "rejects": {
                   "l1_budget": 2,
@@ -6758,16 +6758,16 @@
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
-                "served": 27888,
+                "served": 27568,
                 "declined": 112,
-                "frac": 0.996,
+                "frac": 0.9959537572254336,
                 "how": "stats"
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
-                "served": 27888,
+                "served": 27568,
                 "declined": 112,
-                "frac": 0.996,
+                "frac": 0.9959537572254336,
                 "how": "stats"
               },
               "SDPA_FUSED_PADDED": {
@@ -6794,21 +6794,21 @@
               },
               "TRIATT_HEAD_MAJOR_QKV": {
                 "resolved": "True",
-                "served": 28000,
+                "served": 27680,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
-                "served": 28000,
+                "served": 27680,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
-                "served": 28000,
+                "served": 27680,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -6853,9 +6853,9 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 25552,
+                "served": 25352,
                 "declined": 56,
-                "frac": 0.9978131833801936,
+                "frac": 0.9977959697732998,
                 "how": "wrap"
               },
               "SDPA_Q_CHUNK_FITS": {
@@ -6902,41 +6902,41 @@
           },
           "runtime_reps_s": {
             "256": [
-              30.0,
-              30.4,
-              30.4,
-              27.2,
-              30.3
+              33.0,
+              33.1,
+              31.3,
+              32.7,
+              31.6
             ],
             "512": [
-              74.3,
-              73.0,
-              73.5,
-              72.7,
-              73.3
+              77.2,
+              76.5,
+              71.3,
+              71.3,
+              71.3
             ],
             "640": [
-              114.1
+              111.3
             ],
             "768": [
-              259.9
+              260.5
             ],
             "896": [
-              321.9
+              321.1
             ],
             "1024": [
-              449.5
+              443.2
             ],
             "1280": [
-              1059.7
+              1055.8
             ],
             "1536": [
-              2065.4
+              2058.9
             ]
           },
           "aiclk": {
             "256": {
-              "card": "2",
+              "card": "0",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -6946,23 +6946,23 @@
                 1000,
                 1000
               ],
-              "n": 46
+              "n": 50
             },
             "512": {
-              "card": "2",
+              "card": "0",
               "min": 500,
               "max": 1000,
               "rep_median": [
-                996,
+                1000,
                 1000,
                 1000,
                 1000,
                 1000
               ],
-              "n": 90
+              "n": 92
             },
             "640": {
-              "card": "2",
+              "card": "0",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -6971,7 +6971,7 @@
               "n": 26
             },
             "768": {
-              "card": "2",
+              "card": "0",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -6980,34 +6980,34 @@
               "n": 55
             },
             "896": {
-              "card": "2",
+              "card": "0",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 67
+              "n": 68
             },
             "1024": {
-              "card": "2",
+              "card": "0",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 93
+              "n": 92
             },
             "1280": {
-              "card": "2",
+              "card": "0",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 214
+              "n": 213
             },
             "1536": {
-              "card": "2",
+              "card": "0",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -7018,59 +7018,59 @@
           },
           "load": {
             "256": {
-              "max": 0.35,
+              "max": 0.07,
               "rep_median": [
-                0.25,
-                0.15,
-                0.1,
-                0.2,
-                0.32
-              ]
-            },
-            "512": {
-              "max": 0.34,
-              "rep_median": [
-                0.13,
-                0.22,
-                0.24,
-                0.26,
-                0.17
-              ]
-            },
-            "640": {
-              "max": 0.32,
-              "rep_median": [
-                0.11
-              ]
-            },
-            "768": {
-              "max": 0.35,
-              "rep_median": [
-                0.17
-              ]
-            },
-            "896": {
-              "max": 0.39,
-              "rep_median": [
-                0.16
-              ]
-            },
-            "1024": {
-              "max": 0.3,
-              "rep_median": [
-                0.07
-              ]
-            },
-            "1280": {
-              "max": 0.36,
-              "rep_median": [
+                0.07,
+                0.07,
+                0.06,
+                0.06,
                 0.05
               ]
             },
-            "1536": {
-              "max": 0.27,
+            "512": {
+              "max": 0.19,
               "rep_median": [
-                0.02
+                0.12,
+                0.14,
+                0.13,
+                0.14,
+                0.19
+              ]
+            },
+            "640": {
+              "max": 0.2,
+              "rep_median": [
+                0.19
+              ]
+            },
+            "768": {
+              "max": 0.32,
+              "rep_median": [
+                0.19
+              ]
+            },
+            "896": {
+              "max": 0.33,
+              "rep_median": [
+                0.09
+              ]
+            },
+            "1024": {
+              "max": 0.43,
+              "rep_median": [
+                0.3
+              ]
+            },
+            "1280": {
+              "max": 0.41,
+              "rep_median": [
+                0.18
+              ]
+            },
+            "1536": {
+              "max": 0.61,
+              "rep_median": [
+                0.42
               ]
             }
           },
@@ -7111,16 +7111,16 @@
               "file": "cdk2x2_640.cif",
               "steps": 6,
               "n_ca": 640,
-              "clash_frac": 0.0031,
+              "clash_frac": 0.0094,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 149.5994,
-              "radius_of_gyration_A": 116.913,
-              "plddt_mean": 0.567386,
+              "ca_ca_median_A": 150.2535,
+              "radius_of_gyration_A": 116.786,
+              "plddt_mean": 0.56747,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 149.599 A outside [3.6, 4.0]",
+                "median CA-CA 150.253 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 116.9 A outside [12.8, 64.1]"
+                "radius of gyration 116.8 A outside [12.8, 64.1]"
               ]
             },
             "768": {
@@ -7206,29 +7206,29 @@
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0083,
+          "sigma_runtime_512": 0.0415,
           "exponents": {
             "256->512": {
-              "k": 1.274,
+              "k": 1.125,
               "tol": 0.5
             },
             "512->768": {
-              "k": 3.122,
+              "k": 3.196,
               "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.0467,
-            "512": 0.0083
+            "256": 0.0257,
+            "512": 0.0415
           },
           "exponents_measured": {
-            "256->512": 1.274,
-            "512->640": 1.983,
-            "640->768": 4.515,
-            "768->896": 1.388,
-            "896->1024": 2.5,
-            "1024->1280": 3.843,
-            "1280->1536": 3.66
+            "256->512": 1.125,
+            "512->640": 1.996,
+            "640->768": 4.664,
+            "768->896": 1.357,
+            "896->1024": 2.413,
+            "1024->1280": 3.89,
+            "1280->1536": 3.663
           }
         }
       }
