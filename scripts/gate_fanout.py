@@ -18,6 +18,7 @@ Legs (enumerated from the tree under test, so a new arm or model is picked up wi
   ux:<model>         ux_regression.py --model <model>
   pytest_device:i/K  pytest over every K-th test file, starting at i
   bc2:boundary       two BindCraft 2 trajectories from the installed wheel
+  bench:openfold3-c730  one templated OpenFold3 fold (perf/spd/bench.py), Blackhole only
   perf               perf_regression.py, TIMED (see below)
 plus three card-free legs run once on the first host: check, packaging_smoke, pytest_cpu.
 A ladder leg whose model's baseline has no row for a lever its fold resolves (owed_levers) is not
@@ -132,12 +133,14 @@ REPO = Path(__file__).resolve().parents[1]
 # ran at its baseline's speed and was stopped at the flat 4 h (rec-c2b4b898e, 10-14).
 BUDGET = {"parity": 14400, "rg": 7200, "ladder": 14400, "capacity": 14400, "ux": 3600,
           "pytest_device": 7200, "perf": 7200, "check": 900, "packaging_smoke": 1800,
-          "pytest_cpu": 5400, "bc2": 3600, "record": 14400}
+          "pytest_cpu": 5400, "bc2": 3600, "record": 14400,
+          "bench": 3600}
 # Expected wall (s) per family when the ledger has no history for a leg, from the 0.13.1 and
 # 0.14.0 chains. Legs start longest first so the gate ends close to its longest leg.
 EXPECT = {"parity": 900, "rg": 900, "ladder": 5400, "capacity": 1800, "ux": 300,
           "pytest_device": 3000, "perf": 3600, "check": 60, "packaging_smoke": 600,
-          "pytest_cpu": 1800, "bc2": 1200, "record": 2700}
+          "pytest_cpu": 1800, "bc2": 1200, "record": 2700,
+          "bench": 300}
 BUDGET_X = 1.5
 #: timeout(1)'s exit status when it stopped a leg at its budget.
 TIMED_OUT = 124
@@ -409,6 +412,19 @@ PARITY_COVERS_RG = {"boltzgen", "opendde-abag", "capacity", "nesso1", "rf3-1024a
 #: The BindCraft2 gradient leg holds a ~44 GB float64 autograd reference in host RAM, so it runs on
 #: p150a only: qb2 (p300c) shares 249 GB between four legs and other rows, and the kernel OOM-killed
 #: the leg there in gates 25fb92265, 88f1ce541 and 730f010b9 (11-13), each passing on qb1 (503 GB).
+#: The size ladder folds single sequences, so no ladder leg reaches the template stack, whose L1
+#: refusal fallbacks only Blackhole takes (OpenFold3 c730 refuses the fused pair_transpose of
+#: [736,736,64] and retries in DRAM). One templated fold covers them: rc 0 and every rep finite.
+#: bench.py exits 1 on a crashed rep but records a non-finite one as data, hence the check.
+TEMPLATE_LEG, TEMPLATE_CARD_TYPES = "bench:openfold3-c730", ("p150a", "p300c")
+TEMPLATE_CHECK = (
+    "import json, subprocess, sys; out, chip = sys.argv[1:3]; "
+    "rc = subprocess.call([sys.executable, 'perf/spd/bench.py', '--model', 'openfold3', '--inputs', 'c730', "
+    "'--warm', '0', '--chip', chip, '--out', out]); "
+    "reps = [r for r in map(json.loads, open(out + '/bench.jsonl')) if r.get('ev') == 'rep']; "
+    "bad = [r.get('seed') for r in reps if not r.get('finite') or r.get('err')]; "
+    "print(f'{len(reps)} rep(s), non-finite or erred: {bad}, bench rc {rc}', flush=True); "
+    "sys.exit(1 if rc or bad or not reps else 0)")
 PARITY_CARD_TYPES = {"rfd4-trunk": ("p150a", "p300c"), "bindcraft2-afgrad-stack": ("p150a",)}
 
 CAP_OWED = "host-threads"   # an OWED entry: no granted host times this ladder at its baseline's cap
@@ -910,6 +926,8 @@ def build_legs(roster: dict, test_files: list, shards: int, record_lever: str = 
                                      "'--out', '{OUT}/bc2.json', '--project', '{OUT}/project']; "
                                      "runpy.run_path('perf/bc2_memory/boundary.py', run_name='__main__')"],
                     "bc2", tree_on_path=False))
+    legs.append(Leg(TEMPLATE_LEG, ["PY", "-c", TEMPLATE_CHECK, "{OUT}", "{CARD}"], "bench", workdir=True,
+                    card_types=TEMPLATE_CARD_TYPES))
     legs.append(Leg("perf", ["PY", "scripts/perf_regression.py"], "perf", timed=True))
     # --record-lever: add census levers to each ladder model's baseline (one fold per rung, refused
     # unless every other lever still matches), on a copy in the leg's out dir so the tree the
