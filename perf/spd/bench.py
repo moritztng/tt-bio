@@ -30,7 +30,8 @@ Record fields: git sha + dirty, tt_bio version, arm, env (every TT_BIO_/PROTENIX
 host, arch, chip, opened device nodes, input, tokens, seed, kind (cold|warm), fold_s (model.fold only),
 wall_s (predict_one end to end), per-sample confidences by rank (samples_conf) with the sample CIFs in
 struct_dir (<input>.cif is rank 0, <input>_model_<k>.cif rank k; grade.py scores these), aiclk median/min/max/n per opened node sampled every 0.5 s DURING the rep,
-loadavg, programs (device program-cache entries after the rep), finite (coords and confidences), plddt/ptm/iptm, coords digest. Coordinates of every sample are kept
+loadavg, programs (device program-cache entries after the rep), jit_new/jit_top (kernel binaries the rep
+compiled into the JIT disk cache, in all and by kernel name; exact only on a cache no other process writes), finite (coords and confidences), plddt/ptm/iptm, coords digest. Coordinates of every sample are kept
 as coords_<input>_s<seed>.pt so summarize.py can quote an arm's structural deviation in Angstrom.
 Records of a non-Protenix model also carry `model`; a Protenix-v2 record is unchanged.
 
@@ -367,6 +368,17 @@ if a.model == "bindcraft2":
         emit(len(traj) - 1)
     end()
 
+def jit_kernels():
+    """{kernel name: compiled variants} in the JIT disk cache this process writes (TT_METAL_CACHE)."""
+    root = Path(os.environ.get("TT_METAL_CACHE") or Path.home() / ".cache" / "tt-metal-cache")
+    out = {}
+    for k in (k for g in ("kernels", "*/kernels", "*/*/kernels") for k in root.glob(g)):
+        for d in os.scandir(k):
+            if d.is_dir():
+                out[d.name] = out.get(d.name, 0) + sum(1 for _ in os.scandir(d.path))
+    return out
+
+
 INPUTS = []
 for name in a.inputs.split(","):
     y = a.data / "inputs" / f"{name}.yaml"
@@ -573,6 +585,7 @@ for i_in, (name, y) in enumerate(INPUTS):
         FOLD[0] = f"{i_in}:{name}:{sd}"
         sdir = a.out / f"struct_{name}_s{sd}"; sdir.mkdir(exist_ok=True); rcfg["struct_dir"] = str(sdir)
         LAST.clear(); gc.collect()
+        jit0 = jit_kernels()
         la0 = os.getloadavg(); t0 = time.monotonic()
         prof = None
         if a.profile:
@@ -591,6 +604,7 @@ for i_in, (name, y) in enumerate(INPUTS):
             prof.dump_stats(f"{stem}.pstats"); buf = io.StringIO()
             pstats.Stats(prof, stream=buf).sort_stats("tottime").print_stats(60)
             Path(f"{stem}.txt").write_text(buf.getvalue())
+        jit1 = jit_kernels(); jit_new = {n: c - jit0.get(n, 0) for n, c in jit1.items() if c != jit0.get(n, 0)}
         try:
             programs = int(T.get_device().num_program_cache_entries())
         except Exception:
@@ -605,7 +619,8 @@ for i_in, (name, y) in enumerate(INPUTS):
         tokens = metrics.get("n_tokens") or metrics.get("n_residues")
         log(ev="rep", input=name, tokens=tokens, seed=sd, kind=kind, fold_s=LAST.get("fold_s"), wall_s=t1 - t0,
             aiclk=clock(t0, t1, OPENED), arch=ARCH, nodes=OPENED, finite=finite, digest=digest, err=err,
-            loadavg=[round(la0[0], 2), round(os.getloadavg()[0], 2)], programs=programs, conf=LAST.get("conf"),
+            loadavg=[round(la0[0], 2), round(os.getloadavg()[0], 2)], programs=programs, jit_new=sum(jit_new.values()), jit_top=dict(sorted(jit_new.items(), key=lambda x: -x[1])[:12]),
+            jit_cache=os.environ.get("TT_METAL_CACHE"), conf=LAST.get("conf"),
             metrics={k: metrics.get(k) for k in ("plddt", "ptm", "iptm", "msa_depth", "n_tokens", "confidence_score")
                      if k in metrics},
             samples_conf=[{k: v for k, v in r.items() if not isinstance(v, dict)} for r in metrics.get("all_runs", [])],
