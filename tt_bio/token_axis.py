@@ -492,8 +492,11 @@ def token_pad_masks_tt(N: int, Np: int, dev):
     return m1, up(pair), up(additive)
 
 
-def bucketed_pairformer(pf, s, z, dev, Np: int, extra_attn_bias=None, keep_padded=False):
+def bucketed_pairformer(pf, s, z, dev, Np: int, extra_attn_bias=None, keep_padded=False, n_real=None):
     """Run `pf` with its token axis padded out to `Np`, masked, and sliced back.
+
+    `n_real` is for inputs the caller already built at `Np` (OpenDDE's expander): the first `n_real`
+    tokens are real, the rest are finite rows the masks drop, and nothing is padded here.
 
     `keep_padded` skips the slice back for a caller that goes on running the padded axis (OpenDDE's
     diffusion stage reads the refiner's output at `Np`, so the per-protein length never reaches it).
@@ -518,18 +521,19 @@ def bucketed_pairformer(pf, s, z, dev, Np: int, extra_attn_bias=None, keep_padde
     import ttnn
     import torch.nn.functional as F
     from tt_bio.tenstorrent import replace_after_refusal
-    N = int(z.shape[1])
-    pad = Np - N
-    assert pad >= 0, f"bucket width {Np} is below the real length {N}"
-    if not pad:
+    N = int(z.shape[1]) if n_real is None else n_real
+    pad = Np - int(z.shape[1])
+    assert pad >= 0 and Np >= N, f"bucket width {Np} is below the real length {N}"
+    if N == Np:
         return pf(s, z, extra_attn_bias=extra_attn_bias)
     _, pmask, attn = token_pad_masks_tt(N, Np, dev)
-    s = ttnn.pad(s, [(0, 0), (0, pad), (0, 0)], 0.0) if s is not None else None
-    z = replace_after_refusal(z, lambda t: ttnn.pad(t, [(0, 0), (0, pad), (0, pad), (0, 0)], 0.0),
-                              lambda h: F.pad(h, (0, 0, 0, pad, 0, pad)))
-    if extra_attn_bias is not None:
-        extra_attn_bias = ttnn.pad(
-            extra_attn_bias, [(0, 0), (0, 0), (0, pad), (0, pad)], -1e9)
+    if pad:
+        s = ttnn.pad(s, [(0, 0), (0, pad), (0, 0)], 0.0) if s is not None else None
+        z = replace_after_refusal(z, lambda t: ttnn.pad(t, [(0, 0), (0, pad), (0, pad), (0, 0)], 0.0),
+                                  lambda h: F.pad(h, (0, 0, 0, pad, 0, pad)))
+        if extra_attn_bias is not None:
+            extra_attn_bias = ttnn.pad(
+                extra_attn_bias, [(0, 0), (0, 0), (0, pad), (0, pad)], -1e9)
     so, zo = pf(s, z, pmask, attn, attn, extra_attn_bias)
     if keep_padded:
         return so, zo

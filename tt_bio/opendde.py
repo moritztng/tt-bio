@@ -213,10 +213,11 @@ class StructuralTokenExpander(_KeyedWeights):
             b = g if b is None else ttnn.add(b, g)
         return ttnn.typecast(b, getattr(self, "dtype", ttnn.bfloat16))
 
-    def _attn_bias(self, pf):
+    def _attn_bias(self, pf, row_index=None, n_real=None):
         """Scalar-weighted mask sum + role-pair-type bias -> ttnn (clen, Ns).
         Mask scaling by the (scalar) learned weights is host-side; the additive
-        assembly runs on device."""
+        assembly runs on device. Tokens from `n_real` on are dummies: -1e9 on their
+        rows and columns, as the bucketed pairformer pads the bias."""
         w = self._w
         rpt = pf["role_pair_type"]
         role_pair_bias = w["attn_bias_role_pair_type"].index_select(0, rpt.reshape(-1)).reshape(rpt.shape)
@@ -227,6 +228,10 @@ class StructuralTokenExpander(_KeyedWeights):
             pf["next_bb_chain"].float() * float(w["attn_bias_next_bb_chain"]),
             role_pair_bias,
         ]
+        Ns = rpt.shape[1]
+        if n_real is not None and n_real < Ns:
+            dummy = (row_index >= n_real)[:, None] | (torch.arange(Ns) >= n_real)[None, :]
+            terms.append(dummy.float() * -1e9)
         ab = self._up(terms[0])
         for t in terms[1:]:
             ab = ttnn.add(ab, self._up(t))
@@ -293,9 +298,24 @@ class StructuralTokenExpander(_KeyedWeights):
                                     memory_config=ttnn.DRAM_MEMORY_CONFIG)
         return ttnn.to_layout(ttnn.reshape(flat_delta, (clen, Ns, C)), ttnn.TILE_LAYOUT)
 
-    def __call__(self, ifd, s_inputs_res, s_res, z_res):
+    def __call__(self, ifd, s_inputs_res, s_res, z_res, width=None):
+        """`width` runs the expander at that many structural tokens instead of Ns, the extra ones
+        dummies (parent 0, role 0, no chain neighbours). Every op here compiles per token count and
+        Ns is a property of the protein, so a caller that goes on at a bucketed width passes it and
+        the host compiles per bucket, not per protein. Real cells never read a dummy (each pair cell
+        and each single row is computed from its own two tokens); dummy rows and columns are finite,
+        and -1e9 in the attention bias, so a masked consumer never reads them either."""
         parent = ifd["parent_residue_idx"].long()
         role = ifd["subtoken_role_id"].long()
+        n_real = role.shape[0]
+        if width is not None and width > n_real:
+            pad = width - n_real
+            F = torch.nn.functional
+            parent, role = F.pad(parent, (0, pad)), F.pad(role, (0, pad))
+            ifd = {**ifd, "parent_residue_idx": parent, "subtoken_role_id": role}
+            for k in ("prev_parent_residue_idx", "next_parent_residue_idx"):
+                if ifd.get(k) is not None:
+                    ifd[k] = F.pad(ifd[k].long(), (0, pad), value=-1)
 
         # --- single: gather parent rep (host) + role embedding, add on device ---
         s_inputs_struct = ttnn.add(
@@ -367,7 +387,7 @@ class StructuralTokenExpander(_KeyedWeights):
                 ttnn.deallocate(z_tile)
             else:
                 z_chunks.append(z_tile)
-            ab_chunks.append(self._attn_bias(pf))
+            ab_chunks.append(self._attn_bias(pf, row_index, n_real))
         dram_peak("expander row loop done")
         ttnn.deallocate(z_flat)
         z_struct = _acc_concat(z_chunks, -3, host_z)
@@ -710,10 +730,14 @@ class OpenDDE:
         ttnn tensors. All inputs are host tensors / the integer feature dict, as for
         :meth:`StructuralTokenExpander.__call__`.
 
-        ``keep_padded`` returns the refined (s, z) at the bucketed width instead of Ns (padded rows
-        are finite and masked out of every key the refiner read); s_inputs and the bias stay at Ns."""
+        ``keep_padded`` runs the expander and the refiner at the bucketed width and returns every
+        output at it (padded rows are finite and masked out of every key the refiner read; the bias
+        carries -1e9 there), so no op of the seam compiles per protein."""
         import ttnn
-        s_inputs_st, s_st, z_st, attn_bias = self.expander(ifd, s_inputs_res, s_res, z_res)
+        from .protenix import bucketed_pairformer, bucketed_width
+        n_real = int(ifd["parent_residue_idx"].shape[0])
+        s_inputs_st, s_st, z_st, attn_bias = self.expander(
+            ifd, s_inputs_res, s_res, z_res, width=bucketed_width(n_real) if keep_padded else None)
         Ns = s_st.shape[0]
         # Build the refiner trimuls' fused input-weight cache up front, so the first (timed)
         # call does not interleave the 96-tensor `_gp_cache` uploads with its compute.
@@ -721,8 +745,7 @@ class OpenDDE:
         # one without. Warm the BUCKETED width: prewarm derives (chunk_size, group) from the
         # width it is given, so warming Ns while the refiner runs at the padded Ns warms an
         # entry the call never reads and leaves the upload back inside the first call.
-        from .protenix import bucketed_pairformer, bucketed_width
-        Nsw = bucketed_width(Ns)
+        Nsw = bucketed_width(n_real)
         for blk in self.refiner.blocks:
             blk.triangle_multiplication_start.prewarm(Nsw, 1)
             blk.triangle_multiplication_end.prewarm(Nsw, 1)
@@ -735,8 +758,8 @@ class OpenDDE:
         # census caught 8 ragged fused-SDPA calls here at Ns=181 after the trunk and the
         # confidence head were both bucketed. Same helper, same gate, on by default.
         from .tenstorrent import get_device as _gd
-        s_ref, z_ref = bucketed_pairformer(self.refiner, s3, z4, _gd(),
-                                           extra_attn_bias=bias, keep_padded=keep_padded)
+        s_ref, z_ref = bucketed_pairformer(self.refiner, s3, z4, _gd(), extra_attn_bias=bias,
+                                           keep_padded=keep_padded, n_real=n_real)
         result = (s_inputs_st, ttnn.reshape(s_ref, (int(s_ref.shape[1]), self.expander.c_s)), z_ref)
         if return_attn_bias:
             return (*result, attn_bias)
@@ -855,9 +878,12 @@ class OpenDDE:
         pad = Nw - Ns
         dram_peak(f"refiner done [Ns={Ns}, Nw={Nw}]")
         F = torch.nn.functional
-        s_inputs_struct = F.pad(P._to_host(s_inputs_st, (Ns, self.expander.c_s_inputs)), (0, 0, 0, pad))
+        s_inputs_struct = P._to_host(s_inputs_st, (Nw, self.expander.c_s_inputs))
+        s_inputs_struct[Ns:] = 0
         s_struct = P._to_host(s_st, (Nw, self.expander.c_s))
-        structural_attn_bias = F.pad(P._to_host(structural_attn_bias, (Ns, Ns)), (0, pad, 0, pad), value=-1e9)
+        structural_attn_bias = P._to_host(structural_attn_bias, (Nw, Nw))
+        structural_attn_bias[Ns:] = -1e9
+        structural_attn_bias[:, Ns:] = -1e9
 
         # 3) diffusion pair conditioning + EDM sampler, structural-token axis
         parent = ifd["parent_residue_idx"]
