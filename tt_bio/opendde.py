@@ -25,6 +25,16 @@ from .opendde_data import STRUCTURAL_TOKEN_ROLES
 from . import tenstorrent as _T
 from .tenstorrent import _acc_concat, concat_host_bytes, dram_peak, get_device, under_levers
 
+
+def _group_rows(n: int) -> int:
+    """Round a role-pair group's row count up to 32 rows times a 4-bit mantissa (8..15) times a
+    power of two: at most 12.5 % extra rows, and ~8 widths per doubling, so the set of matmul
+    shapes a host ever compiles for the pair projection is bounded instead of one per protein."""
+    t = -(-n // 32)
+    shift = max(0, t.bit_length() - 4)
+    return -(-t // (1 << shift)) * (1 << shift) * 32
+
+
 _BACKBONE = (STRUCTURAL_TOKEN_ROLES["protein_bb"],
              STRUCTURAL_TOKEN_ROLES["dna_bb"],
              STRUCTURAL_TOKEN_ROLES["rna_bb"])
@@ -236,7 +246,14 @@ class StructuralTokenExpander(_KeyedWeights):
         each group is one device matmul, then scattered back via a second
         device gather -- numerically identical to OpenDDE's per-(role_i,role_j)
         masked projection, reordered. Bit-exact vs the old host gather +
-        per-group upload: both gathers move the same bf16 values."""
+        per-group upload: both gathers move the same bf16 values.
+
+        Each group's row count is a property of the protein, and a matmul compiles
+        its kernels per row count, so an unrounded count compiles ~37 new matmul
+        programs for every protein the host has not folded before (~6-10 s of a
+        fold on WH). Each group therefore runs at _group_rows(count), a bounded
+        set of widths; its extra rows are the next group's rows or a gathered tail
+        and are dropped. Rows of a matmul are independent, so this is exact."""
         clen = row_index.numel()
         Ns = role.shape[0]
         C = self.c_z
@@ -249,22 +266,29 @@ class StructuralTokenExpander(_KeyedWeights):
         inv = torch.empty_like(perm)
         inv[perm] = torch.arange(perm.numel())
         uniq, counts = torch.unique_consecutive(pidx.index_select(0, perm), return_counts=True)
+        counts = counts.tolist()
+        starts = [0]
+        for c in counts[:-1]:
+            starts.append(starts[-1] + c)
+        tail = max(o + _group_rows(c) for o, c in zip(starts, counts)) - perm.numel()
 
         dev = get_device()
+        gather = torch.cat([perm, perm.new_zeros(tail)]) if tail else perm
         sorted_dev = ttnn.embedding(
-            ttnn.from_torch(perm.reshape(1, -1).to(torch.int32),
+            ttnn.from_torch(gather.reshape(1, -1).to(torch.int32),
                             layout=ttnn.ROW_MAJOR_LAYOUT, device=dev, dtype=ttnn.uint32),
             z_chunk_dev, layout=ttnn.ROW_MAJOR_LAYOUT,
             memory_config=ttnn.DRAM_MEMORY_CONFIG)
-        sorted_dev = ttnn.reshape(sorted_dev, (clen * Ns, C))
+        sorted_dev = ttnn.reshape(sorted_dev, (gather.numel(), C))
 
         pieces = []
         off = 0
-        for g, c in zip(uniq.tolist(), counts.tolist()):
-            seg = ttnn.to_layout(ttnn.slice(sorted_dev, [off, 0], [off + c, C]),
+        for g, c in zip(uniq.tolist(), counts):
+            seg = ttnn.to_layout(ttnn.slice(sorted_dev, [off, 0], [off + _group_rows(c), C]),
                                  ttnn.TILE_LAYOUT)
-            out = self._lin(seg, "pair_block_proj.%d.weight" % g)
-            pieces.append(ttnn.to_layout(out, ttnn.ROW_MAJOR_LAYOUT))
+            out = ttnn.to_layout(self._lin(seg, "pair_block_proj.%d.weight" % g),
+                                 ttnn.ROW_MAJOR_LAYOUT)
+            pieces.append(ttnn.slice(out, [0, 0], [c, C]))
             off += c
         ttnn.deallocate(sorted_dev)
         sorted_delta = pieces[0] if len(pieces) == 1 else ttnn.concat(pieces, dim=0)
