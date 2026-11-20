@@ -26,7 +26,9 @@
 
 // LN_ABL (bench-only, 0 in every model path; trimul_in_t1 maps ABL bits 128 / 256 to it): bit 0 skips the * gamma and
 // + beta stages (the normalised tile is copied to the pack hook), bit 1 reduces x - mean directly instead of its
-// square. Each prices what fusing those stages away could save.
+// square, bit 2 skips the statistics (mean reduce, square, variance reduce, rsqrt) and centres / scales by the eps
+// tile instead: wrong values, the timing of a row whose mean and rstd arrive precomputed from the kernel that wrote x.
+// Each prices what fusing those stages away could save.
 #ifndef LN_ABL
 #define LN_ABL 0
 #endif
@@ -113,6 +115,15 @@ ALWI void rstd() {
 // for every channel tile i, `out` the CB pack writes to (its data format is configured here).
 template <class C, class Pack, bool KEEP_X = false>
 ALWI void layer_norm_row(uint32_t out, Pack pack) {
+    if constexpr (LN_ABL & 4) {
+        cb_wait_front(C::x, C::Kt);
+        stage<C, SUB_COL, LN_BLK>(C::x, C::eps, C::xc);
+        if constexpr (!KEEP_X) cb_pop_front(C::x, C::Kt);
+        cb_wait_front(C::xc, C::Kt);
+        stage<C, MUL_COL, LN_BLK>(C::xc, C::eps, C::tmp);
+        cb_pop_front(C::xc, C::Kt);
+        cb_wait_front(C::tmp, C::Kt);
+    } else {
     row_mean<C>(C::x, C::mean, false);                    // mean
     cb_wait_front(C::mean, 1);
     stage<C, SUB_COL, LN_BLK>(C::x, C::mean, C::xc);              // xc = x - mean
@@ -130,6 +141,7 @@ ALWI void layer_norm_row(uint32_t out, Pack pack) {
     cb_pop_front(C::xc, C::Kt);
     cb_pop_front(C::rstd, 1);
     cb_wait_front(C::tmp, C::Kt);
+    }
     if constexpr (LN_ABL & 1) {
         reconfig_data_format_srca(C::tmp);
         pack_reconfig_data_format(out);

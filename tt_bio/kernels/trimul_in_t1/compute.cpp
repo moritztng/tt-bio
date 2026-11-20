@@ -30,15 +30,15 @@
 #if defined(T1_PSIG) && defined(TRISC_PACK)
 #include "llk_math_eltwise_unary_sfpu_silu.h"   // the packer-side SFPU init, as pair_swiglu_ws's WS_PACK_SILU
 #endif
-#if defined(ABL) && (ABL & 384)
-#define LN_ABL ((ABL >> 7) & 3)   // bench-only LN stage skips, see ln_prologue.hpp
+#if defined(ABL) && (ABL & 1408)
+#define LN_ABL (((ABL >> 7) & 3) | ((ABL >> 8) & 4))   // bench-only LN stage skips, see ln_prologue.hpp
 #endif
 #include "../common/ln_prologue.hpp"
 // ABL (bench-only define, trimul_tail.T1_ABL; 0 in every model path): bits that skip one stage's
 // work while keeping its circular-buffer traffic, to time each stage by difference (perf/spd_trimul/in_t1.py --abl).
 //   1 layer_norm, 2 g_out matmul, 4 [a | b] matmuls, 8 gate multiply, 16 z reads, 32 writer gather, 64 writer writes,
 //   128 the layer_norm's gamma / beta stages, 256 its variance square (ln_prologue.hpp LN_ABL),
-//   512 the gate sigmoid.
+//   512 the gate sigmoid, 1024 the layer_norm's statistics (mean, variance, rsqrt; LN_ABL 4).
 #ifndef ABL
 #define ABL 0
 #endif
