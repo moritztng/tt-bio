@@ -147,5 +147,12 @@ def pair_transpose(t, memory_config=None):
     writer.common_runtime_args = [out.buffer_address()]
     pd = ttnn.ProgramDescriptor(kernels=[reader, writer], semaphores=[], cbs=entry["cbs"])
     STATS[0] += 1
-    ttnn.generic_op([t, out], pd)
+    try:
+        ttnn.generic_op([t, out], pd)
+    except Exception:
+        # A refused program (an L1 circular-buffer clash) leaves `out` allocated where the caller's
+        # fallback needs room: OpenFold3 at 730 tokens died in the DRAM retry on the 630 KB/core this
+        # refused L1 output still held. Free it before the caller sees the refusal.
+        ttnn.deallocate(out)
+        raise
     return out
