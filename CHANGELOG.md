@@ -5,6 +5,8 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+## [0.39.0] - 2026-11-20
+
 ### Changed
 - **OpenDDE `--fast` is about 2 % faster on Wormhole.** Two more shared pair-stack kernels run in fast mode. A
   512-token complex 71.7 -> 70.4 s; structure accuracy unchanged on 44 paired folds.
