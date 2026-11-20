@@ -35,7 +35,8 @@ Verdict, from state/spd/CHARTER.md:
           0.82 A, so the bar as written would fail a re-seed)
   fast    every fold finite; mean paired CA-lDDT and pLDDT drop each <= 0.03; no complex loses > 0.05 pLDDT
           (confidence collapse); docking success (DockQ >= 0.23, top pose) at most 5 points below base
-  Either: fewer than 4 paired seeds, or a complex missing from one arm, is INSUFFICIENT, never PASS.
+  Either: fewer than 4 paired seeds, or a complex missing from one arm, is INSUFFICIENT, never PASS. A test arm that
+  matches base bit for bit with no test-only lever latch serving is INVALID: nothing shows its lever ran.
 """
 import argparse, itertools, json, os, statistics, sys, tempfile
 from collections import defaultdict
@@ -188,6 +189,30 @@ def lost_reach(reps, arch, base, test):
     return lost
 
 
+def no_op(reps, arch, base, test):
+    """A test arm whose every same-seed fold is digest-identical to base, with no test-only lever latch serving,
+    never showed that its lever ran. ge 11-19 read PASS on 88 identical folds: bench opened the chip without a trace
+    region, so edm_device (traced rollout only) never engaged. A bit-exact lever that did run passes: its test-only
+    latch served (trimul_t1_lnpass). Returns the reason, or None."""
+    dig = {b: {} for b in (base, test)}
+    named, served_t = {base: set(), test: set()}, defaultdict(int)
+    for r in reps:
+        if r["arch"] != arch or r["err"] or not r.get("digest"):
+            continue
+        dig[r["arm"]][(r["input"], r["seed"])] = r["digest"]
+        named[r["arm"]] |= set(filter(None, (r.get("arm_env") or {}).get("TT_BIO_LEVERS", "").split("+")))
+        if r["arm"] == test:
+            for k, v in (r.get("latches") or {}).items():
+                served_t[k] += v.get("served", 0)
+    paired = set(dig[base]) & set(dig[test])
+    if not paired or any(dig[base][k] != dig[test][k] for k in paired):
+        return None
+    if any(served_t[k] for k in named[test] - named[base]):
+        return None
+    return (f"{test} reproduced {base} bit for bit on all {len(paired)} paired folds and no test-only lever latch "
+            f"served: the lever never showed it ran (check the arm's env, trace region and latches)")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("runs", nargs="+", type=Path)
@@ -313,9 +338,10 @@ def main():
         why = []
         missing = [p for p in pdbs if not any(q == p for q, _ in paired)]
         lost = lost_reach(reps, arch, a.base, a.test)
-        if lost:
+        idle = no_op(reps, arch, a.base, a.test)
+        if lost or idle:
             v = "INVALID"
-            why.extend(lost)
+            why.extend(lost or [idle])
         elif missing or len(seeds) < a.min_seeds or any(k[0] == arch for k in failed):
             v = "INSUFFICIENT"
             why.append(f"missing complexes {missing}" if missing else "")
