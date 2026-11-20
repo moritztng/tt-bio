@@ -3658,7 +3658,6 @@ class Protenix:
         per-cycle alignment draw when the caller has its own rule (OpenDDE), else the lever's."""
         fi = self._atom_feat_inputs(feats)
         N, NT, nb, nq, nk = fi["N"], fi["NT"], fi["nb"], fi["nq"], fi["nk"]
-        mt = fi["mt"]
         tt = self._tt
         # The trunk's host-only inputs (relp, padding, template and MSA features) are built on the
         # host lane while the chip runs the input embedder and the diffusion atom cache below.
@@ -3669,13 +3668,15 @@ class Protenix:
         s_inputs_tt = self.input_aae(*map(tt, atoms), emb_mt, tt(Mmat),
                                      tt(feats["restype"]), tt(feats["profile"]), tt(dm))
         s_inputs = self._to_host(s_inputs_tt)[:NT]
-        # 2) diffusion atom cache (c_l, p_lm) -- t-independent and gate-controlled
+        # 2) diffusion atom cache (c_l, p_lm) -- t-independent and gate-controlled. It reads the
+        # embedder's padded atoms so its ops compile per bounded atom count, not per protein; both
+        # are per-row linears and the padded keys hold the values the raw window pads with, so the
+        # real rows sliced back are the raw computation's.
         dtt = self.diffusion._up
-        mt_dev = dtt(mt.reshape(-1, 1).float())
-        c_l = self._to_host(self.diff_feat.c_l(dtt(feats["ref_pos"]), dtt(fi["ref_charge_asinh"]),
-                                               dtt(feats["ref_mask"].reshape(N, 1)), dtt(fi["f_in"])), (N, 128))
-        p_lm = self._to_host(self.diff_feat.p_lm(dtt(fi["d"]), dtt(fi["v"]), dtt(fi["invd"]), mt_dev),
-                             (nb, nq, nk, 16))
+        NA, nbA = atoms[0].shape[0], emb_mt.shape[0]
+        c_l = self._to_host(self.diff_feat.c_l(*map(dtt, atoms[:4])), (NA, 128))[:N]
+        p_lm = self._to_host(self.diff_feat.p_lm(*map(dtt, atoms[4:]), dtt(emb_mt.reshape(-1, 1))),
+                             (nbA, nq, nk, 16))[:nb]
         # 3) trunk
         import tt_bio.tenstorrent as _TT
         relp, host = trunk_host.result()
