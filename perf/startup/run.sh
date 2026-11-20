@@ -12,6 +12,7 @@ WT=$(cd "$(dirname "$0")/../.." && pwd)
 PY=${PY:-$HOME/scratch/shipflow/venv-bfcfb20bff6b/bin/python}
 BCPY=${BCPY:-$HOME/bcx_e2e_venv/bin/python} BC2=${BC2:-$HOME/bcx_e2e/bc2}
 OWNER=${OWNER:-fleet-startup-time-report}
+INPUT=${INPUT:-c730}   # bench input of the folding models (perf/spd/bench.py --inputs)
 mkdir -p "$OUT"; cd "$WT"
 say() { echo "$(date -u +%FT%TZ) $*" >> "$OUT/run.log"; }
 ( while :; do echo "$(date +%s.%N | cut -c1-14) $(for f in /sys/class/tenstorrent/tenstorrent!*/tt_aiclk; do n=${f%/tt_aiclk}; echo -n "${n##*!}:$(cut -d' ' -f1 "$f") "; done)"; sleep 1; done ) >> "$OUT/aiclk.log" 2>/dev/null &
@@ -32,11 +33,11 @@ cmd() {  # model, run dir -> argv
   case $m in
     esmc) echo "$PY perf/startup/esmc_run.py $HOME/spd-data/inputs/c730.yaml $d/esmc.jsonl" ;;
     rfd4) echo "$PY perf/bmk/design_cell.py --model rfd4 --repeat 1 --out $d/result.json" ;;
-    bindcraft2) echo "$BCPY perf/spd/bench.py --out $d/bench --chip $CHIP --model bindcraft2 --bc2 $BC2 --warm 1 --no-coords" ;;
-    *) echo "$PY perf/spd/bench.py --out $d/bench --chip $CHIP --model $m --inputs c730 --warm 1 --no-coords" ;;
+    bindcraft2) echo "env JAPANFOLD_BC2_AF2_WEIGHTS=$HOME/bcx_e2e/af2_params JAPANFOLD_BC2_MPNN_WEIGHTS=$BC2/bindcraft/weights/proteinmpnn/weights_neutral $BCPY perf/spd/bench.py --out $d/bench --chip $CHIP --model bindcraft2 --bc2 $BC2 --warm 1 --no-coords" ;;
+    *) echo "$PY perf/spd/bench.py --out $d/bench --chip $CHIP --model $m --inputs $INPUT --warm 1 --no-coords" ;;
   esac
 }
-say "start chip $CHIP sha $(git rev-parse --short HEAD) dirty $(git status --porcelain -uno | wc -l) host $(hostname) rounds $ROUNDS models [$MODELS]"
+say "start chip $CHIP sha $(git rev-parse --short HEAD) dirty $(git status --porcelain -uno | wc -l) host $(hostname) input $INPUT rounds $ROUNDS models [$MODELS]"
 for r in $(seq "$ROUNDS"); do
   for m in $MODELS; do
     cache=$OUT/jit/$m-r$r
