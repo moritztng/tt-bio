@@ -30,7 +30,7 @@ Record fields: git sha + dirty, tt_bio version, arm, env (every TT_BIO_/PROTENIX
 host, arch, chip, opened device nodes, input, tokens, seed, kind (cold|warm), fold_s (model.fold only),
 wall_s (predict_one end to end), per-sample confidences by rank (samples_conf) with the sample CIFs in
 struct_dir (<input>.cif is rank 0, <input>_model_<k>.cif rank k; grade.py scores these), aiclk median/min/max/n per opened node sampled every 0.5 s DURING the rep,
-loadavg, finite (coords and confidences), plddt/ptm/iptm, coords digest. Coordinates of every sample are kept
+loadavg, programs (device program-cache entries after the rep), finite (coords and confidences), plddt/ptm/iptm, coords digest. Coordinates of every sample are kept
 as coords_<input>_s<seed>.pt so summarize.py can quote an arm's structural deviation in Angstrom.
 Records of a non-Protenix model also carry `model`; a Protenix-v2 record is unchanged.
 
@@ -86,6 +86,9 @@ ap.add_argument("--structure", choices=("card", "host"),
                 help="BindCraft 2: where AF2's structure module runs; default: bindcraft2.campaign_predictor's own choice "
                      "(card under the fast round on Blackhole)")
 ap.add_argument("--no-coords", action="store_true")
+ap.add_argument("--profile", action="store_true",
+                help="cProfile each fold into OUT/prof_<i>_<input>_s<seed>.pstats (+ .txt, top by own time); "
+                     "a C++ call that holds the GIL shows here and not in the stack sampler")
 ap.add_argument("--dry", action="store_true", help="build the run config, log it, stop before weights and device")
 a = ap.parse_args()
 if a.recycles is None and a.model == "protenix-v2":
@@ -571,6 +574,10 @@ for i_in, (name, y) in enumerate(INPUTS):
         sdir = a.out / f"struct_{name}_s{sd}"; sdir.mkdir(exist_ok=True); rcfg["struct_dir"] = str(sdir)
         LAST.clear(); gc.collect()
         la0 = os.getloadavg(); t0 = time.monotonic()
+        prof = None
+        if a.profile:
+            import cProfile
+            prof = cProfile.Profile(); prof.enable()
         try:
             metrics, _best, _feats = state.predict_one(y, rcfg); err = None
         except Exception as e:  # a crashing rep is a result, not the end of the run
@@ -578,6 +585,16 @@ for i_in, (name, y) in enumerate(INPUTS):
             err = "".join(traceback.format_tb(e.__traceback__)[-12:]) + f"{type(e).__name__}: {str(e)[:600]}"
             metrics = {}
         t1 = time.monotonic()
+        if prof:
+            import io, pstats
+            prof.disable(); stem = a.out / f"prof_{i_in}_{name}_s{sd}"
+            prof.dump_stats(f"{stem}.pstats"); buf = io.StringIO()
+            pstats.Stats(prof, stream=buf).sort_stats("tottime").print_stats(60)
+            Path(f"{stem}.txt").write_text(buf.getvalue())
+        try:
+            programs = int(T.get_device().num_program_cache_entries())
+        except Exception:
+            programs = None
         c = LAST.get("coords")
         finite = bool(c is not None and torch.isfinite(c).all().item()
                       and all(v == v and abs(v) != float("inf") for d in LAST.get("conf") or [] for v in d.values()))
@@ -588,7 +605,7 @@ for i_in, (name, y) in enumerate(INPUTS):
         tokens = metrics.get("n_tokens") or metrics.get("n_residues")
         log(ev="rep", input=name, tokens=tokens, seed=sd, kind=kind, fold_s=LAST.get("fold_s"), wall_s=t1 - t0,
             aiclk=clock(t0, t1, OPENED), arch=ARCH, nodes=OPENED, finite=finite, digest=digest, err=err,
-            loadavg=[round(la0[0], 2), round(os.getloadavg()[0], 2)], conf=LAST.get("conf"),
+            loadavg=[round(la0[0], 2), round(os.getloadavg()[0], 2)], programs=programs, conf=LAST.get("conf"),
             metrics={k: metrics.get(k) for k in ("plddt", "ptm", "iptm", "msa_depth", "n_tokens", "confidence_score")
                      if k in metrics},
             samples_conf=[{k: v for k, v in r.items() if not isinstance(v, dict)} for r in metrics.get("all_runs", [])],
