@@ -1,6 +1,8 @@
 """Startup-time report from a perf/startup/run.sh output dir: phase table (stdout, JSON) and a 2-page PDF.
 
-    python perf/startup/report.py RUNDIR OUT.pdf
+    python perf/startup/report.py RUNDIR[,RUNDIR...] OUT.pdf
+
+With several run dirs, each model is taken from the last dir holding a successful cold/warm pair for it.
 
 Per run (one fresh process) the tracer's summary is turned into phases, from process start to the end of the first
 prediction. Per model, cold and warm runs of the same round are paired: kernel compile = cold total - warm total
@@ -10,7 +12,8 @@ that compile segment, medians over rounds. Steady = the second prediction in the
 import json, statistics, sys
 from pathlib import Path
 
-RUN, PDF = Path(sys.argv[1]), Path(sys.argv[2])
+RUNS, PDF = [Path(p) for p in sys.argv[1].split(",")], Path(sys.argv[2])
+RUN = RUNS[0]
 NAMES = {"esmc": "ESMC-300M", "esmfold2": "ESMFold2", "boltz2": "Boltz-2", "protenix-v2": "Protenix-v2",
          "opendde": "OpenDDE", "openfold3": "OpenFold3", "rfd4": "RFD4", "bindcraft2": "BindCraft 2"}
 UNIT = {"rfd4": "design", "bindcraft2": "trajectory", "esmc": "embed"}
@@ -24,8 +27,9 @@ COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#62
 
 
 def summary(d):
-    p = d / "trace.jsonl"
-    if not p.exists():
+    """The tracer summary of one run, or None if the run is missing or its process failed."""
+    p, rc = d / "trace.jsonl", d / "rc"
+    if not p.exists() or not rc.exists() or rc.read_text().strip() != "0":
         return None
     for line in p.open():
         e = json.loads(line)
@@ -96,23 +100,29 @@ def med(xs):
     return statistics.median(xs) if xs else None
 
 
-models, rows = [m for m in NAMES if (RUN / m).is_dir()], {}
-for m in models:
+def run_pairs(run, m):
     pairs = []
-    for r in sorted({p.name.split("-")[0] for p in (RUN / m).iterdir() if p.is_dir()}):
-        sc, sw = summary(RUN / m / f"{r}-cold"), summary(RUN / m / f"{r}-warm")
+    for r in sorted({p.name.split("-")[0] for p in (run / m).iterdir() if p.is_dir()} if (run / m).is_dir() else ()):
+        sc, sw = summary(run / m / f"{r}-cold"), summary(run / m / f"{r}-warm")
         pc, pw = (phases(sc) if sc else None), (phases(sw) if sw else None)
         if pc and pw:
             pairs.append((r, pc, pw))
-    if not pairs:
+    return pairs
+
+
+rows = {}
+for m in NAMES:
+    found = [(run, p) for run in RUNS for p in [run_pairs(run, m)] if p]
+    if not found:
         continue
+    run, pairs = found[-1]
     if any(r != "r1" for r, _, _ in pairs):  # r1 cold ran before any weight page-cache drop; r2+ drop both
         pairs = [p for p in pairs if p[0] != "r1"]
     fine = {k: med([pw["fine"][k] for _, _, pw in pairs]) for k in pairs[0][2]["fine"]}
     steady = med([pw["steady"] for _, _, pw in pairs] + [pc["steady"] for _, pc, _ in pairs])
     c = coarse(fine, steady)
     c["compile"] = med([max(0.0, pc["total"] - pw["total"]) for _, pc, pw in pairs])
-    rows[m] = dict(n=len(pairs), rounds=[r for r, _, _ in pairs], fine=fine, coarse=c, steady=steady,
+    rows[m] = dict(run=str(run), n=len(pairs), rounds=[r for r, _, _ in pairs], fine=fine, coarse=c, steady=steady,
                    cold_total=med([pc["total"] for _, pc, _ in pairs]), warm_total=med([pw["total"] for _, _, pw in pairs]),
                    cold_first_job=med([pc["first_job"] for _, pc, _ in pairs]),
                    warm_first_job=med([pw["first_job"] for _, _, pw in pairs]),
