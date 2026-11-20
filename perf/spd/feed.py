@@ -254,7 +254,7 @@ NODE = ('node() { for s in "${TT_SYSFS:-/sys/class/tenstorrent}"/*; do echo "$(b
         'gate() { local p n=$(($(date +%s) + $1 + 600)) b; for p in $(pgrep -f "$G"); do '
         '[ "$(cat /proc/$p/comm 2>/dev/null)" = sleep ] && [ "$(ps -o etimes= -p $p | tr -d " ")" -ge "${SENT_S:-600}" ] 2>/dev/null && continue; '
         'return 0; done; b=$(python3 "${SPD_BOOK:-$HOME/spd/feed/book.py}" next $c 2>/dev/null) || b=; '
-        '[ $n -le "${b:-9999999999}" ] && return 1; W=1; return 0; }; ')
+        '[ $n -le "${b:-9999999999}" ] && return 1; W="$W $c"; return 0; }; ')
 
 
 def run_cmd(grace=120):
@@ -310,9 +310,11 @@ for j in A["jobs"]:
         # A waiter refreshes $1.w only while it holds the dispatch flock, so a $1.w older than WFRESH_S is the trace of a
         # booking that has since lapsed: 11-17 qb2, a release window set .w on six prio-3 grade waiters at 09:50Z, they went
         # back to queue for the flock behind a prio-8 holder, and prio-8 backfill took every card that freed for 40+ min.
+        # $1.w lists only the cards a booking holds off: 11-20 qb2, a booking on card 1 hid four prio-2 waiters from prio-3
+        # backfill on cards 0 and 2 too, and prio-3 took both cards as they freed.
         w = (NODE + 'hi() { local f p b=${1##*/}; for f in "$J"/[0-9]-*.sh; do p=${f##*/}; [ "${p%%-*}" -lt "${b%%-*}" ] 2>/dev/null || continue; '
              '[ -e "$f.start" ] || [ -e "$f.end" ] && continue; '
-             '[ $(($(date +%s) - $(stat -c %Y "$f.w" 2>/dev/null || echo 0))) -lt "${WFRESH_S:-120}" ] && continue; '
+             '[ $(($(date +%s) - $(stat -c %Y "$f.w" 2>/dev/null || echo 0))) -lt "${WFRESH_S:-120}" ] && grep -qw "$2" "$f.w" && continue; '
              'grep -qw "$2" "$f.want" 2>/dev/null || continue; '
              'kill -0 "$(cat "$f.pid" 2>/dev/null)" 2>/dev/null && return 0; done; return 1; }; '
              'echo "$2" > "$1.want"; exec 8>"$(dirname "$1")/.dispatch"; flock -w 86400 8 || { echo flockbusy > "$1.end"; exit 3; }; '
@@ -321,7 +323,7 @@ for j in A["jobs"]:
              'gate "$5" && continue; exec 9>"${3//@/$c}"; '
              'flock -n 9 && ! gate "$5" && break 2; exec 9>&-; done; '
              '[ $SECONDS -lt $D ] || { echo flockbusy > "$1.end"; exit 3; }; '
-             'if [ -n "$W" ]; then touch "$1.w"; else rm -f "$1.w"; fi; '
+             'if [ -n "$W" ]; then echo $W > "$1.w"; else rm -f "$1.w"; fi; '
              'if [ -n "$W$Y" ]; then flock -u 8; sleep "${POLL:-20}"; flock -w 86400 8 || { echo flockbusy > "$1.end"; exit 3; }; '
              'else sleep "${POLL:-20}"; fi; done; '
              'exec 8>&-; rm -f "$1.w"; echo $c > "$1.card"; touch "$1.start"; echo $(($(date +%s) + $5 + 600)) > "$1.until"; set -- "$1" $c "$3" "$(dirname "$1")/nolock.$c" "$5" "$6"; '
