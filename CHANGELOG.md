@@ -6,6 +6,10 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 ## [Unreleased]
 
 ### Changed
+- **OpenDDE and Protenix-v2 start faster on a protein the server has not folded before.** Shapes that used to follow
+  the exact protein length now snap to a small set of widths, so fewer kernels compile per new protein. On Wormhole an
+  OpenDDE fold of a new protein spends 25 s on first-time setup instead of 33 s, and a new Protenix-v2 protein takes
+  101 s instead of 114 s. Results are bit-identical; repeat folds are unchanged.
 - **ESMFold2 and ESMFold2-Fast `--fast` are about 5-6 % faster on Blackhole.** Triangle multiplication hands its
   gated output to the next kernel in 8-bit block floating point. A 512-residue ESMFold2 fold 10.42 -> 9.76 s,
   ESMFold2-Fast 6.63 -> 6.30 s. Accuracy holds the `--fast` bar for both models. Normal mode and Wormhole are unchanged.
