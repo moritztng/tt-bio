@@ -283,7 +283,12 @@ WH_V2_NORMAL = frozenset({"dit_shoist", "trimul_t1w8", "transition_b8", "ws_b8_p
 # 2026-10-25), 44 paired folds over 4 seeds, PASS: same-seed top pose median 0.080 A vs the 0.6 A bar (1.299 A A/A floor),
 # CA-lDDT +0.0002 [+0.0001, +0.0004], ipTM +0.0002, docking 36 -> 36. 9TY2_512 on a p300 chip, in-process A/B x3 (bhpzn,
 # AICLK not sampled): warm -0.47 / -0.18 s on ~26.4 s.
-BH_V2_NORMAL = frozenset({"trimul_t1_2g", "trimul_t1w8", "ws_psilu", "pz_device"})
+# edm_device in normal mode too (see BH_V2_FAST). Blackhole 512-token normal grade vs the set above (spd-m-protenix-7 ge2,
+# 2026-11-20), first 4 of 11 complexes, 16 paired folds, PASS: same-seed top pose median 0.138 A vs the 0.6 A bar (1.308 A
+# A/A floor), CA-lDDT +0.0006 [+0.0001, +0.0010], iRMSD -0.02 [-0.07, +0.02], docking 12/16 -> 12/16. Same folds, p300
+# chips at 1306-1331 MHz median: paired warm fold -0.39 s median, -1.08 s mean, 9 of 12 faster; diffusion stage 5.65 ->
+# 5.15 s on cdk2x2 (sp).
+BH_V2_NORMAL = frozenset({"trimul_t1_2g", "trimul_t1w8", "ws_psilu", "pz_device", "edm_device"})
 # Protenix-v2's Blackhole normal pair stack: T1 writes g_out bfp8 (trimul_t1g8), the contraction writes x bfp8 for the move
 # back (trimul_x8) and the plain T2 tail reads that moved x as bfp8 (pair_x8t). x8 needs the row-major tail, so this mode
 # drops T2CM (BH_NORMAL_DROP). Device kernel seconds from a Tracy census of cdk2x2 512 x 1 on a p300 chip, AICLK 1350 MHz
