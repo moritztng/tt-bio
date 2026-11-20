@@ -5,6 +5,8 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+## [0.40.0] - 2026-11-20
+
 ### Changed
 - **Protenix-v2 is slightly faster on Blackhole, both modes.** The diffusion trajectory stays on the card, as Mol-1 and
   OpenFold3 already do there. The diffusion stage of a 512-token complex 3.49 -> 3.05 s in `--fast` and 5.65 -> 5.15 s
