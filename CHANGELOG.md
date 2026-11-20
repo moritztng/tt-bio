@@ -14,10 +14,10 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 - **BoltzGen `--fast` is about 5 % faster on Blackhole.** The atom attention reads its key windows in place, as on
   Wormhole. A 514-token design 18.32 -> 17.45 s; design quality unchanged on 40 paired designs. Blackhole normal mode
   is unchanged.
-- **Protenix-v2 `--fast` is slightly faster on Blackhole.** The diffusion trajectory stays on the card, as Mol-1 and
-  OpenFold3 already do there. The diffusion stage of a 512-token complex 3.49 -> 3.05 s; a whole fold is 0.23 s faster
-  at the median over 11 complexes. Structure accuracy unchanged on 44 paired folds. Wormhole and normal mode are
-  unchanged.
+- **Protenix-v2 is slightly faster on Blackhole, both modes.** The diffusion trajectory stays on the card, as Mol-1 and
+  OpenFold3 already do there. The diffusion stage of a 512-token complex 3.49 -> 3.05 s in `--fast` and 5.65 -> 5.15 s
+  in normal mode; a whole fold is 0.23 s (fast) and 0.39 s (normal) faster at the median. Structure accuracy unchanged
+  on 44 paired fast folds and 16 paired normal folds so far. Wormhole is unchanged.
 
 ## [0.38.0] - 2026-11-19
 
