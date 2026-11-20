@@ -1,0 +1,347 @@
+{
+ "esmc": {
+  "run": "/home/ttuser/startup-time-report/run1",
+  "n": 2,
+  "rounds": [
+   "r2",
+   "r3"
+  ],
+  "fine": {
+   "import_torch": 0.7647999999999999,
+   "import_ttnn": 0.0811,
+   "import_other": 0.8783883333181994,
+   "device": 0.5092,
+   "ckpt": 0.0035,
+   "read": 0.46295,
+   "upload": 1.3188499999999999,
+   "build": 0.2597116666666667,
+   "setup": 0.0,
+   "featurize": 0.0,
+   "trace": 0.0,
+   "first": 0.07369999999999999
+  },
+  "coarse": {
+   "imports": 1.7242883333181993,
+   "device": 0.5092,
+   "weights_read": 0.46645,
+   "weights_upload": 1.5785616666666664,
+   "setup": 0.0,
+   "compute": 0.02248356750351377,
+   "first_extra": 0.05121643249648622,
+   "compile": 9.397013926529326
+  },
+  "steady": 0.02248356750351377,
+  "cold_total": 13.749162813503062,
+  "warm_total": 4.352148886973737,
+  "cold_first_job": 6.76357603748329,
+  "warm_first_job": 0.07368899448192678,
+  "cold_device": 3.0286,
+  "cold_runs": [
+   13.3,
+   14.2
+  ],
+  "warm_runs": [
+   4.1,
+   4.6
+  ]
+ },
+ "esmfold2": {
+  "run": "/home/ttuser/startup-time-report/run1",
+  "n": 1,
+  "rounds": [
+   "r2"
+  ],
+  "fine": {
+   "import_torch": 0.6138,
+   "import_ttnn": 0.0755,
+   "import_other": 1.785807561445583,
+   "device": 0.41690000000000005,
+   "ckpt": 0.4365,
+   "read": 0.0027,
+   "upload": 2.2315,
+   "build": 1.407156164383562,
+   "setup": 0.031703571428571414,
+   "featurize": 0,
+   "trace": 0,
+   "first": 52.1986327027027
+  },
+  "coarse": {
+   "imports": 2.475107561445583,
+   "device": 0.41690000000000005,
+   "weights_read": 0.4392,
+   "weights_upload": 3.638656164383562,
+   "setup": 0.031703571428571414,
+   "compute": 48.76124062098097,
+   "first_extra": 3.4373920817217325,
+   "compile": 139.96758211107226
+  },
+  "steady": 48.76124062098097,
+  "cold_total": 199.16769687103806,
+  "warm_total": 59.2001147599658,
+  "cold_first_job": 189.3441749259946,
+  "warm_first_job": 52.68475304596359,
+  "cold_device": 2.872,
+  "cold_runs": [
+   199.2
+  ],
+  "warm_runs": [
+   59.2
+  ]
+ },
+ "boltz2": {
+  "run": "/home/ttuser/startup-time-report/run1",
+  "n": 1,
+  "rounds": [
+   "r2"
+  ],
+  "fine": {
+   "import_torch": 0.8446,
+   "import_ttnn": 0.0965,
+   "import_other": 2.2260261596207833,
+   "device": 1.4188999999999998,
+   "ckpt": 0.0038,
+   "read": 1.0234,
+   "upload": 2.0926,
+   "build": 1.6593291666666667,
+   "setup": 0.08184242424242417,
+   "featurize": 1.6477,
+   "trace": 0.0397,
+   "first": 57.486202249488755
+  },
+  "coarse": {
+   "imports": 3.1671261596207834,
+   "device": 1.4188999999999998,
+   "weights_read": 1.0272000000000001,
+   "weights_upload": 3.7519291666666668,
+   "setup": 1.7295424242424242,
+   "compute": 57.240115128515754,
+   "first_extra": 0.28578712097300496,
+   "compile": 88.49342650396284
+  },
+  "steady": 57.240115128515754,
+  "cold_total": 157.11388210597215,
+  "warm_total": 68.62045560200932,
+  "cold_first_job": 147.29569623596035,
+  "warm_first_job": 59.22886887099594,
+  "cold_device": 3.2957,
+  "cold_runs": [
+   157.1
+  ],
+  "warm_runs": [
+   68.6
+  ]
+ },
+ "protenix-v2": {
+  "run": "/home/ttuser/startup-time-report/run2",
+  "n": 1,
+  "rounds": [
+   "r2"
+  ],
+  "fine": {
+   "import_torch": 0.6998,
+   "import_ttnn": 0.0854,
+   "import_other": 1.8312128531691645,
+   "device": 1.7354,
+   "ckpt": 0.0003,
+   "read": 1.1717,
+   "upload": 1.6066999999999998,
+   "build": 0,
+   "setup": 1.1131382429549257,
+   "featurize": 0,
+   "trace": 0.0347,
+   "first": 41.20005464684015
+  },
+  "coarse": {
+   "imports": 2.6164128531691646,
+   "device": 1.7354,
+   "weights_read": 1.172,
+   "weights_upload": 1.6066999999999998,
+   "setup": 1.1131382429549257,
+   "compute": 40.897197844984476,
+   "first_extra": 0.33755680185567627,
+   "compile": 135.31833403697237
+  },
+  "steady": 40.897197844984476,
+  "cold_total": 184.79673977993662,
+  "warm_total": 49.47840574296424,
+  "cold_first_job": 175.97439059696626,
+  "warm_first_job": 43.01886023796396,
+  "cold_device": 3.2337,
+  "cold_runs": [
+   184.8
+  ],
+  "warm_runs": [
+   49.5
+  ]
+ },
+ "opendde": {
+  "run": "/home/ttuser/startup-time-report/run2",
+  "n": 1,
+  "rounds": [
+   "r2"
+  ],
+  "fine": {
+   "import_torch": 0.7159,
+   "import_ttnn": 0.131,
+   "import_other": 2.0886956233514886,
+   "device": 1.4282,
+   "ckpt": 0.2454,
+   "read": 1.4992,
+   "upload": 5.5642,
+   "build": 0.7698,
+   "setup": 0.03407637248511467,
+   "featurize": 0,
+   "trace": 0.027,
+   "first": 54.20411127320955
+  },
+  "coarse": {
+   "imports": 2.935595623351489,
+   "device": 1.4282,
+   "weights_read": 1.7446000000000002,
+   "weights_upload": 6.334,
+   "setup": 0.03407637248511467,
+   "compute": 53.79492220652173,
+   "first_extra": 0.43618906668781676,
+   "compile": 158.42021610494703
+  },
+  "steady": 53.79492220652173,
+  "cold_total": 225.12779937399318,
+  "warm_total": 66.70758326904615,
+  "cold_first_job": 215.0275552640087,
+  "warm_first_job": 57.35768557403935,
+  "cold_device": 3.1043000000000003,
+  "cold_runs": [
+   225.1
+  ],
+  "warm_runs": [
+   66.7
+  ]
+ },
+ "openfold3": {
+  "run": "/home/ttuser/startup-time-report/run2",
+  "n": 1,
+  "rounds": [
+   "r1-cold"
+  ],
+  "fine": {
+   "import_torch": 0.7845,
+   "import_ttnn": 0.0825,
+   "import_other": 8.273183541981643,
+   "device": 8.1825,
+   "ckpt": 0.0003,
+   "read": 0.7878,
+   "upload": 1.4028,
+   "build": 2.8584,
+   "setup": 0.0738019694454248,
+   "featurize": 0,
+   "trace": 0.0305,
+   "first": 258.1235610526316
+  },
+  "coarse": {
+   "imports": 9.140183541981642,
+   "device": 8.1825,
+   "weights_read": 0.7880999999999999,
+   "weights_upload": 4.2612000000000005,
+   "setup": 0.0738019694454248,
+   "compute": 258.1540610526316,
+   "first_extra": 0.0,
+   "compile": 0.0
+  },
+  "steady": null,
+  "cold_only": true,
+  "cold_total": 280.5998465640587,
+  "warm_total": null,
+  "cold_first_job": 265.20020395104075,
+  "warm_first_job": null,
+  "cold_device": 8.1825,
+  "cold_runs": [
+   280.6
+  ],
+  "warm_runs": []
+ },
+ "rfd4": {
+  "run": "/home/ttuser/startup-time-report/run1",
+  "n": 1,
+  "rounds": [
+   "r2"
+  ],
+  "fine": {
+   "import_torch": 0.7252,
+   "import_ttnn": 0.0753,
+   "import_other": 1.905203129431615,
+   "device": 0.4751,
+   "ckpt": 0.0025,
+   "read": 0.2331,
+   "upload": 1.9017,
+   "build": 1.2319714285714285,
+   "setup": 0.026295341003445608,
+   "featurize": 0,
+   "trace": 0,
+   "first": 15.832361442006267
+  },
+  "coarse": {
+   "imports": 2.705703129431615,
+   "device": 0.4751,
+   "weights_read": 0.2356,
+   "weights_upload": 3.1336714285714287,
+   "setup": 0.026295341003445608,
+   "compute": 14.494442444003653,
+   "first_extra": 1.337918998002614,
+   "compile": 34.013554513978306
+  },
+  "steady": 14.494442444003653,
+  "cold_total": 56.42228585499106,
+  "warm_total": 22.408731341012754,
+  "cold_first_job": 47.837050158996135,
+  "warm_first_job": 15.992706210003234,
+  "cold_device": 2.597,
+  "cold_runs": [
+   56.4
+  ],
+  "warm_runs": [
+   22.4
+  ]
+ },
+ "bindcraft2": {
+  "run": "/home/ttuser/startup-time-report/run2",
+  "n": 1,
+  "rounds": [
+   "r1"
+  ],
+  "fine": {
+   "import_torch": 0.5028,
+   "import_ttnn": 0.043,
+   "import_other": 0.7342561659249869,
+   "device": 3.1305,
+   "ckpt": 0,
+   "read": 0.20450000000000002,
+   "upload": 0.2447,
+   "build": 0,
+   "setup": 3.6331832434640337,
+   "featurize": 0,
+   "trace": 0,
+   "first": 409.27598229557384
+  },
+  "coarse": {
+   "imports": 1.280056165924987,
+   "device": 3.1305,
+   "weights_read": 0.20450000000000002,
+   "weights_upload": 0.2447,
+   "setup": 3.6331832434640337,
+   "compute": 409.27598229557384,
+   "first_extra": 0.0,
+   "compile": 0.0
+  },
+  "steady": null,
+  "cold_only": true,
+  "cold_total": 417.76892170496285,
+  "warm_total": 453.38902575999964,
+  "cold_first_job": 409.5563920350396,
+  "warm_first_job": null,
+  "cold_device": 3.1305,
+  "cold_runs": [
+   417.8
+  ],
+  "warm_runs": []
+ }
+}

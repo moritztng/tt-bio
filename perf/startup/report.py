@@ -186,8 +186,10 @@ order = sorted(rows, key=lambda m: rows[m]["cold_total"])
 with PdfPages(PDF) as pdf:
     fig = plt.figure(figsize=(8.27, 11.69))
     fig.text(0.06, 0.955, "Startup time on Tenstorrent, 8 models", fontsize=17, weight="bold")
-    fig.text(0.06, 0.933, META.get("subtitle", ""), fontsize=9, color=INK2)
-    ax = fig.add_axes([0.2, 0.47, 0.62, 0.42])
+    import textwrap
+    for j, line in enumerate(textwrap.wrap(META.get("subtitle", ""), 110)):
+        fig.text(0.06, 0.935 - 0.014 * j, line, fontsize=8.5, color=INK2)
+    ax = fig.add_axes([0.2, 0.45, 0.62, 0.36])
     xmax = max(rows[m]["cold_total"] for m in order)
     for i, m in enumerate(order):
         left = 0.0
@@ -205,7 +207,7 @@ with PdfPages(PDF) as pdf:
         ax.text(left + xmax * 0.012, i - 0.30, warm, va="center", fontsize=7.5,
                 color=INK2)
     ax.set_yticks(range(len(order)))
-    ax.set_yticklabels([f"{NAMES[m]}" for m in order], fontsize=10)
+    ax.set_yticklabels([NAMES[m] + (f"\n(1 {UNIT[m]})" if m in UNIT else "") for m in order], fontsize=10)
     ax.set_xlim(0, xmax * 1.22)
     ax.set_xlabel("seconds from process start to first result ready (cold kernel cache, median of runs)")
     for sp in ("top", "right", "left"):
@@ -215,17 +217,17 @@ with PdfPages(PDF) as pdf:
     ax.grid(axis="x", color="#ecebe7", linewidth=0.6)
     ax.set_axisbelow(True)
     handles = [plt.Rectangle((0, 0), 1, 1, color=c) for c in COLORS]
-    fig.legend(handles, [LABEL[k] for k in SEG], loc="upper left", bbox_to_anchor=(0.05, 0.925), ncol=2, frameon=False,
+    fig.legend(handles, [LABEL[k] for k in SEG], loc="upper left", bbox_to_anchor=(0.05, 0.905), ncol=2, frameon=False,
                fontsize=8.5, handlelength=1.2, columnspacing=1.5)
-    y = 0.405
+    y = 0.385
     fig.text(0.06, y, "Takeaways", fontsize=12, weight="bold")
-    import textwrap
     for t in TAKE:
         y -= 0.012
         for j, line in enumerate(textwrap.wrap(t, 95)):
             y -= 0.017
             fig.text(0.075 if j else 0.06, y, ("• " if j == 0 else "") + line, fontsize=9.5)
-    fig.text(0.06, 0.025, META.get("footer", ""), fontsize=7, color=INK3)
+    for j, line in enumerate(textwrap.wrap(META.get("footer", ""), 150)):
+        fig.text(0.06, 0.035 - 0.011 * j, line, fontsize=6.5, color=INK3)
     pdf.savefig(fig)
     plt.close(fig)
 
@@ -238,10 +240,10 @@ with PdfPages(PDF) as pdf:
     for m in order:
         r, f = rows[m], rows[m]["fine"]
         vals = [f["import_torch"], f["import_ttnn"], f["import_other"], f["device"], f["ckpt"], f["read"], f["upload"],
-                f["build"], f["setup"] + f["featurize"], f["trace"], r["coarse"]["compile"],
+                f["build"], f["setup"] + f["featurize"], f["trace"], None if r.get("cold_only") else r["coarse"]["compile"],
                 r["warm_first_job"], r["steady"], r["warm_total"], r["cold_total"]]
         cell.append(["-" if v is None else f"{v:.1f}" for v in vals] + [str(r["n"])])
-    ax = fig.add_axes([0.03, 0.62, 0.94, 0.3])
+    ax = fig.add_axes([0.15, 0.62, 0.82, 0.3])
     ax.axis("off")
     tb = ax.table(cellText=cell, rowLabels=[NAMES[m] for m in order], colLabels=cols, loc="upper center",
                   cellLoc="right")

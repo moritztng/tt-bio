@@ -1,0 +1,4 @@
+Kernel compile is the biggest phase by far. An empty kernel cache adds 34-158 s per model (OpenDDE 158 s, ESMFold2 140 s, Protenix-v2 135 s, Boltz-2 89 s, RFD4 34 s, ESMC 9 s).
+JapanFold serving keeps the kernel cache on disk across restarts, so users normally see the warm-cache number. The fix that would cut the most: ship or pre-build the cache so a fresh node or an SFPI update never starts empty.
+Loading weights is not the problem: checkpoint read from NVMe, host conversion and upload to the chip take 1-8 s per model.
+With a warm cache, everything before the first prediction takes 4-12 s (OpenFold3 22 s, measured cold only), so the first result is mostly the prediction itself.
