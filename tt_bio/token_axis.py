@@ -402,6 +402,18 @@ def bucketed_width(N: int, mult: int) -> int:
     return N + pad_amount(N, mult)
 
 
+def bounded_rows(n: int, quantum: int = 32) -> int:
+    """Round a row count that is a property of the input up to a bounded set of widths:
+    `quantum` x (8..15) x 2^k, so at most 12.5 % extra rows and ~8 widths per doubling.
+
+    A ttnn op compiles its kernels per shape, so an axis that takes the input's raw length
+    compiles new kernels for every input a host has not seen before (~1 s each on WH). Rounding
+    to this set makes a host's kernel cache saturate instead of growing with every protein."""
+    t = -(-n // quantum)
+    shift = max(0, t.bit_length() - 4)
+    return -(-t // (1 << shift)) * (1 << shift) * quantum
+
+
 def msa_ladder() -> tuple[int, ...]:
     """The live MSA depth ladder. ON by default; ``TT_BIO_MSA_LADDER=0`` restores the single 1024.
 
@@ -480,8 +492,11 @@ def token_pad_masks_tt(N: int, Np: int, dev):
     return m1, up(pair), up(additive)
 
 
-def bucketed_pairformer(pf, s, z, dev, Np: int, extra_attn_bias=None):
+def bucketed_pairformer(pf, s, z, dev, Np: int, extra_attn_bias=None, keep_padded=False):
     """Run `pf` with its token axis padded out to `Np`, masked, and sliced back.
+
+    `keep_padded` skips the slice back for a caller that goes on running the padded axis (OpenDDE's
+    diffusion stage reads the refiner's output at `Np`, so the per-protein length never reaches it).
 
     `Np` is passed in rather than derived so the gate and the multiple stay the caller's business
     and this stays the only place the pad-mask-slice sequence is written. The trunk is not the only
@@ -516,6 +531,8 @@ def bucketed_pairformer(pf, s, z, dev, Np: int, extra_attn_bias=None):
         extra_attn_bias = ttnn.pad(
             extra_attn_bias, [(0, 0), (0, 0), (0, pad), (0, pad)], -1e9)
     so, zo = pf(s, z, pmask, attn, attn, extra_attn_bias)
+    if keep_padded:
+        return so, zo
     if so is not None:
         so = ttnn.slice(so, (0, 0, 0), (1, N, so.shape[2]))
     zo = replace_after_refusal(zo, lambda t: ttnn.slice(t, (0, 0, 0, 0), (1, N, N, t.shape[3])),

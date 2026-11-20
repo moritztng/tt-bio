@@ -5,7 +5,9 @@
 # Writes OUTROOT/<arm name>/bench.jsonl per arm and OUTROOT/run.log. On a JapanFold box it sources
 # ~/japanfold/env.sh and uses a private lease dir, so it never waits on (or is taken by) the agent's leases.
 # Stop: SIGINT, then SIGTERM. The flock is ~/spd/locks/chip<CHIP>.lock (state/spd/CHIPS.md); LOCK=path overrides it
-# (the BH boxes name theirs), WAIT=seconds how long to queue on it (default 600), PY=interpreter (default python).
+# (the BH boxes name theirs), WAIT=seconds how long to queue on it (default 600), PY=interpreter (default python),
+# JIT_CACHE=dir a private kernel cache instead of the box's shared one (env.sh's TT_METAL_CACHE), so jit_new counts
+# only this run's compiles.
 # Exit status: 0 only when every arm exited 0, else the first failing arm's rc, so `run_chip.sh ... && touch DONE`
 # never marks a run whose arms died (a dirty card fails every arm's device init in seconds).
 set -u
@@ -13,6 +15,7 @@ CHIP=$1 OUT=$2 ARMS=$3 INPUTS=$4 TMO=$5; shift 5
 ROW=${TT_BIO_LEASE_HOLDER:-spd-bench}
 mkdir -p "$OUT" ~/spd/locks ~/spd/$ROW/leases
 [ -f ~/japanfold/env.sh ] && . ~/japanfold/env.sh > /dev/null 2>&1
+[ -n "${JIT_CACHE:-}" ] && export TT_METAL_CACHE=$JIT_CACHE
 cd "$(dirname "$0")/../.."
 export PYTHONPATH=$PWD TT_VISIBLE_DEVICES=$CHIP TT_BIO_LEASE_HOLDER=$ROW TT_BIO_LEASE_DIR=$HOME/spd/$ROW/leases
 say() { echo "$(date -u +%FT%TZ) $*" >> "$OUT/run.log"; }

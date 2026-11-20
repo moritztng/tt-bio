@@ -22,8 +22,11 @@ from .protenix import (NORMAL_LEVERS as _FAMILY_NORMAL, BRES_NORMAL, T1_PSIG, T2
 from . import hostlane
 from .envflags import env_flag
 from .opendde_data import STRUCTURAL_TOKEN_ROLES
+from .token_axis import bounded_rows as _group_rows
 from . import tenstorrent as _T
 from .tenstorrent import _acc_concat, concat_host_bytes, dram_peak, get_device, under_levers
+
+
 
 _BACKBONE = (STRUCTURAL_TOKEN_ROLES["protein_bb"],
              STRUCTURAL_TOKEN_ROLES["dna_bb"],
@@ -236,7 +239,14 @@ class StructuralTokenExpander(_KeyedWeights):
         each group is one device matmul, then scattered back via a second
         device gather -- numerically identical to OpenDDE's per-(role_i,role_j)
         masked projection, reordered. Bit-exact vs the old host gather +
-        per-group upload: both gathers move the same bf16 values."""
+        per-group upload: both gathers move the same bf16 values.
+
+        Each group's row count is a property of the protein, and a matmul compiles
+        its kernels per row count, so an unrounded count compiles ~37 new matmul
+        programs for every protein the host has not folded before (~6-10 s of a
+        fold on WH). Each group therefore runs at _group_rows(count), a bounded
+        set of widths; its extra rows are the next group's rows or a gathered tail
+        and are dropped. Rows of a matmul are independent, so this is exact."""
         clen = row_index.numel()
         Ns = role.shape[0]
         C = self.c_z
@@ -249,22 +259,29 @@ class StructuralTokenExpander(_KeyedWeights):
         inv = torch.empty_like(perm)
         inv[perm] = torch.arange(perm.numel())
         uniq, counts = torch.unique_consecutive(pidx.index_select(0, perm), return_counts=True)
+        counts = counts.tolist()
+        starts = [0]
+        for c in counts[:-1]:
+            starts.append(starts[-1] + c)
+        tail = max(o + _group_rows(c) for o, c in zip(starts, counts)) - perm.numel()
 
         dev = get_device()
+        gather = torch.cat([perm, perm.new_zeros(tail)]) if tail else perm
         sorted_dev = ttnn.embedding(
-            ttnn.from_torch(perm.reshape(1, -1).to(torch.int32),
+            ttnn.from_torch(gather.reshape(1, -1).to(torch.int32),
                             layout=ttnn.ROW_MAJOR_LAYOUT, device=dev, dtype=ttnn.uint32),
             z_chunk_dev, layout=ttnn.ROW_MAJOR_LAYOUT,
             memory_config=ttnn.DRAM_MEMORY_CONFIG)
-        sorted_dev = ttnn.reshape(sorted_dev, (clen * Ns, C))
+        sorted_dev = ttnn.reshape(sorted_dev, (gather.numel(), C))
 
         pieces = []
         off = 0
-        for g, c in zip(uniq.tolist(), counts.tolist()):
-            seg = ttnn.to_layout(ttnn.slice(sorted_dev, [off, 0], [off + c, C]),
+        for g, c in zip(uniq.tolist(), counts):
+            seg = ttnn.to_layout(ttnn.slice(sorted_dev, [off, 0], [off + _group_rows(c), C]),
                                  ttnn.TILE_LAYOUT)
-            out = self._lin(seg, "pair_block_proj.%d.weight" % g)
-            pieces.append(ttnn.to_layout(out, ttnn.ROW_MAJOR_LAYOUT))
+            out = ttnn.to_layout(self._lin(seg, "pair_block_proj.%d.weight" % g),
+                                 ttnn.ROW_MAJOR_LAYOUT)
+            pieces.append(ttnn.slice(out, [0, 0], [c, C]))
             off += c
         ttnn.deallocate(sorted_dev)
         sorted_delta = pieces[0] if len(pieces) == 1 else ttnn.concat(pieces, dim=0)
@@ -684,14 +701,17 @@ class OpenDDE:
 
     @under_levers
     def expand_and_refine(self, ifd, s_inputs_res, s_res, z_res, *,
-                          extra_attn_bias=True, return_attn_bias=False):
+                          extra_attn_bias=True, return_attn_bias=False, keep_padded=False):
         """The novel seam (opendde/model/opendde.py forward): residue-trunk (s_inputs, s, z)
         -> structural-token (s_inputs, s, z). The expander produces the structural-token
         tensors + the additive pair attention bias; the 4-block refiner then refines (s, z),
         with that bias fed to the pair/triangle attention (matching OpenDDE's
         ``extra_attn_bias``). Returns ``(s_inputs_struct, s_struct, z_struct)`` as resident
         ttnn tensors. All inputs are host tensors / the integer feature dict, as for
-        :meth:`StructuralTokenExpander.__call__`."""
+        :meth:`StructuralTokenExpander.__call__`.
+
+        ``keep_padded`` returns the refined (s, z) at the bucketed width instead of Ns (padded rows
+        are finite and masked out of every key the refiner read); s_inputs and the bias stay at Ns."""
         import ttnn
         s_inputs_st, s_st, z_st, attn_bias = self.expander(ifd, s_inputs_res, s_res, z_res)
         Ns = s_st.shape[0]
@@ -716,8 +736,8 @@ class OpenDDE:
         # confidence head were both bucketed. Same helper, same gate, on by default.
         from .tenstorrent import get_device as _gd
         s_ref, z_ref = bucketed_pairformer(self.refiner, s3, z4, _gd(),
-                                           extra_attn_bias=bias)
-        result = (s_inputs_st, ttnn.reshape(s_ref, (Ns, self.expander.c_s)), z_ref)
+                                           extra_attn_bias=bias, keep_padded=keep_padded)
+        result = (s_inputs_st, ttnn.reshape(s_ref, (int(s_ref.shape[1]), self.expander.c_s)), z_ref)
         if return_attn_bias:
             return (*result, attn_bias)
         return result
@@ -824,12 +844,20 @@ class OpenDDE:
                   if return_confidence else None)
 
         # 2) the novel seam: residue -> structural-token axis
+        # The diffusion stage runs the structural axis at the refiner's bucketed width Nw, not Ns:
+        # Ns = 2 * residues - glycines differs between proteins of one token bucket (981..1008 at
+        # 512 tokens), and every distinct length compiled its own pair-conditioning and DiT kernels
+        # on the serving host (state/spd-fix-ddefirst.md). Padded tokens are keys nobody reads (-1e9
+        # in the structural bias), map to no atom (zero S columns) and carry zero inputs.
         s_inputs_st, s_st, z_st, structural_attn_bias = self.expand_and_refine(
-            ifd, s_inputs, s_trunk, z_trunk, return_attn_bias=True)
-        dram_peak(f"refiner done [Ns={Ns}]")
-        s_inputs_struct = P._to_host(s_inputs_st, (Ns, self.expander.c_s_inputs))
-        s_struct = P._to_host(s_st, (Ns, self.expander.c_s))
-        structural_attn_bias = P._to_host(structural_attn_bias, (Ns, Ns))
+            ifd, s_inputs, s_trunk, z_trunk, return_attn_bias=True, keep_padded=True)
+        Nw = int(s_st.shape[0])
+        pad = Nw - Ns
+        dram_peak(f"refiner done [Ns={Ns}, Nw={Nw}]")
+        F = torch.nn.functional
+        s_inputs_struct = F.pad(P._to_host(s_inputs_st, (Ns, self.expander.c_s_inputs)), (0, 0, 0, pad))
+        s_struct = P._to_host(s_st, (Nw, self.expander.c_s))
+        structural_attn_bias = F.pad(P._to_host(structural_attn_bias, (Ns, Ns)), (0, pad, 0, pad), value=-1e9)
 
         # 3) diffusion pair conditioning + EDM sampler, structural-token axis
         parent = ifd["parent_residue_idx"]
@@ -840,13 +868,14 @@ class OpenDDE:
             "sym_id": feats["sym_id"].index_select(0, parent),
             "token_index": ifd["structural_token_index"],
         })
+        relp_struct = F.pad(relp_struct, (0, 0, 0, pad, 0, pad))
         # The structural pair's only consumer, so the conditioning frees it (confidence runs
         # on the residue axis): at Ns=2113 it is 3.2 GiB the confidence pairformer needs back.
         pz = P._diffusion_pair_cond(z_st, relp_struct, device=P._pz_device())
         dram_peak("structural pair conditioned")
         a2s = ifd["atom_to_structural_token_idx"]
-        S_struct = torch.zeros(N, Ns); S_struct[torch.arange(N), a2s] = 1.0
-        z_term, pz_cond = P._pair_z_seam(pz, Ns, a2s, nb, nq, nk)
+        S_struct = torch.zeros(N, Nw); S_struct[torch.arange(N), a2s] = 1.0
+        z_term, pz_cond = P._pair_z_seam(pz, Nw, a2s, nb, nq, nk)
         p_lm = p_lm + z_term
 
         cond = {"s_trunk": s_struct, "s_inputs": s_inputs_struct, "c_l": c_l,

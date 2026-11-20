@@ -152,7 +152,7 @@ class ProtenixDesign(Protenix):
             raise ValueError(f"{path} is not a PXDesign generator checkpoint: no {_EMBEDDER}")
         return sd
 
-    def _s_inputs(self, feats, fi, Mmat):
+    def _s_inputs(self, feats, fi):
         """InputFeatureEmbedderDesign: the shared atom encoder, a design-specific per-token
         concat, then `input_map`.
 
@@ -171,9 +171,9 @@ class ProtenixDesign(Protenix):
                 return zeros if width == 1 else one_hot0
             return v.reshape(NT, width).float()
 
+        atoms, emb_mt, Mmat = self._embedder_atoms(feats, fi)
         return self.input_aae(
-            tt(feats["ref_pos"]), tt(fi["ref_charge_asinh"]), tt(feats["ref_mask"].reshape(N, 1)),
-            tt(fi["f_in"]), tt(fi["d"]), tt(fi["v"]), tt(fi["invd"]), fi["mt"], tt(Mmat),
+            *map(tt, atoms), emb_mt, tt(Mmat),
             tt(feats["restype"].reshape(NT, -1).float()), tt(tok("plddt", 1)),
             tt(tok("hotspot", 1)), tt(one_hot0), tt(one_hot0))
 
@@ -203,8 +203,7 @@ class ProtenixDesign(Protenix):
         fi = self._atom_feat_inputs(feats)
         N, NT, nb, nq, nk = fi["N"], fi["NT"], fi["nb"], fi["nq"], fi["nk"]
         mt, S = fi["mt"], fi["S"]
-        Mmat = (S.t() / (S.t().sum(-1, keepdim=True) + 1e-6))
-        s_inputs_tt = self._s_inputs(feats, fi, Mmat)
+        s_inputs_tt = self._s_inputs(feats, fi)
         s_inputs_tt = ttnn.linear(
             s_inputs_tt, self._tt(self._w[_INPUT_MAP + "weight"].t().contiguous()),
             bias=self._tt(self._w[_INPUT_MAP + "bias"].reshape(1, -1)),
