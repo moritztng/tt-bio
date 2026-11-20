@@ -26,10 +26,21 @@ LABEL = {"imports": "Python imports", "device": "Device open", "weights_read": "
 COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6", "#e34948"]
 
 
+def first_rep_ok(log):
+    """True if the first prediction the bench logged finished without error."""
+    for line in log.open(errors="replace") if log.exists() else ():
+        if line.startswith('{"ev": "rep"'):
+            return json.loads(line).get("err") is None
+    return False
+
+
 def summary(d):
-    """The tracer summary of one run, or None if the run is missing or its process failed."""
+    """The tracer summary of one run, or None if the run is missing or its first prediction failed.
+    A process that failed only on a later prediction still measured startup + first prediction."""
     p, rc = d / "trace.jsonl", d / "rc"
-    if not p.exists() or not rc.exists() or rc.read_text().strip() != "0":
+    if not p.exists() or not rc.exists():
+        return None
+    if rc.read_text().strip() != "0" and not first_rep_ok(d / "log"):
         return None
     for line in p.open():
         e = json.loads(line)
