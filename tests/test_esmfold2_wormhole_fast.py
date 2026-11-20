@@ -64,6 +64,8 @@ def test_mode_sets_per_arch(monkeypatch, wormhole):
     # The T1/T2 trimul stack passed both bars on Blackhole (bt1g, bt1ng) and loses time on Wormhole.
     t12 = ("trimul_t1", "trimul_t1_c256", "trimul_t1w8", "trimul_t1_2g", "trimul_t2", "trimul_t2cm")
     assert all((n in s) is not wormhole for s in (fast_set, normal_set) for n in t12)
+    # trimul_t1g8 rides T1 on Blackhole and passed only the fast bar (t1gfg, t1gng).
+    assert ("trimul_t1g8" in fast_set) is not wormhole and "trimul_t1g8" not in normal_set
     # Wormhole's normal mode takes the --fast trimul pair too (wnsg), Blackhole's does not.
     normal = tenstorrent.parse_levers(rt.fold_levers(False))
     assert all((n in normal) is wormhole for n in ("trimul_t2fold", "trimul_gin_w8"))
