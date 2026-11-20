@@ -202,6 +202,9 @@ SHA, DIRTY = git("rev-parse", "HEAD"), bool(git("status", "--porcelain", "--untr
 ENV = {k: v for k, v in sorted(os.environ.items()) if k.startswith(("TT_BIO_", "PROTENIX_", "TT_METAL_"))}
 
 from tt_bio import runtime  # noqa: E402  (after the arm's environment is in place)
+if os.environ.get("TT_BIO_L1DIAG"):
+    sys.path.insert(0, str(Path(__file__).parent))
+    import l1diag  # noqa: E402,F401  (names the live L1 tensors at a CB clash)
 if a.share is None:
     a.share = len(glob.glob("/sys/class/tenstorrent/tenstorrent!*"))
 if a.share:
