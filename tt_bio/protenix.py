@@ -1779,6 +1779,7 @@ class DiffusionModule(_KeyedWeights):
         import torch
         if "c_la_dev" in cond:
             return
+        self._bound_atoms(cond)
         s_trunk = cond["s_trunk"].float(); s_inputs = cond["s_inputs"].float()
         c_l = cond["c_l"].float(); p_lm = cond["p_lm"].float(); S = cond["S"].float()
         N = c_l.shape[0]; NT = s_inputs.shape[0]
@@ -1810,6 +1811,35 @@ class DiffusionModule(_KeyedWeights):
         cond["atxE_bias"] = self.atxE.precompute_biases(cond["p_dev"], mtf)
         cond["atxD_bias"] = self.atxD.precompute_biases(cond["p_dev"], mtf)
         self._atom_terms(cond)
+
+    @staticmethod
+    def _bound_atoms(cond):
+        """Pad the cond's atom axis (c_l, p_lm, S, mask_trunked) to `bounded_rows(N)` and record
+        the real count as cond["n_atoms"]. Every diffusion op compiles per atom count, so a raw
+        count compiled a fresh kernel set for each protein new to a host (~14 s of an OpenDDE
+        fold on WH). Padded atoms have zero c_l and no token (zero S rows, so the atom->token
+        mean gives them no weight), and mask_trunked drops them as keys: real atoms never read
+        them. The sampler stays at the real count; `_pad_atoms` widens its coordinates at the
+        device boundary and `_precondition` slices the update back."""
+        import torch.nn.functional as F
+        if "n_atoms" in cond:
+            return
+        N = cond["c_l"].shape[0]; NA = bounded_rows(N)
+        cond["n_atoms"] = N
+        nb, nq = cond["p_lm"].shape[:2]; nbA = NA // nq
+        if NA == N or NA % nq:
+            return
+        cond["c_l"] = F.pad(cond["c_l"], (0, 0, 0, NA - N))
+        cond["S"] = F.pad(cond["S"], (0, 0, 0, NA - N))
+        cond["p_lm"] = F.pad(cond["p_lm"], (0, 0, 0, 0, 0, 0, 0, nbA - nb))
+        cond["mask_trunked"] = F.pad(cond["mask_trunked"], (0, 0, 0, 0, 0, nbA - nb))
+
+    @staticmethod
+    def _pad_atoms(x, cond):
+        """Host coordinates (..., N, 3) widened with zero rows to the cond's padded atom axis."""
+        import torch.nn.functional as F
+        pad = cond["c_l"].shape[0] - x.shape[-2]
+        return F.pad(x, (0, 0, 0, pad)) if pad else x
 
     def _atom_terms(self, cond):
         """Both atom transformers' conditioning terms (AtomTransformer.cond_terms) from c_la,
@@ -1857,7 +1887,7 @@ class DiffusionModule(_KeyedWeights):
 
         # 2) atom encoder: only the coordinate-dependent path (c_la / p come from cond)
         r_noisy = x_noisy / torch.sqrt(torch.tensor(sd ** 2) + t_hat ** 2).reshape(-1, 1, 1)
-        q_l = ttnn.add(c_la, self._lin(T(r_noisy[0]), E + "linear_no_bias_r.weight"))
+        q_l = ttnn.add(c_la, self._lin(T(self._pad_atoms(r_noisy, cond)[0]), E + "linear_no_bias_r.weight"))
         q_out = self.atxE(ttnn.reshape(q_l, (1, N, 128)), ttnn.reshape(c_la, (1, N, 128)), p, mt,
                           bias_cache=cond.get("atxE_bias"), terms=cond.get("atxE_terms"))
         a_tok = ttnn.matmul(cond["Smean_dev"], ttnn.reshape(ttnn.relu(self._lin(q_out, E + "linear_no_bias_q.weight")), (N, 768)),
@@ -1907,11 +1937,7 @@ class DiffusionModule(_KeyedWeights):
         # accidental gradient drop gets caught -- but here the boundary is the point: a caller
         # that wants the gradient seeds `last_r_update_device` above.
         r_update = torch.Tensor(ttnn.to_torch(getattr(_r_dev, "value", _r_dev)))
-        r_update = r_update.float().reshape(1, N, 3)[:, :N]
-
-        # EDM preconditioning
-        sr = (t_hat / sd).reshape(-1, 1, 1)
-        return (1.0 / (1.0 + sr ** 2)) * x_noisy[:, :N] + (t_hat.reshape(-1, 1, 1) / torch.sqrt(1.0 + sr ** 2)) * r_update
+        return self._precondition(x_noisy, t_hat, r_update, 1)
 
     # ---------------------------------------------------------------------------
     # ttnn TRACE of the denoise device stream (opt-in via fold(trace=True)).
@@ -2031,10 +2057,14 @@ class DiffusionModule(_KeyedWeights):
         coordinates, denoises, and takes the EDM step in fp32 (`edm_device_step_reference`'s order,
         no atom mask: every Protenix atom is real). Nothing is read back until the last step, so
         the device runs the steps back to back instead of idling 6-10 ms on each host round trip
-        (state/mol1/evidence/bh/opgap.md). `x` (M, N, 3) host; returns the final coordinates."""
+        (state/mol1/evidence/bh/opgap.md). `x` (M, n, 3) host; returns the final coordinates.
+        The device carries the cond's padded atom axis (`_bound_atoms`): padded rows start and
+        are noised at zero, weigh nothing in the centring mean, and are sliced off at the end."""
         from .edm_device import edm_step_scalars, matmul_f32
         dev, f32 = self.dev, ttnn.float32
-        M, N = x.shape[0], x.shape[1]
+        self._atom_cond(cond)
+        M, n = x.shape[0], x.shape[1]
+        N = cond["c_l"].shape[0]
         self._release_trace()                    # this path does not use the denoise-only trace
         ckc = ttnn.init_device_compute_kernel_config(
             dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi4, fp32_dest_acc_en=True, packer_l1_acc=False)
@@ -2046,10 +2076,10 @@ class DiffusionModule(_KeyedWeights):
             sc = edm_step_scalars(t_hat, sigma_t, self.SIGMA_DATA, float(eta))
             fou = self._fourier(torch.tensor([t_hat], dtype=torch.float32))
             return ([host(torch.tensor(v, dtype=torch.float64).reshape(1, 1, 1)) for v in sc],
-                    host(fou, self.dtype), host(R), host(tr), host(eps))
+                    host(fou, self.dtype), host(R), host(tr), host(self._pad_atoms(eps, cond)))
 
-        x_dev = up(x)
-        mrow = up(torch.full((M, 1, N), 1.0 / N))
+        x_dev = up(self._pad_atoms(x, cond))
+        mrow = up(torch.cat([torch.full((M, 1, n), 1.0 / n), torch.zeros(M, 1, N - n)], -1))
         first = inputs(0)
         st_sc = [ttnn.to_device(v, dev) for v in first[0]]
         st = [ttnn.to_device(v, dev) for v in first[1:]]     # fou, R, tr, eps
@@ -2119,7 +2149,7 @@ class DiffusionModule(_KeyedWeights):
                             pass
                         ttnn.release_trace(dev, tid)
                         tid = None
-            return torch.Tensor(ttnn.to_torch(x_dev)).float().reshape(M, N, 3)
+            return torch.Tensor(ttnn.to_torch(x_dev)).float().reshape(M, N, 3)[:, :n]
         finally:
             if tid is not None:
                 ttnn.release_trace(dev, tid)
@@ -2143,7 +2173,7 @@ class DiffusionModule(_KeyedWeights):
         N = cond["c_l"].shape[0]; M = x_noisy.shape[0]
         fou, r_noisy = self._step_inputs(x_noisy, t_hat)
         fou = fou.contiguous()
-        r_noisy = (r_noisy[0] if M == 1 else r_noisy).contiguous()   # M=1 captures at (N,3)
+        r_noisy = self._pad_atoms(r_noisy[0] if M == 1 else r_noisy, cond).contiguous()   # M=1 captures at (N,3)
         tr = getattr(self, "_trace", None)
         if tr is None or tr["N"] != N or tr.get("cond") is not self._cond_token(cond):
             if tr is not None:
@@ -2154,7 +2184,7 @@ class DiffusionModule(_KeyedWeights):
         ttnn.copy_host_to_device_tensor(self._host_tt(fou), tr["in_fou"])
         ttnn.copy_host_to_device_tensor(self._host_tt(r_noisy), tr["in_r"])
         ttnn.execute_trace(self.dev, tr["tid"], cq_id=0, blocking=False)
-        return self._precondition(x_noisy, t_hat, torch.Tensor(ttnn.to_torch(tr["out"])).float(), M, N)
+        return self._precondition(x_noisy, t_hat, torch.Tensor(ttnn.to_torch(tr["out"])).float(), M)
 
     # --- windowing helpers (atom encoder p augmentation) ---
     def _winq(self, x, N, NP):
@@ -2381,10 +2411,9 @@ class DiffusionModule(_KeyedWeights):
         Returns denoised coords (M,N,3) host."""
         self._atom_cond(cond)
         M = x_noisy.shape[0]
-        N = cond["c_l"].shape[0]
         fou, r_noisy = self._step_inputs(x_noisy, t_hat)
-        r_dev = self._denoise_device_m(self._up(r_noisy), self._up(fou), cond, M)
-        return self._precondition(x_noisy, t_hat, torch.Tensor(ttnn.to_torch(r_dev)).float(), M, N)
+        r_dev = self._denoise_device_m(self._up(self._pad_atoms(r_noisy, cond)), self._up(fou), cond, M)
+        return self._precondition(x_noisy, t_hat, torch.Tensor(ttnn.to_torch(r_dev)).float(), M)
 
     def _step_inputs(self, x_noisy, t_hat):
         """The two per-step host inputs of the device denoise: fourier(t_hat) (1,fdim) and
@@ -2400,12 +2429,13 @@ class DiffusionModule(_KeyedWeights):
         tp = torch.log(t_hat / self.SIGMA_DATA) / 4
         return torch.cos(2 * torch.pi * (tp.unsqueeze(-1) * wf + bf))
 
-    def _precondition(self, x_noisy, t_hat, r_update, M, N):
-        """EDM preconditioning of the network output (t_hat broadcasts over M)."""
+    def _precondition(self, x_noisy, t_hat, r_update, M):
+        """EDM preconditioning of the network output (t_hat broadcasts over M). r_update comes
+        at the cond's padded atom axis and is sliced to x_noisy's real atoms."""
         sd = self.SIGMA_DATA
-        r_update = r_update.reshape(M, N, 3)[:, :N]
+        r_update = r_update.reshape(M, -1, 3)[:, :x_noisy.shape[1]]
         sr = (t_hat / sd).reshape(-1, 1, 1)
-        return (1.0 / (1.0 + sr ** 2)) * x_noisy[:, :N] + (t_hat.reshape(-1, 1, 1) / torch.sqrt(1.0 + sr ** 2)) * r_update
+        return (1.0 / (1.0 + sr ** 2)) * x_noisy + (t_hat.reshape(-1, 1, 1) / torch.sqrt(1.0 + sr ** 2)) * r_update
 
     def _pool_mats(self, cond, M):
         """The atom->token mean-pool and token->atom broadcast matrices with a sample axis of
@@ -4597,7 +4627,7 @@ def merge_conds(diffusion_module, conds):
     N = conds[0]["c_l"].shape[0]
     NT = conds[0]["s_inputs"].shape[0]
     for i, c in enumerate(conds[1:], 1):
-        if c["c_l"].shape[0] != N or c["s_inputs"].shape[0] != NT:
+        if c["c_l"].shape[0] != N or c["s_inputs"].shape[0] != NT or c["n_atoms"] != conds[0]["n_atoms"]:
             raise ValueError(
                 f"batch member {i} has (atoms, tokens) "
                 f"({c['c_l'].shape[0]}, {c['s_inputs'].shape[0]}), member 0 has ({N}, {NT}); "
