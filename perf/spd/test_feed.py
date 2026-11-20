@@ -392,6 +392,25 @@ def test_a_waiter_held_off_by_a_booking_does_not_block_a_lower_prio_one(tmp_path
         subprocess.run(["pkill", "-s", Path(f"{long}.pid").read_text()])
 
 
+def test_a_booking_on_one_card_does_not_hide_a_waiter_from_its_other_cards(tmp_path):
+    # 11-20 qb2: a booking on card 1 set .w on four prio-2 waiters that also wanted busy cards 0 and 2, and prio-3
+    # backfill took both cards as they freed.
+    import fcntl, threading
+    now = int(time.time())
+    _book(tmp_path, (now + 2000, now + 5000, "fleet-row", "6"))
+    busy = open(tmp_path / "l5", "a"); fcntl.flock(busy, fcntl.LOCK_EX)
+    out = {}
+    hi = threading.Thread(target=lambda: out.setdefault("hi", _place_bh(tmp_path, [5, 6], "sleep 1\n", cap=5000, name="3-hi.sh")))
+    hi.start(); time.sleep(0.6)
+    lo = threading.Thread(target=lambda: out.setdefault("lo", _place_bh(tmp_path, [5], "sleep 1\n", name="8-lo.sh")))
+    lo.start(); time.sleep(0.6)
+    fcntl.flock(busy, fcntl.LOCK_UN)
+    hi.join(); lo.join()
+    j = tmp_path / "spd/feed/jobs"
+    assert (j / "3-hi.sh.card").read_text().strip() == "5"
+    assert (j / "3-hi.sh.start").stat().st_mtime < (j / "8-lo.sh.start").stat().st_mtime
+
+
 def test_withdraw_on_a_galaxy_sets_aside_queued_jobs_and_leaves_started_ones(tmp_path):
     q = tmp_path / "spd/pool/queue"; q.mkdir(parents=True)
     (q / "4-a-f-x.sh").write_text("")
