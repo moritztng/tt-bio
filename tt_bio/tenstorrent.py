@@ -975,7 +975,7 @@ LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffus
            "pair_tail_cm", "pair_batch", "pair_block_hifi2", "trimul_t1g8", "trimul_tail_hifi2", "pair_bfp8z",
            "trimul_t1_fgate", "pair_x8", "pair_x8t", "tok_recycle_mm", "tok_w8", "trimul_x8", "ws_ln_resid", "dit_pad_short", "bg_featproc", "ef2_msa_ffn", "ef2_opm_proj", "trimul_t1_part",
            "trimul_t1_3g", "trimul_t1split", "adaln_at", "dit_kl1", "mask_at_mix", "mask_at_mix_z8", "trunk_trace", "dit_qkvf_h4",
-           "ws_ln_t1l1", "dit_gres", "atom_kvw")
+           "ws_ln_t1l1", "dit_gres", "atom_kvw", "trimul_t1_stats")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -1007,7 +1007,8 @@ UNGRADED_LEVERS = frozenset({"trunk_trace", "dit_bf16", "atom_kvcat", "bres_ta_h
                              "pair_tail_cm", "pair_batch", "pair_block_hifi2", "trimul_t1g8",
                              "trimul_tail_hifi2", "pair_bfp8z", "trimul_t1_fgate", "pair_x8", "pair_x8t",
                              "tok_recycle_mm", "tok_w8", "trimul_x8", "ws_ln_resid", "dit_pad_short", "bg_featproc", "ef2_msa_ffn", "ef2_opm_proj", "trimul_t1_part",
-                             "trimul_t1_3g", "trimul_t1split", "ws_ln_t1l1", "dit_gres", "atom_kvw"})
+                             "trimul_t1_3g", "trimul_t1split", "ws_ln_t1l1", "dit_gres", "atom_kvw",
+                             "trimul_t1_stats"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -10900,7 +10901,7 @@ class TriangleMultiplication(Module):
             self._gp_gout_cache[key] = cached
         return cached
 
-    def _t1_in(self, x, mask, H, shp):
+    def _t1_in(self, x, mask, H, shp, stats=None):
         """T1's `(a, b, g_out, a_masked)` for this call, or None, in which case nothing ran.
 
         Asks for exactly the route the channel loop would otherwise take at this shape with the
@@ -10963,7 +10964,7 @@ class TriangleMultiplication(Module):
             x, self.in_norm_weight, self.in_norm_bias, *wts[:2], wts[2] or self.g_out_weight,
             ckc, tuple(COMPUTE_GRID_MAIN),
             mask=mask if fold else None, b8=lever("trimul_t1b8") and (mask is None or fold), g8=lever("trimul_t1g8"),
-            fg=lever("trimul_t1_fgate"), sp=lever("trimul_t1split"))
+            fg=lever("trimul_t1_fgate"), sp=lever("trimul_t1split"), stats=stats)
         return None if outs is None else (outs[0], outs[1], outs[2], fold)
 
     def _gout_eligible(self, x_norm_in, H, n_pairs, group, memory_config, row_norm) -> bool:
@@ -11297,7 +11298,7 @@ class TriangleMultiplication(Module):
         self._gp_in_biases(chunk_size, group)
 
     def __call__(self, x: ttnn.Tensor, mask: ttnn.Tensor | None = None,
-                 add_to_input: bool = False, fused_residual=None, stream32=None) -> ttnn.Tensor:
+                 add_to_input: bool = False, fused_residual=None, stream32=None, stats=None) -> ttnn.Tensor:
         """The update, or `x + update` consuming `x` with `add_to_input` (see `_add_input`).
 
         `fused_residual` = (dropout mask or None,) is AF2's offer: where T2CM serves the tail it
@@ -11308,16 +11309,19 @@ class TriangleMultiplication(Module):
         float32 form serves the tail (`trimul_tail.fused_tail_ln(copy=)`) the update is added to it in the
         same program, the sum written over `stream32` and its bf16 copy over `x`; `stream32` comes back and
         `took_residual` is set. `stream32` may be `x` itself (RFD4's bf16 stream, `pair_bf16z`): the sum is
-        written over `x`. Anywhere else the bare update, as without it."""
+        written over `x`. Anywhere else the bare update, as without it.
+
+        `stats`: x's LayerNorm row statistics at eps 1e-5 from the kernel that wrote x (`outer_residual(stats_eps=)`),
+        which T1 reads in place of computing them. Ignored wherever T1 does not serve the call."""
         self.took_residual = False
         u = host_acc_after_refusal(
             ("trimul", tuple(x.padded_shape), self.ending), x, lambda: _inplace_guarded(
                 "triangle multiplication", lambda: self._multiply(x, mask, add_to_input, fused_residual,
-                                                                  stream32)))
+                                                                  stream32, stats)))
         return _add_input(x, u) if add_to_input else u
 
     def _multiply(self, x: ttnn.Tensor, mask: ttnn.Tensor | None,
-                  add_to_input: bool = False, fused_residual=None, stream32=None) -> ttnn.Tensor:
+                  add_to_input: bool = False, fused_residual=None, stream32=None, stats=None) -> ttnn.Tensor:
         x_in = x  # keep the pair tensor reachable for the row-blocked tail below
         shp = [int(d) for d in x.shape]
         H = shp[1]
@@ -11342,7 +11346,7 @@ class TriangleMultiplication(Module):
         # kernel reading z once. Served, the input norm never exists: `t1` is (a, b, g_out, a
         # masked) and the channel loop below takes a and b as they are. None runs everything as
         # before.
-        t1 = None if row_norm else self._t1_in(x, mask, H, shp)
+        t1 = None if row_norm else self._t1_in(x, mask, H, shp, stats)
         if not row_norm and t1 is None:
             from tt_bio.size_limits import is_alloc_refusal
             try:

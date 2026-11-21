@@ -576,14 +576,18 @@ class PairUpdate(Module):
         write produces alongside the pair and the trunk's next pair bias reads."""
         xs = _as(x, self.dtype)
         rd = z.dtype if self.residual_dtype == ttnn.bfloat8_b else self.residual_dtype   # `Trunk.pair_dtype`
-        both = None
+        both, stats = None, None
         if (lever("pair_write_res") and self.pair_write == "hadamard" and mask is None
                 and (z.dtype == ttnn.float32 or lever("pair_bf16z"))):
-            # no padded token: the Hadamard product is formed and added to the pair stream in one program
+            # no padded token: the Hadamard product is formed and added to the pair stream in one program;
+            # `trimul_t1_stats`: it also writes the row statistics of zb that tri_out's T1 LayerNorm would compute
             pi, pj = self._factors(xs, mask)
-            both = outer_residual.outer_residual(z, pi, pj)
+            both = outer_residual.outer_residual(z, pi, pj, stats_eps=1e-5 if lever("trimul_t1_stats") else None)
         if both is not None:
-            z, zb = both
+            if len(both) == 3:
+                z, zb, stats = both
+            else:
+                z, zb = both
         else:
             write, write_masked = self._write(xs, mask)
             z, zb = _residual(z, write, rd, None if write_masked else pair_mask_c,
@@ -601,12 +605,15 @@ class PairUpdate(Module):
         # no residual mask to apply: no padded token (the triangle mask is None), or `mask_at_mix` dropped it
         unmasked = pair_mask is None or pair_mask_c is None
         for sub, own_mask in subs:
+            if stats is not None and sub is not subs[0][0]:
+                ttnn.deallocate(stats)   # tri_out's alone: z has moved on
+                stats = None
             u = None
             if not own_mask and unmasked and fused and whole and lever("pair_tail"):
                 # no residual mask: the triangle's output tail adds into the pair stream in the same program,
                 # z and zb written in place
                 tri = self.tri_out if sub is subs[0][0] else self.tri_in
-                u = tri(zb, pair_mask, stream32=z)
+                u = tri(zb, pair_mask, stream32=z, stats=stats if tri is self.tri_out else None)
                 if tri.took_residual:
                     continue
             if own_mask and unmasked and self.tr_ws is not None and fused:
