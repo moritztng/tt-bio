@@ -176,12 +176,7 @@ def _l1_bytes(kt, nh, ct, wdtype, xdtype=ttnn.bfloat16) -> int:
 def _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines, silu_poly, ln, bias=None, bw=False,
            resid2=None, rows=None, pb=None):
     g = device.compute_with_storage_grid_size()
-    # WS_PBO (`pbo`): whole super-units of 32 row tiles a core, walked in pair-bias order (common/pb_order.hpp)
-    # WS_SUB32 / WS_SUB1 (perf/spd_trimul/pbo.py only) take the split without the order, or the order without it
-    names = {d[0] for d in defines}
-    sub = 32 if names & {"WS_PBO", "WS_SUB32"} and "WS_SUB1" not in names else 1
-    num_cores, grid, cg1, cg2, work1, work2 = core_split.split_work_to_cores(g, mt // sub, 0)
-    work1, work2 = work1 * sub, work2 * sub
+    num_cores, grid, cg1, cg2, work1, work2 = core_split.split_work_to_cores(g, mt, 0)
 
     def cb(idx, tiles, dtype=ttnn.bfloat16):
         size = _tile_bytes(dtype)
@@ -364,7 +359,7 @@ def row_list(device, x, rows):
 
 
 @ops.fused_kernel("pair_relu")
-def pair_relu(x, w1, b1, w2, b2, fidelity=ttnn.MathFidelity.HiFi4, ln=None, bw_weights=None, resid=None, pbo=False, pb=None):
+def pair_relu(x, w1, b1, w2, b2, fidelity=ttnn.MathFidelity.HiFi4, ln=None, bw_weights=None, resid=None, pb=None):
     """AF2's Transition after its norm, `relu(x @ w1 + b1) @ w2 + b2`, for a bf16 TILE `x` [..., C]; a new bf16 DRAM
     tensor [..., C_out]. Weights as `relu_weights` returns them. `ln` = (gamma, beta, eps) runs the LayerNorm in the
     kernel first, as `pair_swiglu`. Same fp32 dest accumulation, the bias summed into it before the products.
@@ -375,23 +370,16 @@ def pair_relu(x, w1, b1, w2, b2, fidelity=ttnn.MathFidelity.HiFi4, ln=None, bw_w
     `resid` may also be `x` itself (bf16, RFD4's `pair_bf16z` stream): the sum is rounded once to bf16 and written over
     `x`; returns `(x, x)`.
 
-    `pbo` (square x [B, n, n, C], n a tile multiple): each core takes whole (b, ib, jb) groups of 32 row tiles and
-    walks them i-first, the order a fused pair-bias epilogue needs. Same result bit for bit, only the order moves.
-
-    `pb` = (wt, eps, heads, n_out), with `resid is x` (the bf16 / bfp8 pair stream, square as `pbo` needs): the program
+    `pb` = (wt, eps, heads, n_out), with `resid is x` (the bf16 / bfp8 pair stream, square [B, n, n, C], n a tile
+    multiple, no padding): the program
     also returns `dit_pair_bias.rms_pair_bias(z', wt, eps, heads, n_out)` of the z' it writes, computed on the core
     from the tiles it just made, so that call's read of z' goes. Each row tile's 32 head values land as 32 B rows of
-    the bias tiles, so neither the core split nor the order moves. Returns `(x, x, biases)`, biases a list of n_out [B, heads, n, n].
+    the bias tiles, so the core split and row order stay the default. Returns `(x, x, biases)`, biases a list of n_out [B, heads, n, n].
 
     Under a tape it runs only through its entry in `taped_ttnn` (`pair_relu`), which needs `bw_weights`
     (`relu_bw_weights`) and `ln`; otherwise it returns None and the caller's composed ops run."""
     if ops.declines_under_tape("pair_relu"):
         return None
-    if pbo:
-        assert pbo_eligible(x), x.padded_shape
-        pbo = (("WS_PBO", str(int(x.padded_shape[2]) // 32)),)
-    else:
-        pbo = ()
     if pb is not None:
         assert pb_eligible(x) and resid is x, "pb needs pb_eligible(x) and the in-place pair stream"
         wt, eps, heads, n_out = pb
@@ -401,32 +389,27 @@ def pair_relu(x, w1, b1, w2, b2, fidelity=ttnn.MathFidelity.HiFi4, ln=None, bw_w
         B, n = int(x.padded_shape[0]), int(x.padded_shape[1])
         outs = [ttnn.allocate_tensor_on_device(ttnn.Shape([B, heads, n, n]), ttnn.bfloat16, ttnn.TILE_LAYOUT,
                                                x.device(), ttnn.DRAM_MEMORY_CONFIG) for _ in range(n_out)]
-        pbo = pbo + (("WS_PB", "1"), ("WS_PB_NT", str(n // 32)), ("WS_PB_HO", str(ho)), ("WS_PB_HV", str(heads)),
+        pbd = (("WS_PB", "1"), ("WS_PB_NT", str(n // 32)), ("WS_PB_HO", str(ho)), ("WS_PB_HV", str(heads)),
                      ("WS_PB_INVC", bits(1.0 / int(x.padded_shape[-1]))), ("WS_PB_EPS", bits(float(eps))))
         defines = (("WS_RESID", "1"), ("WS_RES32", "1"), ("WS_RES_NOCOPY", "1")) + (
-            (("WS_Z8", "1"),) if x.dtype == ttnn.bfloat8_b else ()) + pbo
+            (("WS_Z8", "1"),) if x.dtype == ttnn.bfloat8_b else ()) + pbd
         _run(x, w1, w2, fidelity, defines, SILU_POLY, ln, resid, (b1, b2), pb=(wt, outs))
         return resid, x, outs
     if resid is not None:
         # generic_op hands back a new handle over resid's buffer; the caller keeps its own two
         defines = (("WS_RESID", "1"), ("WS_RES32", "1")) + ((("WS_RES_NOCOPY", "1"),) if resid is x else ()) + (
-            (("WS_Z8", "1"),) if x.dtype == ttnn.bfloat8_b else ()) + pbo
+            (("WS_Z8", "1"),) if x.dtype == ttnn.bfloat8_b else ())
         _run(x, w1, w2, fidelity, defines, SILU_POLY, ln, resid, (b1, b2))
         return resid, x
-    return _run(x, w1, w2, fidelity, pbo, SILU_POLY, ln, None, (b1, b2))
-
-
-def pbo_eligible(x) -> bool:
-    """`pair_relu(pbo=True)` takes x: [B, n, n, C] with n a tile multiple and no padding."""
-    ps, ls = [int(d) for d in x.padded_shape], [int(d) for d in x.shape]
-    return len(ps) == 4 and ps == ls and ps[1] == ps[2] and ps[2] % 32 == 0
+    return _run(x, w1, w2, fidelity, (), SILU_POLY, ln, None, (b1, b2))
 
 
 def pb_eligible(x) -> bool:
-    """`pair_relu(pb=...)` takes x as `pbo` does, on Wormhole only: its writer places 32 B rows in DRAM, which
-    Wormhole's 32 B DRAM alignment allows and Blackhole's 64 B does not."""
+    """`pair_relu(pb=...)` takes x: [B, n, n, C] with n a tile multiple and no padding, on Wormhole only: its writer
+    places 32 B rows in DRAM, which Wormhole's 32 B DRAM alignment allows and Blackhole's 64 B does not."""
     from .tenstorrent import is_wormhole
-    return is_wormhole() and pbo_eligible(x)
+    ps, ls = [int(d) for d in x.padded_shape], [int(d) for d in x.shape]
+    return is_wormhole() and len(ps) == 4 and ps == ls and ps[1] == ps[2] and ps[2] % 32 == 0
 
 
 def relu_weights(w1: torch.Tensor, b1: torch.Tensor, w2: torch.Tensor, b2: torch.Tensor, device,

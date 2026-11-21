@@ -7,7 +7,6 @@
 // WS_RES_NOCOPY, where the output is x. Under WS_ROWLIST only the host list's row tiles (common args 2-4), as the
 // reader.
 #include "api/dataflow/dataflow_api.h"
-#include "../common/pb_order.hpp"
 #ifdef WS_ROWLIST
 #include "../common/row_list.hpp"
 #endif
@@ -42,7 +41,7 @@ void kernel_main() {
         const uint32_t r = rows[i];
 #else
     for (uint32_t q = first; q < first + count; ++q) {
-        const uint32_t r = ws_row(q);
+        const uint32_t r = q;
 #endif
         cb_wait_front(cb_out, CT);
         uint32_t rd = get_read_ptr(cb_out);
