@@ -12,6 +12,7 @@
 constexpr uint32_t G = get_compile_time_arg_val(0);
 constexpr uint32_t KT = get_compile_time_arg_val(1);
 constexpr uint32_t KC = get_compile_time_arg_val(2);
+constexpr uint32_t RMS = get_compile_time_arg_val(3);   // RMSNorm: only the second round (the mean of x^2)
 
 void exchange(uint32_t part_cb, uint32_t parts_cb, uint32_t g, volatile tt_l1_ptr uint32_t* sem, uint32_t sem_addr,
               uint32_t want) {
@@ -32,7 +33,7 @@ void exchange(uint32_t part_cb, uint32_t parts_cb, uint32_t g, volatile tt_l1_pt
 }
 
 void kernel_main() {
-    constexpr auto o_args = TensorAccessorArgs<3>();
+    constexpr auto o_args = TensorAccessorArgs<4>();
     const auto o = TensorAccessor(o_args, get_common_arg_val<uint32_t>(0));
     const uint32_t r = get_arg_val<uint32_t>(0);
     const uint32_t k0 = get_arg_val<uint32_t>(1);
@@ -41,7 +42,7 @@ void kernel_main() {
     const uint32_t s1 = get_semaphore(0), s2 = get_semaphore(1);
     auto* p1 = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(s1);
     auto* p2 = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(s2);
-    exchange(tt::CBIndex::c_12, tt::CBIndex::c_13, g, p1, s1, G - 1);
+    if constexpr (!RMS) exchange(tt::CBIndex::c_12, tt::CBIndex::c_13, g, p1, s1, G - 1);
     exchange(tt::CBIndex::c_15, tt::CBIndex::c_18, g, p2, s2, G - 1);
     // Nothing reaches either semaphore after round 2, and the next launch of this cached program starts after every
     // core of this one has finished, so both may be cleared here.

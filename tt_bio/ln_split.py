@@ -59,8 +59,9 @@ def _vec_ok(v, k):
                          and math.prod(int(d) for d in v.shape) == k and not v.is_sharded())
 
 
-def _build(x, out, w, b, g, eps, aff=None):
-    """`aff`: None for gamma / beta vectors, else the AdaLN windows' (tile width, row tiles) of scale then shift."""
+def _build(x, out, w, b, g, eps, aff=None, rms=False):
+    """`aff`: None for gamma / beta vectors, else the AdaLN windows' (tile width, row tiles) of scale then shift.
+    `rms`: RMSNorm statistics (mean of x^2, no centring), one partial exchange instead of two."""
     dev = x.device()
     pad = [int(d) for d in x.padded_shape]
     k, kt = pad[-1], pad[-1] // TILE
@@ -92,11 +93,11 @@ def _build(x, out, w, b, g, eps, aff=None):
         runtime_args=rd, common_runtime_args=[0] * 5, config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "writer.cpp"), source_type=src, core_ranges=grid,
-        compile_time_args=[g, kt, kc] + acc(out), runtime_args=wr, common_runtime_args=[0],
+        compile_time_args=[g, kt, kc, int(rms)] + acc(out), runtime_args=wr, common_runtime_args=[0],
         config=ttnn.WriterConfigDescriptor())
     compute = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "compute.cpp"), source_type=src, core_ranges=grid,
-        compile_time_args=[kc, g, int(w is not None), int(b is not None), int(aff is not None)],
+        compile_time_args=[kc, g, int(w is not None), int(b is not None), int(aff is not None), int(rms)],
         config=ttnn.ComputeConfigDescriptor(math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,
                                             fp32_dest_acc_en=True))
     bf, f32 = ttnn.bfloat16, ttnn.float32
@@ -159,10 +160,11 @@ def _win(win, rows, k):
     return s, rh, off // TILE + (row or 0) * rh * s
 
 
-def adaln(a, scale, shift, epsilon=1e-5):
+def adaln(a, scale, shift, epsilon=1e-5, rms=False):
     """`shift + layer_norm(a) * scale` (no affine), scale and shift `(t, off, width, row)` windows every sample of
-    `a` reads; bf16 out in DRAM. None (nothing allocated) where it declines: as `layer_norm`, plus the window rules
-    (`_win`) and a grid that cannot split each row tile over at least two cores."""
+    `a` reads; bf16 out in DRAM. `rms`: `rms_norm(a)` (no affine) in place of `layer_norm(a)`. None (nothing
+    allocated) where it declines: as `layer_norm`, plus the window rules (`_win`) and a grid that cannot split each
+    row tile over at least two cores."""
     pad = [int(d) for d in a.padded_shape]
     k = pad[-1]
     if (a.dtype != ttnn.bfloat16 or a.layout != ttnn.TILE_LAYOUT or a.memory_config() != ttnn.DRAM_MEMORY_CONFIG
@@ -179,11 +181,11 @@ def adaln(a, scale, shift, epsilon=1e-5):
         return None
     out = ttnn.allocate_tensor_on_device(a.shape, ttnn.bfloat16, ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
     aff = (ws[0], ws[1], wb[0], wb[1])
-    key = (dev.id(), tuple(pad), "adaln", aff, float(epsilon), g, IM_DTYPE,
+    key = (dev.id(), tuple(pad), "adaln", aff, float(epsilon), g, IM_DTYPE, bool(rms),
            scale[0].memory_config().buffer_type, shift[0].memory_config().buffer_type)
     entry = _CACHE.get(key)
     if entry is None:
-        entry = _CACHE[key] = _build(a, out, scale[0], shift[0], g, epsilon, aff)
+        entry = _CACHE[key] = _build(a, out, scale[0], shift[0], g, epsilon, aff, rms)
     reader, writer, _ = entry["kernels"]
     reader.common_runtime_args = [a.buffer_address(), scale[0].buffer_address(), shift[0].buffer_address(),
                                   ws[2], wb[2]]

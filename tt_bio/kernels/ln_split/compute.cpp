@@ -10,6 +10,8 @@
 // of one DEST acquire (the square on the SFPU in fp32), not a second pass that re-reads x - mean through srcA.
 // FULL (AdaLN, `ln_split.adaln`): gamma and beta are this row tile's own KC tiles, a per-row scale and shift,
 // multiplied and added tile by tile instead of broadcast from row 0.
+// RMS (`adaln(rms=True)`): RMSNorm statistics, x * rsqrt(mean(x^2) + eps), as ttnn.rms_norm: x^2 (exact in fp32 for a
+// bf16 x) gives the partial row sum of the one exchange round, and the mean pass and the centring are skipped.
 #include <cstdint>
 #define REDUCE_OP PoolType::SUM
 #define REDUCE_DIM ReduceDim::REDUCE_ROW
@@ -28,6 +30,7 @@ constexpr uint32_t G = get_compile_time_arg_val(1);
 constexpr uint32_t HAS_W = get_compile_time_arg_val(2);
 constexpr uint32_t HAS_B = get_compile_time_arg_val(3);
 constexpr uint32_t FULL = get_compile_time_arg_val(4);
+constexpr uint32_t RMS = get_compile_time_arg_val(5);
 
 constexpr uint32_t cb_out = tt::CBIndex::c_2;
 constexpr uint32_t cb_x = tt::CBIndex::c_7;
@@ -134,18 +137,28 @@ void kernel_main() {
     cb_wait_front(cb_scaler, 1);
     cb_wait_front(cb_eps, 1);
 
-    ln_prologue::row_mean<LnCbs>(cb_x, cb_p1, false);         // partial sum / K
-    sum_parts(cb_parts1, cb_mean);                        // mean
-    cb_wait_front(cb_mean, 1);
-    center_and_square();
-    cb_pop_front(cb_x, KC);
-    cb_pop_front(cb_mean, 1);
-    cb_wait_front(cb_xc, KC);
-    ln_prologue::row_mean<LnCbs>(cb_tmp, cb_p2, true);        // partial sum (x - mean)^2 / K
-    sum_parts(cb_parts2, cb_var);                         // biased variance
-    ln_prologue::rstd<LnCbs>();
-    ln_prologue::stage<LnCbs, ln_prologue::MUL_COL, 4>(cb_xc, cb_rstd, cb_tmp);
-    cb_pop_front(cb_xc, KC);
+    if constexpr (RMS) {
+        cb_wait_front(cb_x, KC);
+        ln_prologue::stage<LnCbs, ln_prologue::MUL, 4>(cb_x, cb_x, cb_tmp);   // x^2
+        ln_prologue::row_mean<LnCbs>(cb_tmp, cb_p2, true);    // partial sum x^2 / K
+        sum_parts(cb_parts2, cb_var);                     // mean of x^2
+        ln_prologue::rstd<LnCbs>();
+        ln_prologue::stage<LnCbs, ln_prologue::MUL_COL, 4>(cb_x, cb_rstd, cb_tmp);
+        cb_pop_front(cb_x, KC);
+    } else {
+        ln_prologue::row_mean<LnCbs>(cb_x, cb_p1, false);     // partial sum / K
+        sum_parts(cb_parts1, cb_mean);                    // mean
+        cb_wait_front(cb_mean, 1);
+        center_and_square();
+        cb_pop_front(cb_x, KC);
+        cb_pop_front(cb_mean, 1);
+        cb_wait_front(cb_xc, KC);
+        ln_prologue::row_mean<LnCbs>(cb_tmp, cb_p2, true);    // partial sum (x - mean)^2 / K
+        sum_parts(cb_parts2, cb_var);                     // biased variance
+        ln_prologue::rstd<LnCbs>();
+        ln_prologue::stage<LnCbs, ln_prologue::MUL_COL, 4>(cb_xc, cb_rstd, cb_tmp);
+        cb_pop_front(cb_xc, KC);
+    }
     cb_pop_front(cb_rstd, 1);
     if constexpr (HAS_W) {
         cb_wait_front(cb_gamma, KC);   // read after x: the statistics do not wait for it

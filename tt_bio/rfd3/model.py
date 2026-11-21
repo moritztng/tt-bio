@@ -36,6 +36,7 @@ from .. import gather_tiled as _gather_tiled
 from .. import qk_rope_heads as _QKRH
 from ..addcmul_at import addcmul_at as _addcmul_at
 from .. import eltwise_fusion as _EF
+from .. import ln_split as _LNS
 from ..tenstorrent import (Module, get_device, CORE_GRID_MAIN, attn_value_matmul, silu_ckc, mm_sigmoid,
                            atom_pair_budget_bytes, l1_resident_budget_bytes, row_block,
                            _dram_oom, fused_sdpa, _sdpa_program_config, is_wormhole)
@@ -2785,6 +2786,11 @@ _SIGMOID_FOLD = env_flag("RFD3_SIGMOID_FOLD", True)
 # Folding ln_s and the fused sigmoid move rounding: graded on the normal bar (8 paired p150a seeds), so on in both modes.
 _DIT_SHOIST = env_flag("RFD3_DIT_SHOIST", True)
 _DIT_SHOIST_BYTES = 384 << 20   # the three wide bf16 tensors of one call; 685 tokens x 1 design is 114 MB
+# The hoisted AdaLN `shift + rms_norm(a) * scale` as one program (ln_split.adaln, rms=True) instead of rms_norm then
+# addcmul_at: the normalised activation is never written and re-read, 144 fewer programs a step. The norm stays fp32
+# into the modulation, so not bit-exact against the two ops. RFD3_ADALN_RMS=1 for the A/B until graded.
+_ADALN_RMS = env_flag("RFD3_ADALN_RMS", False)
+ADALN_RMS_STATS = [0, 0]   # [served, declined]
 
 
 def _gated(x, gate):
@@ -2958,6 +2964,11 @@ class RFD3AtomBlock(Module):
         """_adaln with the stack's wide sigmoid gains / shifts (LocalTokenTransformer._hoist), columns read in place."""
         sc, sb, _ = hoist
         w, off = self.head_dim * self.n_head, (2 * self.idx + i) * self.head_dim * self.n_head
+        if _ADALN_RMS:
+            out = _LNS.adaln(a, (sc, off, w, None), (sb, off, w, None), epsilon=1e-6, rms=True)
+            ADALN_RMS_STATS[out is None] += 1
+            if out is not None:
+                return out
         an = ttnn.rms_norm(a, epsilon=1e-6, compute_kernel_config=self.compute_kernel_config)
         out = _addcmul_at(sb, an, sc, w, x_off=off, z_off=off)
         if out is None:
