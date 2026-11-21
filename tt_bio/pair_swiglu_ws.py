@@ -20,6 +20,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import struct
+
 import torch
 import ttnn
 
@@ -34,6 +36,7 @@ ACC_CB = 19               # fp32, _SW tiles: a matmul's K chunks summed by the p
 RES_CB = 20               # bf16, 2 row tiles of the residual fc3 adds into (`resid`)
 B1_CB, B3_CB = 21, 22     # bf16, `pair_relu`'s biases as row-replicated tiles
 DY_CB = 23                # bf16, 2 row tiles of `pair_relu_bw`'s cotangent
+ZB_CB, PW_CB, ONE_CB, SQ_CB, RM_CB, PB_CB = 6, 7, 15, 28, 29, 30   # `pb`: z', W^T, ones, z'^2, untilized, biases
 RES2_CB = 24              # bf16, the second residual (`resid2`), as deep as RES_CB
 OUTB_CB = 25              # bf16, `pair_relu`'s copy of its float32 residual sum (`resid` float32)
 LIST_CB_R, LIST_CB_W = 26, 27   # uint32, a core's page of the `rows` work list (reader, writer)
@@ -171,7 +174,7 @@ def _l1_bytes(kt, nh, ct, wdtype, xdtype=ttnn.bfloat16) -> int:
 
 
 def _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines, silu_poly, ln, bias=None, bw=False,
-           resid2=None, rows=None):
+           resid2=None, rows=None, pb=None):
     g = device.compute_with_storage_grid_size()
     # WS_PBO (`pbo`): whole super-units of 32 row tiles a core, walked in pair-bias order (common/pb_order.hpp)
     sub = 32 if any(d[0] == "WS_PBO" for d in defines) else 1
@@ -249,6 +252,15 @@ def _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines, silu_poly
     if res32 and not nocopy:
         wct += list(ttnn.TensorAccessorArgs(x).get_compile_time_args())
     rdef = wdef = cdef = list(defines)
+    if pb is not None:
+        # WS_PB: z' again in c_16's format, W^T, ones, z'^2, the 32 untilized head rows, the bias tiles for the writer
+        cbs += [cb(ZB_CB, ct, out.dtype), cb(PW_CB, kt), cb(ONE_CB, 1), cb(SQ_CB, kt), cb(RM_CB, 32), cb(PB_CB, 2)]
+        dd = dict(defines)
+        rdef = rdef + [("WS_PB_ARGS", str(len(rct))), ("WS_PB_WSLOT", str(9 + len(mc_args)))]
+        rct = rct + list(ttnn.TensorAccessorArgs(pb[0]).get_compile_time_args())
+        wdef = wdef + [("WS_PB_ARGS", str(len(wct)))]
+        wct = wct + [int(dd["WS_PBO"]), int(dd["WS_PB_HO"]), int(dd["WS_PB_HV"])] + list(
+            ttnn.TensorAccessorArgs(pb[1][0]).get_compile_time_args())
     if rows is not None:
         page = int(rows.shape[1]) * 4
         lfmt = lambda i: ttnn.CBFormatDescriptor(buffer_index=i, data_format=ttnn.uint32, page_size=page)  # noqa: E731
@@ -264,10 +276,12 @@ def _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines, silu_poly
     src = lambda n: str(KERNEL_DIR / n)  # noqa: E731
     path = ttnn.KernelDescriptor.SourceType.FILE_PATH
     reader = ttnn.KernelDescriptor(kernel_source=src("reader.cpp"), source_type=path, core_ranges=grid,
-                                   compile_time_args=rct, runtime_args=rd, common_runtime_args=[0] * 9 + mc_args,
+                                   compile_time_args=rct, runtime_args=rd,
+                                   common_runtime_args=[0] * 9 + mc_args + ([] if pb is None else [0]),
                                    defines=rdef, config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(kernel_source=src("writer.cpp"), source_type=path, core_ranges=grid,
-                                   compile_time_args=wct, runtime_args=wr, common_runtime_args=[0, 0],
+                                   compile_time_args=wct, runtime_args=wr,
+                                   common_runtime_args=[0, 0] + ([] if pb is None else [0] * len(pb[1])),
                                    defines=wdef, config=ttnn.WriterConfigDescriptor())
     ccfg = ttnn.ComputeConfigDescriptor(math_fidelity=fidelity, fp32_dest_acc_en=True)
     if res32 and not nocopy:   # the float32 residual straight to dest: through srcA it would lose 13 mantissa bits
@@ -348,7 +362,7 @@ def row_list(device, x, rows):
 
 
 @ops.fused_kernel("pair_relu")
-def pair_relu(x, w1, b1, w2, b2, fidelity=ttnn.MathFidelity.HiFi4, ln=None, bw_weights=None, resid=None, pbo=False):
+def pair_relu(x, w1, b1, w2, b2, fidelity=ttnn.MathFidelity.HiFi4, ln=None, bw_weights=None, resid=None, pbo=False, pb=None):
     """AF2's Transition after its norm, `relu(x @ w1 + b1) @ w2 + b2`, for a bf16 TILE `x` [..., C]; a new bf16 DRAM
     tensor [..., C_out]. Weights as `relu_weights` returns them. `ln` = (gamma, beta, eps) runs the LayerNorm in the
     kernel first, as `pair_swiglu`. Same fp32 dest accumulation, the bias summed into it before the products.
@@ -362,6 +376,10 @@ def pair_relu(x, w1, b1, w2, b2, fidelity=ttnn.MathFidelity.HiFi4, ln=None, bw_w
     `pbo` (square x [B, n, n, C], n a tile multiple): each core takes whole (b, ib, jb) groups of 32 row tiles and
     walks them i-first, the order a fused pair-bias epilogue needs. Same result bit for bit, only the order moves.
 
+    `pb` = (wt, eps, heads, n_out), with `resid is x` (the bf16 / bfp8 pair stream) and `pbo`: the program also returns
+    `dit_pair_bias.rms_pair_bias(z', wt, eps, heads, n_out)` of the z' it writes, computed on the core from the tiles
+    it just made, so that call's read of z' goes. Returns `(x, x, biases)`, biases a list of n_out [B, heads, n, n].
+
     Under a tape it runs only through its entry in `taped_ttnn` (`pair_relu`), which needs `bw_weights`
     (`relu_bw_weights`) and `ln`; otherwise it returns None and the caller's composed ops run."""
     if ops.declines_under_tape("pair_relu"):
@@ -371,6 +389,21 @@ def pair_relu(x, w1, b1, w2, b2, fidelity=ttnn.MathFidelity.HiFi4, ln=None, bw_w
         pbo = (("WS_PBO", str(int(x.padded_shape[2]) // 32)),)
     else:
         pbo = ()
+    if pb is not None:
+        assert pbo and resid is x, "pb needs pbo and the in-place pair stream"
+        wt, eps, heads, n_out = pb
+        bits = lambda f: "0x%08x" % struct.unpack("<I", struct.pack("<f", f))[0]  # noqa: E731
+        ho = 32 // n_out
+        assert heads <= ho, (heads, n_out)
+        B, n = int(x.padded_shape[0]), int(x.padded_shape[1])
+        outs = [ttnn.allocate_tensor_on_device(ttnn.Shape([B, heads, n, n]), ttnn.bfloat16, ttnn.TILE_LAYOUT,
+                                               x.device(), ttnn.DRAM_MEMORY_CONFIG) for _ in range(n_out)]
+        pbo = pbo + (("WS_PB", "1"), ("WS_PB_HO", str(ho)), ("WS_PB_HV", str(heads)),
+                     ("WS_PB_INVC", bits(1.0 / int(x.padded_shape[-1]))), ("WS_PB_EPS", bits(float(eps))))
+        defines = (("WS_RESID", "1"), ("WS_RES32", "1"), ("WS_RES_NOCOPY", "1")) + (
+            (("WS_Z8", "1"),) if x.dtype == ttnn.bfloat8_b else ()) + pbo
+        _run(x, w1, w2, fidelity, defines, SILU_POLY, ln, resid, (b1, b2), pb=(wt, outs))
+        return resid, x, outs
     if resid is not None:
         # generic_op hands back a new handle over resid's buffer; the caller keeps its own two
         defines = (("WS_RESID", "1"), ("WS_RES32", "1")) + ((("WS_RES_NOCOPY", "1"),) if resid is x else ()) + (
@@ -438,7 +471,7 @@ def relu_bw_weights(w1: torch.Tensor, w2: torch.Tensor, device):
 
 
 def _run(x, w12, w3, fidelity, defines, silu_poly, ln, resid, bias=None, bw=False, resid2=None, rows=None,
-         resid_src=None):
+         resid_src=None, pb=None):
     device = x.device()
     xs = [int(d) for d in x.padded_shape]
     mt = 1
@@ -454,7 +487,7 @@ def _run(x, w12, w3, fidelity, defines, silu_poly, ln, resid, bias=None, bw=Fals
            None if rows is None else tuple(rows[0].shape))
     if key not in _CACHE:
         _CACHE[key] = _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines, silu_poly, ln, bias, bw,
-                             resid2, None if rows is None else rows[0])
+                             resid2, None if rows is None else rows[0], pb)
     kernels, cbs, sems, mc_args = _CACHE[key]
     g, b = (0, 0) if ln is None else (ln[0].buffer_address(), ln[1].buffer_address())
     b1, b3 = (0, 0) if bias is None else (bias[0].buffer_address(), bias[1].buffer_address())
@@ -468,8 +501,11 @@ def _run(x, w12, w3, fidelity, defines, silu_poly, ln, resid, bias=None, bw=Fals
         extra.append(lst)
     kernels[0].common_runtime_args = [x.buffer_address(), w12.buffer_address(), w3.buffer_address(), g, b,
                                       src.buffer_address(), b1, b3, 0 if resid2 is None else resid2.buffer_address()
-                                      ] + mc_args + tail
-    kernels[1].common_runtime_args = [out.buffer_address(), x.buffer_address()] + tail
+                                      ] + mc_args + tail + ([] if pb is None else [pb[0].buffer_address()])
+    kernels[1].common_runtime_args = [out.buffer_address(), x.buffer_address()] + tail + (
+        [] if pb is None else [o.buffer_address() for o in pb[1]])
+    if pb is not None:
+        extra += [pb[0]] + list(pb[1])
     pd = ttnn.ProgramDescriptor(kernels=kernels, semaphores=sems, cbs=cbs)
     return ttnn.generic_op([x, w12, w3] + ([] if ln is None else list(ln[:2])) + ([] if bias is None else list(bias))
                            + ([] if resid2 is None else [resid2]) + extra + [out], pd)

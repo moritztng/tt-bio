@@ -189,6 +189,27 @@ void kernel_main() {
 #endif
     cb_push_back(cb_w12, KT * W12);
     cb_push_back(cb_w3, NH * CT);
+#ifdef WS_PB
+    {   // WS_PB: W^T ([32, C], KT tiles, common arg WS_PB_WSLOT) to c_7 and a bf16 ones tile to c_15, both resident
+        constexpr uint32_t cb_pw = 7, cb_one = 15;
+        constexpr auto pw_args = TensorAccessorArgs<WS_PB_ARGS>();
+        const auto spw = TensorAccessor(pw_args, get_common_arg_val<uint32_t>(WS_PB_WSLOT));
+        const uint32_t tw = get_tile_size(cb_pw);
+        cb_reserve_back(cb_one, 1);
+        volatile tt_l1_ptr uint32_t* one = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(get_write_ptr(cb_one));
+        for (uint32_t i = 0; i < tw / 4; ++i) {
+            one[i] = 0x3F803F80u;   // two bf16 1.0
+        }
+        cb_push_back(cb_one, 1);
+        cb_reserve_back(cb_pw, KT);
+        uint32_t wp = get_write_ptr(cb_pw);
+        for (uint32_t p = 0; p < KT; ++p, wp += tw) {
+            noc_async_read_page(p, spw, wp);
+        }
+        noc_async_read_barrier();
+        cb_push_back(cb_pw, KT);
+    }
+#endif
 
 #ifdef WS_ROWLIST
     const auto rows = row_list_read<WS_ROWLIST, WS_LIST_BYTES>(first, get_common_arg_val<uint32_t>(15),
