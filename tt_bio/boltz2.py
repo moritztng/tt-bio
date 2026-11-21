@@ -184,8 +184,12 @@ WH_LEVERS_FAST = LEVERS_FAST | {"triatt_ln", "apb_ln", "dit_cond_jit", "trimul_s
 # -0.57 s median, 3/4 pairs (l1bhf). 44-fold fast grade vs the set before dit_qkvf (g3bhf, spd-m-boltz2-4, 2026-11-16):
 # PASS, top pose median 1.440 A (floor 2.326 A), DockQ +0.0084 [+0.0013, +0.0174], CA-lDDT -0.0004 [-0.0018, +0.0007],
 # docking 24 -> 24.
+# atom_kvw + trimul_x8 + pair_x8t + adaln_at (the Wormhole set from spd-m-boltz2-5): p300c 512 x 1 fast, 4 in-process
+# pairs at AICLK median 1331-1343 MHz, -0.38 s median (n2bh, 2026-11-20). 44-fold fast grade vs the set before them
+# (g2bh): PASS, top pose median 1.042 A (floor 1.584 A), DockQ +0.0052 [-0.0007, +0.0135], CA-lDDT -0.0005
+# [-0.0019, +0.0007], docking 24 -> 24.
 BH_LEVERS_FAST = LEVERS_FAST | {"dit_shoist", "ie_dev", "dit_qkvf", "dit_qkvf_h4", "triatt_ln", "triatt_ln_b8",
-                                "triatt_ln_b8g"}
+                                "triatt_ln_b8g", "atom_kvw", "trimul_x8", "pair_x8t", "adaln_at"}
 # Blackhole normal adds the fast set's fusions that change no arithmetic or only regroup an fp32 modulate: triatt_tail,
 # adaln_mod, transition_ws, ws_resid. p150a 512 x 1, in-process pairs at AICLK ~1349 MHz: -0.60 s median (l0bh,
 # spd-m-boltz2-3, 2026-11-05). 44-fold normal grade on p150a against TT_BIO_LEVERS=none (gsbh): PASS, top pose median
@@ -199,8 +203,11 @@ BH_LEVERS_FAST = LEVERS_FAST | {"dit_shoist", "ie_dev", "dit_qkvf", "dit_qkvf_h4
 # in-process pairs at AICLK 1325-1350 MHz, -0.30 s median, 4/4 pairs (l1bh). 44-fold normal grade on p300c vs the set
 # before dit_qkvf (g3bh, spd-m-boltz2-4, 2026-11-16): PASS, top pose median 1.474 A (floor 2.525 A), DockQ +0.0103
 # [+0.0021, +0.0202], CA-lDDT +0.0006 [+0.0001, +0.0012], docking 24 -> 24.
+# atom_kvw + trimul_x8 + pair_x8t: p300c 512 x 1 normal, 4 in-process pairs at AICLK median 1331-1343 MHz, -0.24 s
+# median (n2bh, 2026-11-20). 44-fold normal grade vs the set before them (g1bh): PASS, top pose median 1.407 A (floor
+# 2.366 A), DockQ -0.0028 [-0.0080, +0.0024], CA-lDDT +0.0002 [-0.0006, +0.0012], docking 24 -> 24.
 BH_LEVERS_NORMAL = LEVERS_NORMAL | {"triatt_tail", "adaln_mod", "transition_ws", "ws_resid", "atom_l1", "dit_qkvf",
-                                   "dit_qkvf_h4", "trimul_t2"}
+                                   "dit_qkvf_h4", "trimul_t2", "atom_kvw", "trimul_x8", "pair_x8t"}
 
 
 def _under_levers(method):
