@@ -1168,8 +1168,14 @@ def _extra_bits(ex):
     return sum(b for b, t in zip((1, 2, 4, 8), ex or (None,) * 4) if t is not None)
 
 
+def _t2_stats_tiles(kt, nt, Mb):
+    """T2STATS's extra L1 in bf16 tiles: the block again (c_22), the stats scaler, 2 * Mb fp32 stats tiles, the fp32
+    temporaries grown from kt to nt tiles, the staging page."""
+    return Mb * nt + 1 + 4 * Mb + 4 * max(0, nt - kt) + 1
+
+
 def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved=None, ex=None, fold=False, rot=False,
-              copy=None):
+              copy=None, stats=None):
     """T2's program. `wg`: the GATE form. `moved` (T2m, and T2CM with c_off 0): see `fused_tail_ln`.
     `ex` (moved only) = (bp, bg, mask, out), see `fused_tail_ln_cm`. `fold`: T2_FOLD, `wp` and `ln_b`
     already Wc and the bias tiles."""
@@ -1182,7 +1188,7 @@ def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved
     gate = wg is not None
     res32 = copy is not None
     assert not (res32 and (moved is not None or fold)), "T2_RES32 is the plain or GATE form"
-    defines = [("T2_RES32", "1")] if res32 else []
+    defines = ([("T2_RES32", "1")] if res32 else []) + ([("T2STATS", "1")] if stats is not None else [])
     if _t2_zw(kt, nt, x) and moved is None:
         defines.append(("T2_ZW", "1"))
     z8 = resid.dtype == ttnn.bfloat8_b      # pair_bfp8z: z in c_7 and the sum out of c_2 are bfp8
@@ -1230,6 +1236,9 @@ def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved
     inv = struct.unpack("<I", struct.pack("<f", 1.0 / K))[0] >> 16
     scaler = (inv << 16) | inv
     eps_bits = struct.unpack("<I", struct.pack("<f", float(eps)))[0]
+    # T2STATS: 1/C over the output channels, truncated to bf16 as fused_in_ln's scaler (the bias T1's own stats carry)
+    st_inv = struct.unpack("<I", struct.pack("<f", 1.0 / int(wp.shape[-1])))[0] >> 16
+    st_scaler = [(st_inv << 16) | st_inv] if stats is not None else []
     acc = lambda t: list(ttnn.TensorAccessorArgs(t).get_compile_time_args())
     src = ttnn.KernelDescriptor.SourceType.FILE_PATH
     d = KERNEL_DIR.parent / "trimul_tail_res"
@@ -1237,13 +1246,14 @@ def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved
         reader = ttnn.KernelDescriptor(
             kernel_source=str(d / "reader_ln.cpp"), source_type=src, core_ranges=core_grid,
             compile_time_args=[kt, nt, Mb, scaler, eps_bits, int(gate), T2_ABL] + acc(x) + acc(wp) + acc(g)
-            + acc(resid) + acc(ln_w) + acc(ln_b) + acc(wg if gate else wp),
+            + acc(resid) + acc(ln_w) + acc(ln_b) + acc(wg if gate else wp) + st_scaler,
             runtime_args=rd, common_runtime_args=[0] * (7 + len(mc)),
             defines=defines + ([("T2MCAST", "1")] if mcast else []), config=ttnn.ReaderConfigDescriptor())
         writer = ttnn.KernelDescriptor(
             kernel_source=str(d / "writer.cpp"), source_type=src, core_ranges=core_grid,
-            compile_time_args=[nt, Mb, 1, T2_ABL] + acc(resid) + acc(copy if res32 else resid),
-            runtime_args=wr, common_runtime_args=[0, 0], defines=defines, config=ttnn.WriterConfigDescriptor())
+            compile_time_args=[nt, Mb, 1, T2_ABL] + acc(resid) + acc(copy if res32 else resid)
+            + (acc(stats) if stats is not None else []),
+            runtime_args=wr, common_runtime_args=[0, 0, 0], defines=defines, config=ttnn.WriterConfigDescriptor())
     else:
         reader = ttnn.KernelDescriptor(
             kernel_source=str(d / "reader_moved.cpp"), source_type=src, core_ranges=core_grid,
@@ -1289,7 +1299,12 @@ def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved
            _cb(8, core_grid, kt), _cb(9, core_grid, kt), _cb(10, core_grid, 1),
            _cb_fmt(11, core_grid, 1, f32), _cb_fmt(12, core_grid, 1, f32),
            _cb_fmt(13, core_grid, 1, f32), _cb_fmt(14, core_grid, Mb if fold else 1, f32),
-           _cb_fmt(16, core_grid, kt, f32), _cb_fmt(17, core_grid, kt, f32)]
+           _cb_fmt(16, core_grid, max(kt, nt) if stats is not None else kt, f32),
+           _cb_fmt(17, core_grid, max(kt, nt) if stats is not None else kt, f32)]
+    if stats is not None:
+        cbs += [_cb_fmt(22, core_grid, blk, resid.dtype), _cb(23, core_grid, 1), _cb_fmt(24, core_grid, 2 * Mb, f32)]
+        fmt = ttnn.CBFormatDescriptor(buffer_index=25, data_format=f32, page_size=256)
+        cbs.append(ttnn.CBDescriptor(total_size=256, core_ranges=core_grid, format_descriptors=[fmt]))
     if gate:
         cbs.append(_cb(6, core_grid, 2 * Mb * kt))
     if res32:
@@ -1354,7 +1369,7 @@ def _lever(name):
 
 
 def fused_tail_ln(x, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, wg=None, moved=None, copy=None,
-                  stream16=False):
+                  stream16=False, stats=None):
     """`resid += (layer_norm(x; ln_w, ln_b, eps) @ wp) * sigmoid(g)` in one kernel (with `wg`:
     `* sigmoid(g @ wg)`, g the trimul's input norm), `resid`
     written in place and returned (the caller's `_add_input` then sees `u is x`). None when T2 is
@@ -1363,7 +1378,11 @@ def fused_tail_ln(x, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, wg=None, mov
     channel-major chunk and are read from there (`x` holds only [0, c_off), and its shape).
     `copy` (T2_RES32, not with `moved`): `resid` is a float32 stream, the sum is one float32 rounding of
     resid + update written over it, and its bf16 rounding over `copy`; returns `resid`. `stream16` (not with `copy`):
-    `resid` is RFD4's bf16 pair stream, the plain form admitted at the T2_RES32 keys (see `t2_eligible`)."""
+    `resid` is RFD4's bf16 pair stream, the plain form admitted at the T2_RES32 keys (see `t2_eligible`).
+    `stats` (stream16 only): a ROW_MAJOR float32 [B, S, S/32, 64] tensor the program also fills with the LayerNorm row
+    statistics of the written `resid` at `eps` (per 32-row tile 32 means, then 32 rsqrt(var + eps)), which the next
+    trimul's T1 reads in place of computing them (`fused_in_ln(stats=)`). Where this form cannot write them (`fold`),
+    the call returns None and nothing is touched."""
     from . import ops
     if ops.taping() or dest_guard.exposed_args(ckc):
         T2_STATS[1] += 1
@@ -1397,31 +1416,38 @@ def fused_tail_ln(x, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, wg=None, mov
         REJECTS[k] = REJECTS.get(k, 0) + 1
         return None
     fold = (T2_FOLD or TT.lever("trimul_t2fold")) and moved is None and wg is not None and kt == nt and copy is None
+    if stats is not None and (not stream16 or copy is not None or moved is not None or fold or (
+            _t2_tiles(kt, nt, block[0], wg is not None) + _t2_stats_tiles(kt, nt, block[0])) * MG.tile_bytes(
+            ttnn.bfloat16) > 0.85 * TT._l1_bank_bytes()):
+        T2_STATS[1] += 1
+        return None
     if fold:
         wp, ln_b = _fold_weights(wp, ln_w, ln_b)
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
     key = ("t2", spec(x), spec(wp), str(g.dtype), str(resid.dtype), spec(ln_w), spec(ln_b), wg is not None, tuple(grid),
            tuple(str(c) for c in ckc), float(eps), _sigpoly(), RNE, T2_ABL, T2_DMABL, T2_GROW, T2_S1K, T2_SBIG, T2_SSTR, _t2_zw(kt, nt, x), tuple(block),
            None if moved is None else (spec(moved[0]), moved[1], P), fold, copy is not None,
-           _t2_mcast(kt, nt, wg is not None, 0, grid), str(t2_mm_fid(kt, nt, wg is not None)))
+           _t2_mcast(kt, nt, wg is not None, 0, grid), str(t2_mm_fid(kt, nt, wg is not None)), stats is not None)
     entry = _CACHE.get(key)
     if entry is None:
         entry = _CACHE[key] = _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg,
-                                        None if moved is None else (moved[0], moved[1], P), fold=fold, copy=copy)
+                                        None if moved is None else (moved[0], moved[1], P), fold=fold, copy=copy,
+                                        stats=stats)
     reader, writer, _ = entry["kernels"]
     wg_ = wg if wg is not None else wp
     if moved is None:
         reader.common_runtime_args = [x.buffer_address(), wp.buffer_address(), g.buffer_address(),
                                       resid.buffer_address(), ln_w.buffer_address(),
                                       ln_b.buffer_address(), wg_.buffer_address()] + entry["mc"]
-        writer.common_runtime_args = [resid.buffer_address(), (resid if copy is None else copy).buffer_address()]
+        writer.common_runtime_args = [resid.buffer_address(), (resid if copy is None else copy).buffer_address(),
+                                      stats.buffer_address() if stats is not None else 0]
     else:
         reader.common_runtime_args = [moved[0].buffer_address(), x.buffer_address(), wp.buffer_address(),
                                       wg_.buffer_address(), ln_w.buffer_address(), ln_b.buffer_address()] + entry["mc"]
         writer.common_runtime_args = [g.buffer_address(), resid.buffer_address()]
     pd = ttnn.ProgramDescriptor(kernels=entry["kernels"], semaphores=entry["sems"], cbs=entry["cbs"])
     ttnn.generic_op([x, wp, g, ln_w, ln_b] + ([] if copy is None else [copy]) + [resid] + ([wg] if wg is not None else [])
-                    + ([moved[0]] if moved is not None else []), pd)
+                    + ([moved[0]] if moved is not None else []) + ([stats] if stats is not None else []), pd)
     T2_STATS[0] += 1
     if moved is not None:
         T2M_STATS[0] += 1

@@ -605,17 +605,31 @@ class PairUpdate(Module):
         # no residual mask to apply: no padded token (the triangle mask is None), or `mask_at_mix` dropped it
         unmasked = pair_mask is None or pair_mask_c is None
         for sub, own_mask in subs:
-            if stats is not None and sub is not subs[0][0]:
-                ttnn.deallocate(stats)   # tri_out's alone: z has moved on
-                stats = None
             u = None
             if not own_mask and unmasked and fused and whole and lever("pair_tail"):
                 # no residual mask: the triangle's output tail adds into the pair stream in the same program,
-                # z and zb written in place
+                # z and zb written in place. `trimul_t1_stats2`: tri_out's tail also writes the row statistics of
+                # the z tri_in's T1 then reads (zb is z on the bf16 stream), as outer_residual does for tri_out
                 tri = self.tri_out if sub is subs[0][0] else self.tri_in
-                u = tri(zb, pair_mask, stream32=z, stats=stats if tri is self.tri_out else None)
+                st_out = None
+                if tri is self.tri_out and zb is z and lever("trimul_t1_stats2"):
+                    B, n = int(z.shape[0]), int(z.shape[1])
+                    st_out = ttnn.allocate_tensor_on_device(ttnn.Shape([B, n, n // 32, 64]), ttnn.float32,
+                                                            ttnn.ROW_MAJOR_LAYOUT, z.device(), ttnn.DRAM_MEMORY_CONFIG)
+                u = tri(zb, pair_mask, stream32=z, stats=stats, stats_out=st_out)
+                if stats is not None:
+                    ttnn.deallocate(stats)   # read by this call alone: z moves on
+                    stats = None
+                if st_out is not None:
+                    if tri.took_residual and tri.stats_written:
+                        stats = st_out
+                    else:
+                        ttnn.deallocate(st_out)
                 if tri.took_residual:
                     continue
+            if stats is not None:
+                ttnn.deallocate(stats)   # z moves on without a reader of these
+                stats = None
             if own_mask and unmasked and self.tr_ws is not None and fused:
                 # the transition with no residual mask: its residual write rides the same program, in place
                 both = self._transition_block(zb, resid=z)

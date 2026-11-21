@@ -16,6 +16,9 @@
 #ifndef T2MCAST
 #define T2MCAST 0
 #endif
+#ifndef T2STATS
+#define T2STATS 0
+#endif
 
 void kernel_main() {
     constexpr uint32_t Kt = get_compile_time_arg_val(0);
@@ -60,6 +63,10 @@ void kernel_main() {
     const uint32_t tz = get_tile_size(z_cb);                    // bf16 z, or float32 under T2_RES32
 
     generate_reduce_scaler(scaler_cb, SCALER);
+#if T2STATS
+    // T2STATS (compute_ln.cpp): the stats' own reduce scaler, 1/C over the output channels, into c_23.
+    generate_reduce_scaler(tt::CBIndex::c_23, get_compile_time_arg_val(wg_args.next_compile_time_args_offset()));
+#endif
     {
         cb_reserve_back(eps_cb, 1);
         volatile tt_l1_ptr uint32_t* p = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(get_write_ptr(eps_cb));

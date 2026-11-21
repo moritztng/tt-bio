@@ -102,6 +102,49 @@ static_assert(!FOLD && !EXTRA, "T2_RES32 is the plain or GATE form");
 #else
 constexpr uint32_t G = 4;
 #endif
+// T2STATS (trimul_tail.fused_tail_ln `stats`, the stream16 form only): every output tile is also packed to c_22 in the
+// output's format, i.e. z' as the next LayerNorm reads it; after the block, ln_prologue::row_stats forms each row
+// tile's mean and rsqrt(var + eps) over its Nt tiles (scaler c_23 = the truncated-bf16 1/C trimul T1 uses, eps c_11,
+// fp32 temporaries c_12..c_17, which the host sizes for max(Kt, Nt)), and both go to c_24 for the writer, as
+// outer_residual OR_STATS does. Producer 2 of T1's forwarded statistics (state/spd-m-rfd4-2.md).
+#ifndef T2STATS
+#define T2STATS 0
+#endif
+#if T2STATS
+static_assert(!FOLD && !EXTRA, "T2STATS is the plain or GATE form");
+#ifdef T2_RES32
+static_assert(false, "T2STATS is the stream16 form");
+#endif
+struct StCbs {
+    static constexpr uint32_t Kt = Nt, x = tt::CBIndex::c_22, scaler = tt::CBIndex::c_23, eps = tt::CBIndex::c_11,
+        mean = tt::CBIndex::c_12, var = tt::CBIndex::c_13, rstd = tt::CBIndex::c_14, xc = tt::CBIndex::c_16,
+        tmp = tt::CBIndex::c_17;
+};
+constexpr uint32_t cb_st = tt::CBIndex::c_24;
+
+// The row tile at the front of c_22: its statistics into c_24 (mean tile, then rstd tile, column 0), copied through
+// srcA as outer_residual's forward_stats copies them.
+ALWI void forward_stats() {
+    ln_prologue::row_stats<StCbs, false>();
+    cb_pop_front(StCbs::xc, StCbs::Kt);
+    cb_pop_front(StCbs::x, StCbs::Kt);
+    reconfig_data_format_srca(StCbs::mean);
+    pack_reconfig_data_format(cb_st);
+    copy_tile_to_dst_init_short(StCbs::mean);
+    cb_reserve_back(cb_st, 2);
+    tile_regs_acquire();
+    copy_tile(StCbs::mean, 0, 0);
+    copy_tile(StCbs::rstd, 0, 1);
+    tile_regs_commit();
+    tile_regs_wait();
+    pack_tile(0, cb_st);
+    pack_tile(1, cb_st);
+    tile_regs_release();
+    cb_push_back(cb_st, 2);
+    cb_pop_front(StCbs::mean, 1);
+    cb_pop_front(StCbs::rstd, 1);
+}
+#endif
 
 ALWI void sigmoid_bf16_tile(uint32_t idst) {
     MATH((llk_math_eltwise_unary_sfpu_sigmoid<false, false>(idst, (int)VectorMode::RC)));
@@ -316,6 +359,9 @@ void kernel_main() {
 #ifdef T2_RES32
         cb_reserve_back(cb_copy, blk);
 #endif
+#if T2STATS
+        cb_reserve_back(StCbs::x, blk);
+#endif
         sigmoid_tile_init();
         pack_reconfig_data_format(cb_out);
         if constexpr (FOLD) cb_wait_front(cb_rstd, Mb);
@@ -400,6 +446,9 @@ void kernel_main() {
             for (uint32_t i = 0; i < G; ++i) pack_tile(i, cb_copy);
 #else
             for (uint32_t i = 0; i < 4; ++i) pack_tile(i, cb_out);
+#if T2STATS
+            for (uint32_t i = 0; i < 4; ++i) pack_tile(i, StCbs::x);   // c_22 has c_2's format
+#endif
 #endif
             tile_regs_release();
         }
@@ -412,5 +461,9 @@ void kernel_main() {
         cb_pop_front(cb_z, blk);
         if constexpr (EXTRA & 4) cb_pop_front(cb_mask, Nt);
         if constexpr (FOLD) cb_pop_front(cb_rstd, Mb);
+#if T2STATS
+        cb_push_back(StCbs::x, blk);
+        for (uint32_t mi = 0; mi < Mb; ++mi) forward_stats();
+#endif
     }
 }

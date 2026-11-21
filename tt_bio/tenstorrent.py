@@ -975,7 +975,7 @@ LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffus
            "pair_tail_cm", "pair_batch", "pair_block_hifi2", "trimul_t1g8", "trimul_tail_hifi2", "pair_bfp8z",
            "trimul_t1_fgate", "pair_x8", "pair_x8t", "tok_recycle_mm", "tok_w8", "trimul_x8", "ws_ln_resid", "dit_pad_short", "bg_featproc", "ef2_msa_ffn", "ef2_opm_proj", "trimul_t1_part",
            "trimul_t1_3g", "trimul_t1split", "adaln_at", "dit_kl1", "mask_at_mix", "mask_at_mix_z8", "trunk_trace", "dit_qkvf_h4",
-           "ws_ln_t1l1", "dit_gres", "atom_kvw", "trimul_t1_stats")
+           "ws_ln_t1l1", "dit_gres", "atom_kvw", "trimul_t1_stats", "trimul_t1_stats2")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -1008,7 +1008,7 @@ UNGRADED_LEVERS = frozenset({"trunk_trace", "dit_bf16", "atom_kvcat", "bres_ta_h
                              "trimul_tail_hifi2", "pair_bfp8z", "trimul_t1_fgate", "pair_x8", "pair_x8t",
                              "tok_recycle_mm", "tok_w8", "trimul_x8", "ws_ln_resid", "dit_pad_short", "bg_featproc", "ef2_msa_ffn", "ef2_opm_proj", "trimul_t1_part",
                              "trimul_t1_3g", "trimul_t1split", "ws_ln_t1l1", "dit_gres", "atom_kvw",
-                             "trimul_t1_stats"})
+                             "trimul_t1_stats", "trimul_t1_stats2"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -11298,7 +11298,8 @@ class TriangleMultiplication(Module):
         self._gp_in_biases(chunk_size, group)
 
     def __call__(self, x: ttnn.Tensor, mask: ttnn.Tensor | None = None,
-                 add_to_input: bool = False, fused_residual=None, stream32=None, stats=None) -> ttnn.Tensor:
+                 add_to_input: bool = False, fused_residual=None, stream32=None, stats=None,
+                 stats_out=None) -> ttnn.Tensor:
         """The update, or `x + update` consuming `x` with `add_to_input` (see `_add_input`).
 
         `fused_residual` = (dropout mask or None,) is AF2's offer: where T2CM serves the tail it
@@ -11312,16 +11313,22 @@ class TriangleMultiplication(Module):
         written over `x`. Anywhere else the bare update, as without it.
 
         `stats`: x's LayerNorm row statistics at eps 1e-5 from the kernel that wrote x (`outer_residual(stats_eps=)`),
-        which T1 reads in place of computing them. Ignored wherever T1 does not serve the call."""
+        which T1 reads in place of computing them. Ignored wherever T1 does not serve the call.
+
+        `stats_out` (with `stream32` is `x`): a ROW_MAJOR float32 [B, S, S/32, 64] tensor for the LayerNorm row
+        statistics at eps 1e-5 of the pair this call writes, the next trimul's `stats`. `stats_written` says whether
+        the tail filled it (T2's stream16 form); where it did not, the tensor is untouched and must not be read."""
         self.took_residual = False
+        self.stats_written = False
         u = host_acc_after_refusal(
             ("trimul", tuple(x.padded_shape), self.ending), x, lambda: _inplace_guarded(
                 "triangle multiplication", lambda: self._multiply(x, mask, add_to_input, fused_residual,
-                                                                  stream32, stats)))
+                                                                  stream32, stats, stats_out)))
         return _add_input(x, u) if add_to_input else u
 
     def _multiply(self, x: ttnn.Tensor, mask: ttnn.Tensor | None,
-                  add_to_input: bool = False, fused_residual=None, stream32=None, stats=None) -> ttnn.Tensor:
+                  add_to_input: bool = False, fused_residual=None, stream32=None, stats=None,
+                  stats_out=None) -> ttnn.Tensor:
         x_in = x  # keep the pair tensor reachable for the row-blocked tail below
         shp = [int(d) for d in x.shape]
         H = shp[1]
@@ -12278,10 +12285,15 @@ class TriangleMultiplication(Module):
         if (stream32 is not None and g_out_fused is not None and not x_normed and not add_to_input
                 and self.p_out_bias is None and not ops.taping()):
             t2m_flush()
-            fused = _trimul_tail.fused_tail_ln(
-                x, self.out_norm_weight, self.out_norm_bias, self.out_p_weight, g_out_fused, stream32,
-                _mm_generic.ckc_args(self.compute_kernel_config), tuple(COMPUTE_GRID_MAIN),
-                copy=None if stream32 is x_in else x_in, stream16=stream32 is x_in)
+            fused = None
+            for st in ((stats_out, None) if stats_out is not None and stream32 is x_in else (None,)):
+                fused = _trimul_tail.fused_tail_ln(
+                    x, self.out_norm_weight, self.out_norm_bias, self.out_p_weight, g_out_fused, stream32,
+                    _mm_generic.ckc_args(self.compute_kernel_config), tuple(COMPUTE_GRID_MAIN),
+                    copy=None if stream32 is x_in else x_in, stream16=stream32 is x_in, stats=st)
+                if fused is not None:
+                    self.stats_written = st is not None
+                    break
             if fused is not None:
                 ttnn.deallocate(x)
                 ttnn.deallocate(g_out_fused)
