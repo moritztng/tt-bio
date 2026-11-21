@@ -1,0 +1,29 @@
+#!/bin/bash
+# Device proof v2: run each tree FROM its own dir (python -m puts cwd first on sys.path; v1 ran the branch twice).
+# --write_pae so full_data_sample_<k>.json (token_pair_pae) lands. popvax branch run twice = same-code noise control.
+set -u
+WT=/home/ttuser/.coworker/wt/jfc-opendde
+P=$WT/_proof
+rm -f "$P/ALL_DONE2"
+run() {  # inp code tag [dram]
+  local inp=$1 code=$2 tag=$3 dram=${4:-}
+  local src=$WT; [ $code = base ] && src=$P/base
+  local out=$P/v2_${inp}_${tag}; rm -rf "$out"; mkdir -p "$out"
+  ( while :; do echo "$(date +%s) $(cat /sys/class/tenstorrent/tenstorrent!3/tt_aiclk)"; sleep 1; done ) > "$out/aiclk.log" &
+  local sp=$!
+  local t0=$(date +%s.%N)
+  ( cd "$src" && env ${dram:+TT_BIO_DRAM_PEAK=$out/dram.txt} TT_VISIBLE_DEVICES=3 TT_BIO_LEASE_CARDS=3 \
+      TT_BIO_LEASE_HOLDER=worker:jfc-opendde timeout 2400 /usr/bin/time -v ~/tt-bio-dev/env/bin/python -m tt_bio.main \
+      predict "$P/$inp.yaml" --model opendde --single_sequence --diffusion_samples 5 --seed 101 --output_format cif \
+      --write_pae --out_dir "$out/res" ) > "$out/run.log" 2>&1
+  echo "rc=$? wall=$(echo "$(date +%s.%N) - $t0" | bc)" > "$out/rc"
+  kill $sp
+}
+run small base base
+run small branch branch
+run popvax base base
+run popvax branch branch
+run popvax branch branch2
+run popvax base base_dram dram
+run popvax branch branch_dram dram
+touch "$P/ALL_DONE2"
