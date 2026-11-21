@@ -5,6 +5,8 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+## [0.42.0] - 2026-11-21
+
 ### Changed
 - **OpenDDE and Protenix-v2 start faster on a protein the server has not folded before.** Shapes that used to follow
   the exact protein length now snap to a small set of widths, so fewer kernels compile per new protein. On Wormhole an
