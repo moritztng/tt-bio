@@ -49,9 +49,14 @@
 // T1STATS (trimul_tail.fused_in_ln `stats`): the row statistics come from the kernel that wrote z, as a ROW_MAJOR fp32
 // tensor with one 256-byte page per z row tile (32 means, then 32 rstd). Each barrier's pages land in a scratch CB (c_22)
 // and are spread into column 0 of one fp32 tile for cb_mean and one for cb_rstd per row tile, which compute's
-// layer_norm reads in place of computing them (ln_prologue.hpp LN_STATS).
+// layer_norm reads in place of computing them (ln_prologue.hpp LN_STATS). T1STATS_RND rounds each rstd to bf16 on the way
+// (1 to nearest even, 2 upward; 0 keeps fp32): an fp32 rstd under HiFi2's MUL_COL lost accuracy against fp64 that a
+// bf16 one does not (in_t1.py --stats-diag, g_out rel_rms 0.0160 fp32 vs 0.0144 bf16, 0.0134 computed in place).
 #ifndef T1STATS
 #define T1STATS 0
+#endif
+#ifndef T1STATS_RND
+#define T1STATS_RND 0
 #endif
 #ifndef T1MCAST
 #define T1MCAST 0
@@ -212,7 +217,10 @@ void kernel_main() {
                 for (uint32_t i = 0; i < 32; ++i) {
                     const uint32_t o = i < 16 ? i * 16 : 512 + (i - 16) * 16;
                     mt[o] = src[i];
-                    rt[o] = src[32 + i];
+                    const uint32_t v = src[32 + i];   // rstd > 0
+                    if constexpr (T1STATS_RND == 1) rt[o] = (v + 0x7FFF + ((v >> 16) & 1)) & 0xFFFF0000u;
+                    else if constexpr (T1STATS_RND == 2) rt[o] = (v + 0xFFFF) & 0xFFFF0000u;
+                    else rt[o] = v;
                 }
             cb_push_back(mean_cb, RB);
             cb_push_back(rstd_cb, RB);

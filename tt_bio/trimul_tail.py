@@ -1885,6 +1885,9 @@ T1_ZPRE = 2
 T1_ZIL = 0
 # Bench knob: T1's gather ends each channel tile on a write flush, not a barrier (gather.hpp T1WFL). Bit-identical.
 T1_WFL = 0
+# fused_in_ln `stats`: forwarded rstd rounded to bf16 in T1's reader, 1 to nearest even, 2 upward, 0 kept fp32
+# (kernels/trimul_in_t1/reader.cpp T1STATS_RND).
+T1_STATS_RND = 1
 
 
 def t1_fgate(key, mask, fg=False):
@@ -2067,7 +2070,7 @@ def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, il, nb, 
         abl.append(("T1_PSIG", "1"))
     xout, pre = [("T1XOUT", "1")] if ln1 == 1 else [], [("T1PRE", "1")] if ln1 == 2 else []
     sp = [("T1SPLIT", "1"), ("T1ZPRE", str(T1_ZPRE)), ("T1ZIL", str(T1_ZIL))] if split else []
-    st = [("T1STATS", "1")] if stats is not None else []
+    st = [("T1STATS", "1"), ("T1STATS_RND", str(T1_STATS_RND))] if stats is not None else []
     reader = ttnn.KernelDescriptor(
         kernel_source=str(d / "reader.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[kt, qn, St, int(mask is not None), ng, rb, (inv << 16) | inv,
@@ -2075,7 +2078,7 @@ def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, il, nb, 
         + acc(xn if ln1 == 2 else x) + acc(wpT) + acc(wgT) + acc(wgo) + acc(ln_w) + acc(ln_b) + acc(m)
         + ([ct2, nb] + acc(outs[0]) + acc(outs[1]) if split else []) + (acc(stats) if st else []),
         defines=abl + pre + sp + st + ([("T1B8", "1")] if b8 else []) + ([("T1MCAST", "1")] if mcast else []),
-        runtime_args=rd, common_runtime_args=[0] * ((9 if split else 7) + len(st) + len(mc)),
+        runtime_args=rd, common_runtime_args=[0] * ((9 if split else 7) + bool(st) + len(mc)),
         config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(
         kernel_source=str(d / "writer.cpp"), source_type=src, core_ranges=core_grid,
@@ -2150,7 +2153,7 @@ def fused_in_ln(x, ln_w, ln_b, wpT, wgT, wgo, ckc, grid, mask=None, eps=1e-5, b8
     key = ("t1", str(x.padded_shape), str(x.dtype), str(wpT.padded_shape), str(wgo.padded_shape), tuple(grid),
            tuple(str(c) for c in ckc), mask is not None, float(eps), _sigpoly(), RNE, nb,
            T1_RB, T1_SBW, T1_ABL, _t1_psig(), b8, il, w8, split, mcast, g8, fg, T1_FGD if fg else 0, T1_ZPRE, T1_ZIL,
-           T1_LN_BLK, T1_WFL, stats is not None)
+           T1_LN_BLK, T1_WFL, stats is not None, T1_STATS_RND)
     xn = alloc(shp) if T1_LN1 and groups > 1 else None
     for g in range(groups):
         ln1 = 0 if xn is None else 1 if g == 0 else 2

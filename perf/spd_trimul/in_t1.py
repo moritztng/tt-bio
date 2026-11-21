@@ -103,6 +103,7 @@ def stats_diag(t1w, t1st, mu, rs, ref_g, n, zd):
     e0 = row_err(t1w())
     e1 = run_st(mu, rs)
     bf = lambda t: t.to(torch.bfloat16).double()  # noqa: E731
+    bfc = lambda t: ((t.to(torch.float32).view(torch.int32) + 0xFFFF) & ~0xFFFF).view(torch.float32).double()  # noqa: E731,E501
 
     def tf32(t):   # round to nearest at TF32's 10 mantissa bits (what the unpacker keeps of an fp32 operand)
         i = t.to(torch.float32).view(torch.int32)
@@ -111,7 +112,7 @@ def stats_diag(t1w, t1st, mu, rs, ref_g, n, zd):
     out = {"dg_rms_w8": float(e0.pow(2).mean().sqrt()), "dg_rms_st": float(e1.pow(2).mean().sqrt()),
            "dg_rms_st_mbf16": rms(bf(mu), rs), "dg_rms_st_rbf16": rms(mu, bf(rs)),
            "dg_rms_st_mbf16_rbf16": rms(bf(mu), bf(rs)), "dg_rms_st_mtf32_rbf16": rms(tf32(mu), bf(rs)),
-           "dg_rms_st_mtf32_rtf32": rms(tf32(mu), tf32(rs))}
+           "dg_rms_st_mtf32_rtf32": rms(tf32(mu), tf32(rs)), "dg_rms_st_rbf16ceil": rms(mu, bfc(rs))}
     K = zd.shape[-1]
     sb = float(torch.tensor(1.0 / K, dtype=torch.float32).view(torch.int32).bitwise_and(~0xFFFF).view(torch.float32))
     mu_n = zd.sum(-1) * sb
@@ -329,18 +330,26 @@ for n in [int(s) for s in A.ns.split(",") if s]:
                                               device=dev)
                         t1s = lambda: TT.fused_in_ln(dz, dw["gamma"], dw["beta"], dw8["wpT"], dw8["wgT"],  # noqa: E731
                                                      dw8["wgo"], ckc, grid, mask=dm, stats=dst)
-                        outs = t1s()
-                        ttnn.synchronize_device(dev)
-                        rec["w8st_digest"] = digest([ttnn.to_torch(o) for o in outs])
-                        for k, o in zip("abg", outs):
-                            t = ttnn.to_torch(o)
-                            rec[f"w8st_{k}_finite"] = bool(torch.isfinite(t).all())
-                            rec[f"w8st_{k}_rel_rms_f64"], rec[f"w8st_{k}_max_abs"] = rel(t.reshape(ref[k].shape), ref[k])
-                        free(outs)
+                        rnd0 = TT.T1_STATS_RND
+                        for r_ in (0, 1, 2):        # forwarded rstd fp32 / bf16 nearest / bf16 up (reader T1STATS_RND)
+                            TT.T1_STATS_RND = r_
+                            pf = "w8st" if r_ == rnd0 else f"w8st_rnd{r_}"
+                            outs = t1s()
+                            ttnn.synchronize_device(dev)
+                            rec[f"{pf}_digest"] = digest([ttnn.to_torch(o) for o in outs])
+                            for k, o in zip("abg", outs):
+                                t = ttnn.to_torch(o)
+                                rec[f"{pf}_{k}_finite"] = bool(torch.isfinite(t).all())
+                                rec[f"{pf}_{k}_rel_rms_f64"], rec[f"{pf}_{k}_max_abs"] = rel(t.reshape(ref[k].shape),
+                                                                                            ref[k])
+                            free(outs)
+                        TT.T1_STATS_RND = rnd0
                         if A.stats_diag:
+                            TT.T1_STATS_RND = 0     # host-side rounding variants need the reader to pass fp32 through
                             rec.update(stats_diag(t1w, lambda st_: TT.fused_in_ln(
                                 dz, dw["gamma"], dw["beta"], dw8["wpT"], dw8["wgT"], dw8["wgo"], ckc, grid, mask=dm,
                                 stats=st_), mu, rs, ref["g"], n, zd))
+                            TT.T1_STATS_RND = rnd0
                         rec["w8st_ms"] = timed(lambda: free(t1s()), A.reps)
                         TT.T1_ABL = 128
                         rec["w8st_abl128_ms"] = timed(lambda: free(t1s()), A.reps)
