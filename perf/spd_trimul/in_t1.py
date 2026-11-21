@@ -37,6 +37,9 @@ ap.add_argument("--save-n", type=int, default=0, help="the --ns entry (its first
 ap.add_argument("--z8", action="store_true", help="z as bfp8_b (lever pair_bfp8z, the RFD4 trunk at unpadded sizes)")
 ap.add_argument("--stats", action="store_true", help="with --w8, also run T1 on row statistics computed on the host"
                 " (fused_in_ln stats, what a producer kernel would forward): its error and time, and --abl 128 on top")
+ap.add_argument("--stats-diag", action="store_true", help="with --stats: g_out's per-row error vs float64 for the computed"
+                " and forwarded statistics, by row position in the tile and against the row mean / rstd, and with the"
+                " forwarded mean or rstd rounded to bf16, to tell a layout fault from a precision one")
 ap.add_argument("--out", help="also append each JSON line here (the qb runner passes it)")
 A = ap.parse_args()
 
@@ -82,6 +85,34 @@ def rel(a, r):
     a = a.double()
     return (float((a - r).pow(2).mean().sqrt() / r.pow(2).mean().sqrt()),
             float((a - r).abs().max()))
+
+
+def stats_diag(t1w, t1st, mu, rs, ref_g, n):
+    """g_out row errors with computed (w8) vs forwarded (st) statistics, see --stats-diag."""
+    def row_err(outs):
+        g = ttnn.to_torch(outs[2]).double().reshape(ref_g.shape)
+        free(outs)
+        return (g - ref_g).pow(2).mean(-1).sqrt().reshape(-1)        # one value per pair row
+    def run_st(m_, r_):
+        st = torch.cat([m_.reshape(1, n, n // 32, 32), r_.reshape(1, n, n // 32, 32)], -1)
+        dst = ttnn.from_torch(st.to(torch.float32), dtype=ttnn.float32, layout=ttnn.ROW_MAJOR_LAYOUT, device=dev)
+        e = row_err(t1st(dst))
+        free([dst])
+        return e
+    e0 = row_err(t1w())
+    e1 = run_st(mu, rs)
+    bf = lambda t: t.to(torch.bfloat16).double()  # noqa: E731
+    out = {"dg_rms_w8": float(e0.pow(2).mean().sqrt()), "dg_rms_st": float(e1.pow(2).mean().sqrt()),
+           "dg_rms_st_mbf16": float(run_st(bf(mu), rs).pow(2).mean().sqrt()),
+           "dg_rms_st_rbf16": float(run_st(mu, bf(rs)).pow(2).mean().sqrt())}
+    pos = torch.arange(e0.numel()) % 32
+    out["dg_ratio_by_pos"] = [round(float(e1[pos == k].pow(2).mean().sqrt() / e0[pos == k].pow(2).mean().sqrt()), 3)
+                              for k in range(32)]
+    d2 = (e1.pow(2) - e0.pow(2))
+    for name, v in (("absmean", mu.reshape(-1).abs().double()), ("rstd", rs.reshape(-1).double())):
+        v = v - v.mean()
+        out[f"dg_corr_{name}"] = round(float((d2 - d2.mean()).mul(v).mean() / (d2.std() * v.std())), 3)
+    return out
 
 
 def bad_units(a, r, il):
@@ -293,6 +324,10 @@ for n in [int(s) for s in A.ns.split(",") if s]:
                             rec[f"w8st_{k}_finite"] = bool(torch.isfinite(t).all())
                             rec[f"w8st_{k}_rel_rms_f64"], rec[f"w8st_{k}_max_abs"] = rel(t.reshape(ref[k].shape), ref[k])
                         free(outs)
+                        if A.stats_diag:
+                            rec.update(stats_diag(t1w, lambda st_: TT.fused_in_ln(
+                                dz, dw["gamma"], dw["beta"], dw8["wpT"], dw8["wgT"], dw8["wgo"], ckc, grid, mask=dm,
+                                stats=st_), mu, rs, ref["g"], n))
                         rec["w8st_ms"] = timed(lambda: free(t1s()), A.reps)
                         TT.T1_ABL = 128
                         rec["w8st_abl128_ms"] = timed(lambda: free(t1s()), A.reps)
