@@ -58,3 +58,17 @@ def test_mask_at_mix_z8_is_wormhole_fast_only(monkeypatch, wormhole):
     monkeypatch.setattr(T, "_FAST_MODE", True)
     assert ("mask_at_mix_z8" in TR.mode_levers()) == wormhole
     assert TR.mode_levers() - {"mask_at_mix_z8"} == TR.NORMAL_LEVERS
+
+
+@pytest.mark.parametrize("wormhole", [True, False])
+def test_pair_stream_fusions_are_wormhole_normal_only(monkeypatch, wormhole):
+    """`trimul_t1_stats` and `pair_bias_fuse` are graded on Wormhole normal; Blackhole and --fast run without them."""
+    from tt_bio.rfd4 import trunk as TR
+    monkeypatch.delenv("TT_BIO_LEVERS", raising=False)
+    monkeypatch.setattr(T, "is_wormhole", lambda: wormhole)
+    monkeypatch.setattr(T, "_FAST_MODE", False)
+    fused = {"trimul_t1_stats", "pair_bias_fuse"}
+    assert (fused <= TR.mode_levers()) == wormhole
+    assert TR.mode_levers() - fused == TR.NORMAL_LEVERS
+    monkeypatch.setattr(T, "_FAST_MODE", True)
+    assert not fused & TR.mode_levers()

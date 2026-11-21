@@ -797,12 +797,23 @@ FAST_LEVERS = NORMAL_LEVERS
 #: clears the fast bar. It fails the normal trunk parity suite (above), so normal does not take it, and Blackhole
 #: is ungraded (state/spd-m-rfd4.md).
 WH_FAST_LEVERS = NORMAL_LEVERS | {"mask_at_mix_z8"}
+#: Wormhole normal adds two pair-stream fusions. `trimul_t1_stats`: outer_residual writes the LayerNorm row mean and
+#: rstd of the z it emits, so the outgoing triangle multiplication's T1 skips its own reduction. `pair_bias_fuse`:
+#: the pair transition also computes the next group's pair biases from the z it writes (Wormhole only, its 32 B
+#: DRAM rows; `pair_swiglu_ws.pb_eligible`). At the gapboard shape (336 tokens in the 352 bucket, thinking_medium,
+#: b1): 28.505 -> 27.706 s a design (-2.8 %), WH paired A/B on one Galaxy chip at AICLK 1000, two rounds of 6 per
+#: arm, every pair -0.76 to -0.78 s. T1's g vs float64: rel RMS 0.0129 against 0.0131 computing the stats in place.
+#: The bias fusion is bit-equal to the separate bias program. 12 paired seeds: designed-chain CA RMSD median 2.33 A
+#: against a 28.51 A seed floor, ratio 0.082 against the 0.5 kill line, no oracle-free column failed
+#: (state/spd-m-rfd4-2.md). Blackhole is unmeasured.
+WH_NORMAL_LEVERS = NORMAL_LEVERS | {"trimul_t1_stats", "pair_bias_fuse"}
 
 
 def mode_levers() -> frozenset:
     """This process's RFD4 trunk lever set: the mode's set for this card's arch, or TT_BIO_LEVERS."""
     from ..tenstorrent import is_wormhole
-    return model_levers(normal=NORMAL_LEVERS, fast=WH_FAST_LEVERS if is_wormhole() else FAST_LEVERS)
+    wh = is_wormhole()
+    return model_levers(normal=WH_NORMAL_LEVERS if wh else NORMAL_LEVERS, fast=WH_FAST_LEVERS if wh else FAST_LEVERS)
 
 
 class Trunk(Module):
