@@ -14,6 +14,12 @@
 // and there is no c_17.
 // OR_BFP8 (with OR_BF16, `pair_bfp8z`): z and c_16 are bfloat8_b and the packer rounds the float32 sum into its 16-value
 // blocks directly; no bfloat16 rounding first.
+// OR_STATS (outer_residual `stats_eps`): the output tile as the next LayerNorm reads it (slot 0, in the copy's format)
+// also goes to c_4; when a row tile's KT channel tiles are in, ln_prologue::row_stats forms its mean and
+// rsqrt(var + eps), the same two-pass code trimul T1 runs on that z, and both go to c_29 for the writer.
+#ifndef OR_STATS
+#define OR_STATS 0
+#endif
 #include <cstdint>
 
 #include "api/compute/common.h"
@@ -22,6 +28,11 @@
 #include "api/compute/eltwise_binary.h"
 #include "api/compute/eltwise_binary_sfpu.h"
 #include "api/compute/tile_move_copy.h"
+#if OR_STATS
+#define REDUCE_OP PoolType::SUM
+#define REDUCE_DIM ReduceDim::REDUCE_ROW
+#include "../common/ln_prologue.hpp"
+#endif
 
 #ifdef TRISC_MATH
 #include "ckernel.h"
@@ -50,6 +61,40 @@ inline void orz_rne_bf16_in_place() {
 #endif
 
 static_assert(DST_ACCUM_MODE == 1, "outer_residual needs a 32-bit DEST (fp32_dest_acc_en)");
+
+#if OR_STATS
+struct StCbs {
+    static constexpr uint32_t Kt = get_compile_time_arg_val(2), x = 4, scaler = 5, eps = 6, mean = 24, var = 25,
+        rstd = 26, xc = 27, tmp = 28;
+};
+
+// The row tile just completed in c_4: its statistics into c_29 (mean tile, then rstd tile, column 0 of each), then
+// the unpacker and packer back in the main loop's formats. The copy goes through the 19-bit srcA, the same
+// truncation trimul T1 applies when it reads them as srcB.
+ALWI void forward_stats(uint32_t cb_i, uint32_t cb_j, uint32_t cb_out) {
+    constexpr uint32_t cb_st = 29;
+    ln_prologue::row_stats<StCbs, false>();
+    cb_pop_front(StCbs::xc, StCbs::Kt);
+    cb_pop_front(StCbs::x, StCbs::Kt);
+    reconfig_data_format_srca(StCbs::mean);
+    pack_reconfig_data_format(cb_st);
+    copy_tile_to_dst_init_short(StCbs::mean);
+    cb_reserve_back(cb_st, 2);
+    tile_regs_acquire();
+    copy_tile(StCbs::mean, 0, 0);
+    copy_tile(StCbs::rstd, 0, 1);
+    tile_regs_commit();
+    tile_regs_wait();
+    pack_tile(0, cb_st);
+    pack_tile(1, cb_st);
+    tile_regs_release();
+    cb_push_back(cb_st, 2);
+    cb_pop_front(StCbs::mean, 1);
+    cb_pop_front(StCbs::rstd, 1);
+    reconfig_data_format(cb_i, cb_j);
+    pack_reconfig_data_format(cb_out);
+}
+#endif
 
 void kernel_main() {
     constexpr uint32_t GRAN = get_compile_time_arg_val(0);
@@ -97,13 +142,26 @@ void kernel_main() {
             tile_regs_wait();
 #ifdef OR_BF16
             pack_tile(0, cb_out);
+#if OR_STATS
+            cb_reserve_back(4, 1);
+            pack_tile(0, 4);
+            cb_push_back(4, 1);
+#endif
 #else
             pack_reconfig_data_format(cb_out);
             pack_tile(2, cb_out);
             pack_reconfig_data_format(cb_lo);
             pack_tile(0, cb_lo);
+#if OR_STATS
+            cb_reserve_back(4, 1);
+            pack_tile(0, 4);
+            cb_push_back(4, 1);
+#endif
 #endif
             tile_regs_release();
+#if OR_STATS
+            if ((p + k) % KT == KT - 1) forward_stats(cb_i, cb_j, cb_out);
+#endif
         }
         cb_pop_front(cb_z, GRAN);
         cb_pop_front(cb_j, GRAN);

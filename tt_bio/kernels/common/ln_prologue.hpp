@@ -117,6 +117,29 @@ ALWI void rstd() {
     cb_wait_front(C::rstd, 1);
 }
 
+// The two-pass statistics of the Kt tiles at the front of C::x: C::rstd gets rsqrt(var + eps) (column 0, waited on),
+// C::xc x - mean (Kt tiles, waited on), C::mean the row means (column 0; popped under POP, and x with it, as soon as
+// x - mean is formed). Shared by layer_norm_row and by the kernels that forward a row's statistics to the next
+// LayerNorm (outer_residual OR_STATS), which keep x and the mean (POP false).
+template <class C, bool POP>
+ALWI void row_stats() {
+    row_mean<C>(C::x, C::mean, false);                    // mean
+    cb_wait_front(C::mean, 1);
+    stage<C, SUB_COL, LN_BLK>(C::x, C::mean, C::xc);              // xc = x - mean
+    if constexpr (POP) {
+        cb_pop_front(C::x, C::Kt);
+        cb_pop_front(C::mean, 1);
+    }
+    cb_wait_front(C::xc, C::Kt);
+    if constexpr (LN_ABL & 2) {
+        row_mean<C>(C::xc, C::var, false);
+    } else {
+        stage<C, MUL, LN_BLK>(C::xc, C::xc, C::tmp);              // xc^2
+        row_mean<C>(C::tmp, C::var, true);                // var (biased, as layer_norm)
+    }
+    rstd<C>();                                            // rstd = rsqrt(var + eps)
+}
+
 // Kt tiles at the front of C::x (popped unless KEEP_X: the caller reads the raw row again and pops it) -> pack(i)
 // for every channel tile i, `out` the CB pack writes to (its data format is configured here).
 template <class C, class Pack, bool KEEP_X = false>
@@ -142,19 +165,12 @@ ALWI void layer_norm_row(uint32_t out, Pack pack) {
         cb_pop_front(C::xc, C::Kt);
         cb_wait_front(C::tmp, C::Kt);
     } else {
-    row_mean<C>(C::x, C::mean, false);                    // mean
-    cb_wait_front(C::mean, 1);
-    stage<C, SUB_COL, LN_BLK>(C::x, C::mean, C::xc);              // xc = x - mean
-    if constexpr (!KEEP_X) cb_pop_front(C::x, C::Kt);
-    cb_pop_front(C::mean, 1);
-    cb_wait_front(C::xc, C::Kt);
-    if constexpr (LN_ABL & 2) {
-        row_mean<C>(C::xc, C::var, false);
+    if constexpr (KEEP_X) {
+        row_stats<C, false>();
+        cb_pop_front(C::mean, 1);
     } else {
-        stage<C, MUL, LN_BLK>(C::xc, C::xc, C::tmp);              // xc^2
-        row_mean<C>(C::tmp, C::var, true);                // var (biased, as layer_norm)
+        row_stats<C, true>();
     }
-    rstd<C>();                                            // rstd = rsqrt(var + eps)
     stage<C, MUL_COL, LN_BLK>(C::xc, C::rstd, C::tmp);            // norm = xc * rstd
     cb_pop_front(C::xc, C::Kt);
     cb_pop_front(C::rstd, 1);

@@ -19,6 +19,14 @@
 #ifndef OR_PJT
 #define OR_PJT 0
 #endif
+// OR_STATS (outer_residual `stats_eps`): compute also forms each output row tile's LayerNorm statistics; the reader
+// fills its 1/K reduce scaler (c_5) and eps tile (c_6) once, as trimul_in_t1's reader does.
+#ifndef OR_STATS
+#define OR_STATS 0
+#endif
+#if OR_STATS
+#include "ttnn/kernel/dataflow/generate_reduce_scaler.hpp"
+#endif
 
 void kernel_main() {
     constexpr uint32_t KT = get_compile_time_arg_val(0);
@@ -31,6 +39,17 @@ void kernel_main() {
     const auto sz = TensorAccessor(z_args, get_common_arg_val<uint32_t>(0));
     const auto si = TensorAccessor(i_args, get_common_arg_val<uint32_t>(1));
     const auto sj = TensorAccessor(j_args, get_common_arg_val<uint32_t>(2));
+#if OR_STATS
+    constexpr uint32_t SCALER = get_compile_time_arg_val(j_args.next_compile_time_args_offset());   // packed bf16 pair, 1/K
+    constexpr uint32_t EPS = get_compile_time_arg_val(j_args.next_compile_time_args_offset() + 1);  // fp32 bits
+    generate_reduce_scaler(5, SCALER);
+    {
+        cb_reserve_back(6, 1);
+        volatile tt_l1_ptr uint32_t* e = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(get_write_ptr(6));
+        for (uint32_t q = 0; q < 1024; ++q) e[q] = EPS;
+        cb_push_back(6, 1);
+    }
+#endif
     const uint32_t p0 = get_arg_val<uint32_t>(0);
     const uint32_t np = get_arg_val<uint32_t>(1);
     constexpr uint32_t cb_z = 0, cb_i = 1, cb_j = 2;

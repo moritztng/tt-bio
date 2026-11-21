@@ -12,11 +12,17 @@ the bfloat16 copy is that sum rounded to even, as `residual_dual` writes it.
 
 `outer_residual` returns `(z', zb')` as new tensors or None, and None means the caller keeps its own path. A bfloat16
 z (RFD4's `pair_bf16z` stream) is its own copy: the sum rounded once to even is the one output, `(z', z')`.
+
+With `stats_eps` the program also writes the LayerNorm row statistics of zb' at that eps, the input trimul T1 reads
+in place of computing them (`trimul_tail.fused_in_ln(stats=)`): the same two-pass code T1 runs
+(kernels/common/ln_prologue.hpp row_stats), on otherwise idle compute (state/spd-m-rfd4-2.md, LN stat forwarding).
 """
 
 from __future__ import annotations
 
 from pathlib import Path
+
+import struct
 
 import ttnn
 
@@ -32,6 +38,9 @@ DM = 0
 # base arm).
 PJ_TILES = True
 PJ_CB = 3
+# OR_STATS circular buffers: the output row as T1 reads it, 1/K scaler, eps, then mean, var, rstd, x - mean, its square
+# (fp32), the mean / rstd tiles to the writer and the writer's staging page.
+S_CB, SC_CB, EPS_CB, MEAN_CB, VAR_CB, RSTD_CB, XC_CB, TMP_CB, ST_CB, SP_CB = 4, 5, 6, 24, 25, 26, 27, 28, 29, 30
 _NUM_CBS = 64
 _CACHE: dict = {}
 
@@ -52,14 +61,17 @@ def eligible(z, pi, pj) -> bool:
     return n == m and n % 32 == 0 and c % 32 == 0 and ps == [B, n, c] and js in ([B, n, c], [B, n, 1, c])
 
 
-def _build(z, pi, pj4, out, lo, device):
+def _build(z, pi, pj4, out, lo, device, stats=None, eps=None):
     B, n, _, c = (int(d) for d in z.shape)
     b16z = z.dtype in (ttnn.bfloat16, ttnn.bfloat8_b)   # a narrow z: one rounded output, no float32 master
     b8z = z.dtype == ttnn.bfloat8_b
     kt, nt = c // 32, n // 32
     pages = B * n * nt * kt
     g = device.compute_with_storage_grid_size()
-    _, grid, cg1, cg2, work1, work2 = core_split.split_work_to_cores(g, pages, 0)
+    # under stats a core owns whole row tiles (KT consecutive work items), so its statistics are local
+    unit = kt if stats is not None else 1
+    _, grid, cg1, cg2, work1, work2 = core_split.split_work_to_cores(g, pages // unit, 0)
+    work1, work2 = work1 * unit, work2 * unit
 
     def cb(idx, dtype, size, tiles=2 * GRAN):
         fmt = ttnn.CBFormatDescriptor(buffer_index=idx, data_format=dtype, page_size=size)
@@ -76,8 +88,18 @@ def _build(z, pi, pj4, out, lo, device):
     pjt = len(pj4.shape) == 3
     if pjt:   # the reader's block of pj: KT tiles of 32 rows i
         cbs.append(cb(PJ_CB, ttnn.bfloat16, b16, kt))
+    if stats is not None:
+        sf, sp = (zf, zp) if b16z else (ttnn.bfloat16, b16)
+        cbs += [cb(S_CB, sf, sp, kt), cb(SC_CB, ttnn.bfloat16, b16, 1), cb(EPS_CB, ttnn.float32, f32, 1),
+                cb(MEAN_CB, ttnn.float32, f32, 1), cb(VAR_CB, ttnn.float32, f32, 1), cb(RSTD_CB, ttnn.float32, f32, 1),
+                cb(XC_CB, ttnn.float32, f32, kt), cb(TMP_CB, ttnn.float32, f32, kt),
+                cb(ST_CB, ttnn.float32, f32, 2 * (2 * GRAN // kt + 2)), cb(SP_CB, ttnn.float32, 256, 1)]
     defines = ([("OR_BF16", "1")] if b16z else []) + ([("OR_BFP8", "1")] if b8z else []) + ([("OR_DM", str(DM))] if DM else []) \
-        + ([("OR_PJT", "1")] if pjt else [])
+        + ([("OR_PJT", "1")] if pjt else []) + ([("OR_STATS", "1")] if stats is not None else [])
+    st_args = []
+    if stats is not None:
+        inv = struct.unpack("<I", struct.pack("<f", 1.0 / c))[0] >> 16   # as trimul_tail.fused_in_ln's scaler
+        st_args = [(inv << 16) | inv, struct.unpack("<I", struct.pack("<f", float(eps)))[0]]
     rd, cp, wr = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
     first = 0
     for group, per in ((cg1, work1), (cg2, work2)):
@@ -90,12 +112,13 @@ def _build(z, pi, pj4, out, lo, device):
     acc = lambda t: list(ttnn.TensorAccessorArgs(t).get_compile_time_args())  # noqa: E731
     path = ttnn.KernelDescriptor.SourceType.FILE_PATH
     reader = ttnn.KernelDescriptor(kernel_source=str(KERNEL_DIR / "reader.cpp"), source_type=path, core_ranges=grid,
-                                   compile_time_args=[kt, nt, n, GRAN] + acc(z) + acc(pi) + acc(pj4),
+                                   compile_time_args=[kt, nt, n, GRAN] + acc(z) + acc(pi) + acc(pj4) + st_args,
                                    runtime_args=rd, common_runtime_args=[0] * 3, defines=defines,
                                    config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(kernel_source=str(KERNEL_DIR / "writer.cpp"), source_type=path, core_ranges=grid,
-                                   compile_time_args=[GRAN, kt, nt, n] + acc(out) + ([] if b16z else acc(lo)),
-                                   runtime_args=wr, common_runtime_args=[0] * 2, defines=defines,
+                                   compile_time_args=[GRAN, kt, nt, n] + acc(out) + ([] if b16z else acc(lo))
+                                   + (acc(stats) if stats is not None else []),
+                                   runtime_args=wr, common_runtime_args=[0] * 3, defines=defines,
                                    config=ttnn.WriterConfigDescriptor())
     cfg = ttnn.ComputeConfigDescriptor(math_fidelity=ttnn.MathFidelity.HiFi4, fp32_dest_acc_en=True)
     modes = [ttnn.UnpackToDestMode.Default] * _NUM_CBS
@@ -108,10 +131,12 @@ def _build(z, pi, pj4, out, lo, device):
     return [reader, writer, compute], cbs
 
 
-def outer_residual(z, pi, pj):
+def outer_residual(z, pi, pj, stats_eps=None):
     """`(z + pj4 * pi4, the same rounded to even in bfloat16)` for the float32 pair stream z [B, n, n, C], pi [B, n, C]
     and pj [B, n, C] or pj4 [B, n, 1, C] (pi4 = pi as [B, 1, n, C], pj4 = pj as [B, n, 1, C]), or None when `eligible`
-    declines. For a bfloat16 or bfloat8_b z, `(out, out)` with out the sum packed in z's format. Nothing is freed."""
+    declines. For a bfloat16 or bfloat8_b z, `(out, out)` with out the sum packed in z's format. Nothing is freed.
+    With `stats_eps`, a third output: the LayerNorm row statistics of the second at that eps, ROW_MAJOR float32
+    [B, n, n/32, 64] (per 32-row tile 32 means, then 32 rsqrt(var + eps)), as `trimul_tail.fused_in_ln(stats=)`."""
     if not eligible(z, pi, pj):
         return None
     pj4 = pj
@@ -123,12 +148,18 @@ def outer_residual(z, pi, pj):
                                                       ttnn.DRAM_MEMORY_CONFIG)
     out = alloc(z.dtype)
     lo = out if z.dtype != ttnn.float32 else alloc(ttnn.bfloat16)
-    key = (device.id(), tuple(int(d) for d in z.shape), str(z.dtype), GRAN, DM, len(pj4.shape))
+    stats = None
+    if stats_eps is not None:
+        B, n = int(z.shape[0]), int(z.shape[1])
+        stats = ttnn.allocate_tensor_on_device(ttnn.Shape([B, n, n // 32, 64]), ttnn.float32, ttnn.ROW_MAJOR_LAYOUT,
+                                               device, ttnn.DRAM_MEMORY_CONFIG)
+    key = (device.id(), tuple(int(d) for d in z.shape), str(z.dtype), GRAN, DM, len(pj4.shape), stats_eps)
     if key not in _CACHE:
-        _CACHE[key] = _build(z, pi, pj4, out, lo, device)
+        _CACHE[key] = _build(z, pi, pj4, out, lo, device, stats, stats_eps)
     kernels, cbs = _CACHE[key]
     kernels[0].common_runtime_args = [z.buffer_address(), pi.buffer_address(), pj4.buffer_address()]
-    kernels[1].common_runtime_args = [out.buffer_address(), lo.buffer_address()]
-    ttnn.generic_op([z, pi, pj4] + ([out] if lo is out else [out, lo]),
+    kernels[1].common_runtime_args = [out.buffer_address(), lo.buffer_address(),
+                                      stats.buffer_address() if stats is not None else 0]
+    ttnn.generic_op([z, pi, pj4] + ([out] if lo is out else [out, lo]) + ([stats] if stats is not None else []),
                     ttnn.ProgramDescriptor(kernels=kernels, semaphores=[], cbs=cbs))
-    return out, lo
+    return (out, lo) if stats is None else (out, lo, stats)

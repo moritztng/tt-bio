@@ -10,6 +10,12 @@
 #ifndef OR_DM
 #define OR_DM 0
 #endif
+// OR_STATS: per finished row tile, compute's mean and rstd tiles (c_29, fp32, column 0) become one 256-byte page of the
+// ROW_MAJOR float32 stats tensor [B, n, n/32, 64] (32 means, then 32 rstd), the layout trimul_in_t1 T1STATS reads.
+// Common runtime arg 2: its address. c_30 is the page's staging slot.
+#ifndef OR_STATS
+#define OR_STATS 0
+#endif
 
 void kernel_main() {
     constexpr uint32_t GRAN = get_compile_time_arg_val(0);
@@ -28,6 +34,17 @@ void kernel_main() {
     constexpr auto l_args = TensorAccessorArgs<o_args.next_compile_time_args_offset()>();
     const auto sl = TensorAccessor(l_args, get_common_arg_val<uint32_t>(1));
     const uint32_t ls = get_tile_size(cb_lo);
+#endif
+#if OR_STATS
+#ifdef OR_BF16
+    constexpr auto t_args = TensorAccessorArgs<o_args.next_compile_time_args_offset()>();
+#else
+    constexpr auto t_args = TensorAccessorArgs<l_args.next_compile_time_args_offset()>();
+#endif
+    const auto st = TensorAccessor(t_args, get_common_arg_val<uint32_t>(2));
+    constexpr uint32_t cb_st = 29, cb_sp = 30;
+    cb_reserve_back(cb_sp, 1);   // the writer's own staging page: never pushed
+    volatile tt_l1_ptr uint32_t* page = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(get_write_ptr(cb_sp));
 #endif
     for (uint32_t p = p0; p < p0 + np; p += GRAN) {
         const uint32_t n = p0 + np - p < GRAN ? p0 + np - p : GRAN;
@@ -48,6 +65,25 @@ void kernel_main() {
 #endif
         }
         noc_async_write_barrier();
+#if OR_STATS
+        for (uint32_t k = 0; k < n; ++k) {
+            const uint32_t w = p + k;
+            if (w % KT != KT - 1) continue;
+            const uint32_t bj = w / RUN;
+            cb_wait_front(cb_st, 2);
+            volatile tt_l1_ptr uint32_t* m = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(get_read_ptr(cb_st));
+            volatile tt_l1_ptr uint32_t* r = m + 1024;
+            // column 0 of a 32 x 32 fp32 tile: rows 0..15 in face 0, rows 16..31 in face 2, 16 values a face row
+            for (uint32_t row = 0; row < 32; ++row) {
+                const uint32_t at = (row >> 4) * 512 + (row & 15) * 16;
+                page[row] = m[at];
+                page[32 + row] = r[at];
+            }
+            noc_async_write_page(((bj / NT) * N + (w / KT) % N) * NT + bj % NT, st, reinterpret_cast<uint32_t>(page));
+            noc_async_write_barrier();
+            cb_pop_front(cb_st, 2);
+        }
+#endif
         cb_pop_front(cb_out, GRAN);
 #ifndef OR_BF16
         cb_pop_front(cb_lo, GRAN);
