@@ -87,8 +87,9 @@ def rel(a, r):
             float((a - r).abs().max()))
 
 
-def stats_diag(t1w, t1st, mu, rs, ref_g, n):
-    """g_out row errors with computed (w8) vs forwarded (st) statistics, see --stats-diag."""
+def stats_diag(t1w, t1st, mu, rs, ref_g, n, zd):
+    """g_out row errors with computed (w8) vs forwarded (st) statistics, see --stats-diag. The _nat variants are stats
+    with T1's own reduce scaler, 1/K truncated to bf16 (trimul_tail inv): mean and variance biased low by the same factor."""
     def row_err(outs):
         g = ttnn.to_torch(outs[2]).double().reshape(ref_g.shape)
         free(outs)
@@ -111,6 +112,12 @@ def stats_diag(t1w, t1st, mu, rs, ref_g, n):
            "dg_rms_st_mbf16": rms(bf(mu), rs), "dg_rms_st_rbf16": rms(mu, bf(rs)),
            "dg_rms_st_mbf16_rbf16": rms(bf(mu), bf(rs)), "dg_rms_st_mtf32_rbf16": rms(tf32(mu), bf(rs)),
            "dg_rms_st_mtf32_rtf32": rms(tf32(mu), tf32(rs))}
+    K = zd.shape[-1]
+    sb = float(torch.tensor(1.0 / K, dtype=torch.float32).view(torch.int32).bitwise_and(~0xFFFF).view(torch.float32))
+    mu_n = zd.sum(-1) * sb
+    rs_n = ((zd - mu_n[..., None]).pow(2).sum(-1) * sb + 1e-5).rsqrt()
+    out.update({"dg_rms_st_nat": rms(mu_n, rs_n), "dg_rms_st_nat_rbf16": rms(mu_n, bf(rs_n)),
+                "dg_rms_st_nat_mbf16_rbf16": rms(bf(mu_n), bf(rs_n)), "dg_rms_st_rbf16_up": rms(mu, bf(rs * (K * sb) ** -0.5))})
     pos = torch.arange(e0.numel()) % 32
     out["dg_ratio_by_pos"] = [round(float(e1[pos == k].pow(2).mean().sqrt() / e0[pos == k].pow(2).mean().sqrt()), 3)
                               for k in range(32)]
@@ -333,7 +340,7 @@ for n in [int(s) for s in A.ns.split(",") if s]:
                         if A.stats_diag:
                             rec.update(stats_diag(t1w, lambda st_: TT.fused_in_ln(
                                 dz, dw["gamma"], dw["beta"], dw8["wpT"], dw8["wgT"], dw8["wgo"], ckc, grid, mask=dm,
-                                stats=st_), mu, rs, ref["g"], n))
+                                stats=st_), mu, rs, ref["g"], n, zd))
                         rec["w8st_ms"] = timed(lambda: free(t1s()), A.reps)
                         TT.T1_ABL = 128
                         rec["w8st_abl128_ms"] = timed(lambda: free(t1s()), A.reps)
