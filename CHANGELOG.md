@@ -5,6 +5,8 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+## [0.43.0] - 2026-11-21
+
 ### Changed
 - **RFD4 designs about 3 % faster on Wormhole in normal mode.** Triangle multiplication takes its LayerNorm row
   statistics from the kernel that wrote the pair instead of recomputing them, and the pair transition also produces the
