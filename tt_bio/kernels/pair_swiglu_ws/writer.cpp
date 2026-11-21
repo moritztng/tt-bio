@@ -28,7 +28,7 @@ void kernel_main() {
     const uint32_t tb = get_tile_size(cb_outb);
 #endif
 #ifdef WS_PB
-    // WS_PB: compile args from WS_PB_ARGS: NT, HO (heads per output), HV (real heads), the bias accessor; common args
+    // WS_PB: compile args from WS_PB_ARGS: NT (n / 32), HO (heads per output), HV (real heads), the bias accessor; common args
     // from 2: one address per output [B, HV, n, n]. Head h of the 32 goes to output h / HO, head h % HO, if real.
     constexpr uint32_t PB_NT = get_compile_time_arg_val(WS_PB_ARGS), PB_HO = get_compile_time_arg_val(WS_PB_ARGS + 1),
                        PB_HV = get_compile_time_arg_val(WS_PB_ARGS + 2), cb_pb = 30;
@@ -64,17 +64,23 @@ void kernel_main() {
         cb_pop_front(cb_outb, CT);
 #endif
 #ifdef WS_PB
-        if ((q & 31) == 31) {   // the group's 32 head tiles, as kernels/pair_bias_rms/writer.cpp places them
-            const uint32_t u = q >> 5, b = u / (PB_NT * PB_NT), ib = (u / PB_NT) % PB_NT, jb = u % PB_NT;
+        {   // row h of the row tile's P tile is row ii of head h's bias tile (b, ib, jb): 16 bf16 a face row, 32 B
+            constexpr uint32_t n = PB_NT * 32;
+            const uint32_t jb = r % PB_NT, i = (r / PB_NT) % n, b = r / (PB_NT * n), ib = i >> 5, ii = i & 31;
+            const uint32_t doff = (ii >> 4) * 1024 + (ii & 15) * 32;
+            cb_wait_front(cb_pb, 1);
+            const uint32_t src = get_read_ptr(cb_pb);
             for (uint32_t h = 0; h < 32; ++h) {
-                cb_wait_front(cb_pb, 1);
                 if (h % PB_HO < PB_HV) {
                     const auto sp = TensorAccessor(pb_args, get_common_arg_val<uint32_t>(2 + h / PB_HO));
-                    noc_async_write_page(((b * PB_HV + h % PB_HO) * PB_NT + ib) * PB_NT + jb, sp, get_read_ptr(cb_pb));
+                    const uint64_t dst = sp.get_noc_addr(((b * PB_HV + h % PB_HO) * PB_NT + ib) * PB_NT + jb, doff);
+                    const uint32_t s0 = src + (h >> 4) * 1024 + (h & 15) * 32;
+                    noc_async_write(s0, dst, 32);
+                    noc_async_write(s0 + 512, dst + 512, 32);
                 }
-                noc_async_writes_flushed();
-                cb_pop_front(cb_pb, 1);
             }
+            noc_async_writes_flushed();
+            cb_pop_front(cb_pb, 1);
         }
 #endif
     }

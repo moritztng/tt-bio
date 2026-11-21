@@ -536,16 +536,16 @@ class PairUpdate(Module):
         serve. The hidden stays in the core's L1 and no normalised copy of z is written. With `resid` (the float32
         stream `z` is the bf16 copy of, or under `pair_bf16z` z itself) the update is added to it in the same
         program, both written in place: returns `(resid, z)`. `pb` (`pair_bias_fuse`, with resid z itself): the same
-        program also computes the next group's pair biases into `self.biases`, where its order serves."""
+        program also computes the next group's pair biases into `self.biases`, where `pb_eligible`."""
         from .. import pair_swiglu_ws
         w1, b1, w2, b2 = self.tr_ws
         ln = (self.tr_ln_w, self.tr_ln_b)
         if not pair_swiglu_ws.relu_eligible(z, w1, w2, ln, resid=resid):
             return None
         fid = ttnn.MathFidelity.HiFi2 if lever("pair_block_hifi2") else self.compute_kernel_config.math_fidelity
-        if pb is not None and resid is z and pair_swiglu_ws.pbo_eligible(z):
+        if pb is not None and resid is z and pair_swiglu_ws.pb_eligible(z):
             z, zb, self.biases = pair_swiglu_ws.pair_relu(z, w1, b1, w2, b2, fidelity=fid, ln=ln + (EPS,), resid=resid,
-                                                          pbo=True, pb=pb)
+                                                          pb=pb)
             return z, zb
         return pair_swiglu_ws.pair_relu(z, w1, b1, w2, b2, fidelity=fid, ln=ln + (EPS,), resid=resid)
 

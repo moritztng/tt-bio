@@ -36,7 +36,7 @@ ACC_CB = 19               # fp32, _SW tiles: a matmul's K chunks summed by the p
 RES_CB = 20               # bf16, 2 row tiles of the residual fc3 adds into (`resid`)
 B1_CB, B3_CB = 21, 22     # bf16, `pair_relu`'s biases as row-replicated tiles
 DY_CB = 23                # bf16, 2 row tiles of `pair_relu_bw`'s cotangent
-ZB_CB, PW_CB, ONE_CB, SQ_CB, RM_CB, PB_CB = 6, 7, 15, 28, 29, 30   # `pb`: z', W^T, ones, z'^2, untilized, biases
+ZB_CB, PW_CB, ONE_CB, SQ_CB, PB_CB = 6, 7, 15, 28, 30   # `pb`: z', W^T, ones, z'^2, the head-row tiles
 RES2_CB = 24              # bf16, the second residual (`resid2`), as deep as RES_CB
 OUTB_CB = 25              # bf16, `pair_relu`'s copy of its float32 residual sum (`resid` float32)
 LIST_CB_R, LIST_CB_W = 26, 27   # uint32, a core's page of the `rows` work list (reader, writer)
@@ -255,13 +255,13 @@ def _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines, silu_poly
         wct += list(ttnn.TensorAccessorArgs(x).get_compile_time_args())
     rdef = wdef = cdef = list(defines)
     if pb is not None:
-        # WS_PB: z' again in c_16's format, W^T, ones, z'^2, the 32 untilized head rows, the bias tiles for the writer
-        cbs += [cb(ZB_CB, ct, out.dtype), cb(PW_CB, kt), cb(ONE_CB, 1), cb(SQ_CB, kt), cb(RM_CB, 32), cb(PB_CB, 2)]
+        # WS_PB: z' again in c_16's format, W^T, ones, z'^2, a row tile's [heads, 32] tile for the writer to scatter
+        cbs += [cb(ZB_CB, ct, out.dtype), cb(PW_CB, kt), cb(ONE_CB, 1), cb(SQ_CB, kt), cb(PB_CB, 2)]
         dd = dict(defines)
         rdef = rdef + [("WS_PB_ARGS", str(len(rct))), ("WS_PB_WSLOT", str(9 + len(mc_args)))]
         rct = rct + list(ttnn.TensorAccessorArgs(pb[0]).get_compile_time_args())
         wdef = wdef + [("WS_PB_ARGS", str(len(wct)))]
-        wct = wct + [int(dd["WS_PBO"]), int(dd["WS_PB_HO"]), int(dd["WS_PB_HV"])] + list(
+        wct = wct + [int(dd["WS_PB_NT"]), int(dd["WS_PB_HO"]), int(dd["WS_PB_HV"])] + list(
             ttnn.TensorAccessorArgs(pb[1][0]).get_compile_time_args())
     if rows is not None:
         page = int(rows.shape[1]) * 4
@@ -378,9 +378,10 @@ def pair_relu(x, w1, b1, w2, b2, fidelity=ttnn.MathFidelity.HiFi4, ln=None, bw_w
     `pbo` (square x [B, n, n, C], n a tile multiple): each core takes whole (b, ib, jb) groups of 32 row tiles and
     walks them i-first, the order a fused pair-bias epilogue needs. Same result bit for bit, only the order moves.
 
-    `pb` = (wt, eps, heads, n_out), with `resid is x` (the bf16 / bfp8 pair stream) and `pbo`: the program also returns
-    `dit_pair_bias.rms_pair_bias(z', wt, eps, heads, n_out)` of the z' it writes, computed on the core from the tiles
-    it just made, so that call's read of z' goes. Returns `(x, x, biases)`, biases a list of n_out [B, heads, n, n].
+    `pb` = (wt, eps, heads, n_out), with `resid is x` (the bf16 / bfp8 pair stream, square as `pbo` needs): the program
+    also returns `dit_pair_bias.rms_pair_bias(z', wt, eps, heads, n_out)` of the z' it writes, computed on the core
+    from the tiles it just made, so that call's read of z' goes. Each row tile's 32 head values land as 32 B rows of
+    the bias tiles, so neither the core split nor the order moves. Returns `(x, x, biases)`, biases a list of n_out [B, heads, n, n].
 
     Under a tape it runs only through its entry in `taped_ttnn` (`pair_relu`), which needs `bw_weights`
     (`relu_bw_weights`) and `ln`; otherwise it returns None and the caller's composed ops run."""
@@ -392,7 +393,7 @@ def pair_relu(x, w1, b1, w2, b2, fidelity=ttnn.MathFidelity.HiFi4, ln=None, bw_w
     else:
         pbo = ()
     if pb is not None:
-        assert pbo and resid is x, "pb needs pbo and the in-place pair stream"
+        assert pb_eligible(x) and resid is x, "pb needs pb_eligible(x) and the in-place pair stream"
         wt, eps, heads, n_out = pb
         bits = lambda f: "0x%08x" % struct.unpack("<I", struct.pack("<f", f))[0]  # noqa: E731
         ho = 32 // n_out
@@ -400,7 +401,7 @@ def pair_relu(x, w1, b1, w2, b2, fidelity=ttnn.MathFidelity.HiFi4, ln=None, bw_w
         B, n = int(x.padded_shape[0]), int(x.padded_shape[1])
         outs = [ttnn.allocate_tensor_on_device(ttnn.Shape([B, heads, n, n]), ttnn.bfloat16, ttnn.TILE_LAYOUT,
                                                x.device(), ttnn.DRAM_MEMORY_CONFIG) for _ in range(n_out)]
-        pbo = pbo + (("WS_PB", "1"), ("WS_PB_HO", str(ho)), ("WS_PB_HV", str(heads)),
+        pbo = pbo + (("WS_PB", "1"), ("WS_PB_NT", str(n // 32)), ("WS_PB_HO", str(ho)), ("WS_PB_HV", str(heads)),
                      ("WS_PB_INVC", bits(1.0 / int(x.padded_shape[-1]))), ("WS_PB_EPS", bits(float(eps))))
         defines = (("WS_RESID", "1"), ("WS_RES32", "1"), ("WS_RES_NOCOPY", "1")) + (
             (("WS_Z8", "1"),) if x.dtype == ttnn.bfloat8_b else ()) + pbo
@@ -419,6 +420,13 @@ def pbo_eligible(x) -> bool:
     """`pair_relu(pbo=True)` takes x: [B, n, n, C] with n a tile multiple and no padding."""
     ps, ls = [int(d) for d in x.padded_shape], [int(d) for d in x.shape]
     return len(ps) == 4 and ps == ls and ps[1] == ps[2] and ps[2] % 32 == 0
+
+
+def pb_eligible(x) -> bool:
+    """`pair_relu(pb=...)` takes x as `pbo` does, on Wormhole only: its writer places 32 B rows in DRAM, which
+    Wormhole's 32 B DRAM alignment allows and Blackhole's 64 B does not."""
+    from .tenstorrent import is_wormhole
+    return is_wormhole() and pbo_eligible(x)
 
 
 def relu_weights(w1: torch.Tensor, b1: torch.Tensor, w2: torch.Tensor, b2: torch.Tensor, device,

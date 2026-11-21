@@ -3,7 +3,7 @@ bfp8 weights, HiFi2, c_z 384, hidden 768) in pair-bias order (`pbo`: whole (b, i
 i-first) against the default order, and the standalone `rms_pair_bias` call the fused epilogue would remove.
 
 Per N one JSON line: base_ms, pbo_ms (the order's own cost), pbo_equal (must be true: only the order moves),
-rms_ms (dit_pair_bias.rms_pair_bias on the result, n_out 2), pb_ms (the fused program: transition + biases),
+rms_ms (dit_pair_bias.rms_pair_bias on the result, n_out 2), pb_ms (the fused program: transition + biases, default order),
 pb_z_equal / pb_bias_equal (fused z' and biases against pair_relu then rms_pair_bias; bias max abs diff beside),
 split_ms / walk_ms: pbo's 32-row-tile split with the identity walk, and its walk with the identity
 split (each must be *_equal). aiclk sampled during. --z8 runs the bfloat8_b pair stream (fast mode).
@@ -91,7 +91,7 @@ for n in [int(v) for v in A.ns.split(",")]:
             rec[f"{name}_error"] = repr(e)[:400]
     try:
         z = up(z0, ZD)
-        _, _, bs = WS.pair_relu(z, *W, fidelity=FID, ln=(g, b, EPS), resid=z, pbo=True, pb=(wt, EPS, A.heads, 2))
+        _, _, bs = WS.pair_relu(z, *W, fidelity=FID, ln=(g, b, EPS), resid=z, pb=(wt, EPS, A.heads, 2))
         got = [ttnn.to_torch(t) for t in bs]
         rec["pb_z_equal"] = bool(torch.equal(ttnn.to_torch(z), outs["base"]))
         rec["pb_bias_equal"] = all(torch.equal(a, r) for a, r in zip(got, ref))
@@ -99,7 +99,7 @@ for n in [int(v) for v in A.ns.split(",")]:
         rec["pb_bias_finite"] = all(bool(torch.isfinite(a).all()) for a in got)
 
         def fused():
-            for t in WS.pair_relu(z, *W, fidelity=FID, ln=(g, b, EPS), resid=z, pbo=True, pb=(wt, EPS, A.heads, 2))[2]:
+            for t in WS.pair_relu(z, *W, fidelity=FID, ln=(g, b, EPS), resid=z, pb=(wt, EPS, A.heads, 2))[2]:
                 ttnn.deallocate(t)
         rec["pb_ms"] = timed(fused, A.reps)
         ttnn.deallocate(z)

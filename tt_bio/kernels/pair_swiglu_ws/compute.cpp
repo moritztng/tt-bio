@@ -38,12 +38,12 @@
 // is x itself, so the sum is rounded once to bfloat16 and written over x; there is no copy (c_25 is not built).
 // WS_Z8 (with WS_RES_NOCOPY; `pair_bfp8z`): x, c_5, c_20 and c_16 are bfloat8_b, the sum packed straight into it; the
 // packer goes back to the bf16 hidden's format after each output group.
-// WS_PB (with WS_PBO and WS_RES_NOCOPY; `pair_relu(pb=...)`): the attention pair biases of the next blocks from the z'
+// WS_PB (with WS_RES_NOCOPY; `pair_relu(pb=...)`): the attention pair biases of the next blocks from the z'
 // this program writes, as kernels/pair_bias_rms computes them from z' read back, so that z' read goes. fc3's output
 // tiles are also packed to c_6 (c_16's format); per row tile i of a (b, ib, jb) group: sq = z'^2 (c_28), P = W^T @
-// z'^T, S = ONES @ sq^T, P *= rsqrt(S / C + eps), untilized into row block i of c_29; after the group's 32 rows each
-// head's 2 KB row is tilized to c_30 for the writer. W^T is c_7, the ones tile c_15. Same ops in the same order as
-// pair_bias_rms with ROWS = 1, so the biases equal rms_pair_bias(z') bit for bit.
+// z'^T, S = ONES @ sq^T, P *= rsqrt(S / C + eps), packed to c_30: row h of P is row i of head h's bias tile, which the
+// writer scatters there. W^T is c_7, the ones tile c_15. Same ops in the same order as pair_bias_rms with ROWS = 1, so
+// the biases equal rms_pair_bias(z') bit for bit.
 // WS_RELU_BW (that Transition's backward to its normed input): ((x @ w1 + b1 > 0) * (dy @ w2t)) @ w3 with w12 =
 // [w1 | w2^T] and w3 = w1^T, the SwiGLU program with b1 seeding fc1, a step function for the silu, and fc2 reading
 // the cotangent dy (c_23, KT tiles a row) instead of x. The hidden pre-activation is recomputed, never stored.
@@ -62,8 +62,6 @@
 #include "api/compute/eltwise_binary_sfpu.h"
 #endif
 #ifdef WS_PB
-#include "api/compute/pack_untilize.h"
-#include "api/compute/tilize.h"
 #include "api/compute/eltwise_unary/binop_with_scalar.h"
 #include "api/compute/eltwise_unary/rsqrt.h"
 #endif
@@ -197,14 +195,11 @@ struct LnCbs {
 
 
 #ifdef WS_PB
-constexpr uint32_t cb_zb = 6, cb_pw = 7, cb_one = 15, cb_sq = 28, cb_rm = 29, cb_pb = 30;
+constexpr uint32_t cb_zb = 6, cb_pw = 7, cb_one = 15, cb_sq = 28, cb_pb = 30;
 
-// Row tile ii (0..31) of the current (b, ib, jb) group: its KT tiles of z' wait at c_6's front.
+// One row tile: its KT tiles of z' wait at c_6's front.
 template <uint32_t KT>
-ALWI void pb_row(uint32_t ii) {
-    if (ii == 0) {
-        cb_reserve_back(cb_rm, 32);
-    }
+ALWI void pb_row() {
     cb_wait_front(cb_zb, KT);
     reconfig_data_format(cb_zb, cb_zb);
     pack_reconfig_data_format(cb_sq);
@@ -245,27 +240,13 @@ ALWI void pb_row(uint32_t ii) {
     mul_binary_tile(0, 1, 0);
     tile_regs_commit();
     tile_regs_wait();
-    pack_reconfig_data_format(cb_rm);
-    pack_untilize_dest_init<1, 32>(cb_rm);
-    pack_untilize_dest<1, 32>(cb_rm, 1, ii);
-    pack_untilize_uninit(cb_rm);
+    pack_reconfig_data_format(cb_pb);
+    cb_reserve_back(cb_pb, 1);
+    pack_tile(0, cb_pb);
     tile_regs_release();
+    cb_push_back(cb_pb, 1);
     cb_pop_front(cb_sq, KT);
     cb_pop_front(cb_zb, KT);
-    if (ii == 31) {
-        cb_push_back(cb_rm, 32);
-        reconfig_data_format_srca(cb_rm);
-        pack_reconfig_data_format(cb_pb);
-        tilize_init(cb_rm, 1, cb_pb);
-        for (uint32_t h = 0; h < 32; ++h) {
-            cb_wait_front(cb_rm, 1);
-            cb_reserve_back(cb_pb, 1);
-            tilize_block(cb_rm, 1, cb_pb);
-            cb_push_back(cb_pb, 1);
-            cb_pop_front(cb_rm, 1);
-        }
-        tilize_uninit(cb_rm, cb_pb);
-    }
 }
 #endif
 
@@ -620,7 +601,7 @@ void kernel_main() {
 #endif
 #ifdef WS_PB
         static_assert(CT == KT);
-        pb_row<KT>(r & 31);
+        pb_row<KT>();
         pack_reconfig_data_format(cb_hid);   // the next row's packs assume the bf16 hidden's format
 #endif
     }
