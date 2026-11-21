@@ -32,6 +32,12 @@
 #ifndef LN_ABL
 #define LN_ABL 0
 #endif
+// LN_STATS (trimul_in_t1 T1STATS): the row statistics arrive precomputed from the kernel that wrote x, one fp32 tile of
+// means and one of rstd = rsqrt(var + eps) per row tile (column 0), pushed by the reader into C::mean and C::rstd.
+// layer_norm_row then only centres and scales (fp32, as the two-pass path does) before gamma and beta.
+#ifndef LN_STATS
+#define LN_STATS 0
+#endif
 // LN_BLK: channel tiles per dest acquire in layer_norm_row's eltwise stages (1 or 4, a half-sync fp32 dest holds 4).
 // Same ops on the same values in other dest slots, so bit-identical; a kernel opts in with the define.
 #ifndef LN_BLK
@@ -115,7 +121,19 @@ ALWI void rstd() {
 // for every channel tile i, `out` the CB pack writes to (its data format is configured here).
 template <class C, class Pack, bool KEEP_X = false>
 ALWI void layer_norm_row(uint32_t out, Pack pack) {
-    if constexpr (LN_ABL & 4) {
+    if constexpr (LN_STATS) {
+        cb_wait_front(C::x, C::Kt);
+        cb_wait_front(C::mean, 1);
+        stage<C, SUB_COL, LN_BLK>(C::x, C::mean, C::xc);          // xc = x - mean
+        if constexpr (!KEEP_X) cb_pop_front(C::x, C::Kt);
+        cb_pop_front(C::mean, 1);
+        cb_wait_front(C::xc, C::Kt);
+        cb_wait_front(C::rstd, 1);
+        stage<C, MUL_COL, LN_BLK>(C::xc, C::rstd, C::tmp);        // norm = xc * rstd
+        cb_pop_front(C::xc, C::Kt);
+        cb_pop_front(C::rstd, 1);
+        cb_wait_front(C::tmp, C::Kt);
+    } else if constexpr (LN_ABL & 4) {
         cb_wait_front(C::x, C::Kt);
         stage<C, SUB_COL, LN_BLK>(C::x, C::eps, C::xc);
         if constexpr (!KEEP_X) cb_pop_front(C::x, C::Kt);

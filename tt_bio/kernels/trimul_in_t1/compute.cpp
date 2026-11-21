@@ -33,6 +33,9 @@
 #if defined(ABL) && (ABL & 1408)
 #define LN_ABL (((ABL >> 7) & 3) | ((ABL >> 8) & 4))   // bench-only LN stage skips, see ln_prologue.hpp
 #endif
+#if defined(T1STATS) && T1STATS
+#define LN_STATS 1   // the reader pushes each row tile's mean and rstd into cb_mean / cb_rstd (ln_prologue.hpp)
+#endif
 #include "../common/ln_prologue.hpp"
 // ABL (bench-only define, trimul_tail.T1_ABL; 0 in every model path): bits that skip one stage's
 // work while keeping its circular-buffer traffic, to time each stage by difference (perf/spd_trimul/in_t1.py --abl).

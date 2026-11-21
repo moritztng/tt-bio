@@ -46,6 +46,13 @@
 // [Wp^T | Wg^T], gamma, beta and Wg_out from DRAM and multicasts the four CB regions to the grid rectangle instead
 // of each core pulling the same 575 KB (RFD4's key), common/weight_mcast.hpp. The same bytes land in the same CBs:
 // bit-identical.
+// T1STATS (trimul_tail.fused_in_ln `stats`): the row statistics come from the kernel that wrote z, as a ROW_MAJOR fp32
+// tensor with one 256-byte page per z row tile (32 means, then 32 rstd). Each barrier's pages land in a scratch CB (c_22)
+// and are spread into column 0 of one fp32 tile for cb_mean and one for cb_rstd per row tile, which compute's
+// layer_norm reads in place of computing them (ln_prologue.hpp LN_STATS).
+#ifndef T1STATS
+#define T1STATS 0
+#endif
 #ifndef T1MCAST
 #define T1MCAST 0
 #endif
@@ -101,6 +108,15 @@ void kernel_main() {
     t1_gather::Gather<NB, IL, ABL, T1B8> gather;
     gather.init(tt::CBIndex::c_25, tt::CBIndex::c_27);
 #endif
+#if T1STATS
+#if T1SPLIT
+    constexpr auto st_args = TensorAccessorArgs<b_args.next_compile_time_args_offset()>();
+#else
+    constexpr auto st_args = TensorAccessorArgs<m_args.next_compile_time_args_offset()>();
+#endif
+    const auto sts = TensorAccessor(st_args, get_common_arg_val<uint32_t>(T1SPLIT ? 9 : 7));
+    constexpr uint32_t st_cb = tt::CBIndex::c_22, mean_cb = tt::CBIndex::c_12, rstd_cb = tt::CBIndex::c_14;
+#endif
 
     constexpr uint32_t w_cb = tt::CBIndex::c_0;
     constexpr uint32_t mscratch_cb = tt::CBIndex::c_3;
@@ -129,7 +145,7 @@ void kernel_main() {
     cb_reserve_back(beta_cb, Kt);
     if constexpr (NG) cb_reserve_back(wo_cb, Kt * NG);
 #if T1MCAST
-    constexpr uint32_t MC = T1SPLIT ? 9 : 7;   // weight_mcast.hpp's common args
+    constexpr uint32_t MC = (T1SPLIT ? 9 : 7) + T1STATS;   // weight_mcast.hpp's common args
     const bool sender = get_arg_val<uint32_t>(2);
     if (sender) {
 #endif
@@ -178,8 +194,29 @@ void kernel_main() {
             for (uint32_t r = 0; r < RB; ++r, page += St * Kt)
                 for (uint32_t dt = 0; dt < Kt; ++dt, dst += tb)
                     if constexpr (!(ABL & 16)) noc_async_read_page(page + dt, x, dst);
+#if T1STATS
+            const uint32_t sc = get_write_ptr(st_cb);
+            for (uint32_t r = 0; r < RB; ++r)
+                noc_async_read_page((page - (RB - r) * St * Kt) / Kt, sts, sc + r * 256);
+#endif
             noc_async_read_barrier();
             cb_push_back(x_cb, RB * Kt);
+#if T1STATS
+            // column 0 of a 32 x 32 fp32 tile: rows 0-15 at face 0, 16 floats a row, rows 16-31 at face 2 (+512)
+            cb_reserve_back(mean_cb, RB);
+            cb_reserve_back(rstd_cb, RB);
+            volatile tt_l1_ptr uint32_t* src = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(sc);
+            volatile tt_l1_ptr uint32_t* mt = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(get_write_ptr(mean_cb));
+            volatile tt_l1_ptr uint32_t* rt = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(get_write_ptr(rstd_cb));
+            for (uint32_t r = 0; r < RB; ++r, src += 64, mt += 1024, rt += 1024)
+                for (uint32_t i = 0; i < 32; ++i) {
+                    const uint32_t o = i < 16 ? i * 16 : 512 + (i - 16) * 16;
+                    mt[o] = src[i];
+                    rt[o] = src[32 + i];
+                }
+            cb_push_back(mean_cb, RB);
+            cb_push_back(rstd_cb, RB);
+#endif
         }
     };
     // Barriers of the next unit read ahead of this unit's gathers: x_cb holds T1ZPRE (T1SPLIT), none otherwise.

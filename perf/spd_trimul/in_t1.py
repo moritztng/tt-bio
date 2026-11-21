@@ -35,6 +35,8 @@ ap.add_argument("--fid", default="", help="HiFi4/HiFi3/HiFi2/LoFi: run T1 at thi
 ap.add_argument("--save", default="", help="DIR: torch.save inc_{a,b,g} and t1_{a,b,g} of the --save-n call here, to locate wrong values offline")
 ap.add_argument("--save-n", type=int, default=0, help="the --ns entry (its first occurrence) whose outputs --save writes")
 ap.add_argument("--z8", action="store_true", help="z as bfp8_b (lever pair_bfp8z, the RFD4 trunk at unpadded sizes)")
+ap.add_argument("--stats", action="store_true", help="with --w8, also run T1 on row statistics computed on the host"
+                " (fused_in_ln stats, what a producer kernel would forward): its error and time, and --abl 128 on top")
 ap.add_argument("--out", help="also append each JSON line here (the qb runner passes it)")
 A = ap.parse_args()
 
@@ -274,6 +276,28 @@ for n in [int(s) for s in A.ns.split(",") if s]:
                         TT.T1_ABL = m_
                         rec[f"w8_abl{m_}_ms"] = timed(lambda: free(t1w()), A.reps)
                     TT.T1_ABL = 0
+                    if A.stats:
+                        zd = z.to(d)
+                        mu = zd.mean(-1)
+                        rs = (zd.var(-1, unbiased=False) + 1e-5).rsqrt()
+                        st = torch.cat([mu.reshape(1, n, n // 32, 32), rs.reshape(1, n, n // 32, 32)], -1)
+                        dst = ttnn.from_torch(st.to(torch.float32), dtype=ttnn.float32, layout=ttnn.ROW_MAJOR_LAYOUT,
+                                              device=dev)
+                        t1s = lambda: TT.fused_in_ln(dz, dw["gamma"], dw["beta"], dw8["wpT"], dw8["wgT"],  # noqa: E731
+                                                     dw8["wgo"], ckc, grid, mask=dm, stats=dst)
+                        outs = t1s()
+                        ttnn.synchronize_device(dev)
+                        rec["w8st_digest"] = digest([ttnn.to_torch(o) for o in outs])
+                        for k, o in zip("abg", outs):
+                            t = ttnn.to_torch(o)
+                            rec[f"w8st_{k}_finite"] = bool(torch.isfinite(t).all())
+                            rec[f"w8st_{k}_rel_rms_f64"], rec[f"w8st_{k}_max_abs"] = rel(t.reshape(ref[k].shape), ref[k])
+                        free(outs)
+                        rec["w8st_ms"] = timed(lambda: free(t1s()), A.reps)
+                        TT.T1_ABL = 128
+                        rec["w8st_abl128_ms"] = timed(lambda: free(t1s()), A.reps)
+                        TT.T1_ABL = 0
+                        free([dst])
             if A.ab:
                 f = t1w if A.w8 else t1
                 outs = f()
