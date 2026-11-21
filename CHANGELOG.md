@@ -6,6 +6,14 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 ## [Unreleased]
 
 ### Changed
+- **RFD4 designs about 3 % faster on Wormhole in normal mode.** Triangle multiplication takes its LayerNorm row
+  statistics from the kernel that wrote the pair instead of recomputing them, and the pair transition also produces the
+  next blocks' attention pair biases. A 336-token design 28.5 -> 27.7 s at 1000 MHz. On 12 paired seeds the designed
+  chain moves 2.3 A (median CA RMSD), against 28.5 A between two seeds. Blackhole and `--fast` are unchanged.
+
+## [0.42.0] - 2026-11-21
+
+### Changed
 - **OpenDDE and Protenix-v2 start faster on a protein the server has not folded before.** Shapes that used to follow
   the exact protein length now snap to a small set of widths, so fewer kernels compile per new protein. On Wormhole an
   OpenDDE fold of a new protein spends 25 s on first-time setup instead of 33 s, and a new Protenix-v2 protein takes
@@ -15,10 +23,6 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   floating point; `--fast` also runs the diffusion transformer's adaptive LayerNorm as one fused kernel. A 512-token
   fold is about 0.5 s faster in normal mode and 0.6 s in `--fast` on Wormhole, 0.24 s and 0.38 s on Blackhole.
   Structure accuracy unchanged on 44 paired normal folds and 44 paired fast folds per architecture.
-- **RFD4 designs about 3 % faster on Wormhole in normal mode.** Triangle multiplication takes its LayerNorm row
-  statistics from the kernel that wrote the pair instead of recomputing them, and the pair transition also produces the
-  next blocks' attention pair biases. A 336-token design 28.5 -> 27.7 s at 1000 MHz. On 12 paired seeds the designed
-  chain moves 2.3 A (median CA RMSD), against 28.5 A between two seeds. Blackhole and `--fast` are unchanged.
 
 ## [0.41.0] - 2026-11-21
 
