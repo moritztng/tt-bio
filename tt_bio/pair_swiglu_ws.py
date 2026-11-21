@@ -173,7 +173,10 @@ def _l1_bytes(kt, nh, ct, wdtype, xdtype=ttnn.bfloat16) -> int:
 def _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines, silu_poly, ln, bias=None, bw=False,
            resid2=None, rows=None):
     g = device.compute_with_storage_grid_size()
-    num_cores, grid, cg1, cg2, work1, work2 = core_split.split_work_to_cores(g, mt, 0)
+    # WS_PBO (`pbo`): whole super-units of 32 row tiles a core, walked in pair-bias order (common/pb_order.hpp)
+    sub = 32 if any(d[0] == "WS_PBO" for d in defines) else 1
+    num_cores, grid, cg1, cg2, work1, work2 = core_split.split_work_to_cores(g, mt // sub, 0)
+    work1, work2 = work1 * sub, work2 * sub
 
     def cb(idx, tiles, dtype=ttnn.bfloat16):
         size = _tile_bytes(dtype)
@@ -345,7 +348,7 @@ def row_list(device, x, rows):
 
 
 @ops.fused_kernel("pair_relu")
-def pair_relu(x, w1, b1, w2, b2, fidelity=ttnn.MathFidelity.HiFi4, ln=None, bw_weights=None, resid=None):
+def pair_relu(x, w1, b1, w2, b2, fidelity=ttnn.MathFidelity.HiFi4, ln=None, bw_weights=None, resid=None, pbo=False):
     """AF2's Transition after its norm, `relu(x @ w1 + b1) @ w2 + b2`, for a bf16 TILE `x` [..., C]; a new bf16 DRAM
     tensor [..., C_out]. Weights as `relu_weights` returns them. `ln` = (gamma, beta, eps) runs the LayerNorm in the
     kernel first, as `pair_swiglu`. Same fp32 dest accumulation, the bias summed into it before the products.
@@ -356,17 +359,31 @@ def pair_relu(x, w1, b1, w2, b2, fidelity=ttnn.MathFidelity.HiFi4, ln=None, bw_w
     `resid` may also be `x` itself (bf16, RFD4's `pair_bf16z` stream): the sum is rounded once to bf16 and written over
     `x`; returns `(x, x)`.
 
+    `pbo` (square x [B, n, n, C], n a tile multiple): each core takes whole (b, ib, jb) groups of 32 row tiles and
+    walks them i-first, the order a fused pair-bias epilogue needs. Same result bit for bit, only the order moves.
+
     Under a tape it runs only through its entry in `taped_ttnn` (`pair_relu`), which needs `bw_weights`
     (`relu_bw_weights`) and `ln`; otherwise it returns None and the caller's composed ops run."""
     if ops.declines_under_tape("pair_relu"):
         return None
+    if pbo:
+        assert pbo_eligible(x), x.padded_shape
+        pbo = (("WS_PBO", str(int(x.padded_shape[2]) // 32)),)
+    else:
+        pbo = ()
     if resid is not None:
         # generic_op hands back a new handle over resid's buffer; the caller keeps its own two
         defines = (("WS_RESID", "1"), ("WS_RES32", "1")) + ((("WS_RES_NOCOPY", "1"),) if resid is x else ()) + (
-            (("WS_Z8", "1"),) if x.dtype == ttnn.bfloat8_b else ())
+            (("WS_Z8", "1"),) if x.dtype == ttnn.bfloat8_b else ()) + pbo
         _run(x, w1, w2, fidelity, defines, SILU_POLY, ln, resid, (b1, b2))
         return resid, x
-    return _run(x, w1, w2, fidelity, (), SILU_POLY, ln, None, (b1, b2))
+    return _run(x, w1, w2, fidelity, pbo, SILU_POLY, ln, None, (b1, b2))
+
+
+def pbo_eligible(x) -> bool:
+    """`pair_relu(pbo=True)` takes x: [B, n, n, C] with n a tile multiple and no padding."""
+    ps, ls = [int(d) for d in x.padded_shape], [int(d) for d in x.shape]
+    return len(ps) == 4 and ps == ls and ps[1] == ps[2] and ps[2] % 32 == 0
 
 
 def relu_weights(w1: torch.Tensor, b1: torch.Tensor, w2: torch.Tensor, b2: torch.Tensor, device,

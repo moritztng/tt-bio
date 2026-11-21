@@ -26,6 +26,7 @@
 // host list (common args 15-17: list address, n, core count; see common/row_list.hpp), and the per-core first arg
 // is the core's ordinal.
 #include "api/dataflow/dataflow_api.h"
+#include "../common/pb_order.hpp"
 #ifdef WS_ROWLIST
 #include "../common/row_list.hpp"
 #endif
@@ -196,7 +197,8 @@ void kernel_main() {
     for (uint32_t i = 0; i < nrows; ++i) {
         const uint32_t r = rows[i];
 #else
-    for (uint32_t r = first; r < first + count; ++r) {
+    for (uint32_t q = first; q < first + count; ++q) {
+        const uint32_t r = ws_row(q);
 #endif
         cb_reserve_back(cb_x, KT);
         w = get_write_ptr(cb_x);
