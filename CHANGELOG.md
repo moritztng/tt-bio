@@ -5,6 +5,8 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+## [0.41.0] - 2026-11-21
+
 ### Changed
 - **ESMFold2 and ESMFold2-Fast `--fast` are about 5-6 % faster on Blackhole.** Triangle multiplication hands its
   gated output to the next kernel in 8-bit block floating point. A 512-residue ESMFold2 fold 10.42 -> 9.76 s,
