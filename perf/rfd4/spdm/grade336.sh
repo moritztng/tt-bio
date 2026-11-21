@@ -13,6 +13,7 @@ mkdir -p "$OUT"
 for arm in "$@"; do
   L=$BASE; [ "$arm" = base ] || L="$BASE,${arm//+/}"
   echo "$(date -u +%FT%TZ) arm $arm seeds 0..$N" >&2
+  rm -rf "$OUT/$arm"  # a retried cell must not meet its killed attempt's cifs: write_cif never overwrites
   TT_BIO_LEVERS=$L python "$WT/perf/rfd4/e2e/design.py" --spec "$SPEC" --weights "$W" --fast --rng upstream \
     --seeds $(seq 0 "$N") --out "$OUT/$arm" > "$OUT/$arm.log" 2>&1
   echo "$(date -u +%FT%TZ) arm $arm rc=$?" >> "$OUT/done"

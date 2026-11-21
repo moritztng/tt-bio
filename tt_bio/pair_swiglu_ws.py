@@ -177,7 +177,9 @@ def _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines, silu_poly
            resid2=None, rows=None, pb=None):
     g = device.compute_with_storage_grid_size()
     # WS_PBO (`pbo`): whole super-units of 32 row tiles a core, walked in pair-bias order (common/pb_order.hpp)
-    sub = 32 if any(d[0] == "WS_PBO" for d in defines) else 1
+    # WS_SUB32 / WS_SUB1 (perf/spd_trimul/pbo.py only) take the split without the order, or the order without it
+    names = {d[0] for d in defines}
+    sub = 32 if names & {"WS_PBO", "WS_SUB32"} and "WS_SUB1" not in names else 1
     num_cores, grid, cg1, cg2, work1, work2 = core_split.split_work_to_cores(g, mt // sub, 0)
     work1, work2 = work1 * sub, work2 * sub
 
