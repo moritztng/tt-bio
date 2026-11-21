@@ -153,7 +153,9 @@ def test_cb_plan_covers_every_cb_the_kernels_use():
     assert len(bfs) == len({i for i, _ in bfs})
     bfh, _ = TTL.t1_cb_plan(12, 16, 12, True, w8=True, split=True, b8=True)   # bfp8 at 8-row items adds the holds
     assert len(bfh) == len({i for i, _ in bfh}) and {i for i, _ in bfh} - {i for i, _ in bfs} == {26, 27}
-    assert used == set(planned) | {i for i, _ in bfg} | {i for i, _ in bfh}
+    bft, _ = TTL.t1_cb_plan(KT, CT2, NTG, True, stats=True)   # T1STATS stages forwarded stats pages in c_22
+    assert {i for i, _ in bft} - set(planned) == {22}
+    assert used == set(planned) | {i for i, _ in bfg} | {i for i, _ in bfh} | {22}
     bf0, _ = TTL.t1_cb_plan(KT, CT2, NTG, False)
     assert {3, 6, 15}.isdisjoint(i for i, _ in bf0)
 

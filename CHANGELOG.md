@@ -15,6 +15,10 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   floating point; `--fast` also runs the diffusion transformer's adaptive LayerNorm as one fused kernel. A 512-token
   fold is about 0.5 s faster in normal mode and 0.6 s in `--fast` on Wormhole, 0.24 s and 0.38 s on Blackhole.
   Structure accuracy unchanged on 44 paired normal folds and 44 paired fast folds per architecture.
+- **RFD4 designs about 3 % faster on Wormhole in normal mode.** Triangle multiplication takes its LayerNorm row
+  statistics from the kernel that wrote the pair instead of recomputing them, and the pair transition also produces the
+  next blocks' attention pair biases. A 336-token design 28.5 -> 27.7 s at 1000 MHz. Designed chains stay within 0.08
+  of the seed-to-seed spread on 12 paired seeds. Blackhole and `--fast` are unchanged.
 
 ## [0.41.0] - 2026-11-21
 
