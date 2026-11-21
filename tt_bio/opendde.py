@@ -771,7 +771,8 @@ class OpenDDE:
     @under_levers
     def fold(self, feats, *, n_step=20, n_cycles=2, seed=None, n_sample=1,
              return_confidence=False, progress_fn=None, trace=False, dump_fn=None,
-             max_parallel_samples=None, distogram=False, guidance=None, trunk_cache=None):
+             max_parallel_samples=None, distogram=False, guidance=None, trunk_cache=None,
+             return_logits=False):
         """End-to-end residue-to-structure co-fold. feats: a tt_bio.protenix_data-style
         residue-token feature dict (as tt_bio.protenix.Protenix.fold consumes -- e.g.
         tt_bio.protenix_data.build_complex_features for a single protein chain).
@@ -801,6 +802,8 @@ class OpenDDE:
         coords (n_sample, N_atom, 3) host tensor; if
         return_confidence, returns (coords, conf) where conf is a dict (n_sample==1) or a
         list of dicts (n_sample>1), same shape as tt_bio.protenix.Protenix.fold.
+        return_logits adds pae_logits / pde_logits / plddt_logits and contact_probs to each conf,
+        as Protenix.fold(return_logits=) does: what upstream's per-sample output writer reads.
 
         guidance (tt_bio.tfg.Guidance) applies constraint guidance inside the sampler
         (OpenDDE 1.2.0's ``--use_tfg_guidance``); None samples exactly as before.
@@ -907,16 +910,12 @@ class OpenDDE:
             # Residue-axis confidence (select_pair_output_branch(pair_output_space="residue")):
             # s_inputs/s_trunk/z_trunk are the step-1 pre-expansion tensors, `feats` the
             # original residue-level dict -- identical call shape to Protenix.fold's.
-            confs = P._confidences(s_inputs, s_trunk, hostlane.done(z_trunk), z_base, list(coords), feats)
+            confs = P._confidences(s_inputs, s_trunk, hostlane.done(z_trunk), z_base, list(coords), feats,
+                                   keep_logits=return_logits)
             if distogram:
                 # Upstream's DistogramHead on the same residue-axis trunk pair
-                # (compute_distogram_contact_probs reads select_pair_output_branch's pair_z):
-                # L(z) + L(z).T, one [N, N, 96] for every sample. It reads the trunk and writes
-                # nothing back, so no coordinate depends on whether it ran.
-                import torch.nn.functional as F
-                d = F.linear(z_trunk.float(), self._shared["distogram_head.linear.weight"].float(),
-                             self._shared["distogram_head.linear.bias"].float())
-                d = d + d.transpose(0, 1)
+                # (compute_distogram_contact_probs reads select_pair_output_branch's pair_z).
+                d = P.distogram_logits(z_trunk)
                 for c in confs:
                     c["distogram"] = d
             return coords, (confs[0] if n_sample == 1 else confs)

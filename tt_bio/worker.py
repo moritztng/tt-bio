@@ -833,6 +833,11 @@ def _rf3_bonds(components: list[dict], bonds) -> list[list[str]] | None:
     return [[endpoint(*a1), endpoint(*a2)] for a1, a2 in bonds]
 
 
+# The models whose upstream writes `<job>/seed_<s>/predictions/` (summary_confidence + full_data per sample), so a
+# fold of theirs keeps the confidence logits and lands that layout beside tt-bio's own files.
+UPSTREAM_LAYOUT_MODELS = ("mol1", "opendde", "opendde-abag")
+
+
 def _protenix_family() -> tuple[str, ...]:
     """The --model ids the tt_bio.protenix implementation serves (v0.5.0 base and v2).
 
@@ -1780,7 +1785,8 @@ class _WorkerState:
                 seed=_target_seed(path, cfg), progress_fn=report_progress,
                 n_cycles=cfg.get("recycling_steps"), trace=_protenix_trace(cfg) and _protenix_region_reserved(),
                 return_confidence=True, max_parallel_samples=cfg.get("max_parallel_samples"),
-                distogram=bool(cfg.get("write_pae")), guidance=guidance, trunk_cache=trunk_cache)
+                distogram=bool(cfg.get("write_pae")), guidance=guidance, trunk_cache=trunk_cache,
+                return_logits=cfg.get("model") in UPSTREAM_LAYOUT_MODELS)
         confs = conf if isinstance(conf, list) else [conf]
 
         # Rank, write and emit through the Protenix-v2 builder: OpenDDE rides that trunk, sampler
@@ -1948,8 +1954,7 @@ class _WorkerState:
                 # every protenix fold ran the untraced per-step dispatch. The OpenDDE branch
                 # above forwards it, which is why the flag looked plumbed.
                 trace=_protenix_trace(cfg) and _protenix_region_reserved(),
-                # upstream's own output layout (D6) is Mol-1's contract; other models keep the memory
-                return_logits=cfg.get("model") == "mol1",
+                return_logits=cfg.get("model") in UPSTREAM_LAYOUT_MODELS,
             )
         confs = conf if isinstance(conf, list) else [conf]
         return self._protenix_emit(path, cfg, feats, chains, chain_specs, coords, confs)

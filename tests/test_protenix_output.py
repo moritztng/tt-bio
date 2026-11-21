@@ -89,7 +89,9 @@ class _LogitStub:
         return [torch.randn(na, 3, generator=g) * 10 for _ in range(n_sample)], confs
 
 
-def test_a_mol1_fold_writes_upstreams_layout(tmp_path):
+@pytest.mark.parametrize("model", ["mol1", "opendde"])
+def test_a_fold_writes_upstreams_layout(tmp_path, model):
+    """Mol-1 and OpenDDE both write upstream's per-sample predictions/ layout (worker.UPSTREAM_LAYOUT_MODELS)."""
     from tt_bio import protenix_json
     from tt_bio.worker import _WorkerState
 
@@ -101,9 +103,9 @@ def test_a_mol1_fold_writes_upstreams_layout(tmp_path):
     state = object.__new__(_WorkerState)
     state.model, state.accelerator = _LogitStub(), "cpu"
     # the worker folds in a scratch dir and ships what it wrote there; the CLI writes it under the results dir
-    work, res = tmp_path / "scratch" / "out", tmp_path / "mol1_results_jobs"
+    work, res = tmp_path / "scratch" / "out", tmp_path / f"{model}_results_jobs"
     work.mkdir(parents=True)
-    cfg = {"model": "mol1", "msa_dir": str(tmp_path), "struct_dir": str(work), "output_format": "cif",
+    cfg = {"model": model, "msa_dir": str(tmp_path), "struct_dir": str(work), "output_format": "cif",
            "recycling_steps": 20, "sampling_steps": 1, "diffusion_samples": 3, "single_sequence": True,
            "template_structures": str(tmp_path), "write_pae": True}
     state.predict_one(yaml, cfg)
@@ -121,6 +123,16 @@ def test_a_mol1_fold_writes_upstreams_layout(tmp_path):
     s = [json.loads((pred / f"dimer_summary_confidence_sample_{k}.json").read_text()) for k in range(3)]
     assert [x["ranking_score"] for x in s] == sorted((x["ranking_score"] for x in s), reverse=True)
     assert s[0]["num_recycles"] == 20 and len(s[0]["chain_plddt"]) == 3 and 0 <= s[0]["plddt"] <= 100
+
+
+def test_opendde_fold_forwards_return_logits():
+    """OpenDDE.fold takes Protenix.fold's return_logits, off by default (the device proof covers what it returns)."""
+    import inspect
+
+    from tt_bio.opendde import OpenDDE
+
+    sig = inspect.signature(OpenDDE.fold)
+    assert sig.parameters["return_logits"].default is False
 
 
 def test_engine_heads_hand_the_writer_its_logits():
