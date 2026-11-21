@@ -102,9 +102,15 @@ def stats_diag(t1w, t1st, mu, rs, ref_g, n):
     e0 = row_err(t1w())
     e1 = run_st(mu, rs)
     bf = lambda t: t.to(torch.bfloat16).double()  # noqa: E731
+
+    def tf32(t):   # round to nearest at TF32's 10 mantissa bits (what the unpacker keeps of an fp32 operand)
+        i = t.to(torch.float32).view(torch.int32)
+        return ((i + 0xFFF + ((i >> 13) & 1)) & ~0x1FFF).view(torch.float32).double()
+    rms = lambda m_, r_: float(run_st(m_, r_).pow(2).mean().sqrt())  # noqa: E731
     out = {"dg_rms_w8": float(e0.pow(2).mean().sqrt()), "dg_rms_st": float(e1.pow(2).mean().sqrt()),
-           "dg_rms_st_mbf16": float(run_st(bf(mu), rs).pow(2).mean().sqrt()),
-           "dg_rms_st_rbf16": float(run_st(mu, bf(rs)).pow(2).mean().sqrt())}
+           "dg_rms_st_mbf16": rms(bf(mu), rs), "dg_rms_st_rbf16": rms(mu, bf(rs)),
+           "dg_rms_st_mbf16_rbf16": rms(bf(mu), bf(rs)), "dg_rms_st_mtf32_rbf16": rms(tf32(mu), bf(rs)),
+           "dg_rms_st_mtf32_rtf32": rms(tf32(mu), tf32(rs))}
     pos = torch.arange(e0.numel()) % 32
     out["dg_ratio_by_pos"] = [round(float(e1[pos == k].pow(2).mean().sqrt() / e0[pos == k].pow(2).mean().sqrt()), 3)
                               for k in range(32)]
