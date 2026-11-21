@@ -32,6 +32,7 @@ ARM is a '+'-joined set of knobs applied before the denoiser is built:
   mm2l      RFD3_DIT_MM2D_L1, with mm2d: those linears write their output to L1
   pllg      RFD3_PLL_GATHER, the atom neighbour pair features through gather_tiled, not embedding + to_layout (exact)
   dqh       RFD3_DIT_QKV_HEADS, DiT q|k|v as one projection, q/k RMSNorm + head split as one program (qk_rope_heads)
+  adr       RFD3_ADALN_RMS, the DiT's hoisted AdaLN as one ln_split.adaln(rms=True) program, not rms_norm + addcmul_at
   at        RFD3_ATTN_THREAD, the atom neighbour index built on a worker thread
   dpb       RFD3_DPB, the DiT SDPA masks as one program (tt_bio.dit_pair_bias)
   apb       RFD3_ATOM_PB_FUSED, one pair-bias projection for all three atom blocks (default on)
@@ -286,5 +287,6 @@ rec["w8_counts"] = W8
 rec["idx_replayed_built"] = IDX
 rec["sdpa_calls"] = {"atom": M.ATOM_SDPA_CALLS[0], "css": M.CSS_CALLS[0], "dense": M.DIT_SDPA_CALLS[0]}
 rec["pf_dpb_calls"] = {"served": M.PF_DPB_CALLS[0], "declined": M.PF_DPB_CALLS[1]}
+rec["adaln_rms"] = {"served": M.ADALN_RMS_STATS[0], "declined": M.ADALN_RMS_STATS[1]}
 (OUT / ("%s.json" % ARM)).write_text(json.dumps(rec, indent=1))
 print("wrote", OUT / ("%s.json" % ARM))
