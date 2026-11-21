@@ -531,17 +531,22 @@ class PairUpdate(Module):
         op = ttnn.multiply if hadamard else ttnn.add
         return op(pj4, pi4), hadamard
 
-    def _transition_block(self, z, resid=None):
+    def _transition_block(self, z, resid=None, pb=None):
         """`pair_block`: LayerNorm, fc1 + bias, ReLU, fc2 + bias as one program, unmasked; None where it does not
         serve. The hidden stays in the core's L1 and no normalised copy of z is written. With `resid` (the float32
         stream `z` is the bf16 copy of, or under `pair_bf16z` z itself) the update is added to it in the same
-        program, both written in place: returns `(resid, z)`."""
+        program, both written in place: returns `(resid, z)`. `pb` (`pair_bias_fuse`, with resid z itself): the same
+        program also computes the next group's pair biases into `self.biases`, where its order serves."""
         from .. import pair_swiglu_ws
         w1, b1, w2, b2 = self.tr_ws
         ln = (self.tr_ln_w, self.tr_ln_b)
         if not pair_swiglu_ws.relu_eligible(z, w1, w2, ln, resid=resid):
             return None
         fid = ttnn.MathFidelity.HiFi2 if lever("pair_block_hifi2") else self.compute_kernel_config.math_fidelity
+        if pb is not None and resid is z and pair_swiglu_ws.pbo_eligible(z):
+            z, zb, self.biases = pair_swiglu_ws.pair_relu(z, w1, b1, w2, b2, fidelity=fid, ln=ln + (EPS,), resid=resid,
+                                                          pbo=True, pb=pb)
+            return z, zb
         return pair_swiglu_ws.pair_relu(z, w1, b1, w2, b2, fidelity=fid, ln=ln + (EPS,), resid=resid)
 
     def _transition(self, z, pair_mask_c):
@@ -571,9 +576,12 @@ class PairUpdate(Module):
             ttnn.deallocate(zb)
         return z
 
-    def run(self, x, z, mask, pair_mask, pair_mask_c):
+    def run(self, x, z, mask, pair_mask, pair_mask_c, pb=None):
         """`__call__`, returning `(z, zb)`: the new pair and its `dtype` copy, which every residual
-        write produces alongside the pair and the trunk's next pair bias reads."""
+        write produces alongside the pair and the trunk's next pair bias reads. `pb` = (W^T, eps, heads, n_out) of
+        the next bias group (`pair_bias_fuse`): `self.biases` is then that group's biases if the transition made
+        them, else None."""
+        self.biases = None
         xs = _as(x, self.dtype)
         rd = z.dtype if self.residual_dtype == ttnn.bfloat8_b else self.residual_dtype   # `Trunk.pair_dtype`
         both, stats = None, None
@@ -632,7 +640,7 @@ class PairUpdate(Module):
                 stats = None
             if own_mask and unmasked and self.tr_ws is not None and fused:
                 # the transition with no residual mask: its residual write rides the same program, in place
-                both = self._transition_block(zb, resid=z)
+                both = self._transition_block(zb, resid=z, pb=pb)
                 if both is not None:
                     z, zb = both
                     continue
@@ -861,6 +869,13 @@ class Trunk(Module):
             self.bias_wts = [dit_pair_bias.rms_weight([mhas[i].bias_w_host for i in g], self.device)
                              for g in self.bias_groups]
 
+    @staticmethod
+    def _masked(out, mask_scaled):
+        masked = [ttnn.add(t, mask_scaled) for t in out]
+        for t in out:
+            ttnn.deallocate(t)
+        return masked
+
     def _group_biases(self, k, zb, mask_scaled):
         """The pre-scaled [b, heads, n, n] pair bias of every block in `bias_groups[k]`."""
         g = self.bias_groups[k]
@@ -868,12 +883,7 @@ class Trunk(Module):
                 and dit_pair_bias.rms_eligible(zb, self.bias_wts[k])):
             out = dit_pair_bias.rms_pair_bias(zb, self.bias_wts[k], EPS, self.n_heads, n_out=len(g),
                                               fidelity=self.compute_kernel_config.math_fidelity)
-            if mask_scaled is None:
-                return out
-            masked = [ttnn.add(t, mask_scaled) for t in out]
-            for t in out:
-                ttnn.deallocate(t)
-            return masked
+            return out if mask_scaled is None else self._masked(out, mask_scaled)
         both = pair_biases(zb, self.bias_ws[k], mask_scaled, self.compute_kernel_config, self.dtype)
         if len(g) == 1:
             return [both]
@@ -923,10 +933,16 @@ class Trunk(Module):
         mask_scaled = None if bias_mask is None else ttnn.multiply(bias_mask, self.head_dim ** 0.5)
         if zb is None:
             zb = _as(z, self.dtype)  # the attention's pair bias reads z; cast once per pair update
-        biases = []
+        biases, made = [], None
+        fuse = (self.bias_wts is not None and lever("pair_bias_fuse")
+                and (mask_scaled is None or lever("mask_at_mix")))
         for i, block in enumerate(self.blocks):
             if i in self._group_at:
-                biases = self._group_biases(self._group_at[i], zb, mask_scaled)
+                if made is not None:   # `pair_bias_fuse`: the transition before this block made them
+                    biases = made if mask_scaled is None else self._masked(made, mask_scaled)
+                    made = None
+                else:
+                    biases = self._group_biases(self._group_at[i], zb, mask_scaled)
             bias = biases.pop(0)
             s_new = block(s, zb, cond, mask, bias_mask, res_mask, cn=cn, bias=bias)
             self._ran = (self._ran[0], self._ran[1] + 1)
@@ -935,7 +951,10 @@ class Trunk(Module):
             s = s_new
             pu = self.pair_updates.get(i)
             if pu is not None:
-                z_new, zb_new = pu.run(s, z, mask, pair_mask, pair_mask_c)
+                k = self._group_at.get(i + 1)
+                pb = None if not fuse or k is None else (self.bias_wts[k], EPS, self.n_heads, len(self.bias_groups[k]))
+                z_new, zb_new = pu.run(s, z, mask, pair_mask, pair_mask_c, pb=pb)
+                made = pu.biases
                 if zb is not z:
                     ttnn.deallocate(zb)
                 ttnn.deallocate(z)
