@@ -1886,8 +1886,9 @@ T1_ZIL = 0
 # Bench knob: T1's gather ends each channel tile on a write flush, not a barrier (gather.hpp T1WFL). Bit-identical.
 T1_WFL = 0
 # fused_in_ln `stats`: forwarded rstd rounded to bf16 in T1's reader, 1 to nearest even, 2 upward, 0 kept fp32
-# (kernels/trimul_in_t1/reader.cpp T1STATS_RND).
-T1_STATS_RND = 1
+# (kernels/trimul_in_t1/reader.cpp T1STATS_RND). Upward: T1 bench at 352 vs float64, g rel rms 0.0129 up, 0.0140
+# nearest, 0.0156 fp32, 0.0131 with T1's own statistics (stdiag4, WH 1000 MHz).
+T1_STATS_RND = 2
 
 
 def t1_fgate(key, mask, fg=False):
