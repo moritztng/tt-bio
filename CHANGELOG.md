@@ -5,6 +5,14 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+## [0.44.0] - 2026-11-22
+
+### Changed
+- **OpenDDE writes upstream's per-sample output files.** Each run now also writes `seed_<s>/predictions/` with
+  `summary_confidence_sample_<k>.json`, plus `full_data_sample_<k>.json` (token-pair PAE) with `--write_pae`, the same
+  layout as upstream OpenDDE and as Mol-1 already writes, so a pipeline built on upstream reads the files unchanged.
+  Structures are bit-identical. At 791 tokens x5 samples a fold takes 2-6 % longer and 0.8 GB more host memory.
+
 ## [0.43.0] - 2026-11-21
 
 ### Changed
