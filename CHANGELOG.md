@@ -5,6 +5,8 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+## [0.44.0] - 2026-11-22
+
 ### Changed
 - **OpenDDE writes upstream's per-sample output files.** Each run now also writes `seed_<s>/predictions/` with
   `summary_confidence_sample_<k>.json`, plus `full_data_sample_<k>.json` (token-pair PAE) with `--write_pae`, the same
