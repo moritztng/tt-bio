@@ -66,7 +66,11 @@ LEVERS_NORMAL = _TRUNK | _NORMAL_EXTRA | {"trimul_t2cm"}
 # Wormhole normal, 11-set grade against exact, 66 paired folds: same-seed top pose median 0.232 A
 # against the 0.60 A bar (A/A floor 2.985 A), CA-lDDT +0.0003 [-0.0003, +0.0012], docking 28 -> 28
 # of 44. cdk2x2_512 on a Galaxy chip at AICLK 1000: 55.16 -> 38.12 s (2026-10-26).
-WH_LEVERS_NORMAL = _TRUNK | _NORMAL_EXTRA | {"trimul_bres"}
+# On top, the shared-Pairformer levers Boltz-2's Wormhole sets took (trimul_x8, pair_x8t, apb_ln, ws_psilu): 11-set
+# grade against the set above, 44 paired folds, PASS: same-seed top pose median 0.222 A against the 0.60 A bar (A/A
+# floor 2.959 A), CA-lDDT -0.0002 [-0.0008, +0.0002], docking 28 -> 28 of 44. Every complex folds faster, median
+# -2.2 % at AICLK 1000; cdk2x2_512 34.85 -> 33.49 s (spd-m-rf3-6 gx1, 2026-11-23).
+WH_LEVERS_NORMAL = _TRUNK | _NORMAL_EXTRA | {"trimul_bres", "trimul_x8", "pair_x8t", "apb_ln", "ws_psilu"}
 # The shared fast set's precision levers without the three trimul levers. Alone on Blackhole p300c
 # against exact, 40 paired folds: same-seed top pose median 0.304 A against the 0.60 A bar (A/A floor
 # 2.802 A), CA-lDDT +0.0009 [+0.0001, +0.0022] (spd-gap-inv, 2026-10-11).
