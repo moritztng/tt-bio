@@ -68,6 +68,7 @@ INIT_FAIL = ("failed to initialize FW|ARC core .* failed to start|Failed to set 
              "|waiting for active ethernet core")   # 10-16 qb2 board (0,1) after a TERMed mesh run
 MAX_FAILS = 3
 STEAL_S = 900   # a job still waiting this long moves to a free card or chip on another box of its kind
+LEND_SEED = 4   # chips an empty lend pool offers so queued work can make its agent lend (it lends only on demand)
 # BH boxes: SPD cards and their flocks (state/spd/CHIPS.md). A chip kept off the feed has ~/spd/locks/chip<N>.BAD on its
 # host (qb2 chip 0 since the 2026-10-14 slot swap: marginal at 1350 MHz, and feed trees predate the AICLK cap).
 # `reset` resets a card after a capped job (see run_cmd). qb1 only: each p150a is its own board, while a qb2 p300c
@@ -137,6 +138,13 @@ if A["kind"] == "galaxy":
     out["queued"] = sum(1 for n in q if n[0] in "012345678")
     out["qprio"] = [sum(1 for n in q if n[0] == str(d)) for d in range(9)]
     out["paused"] = os.path.exists(P + "/PAUSE") or not A.get("lend") and os.path.exists(P + "/RETURNED")
+    # the agent lends only while its pool holds queued work (lend/want), so a lend box with an empty pool reads 0 chips
+    # and the feed never gave it any: 11-23 .107/.108/.110 lent nothing for 3 h while .111 held 149 queued and ~170
+    # serving chips idled. An empty, unpaused lend pool offers LEND_SEED chips; the jobs placed there raise want, and a
+    # box that still lends nothing hands them back after STEAL_S (zero.json) like any chipless Galaxy.
+    if A.get("lend") and not out["healthy"] and not q and not out["paused"] \
+            and not any(not os.path.exists(r + ".end") for r in glob.glob(P + "/running/*.sh")):
+        out["healthy"] = out["seed"] = LEND_SEED
     out["live"] = q + [os.path.basename(r).split("-", 2)[2] for r in glob.glob(P + "/running/*.sh")
                        if not os.path.exists(r + ".end")]
     for sh in sorted(glob.glob(P + "/running/*-f-*.sh"), key=os.path.getmtime):
@@ -224,7 +232,7 @@ else:
     out["queued"] = queued; out["paused"] = os.path.exists(J + "/PAUSE")
 print(json.dumps(out))
 '''
-PROBE = f"GATE_LEG = {GATE_LEG!r}\n" + PROBE
+PROBE = f"GATE_LEG = {GATE_LEG!r}\nLEND_SEED = {LEND_SEED!r}\n" + PROBE
 
 # Runs a BH job under its cap: SIGINT at the cap, then SIGTERM to the job's whole process group after a grace period.
 # SIGINT alone cannot interrupt a native wait: on 10-15 a device-init hang outlived its bash wrapper as an orphan and

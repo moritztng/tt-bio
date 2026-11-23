@@ -993,6 +993,28 @@ def test_a_chip_lending_japanfold_box_is_a_pool_sized_by_its_lent_chips(tmp_path
     assert json.loads(r.stdout)["paused"] is True
 
 
+
+def test_an_empty_lend_pool_offers_seed_chips_so_its_agent_can_lend(tmp_path):
+    """11-23: the agent lends only while its pool queues work, so an empty lend pool read 0 chips and never got any:
+    .107/.108/.110 lent nothing for 3 h while .111 queued 149. Empty and unpaused it offers LEND_SEED; queued, running
+    or paused it offers only what it lends."""
+    (tmp_path / "japanfold/state/agent/lend").mkdir(parents=True)
+    pool = tmp_path / "spd/pool"; (pool / "queue").mkdir(parents=True); (pool / "running").mkdir()
+    a = {"kind": "galaxy", "lend": True, "sweep": False, "paths": [], "outdirs": {}}
+    probe = lambda: json.loads(subprocess.run([sys.executable, "-c", feed.PROBE], input=json.dumps(a) + "\n",
+                                              capture_output=True, text=True, env={"HOME": str(tmp_path)}, check=True).stdout)
+    out = probe()
+    assert (out["healthy"], out["free"], out["seed"]) == (feed.LEND_SEED, feed.LEND_SEED, feed.LEND_SEED)
+    (pool / "running/1123T2100Z-c3-6-a-f-x.sh").write_text("")          # a job still on a chip just recalled
+    assert probe()["healthy"] == 0
+    (pool / "running/1123T2100Z-c3-6-a-f-x.sh.end").write_text("0\n")
+    (pool / "queue/6-b-f-y.sh").write_text("")
+    assert probe()["healthy"] == 0                                      # placed work waits for a real lend (zero.json)
+    (pool / "queue/6-b-f-y.sh").unlink(); (pool / "PAUSE").touch()
+    assert probe()["healthy"] == 0
+    a["lend"] = False; (pool / "PAUSE").unlink()                        # a whole-box loan counts its device nodes, no seed
+    assert "seed" not in probe()
+
 LEAD = """row: spd-a
 experiments:
   - name: ok
