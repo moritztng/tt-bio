@@ -5,6 +5,12 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+### Changed
+- **RoseTTAFold3 folds about 2 % faster on Wormhole in normal mode.** It now runs the bfp8 pair-stack trimul kernels
+  and the two pair-stack levers its `--fast` mode already took. A 512-residue fold 34.9 -> 33.5 s at 1000 MHz; every
+  complex of the 11-complex test set folds 1.5-3.1 % faster, accuracy unchanged on 44 paired folds (same-seed structure
+  0.22 A apart against a 0.60 A bar, docking success 28/44 on both). `--fast` and Blackhole are unchanged.
+
 ## [0.44.0] - 2026-11-22
 
 ### Changed
