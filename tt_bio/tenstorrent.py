@@ -9285,26 +9285,36 @@ def get_device(trace=None):
         # by name: the box agent keeps it out of its pool, but a direct pin went straight to it.
         from tt_bio.runtime import (refuse_dead_chips, refuse_missing_device_nodes,
                                     refuse_quarantined_chips, visible_device_indices)
-        visible = os.environ.get("TT_VISIBLE_DEVICES")
-        if visible is not None:
-            pinned = visible_device_indices(visible)
-            refuse_missing_device_nodes(pinned)
-            refuse_quarantined_chips(pinned)
-        from tt_bio.device_lease import CardSetLease, arm_orphan_guard, physical_cards
-        # A chip whose ARC firmware is dead would park the open below inside the host-wide
-        # bring-up lock; refuse it in seconds instead, from sysfs, opening nothing.
-        refuse_dead_chips([int(c) for c in physical_cards()])
-        arm_orphan_guard()
-        # Normally None here. A cleanup() that failed to hand the chip back keeps its lease
-        # on purpose (the card is genuinely still held), and flock is per open file
-        # description, so re-acquiring in this same process would block on ourselves.
+        from tt_bio.device_lease import CardSetLease, arm_orphan_guard, physical_cards, pin_one_card
+        # An unpinned open on a multi-card host is pinned to one free card first, exactly as a
+        # fanout worker is: ttnn would otherwise bring up (and fabric-map) every card for a
+        # one-chip job, a TT_FATAL on a box whose cards are not cabled as the mesh ttnn derives.
+        pinned_here = None
         if _device_lease is None:
-            _device_lease = CardSetLease().acquire()
+            pinned_here = _device_lease = pin_one_card()
         try:
+            visible = os.environ.get("TT_VISIBLE_DEVICES")
+            if visible is not None:
+                pinned = visible_device_indices(visible)
+                refuse_missing_device_nodes(pinned)
+                refuse_quarantined_chips(pinned)
+            # A chip whose ARC firmware is dead would park the open below inside the host-wide
+            # bring-up lock; refuse it in seconds instead, from sysfs, opening nothing.
+            refuse_dead_chips([int(c) for c in physical_cards()])
+            arm_orphan_guard()
+            # Normally None here. A cleanup() that failed to hand the chip back keeps its lease
+            # on purpose (the card is genuinely still held), and flock is per open file
+            # description, so re-acquiring in this same process would block on ourselves.
+            if _device_lease is None:
+                _device_lease = CardSetLease().acquire()
             _device = _open_and_init_device(trace_region_bytes(trace) if trace else 0)
         except Exception:
-            _device_lease.release()
-            _device_lease = None
+            if _device_lease is not None:
+                _device_lease.release()
+                _device_lease = None
+            if pinned_here is not None:   # a retry picks a free card again
+                os.environ.pop("TT_VISIBLE_DEVICES", None)
+                os.environ.pop("TT_BIO_LOGICAL_DEVICE_ID", None)
             raise
     return _device
 

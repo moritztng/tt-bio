@@ -672,6 +672,53 @@ class CardSetLease:
         self.release()
 
 
+def pin_one_card(cards=None):
+    """Pin an unpinned single-device open to ONE card and lease it. Returns the lease, or None.
+
+    ``get_device()`` computes on one chip, but with ``TT_VISIBLE_DEVICES`` unset ttnn brings up
+    every card on the host and builds a fabric over them first. Where the cards are not wired
+    as the mesh ttnn auto-derives, that bring-up is a TT_FATAL and nothing opens: on a 4x p150a
+    box whose cards are cabled only in pairs (Tamarind f12cs06, 2026-11-24), every in-process
+    open -- embed, saprot, rfd3 design -- died with "Graph specified in MGD could not fit in the
+    discovered physical topology", while the predict fanout, which pins one card per worker,
+    ran fine. It also held all four cards for a one-card job.
+
+    So the unpinned open is made exactly the open a fanout worker does: ``TT_VISIBLE_DEVICES``
+    = one card, logical device 0. The card is an explicit ``TT_BIO_LOGICAL_DEVICE_ID`` if one
+    is set (it named a UMD index, which is what ``TT_VISIBLE_DEVICES`` takes), else the first
+    card in the grant that is free right now, else the first one, waited on the usual bounded
+    time. Set visibility -- including set-and-empty -- is the caller's decision and is left
+    alone, as is a host with one card.
+    """
+    if "TT_VISIBLE_DEVICES" in os.environ:
+        return None
+    cards = [str(c) for c in (cards if cards is not None else physical_cards())]
+    if len(cards) <= 1:
+        return None
+    logical = os.environ.get("TT_BIO_LOGICAL_DEVICE_ID", "").strip()
+    if logical:
+        idx = int(logical)
+        if not 0 <= idx < len(cards):
+            raise ValueError(f"TT_BIO_LOGICAL_DEVICE_ID={idx} is out of range for this host's "
+                             f"{len(cards)} card(s): {cards}.")
+        lease = DeviceLease(card=cards[idx]).acquire()
+    else:
+        granted = granted_cards()
+        candidates = [c for c in cards if granted is None or c in granted] or cards
+        lease = None
+        for card in candidates:
+            try:
+                lease = DeviceLease(card=card, timeout=0).acquire()
+                break
+            except DeviceInUseError:
+                continue
+        if lease is None:
+            lease = DeviceLease(card=candidates[0]).acquire()
+    os.environ["TT_VISIBLE_DEVICES"] = lease.card
+    os.environ["TT_BIO_LOGICAL_DEVICE_ID"] = "0"
+    return lease
+
+
 # ---------------------------------------------------------------------------
 # Process-lifetime guard: who may still be holding a card
 # ---------------------------------------------------------------------------
