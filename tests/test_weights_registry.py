@@ -646,13 +646,14 @@ def test_no_hub_download_outside_the_registry_forgets_the_revision():
     client directly does not, and that is how a repo quietly goes back to `main`.
 
     Requires a literal `revision=`: a `**kwargs` spread is exactly the call you cannot
-    read, so it fails here and the author names the revision. Vendored upstream code is
-    excluded, it is not ours to change."""
+    read, so it fails here and the author names the revision. Vendored code is covered
+    too: it once was not, and the vendored ESMFold2 `load_ccd` asked for `main` while the
+    weights were fetched by commit, so an offline box holding ccd.pkl could not find it."""
     import ast
     root = Path(weights.__file__).parent
     bare = []
     for path in sorted(root.rglob("*.py")):
-        if path.name == "weights.py" or "_vendor" in path.parts:
+        if path.name == "weights.py":
             continue
         for node in ast.walk(ast.parse(path.read_text())):
             if not isinstance(node, ast.Call):
@@ -693,3 +694,34 @@ def test_weights_table_and_failure_text_survive_artifacts_with_no_model_name(tmp
     res = CliRunner().invoke(cli, ["weights", "--cache", str(tmp_path)])
     assert res.exit_code == 0, res.output
     assert orphans[0].key in res.output
+
+
+def test_esmfold2_ccd_is_fetched_by_preflight_and_found_offline(tmp_path, monkeypatch):
+    """Both ESMFold2 variants featurize from biohub/ESMFold2's ccd.pkl. Preflight fills the
+    hub cache by pinned commit, which writes `snapshots/<sha>/` and no `refs/main`; on a
+    box with HF_HUB_OFFLINE=1, `load_ccd` asked for `main` and every fold died in prep with
+    "Failed to download CCD pickle file" while the file sat on disk (Tamarind box, 11-24).
+    ESMFold2-Fast's own repo has no ccd.pkl, so it also needs a row that fetches it."""
+    import huggingface_hub.constants as hfc
+    from tt_bio._vendor.esm.models.esmfold2 import conformers
+
+    rev = weights.hf_revision(weights.ESMFOLD2_REPO)
+    assert rev, "biohub/ESMFold2 is pinned"
+    for model in ("esmfold2", "esmfold2-fast"):
+        assert any(a.repo == weights.ESMFOLD2_REPO and a.revision == rev
+                   and (not a.allow or "ccd.pkl" in a.allow)
+                   for a in weights.artifacts_for(model)), f"preflight {model} skips ccd.pkl"
+
+    # A cache exactly as a pinned snapshot leaves it: the file under the commit, no refs.
+    snap = tmp_path / "models--biohub--ESMFold2" / "snapshots" / rev
+    snap.mkdir(parents=True)
+    (snap / "ccd.pkl").write_bytes(b"stub")
+    monkeypatch.setattr(hfc, "HF_HUB_CACHE", str(tmp_path))
+    monkeypatch.setattr(hfc, "HF_HUB_OFFLINE", True)
+    monkeypatch.setattr(conformers, "CCD_PICKLE_PATH", None)
+    monkeypatch.setattr(conformers, "_CCD_MOLECULES", None)
+    monkeypatch.setattr("tt_bio.ccd.CcdMols", lambda path: path)
+
+    assert Path(conformers.load_ccd()) == snap / "ccd.pkl"
+    monkeypatch.setattr(weights, "configure_hf_cache", lambda *a, **k: None)
+    assert weights.cached_path("esmfold2-ccd") == snap / "ccd.pkl"

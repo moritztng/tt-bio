@@ -373,6 +373,13 @@ _ROWS: tuple[Artifact, ...] = (
              repo=ESMFOLD2_REPO, approx_bytes=1352914698),
     Artifact("esmfold2-fast", ("esmfold2-fast",), "hf-repo", "MIT (Biohub)",
              repo=ESMFOLD2_FAST_REPO, approx_bytes=751619276),
+    # Both ESMFold2 variants read the CCD molecule dict out of biohub/ESMFold2
+    # (_vendor/esm/models/esmfold2/conformers.py::load_ccd); ESMFold2-Fast's repo has none.
+    # The full esmfold2 snapshot above already carries it, so this row only adds a fetch for
+    # a host that preflights esmfold2-fast alone.
+    Artifact("esmfold2-ccd", ("esmfold2-fast",), "hf-repo", "MIT (Biohub); CCD data PDB terms",
+             repo=ESMFOLD2_REPO, filename="ccd.pkl", allow=("ccd.pkl",), approx_bytes=417306584,
+             note="CCD molecule dict ESMFold2 and ESMFold2-Fast featurize ligands from"),
     Artifact("esmc-300m", ("esmc-300m",), "hf-repo", "MIT (Biohub)",
              repo="biohub/esmc-300m-2024-12", filename="data/weights/esmc_300m_2024_12_v0.pth",
              approx_bytes=1331439861),
@@ -1518,7 +1525,7 @@ def cached_path(key: str, root: str | Path | None = None) -> Path | None:
         except ImportError:
             return None
         configure_hf_cache()
-        hit = try_to_load_from_cache(art.repo, art.filename)
+        hit = try_to_load_from_cache(art.repo, art.filename, revision=art.revision)
         return Path(hit) if isinstance(hit, str) else None
     p = art.dest(root)
     return p if p.exists() else None

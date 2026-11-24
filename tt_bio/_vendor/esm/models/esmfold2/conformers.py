@@ -1,7 +1,7 @@
 # Vendored from github.com/Biohub/esm @ b6b0e88 (MIT, Copyright 2026 Chan Zuckerberg
 # Biohub, Inc.; see tt_bio/_vendor/esm/LICENSE). Modified: absolute `esm.` imports
 # rewritten to `tt_bio._vendor.esm.` for in-tree vendoring; load_ccd reads
-# ccd.pkl through tt_bio.ccd.CcdMols.
+# ccd.pkl through tt_bio.ccd.CcdMols, at the commit weights.HF_REVISIONS pins.
 """CCD conformer loading utilities.
 
 Loads idealized conformer coordinates from a CCD pickle file containing RDKit molecules.
@@ -56,8 +56,14 @@ def load_ccd(cache_dir: Path | str | None = None) -> dict:
         pkl_path = cache_dir / "ccd.pkl"
     else:
         try:
+            # tt-bio: the pinned commit, the one the model weights and `tt-bio preflight`
+            # use. A bare call asks for `main`, which a cache filled by commit has no ref
+            # for, so an offline host holding ccd.pkl failed here.
+            from tt_bio.weights import ESMFOLD2_REPO, hf_revision
+
             pkl_path = Path(
-                hf_hub_download(repo_id="biohub/ESMFold2", filename="ccd.pkl")
+                hf_hub_download(repo_id=ESMFOLD2_REPO, filename="ccd.pkl",
+                                revision=hf_revision(ESMFOLD2_REPO))
             )
         except Exception as e:
             raise FileNotFoundError(

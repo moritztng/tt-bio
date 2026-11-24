@@ -109,14 +109,15 @@ def data_root(model: str):
     if "INFRA_PROVIDER" in os.environ:
         return Path("")
     # Try to download from huggingface if it doesn't exist
+    from tt_bio.weights import hf_revision  # tt-bio: pinned like every hub read
     if model.startswith("esm3"):
-        path = Path(snapshot_download(repo_id="biohub/esm3-sm-open-v1"))
+        path = Path(snapshot_download(repo_id="biohub/esm3-sm-open-v1", revision=hf_revision("biohub/esm3-sm-open-v1")))
     elif model.startswith("esmc-300"):
-        path = Path(snapshot_download(repo_id="biohub/esmc-300m-2024-12"))
+        path = Path(snapshot_download(repo_id="biohub/esmc-300m-2024-12", revision=hf_revision("biohub/esmc-300m-2024-12")))
     elif model.startswith("esmc-600"):
-        path = Path(snapshot_download(repo_id="biohub/esmc-600m-2024-12"))
+        path = Path(snapshot_download(repo_id="biohub/esmc-600m-2024-12", revision=hf_revision("biohub/esmc-600m-2024-12")))
     elif model.startswith("esmc-6b"):
-        path = Path(snapshot_download(repo_id="biohub/esmc-6b-2024-12"))
+        path = Path(snapshot_download(repo_id="biohub/esmc-6b-2024-12", revision=hf_revision("biohub/esmc-6b-2024-12")))
     else:
         raise ValueError(f"{model=} is an invalid model name.")
     return path
