@@ -5,6 +5,13 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+### Fixed
+- **`tt-bio weights` no longer crashes on a fresh install.** It died with an IndexError before printing a row; it now
+  lists every artifact, including Mol-1's auxiliary files that belong to no single model.
+- **`tt-bio preflight` now checks the chips, not just the weights.** It prints how many chips the machine has and which
+  are quarantined or missing their device node, so a host without a working driver no longer reads READY. Nothing is
+  opened, so it works while the chips are busy; the exit status is unchanged.
+
 ## [0.45.0] - 2026-11-23
 
 ### Changed
