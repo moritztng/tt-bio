@@ -5,6 +5,8 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+## [0.45.1] - 2026-11-24
+
 ### Fixed
 - **`tt-bio weights` no longer crashes on a fresh install.** It died with an IndexError before printing a row; it now
   lists every artifact, including Mol-1's auxiliary files that belong to no single model.
