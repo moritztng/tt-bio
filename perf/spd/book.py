@@ -27,8 +27,10 @@ to "real" legs, and three cards sat idle for hours with 21 feed jobs queued.
 
 `add` also never starts a window on a card whose flock (~/spd_<box>_cardN.lock or _chipN.lock) is held: a release-gate
 leg holds it for its whole run, including the gaps between device opens where no node is open.
-`take` books [now, now + SECONDS) on CARDS and moves every booking it overlaps to its next free slot, in start order,
-logging "TIME moved OWNER START -> NEW by TAKER" to windows.tsv.moved so the moved row's runner can read where it went.
+`take` books [now, now + SECONDS) on CARDS and pushes the bookings behind it later in start order, each after every
+earlier booking sharing a card, so the queue keeps its order (11-24: first-fit re-placement threw a two-card 3 h window
+behind six shorter one-card bookings, one release leg at a time, and it slid 16 h). It logs
+"TIME moved OWNER START -> NEW by TAKER" to windows.tsv.moved so the moved row's runner can read where it went.
 scripts/flock_first.sh --book calls it once a release leg holds its card flock and drops it (`rm`) when the leg ends.
 Why: on 11-03 release legs on qb1 took the card flocks without a booking, so gate5 and msa-shapes found their booked
 windows started under a foreign holder, gave them up and rebooked by hand up to 11.5 h later.
@@ -219,16 +221,16 @@ def earliest(rows, cards, dur, start):
 
 
 def take(rows, owner, cards, dur, now, note, log=None):
-    """`rows` with OWNER booked on `cards` for [now, now + dur) and every booking that overlaps it moved later."""
-    rows = [r for r in rows if r[2] != owner]
-    mine = (now, now + dur, owner, cards, note)
-    hit = sorted(r for r in rows if r[3] & cards and r[0] < now + dur and r[1] > now)
-    out = [r for r in rows if r not in hit] + [mine]
-    moved = []
-    for s, e, o, cs, n in hit:
-        s2 = earliest(out, cs, e - s, now + dur)
+    """`rows` with OWNER booked on `cards` for [now, now + dur) and the queue behind it pushed later, order kept.
+
+    Bookings are re-placed in start order, each no earlier than its own start and after every booking already placed
+    that shares a card, so a leg delays the queue by its own length and never reorders it."""
+    out, moved = [(now, now + dur, owner, cards, note)], []
+    for s, e, o, cs, n in sorted(r for r in rows if r[2] != owner):
+        s2 = earliest(out, cs, e - s, s) if e > now else s
         out.append((s2, s2 + e - s, o, cs, n))
-        moved.append("%s moved %s %d -> %d by %s\n" % (time.strftime("%Y-%m-%dT%H:%MZ", time.gmtime(now)), o, s, s2, owner))
+        if s2 != s:
+            moved.append("%s moved %s %d -> %d by %s\n" % (time.strftime("%Y-%m-%dT%H:%MZ", time.gmtime(now)), o, s, s2, owner))
     if moved:
         with open(log or F + ".moved", "a") as f:
             f.writelines(moved)

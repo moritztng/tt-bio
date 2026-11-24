@@ -116,3 +116,19 @@ with contextlib.redirect_stdout(io.StringIO()):
 assert "fold-c3" in open(book.F).read()
 os.environ.pop("TT_SYSFS")
 print("blocked ok")
+
+# take keeps queue order: a leg delays the queue by its own length, a long two-card window is never thrown behind the
+# shorter one-card bookings queued after it (11-24: first-fit re-placement slid a two-card re-time 16 h)
+H, t0 = 3600, 10**9
+q = [(t0, t0 + 3 * H, "fair", {0, 1}, ""), (t0 + 3 * H, t0 + 7 * H, "s9c0", {0}, ""), (t0 + 3 * H, t0 + 6 * H, "s9c1", {1}, ""),
+     (t0 - H, t0 - 1, "done", {0}, ""), (t0, t0 + 2 * H, "other", {2}, "")]
+log = d + "/moved"
+out = {r[2]: r for r in book.take(q, "leg", {0}, H // 2, t0, "", log=log)}
+assert out["fair"][:2] == (t0 + H // 2, t0 + 3 * H + H // 2), out["fair"]
+assert out["s9c0"][0] == out["s9c1"][0] == t0 + 3 * H + H // 2
+assert out["done"] == q[3] and out["other"] == q[4] and out["leg"][:2] == (t0, t0 + H // 2)
+assert open(log).read().count("moved") == 3
+# a second leg on the other card cascades the same way and again keeps fair first
+out = {r[2]: r for r in book.take(list(out.values()), "leg2", {1}, H, t0, "", log=log)}
+assert out["fair"][0] == t0 + H and out["s9c0"][0] == out["s9c1"][0] == t0 + 4 * H, out
+print("ok")
