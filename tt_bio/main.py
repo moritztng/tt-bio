@@ -1997,6 +1997,40 @@ def _scheduler_session(workers: list, debug: bool):
         shutil.rmtree(tmpdir, ignore_errors=True)
 
 
+def _local_cards(device_ids: str | None, n_jobs: int) -> list[int]:
+    """The cards a local run spreads ``n_jobs`` independent jobs over: ``--devices`` if given,
+    else every card on this host, never more cards than jobs. The same rule `predict` uses."""
+    from tt_bio.runtime import detect_tenstorrent_devices
+    try:
+        return detect_tenstorrent_devices(device_ids, 0, max_workers=max(int(n_jobs), 1))
+    except ValueError as e:
+        raise click.UsageError(str(e))
+
+
+@contextmanager
+def _local_controller(cards: list[int], debug: bool = False, *, ready_s: float = 900.0):
+    """A loopback controller with one pinned worker per card; yields its URL.
+
+    This is how a single-card model runs on several cards: the command takes its own
+    ``--controller`` path against a private pool, exactly as it would against a fleet, so
+    multi-card is one code path (the predict scheduler and the fleet workers), not a second
+    fanout per model. Returns once at least one worker is online; the rest join as they open.
+    """
+    with _scheduler_session(_local_workers("tenstorrent", 0, ",".join(map(str, cards)),
+                                           max_workers=len(cards)), debug) as (client, procs):
+        deadline = time.time() + ready_s
+        while int(client.cluster().get("online_workers") or 0) < 1:
+            if not any(p.is_alive() for p in procs):
+                raise click.ClickException(
+                    f"no worker could open any of cards {cards}; rerun with --debug to see why.")
+            if time.time() > deadline:
+                raise click.ClickException(f"no worker came online on cards {cards} "
+                                           f"within {ready_s:.0f} s.")
+            time.sleep(1.0)
+        click.echo(f"Fanning out across {len(cards)} card(s): {cards}")
+        yield client.base_url
+
+
 def _persist_run_results(client: ControllerClient, run_id: str, results_path: Path) -> None:
     """Merge per-run result rows from the controller into the local results.json."""
     try:
@@ -5166,9 +5200,19 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
         return
 
     if model in ("pxdesign", "rfd4"):
-        # One card per local process: --devices names it, and nothing else is opened.
+        # Every design is an independent job. Several of them on a multi-card host run through
+        # the same controller path a fleet uses, against a private pool of one worker per card;
+        # one design (or a run only a local process can do) opens exactly one card.
         if not controller:
-            _pin_one_card(devices, model)
+            local_only = model == "rfd4" and bool(
+                lora or tsr_k is not None or save_trajectory_every
+                or _rfd4_sampling(partial_fraction, partial_t_backbone, partial_t_latent,
+                                  couple_partial_t, inverse_folding))
+            cards = [] if local_only else _local_cards(devices, num_designs or 1)
+            if len(cards) > 1:
+                controller = click.get_current_context().with_resource(_local_controller(cards))
+            else:
+                _pin_one_card(devices, model)
         elif _explicit("devices"):
             click.secho("Note: with --controller the fleet's workers pick the cards; "
                         "ignoring --devices.", fg="yellow")
