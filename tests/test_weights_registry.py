@@ -15,6 +15,7 @@ artifacts.
 from __future__ import annotations
 
 import json
+import os
 import tarfile
 import time
 import zipfile
@@ -725,3 +726,53 @@ def test_esmfold2_ccd_is_fetched_by_preflight_and_found_offline(tmp_path, monkey
     assert Path(conformers.load_ccd()) == snap / "ccd.pkl"
     monkeypatch.setattr(weights, "configure_hf_cache", lambda *a, **k: None)
     assert weights.cached_path("esmfold2-ccd") == snap / "ccd.pkl"
+
+
+_ESM2_OFFLINE_CHILD = r"""
+import sys
+sys.path.insert(0, sys.argv[1])
+from tt_bio import nesso1_input, saprot
+saprot.load_esm2 = lambda repo, cache_dir=None: None   # the tokenizer is what died on the box
+encode = nesso1_input.device_esm(nesso1_input.ESM2_MODEL, None)
+print("TOKENIZER_OK")
+"""
+
+
+def test_nesso1_esm2_is_fetched_by_preflight_and_found_offline(tmp_path):
+    """`tt-bio affinity` embeds the target with ESM-2 650M through `transformers`, and that
+    model had no row: preflight never fetched it, so on a box with HF_HUB_OFFLINE=1 every
+    affinity run died loading the tokenizer ("couldn't connect to huggingface.co", Tamarind
+    box, 11-24). It now has a pinned row, and the loaders read it at that commit -- a pinned
+    snapshot writes no refs/main, so asking for `main` offline would miss it again."""
+    pytest.importorskip("transformers")
+    import subprocess
+    import sys
+
+    from tt_bio import nesso1_input
+
+    repo = weights.ESM2_650M_REPO
+    assert nesso1_input.ESM2_MODEL == repo
+    rev = weights.hf_revision(repo)
+    assert rev, f"{repo} is pinned"
+    rows = [a for a in weights.artifacts_for("nesso1") if a.repo == repo]
+    assert rows and rows[0].revision == rev, "preflight nesso1 skips ESM-2 650M"
+    need = {"config.json", "model.safetensors", "tokenizer_config.json", "vocab.txt",
+            "special_tokens_map.json"}
+    assert need <= set(rows[0].allow), rows[0].allow
+
+    # The cache exactly as a pinned snapshot leaves it: files under the commit, no refs.
+    snap = tmp_path / ("models--" + repo.replace("/", "--")) / "snapshots" / rev
+    snap.mkdir(parents=True)
+    vocab = ["<cls>", "<pad>", "<eos>", "<unk>", *"LAGVSERTIDPKQNFYMHWCXBUZO.-", "<null_1>", "<mask>"]
+    (snap / "vocab.txt").write_text("\n".join(vocab) + "\n")
+    (snap / "tokenizer_config.json").write_text('{"model_max_length": 1000000000000000019884624838656, "tokenizer_class": "EsmTokenizer"}')
+    (snap / "special_tokens_map.json").write_text('{"cls_token": "<cls>", "eos_token": "<eos>", "mask_token": "<mask>", "pad_token": "<pad>", "unk_token": "<unk>"}')
+    (snap / "config.json").write_text('{"model_type": "esm", "architectures": ["EsmForMaskedLM"], "vocab_size": 33, "hidden_size": 64, "num_hidden_layers": 1, "num_attention_heads": 4, "intermediate_size": 128, "pad_token_id": 1, "mask_token_id": 32, "position_embedding_type": "rotary", "token_dropout": true, "emb_layer_norm_before": false}')
+    env = {**os.environ, "HF_HUB_OFFLINE": "1", "TRANSFORMERS_OFFLINE": "1",
+           "HF_HUB_CACHE": str(tmp_path)}
+    env.pop("HF_HOME", None)
+    env.pop("TT_BIO_CACHE", None)
+    repo_root = str(Path(weights.__file__).parents[1])
+    res = subprocess.run([sys.executable, "-c", _ESM2_OFFLINE_CHILD, repo_root], env=env,
+                         capture_output=True, text=True, timeout=300)
+    assert "TOKENIZER_OK" in res.stdout, res.stderr[-2000:]

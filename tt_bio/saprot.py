@@ -1329,7 +1329,10 @@ def load_esm2(repo: str = "facebook/esm2_t33_650M_UR50D", cache_dir=None) -> Sap
     """
     from transformers import EsmForMaskedLM
 
-    hf = EsmForMaskedLM.from_pretrained(repo, cache_dir=None if cache_dir is None else str(cache_dir))
+    from tt_bio.weights import hf_revision
+
+    hf = EsmForMaskedLM.from_pretrained(repo, revision=hf_revision(repo),
+                                        cache_dir=None if cache_dir is None else str(cache_dir))
     c = hf.config
     # The encoder hard-codes what ESM-2 650M does: rotary positions, no pre-LN on the embedding,
     # the 0.88 token-dropout scale. Refuse a checkpoint that differs rather than run it wrong.

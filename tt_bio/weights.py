@@ -200,6 +200,9 @@ ESMFOLD2_REPO = "biohub/ESMFold2"
 ESMFOLD2_FAST_REPO = "biohub/ESMFold2-Fast"
 RFD4_REPO = "nvidia/RFD4-Proteina"
 MOL1_REPO = "RUIMA294264/Mol-1"
+#: The ESM-2 650M Nesso-1 conditions on (tt_bio/nesso1_input.py). The hub now redirects it to
+#: biohub/, but transformers caches it under the name asked for, so this name is the key.
+ESM2_650M_REPO = "facebook/esm2_t33_650M_UR50D"
 
 HF_REVISIONS = {
     ESMFOLD2_REPO: "8fc3ff471022fdce52c77030685eb775de0c00a3",
@@ -214,6 +217,7 @@ HF_REVISIONS = {
     "westlake-repl/SaProt_1.3B_AF2": "314b94aee8eece41e5d52e0413f7df1cd00d3325",
     NESSO_REPO: NESSO_REVISION,
     RFD4_REPO: "48377e45eb25a4fce8d2aff56c1a659b726d2106",
+    ESM2_650M_REPO: "08e4846e537177426273712802403f7ba8261b6c",
 }
 
 # Repo owners whose pushes we control, so their rows track the default branch.
@@ -429,8 +433,12 @@ _ROWS: tuple[Artifact, ...] = (
     # has them. One snapshot of the pinned tag brings both, plus the 1.7 KB hparams.json
     # that sits beside the weights and needs no row of its own.
     #
-    # ESM-2 650M deliberately gets no row: tt_bio/nesso1_input.py::run_esm reaches it through the
-    # vendored `setup_esm_model`, i.e. through `transformers`, not through this fetch path.
+    # ESM-2 650M once had no row on the theory that `transformers` fetches it itself. It does,
+    # online only: preflight never downloaded it, so `tt-bio affinity` on an HF_HUB_OFFLINE
+    # host died loading the tokenizer (Tamarind box, 11-24). It reads the hub cache, so it is
+    # an hf-repo row too, the PyTorch weights + tokenizer only (the repo also carries a .bin
+    # and a TF copy of the same 2.6 GB), loaded at the pinned commit
+    # (nesso1_input.device_esm, saprot.load_esm2, vendored nesso setup_esm_model).
     Artifact("nesso1", ("nesso1",), "hf-repo", "Apache-2.0 (Recursion)",
              repo=NESSO_REPO, filename=f"{NESSO_REVISION}/model.safetensors",
              approx_bytes=165426752,
@@ -438,6 +446,12 @@ _ROWS: tuple[Artifact, ...] = (
     Artifact("nesso1-ccd", ("nesso1",), "hf-repo", "Apache-2.0 (Recursion)",
              repo=NESSO_REPO, filename="ccd.pkl", approx_bytes=412923533,
              note="CCD molecule dict, read by the host featurizer; $NESSO_CACHE also finds it"),
+    Artifact("nesso1-esm2", ("nesso1",), "hf-repo", "MIT (Meta)",
+             repo=ESM2_650M_REPO, filename="model.safetensors",
+             allow=("config.json", "model.safetensors", "special_tokens_map.json",
+                    "tokenizer_config.json", "vocab.txt"),
+             approx_bytes=2609507429,
+             note="ESM-2 650M, the sequence embedding Nesso-1 conditions on"),
 
     # -- BoltzGen: six flat files under <cache>/boltzgen -----------------------
     Artifact("boltzgen-diverse", ("boltzgen",), "file", "MIT",

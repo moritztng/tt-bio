@@ -218,7 +218,12 @@ def device_esm(model_name: str = ESM2_MODEL, cache_dir: Path | None = None):
 
         from tt_bio.saprot import load_esm2
 
-        tok = AutoTokenizer.from_pretrained(model_name, cache_dir=None if cache_dir is None else str(cache_dir))
+        from tt_bio.weights import hf_revision
+
+        # At the commit preflight fetched: a pinned snapshot writes no refs/main, so an
+        # offline host asking for `main` finds nothing.
+        tok = AutoTokenizer.from_pretrained(model_name, revision=hf_revision(model_name),
+                                            cache_dir=None if cache_dir is None else str(cache_dir))
         model = load_esm2(model_name, cache_dir)
 
         def encode(seq: str) -> torch.Tensor:

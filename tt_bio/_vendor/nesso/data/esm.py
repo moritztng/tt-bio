@@ -14,11 +14,15 @@ def setup_esm_model(
     cache_dir: Path | None = None,
 ) -> tuple[AutoModelForMaskedLM, AutoTokenizer]:
     """Load the ESM-2 model and tokenizer."""
+    from tt_bio.weights import hf_revision
+
     cache_str = str(cache_dir) if cache_dir is not None else None
-    model = AutoModelForMaskedLM.from_pretrained(model_name, cache_dir=cache_str).to(
-        device
-    )
-    tokenizer = AutoTokenizer.from_pretrained(model_name, cache_dir=cache_str)
+    # tt-bio: read at the commit `tt-bio preflight` fetched (no refs/main offline).
+    revision = hf_revision(model_name)
+    model = AutoModelForMaskedLM.from_pretrained(
+        model_name, revision=revision, cache_dir=cache_str
+    ).to(device)
+    tokenizer = AutoTokenizer.from_pretrained(model_name, revision=revision, cache_dir=cache_str)
     model.eval()
     return model, tokenizer
 
