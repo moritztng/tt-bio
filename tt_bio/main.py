@@ -112,6 +112,7 @@ from tt_bio.runtime import (
     P300_SUBSYSTEMS,
     bind_host_threads,
     build_local_workers,
+    chip_summary,
     conflicting_mpi_env,
     mpi_env_warning,
     detect_tenstorrent_devices,
@@ -2212,6 +2213,7 @@ def preflight_cmd(models, download, cache):
     cache_dir = weights.cache_root(root)
     free = shutil.disk_usage(cache_dir if cache_dir.exists() else Path.home()).free
     click.echo(f"cache {cache_dir}  ({free / (1 << 30):.0f} GiB free)")
+    click.echo(f"chips {chip_summary()}")
     _warn_conflicting_mpi_env()
     click.echo()
 

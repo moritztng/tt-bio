@@ -516,6 +516,26 @@ def missing_device_nodes(indices) -> list[tuple[int, int]]:
             if index in nodes and not os.path.exists(f"/dev/tenstorrent/{nodes[index]}")]
 
 
+def chip_summary() -> str:
+    """One line on the Tenstorrent chips this host can actually use, for ``tt-bio preflight``.
+
+    Reads sysfs, the quarantine list and ``/dev`` only. Nothing is opened, so it is honest
+    while every chip is busy, and it says the two things a weights check cannot: whether a
+    chip is there at all, and whether one of them is listed but unusable.
+    """
+    indices = sorted(tt_bdf_to_index().values())
+    if not indices:
+        return "no Tenstorrent chip visible (CPU only; is tt-kmd loaded?)"
+    problems = [f"chip {i} quarantined ({reason})"
+                for i, reason in sorted(quarantined_chips().items()) if i in indices]
+    problems += [f"chip {i} has no /dev/tenstorrent/{node}"
+                 for i, node in missing_device_nodes(indices)]
+    head = f"{len(indices)} Tenstorrent chip(s): {', '.join(str(i) for i in indices)}"
+    if not problems:
+        return head
+    return f"{head}; {len(problems)} unusable: " + "; ".join(problems)
+
+
 def refuse_missing_device_nodes(indices) -> None:
     """Refuse, in a sentence, before UMD throws a backtrace about the wrong thing."""
     missing = missing_device_nodes(indices)
