@@ -143,3 +143,18 @@ def test_mol1_defaults_are_upstreams():
     assert m.RECYCLING_STEPS["mol1"] == 20
     assert m.SAMPLING_STEPS.get("mol1", m.SAMPLING_STEPS_DEFAULT) == 200
     assert m.DIFFUSION_SAMPLES["mol1"] == 5
+
+
+def test_a_bare_preflight_does_not_fail_on_a_bring_your_own_checkpoint(monkeypatch, tmp_path):
+    """A licence-gated checkpoint can only be added by its owner, so `tt-bio preflight` on an otherwise
+    ready machine says ready (rc 0) and names it; asking for that model by name still fails."""
+    def ready(model, root=None):
+        if model == "protenix-v2":
+            return False, [weights.Status(weights.ARTIFACTS["protenix-v2"], "missing", tmp_path / "p", 0)]
+        return True, []
+    monkeypatch.setattr(weights, "model_ready", ready)
+    monkeypatch.setattr(m.shutil, "which", lambda name: "/bin/" + name)
+    result = CliRunner().invoke(cli, ["preflight", "--cache", str(tmp_path)])
+    assert result.exit_code == 0, result.output
+    assert "MANUAL" in result.output and "bring your own checkpoint: protenix-v2" in result.output
+    assert CliRunner().invoke(cli, ["preflight", "protenix-v2", "--cache", str(tmp_path)]).exit_code == 1

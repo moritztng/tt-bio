@@ -2197,7 +2197,9 @@ def preflight_cmd(models, download, cache):
         tt-bio preflight protenix-v1         one model
         tt-bio preflight protenix-v1 --download
 
-    Exits non-zero when anything asked for is not ready, so it works in a script. For
+    Exits non-zero when anything asked for is not ready, so it works in a script. With no
+    MODELS, a model whose licence keeps its checkpoint off the internet is listed but does not
+    fail the check. For
     a model that is missing weights it also measures whether the hosts those weights
     come from can be reached from HERE, which is the part that a job submitted anyway
     would have discovered ten minutes later.
@@ -2271,8 +2273,13 @@ def preflight_cmd(models, download, cache):
         missing_models = [m for m in missing_models if not weights.model_ready(m, root)[0]]
 
     click.echo()
-    if not missing_models and not manual_models:
-        click.echo(f"{len(names)} model(s) ready.")
+    # A bare `tt-bio preflight` asks "is this machine ready", and a checkpoint whose licence
+    # forbids redistribution is something only its owner can add, so it is shown but does not
+    # fail the check. Naming the model asks about it, and then it does.
+    optional = [] if models else manual_models
+    if not missing_models and manual_models == optional:
+        click.echo(f"{len(names) - len(optional)} model(s) ready."
+                   + (f" Optional, bring your own checkpoint: {', '.join(optional)}." if optional else ""))
         return
     if missing_models:
         click.echo(f"{len(missing_models)} model(s) need weights. Fetch them with:")
