@@ -679,3 +679,17 @@ def test_embedding_references_read_the_device_artifact():
     direct = [(f, call) for f in files for call in ("snapshot_download(", "hf_hub_download(")
               if call in (root / f).read_text()]
     assert not direct, f"reference weights fetched around the revision pin: {direct}"
+
+
+def test_weights_table_and_failure_text_survive_artifacts_with_no_model_name(tmp_path):
+    """Mol-1's auxiliary files (constraint checkpoint, CCD components, ...) are loaded
+    under no CLI model name, and `tt-bio weights` indexed models[0] on every row: 0.45.0
+    died with IndexError on a fresh host before printing the table."""
+    from click.testing import CliRunner
+    from tt_bio.main import cli
+
+    orphans = [a for a in weights.ARTIFACTS.values() if not a.models]
+    assert orphans, "no model-less artifact left; this test no longer covers anything"
+    res = CliRunner().invoke(cli, ["weights", "--cache", str(tmp_path)])
+    assert res.exit_code == 0, res.output
+    assert orphans[0].key in res.output

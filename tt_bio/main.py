@@ -2354,7 +2354,7 @@ def _print_weights_table(rows, root) -> None:
         note = f"  ({st.extra})" if st.extra else ""
         if st.override:
             note += f"  [${st.override}]"
-        click.echo(f"{a.key:{width}s}  {a.models[0]:14s} {src[a.key]:{swidth}s} "
+        click.echo(f"{a.key:{width}s}  {(a.models or ('-',))[0]:14s} {src[a.key]:{swidth}s} "
                    + click.style(f"{st.state:8s}", fg=colour.get(st.state))
                    + f" {size:>8s}  {st.path or '-'}{note}")
 

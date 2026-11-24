@@ -785,7 +785,7 @@ class WeightsUnavailable(RuntimeError):
              f"{got} byte(s) arrived and then the transfer died."),
             "",
             "What to do:",
-            f"  1. tt-bio preflight {art.models[0]}",
+            "  1. " + " ".join(["tt-bio preflight", *art.models[:1]]),
             "     says which of those hosts this machine can actually reach, and how fast.",
             "  2. If one is reachable, run it again: the download resumes where it stopped.",
             "  3. If none is reachable from here, fetch it on a machine that can and copy it:",
