@@ -1449,20 +1449,26 @@ def _spawn_worker_processes(controller_url: str, workers: list, debug: bool) -> 
 
 
 def _stop_worker_processes(procs: list) -> None:
-    """Cleanly stop spawned worker processes."""
-    for proc in procs:
-        if proc.is_alive():
+    """Cleanly stop spawned worker processes, all at once.
+
+    Every escalation step (SIGINT, SIGTERM, SIGKILL) goes to all live workers together and
+    shares one deadline, so stopping N workers costs what stopping one does. Stopping them
+    one after another made a 4-card run sit ~80 s after its last result was on disk.
+    """
+    def _escalate(send, grace: float) -> None:
+        live = [p for p in procs if p.is_alive()]
+        for proc in live:
             try:
-                os.kill(proc.pid, signal.SIGINT)
+                send(proc)
             except Exception:
                 pass
-            proc.join(timeout=12)
-            if proc.is_alive():
-                proc.terminate()
-                proc.join(timeout=8)
-            if proc.is_alive():
-                proc.kill()
-                proc.join(timeout=3)
+        deadline = time.monotonic() + grace
+        for proc in live:
+            proc.join(timeout=max(0.0, deadline - time.monotonic()))
+
+    _escalate(lambda p: os.kill(p.pid, signal.SIGINT), 12)
+    _escalate(lambda p: p.terminate(), 8)
+    _escalate(lambda p: p.kill(), 3)
     # A worker that exits through Python removes its own capture file; one we had to kill
     # cannot. By here the run is over and anything worth reading has already been read on
     # the all-dead or respawn path, so consume what is left rather than keep it in /tmp.
