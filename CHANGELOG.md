@@ -16,6 +16,19 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 - **`tt-bio affinity` runs a screen on every card.** It used to refuse more than one `--devices` id and tell you to
   start one process per card yourself. A screen now spreads over the machine's cards, one process each, and writes
   one `affinity.csv` in input order.
+- **Two jobs on one machine take two cards instead of queueing.** A job that opened a card without naming one held
+  every card on the host, so a second job waited for the first. It now leases a single free card, inside the grant
+  it was given if there is one. On a host whose cards are not cabled as the mesh ttnn derives from them, that also
+  turns a TT_FATAL at device open into a normal single-card run.
+- **A contig that names no residue says which numbering it looked in.** RFdiffusion3 resolves `contig` and `unindex`
+  against the author numbering in the mmCIF while PXDesign resolves hotspots against `label_seq`, so a selection can
+  be right for one model and name nothing in the other. Both now name the numbering they matched and the range the
+  chain actually holds, instead of reporting the residue as absent.
+- **`tt-bio embed --help` and `tt-bio saprot --help` describe the real default.** They said the default was "this
+  machine's single card", and `tt-bio predict --help` claimed its `--devices` matched `tt-bio embed` while in fact
+  predict uses every card and embed uses one. Both now say so, with the measured reason to override it: a card costs
+  about 9 s of start-up, so on four p150a cards ESMC-6B takes 1024 sequences from 139 s to 78 s but 64 sequences from
+  37 s to 39 s.
 
 ## [0.45.1] - 2026-11-24
 
