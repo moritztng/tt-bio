@@ -53,6 +53,8 @@ def main():
     ap.add_argument("--steps", type=int, default=None)
     # Diffusion multiplicity. build_fold's `samples` reaches n_sample; the service offers up to 5.
     ap.add_argument("--samples", type=int, default=None)
+    # The served output path: JapanFold folds with write_pae, which brings the PAE/PDE logits to the host.
+    ap.add_argument("--write-pae", action="store_true")
     # Per-fold host / device / transfer split from tt_baseline's whole-function brackets (no device
     # sync added), recorded per fold beside the wall it splits. The cold fold's row is first.
     ap.add_argument("--instrument", action="store_true")
@@ -167,6 +169,7 @@ def main():
     # was a no-op, so --recycles folded at the default and the record named the request.
     _bf = {} if a.samples is None else {"samples": a.samples}
     _bf["recycling_steps"] = a.recycles
+    _bf["write_pae"] = a.write_pae
     one_fold, meta, state = B.build_fold(a.model, msa_dir, tgt, a3m, fast=a.fast,
                                           instrument=a.instrument, trace=True if a.ab_trace else a.trace,
                                           **_bf)[:3]
@@ -174,7 +177,7 @@ def main():
 
     import importlib.metadata as im
     res = {"label": a.label, "model": a.model, "tree": str(tree), "size": a.size, "target": a.target,
-           "census": a.census, "fast": a.fast, "trace": a.trace, "ab_trace": a.ab_trace, "ab_attr": a.ab_attr, "ab_lever": a.ab_lever, "ttnn": im.version("ttnn"),
+           "census": a.census, "fast": a.fast, "write_pae": a.write_pae, "trace": a.trace, "ab_trace": a.ab_trace, "ab_attr": a.ab_attr, "ab_lever": a.ab_lever, "ttnn": im.version("ttnn"),
            "host": os.uname().nodename,
            "card": os.environ.get("TT_VISIBLE_DEVICES"),
            "grid": [int(T.COMPUTE_GRID_MAIN[0]), int(T.COMPUTE_GRID_MAIN[1])],

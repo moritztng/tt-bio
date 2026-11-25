@@ -329,8 +329,10 @@ class Instrument:
 def build_fold(model: str, msa_dir: Path, target: Path, a3m: Path,
                samples: int = DIFFUSION_SAMPLES, hoist: bool = False,
                instrument: bool = False, fast: bool = False, trace: bool | None = None,
-               recycling_steps: int | None = None):
+               recycling_steps: int | None = None, write_pae: bool = False):
     """Open the card, load the model, seed the MSA cache; return ``(one_fold, meta)``.
+
+    ``write_pae`` folds the way JapanFold serves (PAE/PDE logits back to the host and written).
 
     Split out of ``measure`` so the multi-card fan-out driver (``tt_concurrency.py``)
     folds through exactly the same path as the single-card latency baseline. Aggregate
@@ -394,7 +396,7 @@ def build_fold(model: str, msa_dir: Path, target: Path, a3m: Path,
         single_sequence=False, msa_server_url="https://api.colabfold.com",
         msa_pairing_strategy="greedy", msa_server_username=None,
         msa_server_password=None, api_key_value=None, max_msa_seqs=8192,
-        write_pae=False, write_pde=False, write_embeddings=False, method=None,
+        write_pae=write_pae, write_pde=False, write_embeddings=False, method=None,
     )
     _ensure_local_artifacts(cfg)
     n_msa = seed_msa_cache(target, a3m, msa_dir)
