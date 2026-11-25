@@ -479,11 +479,12 @@ import os as _os
 import re
 from dataclasses import dataclass, replace as _dc_replace
 from pathlib import Path
-from typing import Mapping, Sequence
+from typing import Mapping, NoReturn, Sequence
 
 import numpy as np
 import torch
 
+from ..data.yaml_input import refuse_unresolved
 from .input import (
     InputSpecification, ChainBreak, Indexed, Designed, DesignedRange,
     AtomSelection, SYMMETRY_ID_RE, _parse_atom_spec, symmetry_id,
@@ -639,6 +640,21 @@ def _group_residues(arr) -> list[_Residue]:
             elements=[str(e).strip().upper() for e in sub.element],
         ))
     return res
+
+
+def _refuse_missing(field: str, chain: str, res_id: int, by_key: Mapping) -> NoReturn:
+    """Refuse a contig/unindex residue this structure does not have.
+
+    rfd3 resolves a residue by the numbering biotite reads from the mmCIF, which is the
+    AUTHOR numbering -- pxdesign reads ``label_seq`` for the same kind of selection. So
+    the same string can be right for one model and name nothing in the other, and the
+    message has to say which numbering it looked in and what that chain actually holds.
+    """
+    refuse_unresolved(field, [res_id], [k[1] for k in by_key if k[0] == chain],
+                      what=f"chain {chain}", numbering="author numbering (auth_seq_id)")
+    # Unreachable: ``res_id`` is missing from ``by_key`` by construction, so the call
+    # above always raises. Kept so the chain-not-in-structure case still names itself.
+    raise ValueError(f"{field} indexes chain {chain}, which this structure does not have")
 
 
 def _is_protein(r: _Residue) -> bool:
@@ -1009,7 +1025,7 @@ def _plan_unindexed_tokens(spec: InputSpecification, residues: list[_Residue]) -
         for k, rid in enumerate(range(c.start, c.end + 1)):
             r = by_key.get((c.chain, rid))
             if r is None:
-                raise ValueError(f"unindex references {c.chain}{rid} not present in input structure")
+                _refuse_missing("unindex", c.chain, rid, by_key)
             if not _is_protein(r):
                 # p23: NOT a gap in this port -- the real BASE rfd3 model
                 # (this port's target, `models/rfd3/...`) itself HARD-ASSERTS
@@ -1341,7 +1357,7 @@ def _plan_tokens_from_contig(spec: InputSpecification, residues: list[_Residue])
             for rid in range(c.start, c.end + 1):
                 r = by_key.get((c.chain, rid))
                 if r is None:
-                    raise ValueError(f"contig indexes {c.chain}{rid} not present in input structure")
+                    _refuse_missing("contig", c.chain, rid, by_key)
                 if not (_is_protein(r) or _is_na(r)):
                     raise NotImplementedError(
                         f"contig indexes {c.chain}{rid} ({r.res_name}), which is "

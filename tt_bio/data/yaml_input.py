@@ -76,13 +76,16 @@ def refuse_unread_keys(provided, *, honoured, unimplemented=(), what: str) -> No
                          + ". Remove them, or the run costs the same and ignores them.")
 
 
-def refuse_unresolved(name: str, requested, available, *, what: str) -> None:
+def refuse_unresolved(name: str, requested, available, *, what: str,
+                      numbering: str = "label_seq") -> None:
     """Raise ``ValueError`` when a residue selection names nothing in the structure.
 
     A selection that resolves to no residue produces the same input as no selection at
     all, so the run succeeds and the conditioning is simply absent. ``available`` is the
-    numbering the selection is matched against, which is what the message has to show:
-    the usual cause is author numbering given where label_seq is read.
+    numbering the selection is matched against, and ``numbering`` names it, because that
+    is the one thing the message has to say: the models read different numberings from
+    the same mmCIF (rfd3 reads author numbering, pxdesign reads ``label_seq``), so the
+    same residue selection can be right for one and name nothing in the other.
     """
     have = set(available)
     missing = [r for r in requested if r not in have]
@@ -90,5 +93,6 @@ def refuse_unresolved(name: str, requested, available, *, what: str) -> None:
         return
     lo, hi = (min(have), max(have)) if have else ("-", "-")
     raise ValueError(
-        f"{what}: {name} {missing} name no residue (matched against label_seq "
-        f"{lo}..{hi}, {len(have)} residues). Without them the design runs unconditioned.")
+        f"{what}: {name} {missing} name no residue (matched against {numbering} "
+        f"{lo}..{hi}, {len(have)} residues). Check the numbering: the same mmCIF can "
+        f"number residues differently under author and label_seq.")

@@ -119,6 +119,16 @@ def test_refuse_unresolved_names_the_numbering_it_matched_against():
     assert "455" in msg and "486" in msg and "label_seq 1..116" in msg
 
 
+def test_a_selection_says_which_numbering_it_looked_in():
+    # rfd3 reads author numbering and pxdesign reads label_seq from the same mmCIF, so a
+    # contig that is right for one can name nothing in the other. The message has to say
+    # which one it matched, or the user has no way to tell those two cases apart.
+    with pytest.raises(ValueError) as e:
+        refuse_unresolved("contig", [455], list(range(1, 117)), what="chain A",
+                          numbering="author numbering (auth_seq_id)")
+    assert "author numbering (auth_seq_id) 1..116" in str(e.value)
+
+
 def test_refuse_unresolved_passes_when_every_residue_is_there():
     refuse_unresolved("hotspots", [40, 99], list(range(1, 117)), what="chain A")
 
