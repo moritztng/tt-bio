@@ -877,6 +877,7 @@ def screen(
     cache: "Path | None" = None,
     seed: int | None = DEFAULT_SEED,
     progress=None,
+    shard: tuple[int, int] = (0, 1),
 ) -> list[dict]:
     """Score every YAML under ``data``, one record at a time, and return the rows.
 
@@ -901,6 +902,7 @@ def screen(
         num_workers=num_workers,
         esm_cache=cache,
         esm_on_device=use_tenstorrent,
+        shard=shard,
     )
     model = Nesso1.from_pretrained(
         weights,

@@ -51,21 +51,52 @@ def test_help_lists_the_outputs():
         assert token in out.output, token
 
 
-def test_multiple_cards_are_refused(tmp_path, monkeypatch):
-    """Nesso-1 is batch-1 by construction, so --devices 0,1 is a user error rather
-    than something to silently ignore.
+def test_a_screen_spreads_across_cards(tmp_path, monkeypatch):
+    """--devices 0,1 runs one process per card, each on every other input, and merges them
+    into one out_dir: one affinity.csv in input order, every <id>_affinity.json beside it."""
+    import csv
+    import subprocess
 
-    The refusal comes before the ids are checked against the cards present, so it reads the
-    same on every host and under the documented `TT_VISIBLE_DEVICES=0 pytest`."""
-    from tt_bio.main import affinity_cmd
+    from tt_bio import main as M
 
-    monkeypatch.delenv("TT_VISIBLE_DEVICES", raising=False)
+    data = tmp_path / "in"
+    data.mkdir()
+    for stem in ("a", "b", "c"):
+        (data / f"{stem}.yaml").write_text("version: 1\n")
+    monkeypatch.setattr(M, "_local_cards", lambda devices, n: [5, 7])
+    calls = []
 
-    yaml_path = tmp_path / "x.yaml"
-    yaml_path.write_text("version: 1\n")
-    out = CliRunner().invoke(affinity_cmd, [str(yaml_path), "--devices", "0,1"])
-    assert out.exit_code != 0
-    assert "one card per process" in out.output
+    class FakeProc:
+        def __init__(self, argv):
+            calls.append(argv)
+            i, n = map(int, argv[argv.index("--shard") + 1].split("/"))
+            out = __import__("pathlib").Path(argv[argv.index("--out_dir") + 1])
+            out.mkdir(parents=True)
+            stems = ["a", "b", "c"][i::n]
+            with (out / "affinity.csv").open("w", newline="") as fh:
+                w = csv.writer(fh)
+                w.writerow(["id", "n_tokens", "seconds", "error"])
+                for s in reversed(stems):
+                    w.writerow([s, 10, 1.0, ""])
+                    (out / f"{s}_affinity.json").write_text("{}")
+            (out / "processed").mkdir()
+
+        def wait(self):
+            return 0
+
+    monkeypatch.setattr(subprocess, "Popen", FakeProc)
+    out_dir = tmp_path / "out"
+    res = CliRunner().invoke(M.affinity_cmd, [str(data), "--devices", "5,7", "--trunk", "fp32",
+                                              "--out_dir", str(out_dir)])
+    assert res.exit_code == 0, res.output
+    assert [c[c.index("--devices") + 1] for c in calls] == ["5", "7"]
+    assert all("--trunk" in c and c[c.index("--trunk") + 1] == "fp32" for c in calls)
+    with (out_dir / "affinity.csv").open() as fh:
+        assert [r["id"] for r in csv.DictReader(fh)] == ["a", "b", "c"]
+    assert sorted(p.name for p in out_dir.glob("*_affinity.json")) == [
+        "a_affinity.json", "b_affinity.json", "c_affinity.json"]
+    assert sorted(p.name for p in (out_dir / "processed").iterdir()) == ["card5", "card7"]
+    assert not list(out_dir.glob(".card*"))
 
 
 def test_one_record_that_raises_does_not_end_the_screen(tmp_path, monkeypatch):

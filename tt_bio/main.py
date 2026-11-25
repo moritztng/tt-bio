@@ -4571,14 +4571,17 @@ def embed_cmd(data, model, out_dir, out_format, pool, return_logits, fast, batch
               help="Path to ccd.pkl. Auto-discovered next to the checkpoint if omitted.")
 @click.option("--cache", default=None, type=click.Path(path_type=Path),
               help="HuggingFace cache dir for the checkpoint and the ESM-2 encoder.")
-@click.option("--devices", default=None,
-              help="Physical TT card id to pin, e.g. '2'. Default: this machine's first card.")
+@click.option("--devices", "--device_ids", "devices", default=None,
+              help="Comma-separated physical TT card ids to spread a screen across, e.g. "
+                   "'0,1,2,3'. Default: every card on this machine, never more cards than inputs.")
 @click.option("--host_threads", default=None, type=int,
-              help="CPU threads this process may use (default: all cores). Set it when you run "
-                   "one affinity screen per card side by side, as for `predict`.")
+              help="CPU threads this process may use (default: all cores, split evenly between "
+                   "the cards of a multi-card screen).")
+@click.option("--shard", default=None, hidden=True,
+              help="I/N: score every N-th input from the I-th (one card of a multi-card screen).")
 @torch.no_grad()
 def affinity_cmd(data, model, out_dir, accelerator, trunk, recycling_steps, tokens_budget,
-                 num_workers, seed, ccd, cache, devices, host_threads):
+                 num_workers, seed, ccd, cache, devices, host_threads, shard):
     """Predict protein-ligand binding affinity without folding a structure.
 
     DATA is a YAML file or a directory of them. Each needs ``version: 1``, at least one
@@ -4599,9 +4602,15 @@ def affinity_cmd(data, model, out_dir, accelerator, trunk, recycling_steps, toke
     from tt_bio.capabilities import check_capabilities
     from tt_bio.nesso1_input import find_yamls
 
-    for yp in find_yamls(Path(data)):
+    yamls = find_yamls(Path(data))
+    for yp in yamls:
         check_capabilities(yp, None, model)
-    _pin_one_card(devices, "nesso1")
+    out = Path(out_dir).expanduser()
+    cards = _local_cards(devices, len(yamls)) if accelerator == "tenstorrent" and not shard else []
+    if len(cards) > 1:
+        _affinity_across_cards(click.get_current_context(), data, yamls, out, cards)
+        return
+    _pin_one_card(",".join(map(str, cards)) or devices, "nesso1")
     _cap_worker_threads(1, host_threads)
     bind_host_threads()
     use_tt = accelerator == "tenstorrent"
@@ -4610,7 +4619,6 @@ def affinity_cmd(data, model, out_dir, accelerator, trunk, recycling_steps, toke
         ensure_p300_mesh_descriptor()
     from tt_bio.nesso1 import DEFAULT_SEED, REPORTED_SCALARS, screen
 
-    out = Path(out_dir).expanduser()
     # --trunk picks the device pairformer; the torch path is fp32 whatever it says.
     click.echo(f"Loading {model} ({f'tenstorrent, trunk {trunk}' if use_tt else 'cpu, fp32'}) …")
     try:
@@ -4624,6 +4632,7 @@ def affinity_cmd(data, model, out_dir, accelerator, trunk, recycling_steps, toke
             ccd_pkl=ccd,
             cache=cache,
             seed=None if seed == -1 else (DEFAULT_SEED if seed is None else seed),
+            shard=tuple(map(int, shard.split("/"))) if shard else (0, 1),
             progress=lambda r: click.echo(
                 f"  {r['id']}: affinity {r['affinity_pred_value']:.3f} "
                 f"p(binder) {r['affinity_probability_binary']:.3f} "
@@ -4633,20 +4642,65 @@ def affinity_cmd(data, model, out_dir, accelerator, trunk, recycling_steps, toke
     except (FileNotFoundError, ValueError) as e:
         raise click.ClickException(str(e))
 
-    csv_path = out / "affinity.csv"
-    cols = ["id", "n_tokens", "seconds", *REPORTED_SCALARS]
+    _write_affinity_csv(out, rows)
+
+
+def _write_affinity_csv(out: Path, rows: list[dict]) -> None:
+    """affinity.csv for a screen, one row per input; exits 1 when any input failed."""
     import csv
 
+    from tt_bio.nesso1 import REPORTED_SCALARS
+
+    csv_path = out / "affinity.csv"
+    cols = ["id", "n_tokens", "seconds", *REPORTED_SCALARS]
     with csv_path.open("w", newline="") as fh:
         # csv quotes an error message's commas; a plain join split them into extra columns.
         w = csv.writer(fh)
         w.writerow([*cols, "error"])
         for r in rows:
             w.writerow([r.get(c, "") for c in cols] + [r.get("error", "")])
-    ok = [r for r in rows if "error" not in r]
+    ok = [r for r in rows if not r.get("error")]
     click.echo(f"Done — {len(ok)}/{len(rows)} scored → {csv_path}")
     if len(ok) != len(rows):
         raise SystemExit(1)
+
+
+def _affinity_across_cards(ctx, data, yamls: list[Path], out: Path, cards: list[int]) -> None:
+    """One affinity process per card, each scoring every len(cards)-th input, merged into one
+    out_dir. Same as running one screen per card by hand, which is what users did before."""
+    import csv
+    import subprocess
+
+    n = len(cards)
+    click.echo(f"Screening {len(yamls)} input(s) across cards {cards} → {out}")
+    argv = []
+    for p in ctx.command.params:  # forward every option the user gave, except the card split
+        v = ctx.params[p.name]
+        if (p.name in ("data", "devices", "out_dir", "shard", "host_threads")
+                or ctx.get_parameter_source(p.name).name == "DEFAULT"):
+            continue
+        argv += [p.opts[0], str(v)]
+    threads = ctx.params["host_threads"] or max(1, (os.cpu_count() or n) // n)
+    parts = [out / f".card{c}" for c in cards]
+    procs = [subprocess.Popen([_sys.executable, "-m", "tt_bio.main", "affinity", str(data), *argv,
+                               "--devices", str(c), "--shard", f"{i}/{n}", "--out_dir", str(d),
+                               "--host_threads", str(threads)])
+             for i, (c, d) in enumerate(zip(cards, parts))]
+    rcs = [p.wait() for p in procs]
+    rows, order = [], {y.stem: i for i, y in enumerate(yamls)}
+    for c, d, rc in zip(cards, parts, rcs):
+        if not (d / "affinity.csv").exists():
+            raise click.ClickException(f"card {c} failed (exit {rc}) before scoring anything; "
+                                       f"its files are in {d}")
+        with (d / "affinity.csv").open() as fh:
+            rows += list(csv.DictReader(fh))
+        for f in d.glob("*_affinity.json"):
+            f.replace(out / f.name)
+        if (d / "processed").exists():
+            (out / "processed").mkdir(parents=True, exist_ok=True)
+            (d / "processed").replace(out / "processed" / f"card{c}")
+        shutil.rmtree(d, ignore_errors=True)
+    _write_affinity_csv(out, sorted(rows, key=lambda r: order.get(r["id"], len(order))))
 
 
 @cli.command("saprot")
@@ -4918,9 +4972,8 @@ def _run_rfd4_cli(inputs: Path, out_dir, num_designs, backend, recipe, lora, nst
 @click.option("--devices", "--device_ids", "devices", default=None,
               help="Comma-separated physical TT card ids to fan the designs across, e.g. "
                    "'0,1,2,3' (data-parallel, the same pattern `tt-bio predict` uses). "
-                   "Default: all detected cards (boltzgen) or this machine's single card (rfd3). "
-                   "pxdesign and rfd4 run on one card: --devices N opens only card N, so one "
-                   "process per card packs a multi-card host.")
+                   "Default: every card on this machine for boltzgen, rfd4 and pxdesign (never "
+                   "more cards than designs), this machine's single card for rfd3.")
 # ---- rfd3-scoped options ----
 @click.option("--checkpoint", "checkpoint", default=None, metavar="DIR",
               help="rfd3 only. Directory of extracted RFD3 device weights. Default: "

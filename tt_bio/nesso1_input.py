@@ -386,12 +386,15 @@ def prepare(
     esm_cache: Path | None = None,
     max_dist: float = 22.0,
     esm_on_device: bool = False,
+    shard: tuple[int, int] = (0, 1),
 ):
     """YAML path or directory -> (dataset, manifest, failed stems).
 
     ``esm_on_device`` runs a missing ESM-2 embedding on the Tenstorrent card instead of the CPU.
+    ``shard=(i, n)`` keeps every n-th input from the i-th, the slice one card of a multi-card
+    screen scores.
     """
-    yaml_paths = find_yamls(data)
+    yaml_paths = find_yamls(data)[shard[0]::shard[1]]
     warn_ignored_protein_keys(yaml_paths)
     paths = resolve_paths(out_dir)
     # esm_cache is the HuggingFace cache the caller named (`--cache`), which is where the
