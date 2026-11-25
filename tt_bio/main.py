@@ -5391,12 +5391,6 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
         if not specs:
             raise click.ClickException(f"no spec ids in --spec matched {list(keep)}")
 
-    if not controller and from_pdb and checkpoint is None:
-        # Same rule as rfd4 and pxdesign: several designs on a multi-card host run through the
-        # controller path against a private pool of one worker per card.
-        cards = _local_cards(devices, len(specs) * num_designs)
-        if len(cards) > 1:
-            controller = click.get_current_context().with_resource(_local_controller(cards))
     if controller:
         if not from_pdb:
             raise click.ClickException(
@@ -5423,10 +5417,11 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
         if not Path(gdir).exists():
             raise click.ClickException(f"checkpoint not found: {gdir}")
 
-    device_list = None
-    if devices:
-        from tt_bio import runtime
-        device_list = runtime.detect_tenstorrent_devices(devices, 0, len(specs) * num_designs)
+    # Every card on the machine by default, never more cards than designs. rfd3's own fan-out
+    # shards the (spec, design) jobs across pinned subprocesses, and each card still batches its
+    # share -- which is why rfd3 keeps this path instead of the per-job controller one that
+    # rfd4 and pxdesign use.
+    device_list = _local_cards(devices, len(specs) * num_designs) or None
 
     ensure_p300_mesh_descriptor()
 
