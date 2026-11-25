@@ -4972,8 +4972,7 @@ def _run_rfd4_cli(inputs: Path, out_dir, num_designs, backend, recipe, lora, nst
 @click.option("--devices", "--device_ids", "devices", default=None,
               help="Comma-separated physical TT card ids to fan the designs across, e.g. "
                    "'0,1,2,3' (data-parallel, the same pattern `tt-bio predict` uses). "
-                   "Default: every card on this machine for boltzgen, rfd4 and pxdesign (never "
-                   "more cards than designs), this machine's single card for rfd3.")
+                   "Default: every card on this machine, never more cards than designs.")
 # ---- rfd3-scoped options ----
 @click.option("--checkpoint", "checkpoint", default=None, metavar="DIR",
               help="rfd3 only. Directory of extracted RFD3 device weights. Default: "
@@ -5387,6 +5386,12 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
         if not specs:
             raise click.ClickException(f"no spec ids in --spec matched {list(keep)}")
 
+    if not controller and from_pdb and checkpoint is None:
+        # Same rule as rfd4 and pxdesign: several designs on a multi-card host run through the
+        # controller path against a private pool of one worker per card.
+        cards = _local_cards(devices, len(specs) * num_designs)
+        if len(cards) > 1:
+            controller = click.get_current_context().with_resource(_local_controller(cards))
     if controller:
         if not from_pdb:
             raise click.ClickException(
