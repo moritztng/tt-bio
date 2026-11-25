@@ -5,6 +5,18 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+### Fixed
+- **Designing on several cards is faster than on one again.** `tt-bio design --model rfd4` and `--model pxdesign` gave
+  each card one design at a time, which threw away the batching that makes a design cheap: 32 designs took 108 s
+  (rfd4) and 125 s (pxdesign) across four cards against 57 s and 45 s on one. A card now gets a slice of the run and
+  makes it in one trajectory. Four p150a cards, 32 designs: rfd4 64 s, pxdesign 38 s. `--model rfd3` uses its own
+  fan-out, which already batched, and now spreads over every card by default like the others.
+- **Embedding on several cards no longer rebuilds the ESMC-6B weight cache every run.** The fan-out wrote a fresh
+  copy of the tiled 24 GB checkpoint per invocation instead of using the persistent cache a single-card run uses.
+- **`tt-bio affinity` runs a screen on every card.** It used to refuse more than one `--devices` id and tell you to
+  start one process per card yourself. A screen now spreads over the machine's cards, one process each, and writes
+  one `affinity.csv` in input order.
+
 ## [0.45.1] - 2026-11-24
 
 ### Fixed
