@@ -68,9 +68,11 @@ def design(spec: str | Path, out_dir: str | Path = "designs", *, num_designs: in
     CA-only multi-model CIF beside each design.
 
     ``first_index`` and ``total_designs`` describe a slice of a larger run: this call produces
-    designs ``first_index .. first_index + num_designs - 1`` of ``total_designs``, named and
-    seeded exactly as they would be if the whole run went through one call. That is how a run
-    splits across cards; the default is the whole run.
+    designs ``first_index .. first_index + num_designs - 1`` of ``total_designs``, named by their
+    index in the whole run and given the per-design noise of that index. That is how a run splits
+    across cards; the default is the whole run. The designs of a split run are not bit-identical
+    to those of an unsplit one -- a design is a sample, and the batch it was drawn in is part of
+    how it came out.
 
     ``on_design(example_id, tokens, cif)`` is called as each design's input is featurized and
     ``on_write(path)`` as each output lands; the CLI prints its progress from both.

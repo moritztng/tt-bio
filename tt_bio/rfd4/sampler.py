@@ -964,8 +964,11 @@ def generate(spec: SamplingSpec, network: Network, *, n_designs: int, n_tokens: 
     structure to corrupt, per modality. Everything else is :func:`trajectory`.
 
     ``first`` is the design index of row 0: a shard holding designs ``first .. first + n_designs
-    - 1`` of a larger run draws exactly what those designs draw in it, so splitting a run across
-    cards gives the same designs as running it whole. ``lane_width`` splits the designs into lanes of that many, each its own trajectory, and runs
+    - 1`` of a larger run draws the per-design NOISE those designs draw in it, which is what
+    keeps a slice's noise independent of how the run was split. It does not make a split run
+    bit-identical to a whole one end to end (measured on the Tamarind box 2026-11-25: 32 designs
+    as 4 slices of 8 differ from one batch of 32), so read it as "this slice is a well-defined
+    slice", not as cross-split reproducibility. ``lane_width`` splits the designs into lanes of that many, each its own trajectory, and runs
     the lanes through :func:`run_lanes`, so one lane's host work overlaps another's network call.
     A lane is exactly the chunk ``ChunkedNetwork`` would run at that width, with the same draws, so
     the designs are the same; it needs ``rng_mode="per_design"``, because under ``"upstream"`` a

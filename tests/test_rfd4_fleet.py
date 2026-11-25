@@ -84,8 +84,8 @@ def test_a_job_is_a_slice_of_the_run_carrying_its_own_input(submitted):
     # 3 workers, 2 designs per spec: a design each, nothing to batch.
     assert [j["name"] for j in client.payload["jobs"]] == ["a_0", "a_1", "b_0", "b_1"]
     # Each job ships the annotated CIF the submitter built, so no worker reads this filesystem.
-    # The run's seed rides whole and the slice says which designs it makes, so a design's noise
-    # does not depend on how the run was split.
+    # The run's seed rides whole and the slice says which designs it makes, so a slice is a
+    # well-defined slice whichever card takes it.
     assert [(p["example_id"], p["seed"], p["first"], p["count"], p["cif"]) for p in payloads(client)] == [
         ("a", 5, 0, 1, "data_a\n"), ("a", 5, 1, 1, "data_a\n"),
         ("b", 5, 0, 1, "data_b\n"), ("b", 5, 1, 1, "data_b\n")]
@@ -104,7 +104,7 @@ def test_designs_are_batched_one_job_per_card(submitted):
     assert [j["name"] for j in client.payload["jobs"]] == ["a_0", "a_2", "a_4", "a_6"]
     assert [(p["first"], p["count"], p["total"]) for p in payloads(client)] == [
         (0, 2, 8), (2, 2, 8), (4, 2, 8), (6, 2, 8)]
-    # Every design of the run comes back, named as the single-card run names them.
+    # Every design of the run comes back, numbered across the whole run rather than per card.
     assert [r["name"] for r in rows] == [f"a_{i}" for i in range(8)]
 
 

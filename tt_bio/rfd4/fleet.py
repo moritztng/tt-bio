@@ -35,8 +35,9 @@ def _jobs(inputs, num_designs: int, seed: int, workers: int) -> list[dict[str, A
     design per job threw that away -- on a 4-card box, 32 designs ran 57 s batched on one card
     and 108 s as 32 single-design jobs across four (2026-11-25). So the unit of work a card
     gets is a slice of the run, not a design, and the slice carries the index of its first
-    design: ``first .. first + count - 1`` draw and are named exactly as they would be in one
-    whole run, so the designs do not depend on how many cards ran them.
+    design: ``first .. first + count - 1`` are named by their index in the whole run and take
+    that index's per-design noise, so a slice is the same slice whatever card runs it. Designs
+    are samples, so a run split four ways is not the same set a single batch of 32 produces.
     """
     jobs = []
     per_job = max(1, -(-int(num_designs) // max(1, int(workers))))
