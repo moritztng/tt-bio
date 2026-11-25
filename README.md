@@ -387,7 +387,9 @@ tt-bio affinity ligands/ --out_dir screen               # a directory is a scree
 ```
 
 A directory keeps the model resident across inputs, so a ligand series against one target pays the
-weight load and the kernel compile once. Output is one `<id>_affinity.json` per input plus an
+weight load and the kernel compile once. A screen also spreads over every card on the machine, one
+process per card and never more cards than inputs (`--devices 0,2` restricts, `--devices 2` pins
+one), and the rows are reassembled in input order. Output is one `<id>_affinity.json` per input plus an
 `affinity.csv` for the whole run: the affinity value (mean of a two-member ensemble, and each
 member), a binary binder probability, and six distogram entropies.
 
@@ -433,7 +435,7 @@ tt-bio design specs.json --model rfd3 --from_pdb --out_dir designs/
 
 **[PXDesign](https://github.com/bytedance/PXDesign)** generates binder backbones against a target structure, conditioned on a distogram of the target rather than its coordinates. Input is a target YAML naming a structure file, the chains to condition on (with optional per-chain crop and hotspots) and a `binder_length`; each design is written as a CIF in the target structure's own frame, so it opens alongside your input file. A `designs.json` lands beside them with each design's numbers: fit RMSD against the target, binder residue and atom counts, and how many target tokens it was conditioned on. The binder is written as GLY because PXDesign generates a backbone with no sequence. Hotspot residues are `label_seq` numbers, not the author numbering a viewer shows, and a number that names no residue is refused rather than dropped. `--num_designs` is also the batch axis for this model: every requested design comes from one batched diffusion trajectory, and the gain per design grows with the batch and shrinks with the target: 2.7x at 8 designs against a 256-residue target, 1.5x against a 512-residue one, and flat from 16 up rather than turning back. A given `--seed` and `--num_designs` always reproduce the same designs, but `--num_designs 1` and `--num_designs 2` do not share their design 0: asking for more designs currently changes which ones you get, so pin both values when you want a run back. Selecting designs, which upstream does with a Protenix and an AF2-IG filter, is not on the CLI yet.
 
-Each model downloads its weights automatically on first use. BoltzGen and RFdiffusion3 fan out across every available card (`--devices 0,2` restricts); PXDesign and RFD4 run on one card locally (`--devices 2` picks it and the run opens no other card), or one design per card across a host's controller with `--controller http://127.0.0.1:8765`. `tt-bio gen` still works as a deprecated alias for `tt-bio design --model boltzgen`.
+Each model downloads its weights automatically on first use. All four design models fan out across every available card by default, never using more cards than there are designs (`--devices 2` pins one, `--devices 0,2` restricts to two). PXDesign and RFD4 split `--num_designs` into one batched slice per card, so each card keeps the batching that makes a design cheap: 128 RFD4 designs take 158 s on one p150a and 87 s on four, and PXDesign 140 s and 58 s. A batch has to be big enough to be worth the extra cards, since each one pays its own engine build: at 32 designs RFD4 is still a touch slower on four cards than on one. The same slicing is what `--controller http://127.0.0.1:8765` hands a host's workers. `tt-bio gen` still works as a deprecated alias for `tt-bio design --model boltzgen`.
 
 How many designs a card returns per hour, how `--num_designs` and `--devices` move it, and how to size a campaign: [`docs/design-throughput.md`](docs/design-throughput.md).
 
@@ -900,7 +902,7 @@ Model-specific options are labelled below.
 | `--method` | none | **(Boltz-2)** Condition on an experimental method, e.g. `"X-RAY DIFFRACTION"`, `"ELECTRON MICROSCOPY"`, `"SOLUTION NMR"` or `MD`; an unknown name is refused |
 | `--affinity_mw_correction` | `False` | **(Boltz-2)** Apply MW correction to affinity |
 | `--num_devices` | `0` | Number of TT devices (0=all available) |
-| `--device_ids`, `--devices` | all | Comma-separated TT device IDs (e.g. `0,2`); `--devices` is the shorter alias (matches `tt-bio embed`) |
+| `--device_ids`, `--devices` | all | Comma-separated TT device IDs (e.g. `0,2`); `--devices` is the shorter alias. A fold is big enough to be worth a card, so predict uses all of them by default; `tt-bio embed` and `tt-bio saprot` default to one, because a short sequence is not |
 | `--host_threads` | all cores | Total CPU threads this process may use, split across its cards. Set it when you run several single-card predicts side by side on one host: each one otherwise sizes its thread pools to every core and they fight for the CPU. Use cores ÷ concurrent predicts. At two threads per card or fewer the pools also stop spinning through device syncs ([Tuning flags](docs/tuning-flags.md)) |
 | `--fast` | `False` | Makes some operations use a lower-precision numeric format that runs faster; accuracy is typically very close |
 | `--diffusion_precision` | `fp32` | **(Protenix)** `bf16` runs the diffusion module in bf16: about 9 % faster per fold on Wormhole; it can pick a different binding mode where fp32 is uncertain ([measurement](docs/protenix-diffusion-precision.md)) |
