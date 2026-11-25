@@ -2244,31 +2244,6 @@ def _embed_6b_mode(model, fast: bool):
     return model
 
 
-def load_esmc6b_shared(cache_dir: str, *, name: str = "esmc-6b", fast: bool = False):
-    """Load ESMC-6B for data-parallel fanout via a shared /dev/shm tile cache.
-
-    Data-parallel fanout ran O(N) redundant work: every one of the N card-workers
-    independently read the 24 GB checkpoint, converted it, and tiled it on host --
-    all bandwidth-bound, so per-worker load grew ~linearly with N and 6B fanout
-    regressed past 2 cards. Here the first worker to arrive (the builder) does that
-    work exactly once, publishing each tiled weight to ``cache_dir``; peers block on
-    the build lock, then load the pre-tiled weights straight to their own card (no
-    checkpoint read, no re-tiling) and pay only the per-card DMA -- which runs in
-    parallel across the independent PCIe links. Bit-exact vs the single-card path:
-    a loaded tile is exactly what from_torch would have produced.
-    """
-    import tt_bio.tenstorrent as _tt
-
-    _tt.set_fast_mode(_6b_weights_b8(fast))   # the stored weights; the forward runs in `fast`
-    try:
-        _t = _time.perf_counter()
-        model = ESMCLanguageModel.from_pretrained(name=name, tile_dir=cache_dir)
-        _tlog(f"cache_load {_time.perf_counter()-_t:.2f}s")
-        return _embed_6b_mode(model, fast)
-    finally:
-        _tt.set_fast_mode(fast)
-
-
 def esmc6b_tile_dir(name: str, snapshot) -> str | None:
     """The persistent host tile cache for this 6B build, or None when its disk is too full.
 
@@ -2895,11 +2870,7 @@ def _run_embed_shard(in_path: str, out_path: str) -> None:
     with open(in_path, "rb") as f:
         req = pickle.load(f)
     _t = _time.perf_counter()
-    if req.get("cache_dir"):
-        model = load_esmc6b_shared(req["cache_dir"], name=req["model"], fast=req["fast"])
-    else:
-        model = load_esmc(req["model"], fast=req["fast"],
-                          trace=trace_pays(req["sequences"]))
+    model = load_esmc(req["model"], fast=req["fast"], trace=trace_pays(req["sequences"]))
     _tlog(f"load_total {_time.perf_counter()-_t:.2f}s")
     results = embed_sequences(model, req["sequences"], return_logits=req["return_logits"],
                               pool=req["pool"], batch_size=req["batch_size"])
@@ -2925,7 +2896,7 @@ def _thread_cap_env(n_workers: int) -> dict:
 
 def _spawn_shard(idx: int, device: int, shard: list[tuple[str, str]], workdir: str, *,
                  model: str, fast: bool, return_logits: bool, pool: str, batch_size: int,
-                 cache_dir: str | None = None, thread_cap_env: dict | None = None):
+                 thread_cap_env: dict | None = None):
     """Launch a pinned subprocess embedding ``shard`` on physical card ``device``.
 
     Returns ``(proc, out_path, device, log_path, logf)``. The child sets
@@ -2938,8 +2909,7 @@ def _spawn_shard(idx: int, device: int, shard: list[tuple[str, str]], workdir: s
     log_path = os.path.join(workdir, f"shard{idx}.log")
     with open(in_path, "wb") as f:
         pickle.dump(dict(model=model, sequences=dict(shard), fast=fast,
-                         return_logits=return_logits, pool=pool, batch_size=batch_size,
-                         cache_dir=cache_dir), f)
+                         return_logits=return_logits, pool=pool, batch_size=batch_size), f)
     from tt_bio.device_lease import orphan_guard_env
     env = {**os.environ, **(thread_cap_env or {}), **orphan_guard_env(),
            "TT_VISIBLE_DEVICES": str(device), "TT_BIO_LOGICAL_DEVICE_ID": "0"}
@@ -2977,11 +2947,6 @@ def _await_shard(proc, out_path: str, device: int, log_path: str, logf) -> list[
         return pickle.load(f)
 
 
-def _shm_dir() -> str:
-    """RAM-backed scratch dir for the shared tile cache; falls back to $TMPDIR."""
-    return "/dev/shm" if os.path.isdir("/dev/shm") else tempfile.gettempdir()
-
-
 def embed_multicard(sequences: dict[str, str], *, model: str, devices: list[int],
                     fast: bool = False, return_logits: bool = False, pool: str = "mean",
                     batch_size: int = 8) -> list[ESMCEmbedding]:
@@ -2989,7 +2954,12 @@ def embed_multicard(sequences: dict[str, str], *, model: str, devices: list[int]
 
     Shards ``sequences`` across ``devices`` (one pinned subprocess per card), runs the
     single-card :func:`embed_sequences` in each, then gathers and reassembles the
-    embeddings in original input order. Embarrassingly parallel: ESMC embeddings are
+    embeddings in original input order. A worker loads exactly as a single-card run does, so
+    ESMC-6B's tiled weights come from the persistent host tile cache (``esmc6b_tile_dir``),
+    built once under its own lock and then warm for every later run. A per-run /dev/shm copy
+    used to be built here instead, which rebuilt the 24 GB checkpoint's tiles on EVERY fanout
+    run: 64 sequences across 4 cards took 99 s where the shards themselves need ~28 s
+    (Tamarind box, 2026-11-25). Embarrassingly parallel: ESMC embeddings are
     row-independent (no cross-sequence state), so a sequence's output is identical to
     running it on one card — sharding changes only which chip computes which row.
 
@@ -2999,17 +2969,12 @@ def embed_multicard(sequences: dict[str, str], *, model: str, devices: list[int]
     devices = list(devices)[:max(1, len(items))]
     shards = _shard_by_length(items, len(devices))
     workdir = tempfile.mkdtemp(prefix="tt-bio-embed-fanout-")
-    # ESMC-6B weights (~24 GB) dominate fanout wall-clock and are identical across
-    # workers, so share one host-tiled copy via /dev/shm instead of each worker
-    # re-reading+re-tiling the checkpoint (which regressed past 2 cards).
-    cache_dir = (tempfile.mkdtemp(prefix="esmc6b-tiles-", dir=_shm_dir())
-                 if model == "esmc-6b" else None)
     thread_cap_env = _thread_cap_env(len(devices))
     try:
         handles = [
             _spawn_shard(idx, dev, shard, workdir, model=model, fast=fast,
                          return_logits=return_logits, pool=pool, batch_size=batch_size,
-                         cache_dir=cache_dir, thread_cap_env=thread_cap_env)
+                         thread_cap_env=thread_cap_env)
             for idx, (dev, shard) in enumerate(zip(devices, shards)) if shard
         ]
         results = [_await_shard(*h) for h in handles]
@@ -3018,8 +2983,6 @@ def embed_multicard(sequences: dict[str, str], *, model: str, devices: list[int]
             shutil.rmtree(workdir, ignore_errors=True)
         else:
             print(f"fanout workdir kept: {workdir}")
-        if cache_dir:
-            shutil.rmtree(cache_dir, ignore_errors=True)
     return _reassemble(items, results)
 
 

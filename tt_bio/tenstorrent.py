@@ -10094,7 +10094,7 @@ Weights = Mapping[str, torch.Tensor] | WeightScope
 # Process-global shared tiled-weight cache. None disables it (default: every model
 # tiles+uploads its own weights via from_torch). Set via weight_cache() around a
 # module construction to route torch_to_tt through a /dev/shm tile cache shared by
-# data-parallel fanout workers (see torch_to_tt and esmc.load_esmc6b_shared), or
+# data-parallel fanout workers (see torch_to_tt and esmc6b_tile_dir), or
 # through a dict of host tiles kept in this process (esmfold2_runtime._ESMCAdapter).
 _weight_cache = None
 
