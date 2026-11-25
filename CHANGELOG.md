@@ -5,6 +5,8 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+## [0.45.2] - 2026-11-25
+
 ### Fixed
 - **Designing on several cards is faster than on one again.** `tt-bio design --model rfd4` and `--model pxdesign` gave
   each card one design at a time, which threw away the batching that makes a design cheap: 32 designs took 108 s
