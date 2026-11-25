@@ -957,13 +957,15 @@ def generate(spec: SamplingSpec, network: Network, *, n_designs: int, n_tokens: 
              coord_cond_mask: torch.Tensor | None = None,
              groups: dict[str, torch.Tensor | None] | None = None,
              device: torch.device | str = "cpu", dtype: torch.dtype = torch.float32,
-             lane_width: int | None = None, **kwargs) -> SamplerOutput:
+             lane_width: int | None = None, first: int = 0, **kwargs) -> SamplerOutput:
     """One batch of designs, from pure noise or from a partly noised structure.
 
     ``start`` comes from :func:`resolve_partial_start`. A partial start needs ``x_1``: the clean
     structure to corrupt, per modality. Everything else is :func:`trajectory`.
 
-    ``lane_width`` splits the designs into lanes of that many, each its own trajectory, and runs
+    ``first`` is the design index of row 0: a shard holding designs ``first .. first + n_designs
+    - 1`` of a larger run draws exactly what those designs draw in it, so splitting a run across
+    cards gives the same designs as running it whole. ``lane_width`` splits the designs into lanes of that many, each its own trajectory, and runs
     the lanes through :func:`run_lanes`, so one lane's host work overlaps another's network call.
     A lane is exactly the chunk ``ChunkedNetwork`` would run at that width, with the same draws, so
     the designs are the same; it needs ``rng_mode="per_design"``, because under ``"upstream"`` a
@@ -973,20 +975,22 @@ def generate(spec: SamplingSpec, network: Network, *, n_designs: int, n_tokens: 
     common = dict(n_tokens=n_tokens, seed=seed, rng_mode=rng_mode, start=start or PartialStart(),
                   device=device, dtype=dtype, **kwargs)
     if lane_width is None or lane_width >= n_designs:
-        return _drive(_designs(spec, n_designs=n_designs, emit_masks=emit_masks, x_1=x_1,
-                               coord_cond_mask=coord_cond_mask, groups=groups, **common), network)
+        return _drive(_designs(spec, n_designs=n_designs, first=first, emit_masks=emit_masks,
+                               x_1=x_1, coord_cond_mask=coord_cond_mask, groups=groups,
+                               **common), network)
     if rng_mode != "per_design":
         raise ValueError("lanes need rng_mode='per_design'")
     if kwargs.get("guidance") is not None:
         raise ValueError("guidance sees the whole batch, so it cannot run in lanes")
     lanes = []
-    for first in range(0, n_designs, lane_width):
-        k = min(lane_width, n_designs - first)
-        lanes.append(_designs(spec, n_designs=k, first=first,
-                              emit_masks=_rows(emit_masks, first, k, n_designs),
-                              x_1=_rows(x_1, first, k, n_designs),
-                              coord_cond_mask=_rows(coord_cond_mask, first, k, n_designs),
-                              groups=_rows(groups, first, k, n_designs), **common))
+    # ``row`` indexes this call's own arrays; ``first + row`` is the design index the RNG needs.
+    for row in range(0, n_designs, lane_width):
+        k = min(lane_width, n_designs - row)
+        lanes.append(_designs(spec, n_designs=k, first=first + row,
+                              emit_masks=_rows(emit_masks, row, k, n_designs),
+                              x_1=_rows(x_1, row, k, n_designs),
+                              coord_cond_mask=_rows(coord_cond_mask, row, k, n_designs),
+                              groups=_rows(groups, row, k, n_designs), **common))
     return _cat(run_lanes(lanes, network))
 
 

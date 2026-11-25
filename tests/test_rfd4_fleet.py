@@ -2,8 +2,8 @@
 
 Upstream scales out with SLURM array jobs and concatenates their per-job metrics CSVs. Here the
 controller is the scale-out, so the two seams worth pinning without a card are the payload a
-submitter builds (one job per design, each carrying its own annotated CIF and seed) and the shard
-a worker executes from it. Both run against fakes; the designing itself is graded elsewhere.
+submitter builds (one job per card, each a BATCH of designs carrying its own annotated CIF) and
+the shard a worker executes from it. Both run against fakes; the designing itself is graded elsewhere.
 """
 import base64
 import json
@@ -30,7 +30,8 @@ class FakeClient:
         events = [{"seq": 1, "event": "start"}] + [
             {"seq": 2 + i, "event": "done",
              "row": {"id": j["id"], "name": j["name"], "status": "ok", "tokens": 128,
-                     "runtime_s": 12.3, "example_id": j["name"].rsplit("_", 1)[0]}}
+                     "names": _names(j), "runtime_s": 12.3,
+                     "example_id": json.loads(base64.b64decode(j["input_b64"]))["example_id"]}}
             for i, j in enumerate(jobs)]
         return {"events": events, "status": "ok"}
 
@@ -63,21 +64,65 @@ def submitted(monkeypatch, tmp_path):
     return client, spec, tmp_path / "out"
 
 
+def _names(job):
+    """The design names a worker writes for a batched job, as the worker reports them."""
+    p = json.loads(base64.b64decode(job["input_b64"]).decode())
+    if p["total"] == 1:
+        return [p["example_id"]]
+    return [f"{p['example_id']}_{p['first'] + i}" for i in range(p["count"])]
+
+
 def payloads(client):
     return [json.loads(base64.b64decode(j["input_b64"]).decode()) for j in client.payload["jobs"]]
 
 
-def test_every_design_is_its_own_job_carrying_its_own_input(submitted):
+def test_a_job_is_a_slice_of_the_run_carrying_its_own_input(submitted):
     client, spec, out = submitted
     rows = fleet.design_via_controller(spec, out, controller_url="http://c", num_designs=2,
                                        seed=5, verbose=False)
 
+    # 3 workers, 2 designs per spec: a design each, nothing to batch.
     assert [j["name"] for j in client.payload["jobs"]] == ["a_0", "a_1", "b_0", "b_1"]
     # Each job ships the annotated CIF the submitter built, so no worker reads this filesystem.
-    assert [(p["example_id"], p["seed"], p["cif"]) for p in payloads(client)] == [
-        ("a", 5, "data_a\n"), ("a", 6, "data_a\n"), ("b", 5, "data_b\n"), ("b", 6, "data_b\n")]
+    # The run's seed rides whole and the slice says which designs it makes, so a design's noise
+    # does not depend on how the run was split.
+    assert [(p["example_id"], p["seed"], p["first"], p["count"], p["cif"]) for p in payloads(client)] == [
+        ("a", 5, 0, 1, "data_a\n"), ("a", 5, 1, 1, "data_a\n"),
+        ("b", 5, 0, 1, "data_b\n"), ("b", 5, 1, 1, "data_b\n")]
     assert client.payload["config"] == {"kind": "design", "engine": "rfd4"}
     assert [r["name"] for r in rows] == ["a_0", "a_1", "b_0", "b_1"]
+
+
+def test_designs_are_batched_one_job_per_card(submitted):
+    """num_designs is RFD4's batch axis: a card gets a slice of the run in ONE trajectory, not
+    one job per design. 32 designs as 32 single-design jobs across 4 cards measured 108 s
+    against 57 s batched on one card (Tamarind 4x p150a, 2026-11-25)."""
+    client, spec, out = submitted
+    rows = fleet.design_via_controller(spec, out, controller_url="http://c", num_designs=8,
+                                       seed=5, shards=4, only=["a"], verbose=False)
+
+    assert [j["name"] for j in client.payload["jobs"]] == ["a_0", "a_2", "a_4", "a_6"]
+    assert [(p["first"], p["count"], p["total"]) for p in payloads(client)] == [
+        (0, 2, 8), (2, 2, 8), (4, 2, 8), (6, 2, 8)]
+    # Every design of the run comes back, named as the single-card run names them.
+    assert [r["name"] for r in rows] == [f"a_{i}" for i in range(8)]
+
+
+def test_a_worker_too_old_to_batch_is_named_rather_than_silently_short(submitted, monkeypatch):
+    client, spec, out = submitted
+    monkeypatch.setattr(fleet, "_names", None, raising=False)
+    orig = FakeClient.events
+
+    def events(self, run_id, after):
+        snap = orig(self, run_id, after)
+        for ev in snap["events"]:
+            ev.get("row", {}).pop("names", None)
+        return snap
+
+    monkeypatch.setattr(FakeClient, "events", events)
+    with pytest.raises(RuntimeError, match="older than the one that batches"):
+        fleet.design_via_controller(spec, out, controller_url="http://c", num_designs=4,
+                                    shards=2, only=["a"], verbose=False)
 
 
 def test_the_run_writes_the_metrics_every_design_landed_in(submitted):
@@ -147,14 +192,20 @@ def test_a_worker_designs_from_the_shipped_cif_and_reports_tokens(monkeypatch, t
     seen = {}
 
     def fake_design(spec, out_dir, *, num_designs, nsteps, seed, annotated_cif, engine,
-                    on_design=None, **kw):
+                    first_index=0, total_designs=None, on_design=None, **kw):
         seen.update(cif=pathlib.Path(spec).read_text(), seed=seed, nsteps=nsteps,
-                    annotated_cif=annotated_cif, engine=engine)
-        pathlib.Path(out_dir).mkdir(parents=True, exist_ok=True)
-        (pathlib.Path(out_dir) / "a_generated.cif").write_text("data_out\n")
+                    annotated_cif=annotated_cif, engine=engine, num_designs=num_designs,
+                    first_index=first_index, total_designs=total_designs)
+        out = pathlib.Path(out_dir)
+        out.mkdir(parents=True, exist_ok=True)
+        made = []
+        for i in range(num_designs):
+            name = "a" if total_designs == 1 else f"a_{first_index + i}"
+            (out / f"{name}_generated.cif").write_text("data_out\n")
+            made.append(out / f"{name}_generated.cif")
         if on_design:
             on_design("a", 128, pathlib.Path(spec))
-        return []
+        return made
 
     engines = []
     monkeypatch.setattr(rfd4, "design", fake_design)
@@ -162,7 +213,8 @@ def test_a_worker_designs_from_the_shipped_cif_and_reports_tokens(monkeypatch, t
                         lambda cfg: engines.append(cfg.get("recipe")) or "ENGINE")
 
     client = WorkerClient()
-    payload = {"stem": "a", "seed": 7, "cif": "data_in\n", "example_id": "a"}
+    payload = {"stem": "a", "seed": 7, "cif": "data_in\n", "example_id": "a",
+               "first": 4, "count": 2, "total": 8}
     job = {"id": "rfd4_a", "name": "a",
            "input_b64": base64.b64encode(json.dumps(payload).encode()).decode()}
     worker_mod._execute_rfd4_job_inprocess(client, "run-1", "w1", {}, {}, job,
@@ -172,7 +224,10 @@ def test_a_worker_designs_from_the_shipped_cif_and_reports_tokens(monkeypatch, t
     assert (seen["cif"], seen["seed"], seen["annotated_cif"]) == ("data_in\n", 7, True)
     assert seen["engine"] == "ENGINE" and engines == ["high/flat"]
     assert client.row["tokens"] == 128 and client.row["example_id"] == "a"
-    assert "a_generated.cif" in (client.outputs or {})
+    # The slice is run as one batched trajectory and reports the designs it wrote by name.
+    assert (seen["num_designs"], seen["first_index"], seen["total_designs"]) == (2, 4, 8)
+    assert client.row["names"] == ["a_4", "a_5"]
+    assert sorted(client.outputs or {}) == ["a_4_generated.cif", "a_5_generated.cif"]
 
 
 def test_a_shard_with_no_input_fails_with_a_reason_not_a_traceback(monkeypatch):

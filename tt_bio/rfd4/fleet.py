@@ -27,15 +27,27 @@ from typing import Any
 __all__ = ["design_via_controller"]
 
 
-def _jobs(inputs, num_designs: int, seed: int) -> list[dict[str, Any]]:
-    """One job per (design id, design index), carrying its own input CIF."""
+def _jobs(inputs, num_designs: int, seed: int, workers: int) -> list[dict[str, Any]]:
+    """One job per worker per design id, each carrying a BATCH of designs and its input CIF.
+
+    ``num_designs`` is RFD4's batch axis: one trajectory of 32 designs costs far less than 32
+    trajectories of one, because the trunk passes are shared across the batch. Shipping one
+    design per job threw that away -- on a 4-card box, 32 designs ran 57 s batched on one card
+    and 108 s as 32 single-design jobs across four (2026-11-25). So the unit of work a card
+    gets is a slice of the run, not a design, and the slice carries the index of its first
+    design: ``first .. first + count - 1`` draw and are named exactly as they would be in one
+    whole run, so the designs do not depend on how many cards ran them.
+    """
     jobs = []
+    per_job = max(1, -(-int(num_designs) // max(1, int(workers))))
     for design_input in inputs:
         cif = design_input.cif.read_text()
-        for k in range(num_designs):
-            stem = f"{design_input.example_id}" + ("" if num_designs == 1 else f"_{k}")
-            payload = {"stem": stem, "seed": int(seed) + k, "cif": cif,
-                       "example_id": design_input.example_id}
+        for first in range(0, num_designs, per_job):
+            count = min(per_job, num_designs - first)
+            stem = f"{design_input.example_id}" + ("" if num_designs == 1 else f"_{first}")
+            payload = {"stem": design_input.example_id, "seed": int(seed), "cif": cif,
+                       "example_id": design_input.example_id,
+                       "first": first, "count": count, "total": int(num_designs)}
             jobs.append({"id": f"rfd4_{stem}", "name": stem,
                          "input_b64": base64.b64encode(
                              json.dumps(payload).encode()).decode()})
@@ -48,8 +60,13 @@ def design_via_controller(spec: str | Path, out_dir: str | Path, *, controller_u
                           nsteps: int | None = None, seed: int = 0,
                           only: list[str] | None = None, validate: bool = True,
                           annotated_cif: bool = False, fast: bool = False, run_id: str | None = None,
-                          owner: str | None = None, verbose: bool = True) -> list[dict]:
+                          owner: str | None = None, shards: int | None = None,
+                          verbose: bool = True) -> list[dict]:
     """Fleet twin of :func:`tt_bio.rfd4.design`. Returns one row per design written.
+
+    ``shards`` is how many slices the designs are split into, one per card the run should use;
+    it defaults to the workers online right now. A local pool passes its card count, because a
+    worker that is still opening its chip is not online yet and would otherwise get no designs.
 
     A row is ``{"cif", "name", "example_id", "tokens", "runtime_s"}``. The CIFs land under
     ``out_dir`` exactly as the local path names them, and ``out_dir/metrics.json`` collects the
@@ -79,7 +96,7 @@ def design_via_controller(spec: str | Path, out_dir: str | Path, *, controller_u
     if fast:
         config["fast"] = True
 
-    jobs = _jobs(inputs, int(num_designs), int(seed))
+    jobs = _jobs(inputs, int(num_designs), int(seed), int(shards or online or 1))
     run_payload = {"data": "rfd4-design", "out_dir": str(out_dir), "result_dir": str(out_dir),
                    "jobs": jobs, "config": config, "owner": owner}
     if run_id:
@@ -104,13 +121,23 @@ def design_via_controller(spec: str | Path, out_dir: str | Path, *, controller_u
                 name = str(row.get("name") or row.get("id", ""))
                 if row.get("status") == "ok":
                     _write_job_outputs(client, run_id, str(row.get("id")), out_dir)
-                    cif = out_dir / f"{name}_generated.cif"
-                    rows.append({"cif": str(cif), "name": name,
-                                 "example_id": row.get("example_id"),
-                                 "tokens": row.get("tokens"),
-                                 "runtime_s": row.get("runtime_s")})
+                    # A job is a batch, so it names every design it wrote. A worker too old to
+                    # batch reports none; it also produced only the first design of the slice,
+                    # so say that rather than return a short run as if it were whole.
+                    names = [str(x) for x in (row.get("names") or [])]
+                    if not names:
+                        raise RuntimeError(
+                            f"worker returned no design names for job {row.get('id')}: it runs a "
+                            "tt-bio older than the one that batches designs per card. Upgrade the "
+                            "workers, or run on one card.")
+                    for one in names:
+                        rows.append({"cif": str(out_dir / f"{one}_generated.cif"), "name": one,
+                                     "example_id": row.get("example_id"),
+                                     "tokens": row.get("tokens"),
+                                     "runtime_s": row.get("runtime_s")})
                     if verbose:
-                        print(f"[design:{name}] done ({row.get('runtime_s', '?')}s)", flush=True)
+                        print(f"[design:{name}] {len(names)} design(s) done "
+                              f"({row.get('runtime_s', '?')}s)", flush=True)
                 else:
                     failures[name] = (row.get("error") or "failed").strip()
         status = snap.get("status")

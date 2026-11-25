@@ -46,6 +46,7 @@ def check_backend(backend: str) -> None:
 
 
 def design(spec: str | Path, out_dir: str | Path = "designs", *, num_designs: int = 1,
+           first_index: int = 0, total_designs: int | None = None,
            backend: str = "native", recipe: str | None = None, adapter: str | Path | None = None,
            tsr_k: float | None = None, nsteps: int | None = None, seed: int = 0,
            only: Sequence[str] | None = None,
@@ -65,6 +66,11 @@ def design(spec: str | Path, out_dir: str | Path = "designs", *, num_designs: in
     (``tt_bio.rfd4.sampler.resolve_partial_start``), ``transforms`` the per-replicate sampling
     transforms and ``guidance`` a metric-gradient callable. ``save_trajectory_every`` writes a
     CA-only multi-model CIF beside each design.
+
+    ``first_index`` and ``total_designs`` describe a slice of a larger run: this call produces
+    designs ``first_index .. first_index + num_designs - 1`` of ``total_designs``, named and
+    seeded exactly as they would be if the whole run went through one call. That is how a run
+    splits across cards; the default is the whole run.
 
     ``on_design(example_id, tokens, cif)`` is called as each design's input is featurized and
     ``on_write(path)`` as each output lands; the CLI prints its progress from both.
@@ -110,8 +116,9 @@ def design(spec: str | Path, out_dir: str | Path = "designs", *, num_designs: in
                                       ("save_trajectory_every", save_trajectory_every)) if v}
         start_writer(num_designs)  # its start-up runs while the card designs
         output = engine.design(features, num_designs=num_designs, nsteps=nsteps, seed=seed,
-                               **steering, **sampling)
-        suffixes = [""] if num_designs == 1 else [f"_{row}" for row in range(num_designs)]
+                               first=first_index, **steering, **sampling)
+        total = num_designs if total_designs is None else int(total_designs)
+        suffixes = [""] if total == 1 else [f"_{first_index + row}" for row in range(num_designs)]
         paths = write_designs(output, features, atom_array,
                               [out_dir / f"{design_input.example_id}{x}_generated.cif" for x in suffixes])
         for row, (suffix, path) in enumerate(zip(suffixes, paths)):

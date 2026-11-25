@@ -24,7 +24,7 @@ class StubEngine:
     def __init__(self):
         self.calls = []
 
-    def design(self, features, *, num_designs, nsteps, seed):
+    def design(self, features, *, num_designs, nsteps, seed, first=0):
         self.calls.append({"tokens": features["tokens"], "num_designs": num_designs,
                            "nsteps": nsteps, "seed": seed})
         return f"output-{len(self.calls)}"
@@ -133,6 +133,9 @@ def test_the_cli_runs_the_same_call(host, monkeypatch):
         return []
 
     monkeypatch.setattr(rfd4, "design", fake_design)
+    # One card: several designs on a multi-card host go through the controller path instead,
+    # which is a different seam (tests/test_rfd4_fleet.py). This pins the local call.
+    monkeypatch.setattr("tt_bio.main._local_cards", lambda devices, n: [0])
     host.spec.write_text("a: {}\n")
     result = CliRunner().invoke(cli, ["design", str(host.spec), "--model", "rfd4",
                                       "--out_dir", str(host.out), "--num_designs", "3",

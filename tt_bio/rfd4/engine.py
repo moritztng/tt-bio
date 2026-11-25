@@ -87,7 +87,8 @@ def auto_width(n_tokens: int) -> int:
 class Engine(Protocol):
     """Generate designs from one featurized example."""
 
-    def design(self, features: dict, *, num_designs: int, nsteps: int, seed: int) -> DesignOutput:
+    def design(self, features: dict, *, num_designs: int, nsteps: int, seed: int,
+               first: int = 0) -> DesignOutput:
         ...
 
 
@@ -197,6 +198,7 @@ class DesignEngine:
         return cls(weights, **kwargs)
 
     def design(self, features: dict, *, num_designs: int, nsteps: int, seed: int,
+               first: int = 0,
                rng: str = "per_design", partial_t_backbone: float | None = None,
                partial_t_latent: float | None = None, couple_partial_t: bool = False,
                partial_trajectory_fraction_steps: float | None = None,
@@ -204,7 +206,10 @@ class DesignEngine:
                inverse_folding_method: str = "resampled_forward_marginal",
                transforms: "Sequence[Callable]" = (), guidance=None,
                save_trajectory_every: int = 0) -> DesignOutput:
-        """`rng="per_design"` gives every design its own stream (`sampler.DesignRng`).
+        """`first` is the design index of row 0: designs `first .. first + num_designs - 1` of a
+        larger run come out exactly as they would in it, which is how a run splits across cards.
+
+        `rng="per_design"` gives every design its own stream (`sampler.DesignRng`).
         `rng="upstream"` seeds the global stream with `seed` and draws in upstream's order, which
         is how a design is compared one to one against upstream's run of the same seed.
 
@@ -249,7 +254,7 @@ class DesignEngine:
 
         network = _network.FlowNetwork(self.glue, _CardTrunk(self.trunk, self._device, self.pair), batch,
                                        plan=_sampler.step_plan(spec, start))
-        args = dict(n_designs=num_designs, n_tokens=n_tokens, seed=seed, rng_mode=rng,
+        args = dict(n_designs=num_designs, n_tokens=n_tokens, seed=seed, rng_mode=rng, first=first,
                     emit_masks=compute_flow_emit_masks(batch), groups=_groups(batch),
                     coord_cond_mask=batch.get("coord_cond_mask"), start=start, x_1=x_1,
                     guidance=guidance, save_trajectory_every=save_trajectory_every)

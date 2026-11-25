@@ -3077,8 +3077,11 @@ def _execute_rfd4_job_inprocess(
 ) -> None:
     """Run one RFD4 design IN-PROCESS on this worker's persistent device.
 
-    A shard is ONE design: the payload carries the annotated CIF the submitter built, a stem and
-    a seed, so the worker needs neither the spec nor the structures it names. The engine is kept
+    A shard is a SLICE of a run: the payload carries the annotated CIF the submitter built, a
+    stem, a seed, and ``first``/``count``/``total`` naming which designs of the run this card
+    makes, so the worker needs neither the spec nor the structures it names. The slice is run as
+    one batched trajectory, which is what makes a card worth giving designs to at all (num_designs
+    is RFD4's batch axis). The engine is kept
     on this worker across shards (``_RFD4_ENGINE``) — loading the bundle costs more than a small
     design, and a cold device open per shard is what deadlocked the UMD init path on the RFD3
     path, so the engine is built on the chip this worker already holds.
@@ -3125,10 +3128,15 @@ def _execute_rfd4_job_inprocess(
 
         engine = _rfd4_engine(cfg)
         tokens: list[int] = []
-        rfd4.design(cif, out_dir, num_designs=1, nsteps=cfg.get("nsteps"), seed=seed,
-                    annotated_cif=True, engine=engine,
-                    on_design=lambda _id, n, _cif: tokens.append(n))
+        count = int(data.get("count") or 1)
+        first = int(data.get("first") or 0)
+        total = int(data.get("total") or count)
+        written = rfd4.design(cif, out_dir, num_designs=count, first_index=first,
+                              total_designs=total, nsteps=cfg.get("nsteps"), seed=seed,
+                              annotated_cif=True, engine=engine,
+                              on_design=lambda _id, n, _cif: tokens.append(n))
         row.update({"status": "ok", "tokens": tokens[0] if tokens else None,
+                    "names": [p.name[:-len("_generated.cif")] for p in written],
                     "runtime_s": round(time.time() - t0, 1)})
         outputs = _read_outputs(out_dir, _shared_outputs_dir(cfg))
     except Exception as exc:

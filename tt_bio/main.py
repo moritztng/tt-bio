@@ -4881,7 +4881,7 @@ def _run_rfd4_cli(inputs: Path, out_dir, num_designs, backend, recipe, lora, nst
                   spec_subset, annotated_cif: bool, validate: bool, fast: bool = False,
                   controller: str | None = None, run_id: str | None = None, owner: str | None = None,
                   sampling: dict | None = None, tsr_k: float | None = None,
-                  save_trajectory_every: int = 0) -> None:
+                  save_trajectory_every: int = 0, shards: int | None = None) -> None:
     """`tt-bio design --model rfd4`: a design spec to annotated-CIF designs.
 
     The host path is RFD4's own (tt_bio/_vendor/rfd4_prep): the spec is built into an
@@ -4908,13 +4908,14 @@ def _run_rfd4_cli(inputs: Path, out_dir, num_designs, backend, recipe, lora, nst
             "--lora is a local run: the adapter is not shipped to fleet workers. Merge it into a "
             "checkpoint the workers can load, or drop --controller.")
     if controller:
-        # Every design in the spec, times --num_designs, becomes one fleet job. The inputs are
-        # built here so a worker needs no view of this filesystem (tt_bio/rfd4/fleet.py).
+        # The designs are split into one batched slice per card; the inputs are built here so a
+        # worker needs no view of this filesystem (tt_bio/rfd4/fleet.py).
         from tt_bio.rfd4.fleet import design_via_controller
 
         try:
             design_via_controller(inputs, out_dir,
                                   controller_url=controller, num_designs=num_designs,
+                                  shards=shards,
                                   backend=backend,
                                   recipe=recipe, nsteps=nsteps, seed=seed, only=only,
                                   validate=validate, annotated_cif=annotated_cif, fast=fast,
@@ -5253,6 +5254,7 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
         _run_boltzgen_cli("tt-bio design", argv)
         return
 
+    cards: list[int] = []
     if model in ("pxdesign", "rfd4"):
         # Every design is an independent job. Several of them on a multi-card host run through
         # the same controller path a fleet uses, against a private pool of one worker per card;
@@ -5337,7 +5339,8 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
                       sampling=_rfd4_sampling(partial_fraction, partial_t_backbone,
                                               partial_t_latent, couple_partial_t,
                                               inverse_folding),
-                      tsr_k=tsr_k, save_trajectory_every=save_trajectory_every)
+                      tsr_k=tsr_k, save_trajectory_every=save_trajectory_every,
+                      shards=len(cards) or None)
         return
 
     # --model rfd3
