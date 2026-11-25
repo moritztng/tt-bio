@@ -4588,6 +4588,7 @@ def affinity_cmd(data, model, out_dir, accelerator, trunk, recycling_steps, toke
     protein and one ligand, and a ``properties.affinity.binder`` naming the ligand to
     score. A directory is a screen: the model loads once and stays resident, so many
     ligands against one target pay the weight load and the kernel compile a single time.
+    A screen spreads over every card on the machine, one process per card (--devices).
 
     \b
     Output (--out_dir, default ./affinity):
