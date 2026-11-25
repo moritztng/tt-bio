@@ -3677,7 +3677,9 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
 @click.option("--devices", "--device_ids", "device_ids", default=None, type=str,
               help="Comma-separated physical TT card ids to fan the folding jobs across, "
                    "e.g. '0,1,2,3' (data-parallel: one pinned worker per card, each an "
-                   "untouched single-card fold). Matches `tt-bio embed`. Default: all detected cards.")
+                   "untouched single-card fold), the same pattern `tt-bio embed` uses. "
+                   "Default: every card on this machine -- unlike `tt-bio embed`, which "
+                   "defaults to one, because a fold is big enough to be worth a card.")
 @click.option("--host_threads", default=None, type=int,
               help="CPU threads this process may use in total, split across its cards "
                    "(default: all cores). Set this when you run several single-card "
@@ -4440,8 +4442,10 @@ def _dispatch_embed_to_controller(controller_url: str, sequences: dict, *, model
 @click.option("--devices", default=None,
               help="Comma-separated physical TT card ids to shard the sequences across, "
                    "e.g. '0,1,2,3'. Runs one pinned subprocess per card (data-parallel); "
-                   "results are reassembled in input order. Default: this machine's single card. "
-                   "Ignored with --controller.")
+                   "results are reassembled in input order. Default: ONE card, because each "
+                   "card spends about 9 s starting up, so fanning out only pays from a few "
+                   "hundred sequences: on a 4x p150a, ESMC-6B took 1024 sequences from 139 s "
+                   "to 78 s, but 64 sequences from 37 s to 39 s. Ignored with --controller.")
 @click.option("--controller", default=None,
               help="Submit to a running `tt-bio controller` instead of spawning local "
                    "subprocess shards. Workers keep the ESMC model resident across calls, so repeated embed runs against the same "
@@ -4739,8 +4743,10 @@ def _affinity_across_cards(ctx, data, yamls: list[Path], out: Path, cards: list[
 @click.option("--devices", default=None,
               help="Comma-separated physical TT card ids to shard the sequences across, "
                    "e.g. '0,1,2,3'. Runs one pinned subprocess per card (data-parallel); "
-                   "results are reassembled in input order. Default: this machine's single card. "
-                   "Ignored with --controller.")
+                   "results are reassembled in input order. Default: ONE card, because each "
+                   "card spends about 9 s starting up, so fanning out only pays from a few "
+                   "hundred sequences: on a 4x p150a, ESMC-6B took 1024 sequences from 139 s "
+                   "to 78 s, but 64 sequences from 37 s to 39 s. Ignored with --controller.")
 @click.option("--controller", default=None,
               help="Submit to a running `tt-bio controller` instead of spawning local "
                    "subprocess shards. Sequence-only "
