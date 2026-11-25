@@ -112,3 +112,15 @@ def test_refuses_a_feature_dict_with_no_conditioning(feats, tmp_path):
     stripped = {k: v for k, v in feats.items() if k != "condition"}
     with pytest.raises(ValueError, match="condition"):
         write_design_cifs(_synthetic_coords(feats), stripped, tmp_path, stem="PDL1")
+
+
+def test_a_slice_of_a_run_is_numbered_as_the_whole_run(feats, tmp_path):
+    """A card making designs 4 and 5 of 8 writes PDL1_4.cif and PDL1_5.cif, so the files of a
+    run split across cards are numbered exactly as a single-card run numbers them."""
+    coords = _synthetic_coords(feats)
+    coords = torch.cat([coords, coords], dim=0)
+    rows = write_design_cifs(coords, feats, tmp_path, stem="PDL1", first=4, total=8)
+    assert [Path(r["cif"]).name for r in rows] == ["PDL1_4.cif", "PDL1_5.cif"]
+    # One design in the whole run keeps the bare name, whatever the slice says.
+    one = write_design_cifs(_synthetic_coords(feats), feats, tmp_path, stem="X", total=1)
+    assert Path(one[0]["cif"]).name == "X.cif"

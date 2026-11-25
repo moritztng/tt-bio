@@ -34,7 +34,8 @@ def _atom_names(feats: dict, sel: torch.Tensor) -> list[str]:
 
 
 def write_design_cifs(coords: torch.Tensor, feats: dict, outdir: Path | str,
-                      stem: str = "design") -> list[dict]:
+                      stem: str = "design", first: int = 0,
+                      total: int | None = None) -> list[dict]:
     """One mmCIF per sample: the designed binder, placed against the input target.
 
     `coords` is `(n_sample, N_atom, 3)` straight out of `ProtenixDesign.design`. Only the binder
@@ -80,7 +81,8 @@ def write_design_cifs(coords: torch.Tensor, feats: dict, outdir: Path | str,
         r, ca, cb = rigid_transform(rep[conditioned], ref)
         rmsd = float(((rep[conditioned] - ca) @ r + cb - ref).pow(2).sum(-1).mean().sqrt())
         binder = (coords[s][at_binder].double() - ca) @ r + cb
-        path = outdir / (f"{stem}.cif" if coords.shape[0] == 1 else f"{stem}_{s}.cif")
+        n_total = coords.shape[0] if total is None else int(total)
+        path = outdir / (f"{stem}.cif" if n_total == 1 else f"{stem}_{first + s}.cif")
         with path.open("w") as fh:
             fh.write(f"data_{stem}_{s}\nloop_\n")
             for c in _CIF_COLS:

@@ -27,13 +27,18 @@ import torch
 
 @torch.no_grad()
 def run_design(inputs: Path, out_dir, cache, num_designs: int, n_step: int, seed: int,
-               *, stem: str | None = None, verbose: bool = True) -> list[dict]:
+               *, stem: str | None = None, first_index: int = 0,
+               total_designs: int | None = None, verbose: bool = True) -> list[dict]:
     """Design ``num_designs`` binder backbones against the target in ``inputs``.
 
     Returns write_design_cifs' rows: one per design, carrying the CIF path, the binder
     residue/atom counts and ``fit_rmsd`` — the residual of fitting the model's own
     reconstruction of the target onto the real target, which is the end-to-end
     correctness signal (a broken conditioning path lands in the tens of angstroms).
+
+    ``first_index``/``total_designs`` name this call's slice of a larger run, so the CIFs of a
+    run split across cards are numbered as one run. Every design in a call comes out of ONE
+    batched trajectory, which is why a card is given a slice rather than a design.
     """
     from tt_bio.main import ensure_p300_mesh_descriptor, ensure_pxdesign_weights
     from tt_bio.pxdesign.inputs import design_inputs_from_yaml
@@ -58,7 +63,8 @@ def run_design(inputs: Path, out_dir, cache, num_designs: int, n_step: int, seed
     t0 = time.monotonic()
     coords = model.design(feats, n_step=n_step, n_sample=num_designs, seed=seed)
     runtime_s = round(time.monotonic() - t0, 2)
-    rows = write_design_cifs(coords, feats, out_dir, stem=stem or inputs.stem)
+    rows = write_design_cifs(coords, feats, out_dir, stem=stem or inputs.stem,
+                             first=first_index, total=total_designs)
     # The diffusion trajectory's own seconds, excluding import, checkpoint load and write.
     # Every design in one call shares one batched trajectory, so this is the call's time and
     # not a per-design split; num_designs says how many came out of it. Until this was here a
@@ -108,14 +114,20 @@ def run_design_via_controller(
     seed: int = 42,
     run_id: str | None = None,
     owner: str | None = None,
+    shards: int | None = None,
     verbose: bool = True,
 ) -> list[dict]:
-    """Fleet twin of :func:`run_design`: one shard per design, collected here.
+    """Fleet twin of :func:`run_design`: one shard per card, collected here.
 
     The target YAML and the structure it names are both shipped inline, so a worker
     needs no view of the submitter's filesystem. Each shard runs in-process on its
-    worker's already-open chip (no cold device open) and gets seed ``seed + k``, which
-    is the same per-design seeding the local non-batched path uses.
+    worker's already-open chip (no cold device open).
+
+    A shard is a SLICE of the run, not one design: ``n_sample`` is a batch axis, so a card
+    makes its designs in one trajectory. One job per design measured 125 s across four cards
+    against 45 s batched on one (32 designs, Tamarind box, 2026-11-25). ``shards`` is how many
+    slices to cut, one per card, defaulting to the workers online now. A slice is seeded
+    ``seed + first``, as the per-design shards were.
     """
     from tt_bio.host_controller import connect_controller
     from tt_bio.main import _write_job_outputs
@@ -139,10 +151,16 @@ def run_design_via_controller(
         "target": {"name": inputs.name, "content": inputs.read_text()},
         "structures": [{"name": src.name, "content": src.read_text()}],
     }
-    jobs = [{"id": f"pxdesign_{k}", "name": f"design_{k}",
-             "input_b64": base64.b64encode(
-                 json.dumps({"stem": f"design_{k}", "seed": int(seed) + k}).encode()).decode()}
-            for k in range(int(num_designs))]
+    n = int(num_designs)
+    per_job = max(1, -(-n // max(1, int(shards or online or 1))))
+    jobs = []
+    for first in range(0, n, per_job):
+        count = min(per_job, n - first)
+        jobs.append({"id": f"pxdesign_{first}", "name": f"design_{first}",
+                     "input_b64": base64.b64encode(
+                         json.dumps({"stem": "design", "seed": int(seed) + first,
+                                     "first": first, "count": count,
+                                     "total": n}).encode()).decode()})
     run_payload = {"data": "pxdesign-design", "out_dir": str(out_dir),
                    "result_dir": str(out_dir), "jobs": jobs, "config": config,
                    "owner": owner}
@@ -179,12 +197,13 @@ def run_design_via_controller(
                 name = str(row.get("name") or row.get("id", ""))
                 if row.get("status") == "ok":
                     _write_job_outputs(client, run_id, str(row.get("id")), out_dir)
-                    p = out_dir / f"{name}.cif"
-                    if p.exists():
-                        rows.append({"cif": str(p), "fit_rmsd": row.get("fit_rmsd"),
-                                     "binder_residues": row.get("binder_residues"),
-                                     "binder_atoms": row.get("binder_atoms"),
-                                     "conditioned_tokens": row.get("conditioned_tokens")})
+                    for one in (row.get("names") or [name]):
+                        p = out_dir / f"{one}.cif"
+                        if p.exists():
+                            rows.append({"cif": str(p), "fit_rmsd": row.get("fit_rmsd"),
+                                         "binder_residues": row.get("binder_residues"),
+                                         "binder_atoms": row.get("binder_atoms"),
+                                         "conditioned_tokens": row.get("conditioned_tokens")})
                     if verbose:
                         print(f"[design:{name}] done ({row.get('runtime_s', '?')}s)", flush=True)
                 else:

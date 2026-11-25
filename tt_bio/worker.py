@@ -2975,6 +2975,8 @@ def _execute_pxdesign_job_inprocess(
 ) -> None:
     """Run one PXDesign shard IN-PROCESS on this worker's persistent device.
 
+    A shard is a SLICE of the run (first/count/total): n_sample is a batch axis, so the card
+    makes its designs in one trajectory rather than one per job.
     Same reuse pattern as the RFD3 shard path: pxdesign.design.run_design loads its
     model on get_device(), which returns this worker's already-open chip, so no shard
     cold-opens a device. Unlike RFD3 a shard is ONE design, not a whole spec — the
@@ -3032,8 +3034,12 @@ def _execute_pxdesign_job_inprocess(
 
         from tt_bio.pxdesign.design import run_design
         cache = Path(os.environ.get("BOLTZ_CACHE", str(Path("~/.boltz").expanduser())))
-        rows = run_design(target_path, out_dir, cache, 1,
-                          int(cfg.get("n_step") or 400), seed, stem=stem, verbose=False)
+        count = int(data.get("count") or 1)
+        first = int(data.get("first") or 0)
+        total = int(data.get("total") or count)
+        rows = run_design(target_path, out_dir, cache, count,
+                          int(cfg.get("n_step") or 400), seed, stem=stem,
+                          first_index=first, total_designs=total, verbose=False)
         if not rows:
             raise RuntimeError("no designs were produced")
         outputs = _read_outputs(out_dir, _shared_outputs_dir(cfg))
@@ -3041,6 +3047,7 @@ def _execute_pxdesign_job_inprocess(
         # design, so it rides back on the row rather than being recomputed from the CIF
         # (which no longer holds the target it was fitted against).
         row.update({"status": "ok", "num_designs": len(rows),
+                    "names": [Path(r["cif"]).stem for r in rows],
                     "fit_rmsd": rows[0].get("fit_rmsd"),
                     "binder_residues": rows[0].get("binder_residues"),
                     "binder_atoms": rows[0].get("binder_atoms"),
