@@ -4679,7 +4679,7 @@ def _affinity_across_cards(ctx, data, yamls: list[Path], out: Path, cards: list[
         if (p.name in ("data", "devices", "out_dir", "shard", "host_threads")
                 or ctx.get_parameter_source(p.name).name == "DEFAULT"):
             continue
-        argv += [p.opts[0], str(v)]
+        argv += [p.opts[0]] if v is True else [p.opts[0], str(v)]
     threads = ctx.params["host_threads"] or max(1, (os.cpu_count() or n) // n)
     parts = [out / f".card{c}" for c in cards]
     procs = [subprocess.Popen([_sys.executable, "-m", "tt_bio.main", "affinity", str(data), *argv,
@@ -4692,6 +4692,7 @@ def _affinity_across_cards(ctx, data, yamls: list[Path], out: Path, cards: list[
         if not (d / "affinity.csv").exists():
             raise click.ClickException(f"card {c} failed (exit {rc}) before scoring anything; "
                                        f"its files are in {d}")
+        # rc 1 is "some input failed"; those rows carry their error and are merged like any other.
         with (d / "affinity.csv").open() as fh:
             rows += list(csv.DictReader(fh))
         for f in d.glob("*_affinity.json"):
