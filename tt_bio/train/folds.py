@@ -59,7 +59,7 @@ def _read_back(g, s):
     return _untilized(u)
 
 
-#: Untilize float32 gradients on the card before reading them back (); off = host untilize.
+#: Untilize float32 gradients on the card before reading them back (_untilized); off = host untilize.
 CARD_UNTILIZE = True
 
 
