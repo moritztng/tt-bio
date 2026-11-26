@@ -126,8 +126,23 @@ def make_plan(cfg, args) -> CurvePlan:
                      warmup=args.warmup, seed=args.seed, exempt=exempt, note=args.note)
 
 
-def train_step(model, batch, spec, k, optimizers, schedulers, clip_val):
-    """Upstream's training step, with the plan's t, noise and recycle depth."""
+def to_device(x, device):
+    """Move a (nested) batch to the network's device; non-tensors pass through."""
+    import torch
+    if torch.is_tensor(x):
+        return x.to(device)
+    if isinstance(x, dict):
+        return {k: to_device(v, device) for k, v in x.items()}
+    return x
+
+
+def train_step(model, batch, spec, k, optimizers, schedulers, clip_val, device):
+    """Upstream's training step, with the plan's t, noise and recycle depth.
+
+    The clean sample, t and the noise are drawn on the CPU and only then moved to `device`:
+    CUDA's generator gives different numbers for the same seed, so drawing on the GPU would
+    hand the GPU legs a different corruption than the TT leg draws from the same plan.
+    """
     import torch
     from rfproteina.utils.torch import minimum_loss_attempt_indices
 
@@ -142,6 +157,7 @@ def train_step(model, batch, spec, k, optimizers, schedulers, clip_val):
                         device=batch["padding_mask"].device)
         torch.manual_seed(spec.noise_seed)
         batch = fm.corrupt_batch(batch, t={dm: v.repeat_interleave(k) for dm, v in t.items()})
+    batch = to_device(batch, device)
     nn_out = model.call_nn(batch, n_recycle=spec.n_recycle)
     losses = fm.compute_loss(batch=batch, nn_out=nn_out)
     names = model.cfg_exp.training.get("exploration_losses", fm.data_modes)
@@ -164,9 +180,15 @@ def train_step(model, batch, spec, k, optimizers, schedulers, clip_val):
 def run(args):
     import torch
     torch.set_num_threads(int(os.environ.get("OMP_NUM_THREADS", "8")))
+    device = torch.device(args.device)
+    if device.type == "cuda":
+        # fp32 legs stay fp32: TF32 would silently drop the matmuls to a 10-bit mantissa.
+        torch.backends.cuda.matmul.allow_tf32 = False
+        torch.backends.cudnn.allow_tf32 = False
     repo = Path(os.environ["RFD4_REPO"]).expanduser()
     plan = CurvePlan.from_dict(json.loads(Path(args.plan).read_text()))
     cfg, model = build_model(repo, torch.float32)
+    model = model.to(device)
     ds, index = dataset_index(cfg, 0)
     missing = [e for e in plan.example_ids if e not in index]
     if missing:
@@ -184,7 +206,9 @@ def run(args):
     guard = GradientCoverage([n for n, p in model.nn.named_parameters() if p.requires_grad],
                              exempt=dict(plan.exempt), where=f"{args.side} curve leg: ")
     meta = {"upstream_sha": _upstream_sha(repo), "hf": f"{HF_REPO}@{HF_REV}",
-            "seed_offset": args.seed_offset, "data_seed": "plan.seed ^ sha256(example_id)", "dtype": "float32", "device": "cpu",
+            "seed_offset": args.seed_offset, "data_seed": "plan.seed ^ sha256(example_id)", "dtype": "float32",
+            "device": (f"cuda:{torch.cuda.get_device_name(device)}" if device.type == "cuda" else str(device)),
+            "tf32": bool(device.type == "cuda" and torch.backends.cuda.matmul.allow_tf32),
             "threads": torch.get_num_threads(), "sha": args.sha, "host": socket.gethostname(),
             "optimizers": [type(o).__name__ for o in optimizers], "clip": clip_val,
             # Which feature each exempt creator index is, so an exemption's reason is checkable
@@ -205,13 +229,15 @@ def run(args):
                 feats = {k: (v.clone() if torch.is_tensor(v) else v)
                          for k, v in cache[eid].items()}
             loss, terms, dead = train_step(model, feats, spec, plan.exploration_k,
-                                           optimizers, schedulers, clip_val)
+                                           optimizers, schedulers, clip_val, device)
             # G2 rides along: the depth-1 steps train neither cycle projection, so they are not
             # observed (state/r4t/rows/accuracy.md; counting them refuses ~1 healthy run in 150).
             if spec.n_recycle >= 2 and not guard.done:
                 guard.observe(dead)
             log.record(i, loss, terms=terms, seconds=round(time.time() - t0, 2),
-                       dead=len(dead), example=spec.example_ids[0])
+                       dead=len(dead), example=spec.example_ids[0],
+                       **({"peak_gb": round(torch.cuda.max_memory_allocated(device) / 2**30, 2)}
+                          if device.type == "cuda" else {}))
             print(f"step {i} loss {loss:.4f} depth {spec.n_recycle} dead {len(dead)} "
                   f"{time.time() - t0:.1f}s", flush=True)
     print(f"wrote {args.out}")
@@ -226,6 +252,8 @@ def main():
     ap.add_argument("--seed-offset", type=int, default=0,
                     help="second seed for the gpu_b control; it moves the step's t and noise, "
                          "never the data (the pipeline draw is pinned per example id)")
+    ap.add_argument("--device", default="cpu", help="where the network runs (cpu, cuda); data, t and "
+                    "noise are always drawn on the CPU so every side draws the same numbers")
     ap.add_argument("--steps", type=int, default=2000)
     ap.add_argument("--crop", type=int, default=256)
     ap.add_argument("--batch-size", type=int, default=1)
