@@ -214,7 +214,11 @@ def main():
           f"warm call moved its inputs by {warm_moved}; levers {sorted(levers)}", flush=True)
     if a.fwd_only:
         return 0
-    got = {n: v.grad.double().numpy() for n, v in f.leaves.items()}
+    # a one-cycle trunk never reads the recycle projections (rms(0) = 0): no gradient, named not graded
+    unread = sorted(n for n, v in f.leaves.items() if v.grad is None)
+    if unread:
+        print(f"no gradient (unread by this config): {unread}", flush=True)
+    got = {n: v.grad.double().numpy() for n, v in f.leaves.items() if v.grad is not None}
     if a.scale_grad:
         got[a.scale_grad] = got[a.scale_grad] * 1.10
     for k in ins:
