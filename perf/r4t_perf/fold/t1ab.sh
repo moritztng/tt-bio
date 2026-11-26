@@ -4,7 +4,7 @@
 #   t1ab.sh CARD
 C=${1:?card}; WT=$HOME/.coworker/wt/r4t-perf; OUT=$HOME/r4t/perf/fold/t1ab; D=$HOME/r4t/step
 PY=$HOME/scratch/shipflow/venv-c4f99e695d34/bin/python
-mkdir -p $OUT; rm -rf $OUT/srcA; mkdir $OUT/srcA; (cd $WT && git archive 13c8a1cf6 tt_bio perf/r4t_step) | tar -x -C $OUT/srcA
+mkdir -p $OUT; rm -rf $OUT/srcA; mkdir $OUT/srcA; (cd $WT && git archive 13c8a1cf6 tt_bio perf) | tar -x -C $OUT/srcA
 echo "START $(date -u +%FT%TZ) card $C B=$(cd $WT && git rev-parse --short HEAD) dirty $(cd $WT && git status --short tt_bio | wc -l)" >> $OUT/run.log
 for i in 1 2 3; do for arm in A B; do
   for w in $(seq 1 60); do [ -z "$(sudo -n fuser /dev/tenstorrent/$C 2>/dev/null)" ] && break; sleep 20; done
