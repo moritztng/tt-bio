@@ -303,6 +303,33 @@ def test_crop_beyond_node_counts_match():
     assert receptor["pos"].shape[0] == 120                   # the input is not mutated
 
 
+def test_crop_beyond_keeps_features_aligned_with_positions():
+    """Cropped features must be the SAME residues as the cropped positions, not just as many.
+
+    `HostScoreNetwork.score_fn` concatenates the ESM-2 block into the receptor dict and lets
+    this one keep mask crop features and positions together, precisely so the two cannot drift
+    apart. A misalignment here keeps the row count correct and raises nothing: the network
+    would simply read another residue's language-model embedding for every node.
+    """
+    torch.manual_seed(0)
+    n = 120
+    pos = torch.randn(n, 3) * 25.0
+    # column 0 tags each row with its own residue index, so identity survives the crop
+    x = torch.cat([torch.arange(n, dtype=torch.float32).unsqueeze(1), torch.randn(n, 6)], 1)
+    receptor = {"pos": pos, "x": x, "side_chain_vecs": torch.randn(n, 4, 3),
+                "edge_index": torch.randint(0, n, (2, 400))}
+    lig = torch.randn(9, 3) * 2.0
+    cutoff = 3 * 0.5 + 20.0
+
+    cropped = sampling.crop_beyond(receptor, lig, cutoff)
+    kept = torch.any(torch.cdist(pos, lig) < cutoff, dim=1).nonzero().flatten()
+    assert 0 < len(kept) < n
+
+    torch.testing.assert_close(cropped["x"][:, 0], kept.to(torch.float32))
+    torch.testing.assert_close(cropped["pos"], pos[kept])
+    torch.testing.assert_close(cropped["side_chain_vecs"], receptor["side_chain_vecs"][kept])
+
+
 def test_crop_cutoff_shrinks_with_the_schedule():
     """The cutoff handed to the score network anneals with tr_sigma, as upstream's does."""
     cfg = sampling.SamplingConfig.from_recipe()

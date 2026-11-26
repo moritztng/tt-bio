@@ -94,3 +94,25 @@ def test_gaussian_smearing_coefficient_is_set_by_the_spacing():
     delta = 5.0 / 63
     assert g.coeff == pytest.approx(-0.5 / delta ** 2)
     assert g.offset.shape == (64,)
+
+
+def test_gaussian_smearing_coefficient_follows_loaded_centres():
+    """A strict load replaces ``offset`` but cannot check that ``coeff`` still describes it.
+
+    ``offset`` is a buffer and comes from the checkpoint; ``coeff`` is a plain float set in
+    ``__init__``. Build one expansion with the wrong range, load another's centres into it,
+    and the two must end up describing the same grid. Before the post-load hook this left the
+    receptor Gaussians 4x too narrow and nothing raised: the shapes match either way.
+    """
+    wide = F.GaussianSmearing(0.0, 30.0, 64)
+    narrow = F.GaussianSmearing(0.0, 15.0, 64)
+    assert narrow.coeff != pytest.approx(wide.coeff)
+
+    narrow.load_state_dict(wide.state_dict())
+    assert narrow.coeff == pytest.approx(wide.coeff)
+    torch.testing.assert_close(narrow.offset, wide.offset)
+
+    d = torch.linspace(0.0, 36.0, 101)
+    torch.testing.assert_close(narrow(d), wide(d))
+    # and it still equals the float64 recompute of its own, now-loaded, centres
+    assert _rel(narrow(d), F.gaussian_smearing_reference(d, narrow)) < 1e-6
