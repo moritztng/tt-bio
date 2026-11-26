@@ -164,13 +164,30 @@ def pad_edges(edge_index: Tensor, edge_attr: Tensor, edge_sh: Tensor, n_padded: 
 
 def tp_scatter(tp: FullyConnectedTensorProduct, fc, node_attr: Tensor, edge_index: Tensor,
                edge_attr_groups, edge_sh: Tensor, out_nodes: int | None = None,
-               reduce: str = "mean", edge_weight=1.0) -> Tensor:
+               reduce: str = "mean", edge_weight=1.0, edge_mask: Tensor | None = None,
+               edge_chunk: int | None = None) -> Tensor:
     """Tensor product per edge, then scatter to the source node. Upstream's multigroup form.
 
     *edge_attr_groups* is a list of per-group edge-feature blocks whose row counts partition
     ``edge_index``'s columns in order; each group has its own FC block when *fc* is a
     ``ModuleList``. The sum and the divisor are accumulated across groups and the division
     happens once, which is what makes the result independent of how the edges were grouped.
+
+    *edge_mask* is ``[E]`` or ``[E, 1]`` over the whole concatenated edge set and turns the
+    static edge sets of :mod:`tt_bio.diffdock.graph` into upstream's dynamic ones. It scales
+    the message **and is what the ``mean`` divisor sums**: the divisor is the reason a mask
+    is not simply an edge weight. Counting a masked-out edge in the divisor would divide a
+    node's sum by the complete neighbour count instead of the one inside the cutoff, which is
+    a different number on every node -- an error that no amount of masking the messages
+    fixes, and the one way the static-graph port can silently diverge from upstream.
+
+    *edge_chunk* splits each group's edges into fixed-size slices and accumulates them, which
+    is what keeps a large complex inside the card's memory. The intermediate this bounds is
+    the per-edge tensor-product weight block, ``[E, weight_numel]`` -- 4,164 values per edge
+    at the released ns=48/nv=10, by far the widest thing in the layer: 8.3 kB per edge in
+    bf16, so a million-edge complex would need 8.3 GB for one layer's weights alone. The
+    chunk is a fixed shape, so the loop still traces; the result changes only by the order
+    the partial sums are added, which is fp32 rounding on the node sums.
     """
     if reduce not in ("mean", "sum"):
         raise ValueError(f"reduce must be 'mean' or 'sum', got {reduce!r}")
@@ -184,25 +201,41 @@ def tp_scatter(tp: FullyConnectedTensorProduct, fc, node_attr: Tensor, edge_inde
         raise ValueError(f"{len(fc)} FC blocks for {len(edge_attr_groups)} edge groups")
 
     dtype, device = node_attr.dtype, node_attr.device
+    if edge_mask is not None:
+        edge_mask = edge_mask.reshape(-1, 1).to(device=device, dtype=dtype)
+        if edge_mask.shape[0] != edge_index.shape[1]:
+            raise ValueError(
+                f"edge_mask covers {edge_mask.shape[0]} edges, edge_index has "
+                f"{edge_index.shape[1]}")
     edge_src, edge_dst = edge_index
     out_nodes = out_nodes or node_attr.shape[0]
     out = torch.zeros((out_nodes, tp.out_irreps.dim), dtype=dtype, device=device)
     div = torch.zeros(out_nodes, dtype=dtype, device=device)
 
+    if edge_chunk is not None and edge_chunk < 1:
+        raise ValueError(f"edge_chunk must be positive, got {edge_chunk}")
+
     start = 0
     for i, group in enumerate(edge_attr_groups):
         end = start + lengths[i]
-        rng = slice(start, end)
-        src = edge_src[rng]
         block = fc[i] if isinstance(fc, nn.ModuleList) else fc
-        w = block(group).to(device=device, dtype=dtype)
-        if isinstance(edge_weight, Tensor):
-            w = w * edge_weight[rng]
-        elif edge_weight != 1.0:
-            w = w * edge_weight
-        summand = tp(node_attr[edge_dst[rng], :], edge_sh[rng, :], w)
-        out.index_add_(0, src, summand)
-        div += torch.bincount(src, minlength=out_nodes).to(dtype)
+        step = edge_chunk or max(lengths[i], 1)
+        for lo in range(start, end, step):
+            rng = slice(lo, min(lo + step, end))
+            src = edge_src[rng]
+            w = block(group[rng.start - start:rng.stop - start]).to(device=device, dtype=dtype)
+            if isinstance(edge_weight, Tensor):
+                w = w * edge_weight[rng]
+            elif edge_weight != 1.0:
+                w = w * edge_weight
+            if edge_mask is not None:
+                w = w * edge_mask[rng]
+            summand = tp(node_attr[edge_dst[rng], :], edge_sh[rng, :], w)
+            out.index_add_(0, src, summand)
+            if edge_mask is None:
+                div += torch.bincount(src, minlength=out_nodes).to(dtype)
+            else:
+                div.index_add_(0, src, edge_mask[rng, 0])
         start = end
 
     if reduce == "mean":
@@ -241,7 +274,7 @@ class TensorProductConvLayer(nn.Module):
         self.batch_norm = IrrepBatchNorm(out_irreps) if batch_norm else None
 
     def forward(self, node_attr, edge_index, edge_attr, edge_sh, out_nodes=None,
-                reduce="mean", edge_weight=1.0):
+                reduce="mean", edge_weight=1.0, edge_mask=None, edge_chunk=None):
         if edge_index.shape[1] == 0 and node_attr.shape[0] == 0:
             raise ValueError("no edges and no nodes")
         if edge_index.shape[1] == 0:
@@ -249,7 +282,7 @@ class TensorProductConvLayer(nn.Module):
                               device=node_attr.device)
         else:
             out = tp_scatter(self.tp, self.fc, node_attr, edge_index, edge_attr, edge_sh,
-                             out_nodes, reduce, edge_weight)
+                             out_nodes, reduce, edge_weight, edge_mask, edge_chunk)
             if self.batch_norm is not None and not self.residual_first:
                 out = self.batch_norm(out)
         if self.residual:
