@@ -136,9 +136,11 @@ def fd_check(loss_fn, params, n_probe=40, h=1e-5, seed=0, mag_floor=1e-6, kinks=
     A kink (ReLU) in the reference breaks the difference without the gradient being wrong: a
     step that moves any pre-activation across zero adds an O(1) error, and the chance of that
     grows with the step and with the number of units (PairUpdate's transition has ~3M at n=64,
-    and every probe of an upstream weight moves all of them). So each coordinate is differenced
-    at ``h`` and at ``h/10``. On a smooth point the two agree to roundoff; when they disagree
-    with EACH OTHER a boundary sits inside a step and the coordinate is skipped. That test never
+    and every probe of an upstream weight moves all of them: at h=1e-5 a large share of probes
+    cross one). So each coordinate is differenced at ``h`` and ``h/10``; on a smooth point the
+    two agree to roundoff. When they disagree with EACH OTHER a boundary sits inside a step, and
+    the pair moves down a decade (``h/10`` and ``h/100``); a coordinate still disagreeing there
+    is skipped. That test never
     reads the analytic gradient, so it cannot hide a wrong one. Skipped coordinate indices are appended
     to ``kinks`` when a list is given, and if more coordinates are skipped than probed the result is ``inf``:
     a reference that cannot be differenced has not been verified.
@@ -175,8 +177,8 @@ def fd_check(loss_fn, params, n_probe=40, h=1e-5, seed=0, mag_floor=1e-6, kinks=
         idx = rng.choice(ok, size=min(n_probe, ok.size), replace=False)
         for i in idx:
             i = int(i)
-            num, fine = (_central(loss_fn, flat, i, s) for s in (h, h / 10.0))
-            if abs(num - fine) > 0.5 * FD_BAR * scale:
+            num = _smooth_central(loss_fn, flat, i, h, 0.5 * FD_BAR * scale)
+            if num is None:
                 skipped += 1
                 if kinks is not None:
                     kinks.append(i)
@@ -189,6 +191,19 @@ def fd_check(loss_fn, params, n_probe=40, h=1e-5, seed=0, mag_floor=1e-6, kinks=
     if skipped > probed:
         worst = float("inf")
     return worst, probed, eligible
+
+
+def _smooth_central(loss_fn, flat, i, h, tol, decades=2):
+    """The central difference at the largest step in ``h, h/10, ...`` that agrees within ``tol`` with
+    the next step down, or None if no pair within ``decades`` shrinks does (a kink inside every step)."""
+    prev = _central(loss_fn, flat, i, h)
+    for _ in range(decades):
+        h /= 10.0
+        cur = _central(loss_fn, flat, i, h)
+        if abs(prev - cur) <= tol:
+            return prev
+        prev = cur
+    return None
 
 
 def _central(loss_fn, flat, i, h):

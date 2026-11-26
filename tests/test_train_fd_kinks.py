@@ -1,5 +1,5 @@
-"""`checks.fd_check` on a reference with ReLU kinks: skips only coordinates whose finite difference
-straddles a kink, still catches a wrong analytic gradient, and refuses when nothing smooth is left."""
+"""`checks.fd_check` on a reference with ReLU kinks: shrinks the step past a kink, skips only coordinates
+whose finite difference straddles one at every step, still catches a wrong analytic gradient, and refuses when nothing smooth is left."""
 import torch
 
 from tt_bio.train import checks as CK
@@ -26,12 +26,11 @@ def _relu_net(n=256, seed=0, wrong=False):
     return (lambda: (Relu.apply(x @ w) * c).sum()), [w]
 
 
-def test_a_kinked_reference_is_verified_with_the_kinked_coords_counted():
+def test_a_kinked_reference_is_verified_by_shrinking_the_step():
     loss, ps = _relu_net()
     kinks = []
     worst, probed, _ = CK.fd_check(loss, ps, n_probe=8, h=1e-2, kinks=kinks)
-    assert kinks, "the step was chosen to cross a kink; none was seen"
-    assert probed > 0 and worst < CK.FD_BAR
+    assert probed == 8 and not kinks and worst < CK.FD_BAR
 
 
 def test_without_the_kink_test_the_same_probe_fails():
@@ -52,5 +51,5 @@ def test_a_wrong_gradient_still_fails_on_the_smooth_coords():
 
 def test_nothing_smooth_left_is_not_verified():
     loss, ps = _relu_net(n=200000)
-    worst, _, _ = CK.fd_check(loss, ps, n_probe=8, h=0.5)
+    worst, _, _ = CK.fd_check(loss, ps, n_probe=8, h=5.0)
     assert worst == float("inf")
