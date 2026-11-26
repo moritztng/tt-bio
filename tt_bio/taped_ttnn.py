@@ -44,7 +44,7 @@ from . import pair_mm as _pair_mm
 from .autograd import Tensor, precise_config
 from .autograd import (_axis, _differentiating, _dims, _flat2d, _matmul, _on_tape, _raw,
                        _reduce_to, _sum_leading, _tape,
-                       _taped_layer_norm, _taped_linear, _unwrap, _via2d, _wrap)
+                       _taped_layer_norm, _taped_linear, _taped_rms_norm, _unwrap, _via2d, _wrap)
 
 __all__ = ["tape", "recompute_scope", "shim_scope", "VERBS", "taped_ttnn", "KERNELS",
            "KERNEL_STATS", "enabled_kernels", "forget_shim_bindings"]
@@ -193,6 +193,7 @@ def _identity_grad(shipped, args, kwargs, cast=False):
 
 _VERBS["linear"] = _taped_linear
 _VERBS["layer_norm"] = _taped_layer_norm
+_VERBS["rms_norm"] = _taped_rms_norm
 
 
 @_verb("matmul", "experimental.minimal_matmul")
