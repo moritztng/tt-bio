@@ -245,14 +245,18 @@ def main():
         if prof:
             REC = Rec()
             W.drain_dev = dev
-            swap(True)
         t0 = time.time()
         with ag.tape():
+            # Inside the tape: tape() shims only modules whose `ttnn` is the real module, so the instrument
+            # must wrap the shim, not stand in front of it.
+            if prof:
+                swap(True)
             out = mod(xt, zt, None, None, None)
-        ttnn.synchronize_device(dev)
+            ttnn.synchronize_device(dev)
+            if prof:
+                swap(False)
         t1 = time.time()
         if prof:
-            swap(False)
             recs["fwd"] = REC
             REC = Rec()
             swap(True)
