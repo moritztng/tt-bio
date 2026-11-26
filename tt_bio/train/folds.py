@@ -29,6 +29,33 @@ from .bridge import HostParam
 __all__ = ["Folds"]
 
 
+def _plain_transpose(s) -> bool:
+    """`s` is a 2-D transpose of a leaf, or of slices of one: its VJP is pure layout, no reduction."""
+    f = s.grad_fn
+    if s.dim() != 2 or type(f).__name__ != "TBackward0":
+        return False
+    f = f.next_functions[0][0]
+    while type(f).__name__ == "SliceBackward0":
+        f = f.next_functions[0][0]
+    return type(f).__name__ == "AccumulateGrad"
+
+
+def _read_back(g, s):
+    """A device gradient as a host tensor for source `s`. Most of the fold VJP is transposing gradients back
+    (`W.t()` uploads); torch would do that as a strided copy on the host. For a plain transpose the card
+    transposes instead and autograd gets a transposed view, so the host only accumulates contiguously. The
+    bits go through as uint32: a float32 tile transpose rounds to ~TF32, a uint32 one moves data only. A
+    transpose under a product (an AdaLN `norm_cond` fold) keeps the host path: its broadcast sum reduces in
+    memory order, so a contiguous grad would round differently."""
+    import ttnn
+    if not (g.dtype == ttnn.float32 and _plain_transpose(s) and all(d == 1 for d in tuple(g.shape)[:-2])):
+        return ttnn.to_torch(g)
+    u = ttnn.transpose(ttnn.bitcast(g, ttnn.uint32), -2, -1)
+    t = ttnn.bitcast(u, ttnn.float32)
+    ttnn.deallocate(u)
+    return ttnn.to_torch(t).reshape(s.shape[1], s.shape[0]).t()
+
+
 class Folds:
     def __init__(self, state: Mapping[str, torch.Tensor]):
         self.leaves = {k: v.detach().to(torch.float32).clone().requires_grad_(True)
@@ -109,7 +136,7 @@ class Folds:
             if s is None:
                 raise KeyError(f"no fold source for a device weight of shape {tuple(h.shape)}")
             if not torch.is_tensor(g):
-                g = ttnn.to_torch(g)
+                g = _read_back(g, s)
             srcs.append(s)
             gs.append(g.to(s.dtype).reshape(s.shape))
         if srcs:
