@@ -391,8 +391,14 @@ class HostScoreNetwork:
     def score_fn(self, graph):
         from tt_bio.diffdock.sampling import crop_beyond
 
-        lig, rec = graph.ligand, graph.receptor
-        full_rec_x = self._receptor_x(rec)
+        lig = graph.ligand
+        # The ESM-2 block is concatenated once, into the receptor dict, so that crop_beyond
+        # crops the features and the positions through its own single keep mask. Cropping the
+        # features separately would mean computing the same mask twice from the same cdist,
+        # and any future edit to one of the two would silently misalign the feature rows
+        # against the positions -- same row count, different residues, no error.
+        rec = dict(graph.receptor)
+        rec["x"] = self._receptor_x(graph.receptor)
         cache = None
 
         def score(step):
@@ -402,16 +408,12 @@ class HostScoreNetwork:
             tor_s = torch.as_tensor(step.tor_sigma, dtype=torch.float32)
             trs, rots, tors = [], [], []
             for pose in step.lig_pos:
-                r, rx = rec, full_rec_x
-                if step.crop_cutoff is not None:
-                    keep = torch.any(
-                        torch.cdist(rec["pos"], pose.float()) < step.crop_cutoff, dim=1)
-                    r = crop_beyond(rec, pose, step.crop_cutoff)
-                    rx = full_rec_x[keep]
+                r = rec if step.crop_cutoff is None else crop_beyond(
+                    rec, pose, step.crop_cutoff)
                 use = None if step.crop_cutoff is not None else cache
                 tr, rot, tor = self.model(
                     lig["x"], pose.float(), lig["edge_index"], lig["edge_attr"],
-                    lig["edge_mask"], rx, r["pos"], r["edge_index"],
+                    lig["edge_mask"], r["x"], r["pos"], r["edge_index"],
                     step.t_tr, tr_s, rot_s, tor_s, receptor_cache=use)
                 if step.crop_cutoff is None:
                     cache = self.model.receptor_cache
