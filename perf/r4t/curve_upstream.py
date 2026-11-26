@@ -161,7 +161,12 @@ def run(args):
     meta = {"upstream_sha": _upstream_sha(repo), "hf": f"{HF_REPO}@{HF_REV}",
             "seed_offset": args.seed_offset, "dtype": "float32", "device": "cpu",
             "threads": torch.get_num_threads(), "sha": args.sha, "host": socket.gethostname(),
-            "optimizers": [type(o).__name__ for o in optimizers], "clip": clip_val}
+            "optimizers": [type(o).__name__ for o in optimizers], "clip": clip_val,
+            # Which feature each exempt creator index is, so an exemption's reason is checkable
+            # against upstream's code rather than taken on the writer's word.
+            "feat_creators": [type(c).__name__ for c in
+                              getattr(getattr(model.nn, "init_repr_factory", None),
+                                      "feat_creators", [])]}
     cache = {}
     with CurveLog(args.out, plan, args.side, meta=meta) as log:
         for i in range(plan.steps):
