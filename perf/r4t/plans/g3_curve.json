@@ -3,16 +3,16 @@
  "crop": 256,
  "example_ids": [
   "7rcu__4__1.U_1.V__1.FA",
-  "1bj6__1__1.B__1.A",
-  "1a6b__1__1.B__1.A",
-  "2plh__1__1.A__1.G",
   "2kpz__1__1.A__1.B",
   "2jup__1__1.A__1.B",
   "6g99__1__1.A__1.B",
+  "1a6b__1__1.B__1.A",
   "6hiv__1__1.IE__1.KH",
   "1wuw__1__1.A__1.D",
-  "5svi__1__1.A__1.C",
+  "2plh__1__1.A__1.G",
+  "1bj6__1__1.B__1.A",
   "1d6g__1__1.A__1.B",
+  "5svi__1__1.A__1.C",
   "4pl6__1__1.A__1.C",
   "7rcu__2__1.G_1.H__1.BA",
   "1pdq__1__1.A__1.B",
@@ -64,5 +64,5 @@
    "every token in all 48 ids of this plan is secondary structure NONE (49,152 of 49,152, measured), and upstream builds the table as Embedding(4, 16, padding_idx=0) (feature_factory.py:762), so index 0 takes no gradient. The key IS present, so upstream runs the real branch, not the absent-key one."
   ]
  ],
- "note": "G3 graded curve leg, crop 256, 48 test_dataset ids; order puts an insertion driver (7rcu__4), an atomized driver (1bj6), a sequence driver (1a6b) and the chiral centre (2plh) in the guard's first observed steps"
+ "note": "G3 graded curve leg, crop 256, 48 test_dataset ids; the order puts a driver on each of the guard's five observed steps (0,4,7,8,9 by the plan's own depth draw): 7rcu__4 insertion+atomized, 1a6b sequence, 2plh chiral centre, 1bj6 and 1d6g atomized"
 }
