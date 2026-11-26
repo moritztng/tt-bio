@@ -89,7 +89,9 @@ upstream's layout, so an existing `workdir/v1.1/score_model` works as is.
 
 `tt-bio dock --help` lists every flag with its default. The mapping from upstream's names:
 `--samples_per_complex` is `--diffusion_samples`, `--inference_steps` is `--sampling_steps`,
-`--batch_size` is `--max_parallel_samples`, `--save_visualisation` is `--save_trajectory`,
+`--batch_size` is `--max_parallel_samples` (poses scored in one device call, default 10; it
+halves itself if the card refuses a batch, and the poses it produces do not change either
+way), `--save_visualisation` is `--save_trajectory`,
 `--loglevel` is `--log`, and `--old_score_model`/`--old_confidence_model` collapse into
 `--weights {diffdock-l,diffdock}`. The nine low-temperature sampling constants have no flags
 of their own; they are a fitted set, and `--config` takes upstream's

@@ -22,6 +22,19 @@ An implementation also provides, optionally:
 for the ranking pass. Returning `None` ranks poses in sample order, which is what
 `--no_confidence` does.
 
+A device implementation provides one more, and this is the seam the traced rollout runs
+through:
+
+    network.trace_body(graph, start, cfg, bounds, noise) -> (body, read_poses)
+
+`body(t)` issues step `t`'s device work into the same buffers every time -- the fixed shape
+this row is accountable for -- and `read_poses()` brings the final poses back as `[B, N, 3]`.
+Split that way, `tt_bio.diffdock.capture.capture_loop` can warm the body up, capture all 19
+steps as one trace and replay it without the rollout knowing a card is involved. A host
+network does not implement it and is run step by step;
+`tests/test_diffdock_trace.py::test_traced_rollout_matches_untraced` is what says the two
+agree, and it skips until a device network offers this member.
+
 **Nothing implements this yet.** The port's score network is `dfd-parity`'s `score_model`
 feature; until it lands, `load` raises and `tt-bio dock` says so in one line instead of
 failing somewhere inside a loader. Wiring it up is replacing the body of `load` -- the dock
