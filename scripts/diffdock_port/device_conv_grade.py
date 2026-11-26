@@ -21,7 +21,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from tt_bio.diffdock import config as dcfg  # noqa: E402
 from tt_bio.diffdock.conv import TensorProductConvLayer  # noqa: E402
-from tt_bio.diffdock.geometry import spherical_harmonics  # noqa: E402
+from tt_bio.diffdock.harmonics import spherical_harmonics  # noqa: E402
 from tt_bio.diffdock import device as ddev  # noqa: E402
 
 CKPT = Path(os.environ.get("DIFFDOCK_MODELS", Path.home() / "scratch/dfd/ckpt/extracted"))
@@ -90,7 +90,7 @@ def main():
         ei = torch.stack([src, dst])
         x = torch.randn(N, layer.in_irreps.dim, generator=gen, dtype=torch.float64)
         x[pad_node] = 0
-        sh = spherical_harmonics([0, 1, 2], torch.randn(E, 3, generator=gen, dtype=torch.float64))
+        sh = spherical_harmonics(torch.randn(E, 3, generator=gen, dtype=torch.float64), (0, 1, 2))
         nef = (layer.fc[0] if G > 1 else layer.fc)[0].weight.shape[1]
         groups = [torch.randn(Eg, nef, generator=gen, dtype=torch.float64) for _ in range(G)]
         with torch.no_grad():

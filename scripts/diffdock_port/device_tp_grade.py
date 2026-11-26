@@ -25,7 +25,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from tt_bio.diffdock import config as dcfg  # noqa: E402
 from tt_bio.diffdock.conv import TensorProductConvLayer  # noqa: E402
-from tt_bio.diffdock.geometry import spherical_harmonics  # noqa: E402
+from tt_bio.diffdock.harmonics import spherical_harmonics  # noqa: E402
 from tt_bio.diffdock import device as ddev  # noqa: E402
 
 CKPT = Path(os.environ.get("DIFFDOCK_MODELS", Path.home() / "scratch/dfd/ckpt/extracted"))
@@ -50,7 +50,7 @@ def inputs(tp, fc, n_edges, gen):
     vec = torch.randn(n_edges, 3, generator=gen, dtype=torch.float64)
     ls = [t.l for t in tp.sh_irreps]
     if [t.mul for t in tp.sh_irreps] == [1] * len(ls) and ls == list(range(len(ls))):
-        x2 = spherical_harmonics(ls, vec)
+        x2 = spherical_harmonics(vec, ls)
     else:  # the torsion conv's sh is a full tensor product; any unit-scale block exercises it
         x2 = torch.randn(n_edges, tp.sh_irreps.dim, generator=gen, dtype=torch.float64)
     ea = torch.randn(n_edges, fc[0].weight.shape[1], generator=gen, dtype=torch.float64)
