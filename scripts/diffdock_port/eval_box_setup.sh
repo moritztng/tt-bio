@@ -13,8 +13,8 @@
 set -euo pipefail
 
 TARGET=${1:?usage: eval_box_setup.sh <ssh-target>|- [workers] [threads]}
-WORKERS=${2:-8}
-THREADS=${3:-3}
+WORKERS=${2:-8}   # `auto` sizes the pool from the box's own nproc, so one query can take
+THREADS=${3:-3}   # a 32-core and a 64-core offer without leaving half the box idle.
 # A vast box is reached as `ssh -p <port> root@<ip>`, not as a bare target, so the caller may
 # hand the whole command over SSH_CMD. rsync gets the same command minus its target.
 SSH=${SSH_CMD:-ssh -o StrictHostKeyChecking=accept-new $TARGET}
@@ -23,6 +23,12 @@ RSH=${SSH% *}    # ... and the rest is what rsync runs as its shell
 REPO=$(cd "$(dirname "$0")/../.." && pwd)
 PB=${DFD_PB:-$HOME/scratch/dfd/pb/posebusters_benchmark_set}
 CKPT=$HOME/.boltz/diffdock/models
+
+if [ "$WORKERS" = auto ]; then
+  NP=$($SSH nproc)
+  WORKERS=$(( NP / THREADS )); [ "$WORKERS" -lt 1 ] && WORKERS=1
+  echo "== $NP cores -> $WORKERS workers x $THREADS threads"
+fi
 
 echo "== base packages on $RT"
 $SSH 'command -v rsync >/dev/null && command -v curl >/dev/null ||
@@ -50,7 +56,10 @@ export PATH="$HOME/.local/bin:$PATH"
 VIRTUAL_ENV=~/dfd/venv uv pip install --quiet \
     torch --index-url https://download.pytorch.org/whl/cpu
 VIRTUAL_ENV=~/dfd/venv uv pip install --quiet ~/dfd/tt-bio
-~/dfd/venv/bin/python -c "import tt_bio.diffdock.run; print('tt_bio ok')"
+# From $HOME, so the install is what gets imported and not the shipped source tree. This is
+# the check that caught the package-data gap on 2026-11-26: recipe.yaml, w3j_tables.json and
+# score_norm_tables.json are loaded by path at import time and were not in the wheel.
+cd ~ && ~/dfd/venv/bin/python -c "import tt_bio.diffdock.run; print('tt_bio ok')"
 REMOTE
 
 echo "== dock, detached"

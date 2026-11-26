@@ -143,6 +143,11 @@ include = ["tt_bio*"]
 "tt_bio.boltzgen.resources" = ["*.json"]
 "tt_bio.boltzgen.resources.config" = ["*.yaml"]
 "tt_bio.boltzgen.resources.splits" = ["*.txt"]
+#   - tt_bio/diffdock/{recipe.yaml, w3j_tables.json, score_norm_tables.json}: the DiffDock-L
+#     recipe (job.py), the Wigner 3j tables every tensor product reads (tensor_product.py) and
+#     the score-norm schedule (schedules.py). All three are loaded by path at import time, so
+#     without them `import tt_bio.diffdock.run` raises FileNotFoundError on a clean install.
+"tt_bio.diffdock" = ["*.yaml", "*.json"]
 # kernel sources: tt_bio/reblock_permute.py, tt_bio/mm_generic.py (triatt /
 # triatt_sdpa / trimul fused kernels) and friends load them by path
 # (KERNEL_DIR, ttnn KernelDescriptor FILE_PATH) on the DEFAULT path, so a clean
