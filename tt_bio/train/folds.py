@@ -12,8 +12,10 @@ the model with the upstream state dict as float32 leaves that want a gradient an
 source of every `ttnn.from_torch` made while it does. Each source carries the fold as a torch graph, so
 the fold's VJP is torch's own backward through it, whatever shape the fold has: a closure, a raw
 `from_torch` outside `Module.torch_to_tt`, or a lazy upload during the first forward (record that forward
-too). Two device copies of one parameter sum. A device weight whose source has no upstream leaf (a zero
-LayerNorm bias the checkpoint lacks, a value computed under `no_grad`) is named by `orphans`, never zeroed.
+too). Two device copies of one parameter sum. A weight uploaded from a tensor no leaf feeds is a constant
+(`constants`: RFD4's trimul LayerNorm biases, which upstream builds with `bias=False`); a weight with no
+recorded upload at all (made on the device, or outside the recording) is an orphan (`orphans`), and both are
+named so a caller can refuse them, never zeroed.
 """
 from __future__ import annotations
 
@@ -32,6 +34,7 @@ class Folds:
         self.leaves = {k: v.detach().to(torch.float32).clone().requires_grad_(True)
                        for k, v in state.items() if torch.is_tensor(v) and v.is_floating_point()}
         self.sources = {}  # id(device handle) -> (handle, torch source); holding the handle keeps the id live
+        self.consts = {}   # id(device handle) -> handle uploaded from a tensor no leaf feeds
 
     @contextmanager
     def recording(self):
@@ -45,10 +48,13 @@ class Folds:
         real = ttnn.from_torch
 
         def rec(x, *a, **k):
-            if not (torch.is_tensor(x) and x.requires_grad):
+            if not torch.is_tensor(x):
                 return real(x, *a, **k)
             t = real(x.detach(), *a, **k)
-            self.sources[id(t)] = (t, x)
+            if x.requires_grad:
+                self.sources[id(t)] = (t, x)
+            else:
+                self.consts[id(t)] = t
             return t
 
         ttnn.from_torch = rec
@@ -61,9 +67,13 @@ class Folds:
         hit = self.sources.get(id(getattr(handle, "value", handle)))
         return None if hit is None or hit[0] is not getattr(handle, "value", handle) else hit[1]
 
+    def constants(self, named: Mapping[str, object]) -> list:
+        """Names among `named` (`{name: device handle or tape leaf}`) uploaded from no upstream leaf."""
+        return sorted(n for n, h in named.items() if self.consts.get(id(getattr(h, "value", h))) is getattr(h, "value", h))
+
     def orphans(self, named: Mapping[str, object]) -> list:
-        """Names among `named` (`{name: device handle or tape leaf}`) with no recorded source."""
-        return sorted(n for n, h in named.items() if self.source(h) is None)
+        """Names among `named` with no recorded upload at all."""
+        return sorted(n for n, h in named.items() if self.source(h) is None and n not in set(self.constants({n: h})))
 
     def unreached(self) -> list:
         """Upstream leaves no recorded source depends on: parameters the device model never reads."""

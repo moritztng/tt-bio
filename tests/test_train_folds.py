@@ -66,9 +66,11 @@ def test_the_recorded_build_is_the_serving_build_bit_for_bit():
         assert torch.equal(ttnn.to_torch(m[k]), ttnn.to_torch(served[k])), k
 
 
-def test_an_orphan_is_named_and_refused():
+def test_a_constant_and_an_orphan_are_named_and_refused():
     _, f, m, _ = _setup()
-    assert f.orphans(m) == ["zero_bias"]
+    m["on_device"] = ttnn.from_torch(torch.ones(4), dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT)  # outside recording
+    assert f.constants(m) == ["zero_bias"]
+    assert f.orphans(m) == ["on_device"]
     assert f.unreached() == []
     with pytest.raises(KeyError):
         f.backward([(m["zero_bias"], torch.ones(6))])

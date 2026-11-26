@@ -79,6 +79,7 @@ def main():
                 r["device_weights"] = len(walked)
                 r["recorded_sources"] = len(f.sources)
                 r["orphans"] = f.orphans(walked)
+                r["constants"] = f.constants(walked)
                 r["unread_under_tape"] = sorted(p for p, t in walked.items() if id(t) in idle)
                 r["upstream_params"] = len(f.leaves)
                 r["unreached_upstream"] = f.unreached()
