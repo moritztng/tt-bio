@@ -6,7 +6,7 @@ C=${1:?card}; CPUS=${2:?cpus}; WT=$HOME/.coworker/wt/r4t-perf; OUT=$HOME/r4t/per
 PY=$HOME/scratch/shipflow/venv-c4f99e695d34/bin/python
 mkdir -p $OUT; cd $WT
 # free = nobody has the device open AND no other owner holds the spd booking (a release gate books chips between its steps)
-wait_card() { for w in $(seq 1 180); do b=$(python3 ~/spd/feed/book.py active $C 2>/dev/null | grep -v r4t-perf); [ -z "$b" ] && [ -z "$(sudo -n fuser /dev/tenstorrent/$C 2>/dev/null)" ] && return; sleep 20; done; }
+wait_card() { for w in $(seq 1 1440); do b=$(python3 ~/spd/feed/book.py active $C 2>/dev/null | grep -v r4t-perf); [ -z "$b" ] && [ -z "$(sudo -n fuser /dev/tenstorrent/$C 2>/dev/null)" ] && return; sleep 20; done; echo "ABORT no window $(date -u +%T)" >> $OUT/run.log; exit 1; }
 run() {  # NAME BATCH STEPS PIN extra-args...
   local nm=$1 b=$2 st=$3 pin=$4; shift 4; wait_card
   local pre=""; [ $pin = 1 ] && pre="taskset -c $CPUS"
