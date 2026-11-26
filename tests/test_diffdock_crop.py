@@ -188,6 +188,34 @@ def test_masked_full_receptor_matches_the_cropped_graph(real, step):
             "the control did not move -- the comparison above would be vacuous"
 
 
+@pytest.mark.parametrize("step", STEPS)
+def test_the_keep_set_falls_out_of_the_cross_mask_no_second_cdist(real, step):
+    """`rec_keep_from_cross` is the form `dfd-device` should use, so it is graded here.
+
+    The cross edge set is complete, so "within the radius of some ligand atom of this pose" is
+    an `any` over the cross edges ending on the residue -- distances the step computes anyway.
+    Over three real steps and ten poses it agrees residue for residue with the `cdist` form.
+    """
+    full, steps = real
+    d = steps[step]
+    lig, cutoff = d["lig"], d["cutoff"]
+    n_lig, n_rec, b = lig.shape[0], full.shape[0], 3
+    s = G.StaticGraphs.build(n_lig, n_rec, torch.zeros((2, 0), dtype=torch.long), n_poses=b)
+    torch.manual_seed(2)
+    # three different poses of the same ligand, so the keep-sets genuinely differ
+    ligs = torch.stack([lig, lig + torch.tensor([6.0, 0.0, 0.0]), lig * 1.02])
+    lig_p = torch.zeros(s.n_lig_padded, 3)
+    lig_p[:n_lig * b] = ligs.reshape(-1, 3)
+    rec_p = torch.zeros(s.n_rec_padded, 3)
+    rec_p[:n_rec * b] = full.repeat(b, 1)
+    want = s.rec_keep(lig_p, rec_p, cutoff)
+    got = s.rec_keep_from_cross(s.cross_mask(lig_p, rec_p, cutoff))
+    # `cross_mask` compares |v/c| <= 1 and `rec_keep` cdist < c: equal except exactly on the
+    # sphere, which no residue of a real rollout sits on.
+    assert torch.equal(got, want), f"step {step}: {int((got != want).sum())} residues differ"
+    assert 0 < want[:n_rec * b].sum() < n_rec * b or step < 18
+
+
 def test_rec_edge_index_tiles_and_pads_per_pose():
     pos = torch.randn(40, 3) * 10
     rec_ei = _knn(pos, 4)

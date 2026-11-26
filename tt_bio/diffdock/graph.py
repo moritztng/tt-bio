@@ -301,6 +301,27 @@ class StaticGraphs:
         keep = (torch.cdist(rec, lig) < c.expand(b, 1)[:, :, None]).any(dim=-1)
         return pad_mask(keep.reshape(-1).to(rec_pos.dtype), self.n_rec_padded)
 
+    def rec_keep_from_cross(self, cross_near: Tensor) -> Tensor:
+        """The same keep-set, as a scatter over the cross edges instead of a second `cdist`.
+
+        The cross edge set is complete, so "some ligand atom of this pose is within *c* of
+        this residue" is exactly an ``any`` over the cross edges that end on it -- and the
+        step already computes those distances for the cross mask. On device that is one
+        ``index_add_`` into the receptor node axis rather than an ``[n_rec, n_lig]`` distance
+        matrix per pose, which is why this form exists; it is what `dfd-device` should call.
+
+        *cross_near* is ``[E]`` over :attr:`cross_edge_index`, 1 where the residue is inside
+        the crop radius of that ligand atom -- for the shipped recipe, where the crop radius
+        and the cross cutoff are the same number, that is :meth:`cross_mask`'s own output.
+        Pad edges end on the pad node, so they can only light up a pad row, which is zeroed.
+        """
+        counts = torch.zeros(self.n_rec_padded, dtype=cross_near.dtype,
+                             device=cross_near.device)
+        counts.index_add_(0, self.cross_edge_index[1], cross_near.reshape(-1))
+        keep = (counts > 0).to(cross_near.dtype)
+        keep[self.n_rec * self.n_poses:] = 0
+        return keep
+
     @staticmethod
     def rec_edge_mask(keep: Tensor, rec_edge_index: Tensor) -> Tensor:
         """An edge of the receptor graph survives the crop iff both ends do (`_subgraph`)."""
