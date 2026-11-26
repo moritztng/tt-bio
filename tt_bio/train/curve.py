@@ -153,17 +153,40 @@ class CurveLog:
     plan: CurvePlan
     side: str
     meta: dict = field(default_factory=dict)
+    start: int = 0
 
     def __post_init__(self):
         if self.side not in SIDES:
             raise ValueError(f"side={self.side!r}, expected one of {SIDES}")
         self.path = Path(self.path)
+        if self.start:
+            self._resume()
+            return
         self._f = self.path.open("a", buffering=1)
         header = {"kind": "r4t-curve", "side": self.side, "plan_digest": self.plan.digest(),
                   "plan": asdict(self.plan), "host": socket.gethostname(),
                   "platform": platform.platform(), "started_unix": time.time(), **self.meta}
         self._f.write(json.dumps(header, sort_keys=True) + "\n")
         self._next = 0
+
+    def _resume(self) -> None:
+        """Continue a log from step ``start`` (a run resumed from the checkpoint after step
+        ``start - 1``). Rows at or past ``start`` were written after that checkpoint and are
+        recomputed by the resumed run, so they are dropped; the file must already hold every
+        step before ``start`` for this plan and side, or the resume is refused."""
+        header, losses = read_curve(self.path)
+        if header["plan_digest"] != self.plan.digest() or header["side"] != self.side:
+            raise CurveContractError(f"{self.path}: resuming {self.side} plan {self.plan.digest()} "
+                                     f"onto a {header['side']} log of plan {header['plan_digest']}")
+        if len(losses) < self.start:
+            raise CurveContractError(f"{self.path}: resume at step {self.start} but the log ends "
+                                     f"at step {len(losses) - 1}")
+        keep = [ln for ln in self.path.read_text().splitlines() if ln.strip()][:self.start + 1]
+        tmp = self.path.with_suffix(self.path.suffix + ".tmp")
+        tmp.write_text("\n".join(keep) + "\n")
+        tmp.replace(self.path)
+        self._f = self.path.open("a", buffering=1)
+        self._next = self.start
 
     def record(self, step: int, loss: float, terms: Optional[Mapping[str, float]] = None,
                n_recycle: Optional[int] = None, **extra) -> None:
