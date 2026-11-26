@@ -362,6 +362,10 @@ def main():
         idle = folds.tape_backward()   # device-weight gradients through each fold's VJP into the upstream leaves
         grads = {nm: (None if p.grad is None else p.grad.float().numpy()) for nm, p in params.items()}
         dead = zero_or_missing(grads)
+        if os.environ.get("R4T_DUMP_G") and step == start:
+            import numpy as _np
+            _np.savez(os.environ["R4T_DUMP_G"], **{nm.replace(".", "__"): g for nm, g in grads.items()
+                                                    if g is not None and "pair_update_layers" in nm})
         t2b = time.time()
         opt.step()
         for p in params.values():
