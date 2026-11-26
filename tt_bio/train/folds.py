@@ -103,14 +103,24 @@ class Folds:
 
     def tape_backward(self) -> list:
         """`backward` from the tape: every recorded weight whose tape leaf holds a gradient. Returns the
-        handles with none (a duplicate the taped forward never reads, or frozen this step)."""
+        handles with none (a duplicate the taped forward never reads, or frozen this step).
+
+        The device gradients are consumed: once summed into the upstream leaves they are freed and the
+        tape leaves cleared, so a rebuild does not strand one float32 copy of the model per step."""
+        import ttnn
         from .. import autograd as ag
-        pairs, idle = [], []
+        pairs, idle, used = [], [], []
         for h, _ in self.sources.values():
             leaf = ag.parameter_for(h)
             g = None if leaf is None else leaf.grad
             (idle if g is None else pairs).append(h if g is None else (h, g))
+            if g is not None:
+                used.append(leaf)
         self.backward(pairs)
+        for leaf in used:
+            g, leaf.grad = leaf.grad, None
+            if g is not None and not torch.is_tensor(g):
+                ttnn.deallocate(g)
         return idle
 
     def params(self, prefix: str = "") -> dict:

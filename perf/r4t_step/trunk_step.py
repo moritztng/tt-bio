@@ -6,7 +6,10 @@ by the production `Trunk.__call__` under the tape, earlier passes no_grad as ups
 are seeded tensors and the loss seed lands on s (`<s, C>/numel`). Prints one JSON line per step.
 
   --save-at k / --resume PATH: checkpoint after step k / continue from it in a fresh process (bit-identical check)
-  --detach-at j: cut the graph in front of trunk layer j (the G2 fail arm)
+  --freeze SUB: the G2 fail arm. The first trained upstream leaf whose name contains SUB stops requiring grad
+     before the build, so its fold uploads as a constant: one parameter detached from the graph, as a load-path
+     `.detach()` bug would. (Cutting the token stream at a layer detaches nothing: the pair biases and z carry
+     every earlier layer forward.)
   --batch P1,P2,..: the real step, step i on batch P[i % len], each a batch upstream itself trained on (`perf/r4t/loss_parity_reference.py` dumps:
      every feature, x_1/x_t/t, k candidates, depth, upstream winners and losses). Host glue (conditioning,
      initial representations, pair builder) and heads run with grad on the host and join the tape through
@@ -31,7 +34,7 @@ def main():
     ap.add_argument("--steps", type=int, default=6)
     ap.add_argument("--save-at", type=int, default=0)
     ap.add_argument("--resume", default="")
-    ap.add_argument("--detach-at", type=int, default=-1)
+    ap.add_argument("--freeze", default="")
     ap.add_argument("--batch", default="")
     ap.add_argument("--exempt", default="")
     ap.add_argument("--out", default=os.path.expanduser("~/r4t/step/tck"))
@@ -85,6 +88,7 @@ def main():
             for _p, _o, _k, t in T.walk_device_weights(trunk):
                 ttnn.deallocate(getattr(t, "value", t))
             ag.release_pins()
+            ag.forget_parameters()   # the old leaves point at freed handles; build() registers the new ones
         folds.sources.clear()
         folds.consts.clear()
         with folds.recording() as sd:
@@ -117,17 +121,7 @@ def main():
         (`ops.recycle_region`, upstream's `recycle_grad: last`), so only the last pass is differentiated."""
         conds = [cond1] * a.depth if conds is None else conds
         masks = masks1 if masks is None else masks
-        if a.detach_at < 0:
-            return trunk(s_init, z_init, conds, masks)
-        blk = trunk.blocks[a.detach_at]
-
-        def cut(*r, **kw):   # every tensor input (token AND pair stream) leaves the graph here
-            return type(blk).__call__(blk, *[ttnn.clone(x.value) if isinstance(x, ag.Tensor) else x for x in r], **kw)
-        trunk.blocks[a.detach_at] = cut
-        try:
-            return trunk(s_init, z_init, conds, masks)
-        finally:
-            trunk.blocks[a.detach_at] = blk
+        return trunk(s_init, z_init, conds, masks)
 
     def one_example(step, taped):
         s0, z0 = inputs(step)
@@ -244,6 +238,11 @@ def main():
     params = {nm: p for nm, p in every.items() if nm not in unreached}
     if real:
         params.update(host_params(glue, "glue."))
+    if a.freeze:
+        fz = next(nm for nm in sorted(params) if a.freeze in nm)
+        folds.leaves[fz].requires_grad_(False)
+        build()
+        print(json.dumps(dict(frozen=fz)), flush=True)
     names = list(params)
     cyc = {nm: "depth-1 draws feed a zero state into the cycle projection; trains at depth >= 2"
            for nm in names if "cycle" in nm and a.depth < 2}
