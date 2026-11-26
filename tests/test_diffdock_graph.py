@@ -259,6 +259,7 @@ def test_node_update_matches_the_dynamic_graph(golden, step):
     assert torch.isfinite(real).all()
     scale = dynamic.abs().max()
     err = (real - dynamic).abs().max() / scale
+    print(f"\n[grade] step {step}: max relative deviation {err:.3e}")
     assert err < 1e-6, f"step {step}: max relative deviation {err:.3e}"
 
 
