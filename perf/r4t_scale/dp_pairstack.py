@@ -11,6 +11,12 @@ across ranks.
 
   python3 perf/r4t_scale/dp_pairstack.py --cards 0 --steps 6 --out ~/r4t/scale/dp1
   python3 perf/r4t_scale/dp_pairstack.py --cards 0,1 --steps 6 --shard --out ~/r4t/scale/dp2
+
+Checkpoint/resume: --ckpt DIR --every N writes each rank's complete checkpoint (masters + optimizer
+state, gathered when sharded) every N steps; --resume continues from the newest one, at the step it
+names, on the same data order. A resumed run's per-step master digests must equal an uninterrupted
+run's. --resume-weights-only (the broken arm) restores the masters but restarts the optimizer state,
+and must not match.
 """
 import argparse, hashlib, json, os, socket, subprocess, sys, threading, time
 from pathlib import Path
@@ -29,6 +35,7 @@ def rank_main(a, rank, world, run):
     from tt_bio.train.launcher import ProcessAxis
     from tt_bio.train.mesh import Axis
     from tt_bio.train.optim import AdamW
+    from tt_bio.train.checkpoint import Checkpointer, load_adapter
     import rfd4_reference as REF
     dev = T.get_device()
     card = int(os.environ["TT_VISIBLE_DEVICES"].split(",")[0])
@@ -73,9 +80,21 @@ def rank_main(a, rank, world, run):
           if world > 1 else Axis(name="dp", device_ids=(card,)))
     opt = AdamW(dict(params), lr=1e-4, clip_norm=1.0, weight_decay=0.0, data_parallel=ax,
                 shard=a.shard)
+    ck = Checkpointer(Path(a.ckpt, f"rank{rank}"), every=a.every, keep=2) if a.ckpt else None
+    start = 0
+    if ck is not None and a.resume and ck.latest() is not None:
+        fresh = opt.state_dict()
+        meta = load_adapter(ck.latest(), params, dev, opt=opt)
+        if a.resume_weights_only:
+            for mom in (opt.exp_avg, opt.exp_avg_sq, opt.momentum_buffer):
+                mom.clear()
+            opt.load_state_dict(fresh)
+        start = meta["step"]
+        params.rebind()
+        print(json.dumps({"rank": rank, "resumed_from": str(ck.latest()), "step": start}), flush=True)
     threading.Thread(target=sample, daemon=True).start()
     rows = []
-    for step in range(a.steps):
+    for step in range(start, a.steps):
         zin = put(REF.block_inputs(1, a.n, 768, 384, 256, seed=1000 + step * world + rank)[1])
         ttnn.synchronize_device(dev)
         c0 = len(clk)
@@ -107,6 +126,9 @@ def rank_main(a, rank, world, run):
                          readback_s=t3 - t2, opt_s=t4 - t3, step_s=t4 - t0, master_digest=md,
                          aiclk=[min(s or [0]), max(s or [0])]))
         print(json.dumps(rows[-1]), flush=True)
+        if ck is not None:
+            ck.save(step + 1, opt, metrics={"loss": loss})
+        Path(a.out, f"rank{rank}.json").write_text(json.dumps(rows))
     stop.set()
     Path(a.out, f"rank{rank}.json").write_text(json.dumps(rows))
 
@@ -121,6 +143,10 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument("--rank", type=int, default=-1)
     ap.add_argument("--run", default="")
+    ap.add_argument("--ckpt", default="")
+    ap.add_argument("--every", type=int, default=2)
+    ap.add_argument("--resume", action="store_true")
+    ap.add_argument("--resume-weights-only", action="store_true")
     a = ap.parse_args()
     cards = [int(c) for c in a.cards.split(",")]
     Path(a.out).mkdir(parents=True, exist_ok=True)
@@ -133,9 +159,11 @@ def main():
     for r, c in enumerate(cards):
         env = dict(os.environ, TT_VISIBLE_DEVICES=str(c), TT_BIO_LEASE_CARDS=str(c),
                    TT_BIO_LEASE_HOLDER=holder)
-        argv = [sys.executable, __file__, "--cards", a.cards, "--n", str(a.n), "--blocks",
+        argv = ([sys.executable, __file__, "--cards", a.cards, "--n", str(a.n), "--blocks",
                 str(a.blocks), "--steps", str(a.steps), "--out", a.out, "--rank", str(r),
-                "--run", str(run)] + (["--shard"] if a.shard else [])
+                "--run", str(run), "--ckpt", a.ckpt, "--every", str(a.every)]
+                + (["--shard"] if a.shard else []) + (["--resume"] if a.resume else [])
+                + (["--resume-weights-only"] if a.resume_weights_only else []))
         procs.append(subprocess.Popen(argv, env=env, stdout=open(Path(a.out, f"rank{r}.log"), "w"),
                                       stderr=subprocess.STDOUT))
     rcs = [p.wait() for p in procs]

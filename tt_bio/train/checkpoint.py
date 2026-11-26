@@ -48,7 +48,20 @@ def save_adapter(path, opt: AdamW, *, meta: Optional[dict] = None) -> None:
               "tt_bio_adapter": "1"}
     if meta:
         header["meta"] = json.dumps(meta)
-    save_file(tensors, str(path), metadata=header)
+    # Written beside, fsynced and renamed into place: a host reset in the middle of a save
+    # otherwise leaves a truncated newest file, and ``Checkpointer.latest`` resumes from it.
+    import os
+    path = Path(path)
+    tmp = path.with_name(path.name + ".tmp")
+    save_file(tensors, str(tmp), metadata=header)
+    with open(tmp, "rb") as fh:
+        os.fsync(fh.fileno())
+    os.replace(tmp, path)
+    fd = os.open(path.parent, os.O_RDONLY)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
 
 
 def load_adapter(path, params: Dict[str, ag.Tensor], device, *, opt: Optional[AdamW] = None):
