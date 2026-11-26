@@ -1005,18 +1005,21 @@ class Trunk(Module):
         low = self.dtype if zd == ttnn.float32 and self.dtype == ttnn.bfloat16 else None
         s = z = None
         self._ran = (0, 0)
-        for c in conds:
-            zb = None
-            if s is None:
-                s_in, z_in = ttnn.clone(s_init), ttnn.clone(z_init)
-            else:
-                s_in = self._recycle(s_init, s, self.s_norm, self.s_proj, self.residual_dtype)
-                z_in = self._recycle(z_init, z, self.z_norm, self.z_proj, zd, low=low)
-                if low is not None:
-                    z_in, zb = z_in
-                ttnn.deallocate(s)
-                ttnn.deallocate(z)
-            s, z = self.run_pass(s_in, z_in, c, masks, zb=zb)
+        # Under a tape every cycle but the last runs under no_grad, as upstream trains it (only the last
+        # pass is differentiated); all cycles still run. With no tape `recycle_region` is a null context.
+        for cyc, c in enumerate(conds):
+            with ops.recycle_region(cyc, len(conds) - 1):
+                zb = None
+                if s is None:
+                    s_in, z_in = ttnn.clone(s_init), ttnn.clone(z_init)
+                else:
+                    s_in = self._recycle(s_init, s, self.s_norm, self.s_proj, self.residual_dtype)
+                    z_in = self._recycle(z_init, z, self.z_norm, self.z_proj, zd, low=low)
+                    if low is not None:
+                        z_in, zb = z_in
+                    ttnn.deallocate(s)
+                    ttnn.deallocate(z)
+                s, z = self.run_pass(s_in, z_in, c, masks, zb=zb)
         if res_mask is not None and lever("mask_at_mix"):
             # the passes left the padded tokens unmasked; the call hands them back as zeros, as upstream does
             ms, mz = _masked_copy(s, res_mask, self.residual_dtype), _masked_copy(z, res_pair_mask_c, zd)
@@ -1122,7 +1125,9 @@ class Trunk(Module):
         and a run that reserved none simply stays eager."""
         # A trunk a caller built without `__init__` (a stand-in in the work-counting tests, a subclass
         # that never resolved a lever set) has no `_levers` and simply does not replay.
-        return "trunk_trace" in getattr(self, "_levers", ()) and trace_region_size() > 0
+        # Never under a tape: a replay hands back raw outputs of a program the tape never saw, so the
+        # graph would end at the trunk with no error, and a capture would record the tape's own verbs.
+        return "trunk_trace" in getattr(self, "_levers", ()) and trace_region_size() > 0 and not ops.taping()
 
     @staticmethod
     def trace_key(s, z, cs):
