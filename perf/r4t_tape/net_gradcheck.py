@@ -130,7 +130,7 @@ def main():
     if a.ref:
         rz = np.load(a.ref)
         ref_grads = {k: rz[k] for k in rz.files}
-        fd = json.load(open(a.ref + ".json"))
+        fd = json.load(open(a.ref.removesuffix(".npz") + ".json"))
     else:
         with torch.enable_grad():
             L = loss_fn()
