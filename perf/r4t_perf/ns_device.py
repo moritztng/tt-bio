@@ -35,6 +35,7 @@ def main():
     ap.add_argument("--arm", choices=["gram", "naive"], default="gram")
     ap.add_argument("--fidelity", default="HiFi4")
     ap.add_argument("--broken", action="store_true")
+    ap.add_argument("--no-l1acc", action="store_true", help="packer_l1_acc off (partials stay in DEST)")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
     from tt_bio.main import ensure_p300_mesh_descriptor
@@ -60,7 +61,7 @@ def main():
     threading.Thread(target=sampler, daemon=True).start()
 
     ckc = ttnn.types.BlackholeComputeKernelConfig(math_fidelity=getattr(ttnn.MathFidelity, a.fidelity),
-                                                  math_approx_mode=False, fp32_dest_acc_en=True, packer_l1_acc=True)
+                                                  math_approx_mode=False, fp32_dest_acc_en=True, packer_l1_acc=not a.no_l1acc)
     f32, b16 = ttnn.float32, ttnn.bfloat16
     mm = lambda p, q, dt, **k: ttnn.matmul(p, q, dtype=dt, compute_kernel_config=ckc, **k)
 
@@ -126,7 +127,7 @@ def main():
             if not ok:
                 fail.append([list(w.shape[1:]), k, ed, eh])
     dts = [t1 - t0 for t0, t1 in times]
-    res = dict(arm=a.arm, fidelity=a.fidelity, broken=a.broken, host="qb2", chip=card, board="p300c", sha=sha,
+    res = dict(arm=a.arm, fidelity=a.fidelity, l1acc=not a.no_l1acc, broken=a.broken, host="qb2", chip=card, board="p300c", sha=sha,
                n_matrices=sum(g.shape[0] for g in groups), reps=a.reps, step_s=[round(d, 4) for d in dts],
                step_s_min=round(min(dts), 4), aiclk=[min(ck), max(ck), len(ck)] if ck else None,
                worst_edev_over_ehost=round(worst, 3), n_fail=len(fail), fail=fail[:20],
