@@ -1,0 +1,56 @@
+"""`checks.fd_check` on a reference with ReLU kinks: skips only coordinates whose finite difference
+straddles a kink, still catches a wrong analytic gradient, and refuses when nothing smooth is left."""
+import torch
+
+from tt_bio.train import checks as CK
+
+
+def _relu_net(n=256, seed=0, wrong=False):
+    """Many ReLU units sitting near zero, so a 1e-2 step crosses one on some probes (2 of 8 at seed 0)."""
+    g = torch.Generator().manual_seed(seed)
+    w = torch.randn(8, generator=g, dtype=torch.float64).requires_grad_(True)
+    x = torch.randn(n, 8, generator=g, dtype=torch.float64)
+    c = torch.randn(n, generator=g, dtype=torch.float64)
+
+    class Relu(torch.autograd.Function):
+        @staticmethod
+        def forward(ctx, a):
+            ctx.save_for_backward(a)
+            return a.clamp_min(0)
+
+        @staticmethod
+        def backward(ctx, gy):
+            (a,) = ctx.saved_tensors
+            return gy * (a > 0) * (1.3 if wrong else 1.0)
+
+    return (lambda: (Relu.apply(x @ w) * c).sum()), [w]
+
+
+def test_a_kinked_reference_is_verified_with_the_kinked_coords_counted():
+    loss, ps = _relu_net()
+    kinks = []
+    worst, probed, _ = CK.fd_check(loss, ps, n_probe=8, h=1e-2, kinks=kinks)
+    assert kinks, "the step was chosen to cross a kink; none was seen"
+    assert probed > 0 and worst < CK.FD_BAR
+
+
+def test_without_the_kink_test_the_same_probe_fails():
+    # the A arm: one central difference at h is what fd_check did before; it misreads the kink
+    loss, (w,) = _relu_net()
+    loss().backward()
+    flat, h = w.detach().reshape(-1), 1e-2
+    scale = w.grad.abs().max().item()
+    err = max(abs(CK._central(loss, flat, i, h) - w.grad[i].item()) / scale for i in range(8))
+    assert err > CK.FD_BAR
+
+
+def test_a_wrong_gradient_still_fails_on_the_smooth_coords():
+    loss, ps = _relu_net(wrong=True)
+    worst, probed, _ = CK.fd_check(loss, ps, n_probe=8, h=1e-5)
+    assert probed > 0 and worst > 0.1
+
+
+def test_nothing_smooth_left_is_not_verified():
+    loss, ps = _relu_net(n=200000)
+    worst, _, _ = CK.fd_check(loss, ps, n_probe=8, h=0.5)
+    assert worst == float("inf")

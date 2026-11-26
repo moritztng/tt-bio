@@ -114,7 +114,7 @@ def metrics(got: np.ndarray, ref: np.ndarray) -> dict:
     }
 
 
-def fd_check(loss_fn, params, n_probe=40, h=1e-5, seed=0, mag_floor=1e-6):
+def fd_check(loss_fn, params, n_probe=40, h=1e-5, seed=0, mag_floor=1e-6, kinks=None):
     """Central differences in float64 against torch's float64 analytic gradient.
 
     This validates the REFERENCE, so it runs entirely in float64 and never touches a device.
@@ -127,6 +127,16 @@ def fd_check(loss_fn, params, n_probe=40, h=1e-5, seed=0, mag_floor=1e-6):
     Coordinates under ``mag_floor`` times the largest analytic component are skipped and the
     eligible count is returned, so the skipping is visible in the output rather than buried in
     a tolerance.
+
+    A kink (ReLU) in the reference breaks the difference without the gradient being wrong: a
+    step that moves any pre-activation across zero adds an O(1) error, and the chance of that
+    grows with the step and with the number of units (PairUpdate's transition has ~3M at n=64,
+    and every probe of an upstream weight moves all of them). So each coordinate is differenced
+    at ``h`` and at ``h/10``. On a smooth point the two agree to roundoff; when they disagree
+    with EACH OTHER a boundary sits inside a step and the coordinate is skipped. That test never
+    reads the analytic gradient, so it cannot hide a wrong one. Skipped coordinate indices are appended
+    to ``kinks`` when a list is given, and if more coordinates are skipped than probed the result is ``inf``:
+    a reference that cannot be differenced has not been verified.
 
     Returns ``(worst relative disagreement, coordinates probed, coordinates eligible)``.
     """
@@ -145,7 +155,7 @@ def fd_check(loss_fn, params, n_probe=40, h=1e-5, seed=0, mag_floor=1e-6):
         loss = loss_fn()
         loss.backward()
     resolution_floor = 1.0e4 * 2.22e-16 * abs(loss.item()) / (2.0 * h)
-    worst, probed, eligible = 0.0, 0, 0
+    worst, probed, eligible, skipped = 0.0, 0, 0, 0
     for p in params:
         flat = p.detach().reshape(-1)
         ana = p.grad.detach().reshape(-1).clone()
@@ -160,22 +170,35 @@ def fd_check(loss_fn, params, n_probe=40, h=1e-5, seed=0, mag_floor=1e-6):
         idx = rng.choice(ok, size=min(n_probe, ok.size), replace=False)
         for i in idx:
             i = int(i)
-            orig = flat[i].item()
-            with torch.no_grad():
-                flat[i] = orig + h
-            lp = loss_fn().item()
-            with torch.no_grad():
-                flat[i] = orig - h
-            lm = loss_fn().item()
-            with torch.no_grad():
-                flat[i] = orig
-            num = (lp - lm) / (2.0 * h)
+            num, fine = (_central(loss_fn, flat, i, s) for s in (h, h / 10.0))
+            if abs(num - fine) > 0.5 * FD_BAR * scale:
+                skipped += 1
+                if kinks is not None:
+                    kinks.append(i)
+                continue
             # Scaled by the gradient's own magnitude, not by this element's: a per-element
             # ratio is dominated by whichever probed coordinate is smallest, whose finite
             # difference is a difference of two nearly equal float64 losses.
             worst = max(worst, abs(num - ana[i].item()) / scale)
             probed += 1
+    if skipped > probed:
+        worst = float("inf")
     return worst, probed, eligible
+
+
+def _central(loss_fn, flat, i, h):
+    """One central difference of ``loss_fn`` in coordinate ``i`` of ``flat``, restored after."""
+    import torch
+    orig = flat[i].item()
+    with torch.no_grad():
+        flat[i] = orig + h
+    lp = loss_fn().item()
+    with torch.no_grad():
+        flat[i] = orig - h
+    lm = loss_fn().item()
+    with torch.no_grad():
+        flat[i] = orig
+    return (lp - lm) / (2.0 * h)
 
 
 @dataclass
@@ -194,6 +217,7 @@ class GradcheckReport:
     fd_worst: float = float("nan")
     fd_probed: int = 0
     fd_eligible: int = 0
+    fd_kinked: int = 0
     grads: Dict[str, dict] = field(default_factory=dict)
     bar_why: str = ""
     notes: list = field(default_factory=list)
@@ -209,7 +233,8 @@ class GradcheckReport:
         verdict = ("ok" if self.reference_verified else
                    "FAILED -- the reference is wrong, not the device")
         ref = (f"reference vs central differences: {self.fd_worst:.2e} against {FD_BAR:.0e} "
-               f"({self.fd_probed}/{self.fd_eligible} coords probed) {verdict}")
+               f"({self.fd_probed}/{self.fd_eligible} coords probed"
+               + (f", {self.fd_kinked} skipped on a kink" if self.fd_kinked else "") + f") {verdict}")
         rows = []
         for k, g in self.grads.items():
             bits = [f"rel_l2 {g['rel_l2']:.3e}" if g["rel_l2_bar"] is not None
@@ -257,8 +282,9 @@ def gradcheck(name: str, *, ref_loss, ref_params, tt_grads: Dict[str, np.ndarray
     rep = GradcheckReport(name=name, op_class=op_class, dtype=dtype, bar_why=why)
 
     # Level 1: the reference, before anything else.
-    worst, probed, eligible = fd_check(ref_loss, ref_params, n_probe=n_probe, h=h, seed=seed)
-    rep.fd_worst, rep.fd_probed, rep.fd_eligible = worst, probed, eligible
+    kinks = []
+    worst, probed, eligible = fd_check(ref_loss, ref_params, n_probe=n_probe, h=h, seed=seed, kinks=kinks)
+    rep.fd_worst, rep.fd_probed, rep.fd_eligible, rep.fd_kinked = worst, probed, eligible, len(kinks)
     rep.reference_verified = bool(worst < FD_BAR)
     if not rep.reference_verified:
         rep.notes.append(
