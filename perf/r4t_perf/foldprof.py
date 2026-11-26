@@ -36,7 +36,10 @@ def backward(self, grads):
                     and all(d == 1 for d in tuple(g.shape)[:-2]))
             if flip:
                 n_t += 1
-                g = ttnn.to_torch(ttnn.transpose(g, -2, -1)).reshape(s.shape[1], s.shape[0]).t()
+                # bits through as uint32: a float32 tile transpose rounds to ~TF32 (393,173 of 393,216 differ),
+                # a uint32 one is pure data movement (0 differ)
+                u = ttnn.transpose(ttnn.bitcast(g, ttnn.uint32), -2, -1)
+                g = ttnn.to_torch(ttnn.bitcast(u, ttnn.float32)).reshape(s.shape[1], s.shape[0]).t()
             else:
                 g = ttnn.to_torch(g)
             t_rb += time.perf_counter() - a
