@@ -327,6 +327,8 @@ def main():
     from tt_bio import lnbw
     res["lnbw"] = dict(weights=lnbw.WEIGHTS, reach=dict(lnbw.REACH), calls=_seen)
     res["mmvjp"] = dict(on=ag.MMVJP_MIN, stats=dict(ag.MMVJP_STATS))
+    from tt_bio import gate_bw
+    res["gate_bw"] = dict(on=gate_bw.GATE_BW_FUSED, stats=list(gate_bw.STATS), rejects={str(k): v for k, v in gate_bw.REJECTS.items()})
     json.dump(res, open(a.out, "w"), indent=1)
     print(json.dumps(res["arms"]["wall"]), json.dumps(res["arms"]["wall_aa"]), flush=True)
     stop.set()
