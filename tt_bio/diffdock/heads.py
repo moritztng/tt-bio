@@ -35,8 +35,20 @@ from torch import Tensor, nn
 
 from tt_bio.diffdock.conv import TensorProductConvLayer
 from tt_bio.diffdock.features import GaussianSmearing
-from tt_bio.diffdock.geometry import spherical_harmonics
+from tt_bio.diffdock.harmonics import spherical_harmonics
 from tt_bio.diffdock.schedules import so3_score_norm
+
+
+def _degrees(irreps: str) -> tuple[int, ...]:
+    """``"1x0e + 1x1o + 1x2e"`` -> ``(0, 1, 2)``, the degrees :mod:`tt_bio.diffdock.harmonics`
+    takes. Parity labels are ignored: for spherical harmonics they are fixed at ``(-1)^l``."""
+    out = []
+    for term in irreps.replace(" ", "").split("+"):
+        mul, _, ir = term.rpartition("x")
+        if mul not in ("", "1"):
+            raise ValueError(f"harmonics come with multiplicity 1, got {term!r}")
+        out.append(int(ir[:-1]))
+    return tuple(out)
 
 
 def _mlp(in_dim: int, hidden: int, out_dim: int, *, act_first: bool) -> nn.Sequential:
@@ -60,6 +72,7 @@ class CenterHead(nn.Module):
         super().__init__()
         self.ns = ns
         self.sh_irreps = sh_irreps
+        self.sh_ls = _degrees(sh_irreps)
         self.fixed_center_conv = fixed_center_conv
         self.odd_parity = odd_parity
         self.scale_by_sigma = scale_by_sigma
@@ -85,7 +98,7 @@ class CenterHead(nn.Module):
         edge_vec = pos[edge_index[1]] - center[edge_index[0]]
         edge_attr = self.center_distance_expansion(edge_vec.norm(dim=-1))
         edge_attr = torch.cat([edge_attr, node_sigma_emb[edge_index[1]]], dim=1)
-        edge_sh = spherical_harmonics(self.sh_irreps, edge_vec)
+        edge_sh = spherical_harmonics(edge_vec, self.sh_ls)
 
         edge_attr = self.center_edge_embedding(edge_attr)
         src = edge_index[1] if self.fixed_center_conv else edge_index[0]
