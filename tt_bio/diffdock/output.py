@@ -64,6 +64,30 @@ def write_poses(write_dir, mol, positions, confidences=None, *, trajectories=Non
     return written
 
 
+def trajectory_pdb(mol, frames) -> str:
+    """One pose's reverse process as a multi-model PDB, as ``--save_trajectory`` writes it.
+
+    ``frames`` is the pose at every step, oldest first (``len(frames) == steps + 1``: the
+    randomised start plus one per denoising step). Each becomes a ``MODEL`` record, which is
+    what PyMOL and ChimeraX animate.
+    """
+    from rdkit import Chem
+
+    blocks = []
+    for i, pos in enumerate(frames):
+        frame = Chem.Mol(mol)
+        conf = Chem.Conformer(frame.GetNumAtoms())
+        for a in range(frame.GetNumAtoms()):
+            x, y, z = (float(v) for v in pos[a])
+            conf.SetAtomPosition(a, (x, y, z))
+        frame.RemoveAllConformers()
+        frame.AddConformer(conf, assignId=True)
+        body = "\n".join(line for line in Chem.MolToPDBBlock(frame).splitlines()
+                         if not line.startswith("END"))
+        blocks.append(f"MODEL     {i + 1:4d}\n{body}\nENDMDL")
+    return "\n".join(blocks) + "\nEND\n"
+
+
 def _write_mol_with_coords(Chem, mol, pos, path: Path) -> None:
     from rdkit.Chem import Conformer
 
