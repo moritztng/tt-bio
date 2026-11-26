@@ -12455,7 +12455,10 @@ class TriangleMultiplication(Module):
 
     def _t2g_exact(self, x, x_norm_in, x_in):
         """T2's GATE form serves only the calls the F1 tail would serve with the residual folded in, where
-        it computes the same bits; elsewhere (F1 off, its product in L1) the tail runs as before."""
+        it computes the same bits; elsewhere (F1 off, its product in L1) the tail runs as before. A bfp8 x
+        (`pair_x8t`) has no bf16 F1 run to match: the fallback typecasts it first, so the GATE form takes it."""
+        if x.dtype == ttnn.bfloat8_b:
+            return True
         ok = (_TRIMUL_TAIL_F1 and self.p_out_bias is None and _trimul_tail.f1_folds_resid(
             x, x_norm_in, self.out_p_weight, self.g_out_weight, x_in,
             _mm_generic.ckc_args(self.compute_kernel_config), self._f1_out_mc(x)))
