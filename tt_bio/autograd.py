@@ -831,6 +831,14 @@ def backward(roots, seeds=None) -> None:
 
 
 def _backward(roots, seeds) -> None:
+    try:
+        _backward_walk(roots, seeds)
+    finally:
+        if _MMVJP_XT:
+            mmvjp_xt_clear()
+
+
+def _backward_walk(roots, seeds) -> None:
     order = _reverse_topo(roots)
     keep = {id(r) for r in roots}
     for r, sd in zip(roots, seeds):
@@ -1133,6 +1141,97 @@ SPLIT_K_MIN_KT = 64
 # the bits, are the same on every card.
 SPLIT_K_CHUNKS = 64
 SPLIT_K_STATS = {"served": 0}
+
+
+# L4 (r4t-perf, default OFF): the linear VJP's two long-token products on `minimal_matmul`. At the RFD4
+# PairUpdate crop-256 shapes (65,536 tokens) stock `ttnn.matmul` runs dX = G W^T and dW = X^T G at ~100 GB/s
+# whatever the fidelity (LoFi = HiFi4 time), while minimal_matmul on a pre-transposed operand is 1.1-2.9x faster
+# at the same or better rel vs float64 (perf/r4t_perf/mm/prog.json). Served only on what was measured:
+# bf16, 2-D, interleaved, tile-multiple, >= MMVJP_MIN_ROWS tokens. Anything else, or any error, falls back.
+MMVJP_MIN = env_flag("TT_BIO_MMVJP_MIN", False)
+MMVJP_BROKEN = env_flag("TT_BIO_MMVJP_BROKEN", False)  # grader's broken arm: dX against the UN-transposed W
+MMVJP_MIN_ROWS = 4096
+MMVJP_STATS = {"dx": 0, "dw": 0, "declined": 0}
+
+
+def _mmvjp_ok(*ts):
+    for t in ts:
+        if (len(t.shape) != 2 or t.dtype != ttnn.bfloat16 or t.layout != ttnn.TILE_LAYOUT or t.is_sharded()
+                or int(t.shape[0]) % ttnn.TILE_SIZE or int(t.shape[1]) % ttnn.TILE_SIZE):
+            return False
+    return True
+
+
+def _mmvjp_dx(v, w, cfg, pre=False):
+    """dX = v @ w^T on minimal_matmul with w^T materialised (weight-sized), or None. `pre`: the forward was
+    a @ w^T, so dX = v @ w and w is already in the layout minimal_matmul wants."""
+    if not MMVJP_MIN:
+        return None
+    if not (_mmvjp_ok(v, w) and int(v.shape[0]) >= MMVJP_MIN_ROWS):
+        MMVJP_STATS["declined"] += 1
+        return None
+    wt = w if (pre or (MMVJP_BROKEN and int(w.shape[0]) == int(w.shape[1]))) else ttnn.transpose(w, -2, -1)
+    try:
+        out = ttnn.experimental.minimal_matmul(v, wt, compute_kernel_config=cfg, dtype=v.dtype)
+    except Exception:  # noqa: BLE001
+        out = None
+    if wt is not w:
+        ttnn.deallocate(wt)
+    MMVJP_STATS["dx" if out is not None else "declined"] += 1
+    return out
+
+
+def _mmvjp_dw(x, g, cfg):
+    """dW = x^T @ g (fp32 out) on minimal_matmul with x^T materialised, or None."""
+    if not MMVJP_MIN:
+        return None
+    if not (_mmvjp_ok(x, g) and int(x.shape[0]) >= MMVJP_MIN_ROWS):
+        MMVJP_STATS["declined"] += 1
+        return None
+    xt = _mmvjp_xt(x)
+    try:
+        out = ttnn.experimental.minimal_matmul(xt, g, compute_kernel_config=cfg, dtype=ttnn.float32)
+    except Exception:  # noqa: BLE001
+        out = None
+    MMVJP_STATS["dw" if out is not None else "declined"] += 1
+    return out
+
+
+# One activation (a LayerNorm output) feeds several projections, so a backward asks for the same
+# x^T several times in a row. Keep the last few, keyed by the device buffer; each entry HOLDS x, so
+# its buffer cannot be freed and handed to another tensor while the key is live, and an entry whose
+# x was deallocated explicitly is dropped on sight. Evicted transposes are freed.
+MMVJP_XT_KEEP = 4
+_MMVJP_XT = []  # [(key, x, xt)], most recent last
+
+
+def _mmvjp_xt(x):
+    key = (x.buffer_address(), tuple(int(d) for d in x.shape))
+    for i, (k, xr, xt) in enumerate(_MMVJP_XT):
+        if not xr.is_allocated() or not xt.is_allocated():
+            continue
+        if k == key:  # the held xr keeps that buffer from being reused, so the key names one set of bytes
+            MMVJP_STATS["xt_hit"] = MMVJP_STATS.get("xt_hit", 0) + 1
+            _MMVJP_XT.append(_MMVJP_XT.pop(i))
+            return xt
+    live = []
+    for e in _MMVJP_XT:  # an x retired by the backward takes its transpose with it
+        if e[1].is_allocated() and e[2].is_allocated():
+            live.append(e)
+        elif e[2].is_allocated():
+            ttnn.deallocate(e[2])
+    _MMVJP_XT[:] = live
+    xt = ttnn.transpose(x, -2, -1)
+    _MMVJP_XT.append((key, x, xt))
+    while len(_MMVJP_XT) > MMVJP_XT_KEEP:
+        ttnn.deallocate(_MMVJP_XT.pop(0)[2])
+    return xt
+
+
+def mmvjp_xt_clear():
+    """Free the cached transposes (end of a backward)."""
+    while _MMVJP_XT:
+        ttnn.deallocate(_MMVJP_XT.pop()[2])
 
 
 def _split_k(a, b, kw):
@@ -1826,8 +1925,13 @@ def _row_mean(v, cfg, K: int):
     return ttnn.divide(ttnn.sum(v, dim=-1, keepdim=True, compute_kernel_config=cfg), float(K))
 
 
-def _layer_norm_bw(x, gamma, beta, eps, bwcfg):
-    """The layer-norm backward, shared by ``layer_norm`` and ``_taped_layer_norm``.
+def _layer_norm_bw(x, gamma, beta, eps, bwcfg, center=True):
+    """The layer-norm backward, shared by ``layer_norm``, ``_taped_layer_norm`` and, with
+    ``center=False``, ``_taped_rms_norm``.
+
+    RMSNorm is this op with the mean pinned at zero, ``norm = x * rsqrt(mean(x^2) + eps)``, and
+    its ``dx`` is the same expression without ``- mean(dnorm)``, the derivative of the centring.
+    One closure for both, so a fix to one is a fix to both.
 
     One definition, because the two sites carried verbatim copies of it and a fix to either
     one was a fix to neither.
@@ -1843,11 +1947,24 @@ def _layer_norm_bw(x, gamma, beta, eps, bwcfg):
         xv = x.value
         # dx alone, which is all a sequence gradient asks for, in one kernel when it serves
         # (`tt_bio.lnbw`). A weight gradient needs the composed path's `norm`.
-        if x.requires_grad and not any(p is not None and p.requires_grad for p in (gamma, beta)):
+        if center and x.requires_grad and not any(p is not None and p.requires_grad
+                                                  for p in (gamma, beta)):
             from . import lnbw
             gv = None if gamma is None else gamma.value
             if lnbw.eligible(xv, g, gv):
                 x.add_grad(lnbw.layer_norm_bw(xv, g, gv, eps))
+                return
+        # dx, dgamma and dbeta in one kernel when the training lever serves (`lnbw.WEIGHTS`).
+        if center and x.requires_grad and any(p is not None and p.requires_grad for p in (gamma, beta)):
+            from . import lnbw
+            gv = None if gamma is None else gamma.value
+            if lnbw.eligible(xv, g, gv, weights=True):
+                dx, dg, db = lnbw.layer_norm_bw_weights(xv, g, gv, eps, precise_config())
+                if gamma is not None and gamma.requires_grad:
+                    gamma.add_grad(ttnn.reshape(dg, list(gamma.value.shape)))
+                if beta is not None and beta.requires_grad:
+                    beta.add_grad(ttnn.reshape(db, list(beta.value.shape)))
+                x.add_grad(dx)
                 return
         K = int(xv.shape[-1])
         # ONE dtype through the closure. A fan-in accumulator is fp32 and the activation it
@@ -1861,8 +1978,7 @@ def _layer_norm_bw(x, gamma, beta, eps, bwcfg):
         gv = None if gamma is None else gamma.value
         if gv is not None and gv.dtype != dt:
             gv = ttnn.typecast(gv, dt)
-        mean = _row_mean(xv, bwcfg, K)
-        centered = ttnn.subtract(xv, mean)
+        centered = ttnn.subtract(xv, _row_mean(xv, bwcfg, K)) if center else xv
         var = _row_mean(ttnn.multiply(centered, centered), bwcfg, K)
         rstd = ttnn.rsqrt(ttnn.add(var, eps))
         norm = ttnn.multiply(centered, rstd)
@@ -1873,10 +1989,9 @@ def _layer_norm_bw(x, gamma, beta, eps, bwcfg):
         if x.requires_grad:
             dnorm = ttnn.multiply(g, gv) if gv is not None else g
             # dx = (dnorm - mean(dnorm) - norm * mean(dnorm * norm)) * rstd
-            dn_mean = _row_mean(dnorm, bwcfg, K)
             dn_norm_mean = _row_mean(ttnn.multiply(dnorm, norm), bwcfg, K)
-            dx = ttnn.subtract(ttnn.subtract(dnorm, dn_mean),
-                               ttnn.multiply(norm, dn_norm_mean))
+            lead = ttnn.subtract(dnorm, _row_mean(dnorm, bwcfg, K)) if center else dnorm
+            dx = ttnn.subtract(lead, ttnn.multiply(norm, dn_norm_mean))
             x.add_grad(ttnn.multiply(dx, rstd))
     return bw
 
@@ -3662,6 +3777,17 @@ def checkpoint(fn, *inputs: Tensor, params: Sequence[Tensor] = (), offload: bool
 _ACTIVATIONS = {"relu": relu, "sigmoid": sigmoid, "silu": silu}
 
 
+def _activation(a):
+    """The composed backward for a fused `activation`: a name, or a `ttnn.UnaryWithParam` such as the
+    `dit_sigf32` epilogue (`tenstorrent._SIGMOID_F32`, an approx-mode SIGMOID on an fp32 dest). Its params only
+    choose how the packer evaluates the function, so the derivative is the plain one; what composing instead of
+    fusing costs in the forward is measured by gradcheck like any other activation's."""
+    if isinstance(a, str):
+        return _ACTIVATIONS.get(a)
+    op = getattr(a, "op_type", None)
+    return _ACTIVATIONS.get(op.name.lower()) if op is not None else None
+
+
 # Wrappers built over raw ttnn handles the CALLER still owns, keyed by the handle's id.
 # Cleared when the tape closes; the wrapper holds the handle, so the id cannot be reused
 # while the entry is live.
@@ -3910,7 +4036,7 @@ def _taped_linear(shipped, args, kwargs):
     activation = kw.pop("activation", None)
     act = None
     if activation is not None:
-        act = _ACTIVATIONS.get(activation)
+        act = _activation(activation)
         if act is None:
             raise NotImplementedError(
                 f"tt_bio.autograd has no backward for the fused activation {activation!r}. "
@@ -3936,7 +4062,7 @@ def _taped_linear(shipped, args, kwargs):
                 # comes back as (N, N, c) and `add_grad` refuses a gradient that is not
                 # its value's shape, correctly.
                 x.add_grad(_reduce_to(_via2d(g, lambda v: _pair_mm_or(
-                                          v, w.value, True, lambda: _matmul(
+                                          v, w.value, True, lambda: _mmvjp_dx(v, w.value, bwcfg) or _matmul(
                                               v, w.value, transpose_b=True,
                                               compute_kernel_config=bwcfg), bwcfg)),
                                       xshape))
@@ -3950,9 +4076,10 @@ def _taped_linear(shipped, args, kwargs):
                 # a bf16 reduction. Asking for fp32 out fixes it and costs nothing that
                 # matters -- a weight gradient is weight-shaped, and the optimiser wants
                 # it in fp32 anyway.
+                xf, gf = _flat2d(x.value), _flat2d(g)
                 w.add_grad(_reduce_to(
-                    _matmul(_flat2d(x.value), _flat2d(g), transpose_a=True,
-                            compute_kernel_config=bwcfg, dtype=ttnn.float32),
+                    _mmvjp_dw(xf, gf, bwcfg) or _matmul(xf, gf, transpose_a=True,
+                                                        compute_kernel_config=bwcfg, dtype=ttnn.float32),
                     wshape))
             if bias is not None and bias.requires_grad:
                 bias.add_grad(_sum_leading(g, bias.value.shape))
@@ -3971,7 +4098,7 @@ def _taped_linear(shipped, args, kwargs):
     return activated
 
 
-def _taped_layer_norm(shipped, args, kwargs):
+def _taped_layer_norm(shipped, args, kwargs, center=True):
     """`ops.layer_norm` with a gradient. The VALUE comes from `shipped`.
 
     `l1_headroom` is dropped on purpose. It asks for an L1-resident RESULT, and a backward
@@ -3992,6 +4119,10 @@ def _taped_layer_norm(shipped, args, kwargs):
     kw.pop("l1_headroom", None)
     eps = kw.pop("epsilon", 1e-5)
     cfg = kw.pop("compute_kernel_config", None)
+    if kw.get("residual_input_tensor") is not None:
+        raise NotImplementedError(
+            "tt_bio.autograd has no backward for a norm with a fused residual_input_tensor; "
+            "the tape would drop the residual's gradient. Add it, do not strip it.")
     xv = x.value
     out_v = shipped(xv, weight=(gamma.value if gamma is not None else None),
                     bias=(beta.value if beta is not None else None),
@@ -4000,9 +4131,19 @@ def _taped_layer_norm(shipped, args, kwargs):
     parents = [t for t in (x, gamma, beta) if t is not None]
 
     def make():
-        return _layer_norm_bw(x, gamma, beta, eps, bwcfg)
+        return _layer_norm_bw(x, gamma, beta, eps, bwcfg, center=center)
 
     return _tape(out_v, parents, make)
+
+
+def _taped_rms_norm(shipped, args, kwargs):
+    """``ttnn.rms_norm`` with a gradient: the layer norm's entry with the centring off.
+
+    The forward is the shipped kernel with the site's own arguments, so it is production's
+    value byte for byte. RFD4 issues it at every AdaLN, QK norm and recycle norm; ESMFold2
+    and RFD3 issue the same verb.
+    """
+    return _taped_layer_norm(shipped, args, kwargs, center=False)
 
 
 _TAPED = {"linear": _taped_linear, "layer_norm": _taped_layer_norm}

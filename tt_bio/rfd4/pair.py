@@ -113,11 +113,18 @@ class PairSplit:
         self.ln_weight = factory.ln_out.weight.detach().float()
         self.eps = factory.ln_out.eps
         self.builder = builder
+        # Every table below is a copy of the builder's weights as they are now. An optimizer step writes
+        # them in place, which bumps their torch versions; `constant` refuses a stale split rather than
+        # build z_init from weights the model no longer has.
+        self._versions = self._weight_versions()
         w = self.w_step.double()
         w2 = self.ln_weight.double() ** 2
         self._cross = torch.cat([w, w * w2]).t().contiguous()  # [pair, 2 nbins]
         self._sq = torch.stack([torch.ones_like(w2), w2], 1)  # [pair, 2]
         self._wsq = torch.stack([(w * w).sum(-1), (w * w * w2).sum(-1)])  # [2, nbins]
+
+    def _weight_versions(self) -> tuple:
+        return tuple(p._version for p in self.builder.parameters())
 
     @property
     def nbins(self) -> int:
@@ -125,6 +132,10 @@ class PairSplit:
 
     def constant(self, batch: dict) -> PairConstant:
         """The projection of every feature but the step's, and its norm scales."""
+        if self._weight_versions() != self._versions:
+            raise RuntimeError("the pair builder's weights changed since this PairSplit copied them (an optimizer "
+                               "step?): build a new PairSplit. Training builds z_init on the host through the "
+                               "builder itself and `train.bridge.Bridge.up`, never through a split.")
         n = batch["padding_mask"].shape[-1]
         parts = []
         for creator in self.const_creators:

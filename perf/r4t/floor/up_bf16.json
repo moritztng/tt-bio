@@ -1,0 +1,188 @@
+{
+ "digest": "62c92fbea32826b0",
+ "provenance": {
+  "arm": "bf16",
+  "autocast": "torch.autocast('cpu', bfloat16)",
+  "device": "cpu",
+  "host": "pc",
+  "log": "/home/moritz/r4t/accuracy/bf16floor/bf16.log",
+  "note": "fp32 control arm on the same harness lands at the replay floor (2.5e-6)",
+  "script": "perf/r4t/bf16_floor.py",
+  "sha": "47838d208a359f5b424ffb4705cac7c8f333ff40",
+  "upstream_sha": "2db07bb4",
+  "weights": "nvidia/RFD4-Proteina@a06e2509"
+ },
+ "rows": [
+  {
+   "batch": "batch00",
+   "ref": {
+    "bb_ca": 0.23895381391048431,
+    "insertion_prediction": 0.0,
+    "local_latents": 46.26527404785156,
+    "sequence_prediction": 0.0,
+    "signed_volume": 0.0,
+    "total": 46.50422786176205
+   },
+   "up_bf16": {
+    "bb_ca": 0.2409593164920807,
+    "insertion_prediction": 0.0,
+    "local_latents": 46.26580810546875,
+    "sequence_prediction": 0.0,
+    "signed_volume": 0.0,
+    "total": 46.50676742196083
+   }
+  },
+  {
+   "batch": "batch01",
+   "ref": {
+    "bb_ca": 0.0018620872870087624,
+    "insertion_prediction": 0.0,
+    "local_latents": 32.83513641357422,
+    "sequence_prediction": 2.0715646743774414,
+    "signed_volume": 0.0,
+    "total": 34.90856317523867
+   },
+   "up_bf16": {
+    "bb_ca": 0.002251964993774891,
+    "insertion_prediction": 0.0,
+    "local_latents": 32.798973083496094,
+    "sequence_prediction": 2.0365774631500244,
+    "signed_volume": 0.0,
+    "total": 34.83780251163989
+   }
+  },
+  {
+   "batch": "batch02",
+   "ref": {
+    "bb_ca": 1.0720700025558472,
+    "insertion_prediction": 0.0,
+    "local_latents": 31.515464782714844,
+    "sequence_prediction": 0.0,
+    "signed_volume": 0.0,
+    "total": 32.58753478527069
+   },
+   "up_bf16": {
+    "bb_ca": 1.0800224542617798,
+    "insertion_prediction": 0.0,
+    "local_latents": 31.534006118774414,
+    "sequence_prediction": 0.0,
+    "signed_volume": 0.0,
+    "total": 32.614028573036194
+   }
+  },
+  {
+   "batch": "batch03",
+   "ref": {
+    "bb_ca": 0.0020061463583260775,
+    "insertion_prediction": 0.0,
+    "local_latents": 23.688209533691406,
+    "sequence_prediction": 1.8058077096939087,
+    "signed_volume": 0.0,
+    "total": 25.49602338974364
+   },
+   "up_bf16": {
+    "bb_ca": 0.0023116646334528923,
+    "insertion_prediction": 0.0,
+    "local_latents": 23.674659729003906,
+    "sequence_prediction": 1.761130690574646,
+    "signed_volume": 0.0,
+    "total": 25.438102084212005
+   }
+  },
+  {
+   "batch": "batch04",
+   "ref": {
+    "bb_ca": 0.5147570967674255,
+    "insertion_prediction": 0.0,
+    "local_latents": 43.40956115722656,
+    "sequence_prediction": 0.0,
+    "signed_volume": 0.0,
+    "total": 43.92431825399399
+   },
+   "up_bf16": {
+    "bb_ca": 0.5174972414970398,
+    "insertion_prediction": 0.0,
+    "local_latents": 43.417179107666016,
+    "sequence_prediction": 0.0,
+    "signed_volume": 0.0,
+    "total": 43.934676349163055
+   }
+  },
+  {
+   "batch": "batch05",
+   "ref": {
+    "bb_ca": 1.6398019790649414,
+    "insertion_prediction": 0.0,
+    "local_latents": 136.55018615722656,
+    "sequence_prediction": 28.842723846435547,
+    "signed_volume": 0.0,
+    "total": 167.03271198272705
+   },
+   "up_bf16": {
+    "bb_ca": 1.6652780771255493,
+    "insertion_prediction": 0.0,
+    "local_latents": 136.80670166015625,
+    "sequence_prediction": 28.852298736572266,
+    "signed_volume": 0.0,
+    "total": 167.32427847385406
+   }
+  },
+  {
+   "batch": "batch06",
+   "ref": {
+    "bb_ca": 0.5955954194068909,
+    "insertion_prediction": 0.0,
+    "local_latents": 48.46775436401367,
+    "sequence_prediction": 0.7111042737960815,
+    "signed_volume": 0.0,
+    "total": 49.774454057216644
+   },
+   "up_bf16": {
+    "bb_ca": 0.5936124324798584,
+    "insertion_prediction": 0.0,
+    "local_latents": 48.458534240722656,
+    "sequence_prediction": 0.7064222693443298,
+    "signed_volume": 0.0,
+    "total": 49.758568942546844
+   }
+  },
+  {
+   "batch": "batch07",
+   "ref": {
+    "bb_ca": 0.29573217034339905,
+    "insertion_prediction": 0.0,
+    "local_latents": 45.52531814575195,
+    "sequence_prediction": 0.4511633813381195,
+    "signed_volume": 0.0,
+    "total": 46.27221369743347
+   },
+   "up_bf16": {
+    "bb_ca": 0.29103079438209534,
+    "insertion_prediction": 0.0,
+    "local_latents": 45.558631896972656,
+    "sequence_prediction": 0.44745808839797974,
+    "signed_volume": 0.0,
+    "total": 46.29712077975273
+   }
+  },
+  {
+   "batch": "batch08",
+   "ref": {
+    "bb_ca": 0.10803326219320297,
+    "insertion_prediction": 0.004195714835077524,
+    "local_latents": 56.11806869506836,
+    "sequence_prediction": 0.7112658619880676,
+    "signed_volume": 0.0,
+    "total": 56.94156353408471
+   },
+   "up_bf16": {
+    "bb_ca": 0.10939468443393707,
+    "insertion_prediction": 0.004188959486782551,
+    "local_latents": 56.1993408203125,
+    "sequence_prediction": 0.7293949127197266,
+    "signed_volume": 0.0,
+    "total": 57.042319376952946
+   }
+  }
+ ]
+}

@@ -1,0 +1,1 @@
+glue.init_repr_factory.feat_creators.7.ss_embedding.weight	upstream Embedding(4, 16, padding_idx=0) and every token in the dumped batches is NONE (index 0): upstream gradient is an exact zero (r4t-accuracy D29)
