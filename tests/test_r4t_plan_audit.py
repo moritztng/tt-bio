@@ -51,3 +51,24 @@ def test_the_graded_plan_on_disk_exempts_only_the_table_its_ids_cannot_drive():
 @pytest.mark.parametrize("drives,expect_fail", [({CHARGE: ["1bj6"]}, True), ({CHARGE: []}, False)])
 def test_the_verdict_follows_the_measurement(drives, expect_fail):
     assert bool(audit.contradicted([CHARGE], drives)) is expect_fail
+
+
+def test_the_graded_plan_puts_a_driver_on_each_step_the_guard_observes():
+    """The guard judges the first five steps the loop OBSERVES, and a depth-1 step is not observed.
+
+    Which list positions reach it is therefore fixed by the plan's own seeded depth draw, not by
+    being early in the id list. This pins the five that count: lose one driver and an honest run is
+    refused for a head its data does drive.
+    """
+    from tt_bio.train.curve import CurvePlan
+
+    plan = CurvePlan.from_dict(json.loads(
+        (ROOT / "perf" / "r4t" / "plans" / "g3_curve.json").read_text()))
+    observed = [i for i in range(40) if plan.step(i).n_recycle >= 2][:5]
+    assert observed == [0, 4, 7, 8, 9], observed
+    drivers = {0: "7rcu__4",   # insertion head, and atomized tokens for charge and element
+               4: "1a6b",      # sequence_prediction, measured non-zero
+               7: "2plh",      # the one chiral centre in the dataset
+               8: "1bj6", 9: "1d6g"}  # atomized
+    for i, prefix in drivers.items():
+        assert plan.step(i).example_ids[0].startswith(prefix), (i, plan.step(i).example_ids)
