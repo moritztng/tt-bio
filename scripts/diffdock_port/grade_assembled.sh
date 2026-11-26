@@ -8,7 +8,7 @@ WT=/home/moritz/.coworker/wt/dfd-parity
 UP=/home/moritz/scratch/dfd/upstream
 REF=/home/moritz/scratch/dfd/venv-ref/bin/python
 PORT=/home/moritz/tt-bio/env/bin/python3.10
-STEPS=${STEPS:-0,5,10,15,19}
+STEPS=${STEPS:-0,5,10,15,18}   # upstream makes 19 forward calls, 0..18
 OUT=${OUT:-/tmp/dfd_assembled}
 mkdir -p "$OUT"
 for cid in "$@"; do

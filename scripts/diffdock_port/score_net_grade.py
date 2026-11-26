@@ -54,10 +54,19 @@ def main():
                            rot_sigma_min=cfg.rot_sigma_min, rot_sigma_max=cfg.rot_sigma_max,
                            tor_sigma_min=cfg.tor_sigma_min, tor_sigma_max=cfg.tor_sigma_max)
 
-    out = {"complex": str(z["complex"]), "npz": a.npz, "steps": {}}
+    out = {"complex": str(z["complex"]), "npz": a.npz, "steps": {}, "missing": []}
+    present = sorted({int(k[1:].split("_")[0]) for k in z.files
+                      if k.startswith("s") and k[1].isdigit()})
+    for k in sorted(set(int(s) for s in z["steps"]) - set(present)):
+        out["missing"].append(k)
+        print(f"step {k:2d} MISSING from the archive", flush=True)
     T = lambda k, d=torch.float32: torch.as_tensor(z[k]).to(d)
-    for k in [int(s) for s in z["steps"]]:
+    for k in present:
         p = f"s{k}_"
+        if not all(p + n in z.files for n in ("t_tr", "tr", "rot", "tor")):
+            out["missing"].append(k)
+            print(f"step {k:2d} MISSING tensors", flush=True)
+            continue
         t_tr, t_rot, t_tor = (float(z[p + "t_tr"]), float(z[p + "t_rot"]),
                               float(z[p + "t_tor"]))
         tr_s, rot_s, tor_s = bounds.sigmas(t_tr, t_rot, t_tor)
@@ -73,9 +82,14 @@ def main():
                 for n in ("tr", "rot", "tor")}
         row = {n: {"pcc": pcc(got[n], want[n]), "max_rel_err": rel(got[n].double(), want[n])}
                for n in ("tr", "rot", "tor")}
+        row["n_rotatable"] = int(z[p + "edge_mask"].sum())
+        if row["n_rotatable"] < 2:
+            row["tor"]["pcc"] = None   # a 0- or 1-element vector has no correlation
+            row["tor"]["note"] = "degenerate: fewer than 2 rotatable bonds, graded by max_rel_err only"
         out["steps"][k] = row
-        print(f"step {k:2d} tr_sigma {tr_s:7.3f}  " + "  ".join(
-            f"{n} pcc {row[n]['pcc']:.6f} rel {row[n]['max_rel_err']:.3e}"
+        f = lambda v: "   n/a  " if v is None else f"{v:.6f}"
+        print(f"step {k:2d} tr_sigma {tr_s:7.3f} nrot {row['n_rotatable']}  " + "  ".join(
+            f"{n} pcc {f(row[n]['pcc'])} rel {row[n]['max_rel_err']:.3e}"
             for n in ("tr", "rot", "tor")), flush=True)
 
     print(json.dumps(out))

@@ -11,7 +11,7 @@ Reference environment only (needs torch_cluster / e3nn / torch_geometric):
 
     cd ~/scratch/dfd/upstream && PYTHONPATH=. ~/scratch/dfd/venv-ref/bin/python \\
       /home/moritz/.coworker/wt/dfd-parity/scripts/diffdock_port/score_net_parity.py \\
-      --id 7A9E_R4W --steps 0,5,10,15,19 --out /tmp/dfd_net_7A9E.npz
+      --id 7A9E_R4W --steps 0,5,10,15,18 --out /tmp/dfd_net_7A9E.npz
 """
 import argparse
 import copy
@@ -39,7 +39,8 @@ PB, lm_embeddings_for = _dg.PB, _dg.lm_embeddings_for
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--id", default="7A9E_R4W")
-    ap.add_argument("--steps", default="0,5,10,15,19")
+    ap.add_argument("--steps", default="0,5,10,15,18",
+                    help="forward-call indices; upstream makes actual_steps (19) calls, 0..18")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
@@ -120,8 +121,6 @@ def main():
                 p + "rot": g(out[1])[0].astype(np.float64),
                 p + "tor": g(out[2])[:int(em.sum())].astype(np.float64),
             })
-            if hasattr(data["ligand"], "lm_embedding") and data["ligand"].lm_embedding is not None:
-                pass
             if hasattr(data["receptor"], "lm_embedding"):
                 flat[p + "rec_lm"] = g(data["receptor"].lm_embedding)[:nr].astype(np.float32)
         return out
@@ -140,7 +139,12 @@ def main():
              temp_psi=[inf["temp_psi_tr"], inf["temp_psi_rot"], inf["temp_psi_tor"]],
              temp_sigma_data=[inf["temp_sigma_data_tr"], inf["temp_sigma_data_rot"],
                               inf["temp_sigma_data_tor"]])
-    flat["steps"] = np.asarray(want, np.int32)
+    got = sorted({int(k[1:].split("_")[0]) for k in flat if k.startswith("s") and k[1].isdigit()})
+    missing = sorted(set(want) - set(got))
+    if missing:
+        sys.exit(f"requested steps {missing} were never reached: upstream made "
+                 f"{state['step'] + 1} forward calls (steps 0..{state['step']})")
+    flat["steps"] = np.asarray(got, np.int32)
     flat["complex"] = np.asarray(cid)
     np.savez(a.out, **flat)
     print("wrote", a.out, "steps", want)
