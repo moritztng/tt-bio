@@ -226,13 +226,17 @@ def test_sequence_only_receptor_folds_then_docks(tmp_path):
     written, that an existing one is reused, and that what comes back parses
     into a receptor graph.
     """
+    import gemmi
+
     cid = _ids()[0]
-    source = _receptor_path(cid).read_bytes()
+    structure = gemmi.read_structure(str(_receptor_path(cid)))
+    structure.setup_entities()
+    source = structure.make_mmcif_document().as_string()
     calls = []
 
     def fake_fold(sequence, path):
         calls.append((sequence, Path(path)))
-        Path(path).write_bytes(source)
+        Path(path).write_text(source)
         return Path(path)
 
     specs = [

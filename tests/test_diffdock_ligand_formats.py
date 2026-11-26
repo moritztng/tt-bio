@@ -41,8 +41,6 @@ def _reference_mol(smiles: str):
 def _write_formats(mol, tmp_path: Path) -> dict[str, Path]:
     out = {}
     sdf = tmp_path / "lig.sdf"
-    Chem.SDWriter(str(sdf)).write(mol)
-    Chem.SDWriter(str(sdf)).close()
     with Chem.SDWriter(str(sdf)) as w:
         w.write(mol)
     out[".sdf"] = sdf
@@ -75,17 +73,29 @@ def test_every_upstream_format_reads(tmp_path):
         m = read_ligand(str(path_or_smiles), seed=11)
         return build_ligand_graph(m, remove_hs=True)
 
+    def bonds(graph):
+        """Bonds as a set of (atom, atom, bond-type), order-independent.
+
+        The edge list is RDKit's bond enumeration order, which depends on the
+        reader: a .pdb round trip puts the ring-closing bond first. That order
+        reaches nothing the model reads as an order (every consumer scatter-sums
+        over edges), so the formats are compared on the bond set.
+        """
+        ei = graph["edge_index"].numpy()
+        attr = graph["edge_attr"].numpy().argmax(1)
+        return {(int(a), int(b), int(t)) for a, b, t in zip(ei[0], ei[1], attr)}
+
+    def torsions(graph):
+        """The rotatable bonds, as the set of atom sets each one moves."""
+        return {frozenset(np.flatnonzero(row).tolist()) for row in graph["mask_rotate"]}
+
     reference = graph_from(BENZAMIDINE)
     for suffix, path in files.items():
         got = graph_from(path)
         assert got["x"].shape == reference["x"].shape, suffix
         assert np.array_equal(got["x"].numpy(), reference["x"].numpy()), suffix
-        assert np.array_equal(
-            got["edge_index"].numpy(), reference["edge_index"].numpy()), suffix
-        assert np.array_equal(
-            got["edge_attr"].numpy(), reference["edge_attr"].numpy()), suffix
-        assert np.array_equal(
-            got["edge_mask"].numpy(), reference["edge_mask"].numpy()), suffix
+        assert bonds(got) == bonds(reference), suffix
+        assert torsions(got) == torsions(reference), suffix
 
 
 def test_mol2_reads(tmp_path):
