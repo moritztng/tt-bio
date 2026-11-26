@@ -15,9 +15,10 @@ job YAML, or a directory of YAMLs. Defaults are DiffDock-L's published recipe, s
 command reproduces the paper's inference settings: 10 poses, a 20-step schedule of which 19
 run, no noise on the final step.
 
-> The reverse diffusion is still being ported. `--no_model`, upstream's randomized
-> seed-conformer baseline, runs today on CPU and writes the full output layout; the sampled
-> poses arrive with the model.
+Both networks run on host torch today, so a dock needs no card. The score network is graded
+against upstream's own at PCC 0.9999999999984 or better on every output, over three complexes
+at five points of the schedule. `--no_model` still runs upstream's randomized seed-conformer
+baseline, which needs no checkpoint.
 
 ## Input
 

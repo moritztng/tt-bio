@@ -422,9 +422,9 @@ tt-bio dock ligands.csv --model diffdock --out_dir screen/
 
 Poses are written in upstream DiffDock's layout (`rank1.sdf`,
 `rank1_confidence-0.42.sdf`, ...) plus a `confidence.json` listing the ranking, so an
-existing pipeline reads them unchanged. Defaults are DiffDock-L's published recipe. The
-reverse diffusion is still being ported; `--no_model`, the seed-conformer baseline, runs
-today. See [`docs/docking.md`](docs/docking.md) for the input forms, pocket docking and the
+existing pipeline reads them unchanged. Defaults are DiffDock-L's published recipe, and
+the weights are fetched on first use with `tt-bio weights --download diffdock`. Docking
+runs on CPU today; the card path is in progress. See [`docs/docking.md`](docs/docking.md) for the input forms, pocket docking and the
 full flag map.
 
 ## Design
