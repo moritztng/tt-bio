@@ -58,6 +58,7 @@ def _grads(rank, step):
 
 
 def _run(tmp_path, broken=False, steps=3):
+    Path(tmp_path).mkdir(parents=True, exist_ok=True)
     out = {}
 
     def rank(r):
@@ -99,8 +100,38 @@ def test_a_rank_on_a_different_gradient_is_caught(tmp_path):
                for n in SHAPES)
 
 
-def test_saving_a_sharded_optimizer_refuses(tmp_path):
+def test_a_sharded_checkpoint_is_complete_and_resumes_bit_identically(tmp_path, monkeypatch):
+    """Every rank saves the same complete file (moments gathered), and two fresh sharded ranks
+    that load it and step once land on the same masters as the uninterrupted run."""
     from tt_bio.train import checkpoint
-    out, _ = _run(tmp_path, steps=1)
-    with pytest.raises(NotImplementedError):
-        checkpoint.save_adapter(tmp_path / "x.safetensors", out[0])
+    monkeypatch.setattr(checkpoint, "to_device", lambda arr, dev, dtype=None: _Value(arr))
+    full, _ = _run(tmp_path / "full", steps=3)
+    res = {}
+
+    def leg(r, phase):
+        ax = L.ProcessAxis(name="dp", device_ids=(0, 1), dp_rank=r, run=str(tmp_path / phase))
+        params = _params()
+        opt = optim.AdamW(params, lr=1e-2, clip_norm=0.5, weight_decay=0.01,
+                          data_parallel=ax, shard=True)
+        if phase == "a":
+            for s in range(2):
+                opt.step(replicas={n: [v] for n, v in _grads(r, s).items()})
+            checkpoint.save_adapter(tmp_path / f"ck{r}.safetensors", opt)
+        else:
+            checkpoint.load_adapter(tmp_path / "ck0.safetensors", params, None, opt=opt)
+            assert set(dict.keys(opt.exp_avg)) < set(SHAPES)    # unowned moments dropped
+            opt.step(replicas={n: [v] for n, v in _grads(r, 2).items()})
+        res[(phase, r)] = opt
+
+    for phase in ("a", "b"):
+        (tmp_path / phase).mkdir()
+        ts_ = [threading.Thread(target=leg, args=(r, phase)) for r in (0, 1)]
+        [t.start() for t in ts_]
+        [t.join(timeout=60) for t in ts_]
+    from safetensors.numpy import load_file
+    blob, blob1 = (load_file(str(tmp_path / f"ck{r}.safetensors")) for r in (0, 1))
+    assert sorted(blob) == sorted(blob1) and all(np.array_equal(blob[k], blob1[k]) for k in blob)
+    assert all(np.abs(blob[f"exp_avg{checkpoint._SPLIT}{n}"]).sum() > 0 for n in SHAPES)
+    for n in SHAPES:
+        assert np.array_equal(res[("b", 0)].master[n], full[0].master[n])
+        assert np.array_equal(res[("b", 1)].master[n], full[0].master[n])

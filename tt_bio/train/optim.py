@@ -338,7 +338,7 @@ class AdamW:
         gradient, because that failure is invisible in every metric a user watches.
         """
         import numpy as np
-        if self.shard and self.data_parallel is not None and self.data_parallel.width > 1:
+        if self._sharded():
             return self._step_sharded(replicas, set(disabled))
         self._reduce(replicas)
         disabled = set(disabled)
@@ -511,7 +511,6 @@ class AdamW:
         the unsharded step. Per-sample accumulation is not supported here yet and refuses.
         """
         import numpy as np
-        from .launcher import shard_edges
         ax = self.data_parallel
         if self.accum:
             raise NotImplementedError("shard=True with per-sample clip_and_accumulate")
@@ -519,13 +518,9 @@ class AdamW:
             raise UnreducedGradients(
                 f"the data-parallel axis {ax} is {ax.width} chips wide and step() was given "
                 f"no per-chip gradients to reduce")
-        names = sorted(self.master)
-        sizes = [self.master[n].size for n in names]
-        if getattr(self, "_edges", None) is None or len(self._edges) != ax.width + 1:
-            self._edges = shard_edges(sizes, ax.width)
-        edges, me = self._edges, ax.dp_rank
-        flat = np.zeros(sum(sizes), np.float32)
-        offs = np.concatenate([[0], np.cumsum(sizes)]).astype(np.int64)
+        names, offs, edges, owned = self._shard_layout()
+        me = ax.dp_rank
+        flat = np.zeros(int(offs[-1]), np.float32)
         for i, n in enumerate(names):
             got = replicas.get(n)
             if got is None or n in disabled:
@@ -537,7 +532,6 @@ class AdamW:
         part = ax.reduce_scatter(flat, edges)
         del flat
         lo = int(edges[me])
-        owned = [i for i in range(len(names)) if edges[me] <= offs[i] and offs[i + 1] <= edges[me + 1]]
         local = {names[i]: part[offs[i] - lo:offs[i + 1] - lo].reshape(self.master[names[i]].shape)
                  for i in owned}
         sq = sum(float(g.ravel() @ g.ravel()) for g in local.values())
@@ -583,6 +577,55 @@ class AdamW:
         self.last_writes_skipped = writes_skipped
         self.last_report = report
         return report
+
+    def _sharded(self) -> bool:
+        return self.shard and self.data_parallel is not None and self.data_parallel.width > 1
+
+    def _shard_layout(self):
+        """Names in exchange order, their flat offsets, the tensor-aligned slice edges, and the
+        indices of the parameters this rank owns. Identical on every rank by construction."""
+        import numpy as np
+        from .launcher import shard_edges
+        names = sorted(self.master)
+        sizes = [self.master[n].size for n in names]
+        offs = np.concatenate([[0], np.cumsum(sizes)]).astype(np.int64)
+        w, me = self.data_parallel.width, self.data_parallel.dp_rank
+        if getattr(self, "_edges", None) is None or len(self._edges) != w + 1:
+            self._edges = shard_edges(sizes, w)
+        e = self._edges
+        owned = [i for i in range(len(names)) if e[me] <= offs[i] and offs[i + 1] <= e[me + 1]]
+        return names, offs, e, owned
+
+    def moments(self):
+        """``(exp_avg, exp_avg_sq)`` for every parameter, as name -> array dicts.
+
+        A sharded optimizer holds only its own parameters' moments, so it gathers the rest
+        from the other ranks: a COLLECTIVE, every rank must call it at the same point (the
+        checkpointer saves on every rank at the same steps, each into its own directory).
+        Every rank then holds the same complete moments, so a checkpoint resumes at any width.
+        """
+        if not self._sharded():
+            return self.exp_avg, self.exp_avg_sq
+        import numpy as np
+        names, offs, edges, owned = self._shard_layout()
+        out = []
+        for mom in (self.exp_avg, self.exp_avg_sq):
+            mine = (np.concatenate([mom[names[i]].ravel() for i in owned]) if owned
+                    else np.zeros(0, np.float32))
+            full = self.data_parallel.all_gather(mine, edges=edges)
+            out.append({n: full[offs[i]:offs[i + 1]].reshape(self.master[n].shape)
+                        for i, n in enumerate(names)})
+        return out[0], out[1]
+
+    def drop_unowned(self) -> None:
+        """Forget the moments of parameters another rank owns (after loading a full checkpoint)."""
+        if not self._sharded():
+            return
+        names, _, _, owned = self._shard_layout()
+        keep = {names[i] for i in owned}
+        for mom in (self.exp_avg, self.exp_avg_sq):
+            for n in [n for n in dict.keys(mom) if n not in keep]:
+                del mom[n]
 
     def _reduce(self, replicas) -> None:
         """Sum each parameter's gradient across the DP axis, in place on the tape.

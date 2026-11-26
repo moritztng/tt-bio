@@ -353,7 +353,7 @@ class ProcessAxis(Axis):
         self.state.update(_pub=t_pub - t0, _wait=t_wait - t_pub)
         return part
 
-    def all_gather(self, part):
+    def all_gather(self, part, edges=None):
         """Every rank's slice of the step :meth:`reduce_scatter` opened, as one vector.
 
         ``part`` need not be what ``reduce_scatter`` returned: a sharded optimizer hands back
@@ -362,7 +362,13 @@ class ProcessAxis(Axis):
         files ``_KEEP_STEPS`` back are safe to drop.
         """
         import numpy as np
-        step, edges, n = self.state["_open"].pop()
+        if edges is not None:
+            # A gather on its own (a sharded optimizer's moments at a checkpoint): its own step.
+            step = self.state["step"] = self.state["step"] + 1
+            edges = np.asarray(edges, dtype=np.int64)
+            n = int(edges[-1])
+        else:
+            step, edges, n = self.state["_open"].pop()
         d, me = Path(self.run), self.dp_rank
         if part.size != edges[me + 1] - edges[me]:
             raise ValueError(f"rank {me} holds {part.size} elements for a slice of "

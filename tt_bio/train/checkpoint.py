@@ -38,17 +38,14 @@ def save_adapter(path, opt: AdamW, *, meta: Optional[dict] = None) -> None:
     would quietly decay the adapter.
     """
     from safetensors.numpy import save_file
-    if getattr(opt, "shard", False) and getattr(opt.data_parallel, "width", 1) > 1:
-        # A sharded optimizer holds moments only for the parameters this rank owns. Saving it
-        # here would write zeros for every other rank's moments and the resume would restart
-        # their Adam state from scratch while looking healthy, so it refuses instead.
-        raise NotImplementedError(
-            "saving a shard=True optimizer: its moments live on every rank; gather them first")
+    # A sharded optimizer gathers its moments here (a collective: every rank saves at the
+    # same step), so every rank writes the same complete file and it resumes at any width.
+    exp_avg, exp_avg_sq = opt.moments()
     tensors = {}
     for name, arr in opt.master.items():
         tensors[f"master{_SPLIT}{name}"] = arr
-        tensors[f"exp_avg{_SPLIT}{name}"] = opt.exp_avg[name]
-        tensors[f"exp_avg_sq{_SPLIT}{name}"] = opt.exp_avg_sq[name]
+        tensors[f"exp_avg{_SPLIT}{name}"] = exp_avg[name]
+        tensors[f"exp_avg_sq{_SPLIT}{name}"] = exp_avg_sq[name]
     header = {"optimizer": json.dumps(opt.state_dict()),
               "tt_bio_adapter": "1"}
     if meta:
@@ -84,6 +81,8 @@ def load_adapter(path, params: Dict[str, ag.Tensor], device, *, opt: Optional[Ad
     md = header.get("__metadata__", {})
     if opt is not None and "optimizer" in md:
         opt.load_state_dict(json.loads(md["optimizer"]))
+    if opt is not None:
+        opt.drop_unowned()
     return json.loads(md["meta"]) if "meta" in md else {}
 
 
