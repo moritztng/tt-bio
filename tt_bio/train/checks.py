@@ -47,18 +47,23 @@ from __future__ import annotations
 
 import math
 import zlib
+import re
 from dataclasses import dataclass, field
 from typing import Callable, Dict, Optional, Sequence
 
 import numpy as np
 
 __all__ = ["gradcheck", "GradcheckReport", "BARS", "MASK_BAR", "FD_BAR", "OP_CLASSES",
-           "metrics", "fd_check", "WeightCoverage", "weight_coverage", "COMPOSED_BAR", "composed_verdict"]
+           "metrics", "fd_check", "WeightCoverage", "weight_coverage", "COMPOSED_BAR", "composed_verdict", "FLOOR_SITES", "floor_site"]
 
 
 # The reference's own bar against central differences. It is not a device number: this is
 # float64 against float64 and a disagreement above it means the reference is wrong.
 FD_BAR = 2e-6
+# Two steps must agree to this fraction of FD_BAR before the larger one is taken as smooth. At 0.5 a
+# pair that straddled ReLU kinks with a shared error passed a value 3e-5 off (PairUpdate bf16,
+# pugc3): agreement within half the bar says nothing about an error the size of the bar.
+FD_AGREE = 0.05
 
 # A composed block or the whole network (D28, OF3T section 3d): per-tensor rel_L2 max, median of the
 # per-tensor rel_L2, worst cosine. G1 (BARS) stays the bar for a single VJP; a composition stacks
@@ -177,7 +182,7 @@ def fd_check(loss_fn, params, n_probe=40, h=1e-5, seed=0, mag_floor=1e-6, kinks=
         idx = rng.choice(ok, size=min(n_probe, ok.size), replace=False)
         for i in idx:
             i = int(i)
-            num = _smooth_central(loss_fn, flat, i, h, 0.5 * FD_BAR * scale)
+            num = _smooth_central(loss_fn, flat, i, h, FD_AGREE * FD_BAR * scale)
             if num is None:
                 skipped += 1
                 if kinks is not None:
@@ -410,15 +415,40 @@ def weight_coverage(model) -> WeightCoverage:
                           without_grad=without_grad)
 
 
-def composed_verdict(rep: "GradcheckReport") -> dict:
-    """Grade a composed block's report on ``COMPOSED_BAR``. Needs a verified reference."""
+# D39: the only tensors whose composed bar may widen to the bf16-forward floor. Every gradient here flows
+# through PairUpdate's transition ReLU, whose mask a bf16 forward flips; linear_2 and everything else keep D28.
+FLOOR_SITES = (r"(^|\.)transition_out\.layer_norm\.", r"(^|\.)transition_out\.linear_1\.")
+FLOOR_FACTOR = 1.5
+
+
+def floor_site(name: str) -> bool:
+    return any(re.search(p, name) for p in FLOOR_SITES)
+
+
+def composed_verdict(rep: "GradcheckReport", floor: dict | None = None) -> dict:
+    """Grade a composed block's report on ``COMPOSED_BAR``. Needs a verified reference.
+
+    ``floor`` maps a tensor to {"rel", "cos"} of a bf16-emulated float64 reference against the float64
+    one (D39). At ``FLOOR_SITES`` only, the tensor's bars widen to ``FLOOR_FACTOR`` times that distance:
+    rel_l2 <= max(D28, 1.5 rel) and 1 - cos <= max(D28, 1.5^2 (1 - cos)), the same factor on the
+    difference vector. The median bar never moves."""
     mx_bar, med_bar, cos_bar = COMPOSED_BAR
     if not (rep.reference_verified and rep.grads):
         return {"pass": False, "why": "reference not verified" if rep.grads else "no gradients"}
     rel = {k: g["rel_l2"] for k, g in rep.grads.items()}
+    cos = {k: g["cos"] for k, g in rep.grads.items()}
+    bars = {}
+    for k in rel:
+        f = (floor or {}).get(k)
+        if f is not None and floor_site(k):
+            bars[k] = (max(mx_bar, FLOOR_FACTOR * f["rel"]),
+                       min(cos_bar, 1.0 - FLOOR_FACTOR ** 2 * (1.0 - f["cos"])))
     worst = max(rel, key=rel.get)
-    low = min(rep.grads, key=lambda k: rep.grads[k]["cos"])
+    low = min(cos, key=cos.get)
     med = float(np.median(list(rel.values())))
-    out = {"max": [worst, rel[worst]], "median": med, "min_cos": [low, rep.grads[low]["cos"]]}
-    out["pass"] = bool(rel[worst] <= mx_bar and med <= med_bar and rep.grads[low]["cos"] >= cos_bar)
+    fails = sorted(k for k in rel if rel[k] > bars.get(k, (mx_bar, cos_bar))[0]
+                   or cos[k] < bars.get(k, (mx_bar, cos_bar))[1])
+    out = {"max": [worst, rel[worst]], "median": med, "min_cos": [low, cos[low]], "fails": fails,
+           "floored": {k: list(b) for k, b in bars.items()}}
+    out["pass"] = bool(not fails and med <= med_bar)
     return out

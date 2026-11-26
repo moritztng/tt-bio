@@ -53,3 +53,31 @@ def test_nothing_smooth_left_is_not_verified():
     loss, ps = _relu_net(n=200000)
     worst, _, _ = CK.fd_check(loss, ps, n_probe=8, h=5.0)
     assert worst == float("inf")
+
+
+def _shared_kink(h, scale):
+    """f(t) = g t + s(t), s odd and zero inside |t| < 5h/100: the steps h and h/10 both straddle the
+    jump and share an error of 3 bars, differing by 0.2 bar (the pugc3 PairUpdate shape); h/100 is smooth."""
+    g, bar = 1.0, CK.FD_BAR * scale
+    E, D = 3 * bar, 0.2 * bar / (0.99 * h * h)
+    t = torch.zeros(1, dtype=torch.float64)
+
+    def f():
+        x = t[0].item()
+        s = 0.0 if abs(x) < 0.05 * h else (E * x + D * x ** 3)
+        return torch.tensor(g * x + s, dtype=torch.float64)
+    return f, t, g, bar
+
+
+def test_a_shared_kink_error_is_skipped_not_accepted():
+    h, scale = 1e-2, 1.0
+    f, t, g, bar = _shared_kink(h, scale)
+    assert CK._smooth_central(f, t, 0, h, CK.FD_AGREE * CK.FD_BAR * scale) is None
+
+
+def test_the_old_agreement_tolerance_accepts_the_kinked_value():
+    # the A arm: at 0.5 x FD_BAR the same pair is accepted, and the accepted value is 3 bars off
+    h, scale = 1e-2, 1.0
+    f, t, g, bar = _shared_kink(h, scale)
+    v = CK._smooth_central(f, t, 0, h, 0.5 * CK.FD_BAR * scale)
+    assert v is not None and abs(v - g) > CK.FD_BAR * scale

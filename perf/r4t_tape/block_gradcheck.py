@@ -49,6 +49,10 @@ def main():
                     help="none: every mode lever off (the plain ttnn path), to locate a forward disagreement")
     ap.add_argument("--fwd-only", action="store_true", help="stop after the forward-vs-reference line")
     ap.add_argument("--out", type=Path)
+    ap.add_argument("--floor-only", type=Path, metavar="JSON",
+                    help="host only: write the bf16-emulated floor column (D39) for this config and stop")
+    ap.add_argument("--floor", type=Path, metavar="JSON",
+                    help="grade FLOOR_SITES on 1.5x this committed floor column (refused if it does not reproduce)")
     a = ap.parse_args()
     if a.sdpa_own or a.arm == "fp32":  # the fused kernel refuses fp32 operands
         import os
@@ -60,7 +64,6 @@ def main():
     from tt_bio import autograd as ag, taped_ttnn as T, tenstorrent as tt
     from tt_bio.rfd4 import trunk as TR
     from tt_bio.train.folds import Folds
-    dev = tt.get_device()
     DIM, DP, DC, H = 768, 384, 256, 12
     bf = lambda t: t.to(torch.bfloat16).to(torch.float64)  # noqa: E731
 
@@ -118,6 +121,45 @@ def main():
     seed = torch.randn(tuple(out_t.shape), generator=torch.Generator().manual_seed(a.seed), dtype=torch.float64)
     seed = seed * out_mask
     I0 = {"x": x, "z": z, "cond": cond}
+    ins_ = [k for k in ins if k in I0]
+    cfg = {"module": a.module, "n": a.n, "real": a.real, "seed": a.seed, "layers": a.layers, "cycles": a.cycles}
+
+    def bf16_floor():
+        """{tensor: rel, cos} of the float64 gradient of the reference with every op's output rounded to bf16
+        (backward exact) against the plain float64 gradient: the floor any bf16 forward sits on."""
+        ref = {k: v.clone().requires_grad_(True) for k, v in w64.items()}
+        ref.update({k: I0[k].clone().requires_grad_(True) for k in ins_})
+        wref, names = {k: ref[k] for k in w64}, list(ref)
+        with torch.enable_grad():
+            g64 = torch.autograd.grad((ref_fn(wref, ref) * seed).sum(), [ref[k] for k in names], allow_unused=True)
+            gem = torch.autograd.grad((ref_fn(wref, ref, REF.bf16) * seed).sum(), [ref[k] for k in names],
+                                      allow_unused=True)
+        out = {}
+        for k, u, v in zip(names, g64, gem):
+            if u is not None and v is not None and float(u.norm()) > 0:
+                m = CK.metrics(v.detach().numpy(), u.detach().numpy())
+                out[k] = {"rel": float(m["rel_l2"]), "cos": float(m["cos"])}
+        return out
+
+    def digest(fl):
+        import hashlib
+        return hashlib.sha256(json.dumps(fl, sort_keys=True).encode()).hexdigest()[:16]
+
+    if a.floor_only:
+        fl = bf16_floor()
+        a.floor_only.parent.mkdir(parents=True, exist_ok=True)
+        a.floor_only.write_text(json.dumps({"config": cfg, "digest": digest(fl), "floor": fl}, indent=1, sort_keys=True))
+        sites = {k: v for k, v in fl.items() if CK.floor_site(k)}
+        print(f"floor column {a.floor_only} digest {digest(fl)}: {len(fl)} tensors; sites {sites}")
+        return 0
+    committed = None
+    if a.floor:
+        doc = json.loads(a.floor.read_text())
+        if doc["config"] != cfg or doc["digest"] != digest(doc["floor"]):
+            print(f"REFUSED: {a.floor} is for {doc['config']} digest {doc['digest']}, not this run {cfg}")
+            return 2
+        committed = doc["floor"]
+    dev = tt.get_device()
 
     f = Folds({k: v.float() for k, v in w64.items()})
     # float32 everywhere: the shared trimul computes in the process dtype (`_dtype()`), not the operand
@@ -187,18 +229,16 @@ def main():
                        ref_params=[ref[k] for k in names], tt_grads={k: got[k] for k in names},
                        op_class="reduction", dtype=dname, n_probe=a.probe, seed=a.seed)
     print(rep, flush=True)
-    comp = CK.composed_verdict(rep)
+    fresh = bf16_floor() if committed is not None else {}
+    if any(abs(f["rel"] - committed.get(k, {"rel": -1.0})["rel"]) > 1e-9 * max(f["rel"], 1e-12) for k, f in fresh.items()):
+        print(f"REFUSED: the committed floor does not reproduce (digest {digest(fresh)} vs {digest(committed)})")
+        return 2
+    comp = CK.composed_verdict(rep, committed)
     # The floor any bf16 forward sits on: the float64 gradient of the same reference with every op's output
     # rounded to bf16 (backward exact). Informational; at a ReLU it is the mask flips, not the VJP.
     floor = {}
     if a.arm != "fp32":
-        ws = [ref[k] for k in names]
-        with torch.enable_grad():
-            g64 = torch.autograd.grad((ref_fn(wref, ref) * seed).sum(), ws, allow_unused=True)
-            gem = torch.autograd.grad((ref_fn(wref, ref, REF.bf16) * seed).sum(), ws, allow_unused=True)
-        for k, u, v in zip(names, g64, gem):
-            if u is not None and v is not None and float(u.norm()) > 0 and float((v - u).norm()) > 0:
-                floor[k] = float((v - u).norm() / u.norm())
+        floor = {k: f["rel"] for k, f in (fresh or bf16_floor()).items() if f["rel"] > 0}
         worst = sorted(((rep.grads[k]["rel_l2"] / floor[k], k) for k in floor if k in rep.grads), reverse=True)[:5]
         print("bf16-forward floor (float64 grad of a bf16-rounded forward): max %.3e median %.3e; device/floor worst %s"
               % (max(floor.values()), sorted(floor.values())[len(floor) // 2], [(k, round(r, 2)) for r, k in worst]), flush=True)

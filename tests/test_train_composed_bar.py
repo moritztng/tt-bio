@@ -30,3 +30,38 @@ def test_an_unverified_reference_never_passes():
     rep = _report()
     rep.reference_verified = False
     assert not CK.composed_verdict(rep)["pass"]
+
+
+def _floored(site, floor_rel, got_rel, scale=None):
+    """One tensor at ``site`` sitting ``got_rel`` off, beside 11 at the device floor."""
+    rep = _report(scale=scale)
+    rng = np.random.default_rng(1)
+    ref = rng.standard_normal(4096)
+    e = rng.standard_normal(4096)
+    e *= np.linalg.norm(ref) / np.linalg.norm(e)
+    rep.grads[site] = CK.metrics(ref + got_rel * e, ref)
+    f = CK.metrics(ref + floor_rel * e, ref)
+    return rep, {site: {"rel": f["rel_l2"], "cos": f["cos"]}}
+
+
+SITE = "pair_update_layers.0.transition_out.linear_1.weight"
+
+
+def test_a_relu_site_inside_its_floor_passes_only_with_the_floor():
+    rep, floor = _floored(SITE, 0.12, 0.15)
+    assert not CK.composed_verdict(rep)["pass"]
+    v = CK.composed_verdict(rep, floor)
+    assert v["pass"] and SITE in v["floored"]
+
+
+def test_the_floor_never_widens_a_tensor_off_the_site_list():
+    name = "pair_update_layers.0.transition_out.linear_2.weight"
+    rep, floor = _floored(name, 0.12, 0.15)
+    v = CK.composed_verdict(rep, floor)
+    assert not v["pass"] and name in v["fails"] and not v["floored"]
+
+
+def test_a_relu_site_past_1_5x_its_floor_fails():
+    rep, floor = _floored(SITE, 0.08, 0.15)
+    v = CK.composed_verdict(rep, floor)
+    assert not v["pass"] and v["fails"] == [SITE]
