@@ -30,7 +30,7 @@ nohup nvidia-smi --query-gpu=index,timestamp,name,clocks.sm,power.draw,temperatu
 
 # One leg per GPU when the box has two, else back to back. gpu_a first: a box that dies early leaves one leg.
 leg(){ # side seed_offset gpu
-  CUDA_VISIBLE_DEVICES=$3 OMP_NUM_THREADS=8 $PY src/perf/r4t/curve_upstream.py --plan $C/plan.json \
+  CUDA_VISIBLE_DEVICES=$3 PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True OMP_NUM_THREADS=8 $PY src/perf/r4t/curve_upstream.py --plan $C/plan.json \
     --out $C/$1.jsonl --side $1 --seed-offset $2 --device cuda --sha "src-$SHA" > $C/$1.log 2>&1
   echo $? > $C/$1.rc; say "$1 rc=$(cat $C/$1.rc) steps=$(($(wc -l < $C/$1.jsonl 2>/dev/null || echo 1) - 1))"
 }

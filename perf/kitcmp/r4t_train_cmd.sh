@@ -25,6 +25,8 @@ EOF
 cd "$RFD4"
 # The dropped production sources interpolate this root; nothing reads it once they are gone.
 export DATASET_STORE_ROOT=${DATASET_STORE_ROOT:-/nonexistent}
+# Fragmentation alone OOMed the fp32 crop-256 step on an 80 GB card (73.4 GB live + 6.9 GB reserved-unused); numerics unchanged.
+export PYTORCH_CUDA_ALLOC_CONF=${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}
 # shellcheck disable=SC2086
 exec env PYTHONPATH="$R4T_KC${PYTHONPATH:+:$PYTHONPATH}" "$PY" src/rfproteina/train.py \
   experiment=sota $DROP "~_hero_streaming" "+datasets/train@datasets.train.test_dataset=test_dataset" \
