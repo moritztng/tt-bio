@@ -1,0 +1,8 @@
+START 2026-11-26T15:32:05Z sha 0f3621425 load 6.82
+RC_A1 0 15:32:11 gate=0 load 6.45
+RC_B1 0 15:32:17 gate=1 load 6.34
+RC_A2 0 15:32:23 gate=0 load 6.87
+RC_B2 0 15:32:29 gate=1 load 6.56
+RC_A3 0 15:32:35 gate=0 load 6.35
+RC_B3 0 15:32:41 gate=1 load 6.40
+END 2026-11-26T15:32:41Z
