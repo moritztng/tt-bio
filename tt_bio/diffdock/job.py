@@ -21,10 +21,12 @@ from pathlib import Path
 
 import yaml
 
+from tt_bio.data.yaml_input import load_mapping
+
 RECIPE_PATH = Path(__file__).with_name("recipe.yaml")
 
 #: Upstream's `default_inference_args.yaml`, verbatim. The gated recipe (D-dfd-2).
-RECIPE: dict = yaml.safe_load(RECIPE_PATH.read_text())
+RECIPE: dict = load_mapping(RECIPE_PATH)
 
 #: Upstream config key -> the DockOptions field it sets. Keys absent here are sampling
 #: constants carried through untouched in ``DockOptions.recipe``.

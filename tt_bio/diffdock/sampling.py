@@ -35,19 +35,16 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass, field, replace
-from pathlib import Path
 
 import numpy as np
 import torch
-import yaml
 from torch import Tensor
 
-RECIPE_PATH = Path(__file__).with_name("recipe.yaml")
-
+from tt_bio.diffdock.job import RECIPE
 
 def recipe() -> dict:
-    """The shipped inference recipe, verbatim (D-dfd-2)."""
-    return yaml.safe_load(RECIPE_PATH.read_text())
+    """The shipped inference recipe, verbatim (D-dfd-2); a fresh copy of ``job.RECIPE``."""
+    return dict(RECIPE)
 
 
 # ---------------------------------------------------------------------------

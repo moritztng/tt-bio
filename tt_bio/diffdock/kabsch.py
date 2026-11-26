@@ -112,15 +112,6 @@ def kabsch_horn(a: Tensor, b: Tensor, squarings: int = SQUARINGS):
     return r, t, _inverse_transpose_and_det(h)[1]
 
 
-def apply_rigid(pos: Tensor, r: Tensor, t: Tensor) -> Tensor:
-    """``pos @ R^T + t^T``, upstream's application order.
-
-    Restored after the dfd-trace merge, which renamed ``kabsch_proper`` to
-    :func:`kabsch_horn` and dropped this helper; ``conformer.py`` is its caller.
-    """
-    return pos @ r.transpose(1, 2) + t.transpose(1, 2)
-
-
 def quaternion_to_matrix(q: Tensor) -> Tensor:
     """``[..., 4] -> [..., 3, 3]``, real part first; the ``2/|q|^2`` factor normalises as it goes.
 

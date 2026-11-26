@@ -222,10 +222,10 @@ def load(model_dir: str | Path, *, old_model: bool, name: str = "") -> DiffDockC
     the pre-DiffDock-L architecture and is not recorded in the yaml, so the caller passes it
     from the inference args (the default recipe sets it false for score, true for confidence).
     """
-    import yaml
+    from tt_bio.data.yaml_input import load_mapping
 
     path = Path(model_dir) / "model_parameters.yml"
-    raw = yaml.safe_load(path.read_text())
+    raw = load_mapping(path)
     agg = raw.get("parallel_aggregators") or ""
     cfg = DiffDockConfig(
         name=name or str(raw.get("run_name", Path(model_dir).name)),
