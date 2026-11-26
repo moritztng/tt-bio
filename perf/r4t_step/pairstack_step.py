@@ -2,7 +2,7 @@
 
 The pair track is 91-98 % of RFD4's FLOPs and the part of the trunk whose backward exists today (the 14 token
 layers wait on the rms_norm VJP). Synthetic release-shaped weights, loss = <out, C> / numel with a fixed C, fresh
-pair input per step (seeded by step). AdamW (tt_bio.train.optim), the G2 gate (checks.GradientCoverage), the
+pair input per step (seeded by step). AdamW (tt_bio.train.optim), the G2 gate (parity.GradientCoverage (wk/r4t-accuracy)), the
 checkpointer (tt_bio.train.checkpoint). Prints one JSON line per step and a summary.
 
   --save-at k     write a checkpoint after step k
@@ -39,7 +39,7 @@ def main():
     from tt_bio import tenstorrent as T, autograd as ag
     from tt_bio.rfd4 import trunk as TR
     from tt_bio.train import lora
-    from tt_bio.train.checks import GradientCoverage, dead_parameters
+    from tt_bio.train.parity import GradientCoverage, zero_or_missing
     from tt_bio.train.checkpoint import Checkpointer, load_adapter
     from tt_bio.train.optim import AdamW
     import rfd4_reference as REF
@@ -96,7 +96,7 @@ def main():
         params.rebind()
         start = int(meta["step"])
     ck = Checkpointer(a.out, every=10**9, keep=10)
-    cov = GradientCoverage()
+    cov = GradientCoverage(list(params), where="r4t-step pair stack: ")
     threading.Thread(target=sample, daemon=True).start()
     for step in range(start, a.steps):
         zin = put(REF.block_inputs(1, a.n, 768, 384, 256, seed=1000 + step)[1])
@@ -116,7 +116,7 @@ def main():
         t2 = time.time()
         peak_dev = used() - base
         grads = {n: (None if p.grad is None else ttnn.to_torch(p.grad).float().numpy()) for n, p in params.items()}
-        dead = dead_parameters(grads)
+        dead = zero_or_missing(grads)
         opt.step()
         params.rebind()   # the module reads the handles the optimizer just wrote
         ttnn.synchronize_device(dev)
@@ -134,7 +134,7 @@ def main():
                               host_maxrss_GiB=round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 2**20, 3))),
               flush=True)
         if not a.resume:
-            cov.require(dead, len(params), where=f"step {step + 1}: ")
+            cov.observe(dead)
         if a.save_at and step + 1 == a.save_at:
             print(json.dumps(dict(saved=str(ck.save(step + 1, opt, metrics={"loss": loss}, force=True)))), flush=True)
     stop.set()
