@@ -53,6 +53,9 @@ def main():
     ap.add_argument("--shard", action="store_true")
     ap.add_argument("--dp-rank", type=int, default=-1, help=argparse.SUPPRESS)
     ap.add_argument("--dp-run", default="", help=argparse.SUPPRESS)
+    ap.add_argument("--cand-pair", choices=("host", "card"), default="card",
+                    help="where the grad-off K-candidate pass builds z_init: host (upstream's builder) or the serving "
+                         "card path (rfd4.pair.PairOnCard: host constant + bins, card assembly). The taped winner is always host.")
     a = ap.parse_args()
     if a.curve_dump and a.dp_cards:
         raise SystemExit("--curve-dump is a single-card leg: every rank would append to one CurveLog")
@@ -107,6 +110,19 @@ def main():
     cfg = config["nn"]
     glue = N.FlowGlue(state, config)
     folds = Folds(state)
+    card_pair = []   # r4t-perf P1 (--cand-pair card): the candidate pass builds its pair as serving does
+
+    def pair_card():
+        """This step's PairOnCard, or None. A split copies the builder's weights, which the optimizer moves, so
+        each step takes a fresh one (the split refuses stale weights)."""
+        if a.cand_pair != "card":
+            return None
+        from tt_bio.rfd4.pair import PairOnCard, PairSplit
+        if card_pair:
+            card_pair.pop().release()
+        glue.pair_split = PairSplit(glue.pair_repr_builder)
+        card_pair.append(PairOnCard(glue.pair_split, dev))
+        return card_pair[0]
     trunk = E.load_trunk(glue, state, cfg, training=True)   # an unrecorded build for the lever set and dtypes; build() replaces it
 
     RB = {}
@@ -301,12 +317,14 @@ def main():
             winner by our own exploration loss, then the winner re-run with grad (host glue, taped trunk)."""
             bt, K = cur["bt"], cur["K"]
             mk = tmask(bt)
+            pc = pair_card()
             with torch.no_grad():
                 ck = conds_for(bt)
-                s0, z0 = glue.initial_states(bt)
+                s0, z0 = glue.initial_states(bt, pair_constant=glue.pair_split.constant(bt) if pc else None)
             with T.lever_scope(levers), ag.tape():
                 with ag.no_grad():
-                    sk, zk = trunk(put(s0), put(z0, trunk.pair_dtype(mk)), [put(c, trunk.dtype) for c in ck], mk)
+                    zk0 = pc(z0, 0) if pc else put(z0, trunk.pair_dtype(mk))
+                    sk, zk = trunk(put(s0), zk0, [put(c, trunk.dtype) for c in ck], mk)
                     sh = ttnn.to_torch(getattr(sk, "value", sk)).float().reshape(s0.shape)
                 walk_register()
                 for t in (sk, zk):

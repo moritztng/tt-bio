@@ -5,12 +5,15 @@
 
 Wraps `Folds.backward` in-process (no production edit) and prints one JSON line per call after trunk_step's own
 lines: n grads, elements, readback seconds (ttnn.to_torch), cast/reshape seconds, autograd seconds.
+--tcard: a gradient whose source is a plain 2-D transpose is transposed on the card and handed to autograd as
+  a transposed view, so the host accumulates contiguously (values identical, digest must equal default).
 --rm: read each gradient back after an on-card `ttnn.to_layout(ROW_MAJOR)` (untilize is exact, so the master
 digest must equal the default arm's; that equality is the arm's gate).
 """
 import json, os, runpy, sys, time
 
 rm = "--rm" in sys.argv
+tc = "--tcard" in sys.argv
 argv = sys.argv[sys.argv.index("--") + 1:]
 step = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "r4t_step", "trunk_step.py")
 
@@ -20,7 +23,7 @@ from tt_bio.train import folds as F
 
 
 def backward(self, grads):
-    t0 = time.perf_counter(); srcs, gs, n_el, t_rb = [], [], 0, 0.0
+    t0 = time.perf_counter(); srcs, gs, n_el, t_rb, n_t = [], [], 0, 0.0, 0
     for h, g in grads:
         s = self.source(h)
         if s is None:
@@ -29,7 +32,16 @@ def backward(self, grads):
             a = time.perf_counter()
             if rm and g.layout != ttnn.ROW_MAJOR_LAYOUT:
                 g = ttnn.to_layout(g, ttnn.ROW_MAJOR_LAYOUT)
-            g = ttnn.to_torch(g)
+            flip = (tc and type(s.grad_fn).__name__ == "TBackward0" and s.dim() == 2
+                    and all(d == 1 for d in tuple(g.shape)[:-2]))
+            if flip:
+                n_t += 1
+                # bits through as uint32: a float32 tile transpose rounds to ~TF32 (393,173 of 393,216 differ),
+                # a uint32 one is pure data movement (0 differ)
+                u = ttnn.transpose(ttnn.bitcast(g, ttnn.uint32), -2, -1)
+                g = ttnn.to_torch(ttnn.bitcast(u, ttnn.float32)).reshape(s.shape[1], s.shape[0]).t()
+            else:
+                g = ttnn.to_torch(g)
             t_rb += time.perf_counter() - a
         n_el += g.numel()
         srcs.append(s); gs.append(g.to(s.dtype).reshape(s.shape))
@@ -37,7 +49,7 @@ def backward(self, grads):
     if srcs:
         torch.autograd.backward(srcs, gs, retain_graph=True)
     t2 = time.perf_counter()
-    print(json.dumps(dict(foldprof=1, rm=rm, n=len(gs), elems=n_el, readback_s=round(t_rb, 4),
+    print(json.dumps(dict(foldprof=1, rm=rm, tcard=tc, n_t=n_t, n=len(gs), elems=n_el, readback_s=round(t_rb, 4),
                           cast_s=round(t1 - t0 - t_rb, 4), autograd_s=round(t2 - t1, 4), total_s=round(t2 - t0, 4))), flush=True)
 
 
