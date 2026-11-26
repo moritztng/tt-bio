@@ -45,6 +45,9 @@ def main():
     ap.add_argument("--cycles", type=int, default=2, help="trunk: recycles; only the last is differentiated")
     ap.add_argument("--sdpa-own", action="store_true",
                     help="tape SDPA with its own chunked forward (fp32-capable) instead of the fused kernel")
+    ap.add_argument("--levers", choices=("arm", "none"), default="arm",
+                    help="none: every mode lever off (the plain ttnn path), to locate a forward disagreement")
+    ap.add_argument("--fwd-only", action="store_true", help="stop after the forward-vs-reference line")
     ap.add_argument("--out", type=Path)
     a = ap.parse_args()
     if a.sdpa_own or a.arm == "fp32":  # the fused kernel refuses fp32 operands
@@ -65,6 +68,8 @@ def main():
     levers = set(TR.mode_levers())
     if a.arm != "prod":
         levers = {v for v in levers if v not in W8 and not v.startswith("pair_x8")}
+    if a.levers == "none":
+        levers = set()
     dt = ttnn.float32 if a.arm == "fp32" else ttnn.bfloat16
     if a.arm == "fp32":
         bf = lambda t: t  # noqa: E731
@@ -132,9 +137,10 @@ def main():
             # (a verb dispatches to its tape entry only when an operand is a taped Tensor).
             if a.arm == "fp32":
                 with T.tape():
-                    call(m, [ag.Tensor(raw[k], requires_grad=True) if k in ins else raw[k] for k in keys])
+                    warm = call(m, [ag.Tensor(raw[k], requires_grad=True) if k in ins else raw[k] for k in keys]).value
             else:
-                call(m, [raw[k] for k in keys])
+                warm = call(m, [raw[k] for k in keys])
+            warm = ttnn.to_torch(warm).double()   # now: the graded call may reuse its buffers
             # the warm call may write its pair stream in place (pair_tail): the graded call reads fresh inputs
             warm_moved = {k: float((ttnn.to_torch(raw[k]).double().reshape(v.shape) - v).abs().max())
                           for k, v in (("x", x), ("z", z)) if k in keys}
@@ -157,7 +163,12 @@ def main():
         want = ref_fn(w64, I0)
     have = ttnn.to_torch(out.value).double().reshape(want.shape)
     fwd_rel = float((have - want).mul(out_mask).norm() / want.mul(out_mask).norm())
-    print(f"forward vs float64 reference: rel_l2 {fwd_rel:.3e}; warm call moved its inputs by {warm_moved}", flush=True)
+    served = warm.reshape(want.shape)
+    served_rel = float((served - want).mul(out_mask).norm() / want.mul(out_mask).norm())
+    print(f"forward vs float64 reference: taped rel_l2 {fwd_rel:.3e}, warm call {served_rel:.3e}; "
+          f"warm call moved its inputs by {warm_moved}; levers {sorted(levers)}", flush=True)
+    if a.fwd_only:
+        return 0
     got = {n: v.grad.double().numpy() for n, v in f.leaves.items()}
     if a.scale_grad:
         got[a.scale_grad] = got[a.scale_grad] * 1.10
