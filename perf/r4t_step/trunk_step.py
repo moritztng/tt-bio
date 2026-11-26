@@ -177,7 +177,7 @@ def main():
         sm = clk[c0:] or clk[-1:]
         print(json.dumps(dict(step=step + 1, loss=loss, fwd_s=round(t1 - t0, 4), bwd_s=round(t2 - t1, 4),
                               fold_bwd_s=round(t2b - t2, 4), opt_s=round(t2c - t2b, 4), rebuild_s=round(t3 - t2c, 4), idle_dev_w=len(idle), step_s=round(t3 - t0, 4), retained_B=retained,
-                              dead=len(dead), params=len(params), n_elems=int(sum(v.size for v in opt.master.values())),
+                              dead=len(dead), dead_names=sorted(dead)[:6], params=len(params), n_elems=int(sum(v.size for v in opt.master.values())),
                               master_digest=md, aiclk=[min(sm or [0]), max(sm or [0])], aiclk_med=sorted(sm)[len(sm) // 2] if sm else 0,
                               k=a.k, depth=a.depth, n=n,
                               host_maxrss_GiB=round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 2**20, 3))),
