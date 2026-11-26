@@ -3,7 +3,7 @@
 # B: 2-step smoke on batch00. If it fails, the synthetic-input arms (run_trunk.sh A/R/D) run instead.
 # A: 6 steps, checkpoint at 5. R: fresh process resumes from A's step 5, step 6 must match. D: layer 3 detached, G2 must refuse.
 cd ~/.coworker/wt/r4t-step || exit 1
-C=${1:-1}; OUT=~/r4t/step/real; mkdir -p $OUT; B=${BATCH:-$HOME/r4t/step/batch00.npz}
+C=${1:-1}; OUT=~/r4t/step/real; mkdir -p $OUT; S=$HOME/r4t/step; B=${BATCH:-$S/batch08.npz,$S/batch01.npz,$S/batch05.npz,$S/batch00.npz,$S/batch03.npz,$S/batch06.npz,$S/batch02.npz,$S/batch04.npz,$S/batch07.npz}
 PY=~/scratch/shipflow/venv-c4f99e695d34/bin/python
 ok=
 for i in $(seq 1 300); do

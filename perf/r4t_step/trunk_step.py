@@ -7,11 +7,12 @@ are seeded tensors and the loss seed lands on s (`<s, C>/numel`). Prints one JSO
 
   --save-at k / --resume PATH: checkpoint after step k / continue from it in a fresh process (bit-identical check)
   --detach-at j: cut the graph in front of trunk layer j (the G2 fail arm)
-  --batch PATH: the real step on a batch upstream itself trained on (`perf/r4t/loss_parity_reference.py` dumps:
+  --batch P1,P2,..: the real step, step i on batch P[i % len], each a batch upstream itself trained on (`perf/r4t/loss_parity_reference.py` dumps:
      every feature, x_1/x_t/t, k candidates, depth, upstream winners and losses). Host glue (conditioning,
      initial representations, pair builder) and heads run with grad on the host and join the tape through
      `train.bridge.Bridge`; the loss is `train.rfd4_objective.rfd4_loss`. The candidates' winner is chosen
      from our own heads, as upstream does, and printed beside upstream's.
+  --exempt FILE: G2 exemptions, one `name<TAB>upstream's reason` a line
 """
 import argparse
 import hashlib
@@ -32,6 +33,7 @@ def main():
     ap.add_argument("--resume", default="")
     ap.add_argument("--detach-at", type=int, default=-1)
     ap.add_argument("--batch", default="")
+    ap.add_argument("--exempt", default="")
     ap.add_argument("--out", default=os.path.expanduser("~/r4t/step/tck"))
     a = ap.parse_args()
     import faulthandler
@@ -151,20 +153,26 @@ def main():
         from loss_parity_reference import load_batch
         from tt_bio.train import rfd4_objective as RO
         from tt_bio.train.bridge import Bridge, host_params
-        bt, meta, _rec, ref_loss = load_batch(a.batch)
-        K, depth = int(bt["padding_mask"].shape[0]), max(1, int(meta["depth"]))
+        batches = [(os.path.basename(f),) + load_batch(f) for f in a.batch.split(",")]
+        cur = {}
+
+        def use(step):
+            nm, b, m, _rec, rl = batches[step % len(batches)]
+            cur.update(name=nm, bt=b, meta=m, ref=rl, K=int(b["padding_mask"].shape[0]), depth=max(1, int(m["depth"])))
+        use(0)
         glue.requires_grad_(True)
 
         def take(d, i):
             if isinstance(d, dict):
                 return {k: take(v, i) for k, v in d.items()}
-            return d[i:i + 1] if torch.is_tensor(d) and d.dim() and d.shape[0] == K else d
+            return d[i:i + 1] if torch.is_tensor(d) and d.dim() and d.shape[0] == cur["K"] else d
 
         def npy(d):
             return {k: npy(v) for k, v in d.items()} if isinstance(d, dict) else (
                 d.detach().numpy() if torch.is_tensor(d) else d)
 
         def conds_for(b):
+            depth = cur["depth"]
             cs = [glue.conditioning(b, None)]
             for cyc in range(1, depth):
                 cs.append(glue.conditioning(b, depth - cyc - 1) if glue.condition_on_recycle_remaining else cs[0])
@@ -185,6 +193,7 @@ def main():
         def real_example(taped):
             """Upstream's step on the dumped batch: k candidates grad-off through glue + trunk + heads, the
             winner by our own exploration loss, then the winner re-run with grad (host glue, taped trunk)."""
+            bt, K = cur["bt"], cur["K"]
             mk = tmask(bt)
             with torch.no_grad():
                 ck = conds_for(bt)
@@ -224,7 +233,7 @@ def main():
             sur = sum((o[k] * torch.from_numpy(np.asarray(g)).to(o[k].dtype)).sum() for k, g in seeds.items())
             br.backward(sur)
             terms = {k: v.get("value") for k, v in bd.items() if isinstance(v, dict)}
-            ref = {k: float(ref_loss[k][ctx["win"]]) for k in terms if k in ref_loss}
+            ref = {k: float(cur["ref"][k][ctx["win"]]) for k in terms if k in cur["ref"]}
             return total, terms, ref
         real = (real_example, real_loss)
 
@@ -244,6 +253,11 @@ def main():
         start = int(load_adapter(a.resume, dict(params), dev, opt=opt)["step"])
         build()
     ck = Checkpointer(a.out, every=10**9, keep=10)
+    if a.exempt:
+        for ln in open(a.exempt):
+            if ln.strip() and not ln.startswith("#"):
+                nm, why = ln.rstrip("\n").split("\t", 1)
+                cyc[nm] = why
     cov = GradientCoverage(names, exempt=cyc, where="r4t-step trunk: ")
     threading.Thread(target=sample, daemon=True).start()
     for step in range(start, a.steps):
@@ -253,13 +267,14 @@ def main():
         t0 = time.time()
         extra = {}
         if real:
+            use(step)
             s, z, ctx = real[0](True)
             ttnn.synchronize_device(dev)
             t1 = time.time()
             retained = used() - base
             loss, terms, ref = real[1](s, ctx)
             st = s
-            extra = dict(winner=ctx["win"], upstream_winner=int(meta["winners"][0]), depth_upstream=depth,
+            extra = dict(batch=cur["name"], winner=ctx["win"], upstream_winner=int(cur["meta"]["winners"][0]), depth_upstream=cur["depth"],
                          terms=terms, upstream_terms=ref)
         else:
             s, z = one_example(step, True)
@@ -292,10 +307,10 @@ def main():
                               k=a.k, depth=a.depth, n=n, **extra,
                               host_maxrss_GiB=round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 2**20, 3))),
               flush=True)
+        if a.save_at and step + 1 == a.save_at:   # before the guard, so a refusal still leaves the resume test its input
+            print(json.dumps(dict(saved=str(ck.save(step + 1, opt, metrics={"loss": loss}, force=True)))), flush=True)
         if not a.resume:
             cov.observe(dead)
-        if a.save_at and step + 1 == a.save_at:
-            print(json.dumps(dict(saved=str(ck.save(step + 1, opt, metrics={"loss": loss}, force=True)))), flush=True)
     stop.set()
 
 
