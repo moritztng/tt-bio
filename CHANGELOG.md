@@ -9,6 +9,9 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 - **Groundwork for DiffDock-L docking.** Its weights, configuration and feature code are in the package, but there is
   no `tt-bio` command for it yet; nothing a user runs changes. Its receptor embedding reuses the ESM-2 650M encoder
   Nesso-1 already loads on the card, so both models share one copy per process.
+- **Protenix-v2 is about 2 % faster on Wormhole.** The pair-biased token attention now runs as one fp32 program read
+  straight out of the fused projection, in both modes: 512 tokens at 1000 MHz go 40.2 -> 39.4 s (`--fast`) and
+  46.2 -> 45.6 s. Graded on 11 complexes x 4 seeds with no accuracy loss; Blackhole is unchanged.
 
 ## [0.45.2] - 2026-11-25
 
