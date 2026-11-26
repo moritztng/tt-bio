@@ -13,12 +13,15 @@ busy() { for f in /proc/[0-9]*/fd/*; do [ "$(readlink $f 2>/dev/null)" = /dev/te
 until python3 $HOME/spd/feed/book.py active $CARD 2>/dev/null | grep -q "^$OWNER" && ! busy; do sleep 30; done
 export TT_BIO_LEASE_HOLDER=worker:r4t-scale TT_BIO_LEASE_CARDS=$CARD
 drv() { timeout 1500 $V perf/r4t_scale/dp_pairstack.py --cards $CARD --steps 8 --every 2 "$@"; }
-rm -rf $R/A $R/B $R/C $R/ckA $R/ckB $R/ckC
+rm -rf $R/A $R/B $R/C $R/ckA $R/ckB $R/ckC $R/progress $R/verdict.json
 drv --ckpt $R/ckA --out $R/A > $R/A.log 2>&1; echo "A rc=$?" >> $R/progress
-drv --ckpt $R/ckB --out $R/B > $R/B.log 2>&1 & P=$!
+# B runs in its own session so the kill takes the driver, its rank and the timeout wrapper together:
+# killing only the wrapper left the rank holding the card through the reset (11-26 05:01Z).
+setsid timeout 1500 $V perf/r4t_scale/dp_pairstack.py --cards $CARD --steps 8 --every 2 --ckpt $R/ckB --out $R/B > $R/B.log 2>&1 & P=$!
 until grep -q '"step": 5' $R/B/rank0.log 2>/dev/null || ! kill -0 $P 2>/dev/null; do sleep 0.2; done
-C=$(pgrep -P $P -f dp_pairstack.py | head -1)
-kill -9 $C $P; echo "B killed parent=$P child=$C after step 5 at $(date -u +%T)" >> $R/progress
+kill -9 -- -$P; sleep 2
+if busy; then echo "ABORT: card $CARD still open after the kill" >> $R/progress; exit 1; fi
+echo "B killed session $P after step 5 at $(date -u +%T), card $CARD closed" >> $R/progress
 sleep 2; cp -r $R/ckB $R/ckC; cp $R/B/rank0.json $R/B/rank0.prekill.json
 timeout 300 $HOME/.local/bin/tt-smi -r $CARD > $R/reset.log 2>&1; echo "reset rc=$?" >> $R/progress
 drv --ckpt $R/ckB --out $R/B --resume > $R/B.resume.log 2>&1; echo "B-resume rc=$?" >> $R/progress
