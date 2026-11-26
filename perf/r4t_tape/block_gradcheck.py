@@ -35,8 +35,13 @@ def main():
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--break", dest="brk", action="store_true")
     ap.add_argument("--arm", choices=("prod", "bf16", "fp32"), default="prod")
+    ap.add_argument("--sdpa-own", action="store_true",
+                    help="tape SDPA with its own chunked forward (fp32-capable) instead of the fused kernel")
     ap.add_argument("--out", type=Path)
     a = ap.parse_args()
+    if a.sdpa_own or a.arm == "fp32":  # the fused kernel refuses fp32 operands
+        import os
+        os.environ["TT_BIO_SDPA_OWN_FORWARD"] = "1"
     from tt_bio.main import ensure_p300_mesh_descriptor
     ensure_p300_mesh_descriptor()
     import ttnn
@@ -94,14 +99,14 @@ def main():
     names = list(got)
     wref = {k: ref[k] for k in w64}
     dname = "float32" if a.arm == "fp32" else "bfloat16"
-    rep = CK.gradcheck(f"trunk_block/{a.arm}" + ("/broken" if a.brk else ""),
+    rep = CK.gradcheck(f"trunk_block/{a.arm}" + ("/own" if a.sdpa_own else "") + ("/broken" if a.brk else ""),
                        ref_loss=lambda: (REF.trunk_block(wref, ref["x"], ref["z"], ref["cond"], mask, n_heads=H)
                                          * seed).sum(),
                        ref_params=[ref[k] for k in names], tt_grads={k: got[k] for k in names},
                        op_class="reduction", dtype=dname, n_probe=24, seed=a.seed)
     print(rep, flush=True)
     worst = max(rep.grads.items(), key=lambda kv: kv[1]["rel_l2"])
-    res = {"arm": a.arm, "levers": sorted(levers), "break": a.brk, "dropped": dropped, "seed": a.seed, "n": a.n, "real": a.real, "pass": rep.passed,
+    res = {"arm": a.arm, "sdpa_own": a.sdpa_own or a.arm == "fp32", "levers": sorted(levers), "break": a.brk, "dropped": dropped, "seed": a.seed, "n": a.n, "real": a.real, "pass": rep.passed,
            "fd_worst": rep.fd_worst, "worst": [worst[0], worst[1]["rel_l2"]],
            "grads": {k: {q: g[q] for q in ("rel_l2", "cos", "pass")} for k, g in rep.grads.items()},
            "output_digest": __import__("hashlib").sha256(ttnn.to_torch(out.value).float().numpy().tobytes()).hexdigest()[:16]}
