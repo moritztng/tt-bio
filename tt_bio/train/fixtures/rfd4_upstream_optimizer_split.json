@@ -1,0 +1,2572 @@
+{
+"source": "rfproteina.utils.optim_utils.build_optimizers on upstream 2db07bb4, released weights, pc CPU 2026-11-26",
+"muon": [
+"nn.pair_repr_builder.adaln.to_beta.weight",
+"nn.pair_repr_builder.adaln.to_gamma.0.weight",
+"nn.pair_update_layers.0.linear_x.weight",
+"nn.pair_update_layers.0.transition_out.linear_1.weight",
+"nn.pair_update_layers.0.transition_out.linear_2.weight",
+"nn.pair_update_layers.0.tri_mult_in.linear_a_g.weight",
+"nn.pair_update_layers.0.tri_mult_in.linear_a_p.weight",
+"nn.pair_update_layers.0.tri_mult_in.linear_b_g.weight",
+"nn.pair_update_layers.0.tri_mult_in.linear_b_p.weight",
+"nn.pair_update_layers.0.tri_mult_in.linear_g.weight",
+"nn.pair_update_layers.0.tri_mult_in.linear_z.weight",
+"nn.pair_update_layers.0.tri_mult_out.linear_a_g.weight",
+"nn.pair_update_layers.0.tri_mult_out.linear_a_p.weight",
+"nn.pair_update_layers.0.tri_mult_out.linear_b_g.weight",
+"nn.pair_update_layers.0.tri_mult_out.linear_b_p.weight",
+"nn.pair_update_layers.0.tri_mult_out.linear_g.weight",
+"nn.pair_update_layers.0.tri_mult_out.linear_z.weight",
+"nn.pair_update_layers.10.linear_x.weight",
+"nn.pair_update_layers.10.transition_out.linear_1.weight",
+"nn.pair_update_layers.10.transition_out.linear_2.weight",
+"nn.pair_update_layers.10.tri_mult_in.linear_a_g.weight",
+"nn.pair_update_layers.10.tri_mult_in.linear_a_p.weight",
+"nn.pair_update_layers.10.tri_mult_in.linear_b_g.weight",
+"nn.pair_update_layers.10.tri_mult_in.linear_b_p.weight",
+"nn.pair_update_layers.10.tri_mult_in.linear_g.weight",
+"nn.pair_update_layers.10.tri_mult_in.linear_z.weight",
+"nn.pair_update_layers.10.tri_mult_out.linear_a_g.weight",
+"nn.pair_update_layers.10.tri_mult_out.linear_a_p.weight",
+"nn.pair_update_layers.10.tri_mult_out.linear_b_g.weight",
+"nn.pair_update_layers.10.tri_mult_out.linear_b_p.weight",
+"nn.pair_update_layers.10.tri_mult_out.linear_g.weight",
+"nn.pair_update_layers.10.tri_mult_out.linear_z.weight",
+"nn.pair_update_layers.12.linear_x.weight",
+"nn.pair_update_layers.12.transition_out.linear_1.weight",
+"nn.pair_update_layers.12.transition_out.linear_2.weight",
+"nn.pair_update_layers.12.tri_mult_in.linear_a_g.weight",
+"nn.pair_update_layers.12.tri_mult_in.linear_a_p.weight",
+"nn.pair_update_layers.12.tri_mult_in.linear_b_g.weight",
+"nn.pair_update_layers.12.tri_mult_in.linear_b_p.weight",
+"nn.pair_update_layers.12.tri_mult_in.linear_g.weight",
+"nn.pair_update_layers.12.tri_mult_in.linear_z.weight",
+"nn.pair_update_layers.12.tri_mult_out.linear_a_g.weight",
+"nn.pair_update_layers.12.tri_mult_out.linear_a_p.weight",
+"nn.pair_update_layers.12.tri_mult_out.linear_b_g.weight",
+"nn.pair_update_layers.12.tri_mult_out.linear_b_p.weight",
+"nn.pair_update_layers.12.tri_mult_out.linear_g.weight",
+"nn.pair_update_layers.12.tri_mult_out.linear_z.weight",
+"nn.pair_update_layers.2.linear_x.weight",
+"nn.pair_update_layers.2.transition_out.linear_1.weight",
+"nn.pair_update_layers.2.transition_out.linear_2.weight",
+"nn.pair_update_layers.2.tri_mult_in.linear_a_g.weight",
+"nn.pair_update_layers.2.tri_mult_in.linear_a_p.weight",
+"nn.pair_update_layers.2.tri_mult_in.linear_b_g.weight",
+"nn.pair_update_layers.2.tri_mult_in.linear_b_p.weight",
+"nn.pair_update_layers.2.tri_mult_in.linear_g.weight",
+"nn.pair_update_layers.2.tri_mult_in.linear_z.weight",
+"nn.pair_update_layers.2.tri_mult_out.linear_a_g.weight",
+"nn.pair_update_layers.2.tri_mult_out.linear_a_p.weight",
+"nn.pair_update_layers.2.tri_mult_out.linear_b_g.weight",
+"nn.pair_update_layers.2.tri_mult_out.linear_b_p.weight",
+"nn.pair_update_layers.2.tri_mult_out.linear_g.weight",
+"nn.pair_update_layers.2.tri_mult_out.linear_z.weight",
+"nn.pair_update_layers.4.linear_x.weight",
+"nn.pair_update_layers.4.transition_out.linear_1.weight",
+"nn.pair_update_layers.4.transition_out.linear_2.weight",
+"nn.pair_update_layers.4.tri_mult_in.linear_a_g.weight",
+"nn.pair_update_layers.4.tri_mult_in.linear_a_p.weight",
+"nn.pair_update_layers.4.tri_mult_in.linear_b_g.weight",
+"nn.pair_update_layers.4.tri_mult_in.linear_b_p.weight",
+"nn.pair_update_layers.4.tri_mult_in.linear_g.weight",
+"nn.pair_update_layers.4.tri_mult_in.linear_z.weight",
+"nn.pair_update_layers.4.tri_mult_out.linear_a_g.weight",
+"nn.pair_update_layers.4.tri_mult_out.linear_a_p.weight",
+"nn.pair_update_layers.4.tri_mult_out.linear_b_g.weight",
+"nn.pair_update_layers.4.tri_mult_out.linear_b_p.weight",
+"nn.pair_update_layers.4.tri_mult_out.linear_g.weight",
+"nn.pair_update_layers.4.tri_mult_out.linear_z.weight",
+"nn.pair_update_layers.6.linear_x.weight",
+"nn.pair_update_layers.6.transition_out.linear_1.weight",
+"nn.pair_update_layers.6.transition_out.linear_2.weight",
+"nn.pair_update_layers.6.tri_mult_in.linear_a_g.weight",
+"nn.pair_update_layers.6.tri_mult_in.linear_a_p.weight",
+"nn.pair_update_layers.6.tri_mult_in.linear_b_g.weight",
+"nn.pair_update_layers.6.tri_mult_in.linear_b_p.weight",
+"nn.pair_update_layers.6.tri_mult_in.linear_g.weight",
+"nn.pair_update_layers.6.tri_mult_in.linear_z.weight",
+"nn.pair_update_layers.6.tri_mult_out.linear_a_g.weight",
+"nn.pair_update_layers.6.tri_mult_out.linear_a_p.weight",
+"nn.pair_update_layers.6.tri_mult_out.linear_b_g.weight",
+"nn.pair_update_layers.6.tri_mult_out.linear_b_p.weight",
+"nn.pair_update_layers.6.tri_mult_out.linear_g.weight",
+"nn.pair_update_layers.6.tri_mult_out.linear_z.weight",
+"nn.pair_update_layers.8.linear_x.weight",
+"nn.pair_update_layers.8.transition_out.linear_1.weight",
+"nn.pair_update_layers.8.transition_out.linear_2.weight",
+"nn.pair_update_layers.8.tri_mult_in.linear_a_g.weight",
+"nn.pair_update_layers.8.tri_mult_in.linear_a_p.weight",
+"nn.pair_update_layers.8.tri_mult_in.linear_b_g.weight",
+"nn.pair_update_layers.8.tri_mult_in.linear_b_p.weight",
+"nn.pair_update_layers.8.tri_mult_in.linear_g.weight",
+"nn.pair_update_layers.8.tri_mult_in.linear_z.weight",
+"nn.pair_update_layers.8.tri_mult_out.linear_a_g.weight",
+"nn.pair_update_layers.8.tri_mult_out.linear_a_p.weight",
+"nn.pair_update_layers.8.tri_mult_out.linear_b_g.weight",
+"nn.pair_update_layers.8.tri_mult_out.linear_b_p.weight",
+"nn.pair_update_layers.8.tri_mult_out.linear_g.weight",
+"nn.pair_update_layers.8.tri_mult_out.linear_z.weight",
+"nn.s_cycle_proj.weight",
+"nn.sequence_readout.1.weight",
+"nn.transformer_layers.0.mhba.adaln.to_beta.weight",
+"nn.transformer_layers.0.mhba.adaln.to_gamma.0.weight",
+"nn.transformer_layers.0.mhba.mha.to_bias.weight",
+"nn.transformer_layers.0.mhba.mha.to_g.weight",
+"nn.transformer_layers.0.mhba.mha.to_out_node.weight",
+"nn.transformer_layers.0.mhba.mha.to_qkv.weight",
+"nn.transformer_layers.0.mhba.scale_output.to_adaln_zero_gamma.0.weight",
+"nn.transformer_layers.0.transition.adaln.to_beta.weight",
+"nn.transformer_layers.0.transition.adaln.to_gamma.0.weight",
+"nn.transformer_layers.0.transition.scale_output.to_adaln_zero_gamma.0.weight",
+"nn.transformer_layers.0.transition.transition.linear_out.weight",
+"nn.transformer_layers.0.transition.transition.swish_linear.0.weight",
+"nn.transformer_layers.1.mhba.adaln.to_beta.weight",
+"nn.transformer_layers.1.mhba.adaln.to_gamma.0.weight",
+"nn.transformer_layers.1.mhba.mha.to_bias.weight",
+"nn.transformer_layers.1.mhba.mha.to_g.weight",
+"nn.transformer_layers.1.mhba.mha.to_out_node.weight",
+"nn.transformer_layers.1.mhba.mha.to_qkv.weight",
+"nn.transformer_layers.1.mhba.scale_output.to_adaln_zero_gamma.0.weight",
+"nn.transformer_layers.1.transition.adaln.to_beta.weight",
+"nn.transformer_layers.1.transition.adaln.to_gamma.0.weight",
+"nn.transformer_layers.1.transition.scale_output.to_adaln_zero_gamma.0.weight",
+"nn.transformer_layers.1.transition.transition.linear_out.weight",
+"nn.transformer_layers.1.transition.transition.swish_linear.0.weight",
+"nn.transformer_layers.10.mhba.adaln.to_beta.weight",
+"nn.transformer_layers.10.mhba.adaln.to_gamma.0.weight",
+"nn.transformer_layers.10.mhba.mha.to_bias.weight",
+"nn.transformer_layers.10.mhba.mha.to_g.weight",
+"nn.transformer_layers.10.mhba.mha.to_out_node.weight",
+"nn.transformer_layers.10.mhba.mha.to_qkv.weight",
+"nn.transformer_layers.10.mhba.scale_output.to_adaln_zero_gamma.0.weight",
+"nn.transformer_layers.10.transition.adaln.to_beta.weight",
+"nn.transformer_layers.10.transition.adaln.to_gamma.0.weight",
+"nn.transformer_layers.10.transition.scale_output.to_adaln_zero_gamma.0.weight",
+"nn.transformer_layers.10.transition.transition.linear_out.weight",
+"nn.transformer_layers.10.transition.transition.swish_linear.0.weight",
+"nn.transformer_layers.11.mhba.adaln.to_beta.weight",
+"nn.transformer_layers.11.mhba.adaln.to_gamma.0.weight",
+"nn.transformer_layers.11.mhba.mha.to_bias.weight",
+"nn.transformer_layers.11.mhba.mha.to_g.weight",
+"nn.transformer_layers.11.mhba.mha.to_out_node.weight",
+"nn.transformer_layers.11.mhba.mha.to_qkv.weight",
+"nn.transformer_layers.11.mhba.scale_output.to_adaln_zero_gamma.0.weight",
+"nn.transformer_layers.11.transition.adaln.to_beta.weight",
+"nn.transformer_layers.11.transition.adaln.to_gamma.0.weight",
+"nn.transformer_layers.11.transition.scale_output.to_adaln_zero_gamma.0.weight",
+"nn.transformer_layers.11.transition.transition.linear_out.weight",
+"nn.transformer_layers.11.transition.transition.swish_linear.0.weight",
+"nn.transformer_layers.12.mhba.adaln.to_beta.weight",
+"nn.transformer_layers.12.mhba.adaln.to_gamma.0.weight",
+"nn.transformer_layers.12.mhba.mha.to_bias.weight",
+"nn.transformer_layers.12.mhba.mha.to_g.weight",
+"nn.transformer_layers.12.mhba.mha.to_out_node.weight",
+"nn.transformer_layers.12.mhba.mha.to_qkv.weight",
+"nn.transformer_layers.12.mhba.scale_output.to_adaln_zero_gamma.0.weight",
+"nn.transformer_layers.12.transition.adaln.to_beta.weight",
+"nn.transformer_layers.12.transition.adaln.to_gamma.0.weight",
+"nn.transformer_layers.12.transition.scale_output.to_adaln_zero_gamma.0.weight",
+"nn.transformer_layers.12.transition.transition.linear_out.weight",
+"nn.transformer_layers.12.transition.transition.swish_linear.0.weight",
+"nn.transformer_layers.13.mhba.adaln.to_beta.weight",
+"nn.transformer_layers.13.mhba.adaln.to_gamma.0.weight",
+"nn.transformer_layers.13.mhba.mha.to_bias.weight",
+"nn.transformer_layers.13.mhba.mha.to_g.weight",
+"nn.transformer_layers.13.mhba.mha.to_out_node.weight",
+"nn.transformer_layers.13.mhba.mha.to_qkv.weight",
+"nn.transformer_layers.13.mhba.scale_output.to_adaln_zero_gamma.0.weight",
+"nn.transformer_layers.13.transition.adaln.to_beta.weight",
+"nn.transformer_layers.13.transition.adaln.to_gamma.0.weight",
+"nn.transformer_layers.13.transition.scale_output.to_adaln_zero_gamma.0.weight",
+"nn.transformer_layers.13.transition.transition.linear_out.weight",
+"nn.transformer_layers.13.transition.transition.swish_linear.0.weight",
+"nn.transformer_layers.2.mhba.adaln.to_beta.weight",
+"nn.transformer_layers.2.mhba.adaln.to_gamma.0.weight",
+"nn.transformer_layers.2.mhba.mha.to_bias.weight",
+"nn.transformer_layers.2.mhba.mha.to_g.weight",
+"nn.transformer_layers.2.mhba.mha.to_out_node.weight",
+"nn.transformer_layers.2.mhba.mha.to_qkv.weight",
+"nn.transformer_layers.2.mhba.scale_output.to_adaln_zero_gamma.0.weight",
+"nn.transformer_layers.2.transition.adaln.to_beta.weight",
+"nn.transformer_layers.2.transition.adaln.to_gamma.0.weight",
+"nn.transformer_layers.2.transition.scale_output.to_adaln_zero_gamma.0.weight",
+"nn.transformer_layers.2.transition.transition.linear_out.weight",
+"nn.transformer_layers.2.transition.transition.swish_linear.0.weight",
+"nn.transformer_layers.3.mhba.adaln.to_beta.weight",
+"nn.transformer_layers.3.mhba.adaln.to_gamma.0.weight",
+"nn.transformer_layers.3.mhba.mha.to_bias.weight",
+"nn.transformer_layers.3.mhba.mha.to_g.weight",
+"nn.transformer_layers.3.mhba.mha.to_out_node.weight",
+"nn.transformer_layers.3.mhba.mha.to_qkv.weight",
+"nn.transformer_layers.3.mhba.scale_output.to_adaln_zero_gamma.0.weight",
+"nn.transformer_layers.3.transition.adaln.to_beta.weight",
+"nn.transformer_layers.3.transition.adaln.to_gamma.0.weight",
+"nn.transformer_layers.3.transition.scale_output.to_adaln_zero_gamma.0.weight",
+"nn.transformer_layers.3.transition.transition.linear_out.weight",
+"nn.transformer_layers.3.transition.transition.swish_linear.0.weight",
+"nn.transformer_layers.4.mhba.adaln.to_beta.weight",
+"nn.transformer_layers.4.mhba.adaln.to_gamma.0.weight",
+"nn.transformer_layers.4.mhba.mha.to_bias.weight",
+"nn.transformer_layers.4.mhba.mha.to_g.weight",
+"nn.transformer_layers.4.mhba.mha.to_out_node.weight",
+"nn.transformer_layers.4.mhba.mha.to_qkv.weight",
+"nn.transformer_layers.4.mhba.scale_output.to_adaln_zero_gamma.0.weight",
+"nn.transformer_layers.4.transition.adaln.to_beta.weight",
+"nn.transformer_layers.4.transition.adaln.to_gamma.0.weight",
+"nn.transformer_layers.4.transition.scale_output.to_adaln_zero_gamma.0.weight",
+"nn.transformer_layers.4.transition.transition.linear_out.weight",
+"nn.transformer_layers.4.transition.transition.swish_linear.0.weight",
+"nn.transformer_layers.5.mhba.adaln.to_beta.weight",
+"nn.transformer_layers.5.mhba.adaln.to_gamma.0.weight",
+"nn.transformer_layers.5.mhba.mha.to_bias.weight",
+"nn.transformer_layers.5.mhba.mha.to_g.weight",
+"nn.transformer_layers.5.mhba.mha.to_out_node.weight",
+"nn.transformer_layers.5.mhba.mha.to_qkv.weight",
+"nn.transformer_layers.5.mhba.scale_output.to_adaln_zero_gamma.0.weight",
+"nn.transformer_layers.5.transition.adaln.to_beta.weight",
+"nn.transformer_layers.5.transition.adaln.to_gamma.0.weight",
+"nn.transformer_layers.5.transition.scale_output.to_adaln_zero_gamma.0.weight",
+"nn.transformer_layers.5.transition.transition.linear_out.weight",
+"nn.transformer_layers.5.transition.transition.swish_linear.0.weight",
+"nn.transformer_layers.6.mhba.adaln.to_beta.weight",
+"nn.transformer_layers.6.mhba.adaln.to_gamma.0.weight",
+"nn.transformer_layers.6.mhba.mha.to_bias.weight",
+"nn.transformer_layers.6.mhba.mha.to_g.weight",
+"nn.transformer_layers.6.mhba.mha.to_out_node.weight",
+"nn.transformer_layers.6.mhba.mha.to_qkv.weight",
+"nn.transformer_layers.6.mhba.scale_output.to_adaln_zero_gamma.0.weight",
+"nn.transformer_layers.6.transition.adaln.to_beta.weight",
+"nn.transformer_layers.6.transition.adaln.to_gamma.0.weight",
+"nn.transformer_layers.6.transition.scale_output.to_adaln_zero_gamma.0.weight",
+"nn.transformer_layers.6.transition.transition.linear_out.weight",
+"nn.transformer_layers.6.transition.transition.swish_linear.0.weight",
+"nn.transformer_layers.7.mhba.adaln.to_beta.weight",
+"nn.transformer_layers.7.mhba.adaln.to_gamma.0.weight",
+"nn.transformer_layers.7.mhba.mha.to_bias.weight",
+"nn.transformer_layers.7.mhba.mha.to_g.weight",
+"nn.transformer_layers.7.mhba.mha.to_out_node.weight",
+"nn.transformer_layers.7.mhba.mha.to_qkv.weight",
+"nn.transformer_layers.7.mhba.scale_output.to_adaln_zero_gamma.0.weight",
+"nn.transformer_layers.7.transition.adaln.to_beta.weight",
+"nn.transformer_layers.7.transition.adaln.to_gamma.0.weight",
+"nn.transformer_layers.7.transition.scale_output.to_adaln_zero_gamma.0.weight",
+"nn.transformer_layers.7.transition.transition.linear_out.weight",
+"nn.transformer_layers.7.transition.transition.swish_linear.0.weight",
+"nn.transformer_layers.8.mhba.adaln.to_beta.weight",
+"nn.transformer_layers.8.mhba.adaln.to_gamma.0.weight",
+"nn.transformer_layers.8.mhba.mha.to_bias.weight",
+"nn.transformer_layers.8.mhba.mha.to_g.weight",
+"nn.transformer_layers.8.mhba.mha.to_out_node.weight",
+"nn.transformer_layers.8.mhba.mha.to_qkv.weight",
+"nn.transformer_layers.8.mhba.scale_output.to_adaln_zero_gamma.0.weight",
+"nn.transformer_layers.8.transition.adaln.to_beta.weight",
+"nn.transformer_layers.8.transition.adaln.to_gamma.0.weight",
+"nn.transformer_layers.8.transition.scale_output.to_adaln_zero_gamma.0.weight",
+"nn.transformer_layers.8.transition.transition.linear_out.weight",
+"nn.transformer_layers.8.transition.transition.swish_linear.0.weight",
+"nn.transformer_layers.9.mhba.adaln.to_beta.weight",
+"nn.transformer_layers.9.mhba.adaln.to_gamma.0.weight",
+"nn.transformer_layers.9.mhba.mha.to_bias.weight",
+"nn.transformer_layers.9.mhba.mha.to_g.weight",
+"nn.transformer_layers.9.mhba.mha.to_out_node.weight",
+"nn.transformer_layers.9.mhba.mha.to_qkv.weight",
+"nn.transformer_layers.9.mhba.scale_output.to_adaln_zero_gamma.0.weight",
+"nn.transformer_layers.9.transition.adaln.to_beta.weight",
+"nn.transformer_layers.9.transition.adaln.to_gamma.0.weight",
+"nn.transformer_layers.9.transition.scale_output.to_adaln_zero_gamma.0.weight",
+"nn.transformer_layers.9.transition.transition.linear_out.weight",
+"nn.transformer_layers.9.transition.transition.swish_linear.0.weight",
+"nn.transition_c_1.linear_out.weight",
+"nn.transition_c_1.swish_linear.0.weight",
+"nn.transition_c_2.linear_out.weight",
+"nn.transition_c_2.swish_linear.0.weight",
+"nn.z_cycle_proj.weight"
+],
+"adam": [
+"nn.ca_linear.0.weight",
+"nn.ca_linear.1.weight",
+"nn.cond_factory.feat_creators.2.embedding_A.weight",
+"nn.cond_factory.feat_creators.2.embedding_C.weight",
+"nn.cond_factory.feat_creators.2.embedding_T.weight",
+"nn.cond_factory.linear_out.weight",
+"nn.init_repr_factory.feat_creators.16.embedding.weight",
+"nn.init_repr_factory.feat_creators.17.embedding.weight",
+"nn.init_repr_factory.feat_creators.2.embedding.weight",
+"nn.init_repr_factory.feat_creators.7.ss_embedding.weight",
+"nn.init_repr_factory.linear_out.weight",
+"nn.insertion_k_proj.weight",
+"nn.insertion_q_proj.weight",
+"nn.local_latents_linear.0.weight",
+"nn.local_latents_linear.1.weight",
+"nn.pair_repr_builder.adaln.norm_cond.weight",
+"nn.pair_repr_builder.adaln.to_gamma.0.bias",
+"nn.pair_repr_builder.cond_factory.linear_out.weight",
+"nn.pair_repr_builder.cond_factory.ln_out.weight",
+"nn.pair_repr_builder.init_repr_factory.linear_out.weight",
+"nn.pair_repr_builder.init_repr_factory.ln_out.weight",
+"nn.pair_update_layers.0.layer_norm_in.bias",
+"nn.pair_update_layers.0.layer_norm_in.weight",
+"nn.pair_update_layers.0.transition_out.layer_norm.bias",
+"nn.pair_update_layers.0.transition_out.layer_norm.weight",
+"nn.pair_update_layers.0.transition_out.linear_1.bias",
+"nn.pair_update_layers.0.transition_out.linear_2.bias",
+"nn.pair_update_layers.0.tri_mult_in.layer_norm_in.weight",
+"nn.pair_update_layers.0.tri_mult_in.layer_norm_out.weight",
+"nn.pair_update_layers.0.tri_mult_out.layer_norm_in.weight",
+"nn.pair_update_layers.0.tri_mult_out.layer_norm_out.weight",
+"nn.pair_update_layers.10.layer_norm_in.bias",
+"nn.pair_update_layers.10.layer_norm_in.weight",
+"nn.pair_update_layers.10.transition_out.layer_norm.bias",
+"nn.pair_update_layers.10.transition_out.layer_norm.weight",
+"nn.pair_update_layers.10.transition_out.linear_1.bias",
+"nn.pair_update_layers.10.transition_out.linear_2.bias",
+"nn.pair_update_layers.10.tri_mult_in.layer_norm_in.weight",
+"nn.pair_update_layers.10.tri_mult_in.layer_norm_out.weight",
+"nn.pair_update_layers.10.tri_mult_out.layer_norm_in.weight",
+"nn.pair_update_layers.10.tri_mult_out.layer_norm_out.weight",
+"nn.pair_update_layers.12.layer_norm_in.bias",
+"nn.pair_update_layers.12.layer_norm_in.weight",
+"nn.pair_update_layers.12.transition_out.layer_norm.bias",
+"nn.pair_update_layers.12.transition_out.layer_norm.weight",
+"nn.pair_update_layers.12.transition_out.linear_1.bias",
+"nn.pair_update_layers.12.transition_out.linear_2.bias",
+"nn.pair_update_layers.12.tri_mult_in.layer_norm_in.weight",
+"nn.pair_update_layers.12.tri_mult_in.layer_norm_out.weight",
+"nn.pair_update_layers.12.tri_mult_out.layer_norm_in.weight",
+"nn.pair_update_layers.12.tri_mult_out.layer_norm_out.weight",
+"nn.pair_update_layers.2.layer_norm_in.bias",
+"nn.pair_update_layers.2.layer_norm_in.weight",
+"nn.pair_update_layers.2.transition_out.layer_norm.bias",
+"nn.pair_update_layers.2.transition_out.layer_norm.weight",
+"nn.pair_update_layers.2.transition_out.linear_1.bias",
+"nn.pair_update_layers.2.transition_out.linear_2.bias",
+"nn.pair_update_layers.2.tri_mult_in.layer_norm_in.weight",
+"nn.pair_update_layers.2.tri_mult_in.layer_norm_out.weight",
+"nn.pair_update_layers.2.tri_mult_out.layer_norm_in.weight",
+"nn.pair_update_layers.2.tri_mult_out.layer_norm_out.weight",
+"nn.pair_update_layers.4.layer_norm_in.bias",
+"nn.pair_update_layers.4.layer_norm_in.weight",
+"nn.pair_update_layers.4.transition_out.layer_norm.bias",
+"nn.pair_update_layers.4.transition_out.layer_norm.weight",
+"nn.pair_update_layers.4.transition_out.linear_1.bias",
+"nn.pair_update_layers.4.transition_out.linear_2.bias",
+"nn.pair_update_layers.4.tri_mult_in.layer_norm_in.weight",
+"nn.pair_update_layers.4.tri_mult_in.layer_norm_out.weight",
+"nn.pair_update_layers.4.tri_mult_out.layer_norm_in.weight",
+"nn.pair_update_layers.4.tri_mult_out.layer_norm_out.weight",
+"nn.pair_update_layers.6.layer_norm_in.bias",
+"nn.pair_update_layers.6.layer_norm_in.weight",
+"nn.pair_update_layers.6.transition_out.layer_norm.bias",
+"nn.pair_update_layers.6.transition_out.layer_norm.weight",
+"nn.pair_update_layers.6.transition_out.linear_1.bias",
+"nn.pair_update_layers.6.transition_out.linear_2.bias",
+"nn.pair_update_layers.6.tri_mult_in.layer_norm_in.weight",
+"nn.pair_update_layers.6.tri_mult_in.layer_norm_out.weight",
+"nn.pair_update_layers.6.tri_mult_out.layer_norm_in.weight",
+"nn.pair_update_layers.6.tri_mult_out.layer_norm_out.weight",
+"nn.pair_update_layers.8.layer_norm_in.bias",
+"nn.pair_update_layers.8.layer_norm_in.weight",
+"nn.pair_update_layers.8.transition_out.layer_norm.bias",
+"nn.pair_update_layers.8.transition_out.layer_norm.weight",
+"nn.pair_update_layers.8.transition_out.linear_1.bias",
+"nn.pair_update_layers.8.transition_out.linear_2.bias",
+"nn.pair_update_layers.8.tri_mult_in.layer_norm_in.weight",
+"nn.pair_update_layers.8.tri_mult_in.layer_norm_out.weight",
+"nn.pair_update_layers.8.tri_mult_out.layer_norm_in.weight",
+"nn.pair_update_layers.8.tri_mult_out.layer_norm_out.weight",
+"nn.s_cycle_norm.weight",
+"nn.sequence_readout.0.weight",
+"nn.transformer_layers.0.mhba.adaln.norm_cond.weight",
+"nn.transformer_layers.0.mhba.adaln.to_gamma.0.bias",
+"nn.transformer_layers.0.mhba.mha.k_layer_norm.weight",
+"nn.transformer_layers.0.mhba.mha.node_norm.weight",
+"nn.transformer_layers.0.mhba.mha.pair_norm.weight",
+"nn.transformer_layers.0.mhba.mha.q_layer_norm.weight",
+"nn.transformer_layers.0.mhba.mha.to_g.bias",
+"nn.transformer_layers.0.mhba.mha.to_out_node.bias",
+"nn.transformer_layers.0.mhba.mha.to_qkv.bias",
+"nn.transformer_layers.0.mhba.scale_output.to_adaln_zero_gamma.0.bias",
+"nn.transformer_layers.0.transition.adaln.norm_cond.weight",
+"nn.transformer_layers.0.transition.adaln.to_gamma.0.bias",
+"nn.transformer_layers.0.transition.scale_output.to_adaln_zero_gamma.0.bias",
+"nn.transformer_layers.1.mhba.adaln.norm_cond.weight",
+"nn.transformer_layers.1.mhba.adaln.to_gamma.0.bias",
+"nn.transformer_layers.1.mhba.mha.k_layer_norm.weight",
+"nn.transformer_layers.1.mhba.mha.node_norm.weight",
+"nn.transformer_layers.1.mhba.mha.pair_norm.weight",
+"nn.transformer_layers.1.mhba.mha.q_layer_norm.weight",
+"nn.transformer_layers.1.mhba.mha.to_g.bias",
+"nn.transformer_layers.1.mhba.mha.to_out_node.bias",
+"nn.transformer_layers.1.mhba.mha.to_qkv.bias",
+"nn.transformer_layers.1.mhba.scale_output.to_adaln_zero_gamma.0.bias",
+"nn.transformer_layers.1.transition.adaln.norm_cond.weight",
+"nn.transformer_layers.1.transition.adaln.to_gamma.0.bias",
+"nn.transformer_layers.1.transition.scale_output.to_adaln_zero_gamma.0.bias",
+"nn.transformer_layers.10.mhba.adaln.norm_cond.weight",
+"nn.transformer_layers.10.mhba.adaln.to_gamma.0.bias",
+"nn.transformer_layers.10.mhba.mha.k_layer_norm.weight",
+"nn.transformer_layers.10.mhba.mha.node_norm.weight",
+"nn.transformer_layers.10.mhba.mha.pair_norm.weight",
+"nn.transformer_layers.10.mhba.mha.q_layer_norm.weight",
+"nn.transformer_layers.10.mhba.mha.to_g.bias",
+"nn.transformer_layers.10.mhba.mha.to_out_node.bias",
+"nn.transformer_layers.10.mhba.mha.to_qkv.bias",
+"nn.transformer_layers.10.mhba.scale_output.to_adaln_zero_gamma.0.bias",
+"nn.transformer_layers.10.transition.adaln.norm_cond.weight",
+"nn.transformer_layers.10.transition.adaln.to_gamma.0.bias",
+"nn.transformer_layers.10.transition.scale_output.to_adaln_zero_gamma.0.bias",
+"nn.transformer_layers.11.mhba.adaln.norm_cond.weight",
+"nn.transformer_layers.11.mhba.adaln.to_gamma.0.bias",
+"nn.transformer_layers.11.mhba.mha.k_layer_norm.weight",
+"nn.transformer_layers.11.mhba.mha.node_norm.weight",
+"nn.transformer_layers.11.mhba.mha.pair_norm.weight",
+"nn.transformer_layers.11.mhba.mha.q_layer_norm.weight",
+"nn.transformer_layers.11.mhba.mha.to_g.bias",
+"nn.transformer_layers.11.mhba.mha.to_out_node.bias",
+"nn.transformer_layers.11.mhba.mha.to_qkv.bias",
+"nn.transformer_layers.11.mhba.scale_output.to_adaln_zero_gamma.0.bias",
+"nn.transformer_layers.11.transition.adaln.norm_cond.weight",
+"nn.transformer_layers.11.transition.adaln.to_gamma.0.bias",
+"nn.transformer_layers.11.transition.scale_output.to_adaln_zero_gamma.0.bias",
+"nn.transformer_layers.12.mhba.adaln.norm_cond.weight",
+"nn.transformer_layers.12.mhba.adaln.to_gamma.0.bias",
+"nn.transformer_layers.12.mhba.mha.k_layer_norm.weight",
+"nn.transformer_layers.12.mhba.mha.node_norm.weight",
+"nn.transformer_layers.12.mhba.mha.pair_norm.weight",
+"nn.transformer_layers.12.mhba.mha.q_layer_norm.weight",
+"nn.transformer_layers.12.mhba.mha.to_g.bias",
+"nn.transformer_layers.12.mhba.mha.to_out_node.bias",
+"nn.transformer_layers.12.mhba.mha.to_qkv.bias",
+"nn.transformer_layers.12.mhba.scale_output.to_adaln_zero_gamma.0.bias",
+"nn.transformer_layers.12.transition.adaln.norm_cond.weight",
+"nn.transformer_layers.12.transition.adaln.to_gamma.0.bias",
+"nn.transformer_layers.12.transition.scale_output.to_adaln_zero_gamma.0.bias",
+"nn.transformer_layers.13.mhba.adaln.norm_cond.weight",
+"nn.transformer_layers.13.mhba.adaln.to_gamma.0.bias",
+"nn.transformer_layers.13.mhba.mha.k_layer_norm.weight",
+"nn.transformer_layers.13.mhba.mha.node_norm.weight",
+"nn.transformer_layers.13.mhba.mha.pair_norm.weight",
+"nn.transformer_layers.13.mhba.mha.q_layer_norm.weight",
+"nn.transformer_layers.13.mhba.mha.to_g.bias",
+"nn.transformer_layers.13.mhba.mha.to_out_node.bias",
+"nn.transformer_layers.13.mhba.mha.to_qkv.bias",
+"nn.transformer_layers.13.mhba.scale_output.to_adaln_zero_gamma.0.bias",
+"nn.transformer_layers.13.transition.adaln.norm_cond.weight",
+"nn.transformer_layers.13.transition.adaln.to_gamma.0.bias",
+"nn.transformer_layers.13.transition.scale_output.to_adaln_zero_gamma.0.bias",
+"nn.transformer_layers.2.mhba.adaln.norm_cond.weight",
+"nn.transformer_layers.2.mhba.adaln.to_gamma.0.bias",
+"nn.transformer_layers.2.mhba.mha.k_layer_norm.weight",
+"nn.transformer_layers.2.mhba.mha.node_norm.weight",
+"nn.transformer_layers.2.mhba.mha.pair_norm.weight",
+"nn.transformer_layers.2.mhba.mha.q_layer_norm.weight",
+"nn.transformer_layers.2.mhba.mha.to_g.bias",
+"nn.transformer_layers.2.mhba.mha.to_out_node.bias",
+"nn.transformer_layers.2.mhba.mha.to_qkv.bias",
+"nn.transformer_layers.2.mhba.scale_output.to_adaln_zero_gamma.0.bias",
+"nn.transformer_layers.2.transition.adaln.norm_cond.weight",
+"nn.transformer_layers.2.transition.adaln.to_gamma.0.bias",
+"nn.transformer_layers.2.transition.scale_output.to_adaln_zero_gamma.0.bias",
+"nn.transformer_layers.3.mhba.adaln.norm_cond.weight",
+"nn.transformer_layers.3.mhba.adaln.to_gamma.0.bias",
+"nn.transformer_layers.3.mhba.mha.k_layer_norm.weight",
+"nn.transformer_layers.3.mhba.mha.node_norm.weight",
+"nn.transformer_layers.3.mhba.mha.pair_norm.weight",
+"nn.transformer_layers.3.mhba.mha.q_layer_norm.weight",
+"nn.transformer_layers.3.mhba.mha.to_g.bias",
+"nn.transformer_layers.3.mhba.mha.to_out_node.bias",
+"nn.transformer_layers.3.mhba.mha.to_qkv.bias",
+"nn.transformer_layers.3.mhba.scale_output.to_adaln_zero_gamma.0.bias",
+"nn.transformer_layers.3.transition.adaln.norm_cond.weight",
+"nn.transformer_layers.3.transition.adaln.to_gamma.0.bias",
+"nn.transformer_layers.3.transition.scale_output.to_adaln_zero_gamma.0.bias",
+"nn.transformer_layers.4.mhba.adaln.norm_cond.weight",
+"nn.transformer_layers.4.mhba.adaln.to_gamma.0.bias",
+"nn.transformer_layers.4.mhba.mha.k_layer_norm.weight",
+"nn.transformer_layers.4.mhba.mha.node_norm.weight",
+"nn.transformer_layers.4.mhba.mha.pair_norm.weight",
+"nn.transformer_layers.4.mhba.mha.q_layer_norm.weight",
+"nn.transformer_layers.4.mhba.mha.to_g.bias",
+"nn.transformer_layers.4.mhba.mha.to_out_node.bias",
+"nn.transformer_layers.4.mhba.mha.to_qkv.bias",
+"nn.transformer_layers.4.mhba.scale_output.to_adaln_zero_gamma.0.bias",
+"nn.transformer_layers.4.transition.adaln.norm_cond.weight",
+"nn.transformer_layers.4.transition.adaln.to_gamma.0.bias",
+"nn.transformer_layers.4.transition.scale_output.to_adaln_zero_gamma.0.bias",
+"nn.transformer_layers.5.mhba.adaln.norm_cond.weight",
+"nn.transformer_layers.5.mhba.adaln.to_gamma.0.bias",
+"nn.transformer_layers.5.mhba.mha.k_layer_norm.weight",
+"nn.transformer_layers.5.mhba.mha.node_norm.weight",
+"nn.transformer_layers.5.mhba.mha.pair_norm.weight",
+"nn.transformer_layers.5.mhba.mha.q_layer_norm.weight",
+"nn.transformer_layers.5.mhba.mha.to_g.bias",
+"nn.transformer_layers.5.mhba.mha.to_out_node.bias",
+"nn.transformer_layers.5.mhba.mha.to_qkv.bias",
+"nn.transformer_layers.5.mhba.scale_output.to_adaln_zero_gamma.0.bias",
+"nn.transformer_layers.5.transition.adaln.norm_cond.weight",
+"nn.transformer_layers.5.transition.adaln.to_gamma.0.bias",
+"nn.transformer_layers.5.transition.scale_output.to_adaln_zero_gamma.0.bias",
+"nn.transformer_layers.6.mhba.adaln.norm_cond.weight",
+"nn.transformer_layers.6.mhba.adaln.to_gamma.0.bias",
+"nn.transformer_layers.6.mhba.mha.k_layer_norm.weight",
+"nn.transformer_layers.6.mhba.mha.node_norm.weight",
+"nn.transformer_layers.6.mhba.mha.pair_norm.weight",
+"nn.transformer_layers.6.mhba.mha.q_layer_norm.weight",
+"nn.transformer_layers.6.mhba.mha.to_g.bias",
+"nn.transformer_layers.6.mhba.mha.to_out_node.bias",
+"nn.transformer_layers.6.mhba.mha.to_qkv.bias",
+"nn.transformer_layers.6.mhba.scale_output.to_adaln_zero_gamma.0.bias",
+"nn.transformer_layers.6.transition.adaln.norm_cond.weight",
+"nn.transformer_layers.6.transition.adaln.to_gamma.0.bias",
+"nn.transformer_layers.6.transition.scale_output.to_adaln_zero_gamma.0.bias",
+"nn.transformer_layers.7.mhba.adaln.norm_cond.weight",
+"nn.transformer_layers.7.mhba.adaln.to_gamma.0.bias",
+"nn.transformer_layers.7.mhba.mha.k_layer_norm.weight",
+"nn.transformer_layers.7.mhba.mha.node_norm.weight",
+"nn.transformer_layers.7.mhba.mha.pair_norm.weight",
+"nn.transformer_layers.7.mhba.mha.q_layer_norm.weight",
+"nn.transformer_layers.7.mhba.mha.to_g.bias",
+"nn.transformer_layers.7.mhba.mha.to_out_node.bias",
+"nn.transformer_layers.7.mhba.mha.to_qkv.bias",
+"nn.transformer_layers.7.mhba.scale_output.to_adaln_zero_gamma.0.bias",
+"nn.transformer_layers.7.transition.adaln.norm_cond.weight",
+"nn.transformer_layers.7.transition.adaln.to_gamma.0.bias",
+"nn.transformer_layers.7.transition.scale_output.to_adaln_zero_gamma.0.bias",
+"nn.transformer_layers.8.mhba.adaln.norm_cond.weight",
+"nn.transformer_layers.8.mhba.adaln.to_gamma.0.bias",
+"nn.transformer_layers.8.mhba.mha.k_layer_norm.weight",
+"nn.transformer_layers.8.mhba.mha.node_norm.weight",
+"nn.transformer_layers.8.mhba.mha.pair_norm.weight",
+"nn.transformer_layers.8.mhba.mha.q_layer_norm.weight",
+"nn.transformer_layers.8.mhba.mha.to_g.bias",
+"nn.transformer_layers.8.mhba.mha.to_out_node.bias",
+"nn.transformer_layers.8.mhba.mha.to_qkv.bias",
+"nn.transformer_layers.8.mhba.scale_output.to_adaln_zero_gamma.0.bias",
+"nn.transformer_layers.8.transition.adaln.norm_cond.weight",
+"nn.transformer_layers.8.transition.adaln.to_gamma.0.bias",
+"nn.transformer_layers.8.transition.scale_output.to_adaln_zero_gamma.0.bias",
+"nn.transformer_layers.9.mhba.adaln.norm_cond.weight",
+"nn.transformer_layers.9.mhba.adaln.to_gamma.0.bias",
+"nn.transformer_layers.9.mhba.mha.k_layer_norm.weight",
+"nn.transformer_layers.9.mhba.mha.node_norm.weight",
+"nn.transformer_layers.9.mhba.mha.pair_norm.weight",
+"nn.transformer_layers.9.mhba.mha.q_layer_norm.weight",
+"nn.transformer_layers.9.mhba.mha.to_g.bias",
+"nn.transformer_layers.9.mhba.mha.to_out_node.bias",
+"nn.transformer_layers.9.mhba.mha.to_qkv.bias",
+"nn.transformer_layers.9.mhba.scale_output.to_adaln_zero_gamma.0.bias",
+"nn.transformer_layers.9.transition.adaln.norm_cond.weight",
+"nn.transformer_layers.9.transition.adaln.to_gamma.0.bias",
+"nn.transformer_layers.9.transition.scale_output.to_adaln_zero_gamma.0.bias",
+"nn.z_cycle_norm.weight"
+],
+"args": {
+"GroupedMuon": {
+"lr": 0.0001,
+"weight_decay": 0.1,
+"momentum": 0.95,
+"nesterov": true,
+"ns_coefficients": [
+3.4445,
+-4.775,
+2.0315
+],
+"eps": 1e-07,
+"ns_steps": 5,
+"adjust_lr_fn": "match_rms_adamw"
+},
+"Adam": {
+"lr": 0.0001,
+"betas": [
+0.9,
+0.999
+],
+"eps": 1e-08,
+"weight_decay": 0,
+"amsgrad": false,
+"maximize": false,
+"capturable": false,
+"differentiable": false,
+"decoupled_weight_decay": false
+}
+},
+"patterns": [
+"_factory\\.",
+"^nn\\.(local_latents_linear|ca_linear|insertion_q_proj|insertion_k_proj)\\."
+],
+"tt_names": {
+"glue.ca_linear.0.weight": [
+768
+],
+"glue.ca_linear.1.weight": [
+3,
+768
+],
+"glue.cond_factory.feat_creators.2.embedding_A.weight": [
+44,
+32
+],
+"glue.cond_factory.feat_creators.2.embedding_C.weight": [
+6,
+32
+],
+"glue.cond_factory.feat_creators.2.embedding_T.weight": [
+1473,
+32
+],
+"glue.cond_factory.linear_out.weight": [
+256,
+609
+],
+"glue.init_repr_factory.feat_creators.16.embedding.weight": [
+11,
+16
+],
+"glue.init_repr_factory.feat_creators.17.embedding.weight": [
+128,
+16
+],
+"glue.init_repr_factory.feat_creators.2.embedding.weight": [
+7,
+32
+],
+"glue.init_repr_factory.feat_creators.7.ss_embedding.weight": [
+4,
+16
+],
+"glue.init_repr_factory.linear_out.weight": [
+768,
+897
+],
+"glue.insertion_k_proj.weight": [
+768,
+768
+],
+"glue.insertion_q_proj.weight": [
+768,
+768
+],
+"glue.local_latents_linear.0.weight": [
+768
+],
+"glue.local_latents_linear.1.weight": [
+32,
+768
+],
+"glue.pair_repr_builder.adaln.norm_cond.weight": [
+256
+],
+"glue.pair_repr_builder.adaln.to_beta.weight": [
+384,
+256
+],
+"glue.pair_repr_builder.adaln.to_gamma.0.bias": [
+384
+],
+"glue.pair_repr_builder.adaln.to_gamma.0.weight": [
+384,
+256
+],
+"glue.pair_repr_builder.cond_factory.linear_out.weight": [
+256,
+512
+],
+"glue.pair_repr_builder.cond_factory.ln_out.weight": [
+256
+],
+"glue.pair_repr_builder.init_repr_factory.linear_out.weight": [
+384,
+107
+],
+"glue.pair_repr_builder.init_repr_factory.ln_out.weight": [
+384
+],
+"glue.sequence_readout.0.weight": [
+768
+],
+"glue.sequence_readout.1.weight": [
+147,
+768
+],
+"glue.transition_c_1.linear_out.weight": [
+256,
+512
+],
+"glue.transition_c_1.swish_linear.0.weight": [
+1024,
+256
+],
+"glue.transition_c_2.linear_out.weight": [
+256,
+512
+],
+"glue.transition_c_2.swish_linear.0.weight": [
+1024,
+256
+],
+"nn.pair_update_layers.0.layer_norm_in.bias": [
+768
+],
+"nn.pair_update_layers.0.layer_norm_in.weight": [
+768
+],
+"nn.pair_update_layers.0.linear_x.weight": [
+768,
+768
+],
+"nn.pair_update_layers.0.transition_out.layer_norm.bias": [
+384
+],
+"nn.pair_update_layers.0.transition_out.layer_norm.weight": [
+384
+],
+"nn.pair_update_layers.0.transition_out.linear_1.bias": [
+768
+],
+"nn.pair_update_layers.0.transition_out.linear_1.weight": [
+768,
+384
+],
+"nn.pair_update_layers.0.transition_out.linear_2.bias": [
+384
+],
+"nn.pair_update_layers.0.transition_out.linear_2.weight": [
+384,
+768
+],
+"nn.pair_update_layers.0.tri_mult_in.layer_norm_in.weight": [
+384
+],
+"nn.pair_update_layers.0.tri_mult_in.layer_norm_out.weight": [
+256
+],
+"nn.pair_update_layers.0.tri_mult_in.linear_a_g.weight": [
+256,
+384
+],
+"nn.pair_update_layers.0.tri_mult_in.linear_a_p.weight": [
+256,
+384
+],
+"nn.pair_update_layers.0.tri_mult_in.linear_b_g.weight": [
+256,
+384
+],
+"nn.pair_update_layers.0.tri_mult_in.linear_b_p.weight": [
+256,
+384
+],
+"nn.pair_update_layers.0.tri_mult_in.linear_g.weight": [
+384,
+384
+],
+"nn.pair_update_layers.0.tri_mult_in.linear_z.weight": [
+384,
+256
+],
+"nn.pair_update_layers.0.tri_mult_out.layer_norm_in.weight": [
+384
+],
+"nn.pair_update_layers.0.tri_mult_out.layer_norm_out.weight": [
+256
+],
+"nn.pair_update_layers.0.tri_mult_out.linear_a_g.weight": [
+256,
+384
+],
+"nn.pair_update_layers.0.tri_mult_out.linear_a_p.weight": [
+256,
+384
+],
+"nn.pair_update_layers.0.tri_mult_out.linear_b_g.weight": [
+256,
+384
+],
+"nn.pair_update_layers.0.tri_mult_out.linear_b_p.weight": [
+256,
+384
+],
+"nn.pair_update_layers.0.tri_mult_out.linear_g.weight": [
+384,
+384
+],
+"nn.pair_update_layers.0.tri_mult_out.linear_z.weight": [
+384,
+256
+],
+"nn.pair_update_layers.10.layer_norm_in.bias": [
+768
+],
+"nn.pair_update_layers.10.layer_norm_in.weight": [
+768
+],
+"nn.pair_update_layers.10.linear_x.weight": [
+768,
+768
+],
+"nn.pair_update_layers.10.transition_out.layer_norm.bias": [
+384
+],
+"nn.pair_update_layers.10.transition_out.layer_norm.weight": [
+384
+],
+"nn.pair_update_layers.10.transition_out.linear_1.bias": [
+768
+],
+"nn.pair_update_layers.10.transition_out.linear_1.weight": [
+768,
+384
+],
+"nn.pair_update_layers.10.transition_out.linear_2.bias": [
+384
+],
+"nn.pair_update_layers.10.transition_out.linear_2.weight": [
+384,
+768
+],
+"nn.pair_update_layers.10.tri_mult_in.layer_norm_in.weight": [
+384
+],
+"nn.pair_update_layers.10.tri_mult_in.layer_norm_out.weight": [
+256
+],
+"nn.pair_update_layers.10.tri_mult_in.linear_a_g.weight": [
+256,
+384
+],
+"nn.pair_update_layers.10.tri_mult_in.linear_a_p.weight": [
+256,
+384
+],
+"nn.pair_update_layers.10.tri_mult_in.linear_b_g.weight": [
+256,
+384
+],
+"nn.pair_update_layers.10.tri_mult_in.linear_b_p.weight": [
+256,
+384
+],
+"nn.pair_update_layers.10.tri_mult_in.linear_g.weight": [
+384,
+384
+],
+"nn.pair_update_layers.10.tri_mult_in.linear_z.weight": [
+384,
+256
+],
+"nn.pair_update_layers.10.tri_mult_out.layer_norm_in.weight": [
+384
+],
+"nn.pair_update_layers.10.tri_mult_out.layer_norm_out.weight": [
+256
+],
+"nn.pair_update_layers.10.tri_mult_out.linear_a_g.weight": [
+256,
+384
+],
+"nn.pair_update_layers.10.tri_mult_out.linear_a_p.weight": [
+256,
+384
+],
+"nn.pair_update_layers.10.tri_mult_out.linear_b_g.weight": [
+256,
+384
+],
+"nn.pair_update_layers.10.tri_mult_out.linear_b_p.weight": [
+256,
+384
+],
+"nn.pair_update_layers.10.tri_mult_out.linear_g.weight": [
+384,
+384
+],
+"nn.pair_update_layers.10.tri_mult_out.linear_z.weight": [
+384,
+256
+],
+"nn.pair_update_layers.12.layer_norm_in.bias": [
+768
+],
+"nn.pair_update_layers.12.layer_norm_in.weight": [
+768
+],
+"nn.pair_update_layers.12.linear_x.weight": [
+768,
+768
+],
+"nn.pair_update_layers.12.transition_out.layer_norm.bias": [
+384
+],
+"nn.pair_update_layers.12.transition_out.layer_norm.weight": [
+384
+],
+"nn.pair_update_layers.12.transition_out.linear_1.bias": [
+768
+],
+"nn.pair_update_layers.12.transition_out.linear_1.weight": [
+768,
+384
+],
+"nn.pair_update_layers.12.transition_out.linear_2.bias": [
+384
+],
+"nn.pair_update_layers.12.transition_out.linear_2.weight": [
+384,
+768
+],
+"nn.pair_update_layers.12.tri_mult_in.layer_norm_in.weight": [
+384
+],
+"nn.pair_update_layers.12.tri_mult_in.layer_norm_out.weight": [
+256
+],
+"nn.pair_update_layers.12.tri_mult_in.linear_a_g.weight": [
+256,
+384
+],
+"nn.pair_update_layers.12.tri_mult_in.linear_a_p.weight": [
+256,
+384
+],
+"nn.pair_update_layers.12.tri_mult_in.linear_b_g.weight": [
+256,
+384
+],
+"nn.pair_update_layers.12.tri_mult_in.linear_b_p.weight": [
+256,
+384
+],
+"nn.pair_update_layers.12.tri_mult_in.linear_g.weight": [
+384,
+384
+],
+"nn.pair_update_layers.12.tri_mult_in.linear_z.weight": [
+384,
+256
+],
+"nn.pair_update_layers.12.tri_mult_out.layer_norm_in.weight": [
+384
+],
+"nn.pair_update_layers.12.tri_mult_out.layer_norm_out.weight": [
+256
+],
+"nn.pair_update_layers.12.tri_mult_out.linear_a_g.weight": [
+256,
+384
+],
+"nn.pair_update_layers.12.tri_mult_out.linear_a_p.weight": [
+256,
+384
+],
+"nn.pair_update_layers.12.tri_mult_out.linear_b_g.weight": [
+256,
+384
+],
+"nn.pair_update_layers.12.tri_mult_out.linear_b_p.weight": [
+256,
+384
+],
+"nn.pair_update_layers.12.tri_mult_out.linear_g.weight": [
+384,
+384
+],
+"nn.pair_update_layers.12.tri_mult_out.linear_z.weight": [
+384,
+256
+],
+"nn.pair_update_layers.2.layer_norm_in.bias": [
+768
+],
+"nn.pair_update_layers.2.layer_norm_in.weight": [
+768
+],
+"nn.pair_update_layers.2.linear_x.weight": [
+768,
+768
+],
+"nn.pair_update_layers.2.transition_out.layer_norm.bias": [
+384
+],
+"nn.pair_update_layers.2.transition_out.layer_norm.weight": [
+384
+],
+"nn.pair_update_layers.2.transition_out.linear_1.bias": [
+768
+],
+"nn.pair_update_layers.2.transition_out.linear_1.weight": [
+768,
+384
+],
+"nn.pair_update_layers.2.transition_out.linear_2.bias": [
+384
+],
+"nn.pair_update_layers.2.transition_out.linear_2.weight": [
+384,
+768
+],
+"nn.pair_update_layers.2.tri_mult_in.layer_norm_in.weight": [
+384
+],
+"nn.pair_update_layers.2.tri_mult_in.layer_norm_out.weight": [
+256
+],
+"nn.pair_update_layers.2.tri_mult_in.linear_a_g.weight": [
+256,
+384
+],
+"nn.pair_update_layers.2.tri_mult_in.linear_a_p.weight": [
+256,
+384
+],
+"nn.pair_update_layers.2.tri_mult_in.linear_b_g.weight": [
+256,
+384
+],
+"nn.pair_update_layers.2.tri_mult_in.linear_b_p.weight": [
+256,
+384
+],
+"nn.pair_update_layers.2.tri_mult_in.linear_g.weight": [
+384,
+384
+],
+"nn.pair_update_layers.2.tri_mult_in.linear_z.weight": [
+384,
+256
+],
+"nn.pair_update_layers.2.tri_mult_out.layer_norm_in.weight": [
+384
+],
+"nn.pair_update_layers.2.tri_mult_out.layer_norm_out.weight": [
+256
+],
+"nn.pair_update_layers.2.tri_mult_out.linear_a_g.weight": [
+256,
+384
+],
+"nn.pair_update_layers.2.tri_mult_out.linear_a_p.weight": [
+256,
+384
+],
+"nn.pair_update_layers.2.tri_mult_out.linear_b_g.weight": [
+256,
+384
+],
+"nn.pair_update_layers.2.tri_mult_out.linear_b_p.weight": [
+256,
+384
+],
+"nn.pair_update_layers.2.tri_mult_out.linear_g.weight": [
+384,
+384
+],
+"nn.pair_update_layers.2.tri_mult_out.linear_z.weight": [
+384,
+256
+],
+"nn.pair_update_layers.4.layer_norm_in.bias": [
+768
+],
+"nn.pair_update_layers.4.layer_norm_in.weight": [
+768
+],
+"nn.pair_update_layers.4.linear_x.weight": [
+768,
+768
+],
+"nn.pair_update_layers.4.transition_out.layer_norm.bias": [
+384
+],
+"nn.pair_update_layers.4.transition_out.layer_norm.weight": [
+384
+],
+"nn.pair_update_layers.4.transition_out.linear_1.bias": [
+768
+],
+"nn.pair_update_layers.4.transition_out.linear_1.weight": [
+768,
+384
+],
+"nn.pair_update_layers.4.transition_out.linear_2.bias": [
+384
+],
+"nn.pair_update_layers.4.transition_out.linear_2.weight": [
+384,
+768
+],
+"nn.pair_update_layers.4.tri_mult_in.layer_norm_in.weight": [
+384
+],
+"nn.pair_update_layers.4.tri_mult_in.layer_norm_out.weight": [
+256
+],
+"nn.pair_update_layers.4.tri_mult_in.linear_a_g.weight": [
+256,
+384
+],
+"nn.pair_update_layers.4.tri_mult_in.linear_a_p.weight": [
+256,
+384
+],
+"nn.pair_update_layers.4.tri_mult_in.linear_b_g.weight": [
+256,
+384
+],
+"nn.pair_update_layers.4.tri_mult_in.linear_b_p.weight": [
+256,
+384
+],
+"nn.pair_update_layers.4.tri_mult_in.linear_g.weight": [
+384,
+384
+],
+"nn.pair_update_layers.4.tri_mult_in.linear_z.weight": [
+384,
+256
+],
+"nn.pair_update_layers.4.tri_mult_out.layer_norm_in.weight": [
+384
+],
+"nn.pair_update_layers.4.tri_mult_out.layer_norm_out.weight": [
+256
+],
+"nn.pair_update_layers.4.tri_mult_out.linear_a_g.weight": [
+256,
+384
+],
+"nn.pair_update_layers.4.tri_mult_out.linear_a_p.weight": [
+256,
+384
+],
+"nn.pair_update_layers.4.tri_mult_out.linear_b_g.weight": [
+256,
+384
+],
+"nn.pair_update_layers.4.tri_mult_out.linear_b_p.weight": [
+256,
+384
+],
+"nn.pair_update_layers.4.tri_mult_out.linear_g.weight": [
+384,
+384
+],
+"nn.pair_update_layers.4.tri_mult_out.linear_z.weight": [
+384,
+256
+],
+"nn.pair_update_layers.6.layer_norm_in.bias": [
+768
+],
+"nn.pair_update_layers.6.layer_norm_in.weight": [
+768
+],
+"nn.pair_update_layers.6.linear_x.weight": [
+768,
+768
+],
+"nn.pair_update_layers.6.transition_out.layer_norm.bias": [
+384
+],
+"nn.pair_update_layers.6.transition_out.layer_norm.weight": [
+384
+],
+"nn.pair_update_layers.6.transition_out.linear_1.bias": [
+768
+],
+"nn.pair_update_layers.6.transition_out.linear_1.weight": [
+768,
+384
+],
+"nn.pair_update_layers.6.transition_out.linear_2.bias": [
+384
+],
+"nn.pair_update_layers.6.transition_out.linear_2.weight": [
+384,
+768
+],
+"nn.pair_update_layers.6.tri_mult_in.layer_norm_in.weight": [
+384
+],
+"nn.pair_update_layers.6.tri_mult_in.layer_norm_out.weight": [
+256
+],
+"nn.pair_update_layers.6.tri_mult_in.linear_a_g.weight": [
+256,
+384
+],
+"nn.pair_update_layers.6.tri_mult_in.linear_a_p.weight": [
+256,
+384
+],
+"nn.pair_update_layers.6.tri_mult_in.linear_b_g.weight": [
+256,
+384
+],
+"nn.pair_update_layers.6.tri_mult_in.linear_b_p.weight": [
+256,
+384
+],
+"nn.pair_update_layers.6.tri_mult_in.linear_g.weight": [
+384,
+384
+],
+"nn.pair_update_layers.6.tri_mult_in.linear_z.weight": [
+384,
+256
+],
+"nn.pair_update_layers.6.tri_mult_out.layer_norm_in.weight": [
+384
+],
+"nn.pair_update_layers.6.tri_mult_out.layer_norm_out.weight": [
+256
+],
+"nn.pair_update_layers.6.tri_mult_out.linear_a_g.weight": [
+256,
+384
+],
+"nn.pair_update_layers.6.tri_mult_out.linear_a_p.weight": [
+256,
+384
+],
+"nn.pair_update_layers.6.tri_mult_out.linear_b_g.weight": [
+256,
+384
+],
+"nn.pair_update_layers.6.tri_mult_out.linear_b_p.weight": [
+256,
+384
+],
+"nn.pair_update_layers.6.tri_mult_out.linear_g.weight": [
+384,
+384
+],
+"nn.pair_update_layers.6.tri_mult_out.linear_z.weight": [
+384,
+256
+],
+"nn.pair_update_layers.8.layer_norm_in.bias": [
+768
+],
+"nn.pair_update_layers.8.layer_norm_in.weight": [
+768
+],
+"nn.pair_update_layers.8.linear_x.weight": [
+768,
+768
+],
+"nn.pair_update_layers.8.transition_out.layer_norm.bias": [
+384
+],
+"nn.pair_update_layers.8.transition_out.layer_norm.weight": [
+384
+],
+"nn.pair_update_layers.8.transition_out.linear_1.bias": [
+768
+],
+"nn.pair_update_layers.8.transition_out.linear_1.weight": [
+768,
+384
+],
+"nn.pair_update_layers.8.transition_out.linear_2.bias": [
+384
+],
+"nn.pair_update_layers.8.transition_out.linear_2.weight": [
+384,
+768
+],
+"nn.pair_update_layers.8.tri_mult_in.layer_norm_in.weight": [
+384
+],
+"nn.pair_update_layers.8.tri_mult_in.layer_norm_out.weight": [
+256
+],
+"nn.pair_update_layers.8.tri_mult_in.linear_a_g.weight": [
+256,
+384
+],
+"nn.pair_update_layers.8.tri_mult_in.linear_a_p.weight": [
+256,
+384
+],
+"nn.pair_update_layers.8.tri_mult_in.linear_b_g.weight": [
+256,
+384
+],
+"nn.pair_update_layers.8.tri_mult_in.linear_b_p.weight": [
+256,
+384
+],
+"nn.pair_update_layers.8.tri_mult_in.linear_g.weight": [
+384,
+384
+],
+"nn.pair_update_layers.8.tri_mult_in.linear_z.weight": [
+384,
+256
+],
+"nn.pair_update_layers.8.tri_mult_out.layer_norm_in.weight": [
+384
+],
+"nn.pair_update_layers.8.tri_mult_out.layer_norm_out.weight": [
+256
+],
+"nn.pair_update_layers.8.tri_mult_out.linear_a_g.weight": [
+256,
+384
+],
+"nn.pair_update_layers.8.tri_mult_out.linear_a_p.weight": [
+256,
+384
+],
+"nn.pair_update_layers.8.tri_mult_out.linear_b_g.weight": [
+256,
+384
+],
+"nn.pair_update_layers.8.tri_mult_out.linear_b_p.weight": [
+256,
+384
+],
+"nn.pair_update_layers.8.tri_mult_out.linear_g.weight": [
+384,
+384
+],
+"nn.pair_update_layers.8.tri_mult_out.linear_z.weight": [
+384,
+256
+],
+"nn.s_cycle_norm.weight": [
+768
+],
+"nn.s_cycle_proj.weight": [
+768,
+768
+],
+"nn.transformer_layers.0.mhba.adaln.norm_cond.weight": [
+256
+],
+"nn.transformer_layers.0.mhba.adaln.to_beta.weight": [
+768,
+256
+],
+"nn.transformer_layers.0.mhba.adaln.to_gamma.0.bias": [
+768
+],
+"nn.transformer_layers.0.mhba.adaln.to_gamma.0.weight": [
+768,
+256
+],
+"nn.transformer_layers.0.mhba.mha.k_layer_norm.weight": [
+768
+],
+"nn.transformer_layers.0.mhba.mha.node_norm.weight": [
+768
+],
+"nn.transformer_layers.0.mhba.mha.pair_norm.weight": [
+384
+],
+"nn.transformer_layers.0.mhba.mha.q_layer_norm.weight": [
+768
+],
+"nn.transformer_layers.0.mhba.mha.to_bias.weight": [
+12,
+384
+],
+"nn.transformer_layers.0.mhba.mha.to_g.bias": [
+768
+],
+"nn.transformer_layers.0.mhba.mha.to_g.weight": [
+768,
+768
+],
+"nn.transformer_layers.0.mhba.mha.to_out_node.bias": [
+768
+],
+"nn.transformer_layers.0.mhba.mha.to_out_node.weight": [
+768,
+768
+],
+"nn.transformer_layers.0.mhba.mha.to_qkv.bias": [
+2304
+],
+"nn.transformer_layers.0.mhba.mha.to_qkv.weight": [
+2304,
+768
+],
+"nn.transformer_layers.0.mhba.scale_output.to_adaln_zero_gamma.0.bias": [
+768
+],
+"nn.transformer_layers.0.mhba.scale_output.to_adaln_zero_gamma.0.weight": [
+768,
+256
+],
+"nn.transformer_layers.0.transition.adaln.norm_cond.weight": [
+256
+],
+"nn.transformer_layers.0.transition.adaln.to_beta.weight": [
+768,
+256
+],
+"nn.transformer_layers.0.transition.adaln.to_gamma.0.bias": [
+768
+],
+"nn.transformer_layers.0.transition.adaln.to_gamma.0.weight": [
+768,
+256
+],
+"nn.transformer_layers.0.transition.scale_output.to_adaln_zero_gamma.0.bias": [
+768
+],
+"nn.transformer_layers.0.transition.scale_output.to_adaln_zero_gamma.0.weight": [
+768,
+256
+],
+"nn.transformer_layers.0.transition.transition.linear_out.weight": [
+768,
+3072
+],
+"nn.transformer_layers.0.transition.transition.swish_linear.0.weight": [
+6144,
+768
+],
+"nn.transformer_layers.1.mhba.adaln.norm_cond.weight": [
+256
+],
+"nn.transformer_layers.1.mhba.adaln.to_beta.weight": [
+768,
+256
+],
+"nn.transformer_layers.1.mhba.adaln.to_gamma.0.bias": [
+768
+],
+"nn.transformer_layers.1.mhba.adaln.to_gamma.0.weight": [
+768,
+256
+],
+"nn.transformer_layers.1.mhba.mha.k_layer_norm.weight": [
+768
+],
+"nn.transformer_layers.1.mhba.mha.node_norm.weight": [
+768
+],
+"nn.transformer_layers.1.mhba.mha.pair_norm.weight": [
+384
+],
+"nn.transformer_layers.1.mhba.mha.q_layer_norm.weight": [
+768
+],
+"nn.transformer_layers.1.mhba.mha.to_bias.weight": [
+12,
+384
+],
+"nn.transformer_layers.1.mhba.mha.to_g.bias": [
+768
+],
+"nn.transformer_layers.1.mhba.mha.to_g.weight": [
+768,
+768
+],
+"nn.transformer_layers.1.mhba.mha.to_out_node.bias": [
+768
+],
+"nn.transformer_layers.1.mhba.mha.to_out_node.weight": [
+768,
+768
+],
+"nn.transformer_layers.1.mhba.mha.to_qkv.bias": [
+2304
+],
+"nn.transformer_layers.1.mhba.mha.to_qkv.weight": [
+2304,
+768
+],
+"nn.transformer_layers.1.mhba.scale_output.to_adaln_zero_gamma.0.bias": [
+768
+],
+"nn.transformer_layers.1.mhba.scale_output.to_adaln_zero_gamma.0.weight": [
+768,
+256
+],
+"nn.transformer_layers.1.transition.adaln.norm_cond.weight": [
+256
+],
+"nn.transformer_layers.1.transition.adaln.to_beta.weight": [
+768,
+256
+],
+"nn.transformer_layers.1.transition.adaln.to_gamma.0.bias": [
+768
+],
+"nn.transformer_layers.1.transition.adaln.to_gamma.0.weight": [
+768,
+256
+],
+"nn.transformer_layers.1.transition.scale_output.to_adaln_zero_gamma.0.bias": [
+768
+],
+"nn.transformer_layers.1.transition.scale_output.to_adaln_zero_gamma.0.weight": [
+768,
+256
+],
+"nn.transformer_layers.1.transition.transition.linear_out.weight": [
+768,
+3072
+],
+"nn.transformer_layers.1.transition.transition.swish_linear.0.weight": [
+6144,
+768
+],
+"nn.transformer_layers.10.mhba.adaln.norm_cond.weight": [
+256
+],
+"nn.transformer_layers.10.mhba.adaln.to_beta.weight": [
+768,
+256
+],
+"nn.transformer_layers.10.mhba.adaln.to_gamma.0.bias": [
+768
+],
+"nn.transformer_layers.10.mhba.adaln.to_gamma.0.weight": [
+768,
+256
+],
+"nn.transformer_layers.10.mhba.mha.k_layer_norm.weight": [
+768
+],
+"nn.transformer_layers.10.mhba.mha.node_norm.weight": [
+768
+],
+"nn.transformer_layers.10.mhba.mha.pair_norm.weight": [
+384
+],
+"nn.transformer_layers.10.mhba.mha.q_layer_norm.weight": [
+768
+],
+"nn.transformer_layers.10.mhba.mha.to_bias.weight": [
+12,
+384
+],
+"nn.transformer_layers.10.mhba.mha.to_g.bias": [
+768
+],
+"nn.transformer_layers.10.mhba.mha.to_g.weight": [
+768,
+768
+],
+"nn.transformer_layers.10.mhba.mha.to_out_node.bias": [
+768
+],
+"nn.transformer_layers.10.mhba.mha.to_out_node.weight": [
+768,
+768
+],
+"nn.transformer_layers.10.mhba.mha.to_qkv.bias": [
+2304
+],
+"nn.transformer_layers.10.mhba.mha.to_qkv.weight": [
+2304,
+768
+],
+"nn.transformer_layers.10.mhba.scale_output.to_adaln_zero_gamma.0.bias": [
+768
+],
+"nn.transformer_layers.10.mhba.scale_output.to_adaln_zero_gamma.0.weight": [
+768,
+256
+],
+"nn.transformer_layers.10.transition.adaln.norm_cond.weight": [
+256
+],
+"nn.transformer_layers.10.transition.adaln.to_beta.weight": [
+768,
+256
+],
+"nn.transformer_layers.10.transition.adaln.to_gamma.0.bias": [
+768
+],
+"nn.transformer_layers.10.transition.adaln.to_gamma.0.weight": [
+768,
+256
+],
+"nn.transformer_layers.10.transition.scale_output.to_adaln_zero_gamma.0.bias": [
+768
+],
+"nn.transformer_layers.10.transition.scale_output.to_adaln_zero_gamma.0.weight": [
+768,
+256
+],
+"nn.transformer_layers.10.transition.transition.linear_out.weight": [
+768,
+3072
+],
+"nn.transformer_layers.10.transition.transition.swish_linear.0.weight": [
+6144,
+768
+],
+"nn.transformer_layers.11.mhba.adaln.norm_cond.weight": [
+256
+],
+"nn.transformer_layers.11.mhba.adaln.to_beta.weight": [
+768,
+256
+],
+"nn.transformer_layers.11.mhba.adaln.to_gamma.0.bias": [
+768
+],
+"nn.transformer_layers.11.mhba.adaln.to_gamma.0.weight": [
+768,
+256
+],
+"nn.transformer_layers.11.mhba.mha.k_layer_norm.weight": [
+768
+],
+"nn.transformer_layers.11.mhba.mha.node_norm.weight": [
+768
+],
+"nn.transformer_layers.11.mhba.mha.pair_norm.weight": [
+384
+],
+"nn.transformer_layers.11.mhba.mha.q_layer_norm.weight": [
+768
+],
+"nn.transformer_layers.11.mhba.mha.to_bias.weight": [
+12,
+384
+],
+"nn.transformer_layers.11.mhba.mha.to_g.bias": [
+768
+],
+"nn.transformer_layers.11.mhba.mha.to_g.weight": [
+768,
+768
+],
+"nn.transformer_layers.11.mhba.mha.to_out_node.bias": [
+768
+],
+"nn.transformer_layers.11.mhba.mha.to_out_node.weight": [
+768,
+768
+],
+"nn.transformer_layers.11.mhba.mha.to_qkv.bias": [
+2304
+],
+"nn.transformer_layers.11.mhba.mha.to_qkv.weight": [
+2304,
+768
+],
+"nn.transformer_layers.11.mhba.scale_output.to_adaln_zero_gamma.0.bias": [
+768
+],
+"nn.transformer_layers.11.mhba.scale_output.to_adaln_zero_gamma.0.weight": [
+768,
+256
+],
+"nn.transformer_layers.11.transition.adaln.norm_cond.weight": [
+256
+],
+"nn.transformer_layers.11.transition.adaln.to_beta.weight": [
+768,
+256
+],
+"nn.transformer_layers.11.transition.adaln.to_gamma.0.bias": [
+768
+],
+"nn.transformer_layers.11.transition.adaln.to_gamma.0.weight": [
+768,
+256
+],
+"nn.transformer_layers.11.transition.scale_output.to_adaln_zero_gamma.0.bias": [
+768
+],
+"nn.transformer_layers.11.transition.scale_output.to_adaln_zero_gamma.0.weight": [
+768,
+256
+],
+"nn.transformer_layers.11.transition.transition.linear_out.weight": [
+768,
+3072
+],
+"nn.transformer_layers.11.transition.transition.swish_linear.0.weight": [
+6144,
+768
+],
+"nn.transformer_layers.12.mhba.adaln.norm_cond.weight": [
+256
+],
+"nn.transformer_layers.12.mhba.adaln.to_beta.weight": [
+768,
+256
+],
+"nn.transformer_layers.12.mhba.adaln.to_gamma.0.bias": [
+768
+],
+"nn.transformer_layers.12.mhba.adaln.to_gamma.0.weight": [
+768,
+256
+],
+"nn.transformer_layers.12.mhba.mha.k_layer_norm.weight": [
+768
+],
+"nn.transformer_layers.12.mhba.mha.node_norm.weight": [
+768
+],
+"nn.transformer_layers.12.mhba.mha.pair_norm.weight": [
+384
+],
+"nn.transformer_layers.12.mhba.mha.q_layer_norm.weight": [
+768
+],
+"nn.transformer_layers.12.mhba.mha.to_bias.weight": [
+12,
+384
+],
+"nn.transformer_layers.12.mhba.mha.to_g.bias": [
+768
+],
+"nn.transformer_layers.12.mhba.mha.to_g.weight": [
+768,
+768
+],
+"nn.transformer_layers.12.mhba.mha.to_out_node.bias": [
+768
+],
+"nn.transformer_layers.12.mhba.mha.to_out_node.weight": [
+768,
+768
+],
+"nn.transformer_layers.12.mhba.mha.to_qkv.bias": [
+2304
+],
+"nn.transformer_layers.12.mhba.mha.to_qkv.weight": [
+2304,
+768
+],
+"nn.transformer_layers.12.mhba.scale_output.to_adaln_zero_gamma.0.bias": [
+768
+],
+"nn.transformer_layers.12.mhba.scale_output.to_adaln_zero_gamma.0.weight": [
+768,
+256
+],
+"nn.transformer_layers.12.transition.adaln.norm_cond.weight": [
+256
+],
+"nn.transformer_layers.12.transition.adaln.to_beta.weight": [
+768,
+256
+],
+"nn.transformer_layers.12.transition.adaln.to_gamma.0.bias": [
+768
+],
+"nn.transformer_layers.12.transition.adaln.to_gamma.0.weight": [
+768,
+256
+],
+"nn.transformer_layers.12.transition.scale_output.to_adaln_zero_gamma.0.bias": [
+768
+],
+"nn.transformer_layers.12.transition.scale_output.to_adaln_zero_gamma.0.weight": [
+768,
+256
+],
+"nn.transformer_layers.12.transition.transition.linear_out.weight": [
+768,
+3072
+],
+"nn.transformer_layers.12.transition.transition.swish_linear.0.weight": [
+6144,
+768
+],
+"nn.transformer_layers.13.mhba.adaln.norm_cond.weight": [
+256
+],
+"nn.transformer_layers.13.mhba.adaln.to_beta.weight": [
+768,
+256
+],
+"nn.transformer_layers.13.mhba.adaln.to_gamma.0.bias": [
+768
+],
+"nn.transformer_layers.13.mhba.adaln.to_gamma.0.weight": [
+768,
+256
+],
+"nn.transformer_layers.13.mhba.mha.k_layer_norm.weight": [
+768
+],
+"nn.transformer_layers.13.mhba.mha.node_norm.weight": [
+768
+],
+"nn.transformer_layers.13.mhba.mha.pair_norm.weight": [
+384
+],
+"nn.transformer_layers.13.mhba.mha.q_layer_norm.weight": [
+768
+],
+"nn.transformer_layers.13.mhba.mha.to_bias.weight": [
+12,
+384
+],
+"nn.transformer_layers.13.mhba.mha.to_g.bias": [
+768
+],
+"nn.transformer_layers.13.mhba.mha.to_g.weight": [
+768,
+768
+],
+"nn.transformer_layers.13.mhba.mha.to_out_node.bias": [
+768
+],
+"nn.transformer_layers.13.mhba.mha.to_out_node.weight": [
+768,
+768
+],
+"nn.transformer_layers.13.mhba.mha.to_qkv.bias": [
+2304
+],
+"nn.transformer_layers.13.mhba.mha.to_qkv.weight": [
+2304,
+768
+],
+"nn.transformer_layers.13.mhba.scale_output.to_adaln_zero_gamma.0.bias": [
+768
+],
+"nn.transformer_layers.13.mhba.scale_output.to_adaln_zero_gamma.0.weight": [
+768,
+256
+],
+"nn.transformer_layers.13.transition.adaln.norm_cond.weight": [
+256
+],
+"nn.transformer_layers.13.transition.adaln.to_beta.weight": [
+768,
+256
+],
+"nn.transformer_layers.13.transition.adaln.to_gamma.0.bias": [
+768
+],
+"nn.transformer_layers.13.transition.adaln.to_gamma.0.weight": [
+768,
+256
+],
+"nn.transformer_layers.13.transition.scale_output.to_adaln_zero_gamma.0.bias": [
+768
+],
+"nn.transformer_layers.13.transition.scale_output.to_adaln_zero_gamma.0.weight": [
+768,
+256
+],
+"nn.transformer_layers.13.transition.transition.linear_out.weight": [
+768,
+3072
+],
+"nn.transformer_layers.13.transition.transition.swish_linear.0.weight": [
+6144,
+768
+],
+"nn.transformer_layers.2.mhba.adaln.norm_cond.weight": [
+256
+],
+"nn.transformer_layers.2.mhba.adaln.to_beta.weight": [
+768,
+256
+],
+"nn.transformer_layers.2.mhba.adaln.to_gamma.0.bias": [
+768
+],
+"nn.transformer_layers.2.mhba.adaln.to_gamma.0.weight": [
+768,
+256
+],
+"nn.transformer_layers.2.mhba.mha.k_layer_norm.weight": [
+768
+],
+"nn.transformer_layers.2.mhba.mha.node_norm.weight": [
+768
+],
+"nn.transformer_layers.2.mhba.mha.pair_norm.weight": [
+384
+],
+"nn.transformer_layers.2.mhba.mha.q_layer_norm.weight": [
+768
+],
+"nn.transformer_layers.2.mhba.mha.to_bias.weight": [
+12,
+384
+],
+"nn.transformer_layers.2.mhba.mha.to_g.bias": [
+768
+],
+"nn.transformer_layers.2.mhba.mha.to_g.weight": [
+768,
+768
+],
+"nn.transformer_layers.2.mhba.mha.to_out_node.bias": [
+768
+],
+"nn.transformer_layers.2.mhba.mha.to_out_node.weight": [
+768,
+768
+],
+"nn.transformer_layers.2.mhba.mha.to_qkv.bias": [
+2304
+],
+"nn.transformer_layers.2.mhba.mha.to_qkv.weight": [
+2304,
+768
+],
+"nn.transformer_layers.2.mhba.scale_output.to_adaln_zero_gamma.0.bias": [
+768
+],
+"nn.transformer_layers.2.mhba.scale_output.to_adaln_zero_gamma.0.weight": [
+768,
+256
+],
+"nn.transformer_layers.2.transition.adaln.norm_cond.weight": [
+256
+],
+"nn.transformer_layers.2.transition.adaln.to_beta.weight": [
+768,
+256
+],
+"nn.transformer_layers.2.transition.adaln.to_gamma.0.bias": [
+768
+],
+"nn.transformer_layers.2.transition.adaln.to_gamma.0.weight": [
+768,
+256
+],
+"nn.transformer_layers.2.transition.scale_output.to_adaln_zero_gamma.0.bias": [
+768
+],
+"nn.transformer_layers.2.transition.scale_output.to_adaln_zero_gamma.0.weight": [
+768,
+256
+],
+"nn.transformer_layers.2.transition.transition.linear_out.weight": [
+768,
+3072
+],
+"nn.transformer_layers.2.transition.transition.swish_linear.0.weight": [
+6144,
+768
+],
+"nn.transformer_layers.3.mhba.adaln.norm_cond.weight": [
+256
+],
+"nn.transformer_layers.3.mhba.adaln.to_beta.weight": [
+768,
+256
+],
+"nn.transformer_layers.3.mhba.adaln.to_gamma.0.bias": [
+768
+],
+"nn.transformer_layers.3.mhba.adaln.to_gamma.0.weight": [
+768,
+256
+],
+"nn.transformer_layers.3.mhba.mha.k_layer_norm.weight": [
+768
+],
+"nn.transformer_layers.3.mhba.mha.node_norm.weight": [
+768
+],
+"nn.transformer_layers.3.mhba.mha.pair_norm.weight": [
+384
+],
+"nn.transformer_layers.3.mhba.mha.q_layer_norm.weight": [
+768
+],
+"nn.transformer_layers.3.mhba.mha.to_bias.weight": [
+12,
+384
+],
+"nn.transformer_layers.3.mhba.mha.to_g.bias": [
+768
+],
+"nn.transformer_layers.3.mhba.mha.to_g.weight": [
+768,
+768
+],
+"nn.transformer_layers.3.mhba.mha.to_out_node.bias": [
+768
+],
+"nn.transformer_layers.3.mhba.mha.to_out_node.weight": [
+768,
+768
+],
+"nn.transformer_layers.3.mhba.mha.to_qkv.bias": [
+2304
+],
+"nn.transformer_layers.3.mhba.mha.to_qkv.weight": [
+2304,
+768
+],
+"nn.transformer_layers.3.mhba.scale_output.to_adaln_zero_gamma.0.bias": [
+768
+],
+"nn.transformer_layers.3.mhba.scale_output.to_adaln_zero_gamma.0.weight": [
+768,
+256
+],
+"nn.transformer_layers.3.transition.adaln.norm_cond.weight": [
+256
+],
+"nn.transformer_layers.3.transition.adaln.to_beta.weight": [
+768,
+256
+],
+"nn.transformer_layers.3.transition.adaln.to_gamma.0.bias": [
+768
+],
+"nn.transformer_layers.3.transition.adaln.to_gamma.0.weight": [
+768,
+256
+],
+"nn.transformer_layers.3.transition.scale_output.to_adaln_zero_gamma.0.bias": [
+768
+],
+"nn.transformer_layers.3.transition.scale_output.to_adaln_zero_gamma.0.weight": [
+768,
+256
+],
+"nn.transformer_layers.3.transition.transition.linear_out.weight": [
+768,
+3072
+],
+"nn.transformer_layers.3.transition.transition.swish_linear.0.weight": [
+6144,
+768
+],
+"nn.transformer_layers.4.mhba.adaln.norm_cond.weight": [
+256
+],
+"nn.transformer_layers.4.mhba.adaln.to_beta.weight": [
+768,
+256
+],
+"nn.transformer_layers.4.mhba.adaln.to_gamma.0.bias": [
+768
+],
+"nn.transformer_layers.4.mhba.adaln.to_gamma.0.weight": [
+768,
+256
+],
+"nn.transformer_layers.4.mhba.mha.k_layer_norm.weight": [
+768
+],
+"nn.transformer_layers.4.mhba.mha.node_norm.weight": [
+768
+],
+"nn.transformer_layers.4.mhba.mha.pair_norm.weight": [
+384
+],
+"nn.transformer_layers.4.mhba.mha.q_layer_norm.weight": [
+768
+],
+"nn.transformer_layers.4.mhba.mha.to_bias.weight": [
+12,
+384
+],
+"nn.transformer_layers.4.mhba.mha.to_g.bias": [
+768
+],
+"nn.transformer_layers.4.mhba.mha.to_g.weight": [
+768,
+768
+],
+"nn.transformer_layers.4.mhba.mha.to_out_node.bias": [
+768
+],
+"nn.transformer_layers.4.mhba.mha.to_out_node.weight": [
+768,
+768
+],
+"nn.transformer_layers.4.mhba.mha.to_qkv.bias": [
+2304
+],
+"nn.transformer_layers.4.mhba.mha.to_qkv.weight": [
+2304,
+768
+],
+"nn.transformer_layers.4.mhba.scale_output.to_adaln_zero_gamma.0.bias": [
+768
+],
+"nn.transformer_layers.4.mhba.scale_output.to_adaln_zero_gamma.0.weight": [
+768,
+256
+],
+"nn.transformer_layers.4.transition.adaln.norm_cond.weight": [
+256
+],
+"nn.transformer_layers.4.transition.adaln.to_beta.weight": [
+768,
+256
+],
+"nn.transformer_layers.4.transition.adaln.to_gamma.0.bias": [
+768
+],
+"nn.transformer_layers.4.transition.adaln.to_gamma.0.weight": [
+768,
+256
+],
+"nn.transformer_layers.4.transition.scale_output.to_adaln_zero_gamma.0.bias": [
+768
+],
+"nn.transformer_layers.4.transition.scale_output.to_adaln_zero_gamma.0.weight": [
+768,
+256
+],
+"nn.transformer_layers.4.transition.transition.linear_out.weight": [
+768,
+3072
+],
+"nn.transformer_layers.4.transition.transition.swish_linear.0.weight": [
+6144,
+768
+],
+"nn.transformer_layers.5.mhba.adaln.norm_cond.weight": [
+256
+],
+"nn.transformer_layers.5.mhba.adaln.to_beta.weight": [
+768,
+256
+],
+"nn.transformer_layers.5.mhba.adaln.to_gamma.0.bias": [
+768
+],
+"nn.transformer_layers.5.mhba.adaln.to_gamma.0.weight": [
+768,
+256
+],
+"nn.transformer_layers.5.mhba.mha.k_layer_norm.weight": [
+768
+],
+"nn.transformer_layers.5.mhba.mha.node_norm.weight": [
+768
+],
+"nn.transformer_layers.5.mhba.mha.pair_norm.weight": [
+384
+],
+"nn.transformer_layers.5.mhba.mha.q_layer_norm.weight": [
+768
+],
+"nn.transformer_layers.5.mhba.mha.to_bias.weight": [
+12,
+384
+],
+"nn.transformer_layers.5.mhba.mha.to_g.bias": [
+768
+],
+"nn.transformer_layers.5.mhba.mha.to_g.weight": [
+768,
+768
+],
+"nn.transformer_layers.5.mhba.mha.to_out_node.bias": [
+768
+],
+"nn.transformer_layers.5.mhba.mha.to_out_node.weight": [
+768,
+768
+],
+"nn.transformer_layers.5.mhba.mha.to_qkv.bias": [
+2304
+],
+"nn.transformer_layers.5.mhba.mha.to_qkv.weight": [
+2304,
+768
+],
+"nn.transformer_layers.5.mhba.scale_output.to_adaln_zero_gamma.0.bias": [
+768
+],
+"nn.transformer_layers.5.mhba.scale_output.to_adaln_zero_gamma.0.weight": [
+768,
+256
+],
+"nn.transformer_layers.5.transition.adaln.norm_cond.weight": [
+256
+],
+"nn.transformer_layers.5.transition.adaln.to_beta.weight": [
+768,
+256
+],
+"nn.transformer_layers.5.transition.adaln.to_gamma.0.bias": [
+768
+],
+"nn.transformer_layers.5.transition.adaln.to_gamma.0.weight": [
+768,
+256
+],
+"nn.transformer_layers.5.transition.scale_output.to_adaln_zero_gamma.0.bias": [
+768
+],
+"nn.transformer_layers.5.transition.scale_output.to_adaln_zero_gamma.0.weight": [
+768,
+256
+],
+"nn.transformer_layers.5.transition.transition.linear_out.weight": [
+768,
+3072
+],
+"nn.transformer_layers.5.transition.transition.swish_linear.0.weight": [
+6144,
+768
+],
+"nn.transformer_layers.6.mhba.adaln.norm_cond.weight": [
+256
+],
+"nn.transformer_layers.6.mhba.adaln.to_beta.weight": [
+768,
+256
+],
+"nn.transformer_layers.6.mhba.adaln.to_gamma.0.bias": [
+768
+],
+"nn.transformer_layers.6.mhba.adaln.to_gamma.0.weight": [
+768,
+256
+],
+"nn.transformer_layers.6.mhba.mha.k_layer_norm.weight": [
+768
+],
+"nn.transformer_layers.6.mhba.mha.node_norm.weight": [
+768
+],
+"nn.transformer_layers.6.mhba.mha.pair_norm.weight": [
+384
+],
+"nn.transformer_layers.6.mhba.mha.q_layer_norm.weight": [
+768
+],
+"nn.transformer_layers.6.mhba.mha.to_bias.weight": [
+12,
+384
+],
+"nn.transformer_layers.6.mhba.mha.to_g.bias": [
+768
+],
+"nn.transformer_layers.6.mhba.mha.to_g.weight": [
+768,
+768
+],
+"nn.transformer_layers.6.mhba.mha.to_out_node.bias": [
+768
+],
+"nn.transformer_layers.6.mhba.mha.to_out_node.weight": [
+768,
+768
+],
+"nn.transformer_layers.6.mhba.mha.to_qkv.bias": [
+2304
+],
+"nn.transformer_layers.6.mhba.mha.to_qkv.weight": [
+2304,
+768
+],
+"nn.transformer_layers.6.mhba.scale_output.to_adaln_zero_gamma.0.bias": [
+768
+],
+"nn.transformer_layers.6.mhba.scale_output.to_adaln_zero_gamma.0.weight": [
+768,
+256
+],
+"nn.transformer_layers.6.transition.adaln.norm_cond.weight": [
+256
+],
+"nn.transformer_layers.6.transition.adaln.to_beta.weight": [
+768,
+256
+],
+"nn.transformer_layers.6.transition.adaln.to_gamma.0.bias": [
+768
+],
+"nn.transformer_layers.6.transition.adaln.to_gamma.0.weight": [
+768,
+256
+],
+"nn.transformer_layers.6.transition.scale_output.to_adaln_zero_gamma.0.bias": [
+768
+],
+"nn.transformer_layers.6.transition.scale_output.to_adaln_zero_gamma.0.weight": [
+768,
+256
+],
+"nn.transformer_layers.6.transition.transition.linear_out.weight": [
+768,
+3072
+],
+"nn.transformer_layers.6.transition.transition.swish_linear.0.weight": [
+6144,
+768
+],
+"nn.transformer_layers.7.mhba.adaln.norm_cond.weight": [
+256
+],
+"nn.transformer_layers.7.mhba.adaln.to_beta.weight": [
+768,
+256
+],
+"nn.transformer_layers.7.mhba.adaln.to_gamma.0.bias": [
+768
+],
+"nn.transformer_layers.7.mhba.adaln.to_gamma.0.weight": [
+768,
+256
+],
+"nn.transformer_layers.7.mhba.mha.k_layer_norm.weight": [
+768
+],
+"nn.transformer_layers.7.mhba.mha.node_norm.weight": [
+768
+],
+"nn.transformer_layers.7.mhba.mha.pair_norm.weight": [
+384
+],
+"nn.transformer_layers.7.mhba.mha.q_layer_norm.weight": [
+768
+],
+"nn.transformer_layers.7.mhba.mha.to_bias.weight": [
+12,
+384
+],
+"nn.transformer_layers.7.mhba.mha.to_g.bias": [
+768
+],
+"nn.transformer_layers.7.mhba.mha.to_g.weight": [
+768,
+768
+],
+"nn.transformer_layers.7.mhba.mha.to_out_node.bias": [
+768
+],
+"nn.transformer_layers.7.mhba.mha.to_out_node.weight": [
+768,
+768
+],
+"nn.transformer_layers.7.mhba.mha.to_qkv.bias": [
+2304
+],
+"nn.transformer_layers.7.mhba.mha.to_qkv.weight": [
+2304,
+768
+],
+"nn.transformer_layers.7.mhba.scale_output.to_adaln_zero_gamma.0.bias": [
+768
+],
+"nn.transformer_layers.7.mhba.scale_output.to_adaln_zero_gamma.0.weight": [
+768,
+256
+],
+"nn.transformer_layers.7.transition.adaln.norm_cond.weight": [
+256
+],
+"nn.transformer_layers.7.transition.adaln.to_beta.weight": [
+768,
+256
+],
+"nn.transformer_layers.7.transition.adaln.to_gamma.0.bias": [
+768
+],
+"nn.transformer_layers.7.transition.adaln.to_gamma.0.weight": [
+768,
+256
+],
+"nn.transformer_layers.7.transition.scale_output.to_adaln_zero_gamma.0.bias": [
+768
+],
+"nn.transformer_layers.7.transition.scale_output.to_adaln_zero_gamma.0.weight": [
+768,
+256
+],
+"nn.transformer_layers.7.transition.transition.linear_out.weight": [
+768,
+3072
+],
+"nn.transformer_layers.7.transition.transition.swish_linear.0.weight": [
+6144,
+768
+],
+"nn.transformer_layers.8.mhba.adaln.norm_cond.weight": [
+256
+],
+"nn.transformer_layers.8.mhba.adaln.to_beta.weight": [
+768,
+256
+],
+"nn.transformer_layers.8.mhba.adaln.to_gamma.0.bias": [
+768
+],
+"nn.transformer_layers.8.mhba.adaln.to_gamma.0.weight": [
+768,
+256
+],
+"nn.transformer_layers.8.mhba.mha.k_layer_norm.weight": [
+768
+],
+"nn.transformer_layers.8.mhba.mha.node_norm.weight": [
+768
+],
+"nn.transformer_layers.8.mhba.mha.pair_norm.weight": [
+384
+],
+"nn.transformer_layers.8.mhba.mha.q_layer_norm.weight": [
+768
+],
+"nn.transformer_layers.8.mhba.mha.to_bias.weight": [
+12,
+384
+],
+"nn.transformer_layers.8.mhba.mha.to_g.bias": [
+768
+],
+"nn.transformer_layers.8.mhba.mha.to_g.weight": [
+768,
+768
+],
+"nn.transformer_layers.8.mhba.mha.to_out_node.bias": [
+768
+],
+"nn.transformer_layers.8.mhba.mha.to_out_node.weight": [
+768,
+768
+],
+"nn.transformer_layers.8.mhba.mha.to_qkv.bias": [
+2304
+],
+"nn.transformer_layers.8.mhba.mha.to_qkv.weight": [
+2304,
+768
+],
+"nn.transformer_layers.8.mhba.scale_output.to_adaln_zero_gamma.0.bias": [
+768
+],
+"nn.transformer_layers.8.mhba.scale_output.to_adaln_zero_gamma.0.weight": [
+768,
+256
+],
+"nn.transformer_layers.8.transition.adaln.norm_cond.weight": [
+256
+],
+"nn.transformer_layers.8.transition.adaln.to_beta.weight": [
+768,
+256
+],
+"nn.transformer_layers.8.transition.adaln.to_gamma.0.bias": [
+768
+],
+"nn.transformer_layers.8.transition.adaln.to_gamma.0.weight": [
+768,
+256
+],
+"nn.transformer_layers.8.transition.scale_output.to_adaln_zero_gamma.0.bias": [
+768
+],
+"nn.transformer_layers.8.transition.scale_output.to_adaln_zero_gamma.0.weight": [
+768,
+256
+],
+"nn.transformer_layers.8.transition.transition.linear_out.weight": [
+768,
+3072
+],
+"nn.transformer_layers.8.transition.transition.swish_linear.0.weight": [
+6144,
+768
+],
+"nn.transformer_layers.9.mhba.adaln.norm_cond.weight": [
+256
+],
+"nn.transformer_layers.9.mhba.adaln.to_beta.weight": [
+768,
+256
+],
+"nn.transformer_layers.9.mhba.adaln.to_gamma.0.bias": [
+768
+],
+"nn.transformer_layers.9.mhba.adaln.to_gamma.0.weight": [
+768,
+256
+],
+"nn.transformer_layers.9.mhba.mha.k_layer_norm.weight": [
+768
+],
+"nn.transformer_layers.9.mhba.mha.node_norm.weight": [
+768
+],
+"nn.transformer_layers.9.mhba.mha.pair_norm.weight": [
+384
+],
+"nn.transformer_layers.9.mhba.mha.q_layer_norm.weight": [
+768
+],
+"nn.transformer_layers.9.mhba.mha.to_bias.weight": [
+12,
+384
+],
+"nn.transformer_layers.9.mhba.mha.to_g.bias": [
+768
+],
+"nn.transformer_layers.9.mhba.mha.to_g.weight": [
+768,
+768
+],
+"nn.transformer_layers.9.mhba.mha.to_out_node.bias": [
+768
+],
+"nn.transformer_layers.9.mhba.mha.to_out_node.weight": [
+768,
+768
+],
+"nn.transformer_layers.9.mhba.mha.to_qkv.bias": [
+2304
+],
+"nn.transformer_layers.9.mhba.mha.to_qkv.weight": [
+2304,
+768
+],
+"nn.transformer_layers.9.mhba.scale_output.to_adaln_zero_gamma.0.bias": [
+768
+],
+"nn.transformer_layers.9.mhba.scale_output.to_adaln_zero_gamma.0.weight": [
+768,
+256
+],
+"nn.transformer_layers.9.transition.adaln.norm_cond.weight": [
+256
+],
+"nn.transformer_layers.9.transition.adaln.to_beta.weight": [
+768,
+256
+],
+"nn.transformer_layers.9.transition.adaln.to_gamma.0.bias": [
+768
+],
+"nn.transformer_layers.9.transition.adaln.to_gamma.0.weight": [
+768,
+256
+],
+"nn.transformer_layers.9.transition.scale_output.to_adaln_zero_gamma.0.bias": [
+768
+],
+"nn.transformer_layers.9.transition.scale_output.to_adaln_zero_gamma.0.weight": [
+768,
+256
+],
+"nn.transformer_layers.9.transition.transition.linear_out.weight": [
+768,
+3072
+],
+"nn.transformer_layers.9.transition.transition.swish_linear.0.weight": [
+6144,
+768
+],
+"nn.z_cycle_norm.weight": [
+384
+],
+"nn.z_cycle_proj.weight": [
+384,
+384
+]
+}
+}

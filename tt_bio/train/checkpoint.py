@@ -90,6 +90,13 @@ def load_adapter(path, params: Dict[str, ag.Tensor], device, *, opt: Optional[Ad
             for fam in ("exp_avg", "exp_avg_sq", "momentum_buffer"):
                 if f"{fam}{_SPLIT}{name}" in blob:
                     getattr(opt, fam)[name] = blob[f"{fam}{_SPLIT}{name}"].astype(np.float32).copy()
+    if opt is not None:
+        # A Muon resume from a file without momentum would restart Muon at zero and quietly
+        # take a different step than the unbroken run.
+        lost = [n for n in getattr(opt, "muon_names", ()) if f"momentum_buffer{_SPLIT}{n}" not in blob]
+        if lost:
+            raise ValueError(f"{path}: no Muon momentum for {len(lost)} parameter(s) (e.g. {lost[0]}); "
+                             f"it was saved by a run without Muon, and resuming would zero it")
     with open(path, "rb") as fh:
         n = int.from_bytes(fh.read(8), "little")
         header = json.loads(fh.read(n))
