@@ -47,9 +47,16 @@ def main():
     seed = args.seed
 
     def embed(mol):
+        # Upstream's generate_conformer with the seed pinned: three attempts at
+        # the standard embedding, then random coordinates plus an MMFF cleanup.
         ps = AllChem.ETKDGv2()
         ps.randomSeed = seed
-        assert AllChem.EmbedMolecule(mol, ps) != -1, "ETKDG failed at the fixed seed"
+        for _ in range(3):
+            if AllChem.EmbedMolecule(mol, ps) != -1:
+                return
+        ps.useRandomCoords = True
+        AllChem.EmbedMolecule(mol, ps)
+        AllChem.MMFFOptimizeMolecule(mol, confId=0)
 
     sel = Path(args.complexes).expanduser()
     out = Path(args.out).expanduser()

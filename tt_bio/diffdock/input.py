@@ -211,17 +211,15 @@ def fold_sequence_receptors(
     stays host-side and testable; `fold(sequence, path) -> path` is the
     contract. An already-written structure is reused, as upstream does.
     """
+    if fold is None:
+        from .folding import fold_with_esmfold2 as fold
     out_dir = Path(out_dir)
     paths: dict[str, str] = {}
     for spec in iter_sequence_receptors(specs):
         target = out_dir / spec.name / f"{spec.name}_esmfold2.cif"
         if not target.exists():
-            if fold is None:
-                from tt_bio.diffdock.folding import fold_with_esmfold2 as fold_fn
-            else:
-                fold_fn = fold
             target.parent.mkdir(parents=True, exist_ok=True)
-            fold_fn(spec.protein_sequence, target)
+            fold(spec.protein_sequence, target)
         paths[spec.name] = str(target)
     return paths
 
