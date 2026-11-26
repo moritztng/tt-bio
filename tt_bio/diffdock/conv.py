@@ -278,8 +278,11 @@ class TensorProductConvLayer(nn.Module):
         if edge_index.shape[1] == 0 and node_attr.shape[0] == 0:
             raise ValueError("no edges and no nodes")
         if edge_index.shape[1] == 0:
-            out = torch.zeros((node_attr.shape[0], self.out_size), dtype=node_attr.dtype,
-                              device=node_attr.device)
+            # D-dfd-orch-10: a conv with zero edges returns zeros, it does not crash --
+            # upstream raises here, on np.array_split(..., 0). The row count is out_nodes
+            # when the layer scatters to a different node set (the torsion head's bonds).
+            out = torch.zeros((out_nodes or node_attr.shape[0], self.out_size),
+                              dtype=node_attr.dtype, device=node_attr.device)
         else:
             out = tp_scatter(self.tp, self.fc, node_attr, edge_index, edge_attr, edge_sh,
                              out_nodes, reduce, edge_weight, edge_mask, edge_chunk)
