@@ -9,9 +9,22 @@ busy() { for f in /proc/[0-9]*/fd/*; do [ "$(readlink $f 2>/dev/null)" = /dev/te
 t0=$(date +%s)
 while busy; do [ $(( $(date +%s) - t0 )) -gt 9000 ] && { echo "node 0 never freed" > $O/wait.log; exit 3; }; sleep 30; done
 echo "start $(date -u +%FT%TZ) sha $(git rev-parse --short HEAD)" > $O/run.log
-for args in "--role acc --k 2" "--role rank --rank 0" "--role rank --rank 1"; do
-  env $E timeout 1800 $V perf/r4t_scale/dp_equiv.py $args --n 128 --out $O >> $O/run.log 2>&1 || { echo "FAILED: $args" >> $O/run.log; exit 1; }
-done
+# Release legs share card 0 inside this booking and take it between arms, so every arm waits
+# for the node and retries a lease refusal (DeviceInUseError) rather than failing the chain.
+arm() {
+  for try in $(seq 1 40); do
+    while busy; do [ $(( $(date +%s) - t0 )) -gt 14400 ] && { echo "node 0 never freed" >> $O/run.log; exit 3; }; sleep 20; done
+    env $E timeout 1800 $V perf/r4t_scale/dp_equiv.py "$@" --n 128 --out $O > $O/arm.log 2>&1; rc=$?
+    cat $O/arm.log >> $O/run.log
+    [ $rc = 0 ] && return 0
+    grep -q DeviceInUseError $O/arm.log || { echo "FAILED: $*" >> $O/run.log; exit 1; }
+    echo "retry $try: $* (card taken)" >> $O/run.log
+  done
+  echo "FAILED after retries: $*" >> $O/run.log; exit 1
+}
+[ -f $O/acc.npz ] || arm --role acc --k 2
+[ -f $O/local_0.npz ] || arm --role rank --rank 0
+[ -f $O/local_1.npz ] || arm --role rank --rank 1
 $V perf/r4t_scale/dp_equiv.py --role reduce --k 2 --out $O >> $O/run.log 2>&1
 $V perf/r4t_scale/dp_equiv.py --role grade --out $O >> $O/run.log 2>&1; echo "grade rc=$?" >> $O/run.log
 cp $O/verdict.json $O/verdict_ok.json
