@@ -80,10 +80,25 @@ def main():
     folds = Folds(state)
     trunk = E.load_trunk(glue, state, cfg)   # an unrecorded build for the lever set and dtypes; build() replaces it
 
-    def build():
+    RB = {}
+
+    # R4T_REBUILD_INLINE=1 (r4t-perf R1): a per-step rebuild skips the grad-off forward whose only job is to make
+    # the lazy uploads happen under the recording. The recording stays open into the step's own forward instead,
+    # and each lazy upload of a leaf-fed tensor is declared a parameter the moment it is made, before the taped
+    # winner reads it. The first build and a resume build still run the forward: the unreached/orphan checks
+    # after them need every weight to exist.
+    inline = os.environ.get("R4T_REBUILD_INLINE") == "1"
+    open_rec = []
+
+    def close_rec():
+        while open_rec:
+            open_rec.pop()()
+
+    def build(lazy=True):
         """The serving trunk from the current upstream leaves, every upload recorded with its fold. Called
         again after each optimizer step: the device weights are derived, never stepped themselves."""
         nonlocal trunk
+        _rb0 = time.time()
         if trunk is not None:
             for _p, _o, _k, t in T.walk_device_weights(trunk):
                 ttnn.deallocate(getattr(t, "value", t))
@@ -91,11 +106,38 @@ def main():
             ag.forget_parameters()   # the old leaves point at freed handles; build() registers the new ones
         folds.sources.clear()
         folds.consts.clear()
-        with folds.recording() as sd:
+        ttnn.synchronize_device(dev); _rb1 = time.time()
+        close_rec()
+        if lazy or not inline:
+            with folds.recording() as sd:
+                trunk = E.load_trunk(glue, sd, cfg)
+                ttnn.synchronize_device(dev); _rb2 = time.time()
+                one_example(0, False)   # lazy uploads (trimul in-projections at this chunk width), on the taped route
+                ttnn.synchronize_device(dev); _rb3 = time.time()
+        else:
+            rec = folds.recording()
+            sd = rec.__enter__()
             trunk = E.load_trunk(glue, sd, cfg)
-            one_example(0, False)   # lazy uploads (trimul in-projections at this chunk width), on the taped route
+            ttnn.synchronize_device(dev); _rb2 = _rb3 = time.time()
+            recorded = ttnn.from_torch
+
+            def declare(x, *a_, **k_):
+                t_ = recorded(x, *a_, **k_)
+                if folds.sources.get(id(t_), (None,))[0] is t_:
+                    ag.parameter(t_)
+                return t_
+
+            ttnn.from_torch = declare
+
+            def _close():
+                ttnn.from_torch = recorded
+                rec.__exit__(None, None, None)
+
+            open_rec.append(_close)
         for _p, _o, _k, t in T.walk_device_weights(trunk):
             ag.parameter(t)
+        RB.update(free_s=round(_rb1 - _rb0, 4), load_s=round(_rb2 - _rb1, 4), lazy_fwd_s=round(_rb3 - _rb2, 4),
+                  register_s=round(time.time() - _rb3, 4))
 
     levers = trunk._levers
     n, D, P, C_ = a.n, cfg["token_dim"], cfg["pair_repr_dim"], cfg["dim_cond"]
@@ -268,6 +310,7 @@ def main():
         if real:
             use(step)
             s, z, ctx = real[0](True)
+            close_rec()
             ttnn.synchronize_device(dev)
             t1 = time.time()
             retained = used() - base
@@ -279,6 +322,7 @@ def main():
                          terms=terms, upstream_terms=ref)
         else:
             s, z = one_example(step, True)
+            close_rec()
             ttnn.synchronize_device(dev)
             t1 = time.time()
             retained = used() - base
@@ -296,14 +340,14 @@ def main():
         for p in params.values():
             p.grad = None
         t2c = time.time()
-        build()
+        build(lazy=False)
         ttnn.synchronize_device(dev)
         t3 = time.time()
         del s, z, st
         md = hashlib.sha256(b"".join(opt.master[k].tobytes() for k in sorted(opt.master))).hexdigest()[:16]
         sm = clk[c0:] or clk[-1:]
         print(json.dumps(dict(step=step + 1, loss=loss, fwd_s=round(t1 - t0, 4), bwd_s=round(t2 - t1, 4),
-                              fold_bwd_s=round(t2b - t2, 4), opt_s=round(t2c - t2b, 4), rebuild_s=round(t3 - t2c, 4), idle_dev_w=len(idle), step_s=round(t3 - t0, 4), retained_B=retained,
+                              fold_bwd_s=round(t2b - t2, 4), opt_s=round(t2c - t2b, 4), rebuild_s=round(t3 - t2c, 4), rebuild_split=dict(RB), idle_dev_w=len(idle), step_s=round(t3 - t0, 4), retained_B=retained,
                               dead=len(dead), dead_names=sorted(dead)[:20], dev_base_B=base, dev_after_bwd_B=after_bwd, params=len(params), n_elems=int(sum(v.size for v in opt.master.values())),
                               master_digest=md, aiclk=[min(sm or [0]), max(sm or [0])], aiclk_med=sorted(sm)[len(sm) // 2] if sm else 0,
                               k=a.k, depth=a.depth, n=n, **extra,
