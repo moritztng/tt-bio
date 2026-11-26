@@ -20,7 +20,7 @@ zero on padded tokens, which a masked loss gives; so x and the seed are masked h
 """
 from __future__ import annotations
 
-import argparse, contextlib, json, sys
+import argparse, contextlib, json, os, sys
 from pathlib import Path
 
 import torch
@@ -74,6 +74,9 @@ def main():
     if a.levers == "none":
         levers = set()
     dt = ttnn.float32 if a.arm == "fp32" else ttnn.bfloat16
+    # `Trunk` builds on `mode_levers()`, which reads TT_BIO_LEVERS and not `lever_scope`: without this the
+    # trunk kept the mode set (pair_bf16z: a bf16 pair stream in the fp32 arm) whatever --levers said.
+    os.environ["TT_BIO_LEVERS"] = ",".join(sorted(levers)) or "none"
     if a.arm == "fp32":
         bf = lambda t: t  # noqa: E731
 
@@ -99,7 +102,8 @@ def main():
         gc = torch.Generator().manual_seed(13)
         early = [bf(torch.randn(1, a.n, DC, generator=gc, dtype=torch.float64)) for _ in range(a.cycles - 1)]
         cond = bf(torch.randn(1, a.n, DC, generator=gc, dtype=torch.float64))
-        build = lambda sd: TR.Trunk(tt.WeightScope(sd), ckc, a.layers, H, dtype=dt)  # noqa: E731
+        build = lambda sd: TR.Trunk(tt.WeightScope(sd), ckc, a.layers, H, dtype=dt,  # noqa: E731
+                                    pair_residual_dtype=ttnn.float32 if a.arm == "fp32" else None)
         keys, ins, out_t, cut = ("x", "z", "cond"), ("x", "z", "cond"), x, "q_w"
         # The early cycles run once at the base point and are frozen: that is what `grad: last`
         # differentiates, and a central difference sees exactly it (through `grad_last` alone it would
