@@ -34,7 +34,7 @@ def main():
     import ttnn
     from tt_bio import tenstorrent as T, autograd as ag
     from tt_bio.rfd4 import network as N, engine as E, trunk as TR
-    from tt_bio.train import lora
+    from tt_bio.train.folds import Folds
     from tt_bio.train.checkpoint import Checkpointer, load_adapter
     from tt_bio.train.optim import AdamW
     from tt_bio.train.parity import GradientCoverage, zero_or_missing
@@ -63,7 +63,25 @@ def main():
     state, config = N.load_checkpoint(E._resolve_weights(E.DEFAULT_WEIGHTS))
     cfg = config["nn"]
     glue = N.FlowGlue(state, config)
-    trunk = E.load_trunk(glue, state, cfg)
+    folds = Folds(state)
+    trunk = E.load_trunk(glue, state, cfg)   # an unrecorded build for the lever set and dtypes; build() replaces it
+
+    def build():
+        """The serving trunk from the current upstream leaves, every upload recorded with its fold. Called
+        again after each optimizer step: the device weights are derived, never stepped themselves."""
+        nonlocal trunk
+        if trunk is not None:
+            for _p, _o, _k, t in T.walk_device_weights(trunk):
+                ttnn.deallocate(getattr(t, "value", t))
+            ag.release_pins()
+        folds.sources.clear()
+        folds.consts.clear()
+        with folds.recording() as sd:
+            trunk = E.load_trunk(glue, sd, cfg)
+            one_example(0, False)   # lazy uploads (trimul in-projections at this chunk width), on the taped route
+        for _p, _o, _k, t in T.walk_device_weights(trunk):
+            ag.parameter(t)
+
     levers = trunk._levers
     n, D, P, C_ = a.n, cfg["token_dim"], cfg["pair_repr_dim"], cfg["dim_cond"]
     g = torch.Generator().manual_seed(3)
@@ -115,7 +133,9 @@ def main():
             return winner(s_init, z_init)
 
     ag.install()
-    params = lora.walked_weights(lambda: one_example(0, False), None, trunk)
+    build()
+    reached = [nm for nm in folds.leaves if nm not in set(folds.unreached())]
+    params = {nm: folds.params()[nm] for nm in reached}
     names = list(params)
     cyc = {nm: "depth-1 draws feed a zero state into the cycle projection; trains at depth >= 2"
            for nm in names if "cycle" in nm and a.depth < 2}
@@ -123,7 +143,7 @@ def main():
     start = 0
     if a.resume:
         start = int(load_adapter(a.resume, dict(params), dev, opt=opt)["step"])
-        params.rebind()
+        build()
     ck = Checkpointer(a.out, every=10**9, keep=10)
     cov = GradientCoverage(names, exempt=cyc, where="r4t-step trunk: ")
     threading.Thread(target=sample, daemon=True).start()
@@ -141,20 +161,22 @@ def main():
         ag.backward([st], [seed_s])
         ttnn.synchronize_device(dev)
         t2 = time.time()
-        grads = {nm: (None if p.grad is None else ttnn.to_torch(p.grad).float().numpy()) for nm, p in params.items()}
+        idle = folds.tape_backward()   # device-weight gradients through each fold's VJP into the upstream leaves
+        grads = {nm: (None if p.grad is None else p.grad.float().numpy()) for nm, p in params.items()}
         dead = zero_or_missing(grads)
+        t2b = time.time()
         opt.step()
-        params.rebind()
-        ttnn.synchronize_device(dev)
-        t3 = time.time()
         for p in params.values():
             p.grad = None
-        ag.release_pins()
+        t2c = time.time()
+        build()
+        ttnn.synchronize_device(dev)
+        t3 = time.time()
         del s, z, st
         md = hashlib.sha256(b"".join(opt.master[k].tobytes() for k in sorted(opt.master))).hexdigest()[:16]
         sm = clk[c0:] or clk[-1:]
         print(json.dumps(dict(step=step + 1, loss=loss, fwd_s=round(t1 - t0, 4), bwd_s=round(t2 - t1, 4),
-                              opt_s=round(t3 - t2, 4), step_s=round(t3 - t0, 4), retained_B=retained,
+                              fold_bwd_s=round(t2b - t2, 4), opt_s=round(t2c - t2b, 4), rebuild_s=round(t3 - t2c, 4), idle_dev_w=len(idle), step_s=round(t3 - t0, 4), retained_B=retained,
                               dead=len(dead), params=len(params), n_elems=int(sum(v.size for v in opt.master.values())),
                               master_digest=md, aiclk=[min(sm or [0]), max(sm or [0])], aiclk_med=sorted(sm)[len(sm) // 2] if sm else 0,
                               k=a.k, depth=a.depth, n=n,

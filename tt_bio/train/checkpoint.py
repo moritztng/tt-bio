@@ -67,7 +67,10 @@ def load_adapter(path, params: Dict[str, ag.Tensor], device, *, opt: Optional[Ad
                          f"unexpected {sorted(have - want)}")
     for name, t in params.items():
         arr = blob[f"master{_SPLIT}{name}"].astype(np.float32)
-        t.value = to_device(arr, device, dtype=t.value.dtype)
+        if hasattr(t, "write"):   # a `bridge.HostParam`: the host tensor the forward reads, updated in place
+            t.write(arr)
+        else:
+            t.value = to_device(arr, device, dtype=t.value.dtype)
         if opt is not None:
             opt.master[name] = arr.copy()
             opt.exp_avg[name] = blob[f"exp_avg{_SPLIT}{name}"].astype(np.float32).copy()
