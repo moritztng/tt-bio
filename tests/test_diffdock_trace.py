@@ -165,3 +165,82 @@ def test_the_cutoff_sweep_really_does_change_the_mask():
     tight = s.cross_mask(lig_pos, rec_pos, 20.5)
     assert wide.shape == tight.shape
     assert wide.sum() > tight.sum() * 1.2, "the sweep should drop a visible share of the edges"
+
+
+# ------------------------------------------------- the capture itself, on a card (dfd-device's leg)
+
+@pytest.mark.device
+def test_traced_rollout_matches_untraced():
+    """Replaying one capture of all 19 steps gives the poses the step-by-step rollout gives.
+
+    The claim behind `device_resident_loop`, and the only one of this row's that a card has to
+    settle: everything above says the loop *can* be captured (one shape, one program, no host
+    return inside it), this says capturing it did not change the answer.
+
+    Both sides run the same device score network through the same `sampling.sample`, so the
+    schedule, the noise draws and the pose update are shared and the capture is the only
+    difference. It skips until a device network offers `trace_body` (see
+    :mod:`tt_bio.diffdock.network`); `dfd-device` owns that half.
+    """
+    pytest.importorskip("ttnn")
+
+    from tt_bio.diffdock import network, sampling
+    from tt_bio.diffdock.capture import capture_loop
+
+    try:
+        model = network.load(_device_options())
+    except network.ScoreNetworkUnavailable as e:
+        pytest.skip(f"no device score network yet: {e}")
+    if not hasattr(model, "trace_body"):
+        pytest.skip("the score network does not offer trace_body: nothing to capture yet")
+
+    graph, start, cfg, bounds = _device_complex(model)
+
+    untraced = sampling.sample(model.score_fn(graph), start.clone(), cfg=cfg, bounds=bounds,
+                               noise=sampling.Noise(seed=0), edge_index=graph.ligand["edge_index"],
+                               mask_rotate=graph.ligand["mask_rotate"],
+                               crop_beyond_a=model.config.crop_beyond).poses
+
+    body, read_poses = model.trace_body(graph, start.clone(), cfg, bounds,
+                                        sampling.Noise(seed=0))
+    import ttnn
+    tid, _ = capture_loop(model.device, body, cfg.steps)
+    ttnn.execute_trace(model.device, tid, cq_id=0, blocking=True)
+    ttnn.synchronize_device(model.device)
+    traced = read_poses()
+
+    # The same program on the same card, so the only gap is the warm-up pass the capture
+    # replays over: fp32 rounding on a 19-step rollout, not a second trajectory.
+    assert traced.shape == untraced.shape
+    dev = (traced - untraced).abs().max().item()
+    assert dev < 1e-3, f"the capture moved the poses by {dev:.3g} A"
+
+
+def _device_options():
+    """`tt-bio dock`'s options, pointing at the card: the real seam, not a test-only loader."""
+    from tt_bio.diffdock.job import DockOptions
+
+    return DockOptions(device="tt")
+
+
+def _device_complex(model):
+    """A small real complex and its randomised start poses, through the shipped input path."""
+    from pathlib import Path
+
+    from tt_bio.diffdock import input as dfd_input, sampling
+
+    data = Path(__file__).parent / "data" / "diffdock_graph"
+    spec = dfd_input.ComplexSpec(name="8G43_ZU6", protein_path=str(data / "8G43_protein.pdb"),
+                                 ligand_description=str(data / "8G43_ligand.sdf"))
+    if not Path(spec.protein_path).is_file():
+        pytest.skip("the 8G43_ZU6 fixture structures are not in this checkout")
+    graph = dfd_input.build_complex_graph(spec, seed=0, receptor_path=Path(spec.protein_path),
+                                          lm_embeddings=None, all_atoms=model.config.all_atoms)
+    cfg = sampling.SamplingConfig.from_recipe(actual_steps=N_STEPS)
+    bounds = sampling.SigmaBounds.from_config(model.config)
+    start = sampling.randomize_position(graph.ligand["pos"], receptor_pos=graph.receptor["pos"],
+                                        n_samples=N_POSES, cfg=cfg, bounds=bounds,
+                                        noise=sampling.Noise(seed=0),
+                                        edge_index=graph.ligand["edge_index"],
+                                        mask_rotate=graph.ligand["mask_rotate"])
+    return graph, start, cfg, bounds

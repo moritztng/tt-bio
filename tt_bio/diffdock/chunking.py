@@ -108,3 +108,49 @@ def report(cost: EdgeCost, budgets_gib=(1.0, 4.0, 16.0), slack: float = 0.5) -> 
         n = chunk_for_budget(cost, g * 2 ** 30, slack=slack)
         lines.append(f"  budget {g:>5.1f} GiB -> edge_chunk {n:>8d}")
     return "\n".join(lines)
+
+
+# --------------------------------------------------------------- the pose axis, not the edge axis
+
+def chunked_score_fn(score_fn, width: int, *, n_torsions: int, reset=None, narrowest: int = 1):
+    """``score_fn`` evaluated *width* poses per device call, narrowing when the card refuses one.
+
+    The two chunking axes answer different questions. ``edge_chunk`` splits one convolution so a
+    large complex fits; this splits the **pose batch**, which is what ``--batch_size`` names
+    upstream and what grows the whole step's memory linearly.
+
+    It is exact, not an approximation, and for the same reason the batch exists at all: the ten
+    poses are a disjoint union of ten copies of the same graph (:meth:`StaticGraphs.build`), so no
+    message ever crosses between them and a pose's scores do not depend on which other poses rode
+    along. Splitting the batch is therefore bit-identical, unlike splitting the *sampler*, whose
+    per-step noise draw is one tensor over the whole batch -- chunk there and every pose gets
+    different noise, which is why this wraps the score function and leaves
+    :func:`tt_bio.diffdock.sampling.sample` alone.
+
+    The refusal ladder is :func:`tt_bio.sample_chunks.denoise_in_chunks`, the one every tt-bio
+    sampler shares, so a DiffDock refusal narrows by the same rule and prints the same line as a
+    Boltz-2 one. To hand it a single tensor the three scores ride as one row per pose,
+    ``[tr | rot | tor]``, ``6 + n_torsions`` wide. A narrowed width persists to the next step:
+    the rollout pays for one refused allocation, not nineteen. *reset* drops device state keyed
+    on the old width (a captured trace, above all).
+    """
+    from dataclasses import replace
+
+    from tt_bio.sample_chunks import denoise_in_chunks, resolve_sample_chunk_width
+
+    state = {"width": max(1, int(width))}
+
+    def run_chunk(step):
+        def run(chunk, _w):
+            tr, rot, tor = score_fn(replace(step, lig_pos=chunk))[:3]
+            return torch.cat([tr.reshape(chunk.shape[0], 3), rot.reshape(chunk.shape[0], 3),
+                              tor.reshape(chunk.shape[0], n_torsions)], dim=1)
+
+        n_poses = step.lig_pos.shape[0]
+        rows, state["width"] = denoise_in_chunks(
+            step.lig_pos, resolve_sample_chunk_width(n_poses, state["width"]), run,
+            reset=reset, narrowest=narrowest, tag="diffdock")
+        return rows[:, :3], rows[:, 3:6], rows[:, 6:].reshape(n_poses * n_torsions)
+
+    run_chunk.width = lambda: state["width"]
+    return run_chunk

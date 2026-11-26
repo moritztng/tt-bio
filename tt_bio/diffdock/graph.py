@@ -293,11 +293,16 @@ class StaticGraphs:
         predicate is `sampling.crop_beyond`'s own expression, `cdist(rec, lig) < cutoff`, per
         pose -- upstream crops each graph of the batch against its own ligand. *cutoff* is
         one number or one per pose. Pad rows are 0.
+
+        The decision is taken in float32 whatever the input dtype: upstream casts the pose
+        with ``.float()`` against a float32 receptor, so that is the crop it makes. Casting
+        both sides keeps the same keep-set and lets a float64 reference run a cropped step,
+        where upstream's own expression raises on the dtype mismatch.
         """
         n_lig, n_rec, b = self.n_lig, self.n_rec, self.n_poses
         lig = lig_pos[:n_lig * b].reshape(b, n_lig, 3).float()
-        rec = rec_pos[:n_rec * b].reshape(b, n_rec, 3)
-        c = torch.as_tensor(cutoff, dtype=rec.dtype, device=rec.device).reshape(-1, 1)
+        rec = rec_pos[:n_rec * b].reshape(b, n_rec, 3).float()
+        c = torch.as_tensor(cutoff, dtype=torch.float32, device=rec.device).reshape(-1, 1)
         keep = (torch.cdist(rec, lig) < c.expand(b, 1)[:, :, None]).any(dim=-1)
         return pad_mask(keep.reshape(-1).to(rec_pos.dtype), self.n_rec_padded)
 

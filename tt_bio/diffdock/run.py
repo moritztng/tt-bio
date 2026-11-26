@@ -8,10 +8,11 @@ the score network through ``tt_bio.diffdock.network.load``, the rollout's only s
 `dfd-parity`'s ``score_model`` lands that raises, and asking for the real sampler says so in
 one line instead of failing somewhere inside a loader.
 
-``--max_parallel_samples`` is not honoured by the rollout: all ``--samples`` poses advance
-in one batch, which is what the graded parity run does. Upstream chunks them, and its noise
-draws follow the chunking, so chunking here would be a different (equally valid) trajectory
-rather than a memory knob -- see state/dfd/SAMPLING.md.
+``--max_parallel_samples`` caps how many poses are scored in one device call, and halves
+itself if the card refuses one. It is a memory knob and nothing else: it is applied to the
+score function, where the poses are disjoint graphs and splitting them is bit-identical, and
+not to the sampler, whose per-step noise is one draw over the whole batch -- chunking there
+would be a different (equally valid) trajectory. See state/dfd/SAMPLING.md.
 
 Failure isolation follows the input form (FEATURE-PLAN conflict 1): one complex on the
 command line fails loudly with its reason, a CSV or a directory keeps going and writes
@@ -90,7 +91,7 @@ def _sample_one(job: DockJob, options: DockOptions, write_dir: Path, receptor: P
     """
     import torch
 
-    from tt_bio.diffdock import esm, input as dfd_input, sampling
+    from tt_bio.diffdock import chunking, esm, input as dfd_input, sampling
 
     spec = dfd_input.ComplexSpec(name=job.name, protein_path=str(receptor),
                                  ligand_description=job.ligand)
@@ -117,8 +118,15 @@ def _sample_one(job: DockJob, options: DockOptions, write_dir: Path, receptor: P
         edge_index=graph.ligand["edge_index"].T[graph.ligand["edge_mask"]],
         mask_rotate=graph.ligand["mask_rotate"], no_torsion=model.config.no_torsion,
         centre=centre)
+    # The score function, not the sampler, is what the pose batch is chunked through: the
+    # poses are disjoint graphs there, so the chunking is exact, while the sampler's per-step
+    # noise is one draw over the whole batch and chunking it would be a different trajectory.
+    n_torsions = 0 if model.config.no_torsion else len(graph.ligand["mask_rotate"])
+    score_fn = chunking.chunked_score_fn(model.score_fn(graph), options.max_parallel_samples,
+                                         n_torsions=n_torsions,
+                                         reset=getattr(model, "drop_trace", None))
     rollout = sampling.sample(
-        model.score_fn(graph), start, cfg=cfg, bounds=bounds, noise=noise,
+        score_fn, start, cfg=cfg, bounds=bounds, noise=noise,
         edge_index=graph.ligand["edge_index"].T[graph.ligand["edge_mask"]],
         mask_rotate=graph.ligand["mask_rotate"], no_torsion=model.config.no_torsion,
         crop_beyond_a=model.config.crop_beyond, trajectory=options.save_trajectory)
