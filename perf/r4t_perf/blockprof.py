@@ -47,9 +47,9 @@ def _desc(t):
 
 class Rec:
     def __init__(self):
-        self.verb, self.node, self.cur, self.on, self.ch = {}, {}, None, False, []
+        self.verb, self.node, self.cur, self.on, self.ch, self.mm = {}, {}, None, False, [], {}
 
-    def add(self, name, out, args, ns, sns):
+    def add(self, name, out, args, ns, sns, kw=None):
         d = _desc(out)
         ins = [x for x in (_desc(a) for a in args) if x is not None]
         if d is None and ins:
@@ -63,6 +63,12 @@ class Rec:
             for s in shp:
                 o *= s
             fl = 2 * o * k
+        if "matmul" in name or "linear" in name:  # per-call-site detail: operand shapes/dtypes, transpose flags
+            kws = tuple(sorted((k, str(v)) for k, v in (kw or {}).items() if k.startswith("transpose") or k == "dtype"))
+            mk = (name, tuple((x[0], x[1].split(".")[-1]) for x in ins), (shp, d[1].split(".")[-1] if d else ""), kws)
+            m = self.mm.setdefault(mk, [0, 0])
+            m[0] += 1
+            m[1] += sns
         key = (name, shp)
         r = self.verb.setdefault(key, [0, 0, 0, 0])
         r[0] += 1
@@ -107,7 +113,7 @@ class W:
                     kids = rec.ch.pop()
                     if rec.ch:
                         rec.ch[-1] += ns
-                rec.add(_q, r, a, ns, max(ns - kids, 0))
+                rec.add(_q, r, a, ns, max(ns - kids, 0), k)
                 return r
             out = call
         else:
@@ -180,7 +186,9 @@ def table(rec, wall_s):
     tot = sum(r["self_s"] for r in rows)
     roof = sum(r["roof_s"] for r in rows)
     host = sum(r["self_s"] for r in rows if r["verb"] in HOST_VERBS)
-    return dict(verb_sum_s=round(tot, 5), roof_sum_s=round(roof, 5), host_verb_s=round(host, 5),
+    mm = sorted(({"verb": k[0].split(".")[-1], "ins": [list(map(list, i)) for i in k[1]], "out": [list(k[2][0]), k[2][1]],
+                  "kw": dict(k[3]), "n": v[0], "ms": round(v[1] / 1e6, 3)} for k, v in rec.mm.items()), key=lambda r: -r["ms"])
+    return dict(mm=mm[:30], verb_sum_s=round(tot, 5), roof_sum_s=round(roof, 5), host_verb_s=round(host, 5),
                 host_verb_calls=sum(r["n"] for r in rows if r["verb"] in HOST_VERBS), by_verb=rows[:40],
                 by_closure=nodes[:30])
 
