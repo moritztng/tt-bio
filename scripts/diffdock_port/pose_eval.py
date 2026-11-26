@@ -91,6 +91,17 @@ def mcnemar_exact(b, c):
 # ---------------------------------------------------------------- docking
 
 
+def docked(out_dir: Path, i: str) -> bool:
+    """A complex counts as docked only if rank1.sdf has CONTENT.
+
+    A dock that raises while RDKit is already writing leaves a 0-byte rank1.sdf behind
+    (seen on 5S8I_2LY: "Can't kekulize mol"). Treating that file as a result would both
+    skip the complex on resume and feed an empty molecule to the grader.
+    """
+    f = out_dir / i / "rank1.sdf"
+    return f.exists() and f.stat().st_size > 0
+
+
 def ids_all():
     return sorted(d.name for d in PB.iterdir() if d.is_dir())
 
@@ -123,7 +134,7 @@ def dock_chunk(ids, out_dir: Path, seed: int):
 
 def dock(ids, out_dir: Path, workers: int, chunk: int, seed: int, threads: int):
     out_dir.mkdir(parents=True, exist_ok=True)
-    todo = [i for i in ids if not (out_dir / i / "rank1.sdf").exists()]
+    todo = [i for i in ids if not docked(out_dir, i)]
     print(f"{len(ids)} complexes, {len(ids) - len(todo)} already docked, {len(todo)} to go",
           flush=True)
     chunks = [todo[s:s + chunk] for s in range(0, len(todo), chunk)]
@@ -148,10 +159,10 @@ def dock(ids, out_dir: Path, workers: int, chunk: int, seed: int, threads: int):
             if p.poll() is not None:
                 log.close()
                 running.remove(entry)
-                done = sum(1 for i in part if (out_dir / i / "rank1.sdf").exists())
+                done = sum(1 for i in part if docked(out_dir, i))
                 print(f"chunk {part[0]}..{part[-1]}: rc={p.returncode} {done}/{len(part)} "
                       f"({time.time() - t0:.0f}s elapsed)", flush=True)
-    n = sum(1 for i in ids if (out_dir / i / "rank1.sdf").exists())
+    n = sum(1 for i in ids if docked(out_dir, i))
     print(f"DOCK_DONE {n}/{len(ids)} complexes have rank1.sdf after "
           f"{time.time() - t0:.0f}s", flush=True)
 
@@ -169,7 +180,7 @@ def grade(ids, out_dir: Path, acc_dir: Path, label: str):
     recs = []
     for i in ids:
         d = f"{OUTD}/{i}"
-        if not os.path.exists(f"{d}/rank1.sdf"):
+        if not docked(out_dir, i):
             recs.append({"id": i, "docked": False})
             continue
         # Upstream's own evaluator takes the MINIMUM RMSD over EVERY conformer in

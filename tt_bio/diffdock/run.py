@@ -144,7 +144,11 @@ def _sample_one(job: DockJob, options: DockOptions, write_dir: Path, receptor: P
     from rdkit import Chem
 
     # The graph, and so every pose, is heavy-atom only; upstream writes the H-stripped mol.
-    mol = Chem.RemoveHs(Chem.Mol(graph.mol), sanitize=False)
+    # Sanitised, as upstream's `RemoveHs(mol_pred)` is: `sanitize=False` leaves the aromatic
+    # flags without kekulisation, and `SDWriter.write` kekulises, so every heteroaromatic
+    # ligand raised `KekulizeException` AFTER the whole rollout had run and lost the complex
+    # (5S8I_2LY, CNC(=O)c1scc2c1OCCO2).
+    mol = Chem.RemoveHs(Chem.Mol(graph.mol))
     poses = (rollout.poses + graph.original_center).numpy()
     confidences = None if options.no_confidence else model.confidence(graph, rollout.poses)
     order = list(range(len(poses)))
