@@ -45,7 +45,7 @@ def main():
     from tt_bio.main import ensure_p300_mesh_descriptor
     ensure_p300_mesh_descriptor()
     import ttnn
-    from tt_bio import autograd as ag, taped_ttnn as T, tenstorrent as tt
+    from tt_bio import autograd as ag, ops, taped_ttnn as T, tenstorrent as tt
     from tt_bio.train.bridge import Bridge
     dev = tt.get_device()
     rng = CK.case_rng(a.seed, "bridge")
@@ -63,7 +63,8 @@ def main():
     br = Bridge(dev)
     with T.tape():
         cond = br.up(A(r64["x"].float()))
-        s = br.down(ttnn.linear(cond, Wl, compute_kernel_config=ckc))
+        # ops.linear, not ttnn.linear: the tape rebinds module-global ttnn, so a local import runs untaped.
+        s = br.down(ops.linear(cond, Wl, compute_kernel_config=ckc))
     loss = (B(s) * wt[0].float()).sum() + (D(s.detach()) * wt[1].float()).sum()
     if a.brk:
         for t, h in br.downs:
