@@ -1772,7 +1772,11 @@ _BH_ONLY = ("trimul_t1", "trimul_t1_c256", "trimul_t2", "trimul_t2cm", "trimul_t
 # trimul_x8 + pair_x8t (both modes; --fast already carries trimul_x8): pair_x8t keeps the trimul einsum's moved x bfp8
 # into the T2 GATE tail instead of typecasting it back to bf16. In-process A/B, repeat 3, WH Galaxy chips at 1000 MHz
 # every fold (x8s, 512 aa): ESMFold2 normal 22.86 -> 21.84 s, --fast 22.19 -> 21.32 s; -Fast normal 13.53 -> 12.98 s,
-# --fast 13.38 -> 12.88 s. Graded as one stack per mode (gs, 11 complexes x 4 seeds): see state/spd-m-esmfold-6.md.
+# --fast 13.38 -> 12.88 s. Graded as one stack per mode against the set without both, same chips, 11 complexes x 4
+# seeds, 44 paired folds per cell (gs): ESMFold2 normal CA-lDDT +0.0006 [-0.0006, +0.0024], I-RMSD -0.05 A [-0.30,
+# +0.13], top-pose median 0.63 A vs 1.47 A seed floor, docking 33 -> 33 of 44; -Fast normal CA-lDDT +0.0002 [-0.0012,
+# +0.0015], I-RMSD -0.11 A [-0.92, +0.52], 0.86 A vs 1.36 A, docking 24 -> 24; ESMFold2 --fast -0.0003 [-0.0023,
+# +0.0021], 0.68 A vs 1.34 A, docking 31 -> 32; -Fast --fast +0.0010 [-0.0006, +0.0028], 0.94 A vs 1.43 A, 24 -> 24.
 _WH_NORMAL_EXTRA = "+ef2_lm_combine+lm_qk_chain+trimul_t2fold+trimul_gin_w8+ef2_msa_ffn+trimul_x8+pair_x8t"
 # lm_gate_ng keeps the 6B's SwiGLU gate on binary_ng in both modes (esmc._lm_gate_legacy, on for Wormhole elsewhere):
 # the legacy multiply is graded on ESMC's embeddings (6B pcc vs fp32 -0.00002 / +0.00001), not yet on a fold.
