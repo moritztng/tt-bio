@@ -1,10 +1,11 @@
-"""apb_sdpa vs the fp32 accurate-softmax chain at Protenix-v2's pairformer attention shape, against float64.
+"""apb_sdpa and apb_qkvf vs the fp32 accurate-softmax chain at Protenix-v2's pairformer attention shape, against float64.
 
 q, k, v: [1, 16, n, 24] padded to 32 head columns (zeros), bf16 as the trunk feeds them. bias: a per-head pair bias
 whose within-row spread runs from ~1 to ~135 (the range `_accurate_softmax` documents), plus a -1e9 key mask on the
 last `--masked` tokens, added before the call as AttentionPairBias does. Prints one JSON line per n:
 rel_rms of each output vs the float64 softmax((q k^T + bias) * d^-0.5) @ v on the bf16-rounded inputs, the max abs
-error, and device ms per call (median of --reps, synchronized).
+error, and device ms per call (median of --reps, synchronized). `qkvf` is apb_qkvf's call: one fp32 `_sdpa32_fused`
+on the fused [1, 1, n, 3 * 16 * 32] qkv (q heads, then k, then v), bf16 out, heads concatenated on their padded lanes.
 
     TT_VISIBLE_DEVICES=<card> python perf/spd_m_protenix8/apb_sdpa_probe.py 512 256
 """
@@ -51,6 +52,15 @@ def chain(q, k, v, z):
     return o
 
 
+def qkvf(qkv, _k, _v, z):
+    """AttentionPairBias._qkvf's apb_qkvf branch: fp32 operands, bf16 out."""
+    q32, z32 = ttnn.typecast(qkv, ttnn.float32), ttnn.typecast(z, ttnn.float32)
+    o = T._sdpa32_fused(q32, z32, scale, H, out_dtype=ttnn.bfloat16)
+    ttnn.deallocate(q32)
+    ttnn.deallocate(z32)
+    return o
+
+
 def timed(f, *args):
     ts = []
     for _ in range(a.reps):
@@ -76,18 +86,23 @@ for n in a.sizes:
     qb, kb, vb, zb = (x.to(torch.bfloat16) for x in (q, k, v, z))
     ref = torch.softmax(((qb.double() @ kb.double().transpose(-1, -2)) + zb.double()) * scale, -1) @ vb.double()
     out = {"n": n}
-    with T.levers({"apb_sdpa"}):
-        for name, f in (("chain", chain), ("sdpa", lambda *x: T._apb_sdpa32(*x, scale))):
+    with T.levers({"apb_sdpa", "apb_qkvf"}):
+        for name, f in (("chain", chain), ("sdpa", lambda *x: T._apb_sdpa32(*x, scale)), ("qkvf", qkvf)):
             Q, K, V, Z = tt(qb), tt(kb), tt(vb), tt(zb)
+            if name == "qkvf":
+                Q = tt(torch.cat([t.permute(0, 2, 1, 3).reshape(1, 1, n, H * DP) for t in (qb, kb, vb)], -1))
             o = f(Q, K, V, Z)
             if o is None:
                 out[name] = "declined"
                 continue
-            got = ttnn.to_torch(o).double()[..., :n, :DP]
+            got = ttnn.to_torch(o).double()
+            if name == "qkvf":   # [1, 1, n, H * DP] -> [1, H, n, DP]
+                got = got.reshape(1, n, H, DP).permute(0, 2, 1, 3)
+            got = got[..., :n, :DP]
             err = got - ref
             out[name] = {"rel_rms": float(err[..., :D].pow(2).mean().sqrt() / ref[..., :D].pow(2).mean().sqrt()),
                          "max_abs": float(err[..., :D].abs().max()), "finite": bool(torch.isfinite(got).all()),
-                         "ms": timed(f, Q, K, V, Z) if name == "sdpa" else None}
+                         "ms": timed(f, Q, K, V, Z) if name != "chain" else None}
             if name == "chain":
                 # the chain consumes z in place (add_), so time it on fresh copies
                 ts = []
