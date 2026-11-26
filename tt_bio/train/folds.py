@@ -80,6 +80,15 @@ class Folds:
         real = ttnn.from_torch
 
         def upload(x, *a, **k):
+            if (not a and k.get("dtype") == ttnn.bfloat16 and k.get("layout") == ttnn.TILE_LAYOUT
+                    and k.get("device") is not None and x.dim() >= 2 and x.shape[-1] % 32 == 0 and x.shape[-2] % 32 == 0):
+                # Tilize on the card: the host tilize in from_torch is most of a rebuild (~10 ms vs ~1 ms per
+                # 2.4 M elements at 2 CPUs). The bf16 rounding stays torch's, and tilize only moves data, so the
+                # weight is the same bits (perf/r4t_perf/fold/tilt.py).
+                r = real(x.to(torch.bfloat16), **{**k, "layout": ttnn.ROW_MAJOR_LAYOUT})
+                t = ttnn.to_layout(r, ttnn.TILE_LAYOUT, memory_config=k.get("memory_config"))
+                ttnn.deallocate(r)
+                return t
             if not (device_pack and not a and k.get("dtype") == ttnn.bfloat8_b
                     and k.get("device") is not None and k.get("layout") == ttnn.TILE_LAYOUT):
                 return real(x, *a, **k)
