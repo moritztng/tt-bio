@@ -55,7 +55,6 @@ def main():
                     help="grade FLOOR_SITES on 1.5x this committed floor column (refused if it does not reproduce)")
     a = ap.parse_args()
     if a.sdpa_own or a.arm == "fp32":  # the fused kernel refuses fp32 operands
-        import os
         os.environ["TT_BIO_SDPA_OWN_FORWARD"] = "1"
     from tt_bio.main import ensure_p300_mesh_descriptor
     ensure_p300_mesh_descriptor()
