@@ -2,8 +2,7 @@
 
 Per step, as upstream's recipe runs it: `k` noise candidates through the production trunk grad-off at recycle depth
 `d` (one batched inference call), then the winner's LAST pass re-run taped on the production methods
-(`Trunk._recycle` + `Trunk.run_pass`, the same calls `Trunk.__call__` makes), earlier passes detached as upstream's
-`recycle_grad: last`. Not yet bridged: the host glue (conditioning, init_repr, pair builder) and heads; their inputs
+by the production `Trunk.__call__` under the tape, earlier passes no_grad as upstream's `recycle_grad: last`. Not yet bridged: the host glue (conditioning, init_repr, pair builder) and heads; their inputs
 are seeded tensors and the loss seed lands on s (`<s, C>/numel`). Prints one JSON line per step.
 
   --save-at k / --resume PATH: checkpoint after step k / continue from it in a fresh process (bit-identical check)
@@ -84,45 +83,36 @@ def main():
         z0 = torch.randn(a.k, n, n, P, generator=gs) * 0.5
         return s0, z0
 
-    def last_pass(s_init, z_init, s_prev, z_prev):
-        """`Trunk.__call__`'s final iteration, taped: recycle from the detached previous pass, then one pass."""
-        low = trunk.dtype if zd == ttnn.float32 and trunk.dtype == ttnn.bfloat16 else None
-        zb = None
-        if s_prev is None:
-            s_in, z_in = ttnn.clone(s_init), ttnn.clone(z_init)
-        else:
-            s_in = trunk._recycle(s_init, s_prev, trunk.s_norm, trunk.s_proj, trunk.residual_dtype)
-            z_in = trunk._recycle(z_init, z_prev, trunk.z_norm, trunk.z_proj, zd, low=low)
-            if low is not None:
-                z_in, zb = z_in
-        if a.detach_at >= 0:
-            blk = trunk.blocks[a.detach_at]
+    def winner(s_init, z_init):
+        """The production `Trunk.__call__` at depth d: under a tape every cycle but the last runs no_grad
+        (`ops.recycle_region`, upstream's `recycle_grad: last`), so only the last pass is differentiated."""
+        if a.detach_at < 0:
+            return trunk(s_init, z_init, [cond1] * a.depth, masks1)
+        blk = trunk.blocks[a.detach_at]
 
-            def cut(s, *r, **kw):
-                return type(blk).__call__(blk, ttnn.clone(s.value if isinstance(s, ag.Tensor) else s), *r, **kw)
-            trunk.blocks[a.detach_at] = cut
-            try:
-                return trunk.run_pass(s_in, z_in, cond1, masks1, zb=zb)
-            finally:
-                trunk.blocks[a.detach_at] = blk
-        return trunk.run_pass(s_in, z_in, cond1, masks1, zb=zb)
+        def cut(s, *r, **kw):
+            return type(blk).__call__(blk, ttnn.clone(s.value if isinstance(s, ag.Tensor) else s), *r, **kw)
+        trunk.blocks[a.detach_at] = cut
+        try:
+            return trunk(s_init, z_init, [cond1] * a.depth, masks1)
+        finally:
+            trunk.blocks[a.detach_at] = blk
 
     def one_example(step, taped):
         s0, z0 = inputs(step)
-        # k candidates, production trunk, grad off, at depth d: the inference call the sampler makes
-        sk, zk = trunk(put(s0), put(z0, zd), [condk] * a.depth, masksk)
-        win = 0   # the objective picks the winner from the heads' loss; heads are not bridged yet (see doc)
-        s_init, z_init = put(s0[win:win + 1]), put(z0[win:win + 1], zd)
-        s_prev = z_prev = None
-        if a.depth > 1:
-            s_prev, z_prev = trunk(s_init, z_init, [cond1] * (a.depth - 1), masks1)
-        ttnn.deallocate(sk)
-        ttnn.deallocate(zk)
-        with T.lever_scope(levers):
+        # Everything runs inside one tape so the walked (taped) weights meet taped verbs everywhere; the
+        # k candidates are the sampler's batched inference call and stay grad-off.
+        with T.lever_scope(levers), ag.tape():
+            with ag.no_grad():
+                sk, zk = trunk(put(s0), put(z0, zd), [condk] * a.depth, masksk)
+            win = 0   # the objective picks the winner from the heads' loss; heads are not bridged yet (see doc)
+            for t in (sk, zk):
+                ttnn.deallocate(t.value if isinstance(t, ag.Tensor) else t)
+            s_init, z_init = put(s0[win:win + 1]), put(z0[win:win + 1], zd)
             if not taped:
-                return last_pass(s_init, z_init, s_prev, z_prev)
-            with ag.tape():
-                return last_pass(s_init, z_init, s_prev, z_prev)
+                with ag.no_grad():
+                    return winner(s_init, z_init)
+            return winner(s_init, z_init)
 
     ag.install()
     params = lora.walked_weights(lambda: one_example(0, False), None, trunk)
