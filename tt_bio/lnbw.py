@@ -219,5 +219,4 @@ def layer_norm_bw_weights(x, g, gamma, eps, config):
     for t in parts:
         red.append(ttnn.sum(t, dim=0, keepdim=True, compute_kernel_config=config))
         ttnn.deallocate(t)
-    REACH["served weights"] += 1
     return dx, red[0], red[1]
