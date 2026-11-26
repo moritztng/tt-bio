@@ -268,6 +268,76 @@ class StaticGraphs:
         mask = cross_mask(lig_pos, rec_pos, self.cross_edge_index[:, :real], c)
         return pad_mask(mask, self.cross_edge_index.shape[1])
 
+    # -- the receptor crop, as a mask (D-dfd-orch-11) ---------------------------------
+    def rec_edge_index(self, rec_edges: Tensor) -> Tensor:
+        """The receptor's own edge set (upstream's precomputed k-NN), tiled over the poses.
+
+        Built once, before the loop: the receptor does not move, so its graph never changes.
+        Indices are receptor-local, padded with the receptor pad node; add
+        :attr:`rec_offset` to place them on the conv stack's combined node axis.
+        """
+        tiled = tile_disjoint(rec_edges.to(self.cross_edge_index.device), self.n_poses,
+                              self.n_rec, self.n_rec)
+        return pad_edge_index(tiled, bucket(tiled.shape[1]), self.n_rec_padded - 1)
+
+    def rec_keep(self, lig_pos: Tensor, rec_pos: Tensor, cutoff) -> Tensor:
+        """Upstream's per-step ``crop_beyond`` as a ``[n_rec_padded]`` 0/1 node mask.
+
+        Upstream (and `sampling.crop_beyond`, which mirrors it) *removes* every residue
+        further than ``3 * tr_sigma + crop_beyond`` from the pose, so the receptor shrinks as
+        the schedule anneals and no single shape covers the rollout. Keeping the full
+        receptor and masking the same residues is exact rather than approximate: a removed
+        node and its incident edges are gone; a masked node keeps its slot but every edge
+        touching it is masked (:meth:`rec_edge_mask`, and the cross mask multiplied by this),
+        and the ``mean`` divisor sums the mask, so no surviving node sees a difference. The
+        predicate is `sampling.crop_beyond`'s own expression, `cdist(rec, lig) < cutoff`, per
+        pose -- upstream crops each graph of the batch against its own ligand. *cutoff* is
+        one number or one per pose. Pad rows are 0.
+        """
+        n_lig, n_rec, b = self.n_lig, self.n_rec, self.n_poses
+        lig = lig_pos[:n_lig * b].reshape(b, n_lig, 3).float()
+        rec = rec_pos[:n_rec * b].reshape(b, n_rec, 3)
+        c = torch.as_tensor(cutoff, dtype=rec.dtype, device=rec.device).reshape(-1, 1)
+        keep = (torch.cdist(rec, lig) < c.expand(b, 1)[:, :, None]).any(dim=-1)
+        return pad_mask(keep.reshape(-1).to(rec_pos.dtype), self.n_rec_padded)
+
+    def rec_keep_from_cross(self, cross_near: Tensor) -> Tensor:
+        """The same keep-set, as a scatter over the cross edges instead of a second `cdist`.
+
+        The cross edge set is complete, so "some ligand atom of this pose is within *c* of
+        this residue" is exactly an ``any`` over the cross edges that end on it -- and the
+        step already computes those distances for the cross mask. On device that is one
+        ``index_add_`` into the receptor node axis rather than an ``[n_rec, n_lig]`` distance
+        matrix per pose, which is why this form exists; it is what `dfd-device` should call.
+
+        *cross_near* is ``[E]`` over :attr:`cross_edge_index`, 1 where the residue is inside
+        the crop radius of that ligand atom -- for the shipped recipe, where the crop radius
+        and the cross cutoff are the same number, that is :meth:`cross_mask`'s own output.
+        Pad edges end on the pad node, so they can only light up a pad row, which is zeroed.
+        """
+        counts = torch.zeros(self.n_rec_padded, dtype=cross_near.dtype,
+                             device=cross_near.device)
+        counts.index_add_(0, self.cross_edge_index[1], cross_near.reshape(-1))
+        keep = (counts > 0).to(cross_near.dtype)
+        keep[self.n_rec * self.n_poses:] = 0
+        return keep
+
+    @staticmethod
+    def rec_edge_mask(keep: Tensor, rec_edge_index: Tensor) -> Tensor:
+        """An edge of the receptor graph survives the crop iff both ends do (`_subgraph`)."""
+        return keep[rec_edge_index[0]] * keep[rec_edge_index[1]]
+
+    def cropped_cross_mask(self, lig_pos: Tensor, rec_pos: Tensor, cutoff, keep: Tensor):
+        """:meth:`cross_mask` restricted to the residues the crop keeps.
+
+        At the shipped recipe the two cutoffs are the same number, so the product only
+        matters on the boundary: the cross graph compares ``|v / c| <= 1`` and the crop
+        ``cdist < c``, and a residue exactly on the sphere would be in one and not the other.
+        Multiplying reproduces upstream there too, where a cropped residue has no edges.
+        """
+        m = self.cross_mask(lig_pos, rec_pos, cutoff)
+        return m * keep[self.cross_edge_index[1]]
+
     def tor_mask(self, lig_pos: Tensor, bond_pos: Tensor, lig_max_radius: float) -> Tensor:
         real = self.n_rot_bonds * self.n_lig * self.n_poses
         vec = edge_vectors(bond_pos, lig_pos, self.tor_edge_index[:, :real])

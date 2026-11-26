@@ -122,9 +122,10 @@ def test_the_non_finite_so3_entries_are_upstreams_too_and_are_unreachable():
                            "DFD_SLOW_UPSTREAM=1 to run it.")
 @pytest.mark.skipif(not (UPSTREAM / ".score.npy").exists(),
                     reason="upstream clone with its .npy caches is not present")
-def test_torus_sits_inside_upstreams_monte_carlo_spread():
-    import sys
-    sys.path.insert(0, str(UPSTREAM))
+def test_torus_sits_inside_upstreams_monte_carlo_spread(monkeypatch):
+    # upstream's torus module loads (or regenerates, 200 MB and minutes) its caches from cwd
+    monkeypatch.chdir(UPSTREAM)
+    monkeypatch.syspath_prepend(str(UPSTREAM))
     pytest.importorskip("tqdm")
     from utils import torus           # recomputes its own unseeded sample on import
     ours = S.torus_score_norm_table()
