@@ -36,6 +36,7 @@ def main():
     ap.add_argument("--fidelity", default="HiFi4")
     ap.add_argument("--broken", action="store_true")
     ap.add_argument("--kchunk", type=int, default=256, help="gramk: reduction slice width")
+    ap.add_argument("--host-norm", action="store_true", help="probe: Frobenius normalization on host (bf16, upstream order), iterations on device")
     ap.add_argument("--no-l1acc", action="store_true", help="packer_l1_acc off (partials stay in DEST)")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
@@ -75,10 +76,11 @@ def main():
         c g g from the rounded one, a x rounded before the add). CPU emulation over 8 random 256x768 matrices
         (ns_emu.py): naive 2.1-2.3x host error, gram 1.01x. Mixing a rounded and an unrounded gram breaks the
         polynomial-in-one-matrix structure, and five Newton-Schulz iterations amplify it."""
-        x32 = ttnn.typecast(x, f32)
-        ss = ttnn.sum(ttnn.sum(ttnn.multiply(x32, x32), dim=-1, keepdim=True), dim=-2, keepdim=True)
-        inv = ttnn.reciprocal(ttnn.clamp(ttnn.sqrt(ss), min=EPS))
-        x = ttnn.multiply(x32, inv, dtype=b16)
+        if not a.host_norm:
+            x32 = ttnn.typecast(x, f32)
+            ss = ttnn.sum(ttnn.sum(ttnn.multiply(x32, x32), dim=-1, keepdim=True), dim=-2, keepdim=True)
+            inv = ttnn.reciprocal(ttnn.clamp(ttnn.sqrt(ss), min=EPS))
+            x = ttnn.multiply(x32, inv, dtype=b16)
         for _ in range(5):
             if a.arm == "naive":
                 g = mm(x, x, f32, transpose_b=True)
@@ -109,7 +111,11 @@ def main():
         if r > c:
             w = w.transpose(-1, -2).contiguous()
         groups.append(w)
-    dins = [ttnn.from_torch(w, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev) for w in groups]
+    def hn(w):  # upstream's host normalization in bf16, exactly as ns_ref does it
+        x = w.to(torch.bfloat16)
+        return x / x.norm(dim=(-2, -1), keepdim=True).clamp(min=EPS)
+    dins = [ttnn.from_torch(hn(w) if a.host_norm else w, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)
+            for w in groups]
 
     def step():
         return [ns_dev(x) for x in dins]
@@ -137,7 +143,7 @@ def main():
             if not ok:
                 fail.append([list(w.shape[1:]), k, ed, eh])
     dts = [t1 - t0 for t0, t1 in times]
-    res = dict(arm=a.arm, kchunk=a.kchunk, fidelity=a.fidelity, l1acc=not a.no_l1acc, broken=a.broken, host="qb2", chip=card, board="p300c", sha=sha,
+    res = dict(arm=a.arm, host_norm=a.host_norm, kchunk=a.kchunk, fidelity=a.fidelity, l1acc=not a.no_l1acc, broken=a.broken, host="qb2", chip=card, board="p300c", sha=sha,
                n_matrices=sum(g.shape[0] for g in groups), reps=a.reps, step_s=[round(d, 4) for d in dts],
                step_s_min=round(min(dts), 4), aiclk=[min(ck), max(ck), len(ck)] if ck else None,
                worst_edev_over_ehost=round(worst, 3), n_fail=len(fail), fail=fail[:20],
