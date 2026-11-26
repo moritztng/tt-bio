@@ -17,7 +17,7 @@ import pytest
 
 torch = pytest.importorskip("torch")
 
-from tt_bio.diffdock.geometry import spherical_harmonics
+from tt_bio.diffdock.harmonics import spherical_harmonics
 from tt_bio.diffdock.heads import CenterHead
 from tt_bio.diffdock.irreps import Irreps
 
@@ -66,25 +66,25 @@ def _inputs(sizes=(5, 12, 9)):
 
 def test_spherical_harmonics_basic_invariants():
     v = torch.randn(200, 3, dtype=torch.float64)
-    sh = spherical_harmonics(SH, v)
+    sh = spherical_harmonics(v)
     assert sh.shape == (200, 9)
     # component normalisation: |Y_l|^2 = 2l+1 on the unit sphere
     assert torch.allclose(sh[:, 1:4].pow(2).sum(1), torch.full((200,), 3.0, dtype=torch.float64))
     assert torch.allclose(sh[:, 4:9].pow(2).sum(1), torch.full((200,), 5.0, dtype=torch.float64))
     # scale-free (normalize=True), and l=2 alone is the tail of the full set
-    assert torch.allclose(spherical_harmonics(SH, 7.5 * v), sh)
-    assert torch.equal(spherical_harmonics("2e", v), sh[:, 4:9])
+    assert torch.allclose(spherical_harmonics(7.5 * v), sh)
+    assert torch.equal(spherical_harmonics(v, (2,)), sh[:, 4:9])
 
 
 def test_a_zero_edge_gives_zeros_not_nan():
-    sh = spherical_harmonics(SH, torch.zeros(1, 3))
+    sh = spherical_harmonics(torch.zeros(1, 3))
     assert torch.isfinite(sh).all()
     assert sh[0, 0] == 1 and torch.equal(sh[0, 1:], torch.zeros(8))
 
 
 def test_harmonics_beyond_l2_are_refused():
-    with pytest.raises(ValueError, match="l > 2"):
-        spherical_harmonics("1x3o", torch.ones(1, 3))
+    with pytest.raises(ValueError, match="l=2"):
+        spherical_harmonics(torch.ones(1, 3), (3,))
 
 
 def test_the_head_is_rotation_equivariant_in_float64():
