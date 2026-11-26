@@ -35,10 +35,11 @@ def golden():
 
 def _stub_scores(pos, t_tr, t_rot, t_tor, n_torsions):
     """The same stub the golden was captured with (sampling_parity.StubModel)."""
+    scale = 1e-3                    # sampling_parity.SCORE_SCALE; stands in for ~1/sigma
     centre = pos.mean(dim=1)
-    tr = torch.tanh(centre / 10.0) * (1.0 + t_tr)
-    rot = torch.sin(pos[:, 0] - pos[:, -1]) * (1.0 + t_rot)
-    tor = torch.cos(pos[:, :n_torsions, 0] + t_tor).reshape(-1)
+    tr = torch.tanh(centre / 10.0) * (1.0 + t_tr) * scale
+    rot = torch.sin((pos[:, 0] - pos[:, -1]) / 10.0) * (1.0 + t_rot) * scale
+    tor = torch.cos(pos[:, :n_torsions, 0] / 10.0 + t_tor).reshape(-1) * scale
     return tr, rot, tor
 
 
