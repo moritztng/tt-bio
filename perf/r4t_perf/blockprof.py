@@ -326,6 +326,7 @@ def main():
     res["arms"]["wall_aa"] = [step()[0] for _ in range(a.reps)]  # A/A: same arm after the instrument is removed
     from tt_bio import lnbw
     res["lnbw"] = dict(weights=lnbw.WEIGHTS, reach=dict(lnbw.REACH), calls=_seen)
+    res["mmvjp"] = dict(on=ag.MMVJP_MIN, stats=dict(ag.MMVJP_STATS))
     json.dump(res, open(a.out, "w"), indent=1)
     print(json.dumps(res["arms"]["wall"]), json.dumps(res["arms"]["wall_aa"]), flush=True)
     stop.set()

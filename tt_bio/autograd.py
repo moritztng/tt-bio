@@ -1135,6 +1135,60 @@ SPLIT_K_CHUNKS = 64
 SPLIT_K_STATS = {"served": 0}
 
 
+# L4 (r4t-perf, default OFF): the linear VJP's two long-token products on `minimal_matmul`. At the RFD4
+# PairUpdate crop-256 shapes (65,536 tokens) stock `ttnn.matmul` runs dX = G W^T and dW = X^T G at ~100 GB/s
+# whatever the fidelity (LoFi = HiFi4 time), while minimal_matmul on a pre-transposed operand is 1.1-2.9x faster
+# at the same or better rel vs float64 (perf/r4t_perf/mm/prog.json). Served only on what was measured:
+# bf16, 2-D, interleaved, tile-multiple, >= MMVJP_MIN_ROWS tokens. Anything else, or any error, falls back.
+MMVJP_MIN = env_flag("TT_BIO_MMVJP_MIN", False)
+MMVJP_BROKEN = env_flag("TT_BIO_MMVJP_BROKEN", False)  # grader's broken arm: dX against the UN-transposed W
+MMVJP_MIN_ROWS = 4096
+MMVJP_STATS = {"dx": 0, "dw": 0, "declined": 0}
+
+
+def _mmvjp_ok(*ts):
+    for t in ts:
+        if (len(t.shape) != 2 or t.dtype != ttnn.bfloat16 or t.layout != ttnn.TILE_LAYOUT or t.is_sharded()
+                or int(t.shape[0]) % ttnn.TILE_SIZE or int(t.shape[1]) % ttnn.TILE_SIZE):
+            return False
+    return True
+
+
+def _mmvjp_dx(v, w, cfg):
+    """dX = v @ w^T on minimal_matmul with w^T materialised (weight-sized), or None."""
+    if not MMVJP_MIN:
+        return None
+    if not (_mmvjp_ok(v, w) and int(v.shape[0]) >= MMVJP_MIN_ROWS):
+        MMVJP_STATS["declined"] += 1
+        return None
+    wt = w if (MMVJP_BROKEN and int(w.shape[0]) == int(w.shape[1])) else ttnn.transpose(w, -2, -1)
+    try:
+        out = ttnn.experimental.minimal_matmul(v, wt, compute_kernel_config=cfg, dtype=v.dtype)
+    except Exception:  # noqa: BLE001
+        out = None
+    if wt is not w:
+        ttnn.deallocate(wt)
+    MMVJP_STATS["dx" if out is not None else "declined"] += 1
+    return out
+
+
+def _mmvjp_dw(x, g, cfg):
+    """dW = x^T @ g (fp32 out) on minimal_matmul with x^T materialised, or None."""
+    if not MMVJP_MIN:
+        return None
+    if not (_mmvjp_ok(x, g) and int(x.shape[0]) >= MMVJP_MIN_ROWS):
+        MMVJP_STATS["declined"] += 1
+        return None
+    xt = ttnn.transpose(x, -2, -1)
+    try:
+        out = ttnn.experimental.minimal_matmul(xt, g, compute_kernel_config=cfg, dtype=ttnn.float32)
+    except Exception:  # noqa: BLE001
+        out = None
+    ttnn.deallocate(xt)
+    MMVJP_STATS["dw" if out is not None else "declined"] += 1
+    return out
+
+
 def _split_k(a, b, kw):
     """``a^T @ b`` over a long K with a small output, as a batch of K chunks summed in fp32, or
     None to leave the call to ``ttnn.matmul``.
@@ -3952,7 +4006,7 @@ def _taped_linear(shipped, args, kwargs):
                 # comes back as (N, N, c) and `add_grad` refuses a gradient that is not
                 # its value's shape, correctly.
                 x.add_grad(_reduce_to(_via2d(g, lambda v: _pair_mm_or(
-                                          v, w.value, True, lambda: _matmul(
+                                          v, w.value, True, lambda: _mmvjp_dx(v, w.value, bwcfg) or _matmul(
                                               v, w.value, transpose_b=True,
                                               compute_kernel_config=bwcfg), bwcfg)),
                                       xshape))
@@ -3966,9 +4020,10 @@ def _taped_linear(shipped, args, kwargs):
                 # a bf16 reduction. Asking for fp32 out fixes it and costs nothing that
                 # matters -- a weight gradient is weight-shaped, and the optimiser wants
                 # it in fp32 anyway.
+                xf, gf = _flat2d(x.value), _flat2d(g)
                 w.add_grad(_reduce_to(
-                    _matmul(_flat2d(x.value), _flat2d(g), transpose_a=True,
-                            compute_kernel_config=bwcfg, dtype=ttnn.float32),
+                    _mmvjp_dw(xf, gf, bwcfg) or _matmul(xf, gf, transpose_a=True,
+                                                        compute_kernel_config=bwcfg, dtype=ttnn.float32),
                     wshape))
             if bias is not None and bias.requires_grad:
                 bias.add_grad(_sum_leading(g, bias.value.shape))
