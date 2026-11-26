@@ -30,7 +30,7 @@ _SPLIT = "|"
 
 
 def save_adapter(path, opt: AdamW, *, meta: Optional[dict] = None) -> None:
-    """Write the fp32 masters plus the Adam moments to one safetensors file.
+    """Write the fp32 masters plus the optimizer state (Adam moments, Muon momentum) to one safetensors file.
 
     The MASTER is what gets saved, not the bf16 weight the device holds: the master is the
     authoritative value and the device copy is a rounded view of it. Saving the rounded
@@ -38,14 +38,12 @@ def save_adapter(path, opt: AdamW, *, meta: Optional[dict] = None) -> None:
     would quietly decay the adapter.
     """
     from safetensors.numpy import save_file
-    # A sharded optimizer gathers its moments here (a collective: every rank saves at the
+    # A sharded optimizer gathers its state here (a collective: every rank saves at the
     # same step), so every rank writes the same complete file and it resumes at any width.
-    exp_avg, exp_avg_sq = opt.moments()
-    tensors = {}
-    for name, arr in opt.master.items():
-        tensors[f"master{_SPLIT}{name}"] = arr
-        tensors[f"exp_avg{_SPLIT}{name}"] = exp_avg[name]
-        tensors[f"exp_avg_sq{_SPLIT}{name}"] = exp_avg_sq[name]
+    # Adam parameters carry exp_avg/exp_avg_sq, Muon ones their momentum_buffer.
+    tensors = {f"master{_SPLIT}{name}": arr for name, arr in opt.master.items()}
+    for fam, arrs in opt.state_families().items():
+        tensors.update({f"{fam}{_SPLIT}{name}": arr for name, arr in arrs.items()})
     header = {"optimizer": json.dumps(opt.state_dict()),
               "tt_bio_adapter": "1"}
     if meta:
@@ -73,8 +71,9 @@ def load_adapter(path, params: Dict[str, ag.Tensor], device, *, opt: Optional[Ad
         t.value = to_device(arr, device, dtype=t.value.dtype)
         if opt is not None:
             opt.master[name] = arr.copy()
-            opt.exp_avg[name] = blob[f"exp_avg{_SPLIT}{name}"].astype(np.float32).copy()
-            opt.exp_avg_sq[name] = blob[f"exp_avg_sq{_SPLIT}{name}"].astype(np.float32).copy()
+            for fam in ("exp_avg", "exp_avg_sq", "momentum_buffer"):
+                if f"{fam}{_SPLIT}{name}" in blob:
+                    getattr(opt, fam)[name] = blob[f"{fam}{_SPLIT}{name}"].astype(np.float32).copy()
     with open(path, "rb") as fh:
         n = int.from_bytes(fh.read(8), "little")
         header = json.loads(fh.read(n))

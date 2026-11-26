@@ -137,6 +137,10 @@ include = ["tt_bio*"]
 #   - tt_bio/data/protein_ref_conformers.json: protenix-v2 + opendde featurization
 #   - tt_bio/boltzgen/resources/**: every `tt-bio design --model boltzgen` run (config yamls, splits, metrics)
 #   - tt_bio/rfd4/**/*.json: the RFD4 autoencoder's residue tables (ae_fold.py), every design run
+# tt_bio/train/fixtures/rfd4_train_16.npz: 16 crop-256 RFD4 training examples built by
+# upstream's own data pipeline (perf/r4t/build_fixture.py). 0.32 MB, and it is what lets the
+# training path be exercised without the PDB.
+"tt_bio.train" = ["fixtures/*.npz"]
 "tt_bio.data" = ["*.json", "*.json.gz"]
 "tt_bio.rfd4" = ["**/*.json"]
 "tt_bio.boltzgen" = ["LICENSE"]
