@@ -10861,7 +10861,7 @@ class TriangleMultiplication(Module):
             return cached
         chunks = [
             ttnn.from_torch(
-                t, layout=ttnn.TILE_LAYOUT, device=self.device, dtype=ttnn.bfloat16,
+                t, layout=ttnn.TILE_LAYOUT, device=self.device, dtype=_dtype(ttnn.bfloat16),
             )
             for t in self._gp_fused_order((self._g_in_t, self._p_in_t), C, group)
         ]

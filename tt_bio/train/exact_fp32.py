@@ -47,15 +47,20 @@ def _back(r, like, memory_config=None):
                                device=like.device())
 
 
-def _note(name, served):
-    k = (name, "exact" if served else "passed")
+def _why(*ts):
+    return ",".join("-" if t is None else str(getattr(t, "dtype", type(t).__name__)).split(".")[-1]
+                    for t in ts)
+
+
+def _note(name, served, why=""):
+    k = (name, "exact" if served else "passed" + (":" + why if why else ""))
     EXACT_STATS[k] = EXACT_STATS.get(k, 0) + 1
 
 
 def _mm(real):
     def matmul(a, b, *args, transpose_a=False, transpose_b=False, memory_config=None, **kw):
         if args or not _f32_dev(a, b) or kw.get("dtype") not in (None, ttnn.float32, ttnn.bfloat16):
-            _note("matmul", False)
+            _note("matmul", False, _why(a, b) + ",args=%d,dtype=%s" % (len(args), kw.get("dtype")))
             return real(a, b, *args, transpose_a=transpose_a, transpose_b=transpose_b,
                         memory_config=memory_config, **kw)
         A, B = _host(a), _host(b)
@@ -72,7 +77,7 @@ def _lin(real):
         if len(args) == 1 and bias is None:
             bias, args = args[0], ()
         if args or not _f32_dev(x, w, bias) or activation not in _ACT:
-            _note("linear", False)
+            _note("linear", False, _why(x, w, bias) + ",args=%d,act=%s" % (len(args), activation))
             return real(x, w, *args, bias=bias, transpose_a=transpose_a, transpose_b=transpose_b,
                         activation=activation, memory_config=memory_config, **kw)
         X, W = _host(x), _host(w)
@@ -89,7 +94,7 @@ def _lin(real):
 def _reduce(real, name, op):
     def reduce(x, dim=None, keepdim=False, *args, memory_config=None, **kw):
         if args or not _f32_dev(x) or kw.get("scalar") is not None:
-            _note(name, False)
+            _note(name, False, _why(x))
             return real(x, dim, keepdim, *args, memory_config=memory_config, **kw)
         X = _host(x)
         dims = tuple(range(X.dim())) if dim is None else ((dim,) if isinstance(dim, int) else tuple(dim))
@@ -102,7 +107,7 @@ def _norm(real, name, center):
     def norm(x, *args, epsilon=1e-12, weight=None, bias=None, residual_input_tensor=None,
              memory_config=None, **kw):
         if args or not _f32_dev(x, weight, bias, residual_input_tensor):
-            _note(name, False)
+            _note(name, False, _why(x, weight, bias, residual_input_tensor))
             return real(x, *args, epsilon=epsilon, weight=weight, bias=bias,
                         residual_input_tensor=residual_input_tensor, memory_config=memory_config, **kw)
         X = _host(x)
@@ -123,7 +128,7 @@ def _norm(real, name, center):
 def _move(real, name):
     def move(x, *dims, memory_config=None, **kw):
         if kw or not _f32_dev(x):
-            _note(name, False)
+            _note(name, False, _why(x) + ",kw=" + "/".join(kw))
             return real(x, *dims, memory_config=memory_config, **kw)
         X = _host(x)
         _note(name, True)
