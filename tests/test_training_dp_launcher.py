@@ -377,6 +377,31 @@ def test_reduce_scatter_on_tensor_edges_matches_the_full_sum_and_all_gather_retu
         assert np.array_equal(gathered[r], full * 2)
 
 
+def test_a_blocked_reduce_scatter_adds_in_rank_order_across_block_edges(tmp_path, monkeypatch):
+    """Slices longer than one accumulation block, with ragged edges and a ragged last block,
+    still sum to the bits of the rank-order full sum. The values span eight decades so any
+    other add order shows up in the low bits."""
+    monkeypatch.setattr(L, "_RS_BLOCK", 64)
+    w, n = 4, 4 * 3 * 64 + 17
+    rng = np.random.default_rng(7)
+    grads = {r: (rng.normal(0, 1, n) * 10.0 ** rng.uniform(-4, 4, n)).astype(np.float32)
+             for r in range(w)}
+    full = np.zeros(n, np.float32)
+    for r in range(w):
+        full += grads[r]
+    got = {}
+
+    def run(r):
+        ax = _axis(r, w, tmp_path)
+        got[r] = ax.all_gather(ax.reduce_scatter(grads[r]))
+
+    ts = [threading.Thread(target=run, args=(r,)) for r in range(w)]
+    [t.start() for t in ts]
+    [t.join(timeout=60) for t in ts]
+    for r in range(w):
+        assert np.array_equal(got[r], full), f"rank {r} differs from the rank-order sum"
+
+
 def test_shard_edges_with_fewer_tensors_than_ranks_leaves_ranks_empty_not_negative():
     e = L.shard_edges([10], 4)
     assert e[0] == 0 and e[-1] == 10 and (np.diff(e) >= 0).all()

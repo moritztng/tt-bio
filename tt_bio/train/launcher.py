@@ -84,6 +84,8 @@ BARRIER_TIMEOUT_S = 900.0
 #: two steps back, which is safe because the barrier one step back already proved every peer
 #: read it, and it bounds the run at 2 x world x gradient bytes instead of steps x that.
 _KEEP_STEPS = 2
+# reduce_scatter accumulates this many elements at a time (256 KB of fp32, fits a core's L2).
+_RS_BLOCK = 1 << 16
 
 
 def host_threads(world: int) -> int:
@@ -346,9 +348,15 @@ class ProcessAxis(Axis):
         full = self._await(d, step, "r")
         t_wait = time.perf_counter()
         lo, hi = int(edges[me]), int(edges[me + 1])
+        views = [self._view(f)[lo:hi] for f in full]
         part = np.zeros(hi - lo, dtype=vec.dtype)
-        for f in full:
-            part += self._view(f)[lo:hi]
+        # Blocked so the accumulator stays in cache across the peers: one pass over the whole
+        # slice per peer round-tripped it through memory width times, ~3x the bytes the sum
+        # needs and most of the 16-rank reduce_scatter on one host. Same per-element add order.
+        for a in range(0, hi - lo, _RS_BLOCK):
+            blk = part[a:a + _RS_BLOCK]
+            for v in views:
+                blk += v[a:a + _RS_BLOCK]
         # A stack, so a small exchange (the clip norm's sum_scalars) can run between a
         # sharded optimizer's reduce_scatter and its all_gather.
         self.state.setdefault("_open", []).append((step, edges, vec.size))
