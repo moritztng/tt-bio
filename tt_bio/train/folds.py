@@ -59,11 +59,15 @@ def _read_back(g, s):
     return _untilized(u)
 
 
+#: Untilize float32 gradients on the card before reading them back (); off = host untilize.
+CARD_UNTILIZE = True
+
+
 def _untilized(u):
     """A uint32 TILE tensor's bits as host float32, untilized on the card: the host untilize is 2-3.5x slower
     on large gradients (`perf/r4t_perf/fold/rbrm.py`), and a uint32 untilize only moves data."""
     import ttnn
-    if u.layout != ttnn.TILE_LAYOUT:
+    if not CARD_UNTILIZE or u.layout != ttnn.TILE_LAYOUT:
         return ttnn.to_torch(u).view(torch.float32)
     r = ttnn.to_layout(u, ttnn.ROW_MAJOR_LAYOUT)
     out = ttnn.to_torch(r).view(torch.float32)
