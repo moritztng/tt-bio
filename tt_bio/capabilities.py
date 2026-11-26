@@ -146,6 +146,15 @@ CAPABILITY: dict[str, dict[str, str]] = {
     "nesso1": _row(rna=REFUSED, dna=REFUSED, protein_free=REFUSED, cyclic=NOTED,
                    modifications=NOTED, templates=NOTED, template_structure=NOTED, bond=NOTED,
                    polymer_bond=NOTED, pocket=NOTED),
+    # `tt-bio dock --model diffdock`, not predict. DiffDock-L places ONE small molecule in a
+    # receptor it treats as rigid, so a second ligand chain, RNA, DNA or a receptor-free
+    # input is not something it could place; a modified or non-standard receptor residue
+    # reaches only its CA-level receptor graph, and there is no template, affinity or
+    # constraint input anywhere in the model.
+    "diffdock": _row(rna=REFUSED, dna=REFUSED, protein_free=REFUSED, cyclic=NOTED,
+                     modifications=NOTED, templates=REFUSED, template_structure=REFUSED,
+                     bond=NOTED, polymer_bond=NOTED, pocket=REFUSED, affinity=NOTED,
+                     ligand_file=HONOURED),
 }
 
 #: Molecule-type features: they come from the parsed chain list, not from a yaml key.
@@ -158,7 +167,8 @@ CHAIN_FEATURES = frozenset({"ligand", "rna", "dna", "protein_free", "ligand_file
 CHAINS_ELSEWHERE = frozenset({"nesso1", "af2ig"})
 
 #: How a user reaches a model, for the "somewhere else to go" hint. predict is the default.
-COMMAND: dict[str, str] = {"nesso1": "tt-bio affinity --model nesso1"}
+COMMAND: dict[str, str] = {"nesso1": "tt-bio affinity --model nesso1",
+                           "diffdock": "tt-bio dock --model diffdock"}
 
 
 def how(model: str) -> str:
@@ -193,6 +203,15 @@ WHY: dict[tuple[str, str], str] = {
         "13-mer the N-C distance stays 2.1-2.2 A, in upstream Protenix as here, where a "
         "closed amide is 1.33 A; protenix-v2 closes it"),
     ("nesso1", "protein_free"): "it scores a protein-ligand pair",
+    ("diffdock", "protein_free"): "it docks a ligand INTO a receptor, so the receptor is "
+                                  "the input, not an option",
+    ("diffdock", "pocket"): (
+        "DiffDock takes a pocket as a centre, `docking: {pocket: [x, y, z], pocket_radius: 5}` "
+        "or --pocket x,y,z, not as a contact constraint between chains"),
+    **{("diffdock", f): "DiffDock has no template input; it docks into the receptor you give it"
+       for f in ("templates", "template_structure")},
+    **{("diffdock", f): "DiffDock places one small molecule in a protein receptor; it has no "
+       f"featurizer for a {f.upper()} chain" for f in ("rna", "dna")},
     **{("af2ig", f): "AF2-IG re-predicts a designed protein complex from its own coordinates; "
        "it has no featurizer for anything else, and its input is a structure plus the binder "
        "sequence rather than a chain list"

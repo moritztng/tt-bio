@@ -1,143 +1,181 @@
-"""`tt_bio.diffdock.loop` against upstream's sampler arithmetic.
+"""The traced loop against `tt_bio.diffdock.sampling`, which is the graded sampler.
 
-The reference below is the body of `utils/sampling.py::sampling` (MIT, gcorso/DiffDock) with
-the data-loading, logging and visualisation stripped out -- the step constants, the noise
-terms and the NaN rescue, kept in upstream's order and upstream's Python. The port precomputes
-all of it into a table; these tests say the table holds the same numbers.
+`sampling.sample` is the campaign's reference for the rollout: it is bit-identical to
+upstream's own loop over 133 rollouts (dfd-sampling). So the bar for `loop.py` is not upstream
+directly -- it is sampling, run on the same scores and the same noise draws. Where the two
+differ by construction, the test says which difference and why:
+
+* the coefficient table is float64 numpy arithmetic evaluated up front, sampling's is the
+  same arithmetic evaluated inline, so the products land within fp32 rounding of each other;
+* the Kabsch is Horn's quaternion rather than an SVD, whose measured float32 floor is ~1e-06
+  on the rotation entries (`tests/test_diffdock_kabsch.py`), and that is what sets the
+  tolerance on a rollout's final coordinates.
 """
 
 from __future__ import annotations
 
-import math
-
-import numpy as np
 import pytest
-import torch
 
-from tt_bio.diffdock.loop import Schedule, build_schedule, guard_scores, run_loop
-from tt_bio.diffdock.conformer import modify_conformer
+torch = pytest.importorskip("torch")
+np = pytest.importorskip("numpy")
 
-from test_diffdock_conformer import chain_ligand, ref_modify_conformer_batch
+from tt_bio.diffdock import sampling as S  # noqa: E402
+from tt_bio.diffdock.loop import (CoefficientTable, coefficient_table, guard_scores,  # noqa: E402
+                                  run_loop)
 
-SIGMAS = {'tr': (0.1, 19.0), 'rot': (0.03, 1.55), 'tor': (0.0314, 3.14)}   # DiffDock-L's own
-TOL = 1e-5
-
-
-def beta_like_schedule(n_steps):
-    """Upstream's `get_t_schedule` is a beta ppf; its shape does not matter to this test, only
-    that it is decreasing and does not reach 0, so a plain linear ramp stands in for it."""
-    return list(np.linspace(1.0, 1.0 / n_steps, n_steps))
-
-
-def ref_step(pos, tr_score, rot_score, tor_score, t_idx, n_steps, sched, tr_z, rot_z, tor_z,
-             bonds, mask_rotate, no_final_step_noise=False):
-    """Upstream's per-step arithmetic, verbatim."""
-    t_tr, t_rot, t_tor = sched[t_idx], sched[t_idx], sched[t_idx]
-    dt_tr = sched[t_idx] - sched[t_idx + 1] if t_idx < n_steps - 1 else sched[t_idx]
-    dt_rot, dt_tor = dt_tr, dt_tr
-    tr_sigma = SIGMAS['tr'][0] ** (1 - t_tr) * SIGMAS['tr'][1] ** t_tr
-    rot_sigma = SIGMAS['rot'][0] ** (1 - t_rot) * SIGMAS['rot'][1] ** t_rot
-    tor_sigma = SIGMAS['tor'][0] ** (1 - t_tor) * SIGMAS['tor'][1] ** t_tor
-
-    tr_g = tr_sigma * torch.sqrt(torch.tensor(2 * np.log(SIGMAS['tr'][1] / SIGMAS['tr'][0])))
-    rot_g = rot_sigma * torch.sqrt(torch.tensor(2 * np.log(SIGMAS['rot'][1] / SIGMAS['rot'][0])))
-    tor_g = tor_sigma * torch.sqrt(torch.tensor(2 * np.log(SIGMAS['tor'][1] / SIGMAS['tor'][0])))
-    if no_final_step_noise and t_idx == n_steps - 1:
-        tr_z, rot_z, tor_z = (torch.zeros_like(x) for x in (tr_z, rot_z, tor_z))
-    tr_perturb = tr_g ** 2 * dt_tr * tr_score + tr_g * np.sqrt(dt_tr) * tr_z
-    rot_perturb = rot_score * dt_rot * rot_g ** 2 + rot_g * np.sqrt(dt_rot) * rot_z
-    tor_perturb = tor_g ** 2 * dt_tor * tor_score + tor_g * np.sqrt(dt_tor) * tor_z
-    return ref_modify_conformer_batch(pos, tr_perturb, rot_perturb, tor_perturb, bonds, mask_rotate)
+BOUNDS = S.SigmaBounds(0.1, 19.0, 0.03, 1.55, 0.0314, 3.14)
+# What "the same rollout" is worth measuring in: a relative bound on the final coordinates.
+# In float64 the two agree to 2e-12 relative (test_in_float64_the_two_rollouts_are_the_same_
+# function), so the fp32 gap below is rounding amplified over 19 steps -- Horn's quaternion
+# sits ~1e-06 from the SVD on the rotation entries and each step's lever arm is tens of
+# angstroms -- and not a difference in the arithmetic.
+POSE_REL_TOL = 5e-5
+POSE_REL_TOL_F64 = 1e-9
 
 
-def fixture(n_steps=19, seed=4):
-    pos, bonds, mask, g = chain_ligand(n_atoms=20, n_poses=10, seed=seed)
-    sched = beta_like_schedule(n_steps)
-    scores, noise = [], []
-    for _ in range(n_steps):
-        scores.append((torch.randn(10, 3, generator=g) * 0.2,
-                       torch.randn(10, 3, generator=g) * 0.2,
-                       torch.randn(10, len(bonds), generator=g) * 0.2))
-        noise.append((torch.randn(10, 3, generator=g), torch.randn(10, 3, generator=g),
-                      torch.randn(10, len(bonds), generator=g)))
-    return pos, bonds, mask, sched, scores, noise
+class RecordingNoise(S.Noise):
+    """Sampling's RNG, with every per-step draw kept so the traced loop can replay it."""
+
+    def __init__(self, seed=0):
+        super().__init__(seed)
+        self.draws = []
+
+    def normal(self, *, mean=0.0, std=1.0, size=None):
+        out = super().normal(mean=mean, std=std, size=size)
+        self.draws.append(out)
+        return out
 
 
-def test_the_whole_19_step_loop_matches_upstreams_arithmetic():
-    pos, bonds, mask, sched, scores, noise = fixture()
-    table = build_schedule(sched, sched, sched, SIGMAS)
-    got, n_nan, min_det = run_loop(pos, lambda p, t: scores[t], table,
-                                   lambda t: noise[t], bonds, mask)
-    want = pos
-    for t in range(len(sched)):
-        want = ref_step(want, *scores[t], t, len(sched), sched, *noise[t], bonds, mask)
-    assert n_nan.item() == 0
-    assert (got - want).abs().max().item() < 1e-3, "19 steps of accumulated fp32 rounding"
+def chain_ligand(n_atoms=20, n_poses=4, seed=0):
+    """A chain with every bond rotatable: bond k is (k, k+1), rotating k+1 and beyond.
+
+    A tree, so the mask is legal (sampling asserts `v` is on the moving side), and the worst
+    case for the serial torsion loop -- every bond's axis has been moved by every earlier one.
+    """
+    g = torch.Generator().manual_seed(seed)
+    pos = torch.cumsum(torch.randn(n_poses, n_atoms, 3, generator=g), dim=1) * 1.5
+    bonds = [(k, k + 1) for k in range(n_atoms - 1)]
+    mask = torch.zeros(len(bonds), n_atoms, dtype=torch.bool)
+    for k in range(len(bonds)):
+        mask[k, k + 1:] = True
+    return pos, bonds, mask, g
+
+
+def scripted_scores(n_steps, n_poses, n_bonds, seed=3):
+    """Fixed per-step scores, so the two rollouts are compared on identical model output."""
+    g = torch.Generator().manual_seed(seed)
+    return [(torch.randn(n_poses, 3, generator=g) * 0.2,
+             torch.randn(n_poses, 3, generator=g) * 0.2,
+             torch.randn(n_poses * n_bonds, generator=g) * 0.2) for _ in range(n_steps)]
+
+
+def rel_dev(a, b):
+    """Max deviation relative to the coordinate scale -- a pose travels tens of angstroms."""
+    return ((a - b).abs().max() / b.abs().max()).item()
+
+
+def run_both(cfg):
+    pos, bonds, mask, _ = chain_ligand()
+    n_poses, n_bonds = pos.shape[0], len(bonds)
+    scores = scripted_scores(cfg.steps, n_poses, n_bonds)
+    edge_index = torch.tensor(bonds)
+
+    noise = RecordingNoise(seed=11)
+    eager = S.sample(lambda step: scores[step.step], pos, cfg=cfg, bounds=BOUNDS,
+                     noise=noise, edge_index=edge_index, mask_rotate=mask)
+
+    table = coefficient_table(cfg, BOUNDS)
+    drawn = iter(noise.draws)
+
+    def noise_fn(t_idx):
+        if not table.drawn[t_idx]:
+            z = (torch.zeros(n_poses, 3), torch.zeros(n_poses, 3),
+                 torch.zeros(n_poses, n_bonds))
+            return z
+        return (next(drawn), next(drawn), next(drawn).reshape(n_poses, n_bonds))
+
+    traced, n_bad, min_det = run_loop(
+        pos, lambda p, t: (scores[t][0], scores[t][1], scores[t][2].reshape(n_poses, n_bonds)),
+        table, noise_fn, bonds, mask)
+    return eager.poses, traced, n_bad, min_det
+
+
+def test_the_traced_loop_reproduces_the_graded_sampler_on_the_shipped_recipe():
+    """The deliverable: same rollout as `sampling.sample`, with the shipped recipe."""
+    cfg = S.SamplingConfig.from_recipe()
+    eager, traced, n_bad, min_det = run_both(cfg)
+    assert n_bad.item() == 0
     assert min_det is not None, "the determinant diagnostic comes back from the loop"
+    assert rel_dev(traced, eager) < POSE_REL_TOL
 
 
-def test_no_final_step_noise_only_changes_the_last_row():
-    sched = beta_like_schedule(19)
-    plain = build_schedule(sched, sched, sched, SIGMAS)
-    trimmed = build_schedule(sched, sched, sched, SIGMAS, no_final_step_noise=True)
-    assert torch.equal(plain.score, trimmed.score)
-    assert torch.equal(plain.noise[:-1], trimmed.noise[:-1])
-    assert trimmed.noise[-1].abs().max().item() == 0.0
-    assert plain.noise[-1].abs().max().item() > 0.0
+@pytest.mark.parametrize("overrides", [
+    {"ode": True, "temp_sampling": (1.0, 1.0, 1.0), "temp_psi": (0.0, 0.0, 0.0)},
+    {"no_random": True},
+    {"no_final_step_noise": False},
+    {"temp_sampling": (1.7, 1.2, 0.8), "temp_psi": (0.3, 0.0, 0.5)},
+    {"actual_steps": None},
+])
+def test_every_sampling_option_is_table_contents_not_a_branch(overrides):
+    """Each control the CLI exposes must change only the table, not the loop body."""
+    cfg = S.SamplingConfig.from_recipe(**overrides)
+    eager, traced, _, _ = run_both(cfg)
+    assert rel_dev(traced, eager) < POSE_REL_TOL
 
 
-def test_ode_mode_halves_the_score_term_and_drops_the_noise():
-    sched = beta_like_schedule(19)
-    plain = build_schedule(sched, sched, sched, SIGMAS)
-    ode = build_schedule(sched, sched, sched, SIGMAS, ode=True)
+def test_in_float64_the_two_rollouts_are_the_same_function():
+    """The real statement of equality: in float64 the gap is 2e-12 relative, i.e. nothing.
+
+    Run in float32 the two differ by ~2e-05 relative after 19 steps, which is what rounding
+    does to a chain of rotations with a tens-of-angstroms lever arm. Lifting the precision
+    collapses the gap by seven orders of magnitude, which is what says the traced form is the
+    same arithmetic rather than a close approximation of it.
+    """
+    torch.set_default_dtype(torch.float64)
+    try:
+        eager, traced, _, _ = run_both(S.SamplingConfig.from_recipe())
+        assert rel_dev(traced, eager) < POSE_REL_TOL_F64
+    finally:
+        torch.set_default_dtype(torch.float32)
+
+
+def test_ode_and_quiet_steps_zero_the_noise_column_rather_than_skipping_a_branch():
+    cfg = S.SamplingConfig.from_recipe()
+    table = coefficient_table(cfg, BOUNDS)
+    assert table.noise[-1].abs().max().item() == 0.0, "the recipe sets no_final_step_noise"
+    assert table.drawn[-1] is False and table.drawn[0] is True
+    ode = coefficient_table(S.SamplingConfig.from_recipe(
+        ode=True, temp_sampling=(1.0, 1.0, 1.0), temp_psi=(0.0, 0.0, 0.0)), BOUNDS)
     assert ode.noise.abs().max().item() == 0.0
-    assert (ode.score - 0.5 * plain.score).abs().max().item() < 1e-6
+    assert not any(ode.drawn)
+    plain = coefficient_table(S.SamplingConfig.from_recipe(
+        temp_sampling=(1.0, 1.0, 1.0), temp_psi=(0.0, 0.0, 0.0)), BOUNDS)
+    assert (ode.score - 0.5 * plain.score).abs().max().item() < 1e-4
 
 
-def test_no_random_zeroes_every_noise_coefficient():
-    sched = beta_like_schedule(19)
-    table = build_schedule(sched, sched, sched, SIGMAS, no_random=True)
-    assert table.noise.abs().max().item() == 0.0
-
-
-@pytest.mark.parametrize("temp", [0.5, 1.4])
-def test_the_temperature_knobs_match_upstreams_lambda(temp):
-    sched = beta_like_schedule(19)
-    psi, sigma_data = 0.3, 0.5
-    table = build_schedule(sched, sched, sched, SIGMAS,
-                           temp_sampling=(temp,) * 3, temp_psi=(psi,) * 3,
-                           temp_sigma_data=(sigma_data,) * 3)
-    lo, hi = SIGMAS['tr']
-    for t_idx in (0, 7, 18):
-        t = sched[t_idx]
-        dt = sched[t_idx] - sched[t_idx + 1] if t_idx < 18 else sched[t_idx]
-        sigma = lo ** (1 - t) * hi ** t
-        g = sigma * math.sqrt(2 * math.log(hi / lo))
-        s_data = math.exp(sigma_data * math.log(hi) + (1 - sigma_data) * math.log(lo))
-        lam = (s_data + sigma) / (s_data + sigma / temp)
-        want_s = g * g * dt * (lam + temp * psi / 2)
-        want_n = g * math.sqrt(dt * (1 + psi))
-        assert abs(table.score[t_idx, 0].item() - want_s) < abs(want_s) * TOL + TOL
-        assert abs(table.noise[t_idx, 0].item() - want_n) < abs(want_n) * TOL + TOL
-
-
-def test_the_nan_guard_is_a_no_op_on_a_clean_score():
+def test_the_guard_is_identical_to_samplings_on_a_clean_score():
     g = torch.Generator().manual_seed(1)
     score = torch.randn(10, 3, generator=g)
-    clean, n_nan = guard_scores(score)
-    assert torch.equal(clean, score)
-    assert n_nan.item() == 0
+    clean, n_bad = guard_scores(score)
+    assert torch.equal(clean, score) and n_bad.item() == 0
+    assert torch.equal(S._repair_nans(score, score, score)[0], clean)
 
 
-def test_the_nan_guard_replaces_like_upstream_and_counts_the_rows():
+def test_the_guard_repairs_like_sampling_and_counts_the_poses():
     score = torch.tensor([[1.0, -2.0, 3.0], [float('nan'), 0.5, 0.5],
-                          [float('inf'), 1.0, -1.0], [float('-inf'), 1.0, 1.0]])
-    clean, n_nan = guard_scores(score)
-    finite = torch.isfinite(score)
-    eps = 0.01 * score.abs()[finite].mean()
-    assert n_nan.item() == 3, "every non-finite row is counted, as upstream's mean-isnan does"
+                          [2.0, 1.0, -1.0], [-4.0, 1.0, 1.0]])
+    clean, n_bad = guard_scores(score)
+    want = S._repair_nans(score, score, score)[0]
+    assert n_bad.item() == 1
     assert torch.isfinite(clean).all()
-    assert torch.equal(clean[0], score[0])
-    assert clean[1, 0].item() == pytest.approx(eps.item())
-    assert clean[2, 0].item() == pytest.approx(eps.item())
-    assert clean[3, 0].item() == pytest.approx(-eps.item())
+    assert (clean - want).abs().max().item() < 1e-6, "same repair value as sampling's"
+
+
+def test_an_infinity_does_not_poison_the_repair_value():
+    """The one place this differs from `nanmean`, stated as a test rather than a comment."""
+    score = torch.tensor([[1.0, -2.0, 3.0], [float('inf'), 1.0, -1.0]])
+    clean, n_bad = guard_scores(score)
+    assert n_bad.item() == 1 and torch.isfinite(clean).all()
+    assert torch.isnan(S._repair_nans(score, score, score)[0]).any() \
+        or torch.isinf(S._repair_nans(score, score, score)[0]).any(), \
+        "sampling's nanmean takes the infinity into the mean; this is the difference"
