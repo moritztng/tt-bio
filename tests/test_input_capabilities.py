@@ -22,7 +22,7 @@ import pytest
 from tt_bio.capabilities import (CAPABILITY, CHAIN_FEATURES, CHAINS_ELSEWHERE, FEATURES,
                                  FLAG_READERS, FLAG_WHY, HONOURED, NOTED, REFUSED,
                                  check_capabilities, detect, honoured_by, how, unread_flags)
-from tt_bio.main import AFFINITY_MODELS, PREDICT_MODELS, _read_bio_chains
+from tt_bio.main import AFFINITY_MODELS, DOCK_MODELS, PREDICT_MODELS, _read_bio_chains
 
 SEQ = "MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQ"
 _HEAD = f"version: 1\nsequences:\n  - protein:\n      id: A\n      sequence: {SEQ}\n"
@@ -82,7 +82,7 @@ def _check(tmp_path, text, model, notes=None):
 
 def test_every_shipped_model_has_a_row():
     """A new port with no row is invisible: nothing would tell you it drops `modifications:`."""
-    shipped = set(PREDICT_MODELS) | set(AFFINITY_MODELS)
+    shipped = set(PREDICT_MODELS) | set(AFFINITY_MODELS) | set(DOCK_MODELS)
     assert shipped <= set(CAPABILITY), \
         f"no capability row for {sorted(shipped - set(CAPABILITY))}"
     for model, caps in CAPABILITY.items():
