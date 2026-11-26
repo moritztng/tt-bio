@@ -174,15 +174,16 @@ def main():
             "n": a.n, "blocks": a.blocks, "rcs": rcs}
     if len(rows) == len(cards) and all(rc == 0 for rc in rcs):
         import statistics as st
+        k = min(len(rk) for rk in rows)  # a resumed run holds only the steps after its checkpoint
         warm = [r for rk in rows for r in rk[1:]]
         summ.update(
-            digests_agree=all(len({rk[i]["master_digest"] for rk in rows}) == 1 for i in range(a.steps)),
-            median_step_s=st.median(max(rk[i]["step_s"] for rk in rows) for i in range(1, a.steps)),
+            digests_agree=all(len({rk[i]["master_digest"] for rk in rows}) == 1 for i in range(k)),
+            median_step_s=st.median(max(rk[i]["step_s"] for rk in rows) for i in range(1, k)),
             median_fwd_s=st.median(r["fwd_s"] for r in warm), median_bwd_s=st.median(r["bwd_s"] for r in warm),
             median_readback_s=st.median(r["readback_s"] for r in warm),
             median_opt_s=st.median(r["opt_s"] for r in warm),
             aiclk=[min(r["aiclk"][0] for r in warm), max(r["aiclk"][1] for r in warm)],
-            samples_per_s=len(cards) / st.median(max(rk[i]["step_s"] for rk in rows) for i in range(1, a.steps)))
+            samples_per_s=len(cards) / st.median(max(rk[i]["step_s"] for rk in rows) for i in range(1, k)))
     Path(a.out, "summary.json").write_text(json.dumps(summ, indent=1))
     print(json.dumps(summ))
     sys.exit(0 if all(rc == 0 for rc in rcs) else 1)
