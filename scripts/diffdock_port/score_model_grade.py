@@ -54,6 +54,9 @@ def main() -> None:
     ap.add_argument("--steps", default="0,9,18")
     ap.add_argument("--poses", type=int, default=10)
     ap.add_argument("--out", default=None)
+    ap.add_argument("--save-fixture", default=None,
+                    help="also torch.save the graph, ESM-2 block, step inputs and upstream "
+                         "scores, so a card-side grade replays them without the data tree")
     args = ap.parse_args()
 
     from tt_bio.diffdock import config as C
@@ -89,6 +92,7 @@ def main() -> None:
     t_tr, t_rot, t_tor = recipe.schedules(bounds)
 
     out = {"complex": name, "steps": {}}
+    fixture = {"complex": name, "graph": graph, "emb": emb, "steps": {}, "want": {}}
     for k in [int(s) for s in args.steps.split(",")]:
         # the capture flattens the batch: [B*N, 3] for B poses of one ligand
         flat = torch.as_tensor(traj[f"s{k:02d}_pos_in"]).float()
@@ -103,6 +107,7 @@ def main() -> None:
             tr, rot, tor = score(step)
         want = {k2: torch.as_tensor(scores[f"s{k:02d}_{k2}"])[: args.poses].float()
                 for k2 in ("tr", "rot", "tor")}
+        fixture["steps"][k], fixture["want"][k] = step, want
         got = {"tr": tr.reshape(want["tr"].shape), "rot": rot.reshape(want["rot"].shape),
                "tor": tor.reshape(want["tor"].shape) if want["tor"].numel() else tor}
         row = {k2: {"pcc": pcc(got[k2], want[k2]), "max_rel_err": rel(got[k2], want[k2])}
@@ -113,6 +118,8 @@ def main() -> None:
             for k2 in ("tr", "rot", "tor")), flush=True)
 
     print(json.dumps(out))
+    if args.save_fixture:
+        torch.save(fixture, args.save_fixture)
     if args.out:
         Path(args.out).write_text(json.dumps(out, indent=2) + "\n")
 

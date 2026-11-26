@@ -294,3 +294,91 @@ class DeviceConvLayer:
                 res = ttnn.pad(res, [(0, 0), (0, self.out_pad - res.shape[-1])], value=0.0)
             out = ttnn.add(out, res)
         return out
+
+
+class DeviceConvModule(torch.nn.Module):
+    """A host :class:`~tt_bio.diffdock.conv.TensorProductConvLayer` whose arithmetic runs on
+    the card: same call signature, so it drops into :class:`~tt_bio.diffdock.score_model.ScoreModel`
+    in place of the host layer and the rest of the network does not change.
+
+    Each call pads the node axes to :func:`~tt_bio.diffdock.graph.pad_count` and every edge
+    group to a multiple of 32 with dead edges ``pad -> pad`` (mask 0), uploads, runs
+    :class:`DeviceConvLayer` and reads the result back. With *grade* set it also runs the host
+    layer in float64 on the same inputs and appends ``{pcc, max_rel_err, rel_frobenius}`` to
+    :attr:`log`, so a full forward reports every convolution against its own golden.
+    """
+
+    def __init__(self, device, layer, *, dtype=None, grade: bool = False, name: str = ""):
+        super().__init__()
+        import copy
+        self.name, self.log = name, []
+        self.host = copy.deepcopy(layer).double() if grade else None
+        self.layer = layer
+        self.dev = DeviceConvLayer(device, copy.deepcopy(layer).float(), dtype=dtype)
+
+    def forward(self, node_attr, edge_index, edge_attr, edge_sh, out_nodes=None,
+                reduce="mean", edge_weight=1.0, edge_mask=None, edge_chunk=None):
+        import ttnn
+        from tt_bio.diffdock.graph import pad_count
+        if reduce != "mean" or not (isinstance(edge_weight, float) and edge_weight == 1.0):
+            raise NotImplementedError("the card layer is the released model's: mean, unweighted")
+        E = edge_index.shape[1]
+        if E == 0:
+            return self.layer(node_attr, edge_index, edge_attr, edge_sh, out_nodes=out_nodes)
+        N = node_attr.shape[0]
+        n_out = out_nodes or N
+        n_in_p, n_out_p = pad_count(N), pad_count(n_out)
+        groups = list(edge_attr) if isinstance(edge_attr, (list, tuple)) else [edge_attr]
+        mask = torch.ones(E) if edge_mask is None else edge_mask.reshape(E).float()
+        cols, attrs, shs, masks, lo = [], [], [], [], 0
+        for a in groups:
+            n = a.shape[0]
+            extra = pad32(n) - n
+            ei = torch.cat([edge_index[:, lo:lo + n],
+                            torch.tensor([[n_out_p - 1], [n_in_p - 1]]).expand(2, extra)], 1)
+            cols.append(ei)
+            attrs.append(torch.nn.functional.pad(a.float(), (0, 0, 0, extra)))
+            shs.append(torch.nn.functional.pad(edge_sh[lo:lo + n].float(), (0, 0, 0, extra)))
+            masks.append(torch.nn.functional.pad(mask[lo:lo + n], (0, extra)))
+            lo += n
+        ei, sh, m = torch.cat(cols, 1), torch.cat(shs), torch.cat(masks)
+        d = self.dev.device
+        table = torch.nn.functional.pad(node_attr.float(),
+                                        (0, pad32(node_attr.shape[1]) - node_attr.shape[1],
+                                         0, n_in_p - N))
+        g = self.dev.graph(ei, n_out_p, n_in_p)
+        out = self.dev(ttnn.from_torch(table, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT,
+                                       device=d),
+                       g, [to_device(d, a) for a in attrs], to_device(d, sh),
+                       ttnn.from_torch(m.reshape(-1, 1), dtype=ttnn.float32,
+                                       layout=ttnn.TILE_LAYOUT, device=d))
+        out = ttnn.to_torch(out)[:n_out, :self.layer.out_irreps.dim].to(node_attr.dtype)
+        if self.host is not None:
+            with torch.no_grad():
+                ref = self.host(node_attr.double(), edge_index,
+                                [a.double() for a in groups] if len(groups) > 1
+                                else groups[0].double(), edge_sh.double(), out_nodes=out_nodes,
+                                edge_mask=edge_mask)
+            r, o = ref.flatten(), out.double().flatten()
+            self.log.append(dict(
+                edges=E, nodes=N, out_nodes=n_out,
+                pcc=float(torch.corrcoef(torch.stack([r, o]))[0, 1]) if r.numel() > 1 else None,
+                max_rel_err=float((o - r).abs().max() / r.abs().max().clamp_min(1e-30)),
+                rel_frobenius=float((o - r).norm() / r.norm().clamp_min(1e-30))))
+        return out
+
+
+def convs_on_device(model, device, *, dtype=None, grade: bool = False) -> dict:
+    """Swap every convolution in *model* for a :class:`DeviceConvModule`, in place.
+
+    Returns ``{module path: DeviceConvModule}`` so a caller can read each one's grade log.
+    """
+    from tt_bio.diffdock.conv import TensorProductConvLayer
+    swapped = {}
+    for path, mod in list(model.named_modules()):
+        for name, child in list(mod._modules.items()):
+            if isinstance(child, TensorProductConvLayer):
+                full = f"{path}.{name}" if path else name
+                mod._modules[name] = swapped[full] = DeviceConvModule(
+                    device, child, dtype=dtype, grade=grade, name=full)
+    return swapped
