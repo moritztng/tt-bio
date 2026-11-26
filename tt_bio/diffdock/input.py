@@ -66,6 +66,13 @@ class ComplexGraph:
     mol: object
     original_center: torch.Tensor
     chain_sequences: list[str] = field(default_factory=list)
+    #: the structure this graph was built from, and the ESM-2 block that was folded into
+    #: `receptor["x"]`. The confidence network needs an all-atom receptor graph, which the
+    #: score graph is not, so it rebuilds one from these two -- rebuilding the graph is
+    #: cheap, re-running ESM-2 650M is not, and running it twice for one complex would be a
+    #: second embedding of the same sequence.
+    receptor_path: str | None = None
+    lm_embeddings: list | None = None
 
 
 def build_complex_graph(
@@ -107,6 +114,8 @@ def build_complex_graph(
         mol=mol,
         original_center=center,
         chain_sequences=list(receptor["sequence"]),
+        receptor_path=str(path),
+        lm_embeddings=lm_embeddings,
     )
 
 

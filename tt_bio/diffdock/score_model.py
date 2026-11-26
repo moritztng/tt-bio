@@ -378,10 +378,14 @@ class HostScoreNetwork:
     input is different every step -- upstream recomputes it there too, for the same reason.
     """
 
-    def __init__(self, model: ScoreModel, lm_embeddings: Tensor | None = None):
+    def __init__(self, model: ScoreModel, lm_embeddings: Tensor | None = None,
+                 confidence_model=None):
         self.model = model
         self.config = model.config
         self.lm_embeddings = lm_embeddings
+        self.confidence_model = confidence_model
+        #: host torch: the ESM-2 pass runs on the CPU so the whole dock does.
+        self.on_device = False
 
     def _receptor_x(self, receptor: dict) -> Tensor:
         x = receptor["x"]
@@ -429,5 +433,34 @@ class HostScoreNetwork:
         return score
 
     def confidence(self, graph, poses: Tensor):
-        """No confidence model on this branch yet; ranking falls back to sample order."""
-        return None
+        """Confidence of each pose, ``[B]``, or None when no confidence model is loaded.
+
+        *poses* arrive in the score graph's centred frame, which is not the confidence
+        graph's: the two centre on their own receptor graphs. They are put back in the input
+        frame and re-centred here, so the ranking never depends on which graph centred what.
+
+        The confidence network reads an all-atom receptor graph
+        (:data:`tt_bio.diffdock.input.CONFIDENCE_GRAPH`), which the score graph is not, so
+        the graph is rebuilt from the structure -- with the ESM-2 embedding the complex
+        already carries, not a second pass over the same sequence.
+        """
+        if self.confidence_model is None:
+            return None
+
+        from tt_bio.diffdock import confidence_model as cm
+        from tt_bio.diffdock import input as dfd_input
+        from tt_bio.diffdock.receptor import build_receptor_graph
+        from tt_bio.diffdock.structure import parse_receptor
+
+        if graph.receptor_path is None:
+            raise ValueError(
+                f"{graph.name}: the confidence network needs the receptor structure the "
+                "graph was built from; build the graph with input.build_complex_graph")
+        rec = build_receptor_graph(parse_receptor(graph.receptor_path),
+                                   lm_embeddings=graph.lm_embeddings,
+                                   **dfd_input.CONFIDENCE_GRAPH)
+        centre = rec["pos"].mean(dim=0, keepdim=True)
+        rec["pos"] = rec["pos"] - centre
+        rec["atom"]["pos"] = rec["atom"]["pos"] - centre
+        pos = torch.as_tensor(poses, dtype=torch.float32) + graph.original_center - centre
+        return cm.score_poses(self.confidence_model, rec, graph.ligand, pos)
