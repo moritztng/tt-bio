@@ -340,3 +340,69 @@ def load_released(state_dict: dict, config: DiffDockConfig, *,
         raise ValueError(f"checkpoint does not fit: missing={missing[:8]} "
                          f"unexpected={unexpected[:8]}")
     return model.eval()
+
+
+class HostScoreNetwork:
+    """:class:`ScoreModel` behind the interface ``tt_bio.diffdock.sampling.sample`` expects.
+
+    ``network.config`` and ``network.score_fn(graph)``, as documented in
+    :mod:`tt_bio.diffdock.network`. The receptor graph, the ESM-2 embedding and the per-step
+    crop live in the closure, which is why the device path can replace this class without the
+    rollout changing.
+
+    The receptor tower is cached **only when the checkpoint sets no ``crop_beyond``**. With a
+    crop the kept residue set moves with the schedule *and* with the pose, so the tower's
+    input is different every step -- upstream recomputes it there too, for the same reason.
+    """
+
+    def __init__(self, model: ScoreModel, lm_embeddings: Tensor | None = None):
+        self.model = model
+        self.config = model.config
+        self.lm_embeddings = lm_embeddings
+
+    def _receptor_x(self, receptor: dict) -> Tensor:
+        x = receptor["x"]
+        if self.lm_embeddings is None:
+            return x
+        if self.lm_embeddings.shape[0] != x.shape[0]:
+            raise ValueError(f"{self.lm_embeddings.shape[0]} embedding rows for "
+                             f"{x.shape[0]} residues")
+        return torch.cat([x, self.lm_embeddings.to(x.dtype)], dim=1)
+
+    def score_fn(self, graph):
+        from tt_bio.diffdock.sampling import crop_beyond
+
+        lig, rec = graph.ligand, graph.receptor
+        full_rec_x = self._receptor_x(rec)
+        cache = None
+
+        def score(step):
+            nonlocal cache
+            tr_s = torch.as_tensor(step.tr_sigma, dtype=torch.float32)
+            rot_s = torch.as_tensor(step.rot_sigma, dtype=torch.float32)
+            tor_s = torch.as_tensor(step.tor_sigma, dtype=torch.float32)
+            trs, rots, tors = [], [], []
+            for pose in step.lig_pos:
+                r, rx = rec, full_rec_x
+                if step.crop_cutoff is not None:
+                    keep = torch.any(
+                        torch.cdist(rec["pos"], pose.float()) < step.crop_cutoff, dim=1)
+                    r = crop_beyond(rec, pose, step.crop_cutoff)
+                    rx = full_rec_x[keep]
+                use = None if step.crop_cutoff is not None else cache
+                tr, rot, tor = self.model(
+                    lig["x"], pose.float(), lig["edge_index"], lig["edge_attr"],
+                    lig["edge_mask"], rx, r["pos"], r["edge_index"],
+                    step.t_tr, tr_s, rot_s, tor_s, receptor_cache=use)
+                if step.crop_cutoff is None:
+                    cache = self.model.receptor_cache
+                trs.append(tr)
+                rots.append(rot)
+                tors.append(tor)
+            return (torch.cat(trs), torch.cat(rots), torch.cat(tors))
+
+        return score
+
+    def confidence(self, graph, poses: Tensor):
+        """No confidence model on this branch yet; ranking falls back to sample order."""
+        return None
