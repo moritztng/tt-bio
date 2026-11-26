@@ -275,6 +275,32 @@ DIFFDOCK_RECEPTOR = Path("/home/moritz/scratch/dfd/patchtest/examples/1a46_prote
 DIFFDOCK_LIGAND = "CC(=O)Oc1ccccc1C(=O)O"          # aspirin
 
 
+def _stub_receptor_embeddings(chains, **kw):
+    """Stand in for the ESM-2 650M pass with a draw that varies per residue.
+
+    The shape is all the graph builder reads, so for a test that grades filenames or
+    ordering the encoder itself decides nothing -- but the VALUES still have to be in
+    range. A constant column is not: with `torch.zeros`, `heads.CenterHead`'s node_attr
+    on 1a46 + aspirin reaches 8.1e11 to 1.8e18 at step 0, the score head's
+    `v / |v| * mlp([|v|, emb])` returns NaN on most poses, the ligand lands at ~1.6e20 A,
+    fp32 collapses every rotatable-bond axis to exactly 0 and Kabsch dies in
+    `linalg.svd`. Unmodified upstream DiffDock-L does the same thing on the same input
+    (state/dfd/NAN-2026-11-27.md), so it is the stub that is illegal, not the port.
+    `0.02` is no better: constant is the problem, not the magnitude. With a per-residue
+    draw the same node_attr sits in the hundreds and the rollout is finite.
+
+    0.272 is the measured std of a real ESM-2 650M final hidden state: the leading 1280
+    columns of the receptor node features in dfd-ref's golden
+    `8G43_ZU6__mod_f64/8G43_ZU6__conf__rec_node_embedding__lm_embedding_layer__c0.npz`
+    are mean -0.0005, std 0.2718. Seeded per call, so the fixture is a pure function of
+    the chains and stays deterministic across runs, processes and torch versions.
+    """
+    import torch
+
+    g = torch.Generator().manual_seed(0)
+    return [torch.randn(len(c), 1280, generator=g) * 0.272 for c in chains]
+
+
 def dock_on_host_torch(out_dir, monkeypatch, *, samples=4, actual_steps=3, seed=0,
                        confidence=True, save_trajectory=False, rollout=None, extra=()):
     """Run `tt-bio dock` end to end on the CPU and return the output directory.
@@ -303,8 +329,7 @@ def dock_on_host_torch(out_dir, monkeypatch, *, samples=4, actual_steps=3, seed=
     from tt_bio.diffdock import esm, sampling
     from tt_bio.main import cli
 
-    monkeypatch.setattr(esm, "receptor_embeddings",
-                        lambda chains, **kw: [torch.zeros(len(c), 1280) for c in chains])
+    monkeypatch.setattr(esm, "receptor_embeddings", _stub_receptor_embeddings)
     if rollout is not None:
         real = sampling.sample
 
