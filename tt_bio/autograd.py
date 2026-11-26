@@ -1959,7 +1959,7 @@ def _layer_norm_bw(x, gamma, beta, eps, bwcfg, center=True):
             from . import lnbw
             gv = None if gamma is None else gamma.value
             if lnbw.eligible(xv, g, gv, weights=True):
-                dx, dg, db = lnbw.layer_norm_bw_weights(xv, g, gv, eps)
+                dx, dg, db = lnbw.layer_norm_bw_weights(xv, g, gv, eps, precise_config())
                 if gamma is not None and gamma.requires_grad:
                     gamma.add_grad(ttnn.reshape(dg, list(gamma.value.shape)))
                 if beta is not None and beta.requires_grad:

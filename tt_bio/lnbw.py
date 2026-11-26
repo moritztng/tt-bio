@@ -187,11 +187,11 @@ def _cores(x, device):
     return core_split.split_work_to_cores(device.compute_with_storage_grid_size(), rows, 0)[0]
 
 
-def layer_norm_bw_weights(x, g, gamma, eps):
+def layer_norm_bw_weights(x, g, gamma, eps, config):
     """``(dx, dgamma, dbeta)`` of ``layer_norm(x) * gamma + beta`` for cotangent g. dx in the dtype
     `layer_norm_bw` returns; dgamma and dbeta float32 of shape [1, K] (the caller reshapes to its
-    weight), each the device sum over rows of this kernel's per-core float32 partials."""
-    from .autograd import precise_config
+    weight), each the device sum over rows of this kernel's per-core float32 partials. `config` is the
+    compute config of that row sum; the caller passes it so this module never imports the training stack."""
     device = x.device()
     K = int(x.shape[-1])
     out_dtype = ttnn.float32 if g.dtype == ttnn.float32 else ttnn.bfloat16
@@ -217,6 +217,6 @@ def layer_norm_bw_weights(x, g, gamma, eps):
     dx = out
     red = []
     for t in parts:
-        red.append(ttnn.sum(t, dim=0, keepdim=True, compute_kernel_config=precise_config()))
+        red.append(ttnn.sum(t, dim=0, keepdim=True, compute_kernel_config=config))
         ttnn.deallocate(t)
     return dx, red[0], red[1]
