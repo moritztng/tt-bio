@@ -58,6 +58,34 @@ def main():
     print("relu", rel(down(ttnn.relu(xd)), xr.clamp(min=0)), flush=True)
     print("sigmoid", rel(down(ttnn.sigmoid(xd)), torch.sigmoid(xr)), flush=True)
     print("sum(-1)", rel(down(ttnn.sum(xd, dim=-1, keepdim=True)), xr.sum(-1, keepdim=True)), flush=True)
+    # the verbs the fp32-exact network step still runs on the card (r4t-tape census, 2026-11-26)
+    def probe(name, f):
+        try:
+            got, want = f()
+            print(name, rel(got, want), flush=True)
+        except Exception as e:   # one unsupported signature must not hide the others
+            print(name, "ERROR", str(e).splitlines()[0][:160], flush=True)
+    s_ = torch.randn(1, 8, 64, 64, generator=g, dtype=torch.float64) * 3
+    sr, sd = s_.float().double(), up(s_)
+    probe("softmax(-1)", lambda: (down(ttnn.softmax(sd, dim=-1)), torch.softmax(sr, -1)))
+    probe("softmax(-1) ckc", lambda: (down(ttnn.softmax(sd, dim=-1, compute_kernel_config=ckc)), torch.softmax(sr, -1)))
+    pos = up(y.abs() + 0.5)
+    pr = (y.abs() + 0.5).float().double()
+    probe("divide", lambda: (down(ttnn.divide(xd, pos)), xr / pr))
+    probe("rsqrt", lambda: (down(ttnn.rsqrt(pos)), pr.rsqrt()))
+    probe("reciprocal", lambda: (down(ttnn.reciprocal(pos)), 1 / pr))
+    probe("to_layout RM->TILE", lambda: (down(ttnn.to_layout(ttnn.to_layout(xd, ttnn.ROW_MAJOR_LAYOUT), ttnn.TILE_LAYOUT)), xr))
+    q3 = torch.randn(1, 1, 64, 3 * 128, generator=g, dtype=torch.float64)
+    q3r, q3d = q3.float().double(), up(q3)
+
+    def heads():
+        q, k, v = ttnn.experimental.nlp_create_qkv_heads(q3d, num_heads=4, transpose_k_heads=False)
+        want = q3r.reshape(1, 64, 3, 4, 32).permute(2, 0, 3, 1, 4)
+        return torch.cat([down(q), down(k), down(v)]), torch.cat([want[0], want[1], want[2]])
+    probe("nlp_create_qkv_heads", heads)
+    h = torch.randn(1, 4, 64, 32, generator=g, dtype=torch.float64)
+    hr, hd = h.float().double(), up(h)
+    probe("nlp_concat_heads", lambda: (down(ttnn.experimental.nlp_concat_heads(hd)), hr.permute(0, 2, 1, 3).reshape(1, 1, 64, 128)))
 
 
 if __name__ == "__main__":
