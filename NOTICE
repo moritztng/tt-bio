@@ -191,6 +191,21 @@ MIT-licensed and credited in the top-level LICENSE.
    Modifications: imports rewritten to the tt_bio._vendor.mol1 namespace, logging via
                   the standard library; load_json_cached keeps only its JSON branch.
 
+16. tt_bio/diffdock/constants.py — DiffDock-L's categorical vocabularies and residue
+   tables: the ligand- and receptor-atom feature lists, the amino-acid name maps, the
+   14-slot side-chain atom order and the chi-angle atom quadruples. These are the
+   released checkpoint's own vocabularies, so an index means what it means only if the
+   lists are byte-identical; they are reproduced verbatim. No other upstream DiffDock
+   code is vendored: tt_bio/diffdock/{structure,receptor,ligand,input,folding}.py are a
+   reimplementation on gemmi, networkx and torch, and the equivalence is graded against
+   upstream rather than inherited.
+   Source:        github.com/gcorso/DiffDock @ 85c49b60 — datasets/constants.py and the
+                  allowable_features dict of datasets/process_mols.py
+   License:       MIT — Copyright (c) 2022 Gabriele Corso, Hannes Stärk, Bowen Jing
+   Modifications: the tables only, reformatted; RESNAME_TO_LETTER is ours, the
+                  restriction of ProDy's residue map to the residues upstream's C-alpha
+                  selection can admit.
+
 Not included
 
 12. BindCraft 2 — tt-bio contains none of its code and does not distribute or serve it.

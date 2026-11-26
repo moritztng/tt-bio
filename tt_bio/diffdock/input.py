@@ -8,13 +8,13 @@ own ESM-2 on the card (D-dfd-4) and is passed in.
 
 Differences from upstream, all recorded in state/dfd/DECISIONS.md:
 
-* mmCIF receptors as well as PDB (D-dfd-11).
+* mmCIF receptors as well as PDB (D-dfd-input-2).
 * A conformer seed, so a run is reproducible; at the default there is none and
-  RDKit behaves as upstream (D-dfd-12).
+  RDKit behaves as upstream (D-dfd-input-4).
 * A single-complex call raises; only a batch isolates failures, and names the
   failures instead of printing a count (FEATURE-PLAN conflict 1).
 * A sequence-only receptor is folded with tt-bio's esmfold2, not upstream's
-  esmfold_v1 (D-dfd-13).
+  esmfold_v1 (D-dfd-input-5).
 """
 
 from __future__ import annotations
@@ -207,7 +207,7 @@ def fold_sequence_receptors(
     """Fold every sequence-only receptor and return name -> structure path.
 
     Upstream calls fair-esm's `esmfold_v1` on a GPU. tt-bio folds with its own
-    esmfold2 on the card (D-dfd-13). The folder is injected so this module
+    esmfold2 on the card (D-dfd-input-5). The folder is injected so this module
     stays host-side and testable; `fold(sequence, path) -> path` is the
     contract. An already-written structure is reused, as upstream does.
     """

@@ -103,7 +103,7 @@ def parse_receptor(path: str | Path) -> Receptor:
     """Parse a receptor file into the residue table the graph builder needs.
 
     Accepts anything gemmi reads: `.pdb`, `.cif`/`.mmcif`, and their `.gz`
-    forms. Upstream accepts PDB only; mmCIF is a tt-bio extension (D-dfd-11),
+    forms. Upstream accepts PDB only; mmCIF is a tt-bio extension (D-dfd-input-2),
     and the two give the same receptor for the same structure.
     """
     path = Path(path)

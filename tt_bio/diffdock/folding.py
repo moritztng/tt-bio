@@ -2,7 +2,7 @@
 
 Upstream imports fair-esm's `esmfold_v1` and runs it on a CUDA GPU
 (`utils/inference_utils.py:166-176`). tt-bio folds with its own esmfold2 on the
-card instead (D-dfd-13): same contract, one structure file per complex written
+card instead (D-dfd-input-5): same contract, one structure file per complex written
 under the output directory and reused if it is already there, but a better model
 and no second folding stack to maintain.
 
