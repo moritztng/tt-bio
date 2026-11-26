@@ -198,6 +198,7 @@ def main():
             for _p, _o, _k, t in tt.walk_device_weights(m):  # a declined fused path can upload more
                 ag.parameter(t)
         walked = {p: t for p, _o, _k, t in tt.walk_device_weights(m)}
+        pre = ttnn.to_torch(out.value).double()   # the forward as it stood before any backward ran
         out.backward(seed=up(seed))
         dropped = None
         if a.brk:
@@ -208,6 +209,8 @@ def main():
         want = ref_fn(w64, I0)
     have = ttnn.to_torch(out.value).double().reshape(want.shape)
     fwd_rel = float((have - want).mul(out_mask).norm() / want.mul(out_mask).norm())
+    moved = float((have - pre.reshape(want.shape)).abs().max())
+    print(f"backward moved the forward output by {moved:.3e} (nonzero = a backward wrote into a live forward buffer)", flush=True)
     served = warm.reshape(want.shape)
     served_rel = float((served - want).mul(out_mask).norm() / want.mul(out_mask).norm())
     print(f"forward vs float64 reference: taped rel_l2 {fwd_rel:.3e}, warm call {served_rel:.3e}; "
