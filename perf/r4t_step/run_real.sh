@@ -14,10 +14,13 @@ for i in $(seq 1 300); do
   echo "$(date -u +%FT%TZ) waiting: active=$who" >> $OUT/wait.log; sleep 30
 done
 [ -n "$ok" ] || { echo "NO WINDOW $(date -u +%FT%TZ)" > $OUT/run.log; exit 4; }
-R(){ env PYTHONPATH=$PWD TT_VISIBLE_DEVICES=$C TT_BIO_LEASE_CARDS=${GRANT:-$C} TT_BIO_LEASE_HOLDER=worker:r4t-step timeout 2400 $PY perf/r4t_step/trunk_step.py --n 256 --k 4 --batch $B "$@"; }
+R(){ env PYTHONPATH=$PWD TT_VISIBLE_DEVICES=$C TT_BIO_LEASE_CARDS=${GRANT:-$C} TT_BIO_LEASE_HOLDER=worker:r4t-step TT_BIO_SDPA_OWN_FORWARD=1 timeout 2400 $PY perf/r4t_step/trunk_step.py --n 256 --k 4 --batch $B --exempt perf/r4t_step/g2_exempt.tsv "$@"; }
+mkdir -p $OUT/prev; mv -f $OUT/[ABRD].log $OUT/run.log $OUT/prev/ 2>/dev/null
 echo "START $(date -u +%FT%TZ) sha $(git rev-parse --short HEAD)" > $OUT/run.log
 rm -rf $OUT/ckB $OUT/ckA $OUT/ckR $OUT/ckD
+if [ -n "$SKIP_B" ]; then rc=0; else
 R --steps 2 --out $OUT/ckB > $OUT/B.log 2>&1; rc=$?; echo "RC_B $rc $(date -u +%T)" >> $OUT/run.log
+fi
 if [ $rc != 0 ]; then
   echo "real smoke failed; synthetic arms instead" >> $OUT/run.log
   exec bash perf/r4t_step/run_trunk.sh $C

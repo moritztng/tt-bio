@@ -121,8 +121,8 @@ def main():
             return trunk(s_init, z_init, conds, masks)
         blk = trunk.blocks[a.detach_at]
 
-        def cut(s, *r, **kw):
-            return type(blk).__call__(blk, ttnn.clone(s.value if isinstance(s, ag.Tensor) else s), *r, **kw)
+        def cut(*r, **kw):   # every tensor input (token AND pair stream) leaves the graph here
+            return type(blk).__call__(blk, *[ttnn.clone(x.value) if isinstance(x, ag.Tensor) else x for x in r], **kw)
         trunk.blocks[a.detach_at] = cut
         try:
             return trunk(s_init, z_init, conds, masks)
@@ -273,8 +273,10 @@ def main():
             t1 = time.time()
             retained = used() - base
             loss, terms, ref = real[1](s, ctx)
+            ttnn.synchronize_device(dev)
+            extra_mem = used()
             st = s
-            extra = dict(batch=cur["name"], winner=ctx["win"], upstream_winner=int(cur["meta"]["winners"][0]), depth_upstream=cur["depth"],
+            extra = dict(dev_after_heads_B=extra_mem, batch=cur["name"], winner=ctx["win"], upstream_winner=int(cur["meta"]["winners"][0]), depth_upstream=cur["depth"],
                          terms=terms, upstream_terms=ref)
         else:
             s, z = one_example(step, True)
@@ -286,6 +288,7 @@ def main():
             ag.backward([st], [seed_s])
         ttnn.synchronize_device(dev)
         t2 = time.time()
+        after_bwd = used()
         idle = folds.tape_backward()   # device-weight gradients through each fold's VJP into the upstream leaves
         grads = {nm: (None if p.grad is None else p.grad.float().numpy()) for nm, p in params.items()}
         dead = zero_or_missing(grads)
@@ -302,7 +305,7 @@ def main():
         sm = clk[c0:] or clk[-1:]
         print(json.dumps(dict(step=step + 1, loss=loss, fwd_s=round(t1 - t0, 4), bwd_s=round(t2 - t1, 4),
                               fold_bwd_s=round(t2b - t2, 4), opt_s=round(t2c - t2b, 4), rebuild_s=round(t3 - t2c, 4), idle_dev_w=len(idle), step_s=round(t3 - t0, 4), retained_B=retained,
-                              dead=len(dead), dead_names=sorted(dead)[:6], params=len(params), n_elems=int(sum(v.size for v in opt.master.values())),
+                              dead=len(dead), dead_names=sorted(dead)[:20], dev_base_B=base, dev_after_bwd_B=after_bwd, params=len(params), n_elems=int(sum(v.size for v in opt.master.values())),
                               master_digest=md, aiclk=[min(sm or [0]), max(sm or [0])], aiclk_med=sorted(sm)[len(sm) // 2] if sm else 0,
                               k=a.k, depth=a.depth, n=n, **extra,
                               host_maxrss_GiB=round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 2**20, 3))),
