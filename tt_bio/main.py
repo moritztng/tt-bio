@@ -2187,8 +2187,9 @@ def gen(args):
 @click.option("--weights", type=click.Choice(["diffdock-l", "diffdock"]), default="diffdock-l",
               show_default=True,
               help="Which released model generation to run. diffdock-l is the v1.1 "
-                   "checkpoint (upstream's default recipe); diffdock is the original "
-                   "DiffDock score model (upstream --old_score_model).")
+                   "checkpoint (upstream's default recipe). diffdock is the original "
+                   "DiffDock score architecture (upstream --old_score_model); it is not "
+                   "implemented here and has no released weights, so it is refused.")
 @click.option("--checkpoint", default=None, type=click.Path(exists=True),
               help="Score-model checkpoint: a .pt file, or a directory in upstream's layout "
                    "(best_ema_inference_epoch_model.pt + model_parameters.yml). Default: the "

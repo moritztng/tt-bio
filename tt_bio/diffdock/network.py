@@ -72,6 +72,14 @@ def load(options, *, cache=None, download: bool = False) -> ScoreNetwork:
 
     The confidence checkpoint is loaded here too, once per screen rather than once per
     complex, unless ``--no_confidence`` says the poses keep their sampling order.
+
+    ``--weights`` carries upstream's two architecture booleans (D-dfd-confidence-3). The
+    confidence side is the old architecture and always has been: upstream's own recipe sets
+    ``old_filtering_model: true`` and the released 19 MB checkpoint is that network. The
+    score side is DiffDock-L, and ``--weights diffdock`` asks for the pre-DiffDock-L score
+    architecture, which this port does not implement and has no released weights for -- the
+    v1.1 asset carries DiffDock-L only. It is refused here by name rather than silently
+    running DiffDock-L under a flag that says otherwise.
     """
     import torch
 
@@ -80,9 +88,15 @@ def load(options, *, cache=None, download: bool = False) -> ScoreNetwork:
     from tt_bio.diffdock import confidence_model as cm
     from tt_bio.diffdock import score_model
 
+    if options.old_score_model:
+        raise ScoreNetworkUnavailable(
+            "--weights diffdock asks for the original DiffDock score architecture "
+            "(upstream --old_score_model). This port implements DiffDock-L's score network, "
+            "and the released v1.1 asset carries no original-DiffDock score weights. Use "
+            "--weights diffdock-l, which is the default.")
     ckpt, params = checkpoints.resolve("score", options.checkpoint, cache,
                                        download=download)
-    cfg = dfd_config.load(params.parent, old_model=False, name="diffdock")
+    cfg = dfd_config.load(params.parent, old_model=options.old_score_model, name="diffdock")
     state = torch.load(ckpt, map_location="cpu", weights_only=False)
     model = score_model.load_released(state, cfg)
 
