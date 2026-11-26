@@ -2,6 +2,7 @@
 # Stand up a rented CPU box for the DFD graded accuracy run, then dock PoseBusters on it.
 #
 #   scripts/diffdock_port/eval_box_setup.sh <ssh-target> [workers] [threads]
+#   SSH_CMD='ssh -p 12345 root@1.2.3.4' scripts/diffdock_port/eval_box_setup.sh - [workers] [threads]
 #
 # Ships this branch, the PoseBusters benchmark set and the released v1.1 checkpoints, builds
 # one pinned CPU environment, and starts `pose_eval.py dock` detached under nohup. The dock is
@@ -11,18 +12,27 @@
 # box exists only because 428 complexes is tens of CPU-hours that pc cannot spare.
 set -euo pipefail
 
-TARGET=${1:?usage: eval_box_setup.sh <ssh-target> [workers] [threads]}
+TARGET=${1:?usage: eval_box_setup.sh <ssh-target>|- [workers] [threads]}
 WORKERS=${2:-8}
 THREADS=${3:-3}
-SSH="ssh -o StrictHostKeyChecking=accept-new $TARGET"
+# A vast box is reached as `ssh -p <port> root@<ip>`, not as a bare target, so the caller may
+# hand the whole command over SSH_CMD. rsync gets the same command minus its target.
+SSH=${SSH_CMD:-ssh -o StrictHostKeyChecking=accept-new $TARGET}
+RT=${SSH##* }    # the target is the last word of the command
+RSH=${SSH% *}    # ... and the rest is what rsync runs as its shell
 REPO=$(cd "$(dirname "$0")/../.." && pwd)
 PB=${DFD_PB:-$HOME/scratch/dfd/pb/posebusters_benchmark_set}
 CKPT=$HOME/.boltz/diffdock/models
 
-echo "== shipping to $TARGET"
+echo "== base packages on $RT"
+$SSH 'command -v rsync >/dev/null && command -v curl >/dev/null ||
+      (export DEBIAN_FRONTEND=noninteractive; apt-get -qq update &&
+       apt-get -qq install -y rsync curl ca-certificates >/dev/null)'
+
+echo "== shipping to $RT"
 git -C "$REPO" archive --format=tar HEAD | $SSH "mkdir -p ~/dfd/tt-bio && tar -x -C ~/dfd/tt-bio"
-rsync -a --info=progress2 -L "$PB" "$TARGET:dfd/pb/"
-rsync -a -L "$CKPT/" "$TARGET:.boltz/diffdock/models/"
+rsync -a -e "$RSH" -L "$PB" "$RT:dfd/pb/"
+rsync -a -e "$RSH" -L "$CKPT/" "$RT:.boltz/diffdock/models/"
 
 echo "== environment"
 $SSH bash -s <<'REMOTE'
@@ -38,7 +48,7 @@ REMOTE
 
 echo "== dock, detached"
 $SSH "cd ~/dfd/tt-bio && DFD_PB=~/dfd/pb/posebusters_benchmark_set PYTHONHASHSEED=0 \
-      PYTHONUNBUFFERED=1 nohup ~/dfd/venv/bin/python scripts/diffdock_port/pose_eval.py dock \
+      PYTHONUNBUFFERED=1 setsid nohup ~/dfd/venv/bin/python scripts/diffdock_port/pose_eval.py dock \
       --ids all --out ~/dfd/poses --workers $WORKERS --threads $THREADS --seed 42 \
-      > ~/dfd/dock.log 2>&1 & echo \$! > ~/dfd/dock.pid; cat ~/dfd/dock.pid"
-echo "== log: $TARGET:~/dfd/dock.log  poses: $TARGET:~/dfd/poses"
+      > ~/dfd/dock.log 2>&1 < /dev/null & echo \$! > ~/dfd/dock.pid; cat ~/dfd/dock.pid"
+echo "== log: $RT:~/dfd/dock.log  poses: $RT:~/dfd/poses"
