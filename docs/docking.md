@@ -78,6 +78,19 @@ In a screen one bad ligand does not stop the run. The failures land in `failures
 the error for each, and `--limit_failures` (default 5) decides when to give up. A single
 complex on the command line fails immediately instead, with the reason.
 
+## Several cards and the fleet
+
+A screen spreads across cards one complex per card at a time. `--devices 0,1,2,3` starts a
+worker on each named card (default: every card on the host) and hands the complexes out as
+cards free up; `--controller URL` submits the screen to a running `tt-bio controller` instead,
+and `--owner` sets its fairness key there (see [multi-host](multi-host.md)). Either way the
+results land under `--out_dir` in the layout above, the same files a one-card run writes. All
+poses of a complex stay on one card, because the sampler draws its noise over the whole pose
+batch. A single complex, or `--no_model`, runs in-process on one card.
+
+On the fleet path every complex is attempted and each failure is a row in `failures.csv`;
+`--limit_failures` applies to a local run only.
+
 ## Pocket docking
 
 Without a pocket the whole receptor is searched. With one, poses start inside it:
