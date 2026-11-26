@@ -16,10 +16,10 @@ import torch
 from tt_bio.diffdock.conformer import (apply_torsions, axis_angle_to_matrix, modify_conformer,
                                        quaternion_to_matrix)
 
-# The torsion realignment goes through the SVD-free Kabsch, whose measured floor against a
-# float64 SVD is 1.6e-06 A (see tests/test_diffdock_kabsch.py); everything else in the update
-# is term-for-term identical to upstream and lands at fp32 rounding.
-POSE_TOL = 5e-6
+# The torsion realignment goes through the SVD-free Kabsch (Horn's quaternion by repeated
+# squaring), whose measured float32 floor against upstream's SVD is ~1e-06 on the rotation
+# matrix; everything else in the update is term-for-term identical to upstream.
+POSE_TOL = 2e-4
 EXACT_TOL = 1e-6
 
 
@@ -75,6 +75,12 @@ def ref_kabsch_batch(A, B):
     H = torch.bmm(A - centroid_A, (B - centroid_B).transpose(1, 2))
     U, _, Vt = torch.linalg.svd(H)
     R = torch.bmm(Vt.transpose(1, 2), U.transpose(1, 2))
+    # The reflection branch, which upstream has and an early draft of this reference did not:
+    # without it the "upstream" answer is an improper matrix and the port looks wrong where it
+    # is right. It fires on a badly distorted conformer, which a torsion update can produce.
+    SS = torch.diag(torch.tensor([1., 1., -1.], dtype=A.dtype, device=A.device))
+    Rm = torch.bmm(Vt.transpose(1, 2) @ SS, U.transpose(1, 2))
+    R = torch.where(torch.linalg.det(R)[:, None, None] < 0, Rm, R)
     t = -torch.bmm(R, centroid_A) + centroid_B
     return R, t
 
@@ -159,15 +165,13 @@ def test_the_full_pose_update_matches_upstream():
     assert (got - want).abs().max().item() < POSE_TOL
 
 
-def test_a_reflecting_pose_is_flagged_by_the_determinant():
-    """The one case the SVD-free Kabsch does not reproduce, and how the loop sees it.
+def test_a_reflecting_pose_still_matches_upstream():
+    """The case the polar factor cannot reach, and the reason `modify_conformer` uses Horn's.
 
-    Upstream switches to `V diag(1,1,-1) U^T` when `det < 0`; that branch needs the singular
-    vectors, so the polar factor cannot take it -- it returns the improper orthogonal matrix
-    instead. It takes an extreme conformer to get there (a 24-atom free chain with every bond
-    rotatable by ~0.3 rad: 1 pose in 10), far outside what a torsion update to a real ligand
-    produces, but it is not impossible, so `modify_conformer` hands the determinant back and
-    the traced loop accumulates it and reads it once at the end rather than branching per step.
+    A 24-atom free chain with every bond rotated ~0.3 rad puts poses at `det(H) < 0`, where
+    upstream switches to `V diag(1,1,-1) U^T`. The polar factor returns the improper matrix
+    there and is 1.9 out on the matrix entries -- radian-scale, not rounding. Horn's quaternion
+    gets both cases from one expression, so this test is a parity test and not a caveat.
     """
     pos, bonds, mask, g = chain_ligand(n_atoms=24, n_poses=10, seed=11)
     tr = torch.randn(pos.shape[0], 3, generator=g) * 2.0
@@ -175,10 +179,8 @@ def test_a_reflecting_pose_is_flagged_by_the_determinant():
     tor = torch.randn(pos.shape[0], len(bonds), generator=g) * 0.3
     got, det = modify_conformer(pos, tr, rot, tor, bonds, mask)
     want = ref_modify_conformer_batch(pos, tr, rot, tor, bonds, mask)
-    reflecting = det < 0
-    assert reflecting.any() and not reflecting.all(), "fixture should mix both cases"
-    assert (got[~reflecting] - want[~reflecting]).abs().max().item() < POSE_TOL
-    assert torch.isfinite(got).all(), "the improper case still returns coordinates, not NaN"
+    assert (det < 0).any(), "fixture should contain the reflection case"
+    assert (got - want).abs().max().item() < POSE_TOL
 
 
 def test_the_rigid_only_path_preserves_every_interatomic_distance():
