@@ -16,8 +16,9 @@ traced loop:
   by `where`, with the division clamped so the small-angle branch cannot produce a NaN that
   the `where` would then propagate (`0 * NaN` is `NaN`, so selecting is not enough -- the
   *unselected* expression has to be finite too).
-* **The Kabsch realignment** -- an SVD per pose per step. :mod:`tt_bio.diffdock.kabsch` does
-  it as the orthogonal polar factor instead; see that module for why and for the grade.
+* **The Kabsch realignment** -- an SVD per pose per step, plus a `where` on the determinant
+  for the reflection case. :mod:`tt_bio.diffdock.kabsch` does it as Horn's quaternion, which
+  covers both cases in one branch-free expression; see that module for the grade.
 
 The torsion loop itself stays sequential: bond `k`'s rotation axis is read from coordinates
 that bonds `0..k-1` have already moved, so the updates do not commute and cannot be fused.
@@ -39,7 +40,7 @@ import torch
 from torch import Tensor
 
 from .harmonics import unit
-from .kabsch import apply_rigid, kabsch_batch
+from .kabsch import apply_rigid, kabsch_proper
 
 _SMALL_ANGLE = 1e-6      # upstream's eps, kept so the two agree term for term
 
@@ -127,5 +128,5 @@ def modify_conformer(pos: Tensor, tr_update: Tensor, rot_update: Tensor,
     if torsion_updates is None or not len(bonds):
         return rigid, None
     flexible = apply_torsions(rigid, bonds, mask_rotate, torsion_updates)
-    r, t, det = kabsch_batch(flexible, rigid)
+    r, t, det = kabsch_proper(flexible, rigid)
     return apply_rigid(flexible, r, t), det
