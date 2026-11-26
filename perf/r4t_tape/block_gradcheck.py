@@ -35,6 +35,7 @@ def main():
     ap.add_argument("--n", type=int, default=128)
     ap.add_argument("--real", type=int, default=96)
     ap.add_argument("--seed", type=int, default=7)
+    ap.add_argument("--probe", type=int, default=24, help="central-difference coords per tensor")
     ap.add_argument("--break", dest="brk", action="store_true")
     ap.add_argument("--arm", choices=("prod", "bf16", "fp32"), default="prod")
     ap.add_argument("--module", choices=("trunk_block", "pair_update"), default="trunk_block")
@@ -129,7 +130,7 @@ def main():
     rep = CK.gradcheck(f"{a.module}/{a.arm}" + ("/own" if a.sdpa_own else "") + ("/broken" if a.brk else ""),
                        ref_loss=lambda: (ref_fn(wref, ref) * seed).sum(),
                        ref_params=[ref[k] for k in names], tt_grads={k: got[k] for k in names},
-                       op_class="reduction", dtype=dname, n_probe=24, seed=a.seed)
+                       op_class="reduction", dtype=dname, n_probe=a.probe, seed=a.seed)
     print(rep, flush=True)
     worst = max(rep.grads.items(), key=lambda kv: kv[1]["rel_l2"])
     res = {"module": a.module, "arm": a.arm, "sdpa_own": a.sdpa_own or a.arm == "fp32", "levers": sorted(levers), "break": a.brk, "dropped": dropped, "seed": a.seed, "n": a.n, "real": a.real, "pass": rep.passed,
