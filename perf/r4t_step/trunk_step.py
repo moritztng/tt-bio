@@ -41,6 +41,8 @@ def main():
     ap.add_argument("--curve-dump", default="", help="the G3 curve leg: a directory of plan-step "
                     "inputs from `curve_upstream.py --dump-dir` (plan.json beside them). Step i "
                     "trains on step<i>.npz at ITS drawn depth, in order, no cycling.")
+    ap.add_argument("--save-every", type=int, default=0, help="checkpoint every N steps (newest "
+                    "two kept), so a long leg resumes with --resume instead of starting over")
     ap.add_argument("--curve-out", default="", help="with --curve-dump: the CurveLog to append to, "
                     "the file grade_parity.py --ours reads")
     a = ap.parse_args()
@@ -265,7 +267,7 @@ def main():
     if a.resume:
         start = int(load_adapter(a.resume, dict(params), dev, opt=opt)["step"])
         build()
-    ck = Checkpointer(a.out, every=10**9, keep=10)
+    ck = Checkpointer(a.out, every=a.save_every or 10**9, keep=2 if a.save_every else 10)
     if a.exempt:
         for ln in open(a.exempt):
             if ln.strip() and not ln.startswith("#"):
@@ -279,7 +281,8 @@ def main():
                         meta={"sha": os.environ.get("TT_BIO_SHA", ""), "card": card,
                               "dump_dir": cdir, "dtype": str(trunk.dtype),
                               "levers": sorted(levers) if isinstance(levers, (set, list, tuple))
-                              else str(levers), "device": "tenstorrent", "k": a.k, "n": a.n})
+                              else str(levers), "device": "tenstorrent", "k": a.k, "n": a.n},
+                        start=start)
     for step in range(start, a.steps):
         ttnn.synchronize_device(dev)
         base = used()
@@ -332,6 +335,8 @@ def main():
               flush=True)
         if a.save_at and step + 1 == a.save_at:   # before the guard, so a refusal still leaves the resume test its input
             print(json.dumps(dict(saved=str(ck.save(step + 1, opt, metrics={"loss": loss}, force=True)))), flush=True)
+        if a.save_every and ck.due(step + 1):
+            print(json.dumps(dict(saved=str(ck.save(step + 1, opt, metrics={"loss": loss})))), flush=True)
         if clog is not None:
             clog.record(step, loss, terms=extra.get("terms"), n_recycle=cur["depth"],
                         seconds=round(t3 - t0, 2), dead=len(dead), example=cur["name"],

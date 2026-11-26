@@ -98,6 +98,36 @@ def test_log_refuses_a_step_out_of_order_and_a_mismatched_depth(tmp_path):
             log.record(1, 1.0, n_recycle=p.step(1).n_recycle + 1)
 
 
+def test_a_resumed_log_continues_where_its_checkpoint_left_it(tmp_path):
+    """A crashed leg logged steps 0..6 but its last checkpoint is after step 4: the resumed run
+    restarts at 5, the stale 5..6 rows go, and the finished log reads as one uninterrupted run."""
+    p = plan(10)
+    full = curve(10)
+    path = tmp_path / "ours.jsonl"
+    with CurveLog(path, p, "ours") as log:
+        for i in range(7):
+            log.record(i, full[i] + 9.0 * (i >= 5))     # rows past the checkpoint are wrong on purpose
+    with CurveLog(path, p, "ours", start=5) as log:
+        with pytest.raises(CurveContractError):
+            log.record(6, full[6])                       # the resumed run must start at 5
+        for i in range(5, 10):
+            log.record(i, full[i])
+    header, losses = read_curve(path)
+    assert header["plan_digest"] == p.digest() and np.allclose(losses, full)
+
+
+def test_a_resume_refuses_a_short_log_a_foreign_plan_and_the_wrong_side(tmp_path):
+    p = plan(10)
+    path = write(tmp_path, "ours.jsonl", "ours", curve(4), p=p)
+    with pytest.raises(CurveContractError, match="ends at step 3"):
+        CurveLog(path, p, "ours", start=6)              # steps 4..5 would be missing
+    with pytest.raises(CurveContractError, match="resuming"):
+        CurveLog(path, plan(10, seed=7), "ours", start=2)
+    with pytest.raises(CurveContractError, match="resuming"):
+        CurveLog(path, p, "gpu_a", start=2)
+    assert len(read_curve(path)[1]) == 4                # a refused resume leaves the log untouched
+
+
 def test_reader_refuses_a_gap_a_bad_header_and_an_edited_plan(tmp_path):
     p = plan(6)
     path = write(tmp_path, "ours.jsonl", "ours", curve(6), p=p)
