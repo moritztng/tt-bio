@@ -44,6 +44,64 @@ def flat(d, prefix=""):
     return out
 
 
+def load_batch(path, dtype=None):
+    """A dumped `batch<NN>.npz` back into the dict `call_nn` receives, with `in/a/b` unflattened.
+
+    `strict_feats` is set: the feature factory fills a MISSING feature with a silent zero default
+    unless it is on (`nn/feature_factory.py:196`), and a replay that quietly lost a key must raise
+    rather than train against zeros (LESSONS-OF3T T1). It is not in the dump because it is a flag,
+    not data; neither is `example_id_batch`, which only names the example in an error message.
+    """
+    import torch
+    z = np.load(path, allow_pickle=False)
+    batch = {}
+    for key in z.files:
+        if not key.startswith("in/"):
+            continue
+        parts = key[3:].split("/")
+        v = torch.as_tensor(z[key])
+        if dtype is not None and v.is_floating_point():
+            v = v.to(dtype)
+        d = batch
+        for p in parts[:-1]:
+            d = d.setdefault(p, {})
+        d[parts[-1]] = v
+    batch["strict_feats"] = True
+    meta = {"depth": int(z["depth"]), "seed": int(z["seed"]), "winners": z["winners"],
+            "rng_state": torch.as_tensor(z["rng_state"], dtype=torch.uint8)}
+    recorded = {k[4:]: z[k] for k in z.files if k.startswith("out/")}
+    losses = {k[5:]: z[k] for k in z.files if k.startswith("loss/")}
+    return batch, meta, recorded, losses
+
+
+def replay(repo, out_dir, dtype):
+    """Prove a dump is sufficient: rerun `call_nn` from the file alone and match the recorded outputs.
+
+    This is the artifact's contract check. If the dump is missing something the network reads, the
+    replayed outputs move (or the strict feature factory raises) and this fails -- which is what a
+    second implementation grading itself against these files needs to be able to rely on.
+    """
+    import torch
+    _, model = build_model(repo, dtype)
+    worst, rows = 0.0, []
+    for path in sorted(Path(out_dir).glob("batch*.npz")):
+        batch, meta, recorded, _ = load_batch(path, dtype)
+        torch.set_rng_state(meta["rng_state"])
+        with torch.no_grad():
+            out = flat(model.call_nn(batch, n_recycle=meta["depth"]))
+        miss = sorted(set(recorded) - set(out)) + sorted(set(out) - set(recorded))
+        rel = {k: float(np.max(np.abs(out[k] - recorded[k])) /
+                        max(float(np.max(np.abs(recorded[k]))), 1e-30)) for k in recorded if k in out}
+        bad = max(rel.values()) if rel else float("inf")
+        worst = max(worst, bad)
+        rows.append({"file": path.name, "worst_rel": bad, "missing_or_extra": miss,
+                     "per_tensor": rel})
+        print(json.dumps(rows[-1]), flush=True)
+    print(json.dumps({"batches": len(rows), "worst_rel": worst,
+                      "verdict": "REPLAYABLE" if rows and worst == 0.0 else "NOT BIT-EXACT"}))
+    return 0 if rows and worst == 0.0 else 1
+
+
 def build_model(repo: Path, dtype):
     import torch
     from hydra import compose, initialize_config_dir
@@ -143,12 +201,16 @@ def main():
     ap.add_argument("--dtype", choices=("float32", "float64"), default="float32")
     ap.add_argument("--min-tokens", type=int, default=32,
                     help="skip examples smaller than this; see batches() on the 4-token system")
+    ap.add_argument("--replay", action="store_true",
+                    help="do not generate: rerun call_nn from the dumps in --out and match them")
     a = ap.parse_args()
 
     import torch
     torch.set_num_threads(int(os.environ.get("OMP_NUM_THREADS", "8")))
     dtype = getattr(torch, a.dtype)
     repo = Path(os.environ["RFD4_REPO"]).expanduser()
+    if a.replay:
+        sys.exit(replay(repo, a.out, dtype))
     cfg, model = build_model(repo, dtype)
     a.out.mkdir(parents=True, exist_ok=True)
     summary = []
