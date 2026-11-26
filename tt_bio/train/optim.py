@@ -667,12 +667,15 @@ class AdamW:
                 f"no per-chip gradients to reduce")
         names, offs, edges, owned = self._shard_layout()
         me = ax.dp_rank
-        flat = np.zeros(int(offs[-1]), np.float32)
+        # Filled in place in the slot the axis publishes, so the send is not another copy.
+        # The slot holds an earlier step's bytes, so every element is written, absent ones too.
+        flat = ax.send_buffer(int(offs[-1]))
         absent = set()
         for i, n in enumerate(names):
             got = replicas.get(n)
             if got is None or n in disabled:
                 absent.add(n)
+                flat[offs[i]:offs[i + 1]] = 0.0
                 continue
             g = np.asarray(to_host(list(got)[0]), np.float32).reshape(-1)
             if n in self.held:
@@ -701,12 +704,20 @@ class AdamW:
         self.beta2_pow *= self.beta2
         bc1, bc2 = 1.0 - self.beta1_pow, 1.0 - self.beta2_pow
         report = {}
+        # Whether each owned parameter's update survives the cast to its device dtype is decided
+        # once, by its owner, and gathered: every rank holds the same master and the same device
+        # copy, so the answer is the same everywhere, and each rank rounds 1/width of the model
+        # instead of all of it twice (0.7 of 1.55 s on rank 0 at 4 x 60 M). 1 = rounded away.
+        keep = {}
         for n, g in local.items():
             theta = self.master[n]
+            before = round_to_device_dtype(theta, self.params[n].value.dtype)
+            before = None if before is None else np.array(before, copy=True)
             if n in self.muon_names:
                 # The replicated step leaves a Muon matrix with no gradient alone, momentum
                 # included (torch.optim.Muon skips it); so does this one.
                 if n in absent:
+                    keep[n] = float(before is not None)
                     continue
                 g = g * clip_muon if clip_muon != 1.0 else g
                 new = self._muon_new(n, g, theta, lr_muon)
@@ -727,19 +738,28 @@ class AdamW:
                 if n in self.held:
                     upd[self.held[n]] = 0.0
                 theta -= upd
+            after = None if before is None else round_to_device_dtype(theta, self.params[n].value.dtype)
+            keep[n] = float(after is not None and np.array_equal(after, before))
             report[n] = {"master_step": float(np.linalg.norm(upd)),
                          "grad_norm": float(np.linalg.norm(g))}
+        # Owned parameters are contiguous in `names`, so the flags gather in the same rank order.
+        # Gathered BEFORE the weights: a gathered slice is a mapping valid only until this rank's
+        # next collective, and the copy out of it below must come last.
+        owner_of = self._owners()[3]
+        fedges = np.concatenate([[0], np.cumsum(np.bincount(owner_of, minlength=ax.width))])
+        skip = ax.all_gather(np.array([keep[names[i]] for i in owned], np.float32), edges=fedges)
         mine = (np.concatenate([self.master[names[i]].ravel() for i in owned]) if owned
                 else np.zeros(0, np.float32))
-        full = ax.all_gather(mine)
+        # Edges are tensor-aligned, so every parameter sits whole in its owner's slice and is
+        # copied from that rank's mapping straight into the master.
+        parts = ax.all_gather_parts(mine)
         writes_skipped = 0
         for i, n in enumerate(names):
             t, theta = self.params[n], self.master[n]
-            before = round_to_device_dtype(theta, t.value.dtype)
-            before = None if before is None else np.array(before, copy=True)
-            theta[...] = full[offs[i]:offs[i + 1]].reshape(theta.shape)
-            after = round_to_device_dtype(theta, t.value.dtype)
-            if before is not None and after is not None and np.array_equal(after, before):
+            r = int(owner_of[i])
+            lo = int(offs[i] - edges[r])
+            theta[...] = parts[r][lo:lo + theta.size].reshape(theta.shape)
+            if skip[i]:
                 writes_skipped += 1
             else:
                 t.value = to_device(theta, t.value.device(), dtype=t.value.dtype)
