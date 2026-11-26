@@ -831,6 +831,14 @@ def backward(roots, seeds=None) -> None:
 
 
 def _backward(roots, seeds) -> None:
+    try:
+        _backward_walk(roots, seeds)
+    finally:
+        if _MMVJP_XT:
+            mmvjp_xt_clear()
+
+
+def _backward_walk(roots, seeds) -> None:
     order = _reverse_topo(roots)
     keep = {id(r) for r in roots}
     for r, sd in zip(roots, seeds):
@@ -1180,14 +1188,50 @@ def _mmvjp_dw(x, g, cfg):
     if not (_mmvjp_ok(x, g) and int(x.shape[0]) >= MMVJP_MIN_ROWS):
         MMVJP_STATS["declined"] += 1
         return None
-    xt = ttnn.transpose(x, -2, -1)
+    xt = _mmvjp_xt(x)
     try:
         out = ttnn.experimental.minimal_matmul(xt, g, compute_kernel_config=cfg, dtype=ttnn.float32)
     except Exception:  # noqa: BLE001
         out = None
-    ttnn.deallocate(xt)
     MMVJP_STATS["dw" if out is not None else "declined"] += 1
     return out
+
+
+# One activation (a LayerNorm output) feeds several projections, so a backward asks for the same
+# x^T several times in a row. Keep the last few, keyed by the device buffer; each entry HOLDS x, so
+# its buffer cannot be freed and handed to another tensor while the key is live, and an entry whose
+# x was deallocated explicitly is dropped on sight. Evicted transposes are freed.
+MMVJP_XT_KEEP = 4
+_MMVJP_XT = []  # [(key, x, xt)], most recent last
+
+
+def _mmvjp_xt(x):
+    key = (x.buffer_address(), tuple(int(d) for d in x.shape))
+    for i, (k, xr, xt) in enumerate(_MMVJP_XT):
+        if not xr.is_allocated() or not xt.is_allocated():
+            continue
+        if k == key and xr is x:
+            MMVJP_STATS["xt_hit"] = MMVJP_STATS.get("xt_hit", 0) + 1
+            _MMVJP_XT.append(_MMVJP_XT.pop(i))
+            return xt
+    live = []
+    for e in _MMVJP_XT:  # an x retired by the backward takes its transpose with it
+        if e[1].is_allocated() and e[2].is_allocated():
+            live.append(e)
+        elif e[2].is_allocated():
+            ttnn.deallocate(e[2])
+    _MMVJP_XT[:] = live
+    xt = ttnn.transpose(x, -2, -1)
+    _MMVJP_XT.append((key, x, xt))
+    while len(_MMVJP_XT) > MMVJP_XT_KEEP:
+        ttnn.deallocate(_MMVJP_XT.pop(0)[2])
+    return xt
+
+
+def mmvjp_xt_clear():
+    """Free the cached transposes (end of a backward)."""
+    while _MMVJP_XT:
+        ttnn.deallocate(_MMVJP_XT.pop()[2])
 
 
 def _split_k(a, b, kw):
