@@ -8,11 +8,11 @@ PY=~/scratch/shipflow/venv-c4f99e695d34/bin/python
 ok=
 for i in $(seq 1 300); do
   who=$(python3 ~/spd/feed/book.py active $C 2>/dev/null)
-  if [ "$who" = "fleet-r4t-step" ] && [ -z "$(sudo -n fuser /dev/tenstorrent/$C 2>/dev/null)" ]; then ok=1; break; fi
+  if [ "$who" = "${OWNER:-fleet-r4t-step}" ] && [ -z "$(sudo -n fuser /dev/tenstorrent/$C 2>/dev/null)" ]; then ok=1; break; fi
   echo "$(date -u +%FT%TZ) waiting: active=$who" >> $OUT/wait.log; sleep 30
 done
 [ -n "$ok" ] || { echo "NO WINDOW $(date -u +%FT%TZ)" > $OUT/run.log; exit 4; }
-R(){ env PYTHONPATH=$PWD TT_VISIBLE_DEVICES=$C TT_BIO_LEASE_CARDS=$C TT_BIO_LEASE_HOLDER=worker:r4t-step timeout 1500 $PY perf/r4t_step/trunk_step.py "$@"; }
+R(){ env PYTHONPATH=$PWD TT_VISIBLE_DEVICES=$C TT_BIO_LEASE_CARDS=${GRANT:-$C} TT_BIO_LEASE_HOLDER=worker:r4t-step timeout 1500 $PY perf/r4t_step/trunk_step.py "$@"; }
 echo "START $(date -u +%FT%TZ) sha $(git rev-parse --short HEAD)" > $OUT/run.log
 rm -rf $OUT/ckS $OUT/ckA $OUT/ckR $OUT/ckD
 R --n 128 --k 2 --depth 2 --steps 2 --out $OUT/ckS > $OUT/S.log 2>&1; rc=$?; echo "RC_S $rc" >> $OUT/run.log

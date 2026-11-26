@@ -137,8 +137,9 @@ def main():
 
     ag.install()
     build()
-    reached = [nm for nm in folds.leaves if nm not in set(folds.unreached())]
-    params = {nm: folds.params()[nm] for nm in reached}
+    unreached = set(folds.unreached())   # one autograd pass over every fold; never inside a per-leaf loop
+    every = folds.params()
+    params = {nm: p for nm, p in every.items() if nm not in unreached}
     names = list(params)
     cyc = {nm: "depth-1 draws feed a zero state into the cycle projection; trains at depth >= 2"
            for nm in names if "cycle" in nm and a.depth < 2}
