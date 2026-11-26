@@ -8,8 +8,8 @@ Bar B1 (pre-registered, state/r4t/rows/perf.md): e_dev = ||O_dev - O_f64|| / ||O
 bf16 host error against the same float64 reference), max over all 297 RFD4 denoiser matrices.
 `--broken` scales one matrix's device result by 1.05, which must fail B1 (the gate shown able to fail).
 
-Arms: `bf16` (every intermediate rounded to bf16, as upstream does on host) and `f32` (matmul outputs and the
-polynomial kept fp32, inputs to each matmul bf16). Timing: whole optimizer-step NS (all 297 matrices) synced, warm,
+Arms: `gram` (default, one bf16 rounding of the gram used in both terms; see ns_dev) and `naive` (first attempt,
+2026-11-26 04:06Z: B1 FAIL at 2.1-5x host error, root cause in ns_dev's docstring). Timing: whole optimizer-step NS (all 297 matrices) synced, warm,
 --reps times, AICLK sampled during from sysfs.
 """
 import argparse, hashlib, json, os, subprocess, sys, threading, time
@@ -31,8 +31,8 @@ def ns_ref(x, dtype):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--shapes", required=True)
-    ap.add_argument("--reps", type=int, default=5)
-    ap.add_argument("--arm", choices=["bf16", "f32"], default="bf16")
+    ap.add_argument("--reps", type=int, default=20)
+    ap.add_argument("--arm", choices=["gram", "naive"], default="gram")
     ap.add_argument("--fidelity", default="HiFi4")
     ap.add_argument("--broken", action="store_true")
     ap.add_argument("--out", required=True)
@@ -61,21 +61,32 @@ def main():
 
     ckc = ttnn.types.BlackholeComputeKernelConfig(math_fidelity=getattr(ttnn.MathFidelity, a.fidelity),
                                                   math_approx_mode=False, fp32_dest_acc_en=True, packer_l1_acc=True)
-    mid = ttnn.bfloat16 if a.arm == "bf16" else ttnn.float32
-    mm = lambda p, q, **k: ttnn.matmul(p, q, dtype=mid, compute_kernel_config=ckc, **k)
-    bf = lambda t: t if a.arm == "bf16" else ttnn.typecast(t, ttnn.bfloat16)
+    f32, b16 = ttnn.float32, ttnn.bfloat16
+    mm = lambda p, q, dt, **k: ttnn.matmul(p, q, dtype=dt, compute_kernel_config=ckc, **k)
 
     def ns_dev(x):
-        """x: device (k, m, n) bf16, m <= n. Returns bf16 device tensor."""
-        x32 = ttnn.typecast(x, ttnn.float32)
+        """x: device (k, m, n) bf16, m <= n. Returns bf16 device tensor.
+
+        `gram` arm (default): the gram is rounded to bf16 ONCE and that same rounded gram feeds both polynomial
+        terms (b g + c g g), as upstream's bf16 baddbmm does; p is formed in fp32 and rounded once for the matmul,
+        a x + p x is summed in fp32 and rounded once. `naive` arm: the first device order (b g from the fp32 gram,
+        c g g from the rounded one, a x rounded before the add). CPU emulation over 8 random 256x768 matrices
+        (ns_emu.py): naive 2.1-2.3x host error, gram 1.01x. Mixing a rounded and an unrounded gram breaks the
+        polynomial-in-one-matrix structure, and five Newton-Schulz iterations amplify it."""
+        x32 = ttnn.typecast(x, f32)
         ss = ttnn.sum(ttnn.sum(ttnn.multiply(x32, x32), dim=-1, keepdim=True), dim=-2, keepdim=True)
         inv = ttnn.reciprocal(ttnn.clamp(ttnn.sqrt(ss), min=EPS))
-        x = ttnn.multiply(x32, inv, dtype=ttnn.bfloat16)
+        x = ttnn.multiply(x32, inv, dtype=b16)
         for _ in range(5):
-            g = mm(x, x, transpose_b=True)
-            gb = bf(g)
-            p = ttnn.add(ttnn.multiply(g, B), ttnn.multiply(mm(gb, gb), C), dtype=mid)
-            x = ttnn.add(ttnn.multiply(x, A), mm(bf(p), x), dtype=ttnn.bfloat16)
+            if a.arm == "naive":
+                g = mm(x, x, f32, transpose_b=True)
+                gb = ttnn.typecast(g, b16)
+                p = ttnn.add(ttnn.multiply(g, B), ttnn.multiply(mm(gb, gb, f32), C), dtype=f32)
+                x = ttnn.add(ttnn.multiply(x, A), mm(ttnn.typecast(p, b16), x, f32), dtype=b16)
+            else:
+                g = mm(x, x, b16, transpose_b=True)
+                p = ttnn.add(ttnn.multiply(ttnn.typecast(g, f32), B), ttnn.multiply(mm(g, g, f32), C), dtype=b16)
+                x = ttnn.add(ttnn.multiply(ttnn.typecast(x, f32), A), mm(p, x, f32), dtype=b16)
         return x
 
     gen = torch.Generator().manual_seed(0)
