@@ -28,6 +28,9 @@ def to_host(t, *, dtype=None):
     if isinstance(t, np.ndarray):
         return t.astype(dtype) if dtype is not None else np.ascontiguousarray(t)
     import torch
+    if isinstance(t, torch.Tensor):   # a host parameter (`bridge.HostParam`) or its gradient
+        out = t.detach().to(torch.float32).numpy().copy()   # never alias a live parameter
+        return out.astype(dtype) if dtype is not None else out
     import ttnn
     out = ttnn.to_torch(t).to(torch.float32).numpy()
     return out.astype(dtype) if dtype is not None else np.ascontiguousarray(out)

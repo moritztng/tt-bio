@@ -1,0 +1,3 @@
+qb2 chip 1 p300c, booking r4t-step-trunk, code 2e3380ec0, TT_BIO_SDPA_OWN_FORWARD=1, perf/r4t_step/run_real.sh with SKIP_B=1 STEPS_A=20.
+A: 20 steps (save at 5). R: resume from A step 5, step 6 must equal A step 6. D: --freeze transformer_layers.3., G2 must refuse naming it.
+Steps 2-13 of A overlapped two pytest runs on the same host; steps 14-20 are the quiet-host timing.

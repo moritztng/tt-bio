@@ -39,7 +39,9 @@ a general one. The script reproduces the number, it does not store it: the run i
 from __future__ import annotations
 
 import math
-from typing import TYPE_CHECKING, Dict, Optional
+import re
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Callable, Dict, Optional
 
 from .mesh import Axis, UnreducedGradients
 from .tensors import to_device, to_host
@@ -47,7 +49,8 @@ from .tensors import to_device, to_host
 if TYPE_CHECKING:
     from .. import autograd as ag
 
-__all__ = ["AdamW", "af3_lr", "DISPLACEMENT_BAND", "round_to_device_dtype", "unit_roundoff"]
+__all__ = ["AdamW", "Muon", "EMA", "linear_warmup", "af3_lr", "DISPLACEMENT_BAND",
+           "round_to_device_dtype", "unit_roundoff"]
 
 
 # The band the cumulative ratio has to stay inside. Wide enough that bf16 rounding of a
@@ -115,6 +118,15 @@ def _require_fp32_master(dtype) -> None:
         f"accumulated at {name} stops moving the weight while the gradient still reads "
         f"healthy. The device copy the forward reads stays bfloat16 -- that is the point of "
         f"having a master -- and it is written by casting the master down each step")
+
+
+def _write(t, theta) -> None:
+    """Hand a stepped master to its leaf: a device weight is re-uploaded in its own dtype, a
+    `bridge.HostParam` (host torch glue) is updated in place."""
+    if hasattr(t, "write"):
+        t.write(theta)
+    else:
+        t.value = to_device(theta, t.value.device(), dtype=t.value.dtype)
 
 
 def round_to_device_dtype(arr, dtype):
@@ -188,6 +200,104 @@ def unit_roundoff(dtype) -> float:
     """
     return 2.0 ** -8 if "bfloat16" in str(dtype).lower() else 2.0 ** -24
 
+def linear_warmup(lr: float, steps: int):
+    """``LambdaLR(min((step + 1) / steps, 1))`` as RFD4-Proteina builds it (`proteina.py:475`).
+
+    Read at the count of COMPLETED steps, as ``AdamW.step`` reads every schedule, so the first
+    update runs at ``lr / steps``: LambdaLR evaluates its lambda at 0 on construction.
+    """
+    return lambda step: lr * min((step + 1) / max(steps, 1), 1.0)
+
+
+@dataclass(frozen=True)
+class Muon:
+    """Route 2-D weights to Muon inside ``AdamW``; everything else stays on Adam.
+
+    RFD4-Proteina trains this way (`utils/optim_utils.py::build_optimizers`): every trainable
+    2-D parameter whose name matches none of ``exclude`` takes Muon's update, the rest (norms,
+    biases, embeddings, output heads) Adam's. Defaults are ``torch.optim.Muon``'s, which
+    upstream does not override, so **Muon's weight decay is 0.1** while its Adam has none.
+
+    Upstream clips each optimizer's gradients separately (`proteina.py`, one
+    ``clip_gradients`` per optimizer), so the two groups get their own global norm here too.
+    A parameter with no gradient is skipped outright, as ``torch.optim.Muon`` skips it.
+
+    The Newton-Schulz iteration runs in bfloat16 on host torch with upstream's own op order
+    (`utils/grouped_muon.py::_orthogonalize`); it is part of the update rule, not a precision
+    choice of ours. ``adjust_lr_fn="original"`` scales by ``sqrt(max(1, out / in))`` and so
+    needs the torch (out, in) orientation: set ``rows_are_outputs=False`` for weights stored
+    (in, out), as ttnn linears are. ``match_rms_adamw`` (the RFD4 release) is symmetric.
+    """
+
+    exclude: tuple = ()
+    momentum: float = 0.95
+    nesterov: bool = True
+    ns_coefficients: tuple = (3.4445, -4.775, 2.0315)
+    ns_steps: int = 5
+    eps: float = 1e-7
+    weight_decay: float = 0.1
+    adjust_lr_fn: Optional[str] = "match_rms_adamw"
+    rows_are_outputs: bool = True
+    schedule: Optional[Callable] = None
+
+    def takes(self, name: str, shape) -> bool:
+        return (len(shape) == 2 and min(shape) > 0
+                and not any(re.search(p, name) for p in self.exclude))
+
+    def ratio(self, shape) -> float:
+        if self.adjust_lr_fn in (None, "original"):
+            out, inp = shape if self.rows_are_outputs else shape[::-1]
+            return math.sqrt(max(1.0, out / inp))
+        if self.adjust_lr_fn == "match_rms_adamw":
+            return 0.2 * math.sqrt(max(shape))
+        raise ValueError(f"unknown Muon adjust_lr_fn {self.adjust_lr_fn!r}")
+
+    def orthogonalize(self, update):
+        """Upstream's bf16 Newton-Schulz on one matrix; float32 numpy in and out."""
+        import torch
+        if self.ns_steps >= 100:
+            raise ValueError("Muon ns_steps must be below 100")
+        a, b, c = self.ns_coefficients
+        x = torch.from_numpy(update)[None].bfloat16()
+        flip = x.shape[-2] > x.shape[-1]
+        if flip:
+            x = x.transpose(-1, -2)
+        x.div_(x.norm(dim=(-2, -1), keepdim=True).clamp(min=self.eps))
+        for _ in range(self.ns_steps):
+            gram = torch.bmm(x, x.transpose(-1, -2))
+            x = torch.baddbmm(x, torch.baddbmm(gram, gram, gram, beta=b, alpha=c), x, beta=a)
+        x = x.transpose(-1, -2) if flip else x
+        return x[0].float().numpy()
+
+
+class EMA:
+    """The exponential moving average RFD4-Proteina keeps (`utils/simple_ema.py`, decay 0.999).
+
+    torch's ``AveragedModel`` with ``get_ema_multi_avg_fn``: the first ``update`` COPIES the
+    weights (it runs after the first optimizer step, so the average starts from step 1, not
+    from initialisation), every later one is ``ema += (1 - decay) * (w - ema)``. Kept over the
+    fp32 master, which is the weight upstream averages.
+    """
+
+    def __init__(self, decay: float = 0.999):
+        if not 0.0 <= decay <= 1.0:
+            raise ValueError(f"EMA decay must be in [0, 1], got {decay}")
+        self.decay = float(decay)
+        self.n_averaged = 0
+        self.shadow: Dict[str, "np.ndarray"] = {}
+
+    def update(self, master: Dict[str, "np.ndarray"]) -> None:
+        import numpy as np
+        if self.n_averaged == 0:
+            self.shadow = {n: np.array(v, np.float32, copy=True) for n, v in master.items()}
+        else:
+            w = np.float32(1.0 - self.decay)
+            for n, v in master.items():
+                e = self.shadow[n]
+                e += w * (v - e)
+        self.n_averaged += 1
+
+
 class AdamW:
     """AdamW with fp32 master weights, after ``adamw_full_precision.cpp``.
 
@@ -214,7 +324,8 @@ class AdamW:
     def __init__(self, params: Dict[str, ag.Tensor], *, lr: float = 3e-4,
                  betas=(0.9, 0.999), eps: float = 1e-8, weight_decay: float = 0.01,
                  clip_norm: float = 10.0, schedule=None,
-                 data_parallel: Optional[Axis] = None, master_dtype="float32"):
+                 data_parallel: Optional[Axis] = None, master_dtype="float32",
+                 muon: Optional[Muon] = None):
         import numpy as np
         _require_fp32_master(master_dtype)
         self.master_dtype = "float32"
@@ -268,6 +379,12 @@ class AdamW:
         # resident from construction rather than faulted in on demand.
         self.exp_avg = _Moments(self.master)
         self.exp_avg_sq = _Moments(self.master)
+        # Muon's routing, decided once from names and shapes. Empty when `muon` is None, and
+        # then every branch below is the plain AdamW it always was.
+        self.muon = muon
+        self.muon_names = frozenset(n for n, v in self.master.items()
+                                    if muon is not None and muon.takes(n, v.shape))
+        self.momentum_buffer = _Moments(self.master)
         # The per-sample clipping accumulator. Empty means the caller clips the batch once;
         # non-empty means `clip_and_accumulate` ran per sample and `step()` uses what it
         # summed rather than clipping a second time. `recipes.py`'s loop fills it, which is
@@ -368,7 +485,21 @@ class AdamW:
         read = {}
         gnorm = (math.sqrt(sum(float(v.ravel() @ v.ravel()) for v in self.accum.values()))
                  if per_sample else self.grad_norm(disabled, keep=read))
-        clip = 1.0 if per_sample else self.clip_coef(gnorm)
+        clip = clip_muon = 1.0 if per_sample else self.clip_coef(gnorm)
+        if self.muon_names:
+            if per_sample:
+                raise NotImplementedError(
+                    "per-sample clipping with Muon: no upstream trains that way, so there is "
+                    "no reference to be right against")
+            # One norm per optimizer, as upstream clips each of its two optimizers alone.
+            sq = lambda names: math.sqrt(sum(float(v.ravel() @ v.ravel())
+                                             for n, v in read.items() if n in names))
+            gnorm_muon = sq(self.muon_names)
+            gnorm = sq(read.keys() - self.muon_names)
+            clip, clip_muon = self.clip_coef(gnorm), self.clip_coef(gnorm_muon)
+            self.last_grad_norm_muon = gnorm_muon
+            lr_muon = (self.lr if self.muon.schedule is None
+                       else float(self.muon.schedule(self.steps - 1)))
         report = {}
         writes_skipped = 0
         for name, t in self.params.items():
@@ -407,19 +538,28 @@ class AdamW:
             g = None if name in disabled else (
                 self.accum.get(name) if per_sample else (
                     None if t.grad is None else read.pop(name)))
-            if g is None:
-                g = np.zeros_like(self.master[name])
-            elif clip != 1.0:
-                g = g * clip
-            m = self.exp_avg[name]
-            v = self.exp_avg_sq[name]
-            m *= self.beta1
-            m += (1.0 - self.beta1) * g
-            v *= self.beta2
-            v += (1.0 - self.beta2) * (g * g)
             theta = self.master[name]
-            upd = lr * ((m / bc1) / (np.sqrt(v / bc2) + self.eps)
-                        + self.weight_decay * theta)
+            new = None
+            if name in self.muon_names:
+                if g is None:
+                    upd, g = np.zeros_like(theta), np.zeros_like(theta)
+                else:
+                    g = g * clip_muon if clip_muon != 1.0 else g
+                    new = self._muon_new(name, g, theta, lr_muon)
+                    upd = theta - new
+            else:
+                if g is None:
+                    g = np.zeros_like(self.master[name])
+                elif clip != 1.0:
+                    g = g * clip
+                m = self.exp_avg[name]
+                v = self.exp_avg_sq[name]
+                m *= self.beta1
+                m += (1.0 - self.beta1) * g
+                v *= self.beta2
+                v += (1.0 - self.beta2) * (g * g)
+                upd = lr * ((m / bc1) / (np.sqrt(v / bc2) + self.eps)
+                            + self.weight_decay * theta)
             if name in self.held:
                 upd[self.held[name]] = 0.0
             # The control the brief demands, measured rather than asserted: the step the
@@ -445,7 +585,10 @@ class AdamW:
             # `kept: 0.0`. Identity is what separates the two regimes here, not equality.
             dev_before = round_to_device_dtype(theta, t.value.dtype)
             identity_cast = dev_before is theta
-            theta -= upd
+            if new is None:
+                theta -= upd
+            else:
+                theta[...] = new      # torch's own op order, not theta - (theta - new)
             # `norm(upd)` IS `norm(theta - before)`: `theta -= upd` is the only thing that
             # moved it. Taking it off the update drops a full-census copy of every parameter
             # per step -- 1.42 GiB of allocation at OF3T's census, 0.361 s against 0.032 s.
@@ -453,13 +596,13 @@ class AdamW:
             if dev_before is None:
                 # A dtype torch cannot express. Pay the round trip rather than guess.
                 dev_before = to_host(t.value).astype(np.float32).reshape(theta.shape)
-                t.value = to_device(theta, t.value.device(), dtype=t.value.dtype)
+                _write(t, theta)
                 dev_after = to_host(t.value).astype(np.float32).reshape(theta.shape)
                 kept = float(np.linalg.norm(dev_after - dev_before))
             elif identity_cast:
                 # Nothing can round away, so the device step is the master step exactly and
                 # the write always happens.
-                t.value = to_device(theta, t.value.device(), dtype=t.value.dtype)
+                _write(t, theta)
                 kept = want
             else:
                 dev_after = round_to_device_dtype(theta, t.value.dtype)
@@ -472,7 +615,7 @@ class AdamW:
                     # 0.810 for exactly this reason.
                     writes_skipped += 1
                 else:
-                    t.value = to_device(theta, t.value.device(), dtype=t.value.dtype)
+                    _write(t, theta)
                 kept = float(np.linalg.norm(dev_after - dev_before))
             report[name] = {"master_step": want, "device_step": kept,
                             "kept": (kept / want) if want > 0 else float("nan"),
@@ -488,6 +631,24 @@ class AdamW:
         self.last_report = report
         self.accum, self.participation, self.accum_count = {}, {}, 0
         return report
+
+    def _muon_new(self, name, g, theta, lr):
+        """``torch.optim.Muon``'s step for one matrix: the new master, in torch's op order.
+
+        Momentum ``buf <- lerp(buf, g, 1 - mu)``, Nesterov ``u = lerp(g, buf, mu)``,
+        ``theta <- theta * (1 - lr * wd) - lr * ratio * NS(u)``. Each lerp is written the way
+        torch evaluates it for its weight (``start + w (end - start)`` below 0.5,
+        ``end - (end - start)(1 - w)`` from 0.5), because the bf16 cast inside Newton-Schulz
+        turns a one-ulp difference in ``u`` into a 2^-8 difference in the update.
+        """
+        import numpy as np
+        mu = self.muon
+        f = np.float32
+        buf = self.momentum_buffer[name]
+        buf += f(1.0 - mu.momentum) * (g - buf)
+        u = (buf - (buf - g) * f(1.0 - mu.momentum)) if mu.nesterov else buf
+        o = mu.orthogonalize(np.ascontiguousarray(u, np.float32))
+        return theta * f(1.0 - lr * mu.weight_decay) + f(-lr * mu.ratio(theta.shape)) * o
 
     def _reduce(self, replicas) -> None:
         """Sum each parameter's gradient across the DP axis, in place on the tape.
