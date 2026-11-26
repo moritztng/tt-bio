@@ -150,16 +150,18 @@ void kernel_main() {
             // P[m] = Wt * Y[y_m]
             mul_tiles_init(cb_w, cb_y);
             pack_reconfig_data_format(cb_p);
-            cb_reserve_back(cb_p, n);
+            // cb_p is cycled in whole 4-page chunks: indexed pack/unpack does not wrap, so a
+            // chunk of n < 4 would leave the next one straddling the ring end.
+            cb_reserve_back(cb_p, 4);
             tile_regs_acquire();
             for (uint32_t q = 0; q < n; ++q) mul_tiles(cb_w, cb_y, 0, e[3 * q], q);
             tile_regs_commit();
             tile_regs_wait();
             for (uint32_t q = 0; q < n; ++q) pack_tile<true>(q, cb_p, q);
             tile_regs_release();
-            cb_push_back(cb_p, n);
+            cb_push_back(cb_p, 4);
             cb_pop_front(cb_w, 1);
-            cb_wait_front(cb_p, n);
+            cb_wait_front(cb_p, 4);
             // out[ot] += P[m] @ onehot[lane], one DST slot per distinct output tile
             const uint32_t ot0 = e[1];
             const uint32_t nslot = e[3 * (n - 1) + 1] - ot0 + 1;
@@ -172,7 +174,7 @@ void kernel_main() {
             tile_regs_wait();
             for (uint32_t s = 0; s < nslot; ++s) pack_tile<true>(s, cb_out, ot0 + s);
             tile_regs_release();
-            cb_pop_front(cb_p, n);
+            cb_pop_front(cb_p, 4);
         }
         pack_reconfig_l1_acc(0);
         cb_push_back(cb_out, NOUT);
