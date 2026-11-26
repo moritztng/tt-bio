@@ -44,6 +44,9 @@ def main():
                          "embedding upstream computed")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--out", required=True)
+    ap.add_argument("--dump", default=None,
+                    help="prefix for per-fill npz archives of step 0's inputs and outputs, so "
+                         "the port can be graded on the identical graph")
     a = ap.parse_args()
     fills = a.fill.split(",")
 
@@ -101,6 +104,32 @@ def main():
             out = fwd(data)
             if _state["step"] == 0:
                 g = lambda t: t.detach()
+                if a.dump:
+                    lb = data["ligand"].batch.numpy()
+                    rb = data["receptor"].batch.numpy()
+                    nl, nr = int((lb == 0).sum()), int((rb == 0).sum())
+                    be = data["ligand", "ligand"].edge_index.numpy()
+                    bm = be[0] < nl
+                    re_ = data["receptor", "receptor"].edge_index.numpy()
+                    rm = re_[0] < nr
+                    em = data["ligand"].edge_mask.numpy()[bm]
+                    h = lambda t: t.detach().numpy()
+                    np.savez_compressed(
+                        f"{a.dump}_{_fill}.npz",
+                        lig_x=h(data["ligand"].x)[:nl].astype(np.float32),
+                        lig_pos=h(data["ligand"].pos)[:nl].astype(np.float32),
+                        bond_index=be[:, bm].astype(np.int32),
+                        bond_attr=h(data["ligand", "ligand"].edge_attr)[bm].astype(np.float32),
+                        edge_mask=em.astype(np.bool_),
+                        rec_x=h(data["receptor"].x)[:nr].astype(np.float32),
+                        rec_pos=h(data["receptor"].pos)[:nr].astype(np.float32),
+                        rec_edge_index=re_[:, rm].astype(np.int32),
+                        t_tr=np.asarray(h(data["ligand"].node_t["tr"])[0], np.float64),
+                        t_rot=np.asarray(h(data["ligand"].node_t["rot"])[0], np.float64),
+                        t_tor=np.asarray(h(data["ligand"].node_t["tor"])[0], np.float64),
+                        tr=h(out[0])[0].astype(np.float64),
+                        rot=h(out[1])[0].astype(np.float64),
+                        tor=h(out[2])[:int(em.sum())].astype(np.float64))
                 _state["rows"] = {
                     "tr_absmax": float(g(out[0]).abs().max()),
                     "rot_absmax": float(g(out[1]).abs().max()),
