@@ -23,7 +23,7 @@ torch = pytest.importorskip("torch")
 from tt_bio.diffdock import graph as G  # noqa: E402
 from tt_bio.diffdock.conv import TensorProductConvLayer  # noqa: E402
 from tt_bio.diffdock.features import GaussianSmearing  # noqa: E402
-from tt_bio.diffdock.geometry import spherical_harmonics  # noqa: E402
+from tt_bio.diffdock.harmonics import spherical_harmonics  # noqa: E402
 from tt_bio.diffdock.loop import build_schedule  # noqa: E402
 from tt_bio.diffdock.conformer import modify_conformer  # noqa: E402
 from tt_bio.diffdock.trace import (assert_shape_stable, first_difference,  # noqa: E402
@@ -71,8 +71,8 @@ def _step_fn(s, rec_pos, bonds, mask_rotate, table):
         cross_vec = rec_pos[cross_ei[1] - s.rec_offset] - lig_pos[cross_ei[0]]
         edge_attr = [lig_expansion(lig_vec.norm(dim=-1)),
                      cross_expansion(cross_vec.norm(dim=-1))]
-        edge_sh = torch.cat([spherical_harmonics(SH_LS, lig_vec),
-                             spherical_harmonics(SH_LS, cross_vec)])
+        edge_sh = torch.cat([spherical_harmonics(lig_vec, SH_LS),
+                             spherical_harmonics(cross_vec, SH_LS)])
         mask = torch.cat([s.lig_mask(lig_pos, LIG_MAX_RADIUS),
                           s.cross_mask(lig_pos, rec_pos, cutoff)])
         out = layer(node_attr, torch.cat([lig_ei, cross_ei], dim=1), edge_attr, edge_sh,
