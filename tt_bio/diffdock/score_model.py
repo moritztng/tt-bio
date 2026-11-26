@@ -118,9 +118,6 @@ class ScoreModel(nn.Module):
         if config.all_atoms or config.old_model:
             raise ValueError("ScoreModel is the residue-level score network (CGModel); "
                              "the all-atom confidence model is AAOldModel")
-        if config.differentiate_convolutions:
-            raise ValueError("differentiate_convolutions is not set by the released score "
-                             "checkpoint; it would split the edge features into four groups")
         self.config = config
         ns, nv = config.ns, config.nv
         self.ns, self.nv = ns, nv
@@ -148,11 +145,11 @@ class ScoreModel(nn.Module):
 
         seq = config.irrep_seq
         last = len(seq) - 1
-        def layer(i, n_edge_features, out=None, residual=True):
+        def layer(i, n_edge_features, groups=1):
             return TensorProductConvLayer(
-                seq[min(i, last)], sh, out or seq[min(i + 1, last)],
+                seq[min(i, last)], sh, seq[min(i + 1, last)],
                 n_edge_features=n_edge_features, hidden_features=n_edge_features,
-                residual=residual, batch_norm=config.batch_norm,
+                residual=True, batch_norm=config.batch_norm, edge_groups=groups,
                 tp_weights_layers=config.tp_weights_layers)
 
         self.rec_emb_layers = nn.ModuleList(
@@ -161,8 +158,10 @@ class ScoreModel(nn.Module):
             raise ValueError("embed_also_ligand is set by the released checkpoint")
         self.lig_emb_layers = nn.ModuleList(
             [layer(i, 3 * ns) for i in range(config.num_prot_emb_layers)])
+        # differentiate_convolutions: each conv layer gives the four edge categories their
+        # own FC weight block, and the last layer has only two because it runs on [:s2].
         self.conv_layers = nn.ModuleList(
-            [layer(config.num_prot_emb_layers + j, 3 * ns)
+            [layer(config.num_prot_emb_layers + j, 3 * ns, config.conv_edge_groups(j))
              for j in range(config.num_conv_layers)])
 
         out_last = seq[min(config.num_prot_emb_layers + config.num_conv_layers, last)]
@@ -259,11 +258,19 @@ class ScoreModel(nn.Module):
         edge_sh = torch.cat([lig_edge_sh, lr_sh, rec_edge_sh, rev_lr_sh], dim=0)
         s2 = lig_edge_index.shape[1] + lr_shifted.shape[1]
 
+        s1 = lig_edge_index.shape[1]
+        s3 = s2 + rec_edge_index.shape[1]
         for i, lyr in enumerate(self.conv_layers):
-            cut = edge_index.shape[1] if i < len(self.conv_layers) - 1 else s2
+            last_layer = i == len(self.conv_layers) - 1
+            cut = s2 if last_layer else edge_index.shape[1]
             idx = edge_index[:, :cut]
             e = torch.cat([edge_attr[:cut], node_attr[idx[0], :self.ns],
                            node_attr[idx[1], :self.ns]], -1)
+            if cfg.differentiate_convolutions:
+                bounds = [s1, s2] if last_layer else [s1, s2, s3]
+                e = list(torch.tensor_split(e, bounds, dim=0))
+                if last_layer:
+                    e = e[:2]
             node_attr = lyr(node_attr, idx, e, edge_sh[:cut])
         lig_node_attr = node_attr[:n_lig]
 
@@ -280,3 +287,56 @@ class ScoreModel(nn.Module):
         tor = self.torsion_head(lig_node_attr, lig_pos, bonds, torch.stack([rows, cols]),
                                 tor_sigma.reshape(1).expand(bonds.shape[1]))
         return tr, rot, tor
+
+
+#: ``checkpoint prefix -> ours``. Upstream keeps the head modules at the top level of
+#: ``CGModel``; this port groups them into :class:`CenterHead` and :class:`TorsionHead`, which
+#: is the only renaming between the released state dict and this module.
+HEAD_PREFIXES = {
+    "center_distance_expansion.": "center_head.center_distance_expansion.",
+    "center_edge_embedding.": "center_head.center_edge_embedding.",
+    "final_conv.": "center_head.final_conv.",
+    "tr_final_layer.": "center_head.tr_final_layer.",
+    "rot_final_layer.": "center_head.rot_final_layer.",
+    "final_edge_embedding.": "torsion_head.final_edge_embedding.",
+    "tor_bond_conv.": "torsion_head.tor_bond_conv.",
+    "tor_final_layer.": "torsion_head.tor_final_layer.",
+    "lig_distance_expansion.": "torsion_head.lig_distance_expansion.",
+}
+
+#: Keys the released checkpoint carries that are e3nn bookkeeping, not parameters: the
+#: zero-length weight of an unweighted product, its output mask, and the Wigner 3j constants
+#: e3nn compiles into the TorchScript submodule. This port keeps 3j at float64 in its own
+#: table, so loading e3nn's fp32 copies would be a silent precision regression.
+SKIP_SUBSTRINGS = ("tp.weight", "tp.output_mask", "_w3j", "final_tp_tor.")
+
+
+def remap_checkpoint(state_dict: dict) -> dict:
+    """The released ``CGModel`` state dict in this module's key names."""
+    out = {}
+    for k, v in state_dict.items():
+        if any(s in k for s in SKIP_SUBSTRINGS):
+            continue
+        for src, dst in HEAD_PREFIXES.items():
+            if k.startswith(src):
+                k = dst + k[len(src):]
+                break
+        out[k] = v
+    return out
+
+
+def load_released(state_dict: dict, config: DiffDockConfig, *,
+                  lm_embedding_dim: int = 1280) -> "ScoreModel":
+    """Build the network and load the released weights into it, strictly.
+
+    Strict is the point: a head this port grouped differently, a missing bias or an encoder
+    whose categorical tables are in another order all show up here rather than as a number
+    that is merely wrong.
+    """
+    model = ScoreModel(config, lm_embedding_dim=lm_embedding_dim)
+    missing, unexpected = model.load_state_dict(remap_checkpoint(state_dict), strict=False)
+    missing = [k for k in missing if "lig_distance_expansion" not in k]
+    if missing or unexpected:
+        raise ValueError(f"checkpoint does not fit: missing={missing[:8]} "
+                         f"unexpected={unexpected[:8]}")
+    return model.eval()
