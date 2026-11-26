@@ -185,3 +185,90 @@ def to_device(device, x: Tensor, dtype=None):
     x = torch.nn.functional.pad(x.to(torch.float32), (0, pad32(x.shape[1]) - x.shape[1]))
     return ttnn.from_torch(x, dtype=dtype or ttnn.float32, layout=ttnn.TILE_LAYOUT,
                            device=device)
+
+
+class DeviceConvLayer:
+    """:class:`tt_bio.diffdock.conv.TensorProductConvLayer` on the card, score-network order.
+
+    ``gather node_attr[edge_dst] -> per-group FC + tensor product -> mask -> scatter-mean onto
+    edge_src -> batch norm -> residual``. The scatter is a dense ``[N, E]`` one-hot matmul
+    built once per static graph (tt-atom's form, ``tt_atom/model.py``); the mask scales the
+    messages and is what the divisor sums, so a node with every edge masked gets
+    ``0 / eps = 0`` rather than NaN, which is the all-masked rule of D-dfd-orch-10.
+    """
+
+    def __init__(self, device, layer, *, dtype=None):
+        import ttnn
+        if layer.residual_first:
+            raise NotImplementedError("the confidence model's residual-first order is not ported yet")
+        self.ttnn, self.device, self.layer = ttnn, device, layer
+        self.dtype = dtype or ttnn.float32
+        fcs = list(layer.fc) if layer.edge_groups > 1 else [layer.fc]
+        self.tps = [DeviceEdgeTP(device, layer.tp, fc, dtype=self.dtype) for fc in fcs]
+        self.in_dim, self.out_dim = layer.in_irreps.dim, layer.out_irreps.dim
+        self.out_pad = pad32(self.out_dim)
+        bn = layer.batch_norm
+        scale = torch.ones(self.out_pad, dtype=torch.float64)
+        shift = torch.zeros(self.out_pad, dtype=torch.float64)
+        if bn is not None:
+            im = iv = 0
+            for term, sl in zip(bn.irreps, bn.irreps.slices()):
+                norm = (bn.running_var[iv:iv + term.mul].double() + bn.eps).pow(-0.5)
+                if bn.affine:
+                    norm = norm * bn.weight[iv:iv + term.mul].double()
+                s = norm.repeat_interleave(2 * term.l + 1)
+                scale[sl] = s
+                if term.l == 0 and term.p == 1:
+                    b = bn.bias[im:im + term.mul].double() if bn.affine else 0.0
+                    shift[sl] = b - bn.running_mean[im:im + term.mul].double() * norm
+                    im += term.mul
+                iv += term.mul
+        up = lambda t: ttnn.from_torch(t.float().reshape(1, -1), dtype=self.dtype,
+                                       layout=ttnn.TILE_LAYOUT, device=device)
+        self.bn_scale, self.bn_shift = up(scale), up(shift)
+
+    def graph(self, edge_index: Tensor, n_out: int, n_in: int):
+        """Upload the loop-invariant half of a static graph: the gather index and the scatter."""
+        ttnn = self.ttnn
+        src, dst = edge_index
+        E = edge_index.shape[1]
+        if E % TILE or n_out % TILE:
+            raise ValueError(f"edges {E} and nodes {n_out} must be multiples of {TILE}")
+        S = torch.zeros(n_out, E)
+        S[src, torch.arange(E)] = 1.0
+        idx = ttnn.from_torch(dst.to(torch.int32).reshape(1, E), dtype=ttnn.uint32,
+                              layout=ttnn.ROW_MAJOR_LAYOUT, device=self.device)
+        # 0/1 is exact in bf16, and the scatter is a sum of exact products.
+        S = ttnn.from_torch(S, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=self.device)
+        return dict(idx=idx, S=S, E=E, n_out=n_out)
+
+    def __call__(self, node_attr, g, edge_attr_groups, edge_sh, edge_mask):
+        """*node_attr* is ``[N, pad32(in_dim)]`` in ROW_MAJOR (the gather table) and TILE.
+
+        *edge_attr_groups* are TILE ``[E_g, pad32(F)]`` blocks partitioning the edges in order,
+        *edge_sh* ``[E, pad32(sh)]`` TILE and *edge_mask* ``[E, 1]`` TILE.
+        """
+        ttnn = self.ttnn
+        table_rm, table_tile = node_attr
+        x1 = ttnn.embedding(g["idx"], table_rm, layout=ttnn.TILE_LAYOUT, dtype=self.dtype)
+        x1 = ttnn.reshape(x1, (g["E"], x1.shape[-1]))
+        msgs, lo = [], 0
+        for tp, ea in zip(self.tps, edge_attr_groups):
+            n = ea.shape[0]
+            msgs.append(tp(ea, x1[lo:lo + n, :], edge_sh[lo:lo + n, :]))
+            lo += n
+        msg = msgs[0] if len(msgs) == 1 else ttnn.concat(msgs, dim=0)
+        msg = ttnn.multiply(msg, edge_mask)
+        ckc = self.tps[0].ckc
+        s = ttnn.matmul(g["S"], msg, compute_kernel_config=ckc, dtype=self.dtype)
+        div = ttnn.matmul(g["S"], edge_mask, compute_kernel_config=ckc, dtype=self.dtype)
+        div = ttnn.reciprocal(ttnn.clamp(div, min=float(torch.finfo(torch.float32).eps)))
+        out = ttnn.multiply(s, div)
+        if self.layer.batch_norm is not None:
+            out = ttnn.add(ttnn.multiply(out, self.bn_scale), self.bn_shift)
+        if self.layer.residual:
+            res = table_tile
+            if res.shape[-1] != self.out_pad:
+                res = ttnn.pad(res, [(0, 0), (0, self.out_pad - res.shape[-1])], value=0.0)
+            out = ttnn.add(out, res)
+        return out
