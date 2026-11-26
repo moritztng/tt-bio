@@ -1154,14 +1154,15 @@ def _mmvjp_ok(*ts):
     return True
 
 
-def _mmvjp_dx(v, w, cfg):
-    """dX = v @ w^T on minimal_matmul with w^T materialised (weight-sized), or None."""
+def _mmvjp_dx(v, w, cfg, pre=False):
+    """dX = v @ w^T on minimal_matmul with w^T materialised (weight-sized), or None. `pre`: the forward was
+    a @ w^T, so dX = v @ w and w is already in the layout minimal_matmul wants."""
     if not MMVJP_MIN:
         return None
     if not (_mmvjp_ok(v, w) and int(v.shape[0]) >= MMVJP_MIN_ROWS):
         MMVJP_STATS["declined"] += 1
         return None
-    wt = w if (MMVJP_BROKEN and int(w.shape[0]) == int(w.shape[1])) else ttnn.transpose(w, -2, -1)
+    wt = w if (pre or (MMVJP_BROKEN and int(w.shape[0]) == int(w.shape[1]))) else ttnn.transpose(w, -2, -1)
     try:
         out = ttnn.experimental.minimal_matmul(v, wt, compute_kernel_config=cfg, dtype=v.dtype)
     except Exception:  # noqa: BLE001

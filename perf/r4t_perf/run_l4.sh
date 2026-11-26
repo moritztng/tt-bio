@@ -1,7 +1,7 @@
 #!/bin/bash
 # r4t-perf L4: site grade (a), broken arm (d), then block A/B off1/on/off2 (L2 weights ON in every arm, so only L4 moves).
 cd ~/.coworker/wt/r4t-perf || exit 1
-O=~/r4t/perf/l4; mkdir -p $O; PY=~/scratch/shipflow/venv-c4f99e695d34/bin/python
+O=${L4OUT:-$HOME/r4t/perf/l4}; mkdir -p $O; PY=~/scratch/shipflow/venv-c4f99e695d34/bin/python
 E="PYTHONPATH=$PWD TT_VISIBLE_DEVICES=2 TT_BIO_LEASE_CARDS=2 TT_BIO_LEASE_HOLDER=worker:r4t-perf TT_BIO_LNBW_WEIGHTS=1"
 free() { python3 ~/spd/feed/book.py active 2 2>/dev/null | grep -qw fleet-r4t-perf && [ -z "$(sudo -n fuser /dev/tenstorrent/2 2>/dev/null)" ]; }
 go() { for i in $(seq 1 45); do free && break; sleep 20; done; free || { echo "NO WINDOW $1 $(date -u +%FT%TZ)" >> $O/run.log; exit 4; }; }
