@@ -23,6 +23,7 @@ if [ ! -f $DATA_PATH/test_dataset/test_systems.parquet ]; then
     tar -xzf $DATA_PATH/test_dataset/test_dataset.tar.gz -C $DATA_PATH/test_dataset ||
     { say "test dataset fetch failed"; echo data > $B/RFD4-FAILED; exit 3; }
 fi
+rm -f $C/*.rc $B/RFD4-FAILED  # a relaunch in place must not read the previous run's rc
 mkdir -p src && tar -xzf r4t_curve_src.tgz -C src && cp r4t_curve_plan.json $C/plan.json
 SHA=$(sha256sum r4t_curve_src.tgz | cut -c1-16)
 nohup nvidia-smi --query-gpu=index,timestamp,name,clocks.sm,power.draw,temperature.gpu,utilization.gpu,memory.used \
