@@ -93,8 +93,13 @@ def main():
         cond = bf(torch.randn(1, a.n, DC, generator=gc, dtype=torch.float64))
         build = lambda sd: TR.Trunk(tt.WeightScope(sd), ckc, a.layers, H, dtype=dt)  # noqa: E731
         keys, ins, out_t, cut = ("x", "z", "cond"), ("x", "z", "cond"), x, "q_w"
-        ref_fn = lambda w, I: REF.trunk(w, I["x"], I["z"], early + [I["cond"]], mask, a.layers,  # noqa: E731
-                                        n_heads=H, grad_last=True)[0]
+        # The early cycles run once at the base point and are frozen: that is what `grad: last`
+        # differentiates, and a central difference sees exactly it (through `grad_last` alone it would
+        # also see every earlier cycle move, 0.98 off at n=64).
+        frozen = REF.trunk({k: bf(v.double()) for k, v in w64.items()}, x, z * pair[..., None], early, mask,
+                           a.layers, n_heads=H)
+        ref_fn = lambda w, I: REF.trunk(w, I["x"], I["z"], [I["cond"]], mask, a.layers,  # noqa: E731
+                                        n_heads=H, state=frozen)[0]
         out_mask = mask[..., None]
         z = z * pair[..., None]
     else:
@@ -111,8 +116,10 @@ def main():
 
     f = Folds({k: v.float() for k, v in w64.items()})
     with TR.lever_scope(levers):
-        raw = {"x": up(x), "z": up(z), "cond": up(cond), "mask": up(mask[..., None]), "bias": up(bias_mask),
-               "pm": up(pair), "pmc": up(pair[..., None])}
+        def inputs():
+            return {"x": up(x), "z": up(z), "cond": up(cond), "mask": up(mask[..., None]), "bias": up(bias_mask),
+                    "pm": up(pair), "pmc": up(pair[..., None])}
+        raw = inputs()
         if a.module == "trunk":
             tmasks = TR.trunk_masks(mask, dev, dtype=dt, residual_dtype=dt)
             econds = [up(c) for c in early]
@@ -128,6 +135,10 @@ def main():
                     call(m, [ag.Tensor(raw[k], requires_grad=True) if k in ins else raw[k] for k in keys])
             else:
                 call(m, [raw[k] for k in keys])
+            # the warm call may write its pair stream in place (pair_tail): the graded call reads fresh inputs
+            warm_moved = {k: float((ttnn.to_torch(raw[k]).double().reshape(v.shape) - v).abs().max())
+                          for k, v in (("x", x), ("z", z)) if k in keys}
+            raw = inputs()
             L = {k: (ag.Tensor(v, requires_grad=True) if k in ins else v) for k, v in raw.items()}
             for _p, _o, _k, t in tt.walk_device_weights(m):
                 ag.parameter(t)
@@ -142,6 +153,11 @@ def main():
             dropped = next(p for p in walked if p.endswith(cut))
             f.sources.pop(id(walked[dropped]))
         f.tape_backward()
+    with torch.no_grad():
+        want = ref_fn(w64, I0)
+    have = ttnn.to_torch(out.value).double().reshape(want.shape)
+    fwd_rel = float((have - want).mul(out_mask).norm() / want.mul(out_mask).norm())
+    print(f"forward vs float64 reference: rel_l2 {fwd_rel:.3e}; warm call moved its inputs by {warm_moved}", flush=True)
     got = {n: v.grad.double().numpy() for n, v in f.leaves.items()}
     if a.scale_grad:
         got[a.scale_grad] = got[a.scale_grad] * 1.10
@@ -160,7 +176,7 @@ def main():
     comp = CK.composed_verdict(rep)
     res = {"module": a.module, "arm": a.arm, "sdpa_own": a.sdpa_own or a.arm == "fp32", "levers": sorted(levers),
            "break": a.brk, "scale_grad": a.scale_grad, "dropped": dropped, "seed": a.seed, "n": a.n, "real": a.real,
-           "pass_g1": rep.passed, "composed": comp, "fd_worst": rep.fd_worst, "fd_kinked": rep.fd_kinked,
+           "fwd_rel": fwd_rel, "warm_moved": warm_moved, "pass_g1": rep.passed, "composed": comp, "fd_worst": rep.fd_worst, "fd_kinked": rep.fd_kinked,
            "grads": {k: {q: g[q] for q in ("rel_l2", "cos", "pass")} for k, g in rep.grads.items()},
            "output_digest": __import__("hashlib").sha256(ttnn.to_torch(out.value).float().numpy().tobytes()).hexdigest()[:16]}
     if a.out:
