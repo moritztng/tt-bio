@@ -26,10 +26,9 @@ from pathlib import Path
 
 import pytest
 
+from conftest import DIFFDOCK_RECEPTOR as RECEPTOR, dock_on_host_torch, sdf_coords
+
 UPSTREAM = Path.home() / "scratch/dfd/upstream"
-CKPT = Path.home() / "scratch/dfd/ckpt/extracted"
-RECEPTOR = Path("/home/moritz/scratch/dfd/patchtest/examples/1a46_protein_processed.pdb")
-ASPIRIN = "CC(=O)Oc1ccccc1C(=O)O"
 
 SAMPLES = 4
 ACTUAL_STEPS = 3
@@ -66,65 +65,6 @@ def _upstream_pdbfile():
     return mod.PDBFile
 
 
-def _dock(tmp_path, monkeypatch, *, save_trajectory: bool, confidence: bool = True,
-          rollout: list | None = None):
-    """One real rollout on host torch. The ESM-2 pass is stubbed, nothing else is.
-
-    A 650 MB encoder download decides nothing about where files land, and the stub keeps the
-    embedding's shape, which is all the graph builder reads from it.
-
-    Pass a list as *rollout* to collect the sampler's own output, in the sampler's own frame
-    and its own order, so a test can grade what the writer did to it.
-    """
-    import torch
-    from click.testing import CliRunner
-
-    _need(RECEPTOR, "receptor structure")
-    _need(CKPT / "score_model", "score checkpoint")
-    _need(CKPT / "confidence_model", "confidence checkpoint")
-
-    from tt_bio.diffdock import esm, sampling
-    from tt_bio.main import cli
-
-    monkeypatch.setattr(esm, "receptor_embeddings",
-                        lambda chains, **kw: [torch.zeros(len(c), 1280) for c in chains])
-    if rollout is not None:
-        real = sampling.sample
-
-        def spy(*a, **kw):
-            result = real(*a, **kw)
-            rollout.append(result.poses.detach().clone().numpy())
-            return result
-
-        # `run._sample_one` imports the module, not the function, so this one patch is seen.
-        monkeypatch.setattr(sampling, "sample", spy)
-
-    out = tmp_path / "results"
-    argv = ["dock", str(RECEPTOR), "--ligand", ASPIRIN, "--name", "cx",
-            "--diffusion_samples", str(SAMPLES), "--sampling_steps", str(ACTUAL_STEPS + 1),
-            "--actual_steps", str(ACTUAL_STEPS), "--seed", "0",
-            "--checkpoint", str(CKPT / "score_model"), "--out_dir", str(out)]
-    if confidence:
-        argv += ["--confidence_checkpoint", str(CKPT / "confidence_model")]
-    else:
-        argv += ["--no_confidence"]
-    if save_trajectory:
-        argv += ["--save_trajectory"]
-
-    result = CliRunner().invoke(cli, argv, catch_exceptions=False)
-    assert result.exit_code == 0, result.output
-    return out
-
-
-def _sdf_coords(path: Path):
-    from rdkit import Chem
-
-    mol = Chem.MolFromMolFile(str(path), sanitize=False, removeHs=False)
-    assert mol is not None, f"{path} is not readable as an SDF"
-    conf = mol.GetConformer()
-    return mol, [tuple(conf.GetAtomPosition(i)) for i in range(mol.GetNumAtoms())]
-
-
 def _pdb_models(text: str):
     """`[[(x, y, z), ...], ...]`, one list per MODEL record."""
     frames, current = [], None
@@ -157,7 +97,8 @@ def test_filenames_and_coords_match_upstream(tmp_path, monkeypatch):
 
     upstream_write = _upstream_write_mol_with_coords()
     rollout: list = []
-    out = _dock(tmp_path, monkeypatch, save_trajectory=False, rollout=rollout)
+    out = dock_on_host_torch(tmp_path / "results", monkeypatch, samples=SAMPLES,
+                             actual_steps=ACTUAL_STEPS, rollout=rollout)
 
     write_dir = out / "cx"
     assert write_dir.is_dir(), "one directory per complex, named by the complex"
@@ -180,7 +121,7 @@ def test_filenames_and_coords_match_upstream(tmp_path, monkeypatch):
     suffixed = write_dir / f"rank1_confidence{confidences[0]:.2f}.sdf"
     assert (write_dir / "rank1.sdf").read_bytes() == suffixed.read_bytes()
 
-    mol, coords = _sdf_coords(write_dir / "rank1.sdf")
+    mol, coords = sdf_coords(write_dir / "rank1.sdf")
     assert all(a.GetSymbol() != "H" for a in mol.GetAtoms()), \
         "the released score model sets remove_hs, so the written pose is heavy-atom only"
 
@@ -192,7 +133,7 @@ def test_filenames_and_coords_match_upstream(tmp_path, monkeypatch):
     # Back in the input frame. Every written pose is one sampled pose plus original_center:
     # the offset between them has to be constant over the molecule, the same for every rank,
     # and the rank -> sample map has to be a permutation.
-    written = np.asarray([_sdf_coords(write_dir / f"rank{r + 1}_confidence"
+    written = np.asarray([sdf_coords(write_dir / f"rank{r + 1}_confidence"
                                       f"{confidences[r]:.2f}.sdf")[1]
                           for r in range(SAMPLES)])
     sampled = np.asarray(rollout[0])
@@ -241,7 +182,8 @@ def test_visualisation_frames_written(tmp_path, monkeypatch):
     import numpy as np
 
     PDBFile = _upstream_pdbfile()
-    out = _dock(tmp_path, monkeypatch, save_trajectory=True)
+    out = dock_on_host_torch(tmp_path / "results", monkeypatch, samples=SAMPLES,
+                             actual_steps=ACTUAL_STEPS, save_trajectory=True)
     write_dir = out / "cx"
 
     names = sorted(p.name for p in write_dir.glob("*_reverseprocess.pdb"))
@@ -257,7 +199,7 @@ def test_visualisation_frames_written(tmp_path, monkeypatch):
         n_atoms = {len(f) for f in frames}
         assert len(n_atoms) == 1, "every frame is the same molecule"
 
-        mol, coords = _sdf_coords(
+        mol, coords = sdf_coords(
             write_dir / f"rank{rank}_confidence{confidences[rank - 1]:.2f}.sdf")
         assert np.allclose(frames[-1], coords, atol=1e-3), \
             f"rank {rank}'s last frame is not rank {rank}'s pose: the trajectories were not reordered"
@@ -276,5 +218,5 @@ def test_visualisation_frames_written(tmp_path, monkeypatch):
 
 
 def test_no_visualisation_without_the_flag(tmp_path, monkeypatch):
-    out = _dock(tmp_path, monkeypatch, save_trajectory=False)
+    out = dock_on_host_torch(tmp_path / "results", monkeypatch, samples=2, actual_steps=2)
     assert not list((out / "cx").glob("*_reverseprocess.pdb"))

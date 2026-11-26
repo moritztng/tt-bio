@@ -12,6 +12,7 @@ because the poses are still undocked, which cost `dfd-ref` two runs).
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -277,3 +278,303 @@ def test_dock_writes_ranked_poses_when_a_confidence_checkpoint_is_given(tmp_path
     assert scores == sorted(scores, reverse=True), "poses must be written best first"
     # Rank 1 is written twice, bare and suffixed, as upstream does.
     assert (out / "x" / "rank1.sdf").exists()
+
+
+# -- the register's named tests -----------------------------------------------------------
+
+GOLDENS = Path.home() / ".coworker/state/dfd/goldens"
+GOLDEN_IDS = ("8G43_ZU6", "8AEU_M0L", "7A9E_R4W")
+
+
+def test_confidence_scores_match_cpu_golden():
+    """The `[N, 2]` the port emits against the values captured from upstream on the CPU.
+
+    Both sides get the *identical* graph: upstream's own dataset tensors are read out of
+    `confidence_inputs.npz` rather than rebuilt here, so a disagreement is the network's and
+    not the graph builder's (that is `dfd-input`'s to grade, and mixing the two would let an
+    edge-ordering difference read as a conv-layer error).
+
+    Two references, because they answer different questions.
+    `confidence.npz` is upstream re-run on exactly these inputs, so it carries no sampling
+    noise and the port must reproduce it to float32 rounding.
+    `poses.npz::confidence_raw` is what upstream produced inside the full 19-step rollout; it
+    sits up to 0.25 away from its own rebuild (state/dfd/goldens/CONFIDENCE-REBUILD.json), a
+    float32 reference floor that is upstream's, not the port's. So that one is graded on the
+    thing that survives it: the ranking.
+    """
+    import numpy as np
+
+    state, cfg = _checkpoint(), _config()
+    model = load_released(state, cfg)
+
+    seen = 0
+    for cid in GOLDEN_IDS:
+        d = GOLDENS / f"{cid}__s0"
+        if not (d / "confidence_inputs.npz").exists():
+            continue
+        seen += 1
+        inp = {k: torch.from_numpy(v) for k, v in np.load(d / "confidence_inputs.npz").items()}
+        poses = np.load(d / "poses.npz")
+        lig_pos = torch.from_numpy(poses["pos"] - poses["center"]).float()
+        with torch.no_grad():
+            got = torch.cat([
+                model(inp["lig_x"].float(), pose, inp["bond_index"].long(),
+                      inp["bond_attr"].float(), inp["rec_x"].float(), inp["rec_pos"].float(),
+                      inp["rec_edge_index"].long(), inp["atom_x"].float(),
+                      inp["atom_pos"].float(), inp["atom_edge_index"].long(),
+                      inp["atom_rec_edge_index"].long())
+                for pose in lig_pos]).numpy()
+        assert got.shape == (len(lig_pos), 2)
+
+        rebuild = np.load(d / "confidence.npz")["confidence_raw"]
+        assert np.max(np.abs(got - rebuild)) < 1e-2, f"{cid}: port != upstream rebuilt"
+        assert _col0_order(got) == _col0_order(rebuild), f"{cid}: ranking differs from the rebuild"
+
+        rollout = poses["confidence_raw"]
+        assert _pcc(got, rollout) > 0.999, f"{cid}: port != upstream's rollout capture"
+        assert _col0_order(got) == _col0_order(rollout), \
+            f"{cid}: ranking differs from the captured rollout"
+    if seen == 0:
+        pytest.skip(f"no confidence goldens under {GOLDENS}")
+
+
+def _col0_order(a) -> list[int]:
+    """Upstream's ranking: `np.argsort(confidence[:, 0])[::-1]`, best first."""
+    import numpy as np
+
+    return np.argsort(-np.asarray(a, np.float64)[:, 0], kind="stable").tolist()
+
+
+def _pcc(a, b) -> float:
+    import numpy as np
+
+    return float(np.corrcoef(np.asarray(a, np.float64).ravel(),
+                             np.asarray(b, np.float64).ravel())[0, 1])
+
+
+@pytest.mark.skipif(not RECEPTOR.exists(), reason="no local receptor structure")
+def test_confidence_graph_is_all_atom(monkeypatch):
+    """The confidence network gets its own graph, and the ESM-2 pass is not repeated.
+
+    The released confidence checkpoint sets `all_atoms: true` and
+    `use_original_model_cache: false`, so upstream builds a second dataset for it. The port
+    does the same from the structure the complex graph recorded, and hands it the embedding
+    the complex already carries: rebuilding a k-NN graph is cheap, a second ESM-2 650M pass
+    over the same sequence is not.
+    """
+    from tt_bio.diffdock import input as dfd_input
+    from tt_bio.diffdock import receptor as dfd_receptor
+    from tt_bio.diffdock import score_model as sm
+
+    assert dfd_input.CONFIDENCE_GRAPH["all_atoms"] is True
+    assert dfd_input.SCORE_GRAPH["all_atoms"] is False
+    assert {k: v for k, v in dfd_input.CONFIDENCE_GRAPH.items() if k != "all_atoms"} == \
+           {k: v for k, v in dfd_input.SCORE_GRAPH.items() if k != "all_atoms"}, \
+        "the two graphs differ in all_atoms and nothing else; the k-NN caps are the same"
+
+    # And those settings are the released checkpoint's own, not a guess.
+    if (CKPT_DIR / "model_parameters.yml").exists():
+        from tt_bio.data.yaml_input import load_mapping
+
+        raw = load_mapping(CKPT_DIR / "model_parameters.yml")
+        assert raw["all_atoms"] is True
+        assert raw["use_original_model_cache"] is False, \
+            "upstream builds a second dataset for the confidence model only when this is false"
+        assert int(raw["c_alpha_max_neighbors"]) == dfd_input.CONFIDENCE_GRAPH["c_alpha_max_neighbors"]
+        assert int(raw["atom_max_neighbors"]) == dfd_input.CONFIDENCE_GRAPH["atom_max_neighbors"]
+
+    spec = dfd_input.ComplexSpec(name="cx", protein_path=str(RECEPTOR),
+                                 ligand_description=ASPIRIN)
+    chains = dfd_input.chain_sequences_for_embedding(RECEPTOR)
+    embeddings = [torch.zeros(len(c), 1280) for c in chains]
+
+    score_graph = dfd_input.build_complex_graph(spec, lm_embeddings=embeddings,
+                                                all_atoms=False)
+    conf_graph = dfd_input.build_complex_graph(spec, lm_embeddings=embeddings,
+                                               all_atoms=True)
+
+    assert "atom" not in score_graph.receptor, "the score graph is residue-level"
+    atom = conf_graph.receptor["atom"]
+    assert set(atom) >= {"x", "pos", "edge_index", "atom_rec_edge_index"}
+    n_atoms, n_res = atom["pos"].shape[0], conf_graph.receptor["pos"].shape[0]
+    assert n_atoms > n_res, f"{n_atoms} atoms for {n_res} residues is not an all-atom graph"
+    assert atom["atom_rec_edge_index"].shape == (2, n_atoms), \
+        "every receptor atom is linked to exactly one residue"
+    assert int(atom["atom_rec_edge_index"][1].max()) < n_res
+    assert n_res == score_graph.receptor["pos"].shape[0], \
+        "the two graphs cover the same residues"
+
+    # And the confidence pass rebuilds that graph itself, from the structure and the
+    # embedding the complex already carries, with no second encoder call.
+    from tt_bio.diffdock import esm
+
+    def no_second_pass(*a, **kw):
+        raise AssertionError("the confidence pass re-ran ESM-2 over the same sequence")
+
+    monkeypatch.setattr(esm, "receptor_embeddings", no_second_pass)
+
+    seen: list[dict] = []
+    real = dfd_receptor.build_receptor_graph
+
+    def spy(struct, **kw):
+        seen.append(kw)
+        return real(struct, **kw)
+
+    monkeypatch.setattr(dfd_receptor, "build_receptor_graph", spy)
+
+    net = sm.HostScoreNetwork(_score_stub(), confidence_model=_confidence_stub())
+    net.confidence(score_graph, torch.zeros(2, score_graph.ligand["pos"].shape[0], 3))
+
+    assert len(seen) == 1, "the confidence graph is built once per complex"
+    assert seen[0]["lm_embeddings"] is embeddings, \
+        "the confidence graph must reuse the complex's own ESM-2 embedding"
+    assert {k: v for k, v in seen[0].items() if k != "lm_embeddings"} == \
+           dfd_input.CONFIDENCE_GRAPH
+
+
+def _score_stub():
+    """A stand-in with the one attribute `HostScoreNetwork.__init__` reads."""
+    class _Stub:
+        config = None
+    return _Stub()
+
+
+def _confidence_stub():
+    """Returns a fixed `[1, 2]` per pose: this test grades the graph, not the values."""
+    class _Stub:
+        def __call__(self, *a, **kw):
+            return torch.zeros(1, 2)
+
+        def eval(self):
+            return self
+    return _Stub()
+
+
+def test_ranking_order():
+    """Poses come out sorted by descending column 0, ties in sampling order.
+
+    Upstream: `confidence = confidence[:, 0]` when `rmsd_classification_cutoff` is a list
+    (the released checkpoint's is `[2.0]`), then `np.argsort(confidence)[::-1]`. Column 1 must
+    not reach the ordering, which is what the second case pins: it is the mirror image of
+    column 0, so a port that ranked on it, or on the row sum, would come out reversed.
+    """
+    import numpy as np
+
+    from tt_bio.diffdock.confidence_model import rank_poses
+
+    poses = torch.arange(5 * 2 * 3, dtype=torch.float32).reshape(5, 2, 3)
+    raw = torch.tensor([[0.0, 9.0], [2.0, -9.0], [-1.0, 5.0], [2.0, 1.0], [1.0, 0.0]])
+
+    ranked, ordered = rank_poses(poses, raw[:, 0])
+    assert ordered.tolist() == [2.0, 2.0, 1.0, 0.0, -1.0]
+    assert _col0_order(raw.numpy()) == [1, 3, 4, 0, 2]
+    for rank, sample in enumerate(_col0_order(raw.numpy())):
+        assert torch.equal(ranked[rank], poses[sample])
+
+    # Ties keep sampling order: samples 1 and 3 both score 2.0 and stay in that order.
+    assert torch.equal(ranked[0], poses[1]) and torch.equal(ranked[1], poses[3])
+
+    flipped = rank_poses(poses, raw[:, 1])[1]
+    assert flipped.tolist() != ordered.tolist(), \
+        "column 1 orders differently, so ranking on column 0 is a real choice"
+    assert np.array_equal(_col0_order(raw.numpy()), [1, 3, 4, 0, 2])
+
+
+def test_score_only_writes_unranked(tmp_path, monkeypatch):
+    """`--no_confidence`: sampling order, no scores in the filenames, no 19 MB checkpoint.
+
+    Upstream's score-only path is `--confidence_model_dir` unset. Its output is where the
+    layouts part company: upstream still formats `confidence[rank]` and so raises, counting
+    the complex as a failure, while `tt-bio dock` writes the poses it has (D-dfd-9). What is
+    pinned here is that the order is the sampler's own -- every written pose is the sampled
+    pose of the same index, shifted by one constant -- because "unranked" is a claim about
+    the order, not just about the filenames.
+
+    The checkpoint guard is the other half: a score-only run must not pay for loading, or
+    even locating, the confidence model.
+    """
+    import numpy as np
+
+    from conftest import dock_on_host_torch, sdf_coords
+    from tt_bio.diffdock import checkpoints
+    from tt_bio.diffdock import confidence_model as cm
+
+    real_resolve = checkpoints.resolve
+
+    def resolve(kind, *a, **kw):
+        assert kind != "confidence", "--no_confidence still went looking for the checkpoint"
+        return real_resolve(kind, *a, **kw)
+
+    monkeypatch.setattr(checkpoints, "resolve", resolve)
+    monkeypatch.setattr(cm, "load_checkpoint", lambda *a, **kw: pytest.fail(
+        "--no_confidence loaded the confidence checkpoint"))
+
+    samples = 3
+    rollout: list = []
+    out = dock_on_host_torch(tmp_path / "results", monkeypatch, samples=samples,
+                             actual_steps=2, confidence=False, rollout=rollout)
+    write_dir = out / "cx"
+
+    assert {p.name for p in write_dir.glob("*.sdf")} == \
+           {f"rank{r}.sdf" for r in range(1, samples + 1)}
+    assert not list(write_dir.glob("*_confidence*.sdf")), \
+        "a score-only run writes no confidence into a filename"
+
+    ranking = json.loads((write_dir / "confidence.json").read_text())
+    assert [row["rank"] for row in ranking] == list(range(1, samples + 1))
+    assert [row["confidence"] for row in ranking] == [None] * samples
+
+    written = np.asarray([sdf_coords(write_dir / f"rank{r}.sdf")[1]
+                          for r in range(1, samples + 1)])
+    sampled = np.asarray(rollout[0])
+    offsets = written - sampled
+    assert offsets.max() - offsets.min() < 1e-3, \
+        "pose N as written is not sample N shifted by original_center: the order moved"
+
+
+def test_old_architecture_loads_and_runs():
+    """Upstream's two architecture booleans, and what each of them selects here.
+
+    `--weights` carries both (`WEIGHTS[name] -> (old_score_model, old_filtering_model)`).
+    The confidence side is the old architecture and always is: upstream's default recipe
+    sets `old_filtering_model: true`, and the released 19 MB checkpoint is that network --
+    which this test shows by loading it strictly under `old_model=True` and watching the same
+    checkpoint be *refused* under `old_model=False`. That refusal is the point: the two
+    architectures have the same widths, so a flag that did nothing would still produce finite
+    numbers from the wrong network.
+
+    The score side has no released weights for the old architecture anywhere (the v1.1 asset
+    is DiffDock-L), and it is not ported, so `--weights diffdock` is refused by name
+    (D-dfd-confidence-3) rather than quietly running DiffDock-L under a flag that says
+    otherwise.
+    """
+    from tt_bio.diffdock import network
+    from tt_bio.diffdock.job import WEIGHTS, DockOptions
+
+    assert WEIGHTS["diffdock-l"] == (False, True)
+    assert WEIGHTS["diffdock"] == (True, True)
+    assert DockOptions().weights == "diffdock-l"
+    assert DockOptions().old_filtering_model is True, \
+        "upstream's default_inference_args.yaml sets old_filtering_model: true"
+
+    # The old confidence architecture, real released weights, loaded and run.
+    state, cfg = _checkpoint(), _config()
+    assert cfg.old_model is True
+    model = load_released(state, cfg)
+    n_lig, n_rec, n_atom = 4, 5, 7
+    with torch.no_grad():
+        out = model(torch.zeros(n_lig, len(_lig_dims())), torch.randn(n_lig, 3) * 2,
+                    torch.tensor([[0, 1], [1, 2]]), torch.zeros(2, cfg.in_lig_edge_features),
+                    torch.zeros(n_rec, 1 + 1280), torch.randn(n_rec, 3) * 2, _ring(n_rec),
+                    torch.zeros(n_atom, 4), torch.randn(n_atom, 3) * 2, _ring(n_atom),
+                    torch.stack([torch.arange(n_atom), torch.arange(n_atom) % n_rec]))
+    assert out.shape == (1, 2) and torch.isfinite(out).all()
+
+    # The same checkpoint under the new architecture: refused, not quietly mis-loaded.
+    new_cfg = dfd_config.load(CKPT_DIR, old_model=False, name="confidence")
+    with pytest.raises(Exception):
+        load_released(state, new_cfg)
+
+    # And the old score architecture is named as missing rather than silently substituted.
+    with pytest.raises(network.ScoreNetworkUnavailable, match="old_score_model"):
+        network.load(DockOptions(weights="diffdock", no_confidence=True))
