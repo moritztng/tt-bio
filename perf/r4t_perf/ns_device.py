@@ -32,9 +32,10 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--shapes", required=True)
     ap.add_argument("--reps", type=int, default=20)
-    ap.add_argument("--arm", choices=["gram", "naive"], default="gram")
+    ap.add_argument("--arm", choices=["gram", "naive", "gramk"], default="gram")
     ap.add_argument("--fidelity", default="HiFi4")
     ap.add_argument("--broken", action="store_true")
+    ap.add_argument("--kchunk", type=int, default=256, help="gramk: reduction slice width")
     ap.add_argument("--no-l1acc", action="store_true", help="packer_l1_acc off (partials stay in DEST)")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
@@ -88,7 +89,15 @@ def main():
                 # The device sits a median 3.4 % above exact-bf16 emulation (b1p_a_dist.py). An extra error at the gram
                 # reproduces it (b1p_trunc.py, median 0.994), but neither an fp32 gram + RNE typecast (1.0339, 9f32ebf49)
                 # nor packer_l1_acc off (1.2175, worse) moves it: the gap is in the matmul's own accumulation.
-                g = mm(x, x, b16, transpose_b=True)
+                if a.arm == "gramk":
+                    n = int(x.shape[-1]); g = None
+                    for s0 in range(0, n, a.kchunk):
+                        xs = ttnn.slice(x, [0, 0, s0], [int(x.shape[0]), int(x.shape[1]), min(n, s0 + a.kchunk)])
+                        part = mm(xs, xs, f32, transpose_b=True)
+                        g = part if g is None else ttnn.add(g, part, dtype=f32)
+                    g = ttnn.typecast(g, b16)
+                else:
+                    g = mm(x, x, b16, transpose_b=True)
                 p = ttnn.add(ttnn.multiply(ttnn.typecast(g, f32), B), ttnn.multiply(mm(g, g, f32), C), dtype=b16)
                 x = ttnn.add(ttnn.multiply(ttnn.typecast(x, f32), A), mm(p, x, f32), dtype=b16)
         return x
@@ -128,7 +137,7 @@ def main():
             if not ok:
                 fail.append([list(w.shape[1:]), k, ed, eh])
     dts = [t1 - t0 for t0, t1 in times]
-    res = dict(arm=a.arm, fidelity=a.fidelity, l1acc=not a.no_l1acc, broken=a.broken, host="qb2", chip=card, board="p300c", sha=sha,
+    res = dict(arm=a.arm, kchunk=a.kchunk, fidelity=a.fidelity, l1acc=not a.no_l1acc, broken=a.broken, host="qb2", chip=card, board="p300c", sha=sha,
                n_matrices=sum(g.shape[0] for g in groups), reps=a.reps, step_s=[round(d, 4) for d in dts],
                step_s_min=round(min(dts), 4), aiclk=[min(ck), max(ck), len(ck)] if ck else None,
                worst_edev_over_ehost=round(worst, 3), n_fail=len(fail), fail=fail[:20],
