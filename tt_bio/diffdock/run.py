@@ -34,6 +34,16 @@ class SamplerUnavailable(RuntimeError):
     pass
 
 
+class PoseRolloutFailed(RuntimeError):
+    """Every pose of one complex went non-finite in the rollout.
+
+    One pose going bad is recorded and ranked last (`sampling.Rollout.failed`); losing all
+    of them means there is no answer for this complex, which is a `failures.csv` row on a
+    CSV or directory run and a loud error on a single complex -- the same split every other
+    per-complex failure takes.
+    """
+
+
 def dock(jobs: list[DockJob], options: DockOptions, out_dir, *, cache=None,
          isolate: bool = False, download: bool = False) -> dict:
     """Dock every job, writing upstream's layout under ``out_dir``. Returns a summary."""
@@ -101,7 +111,8 @@ def _sample_one(job: DockJob, options: DockOptions, write_dir: Path, receptor: P
     """
     import torch
 
-    from tt_bio.diffdock import chunking, esm, input as dfd_input, neighbour_cap, sampling
+    from tt_bio.diffdock import (chunking, confidence_model, esm, input as dfd_input,
+                                 neighbour_cap, sampling)
 
     spec = dfd_input.ComplexSpec(name=job.name, protein_path=str(receptor),
                                  ligand_description=job.ligand)
@@ -149,12 +160,24 @@ def _sample_one(job: DockJob, options: DockOptions, write_dir: Path, receptor: P
 
     # The graph, and so every pose, is heavy-atom only; upstream writes the H-stripped mol.
     mol = Chem.RemoveHs(Chem.Mol(graph.mol), sanitize=False)
+    failed = rollout.failed
+    if bool(failed.all()):
+        raise PoseRolloutFailed(
+            f"every one of the {len(failed)} poses went non-finite during the rollout")
+    if bool(failed.any()):
+        log.warning("%s: %d of %d poses went non-finite during the rollout; they are frozen "
+                    "at their last finite coordinates and ranked last",
+                    job.name, int(failed.sum()), len(failed))
     poses = (rollout.poses + graph.original_center).numpy()
     confidences = None if options.no_confidence else model.confidence(graph, rollout.poses)
     order = list(range(len(poses)))
     if confidences is not None:
-        confidences = torch.nan_to_num(torch.as_tensor(confidences).flatten().float(),
-                                       nan=-1000.0)
+        confidences = torch.as_tensor(confidences).flatten().float()
+        # Same answer as the confidence model's own for a pose it cannot score: far below
+        # any real logit, so it sorts last instead of disappearing. `isfinite`, not `isnan`:
+        # an infinite logit would otherwise sort *first* (D-dfd-sampling-9).
+        confidences = torch.where(torch.isfinite(confidences) & ~failed, confidences,
+                                  torch.full_like(confidences, confidence_model.UNSCORABLE))
         order = torch.argsort(confidences, descending=True).tolist()
         poses, confidences = poses[order], confidences[order].tolist()
 
