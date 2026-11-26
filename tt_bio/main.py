@@ -2291,7 +2291,11 @@ def dock(data, ligand, name, out_dir, model, config, loglevel, cache, device_ids
     from tt_bio.diffdock import run as dock_run
     from tt_bio.diffdock.job import DockJob, DockOptions, looks_like_sequence, read_jobs
 
-    logging.basicConfig(level=getattr(logging, loglevel.upper()))
+    level = getattr(logging, loglevel.upper())
+    logging.basicConfig(level=level)
+    # basicConfig leaves an already-configured root alone, so set the level we were asked
+    # for on tt-bio's own logger; upstream's configure_logger does the same for its tree.
+    logging.getLogger("tt_bio").setLevel(level)
     options = DockOptions()
     if config:
         options = options.with_config(config)
