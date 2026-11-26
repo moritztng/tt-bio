@@ -48,12 +48,31 @@ def _read_back(g, s):
     transpose under a product (an AdaLN `norm_cond` fold) keeps the host path: its broadcast sum reduces in
     memory order, so a contiguous grad would round differently."""
     import ttnn
-    if not (g.dtype == ttnn.float32 and _plain_transpose(s) and all(d == 1 for d in tuple(g.shape)[:-2])):
+    if g.dtype != ttnn.float32:
         return ttnn.to_torch(g)
-    u = ttnn.transpose(ttnn.bitcast(g, ttnn.uint32), -2, -1)
-    t = ttnn.bitcast(u, ttnn.float32)
-    ttnn.deallocate(u)
-    return ttnn.to_torch(t).reshape(s.shape[1], s.shape[0]).t()
+    u = ttnn.bitcast(g, ttnn.uint32)
+    if _plain_transpose(s) and all(d == 1 for d in tuple(g.shape)[:-2]):
+        t = ttnn.transpose(u, -2, -1)
+        out = _untilized(t).reshape(s.shape[1], s.shape[0]).t()
+        ttnn.deallocate(t)
+        return out
+    return _untilized(u)
+
+
+#: Untilize float32 gradients on the card before reading them back (_untilized); off = host untilize.
+CARD_UNTILIZE = True
+
+
+def _untilized(u):
+    """A uint32 TILE tensor's bits as host float32, untilized on the card: the host untilize is 2-3.5x slower
+    on large gradients (`perf/r4t_perf/fold/rbrm.py`), and a uint32 untilize only moves data."""
+    import ttnn
+    if not CARD_UNTILIZE or u.layout != ttnn.TILE_LAYOUT:
+        return ttnn.to_torch(u).view(torch.float32)
+    r = ttnn.to_layout(u, ttnn.ROW_MAJOR_LAYOUT)
+    out = ttnn.to_torch(r).view(torch.float32)
+    ttnn.deallocate(r)
+    return out
 
 
 class Folds:
