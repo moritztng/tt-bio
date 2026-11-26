@@ -57,6 +57,9 @@ def main():
     ap.add_argument("--layer", default="rec_emb_layers.0")
     ap.add_argument("--edges", type=int, default=64)
     ap.add_argument("--taps", default="0,1,2,3")
+    ap.add_argument("--only", help="comma list of groups to launch (hang bisect)")
+    ap.add_argument("--ablate", type=int, default=0)
+    ap.add_argument("--groups", help="JSON group layout, e.g. [[0],[1]] (default: the plan's)")
     ap.add_argument("--out")
     args = ap.parse_args()
     from tt_bio.main import ensure_p300_mesh_descriptor
@@ -75,11 +78,15 @@ def main():
     ins = [ddev.to_device(dev, t, ttnn.bfloat16) for t in (ea, x1, x2)]
     res = {}
     for tap in (int(t) for t in args.taps.split(",")):
-        mod = DeviceEdgeTile(dev, tp, fc, tap=tap)
+        only = [int(g) for g in args.only.split(",")] if args.only else None
+        groups = json.loads(args.groups) if args.groups else None
+        mod = DeviceEdgeTile(dev, tp, fc, groups, tap=tap, only=only, ablate=args.ablate)
         exp = expected(mod, ea, x1, x2)
         got = ttnn.to_torch(mod(*ins)).double()[:E]
         rows = []
         for gi, n in enumerate(mod.tap_n):
+            if gi not in mod.only:
+                continue
             ref = exp[gi][tap]
             for t in range(n):
                 g_ = got[:, (mod.tap0[gi] + t) * TILE:(mod.tap0[gi] + t + 1) * TILE]
@@ -90,7 +97,7 @@ def main():
         bad = [r for r in rows if r["pcc"] < 0.99]
         res[tap] = dict(n_tiles=len(rows), n_bad=len(bad), worst=sorted(rows, key=lambda r: r["pcc"])[:8],
                         all=rows)
-        print("tap", tap, "tiles", len(rows), "bad", len(bad), json.dumps(res[tap]["worst"][:4]),
+        print("tap", tap, "groups", mod.only, "ablate", args.ablate, "tiles", len(rows), "bad", len(bad), json.dumps(res[tap]["worst"][:4]),
               flush=True)
     if args.out:
         Path(args.out).write_text(json.dumps(res, indent=1))

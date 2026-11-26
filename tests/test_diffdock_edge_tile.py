@@ -34,3 +34,28 @@ def test_schedule_matches_host_tp(in_irreps, out_irreps, n_feat, groups):
     got = emulate(plan, ea, x1, x2)
     assert got.shape == ref.shape
     assert (got - ref).abs().max() <= 1e-12 * ref.abs().max()
+
+
+@pytest.mark.parametrize("budget", [1000 * 1024, 200 * 1024])
+def test_channel_split_groups_fit_l1_and_match(budget):
+    """A term split across core groups along its output channels still matches, and the
+    default grouping keeps every group inside the L1 budget when it can."""
+    from tt_bio.diffdock.edge_tile import l1_bytes
+    torch.manual_seed(0)
+    layer = TensorProductConvLayer("48x0e + 10x1o + 10x1e + 10x0o", "1x0e + 1x1o + 1x2e",
+                                   "48x0o + 48x0e", 99, hidden_features=99).double().eval()
+    for p in layer.fc.parameters():
+        torch.nn.init.normal_(p, std=0.3)
+    tp, fc = layer.tp, layer.fc
+    plan = EdgeTilePlan(tp, fc, l1_budget=budget)
+    assert len(plan.groups) > (2 if budget < 500 * 1024 else 1)
+    assert max(l1_bytes(plan, g) for g in plan.groups) <= budget
+    E = 40
+    ea = torch.randn(E, 99, dtype=torch.float64)
+    x1 = torch.randn(E, tp.in_irreps.dim, dtype=torch.float64)
+    x2 = torch.randn(E, tp.sh_irreps.dim, dtype=torch.float64)
+    with torch.no_grad():
+        ref = tp(x1, x2, fc(ea))
+    assert (emulate(plan, ea, x1, x2) - ref).abs().max() <= 1e-12 * ref.abs().max()
+    explicit = EdgeTilePlan(tp, fc, [[(0, 0, 30)], [(0, 30, 48), 1]])
+    assert (emulate(explicit, ea, x1, x2) - ref).abs().max() <= 1e-12 * ref.abs().max()

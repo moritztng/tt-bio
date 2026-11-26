@@ -49,7 +49,7 @@ def pad32(n: int) -> int:
 @dataclass
 class Group:
     """One core group's constants (float64) and tile schedule."""
-    terms: list                      # output term indices k
+    terms: list                      # output channel ranges [k, w0, w1], in column order
     out_tile0: int                   # first kernel-output tile this group writes
     n_out_tiles: int
     G: Tensor = None                 # [in_pad, n_ag * 32]
@@ -66,7 +66,9 @@ class Group:
 class EdgeTilePlan:
     """Constants and schedule of the fused form of ``tp(x1, x2, fc(edge_attr))``."""
 
-    def __init__(self, tp, fc, groups: list[list[int]] | None = None):
+    def __init__(self, tp, fc, groups: list | None = None, l1_budget: int = 1000 * 1024):
+        """``groups``: per core group a list of output terms ``k`` or channel ranges
+        ``(k, w0, w1)``; default one group per term, split along ``w`` to fit ``l1_budget``."""
         f64 = torch.float64
         w1, b1 = fc[0].weight.detach().to(f64), fc[0].bias.detach().to(f64)
         w2, b2 = fc[-1].weight.detach().to(f64), fc[-1].bias.detach().to(f64)
@@ -85,11 +87,7 @@ class EdgeTilePlan:
         self.b1[self.hidden] = 1.0
 
         out_terms = tp.out_irreps.terms
-        if groups is None:
-            groups = [[k] for k in range(len(out_terms))]
-        if sorted(k for g in groups for k in g) != list(range(len(out_terms))):
-            raise ValueError(f"groups {groups} must partition the {len(out_terms)} output terms")
-
+        muls = [t.mul for t in out_terms]
         wstart, s = [], 0
         for (u, v, w) in tp.weight_shapes:
             if v != 1:
@@ -99,29 +97,56 @@ class EdgeTilePlan:
 
         self.groups, self.perm_cols = [], {}
         tile0 = 0
-        for terms in groups:
-            g = self._group(tp, terms, wstart, w2, b2, tile0)
-            self.groups.append(g)
-            tile0 += g.n_out_tiles
+        if groups is None:
+            # one group per term, its output channels split until the group fits the L1 budget
+            for k in range(len(out_terms)):
+                for n in range(1, muls[k] + 1):
+                    c = -(-muls[k] // n)
+                    parts = [[(k, w0, min(w0 + c, muls[k]))] for w0 in range(0, muls[k], c)]
+                    gs = [self._group(tp, pt, wstart, w2, b2, 0) for pt in parts]
+                    if max(l1_bytes(self, g) for g in gs) <= l1_budget:
+                        break
+                for pt in parts:
+                    g = self._group(tp, pt, wstart, w2, b2, tile0)
+                    self.groups.append(g)
+                    tile0 += g.n_out_tiles
+        else:
+            parts = [[(x, 0, muls[x]) if isinstance(x, int) else tuple(x) for x in g] for g in groups]
+            cover = sorted(p for g in parts for p in g)
+            want, ok = [], True
+            for k in range(len(out_terms)):
+                ks = [p for p in cover if p[0] == k]
+                ok &= bool(ks) and ks[0][1] == 0 and ks[-1][2] == muls[k] and all(
+                    a[2] == b[1] for a, b in zip(ks, ks[1:]))
+            if not ok or len({p[0] for p in cover}) != len(out_terms):
+                raise ValueError(f"groups {groups} must partition the output channels {muls}")
+            for pt in parts:
+                g = self._group(tp, pt, wstart, w2, b2, tile0)
+                self.groups.append(g)
+                tile0 += g.n_out_tiles
         self.out_pad = tile0 * TILE
+        for g in self.groups:
+            col0 = g.out_tile0 * TILE
+            for k, w0, w1 in g.terms:
+                K = 2 * tp.out_irreps.terms[k].l + 1
+                for t in range(K * (w1 - w0)):
+                    self.perm_cols[col0 + t] = tp._out_slices[k].start + w0 * K + t
+                col0 += K * (w1 - w0)
         # kernel column -> e3nn column, as a 0/1 matrix [out_pad, out_dim]
         self.perm = torch.zeros(self.out_pad, self.out_dim, dtype=f64)
         for kc, ec in self.perm_cols.items():
             self.perm[kc, ec] = 1.0
 
-    def _group(self, tp, terms, wstart, w2, b2, tile0) -> Group:
+    def _group(self, tp, parts, wstart, w2, b2, tile0) -> Group:
         f64 = torch.float64
-        out_sl = tp._out_slices
-        # kernel columns of this group: its terms back to back, e3nn order inside each term
-        width = sum(tp.out_irreps.terms[k].dim for k in terms)
-        g = Group(terms=list(terms), out_tile0=tile0, n_out_tiles=pad32(width) // TILE)
+        # kernel columns of this group: its channel ranges back to back, e3nn order inside each
+        width = sum((2 * tp.out_irreps.terms[k].l + 1) * (w1 - w0) for k, w0, w1 in parts)
+        g = Group(terms=[list(p) for p in parts], out_tile0=tile0, n_out_tiles=pad32(width) // TILE)
         col0 = tile0 * TILE
         G_cols, L2_cols = [], []
-        for k in terms:
+        for k, w0, w1 in parts:
             tk = tp.out_irreps.terms[k]
-            K, Wm = 2 * tk.l + 1, tk.mul
-            for t in range(K * Wm):
-                self.perm_cols[col0 + t] = out_sl[k].start + t
+            K = 2 * tk.l + 1
             # the concatenated channel axis: paths into k, sorted by sh term so a block uses few j
             into = sorted((n for n, p in enumerate(tp.paths) if p[2] == k),
                           key=lambda n: (tp.paths[n][1], n))
@@ -154,7 +179,7 @@ class EdgeTilePlan:
                         G_cols.append(col)
             ybase = g.n_y - K * nblk
             # W tiles (k, w, blk) and their contraction entries
-            for w in range(Wm):
+            for w in range(w0, w1):
                 for blk in range(nblk):
                     col = torch.zeros(self.hidden_pad, TILE, dtype=f64)
                     for lane, (n, u) in enumerate(lanes[blk * TILE:(blk + 1) * TILE]):
@@ -166,9 +191,9 @@ class EdgeTilePlan:
                     g.n_w += 1
                     L2_cols.append(col)
                     for m in range(K):
-                        oc = (col0 - tile0 * TILE) + w * K + m   # column within the group
+                        oc = (col0 - tile0 * TILE) + (w - w0) * K + m   # column within the group
                         g.mac.append((wi, ybase + m * nblk + blk, oc // TILE, oc % TILE))
-            col0 += K * Wm
+            col0 += K * (w1 - w0)
         g.G = torch.cat(G_cols, 1)
         g.L2 = torch.cat(L2_cols, 1)
         return g
@@ -245,6 +270,18 @@ def _schedule(plan: EdgeTilePlan, g: Group):
                 + g.n_w * (plan.hidden_pad // T) + 2 * len(g.mac))
 
 
+def cb_pages(plan: EdgeTilePlan, g: Group, s: dict) -> dict:
+    """The kernel's circular buffers for one group: index -> (pages, fp32)."""
+    KH, KA, nbj = plan.hidden_pad // TILE, plan.in_pad // TILE, len(s["bj"])
+    return {0: (2 * KH, False), 1: (2 * KA, False), 2: (2 * nbj, False), 3: (g.n_w * KH, False),
+            4: (s["nG"], False), 5: (33, False), 6: (s["nab"], False), 7: (g.n_y, False),
+            8: (2, False), 9: (4, False), 16: (2 * g.n_out_tiles, True)}
+
+
+def l1_bytes(plan: EdgeTilePlan, g: Group) -> int:
+    return sum(n * (4096 if f32 else 2048) for n, f32 in cb_pages(plan, g, _schedule(plan, g)).values())
+
+
 class DeviceEdgeTile:
     """``(edge_attr, x1, sh) -> tp(x1, sh, fc(edge_attr))`` as one fused kernel per call.
 
@@ -255,7 +292,7 @@ class DeviceEdgeTile:
     KDIR = None
 
     def __init__(self, device, tp, fc, groups=None, *, math_fidelity=None, ablate: int = 0,
-                 tap: int = 0):
+                 tap: int = 0, only=None):
         import ttnn
         from pathlib import Path
         self.ttnn, self.device = ttnn, device
@@ -284,6 +321,8 @@ class DeviceEdgeTile:
         self.G = [up(s["Gpack"]) for s in self.sched]
         self._pd = {}
         self.ablate, self.tap = ablate, tap
+        # diagnostic: launch only these groups (their output columns; the rest stay unwritten)
+        self.only = list(range(len(plan.groups))) if only is None else list(only)
         # diagnostic tap (see compute.cpp): each group writes its Y / AB / Wt tiles instead
         if tap:
             self.tap_n = [[g.n_y, s["nab"], g.n_w][tap - 1] for g, s in zip(plan.groups, self.sched)]
@@ -320,6 +359,8 @@ class DeviceEdgeTile:
             return ttnn.CBDescriptor(total_size=n * page, core_ranges=cr, format_descriptors=[fmt])
 
         for gi, (g, s, cl) in enumerate(zip(plan.groups, self.sched, self._cores())):
+            if gi not in self.only:
+                continue
             cr = ttnn.CoreRangeSet([ttnn.CoreRange(ttnn.CoreCoord(x, y), ttnn.CoreCoord(x, y))
                                     for x, y in cl])
             per = -(-ET // len(cl))
@@ -354,9 +395,9 @@ class DeviceEdgeTile:
                          ("W_LIST", lst(s["w"]))],
                 runtime_args=crt, config=cfg)
             kernels += [rd, wr, cp]
-            cbs += [cb(0, 2 * KH, cr), cb(1, 2 * KA, cr), cb(2, 2 * nbj, cr), cb(3, NW * KH, cr),
-                    cb(4, NG, cr), cb(5, 33, cr), cb(6, nab, cr), cb(7, g.n_y, cr), cb(8, 2, cr),
-                    cb(9, 4, cr), cb(16, 2 * NOUT, cr, f32, tf)]
+            pages = cb_pages(plan, g, s)
+            pages[16] = (2 * NOUT, True)                  # a tap writes NOUT tiles of its own
+            cbs += [cb(i, n, cr, f32, tf) if wide else cb(i, n, cr) for i, (n, wide) in pages.items()]
         return kernels, cbs
 
     def __call__(self, edge_attr, x1, sh):
@@ -374,8 +415,7 @@ class DeviceEdgeTile:
         if key not in self._pd:
             self._pd[key] = self._build(key, h, a, b, out)
         kernels, cbs = self._pd[key]
-        for i in range(0, len(kernels), 3):
-            gi = i // 3
+        for i, gi in zip(range(0, len(kernels), 3), self.only):
             kernels[i].common_runtime_args = [h.buffer_address(), a.buffer_address(),
                                               b.buffer_address(), self.oh.buffer_address(),
                                               self.L2[gi].buffer_address(),
