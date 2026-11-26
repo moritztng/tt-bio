@@ -81,10 +81,19 @@ def main():
     cfg = config["nn"]
     glue = N.FlowGlue(state, config)
     folds = Folds(state)
-    pair_card = None
-    if a.cand_pair == "card":   # r4t-perf P1: the candidate pass builds its pair as serving does
-        from tt_bio.rfd4.pair import PairOnCard
-        pair_card = PairOnCard(glue.pair_split, dev)
+    card_pair = []   # r4t-perf P1 (--cand-pair card): the candidate pass builds its pair as serving does
+
+    def pair_card():
+        """This step's PairOnCard, or None. A split copies the builder's weights, which the optimizer moves, so
+        each step takes a fresh one (the split refuses stale weights)."""
+        if a.cand_pair != "card":
+            return None
+        from tt_bio.rfd4.pair import PairOnCard, PairSplit
+        if card_pair:
+            card_pair.pop().release()
+        glue.pair_split = PairSplit(glue.pair_repr_builder)
+        card_pair.append(PairOnCard(glue.pair_split, dev))
+        return card_pair[0]
     trunk = E.load_trunk(glue, state, cfg, training=True)   # an unrecorded build for the lever set and dtypes; build() replaces it
 
     RB = {}
@@ -279,12 +288,13 @@ def main():
             winner by our own exploration loss, then the winner re-run with grad (host glue, taped trunk)."""
             bt, K = cur["bt"], cur["K"]
             mk = tmask(bt)
+            pc = pair_card()
             with torch.no_grad():
                 ck = conds_for(bt)
-                s0, z0 = glue.initial_states(bt, pair_constant=glue.pair_split.constant(bt) if pair_card else None)
+                s0, z0 = glue.initial_states(bt, pair_constant=glue.pair_split.constant(bt) if pc else None)
             with T.lever_scope(levers), ag.tape():
                 with ag.no_grad():
-                    zk0 = pair_card(z0, 0) if pair_card else put(z0, trunk.pair_dtype(mk))
+                    zk0 = pc(z0, 0) if pc else put(z0, trunk.pair_dtype(mk))
                     sk, zk = trunk(put(s0), zk0, [put(c, trunk.dtype) for c in ck], mk)
                     sh = ttnn.to_torch(getattr(sk, "value", sk)).float().reshape(s0.shape)
                 walk_register()
