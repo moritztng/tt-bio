@@ -57,19 +57,37 @@ class GaussianSmearing(torch.nn.Module):
 
     ``delta`` is the spacing of the centres, so the coefficient is fixed by *start*, *stop*
     and *num* and is not a learned or stored quantity: the checkpoint keeps only the centres.
-    DiffDock builds four of these, with (stop, num) = (5, 64) for ligand edges, (15, 64) for
+    DiffDock builds four of these, with (stop, num) = (5, 64) for ligand edges, (30, 64) for
     receptor edges, (80, 64) for cross edges and (30, 64) for the centre convolution.
+
+    **The coefficient is re-derived from the centres after a load.** ``offset`` is a buffer
+    and therefore comes out of the checkpoint, while ``coeff`` is a plain float computed in
+    ``__init__``. Loading a checkpoint whose centres span a different range than the one this
+    was constructed with would otherwise leave the two describing different grids, and
+    ``load_state_dict(strict=True)`` cannot catch it: the shape still matches. That is not
+    hypothetical. Constructing the receptor expansion with ``receptor_radius`` (15) instead of
+    the model's ``rec_max_radius`` (30) loaded cleanly, passed the module's own float64 grade
+    because that grade reads the centres off the module, and left every receptor Gaussian 4x
+    too narrow -- 13 % at the first receptor conv, growing to 40 % by the output heads.
     """
 
     def __init__(self, start: float = 0.0, stop: float = 5.0, num_gaussians: int = 50):
         super().__init__()
         offset = torch.linspace(start, stop, num_gaussians, dtype=torch.float64)
-        # Upstream takes the spacing off an fp32 linspace, so its coefficient carries an
-        # fp32 rounding error that the exponent then multiplies by up to ~10. Taking it in
-        # float64 costs nothing (it is one scalar, fixed at construction) and keeps the whole
-        # expansion within fp32 epsilon of the exact one.
-        self.coeff = -0.5 / (offset[1] - offset[0]).item() ** 2
         self.register_buffer("offset", offset.to(torch.float32))
+        self._set_coeff()
+        self.register_load_state_dict_post_hook(lambda mod, _: mod._set_coeff())
+
+    def _set_coeff(self) -> None:
+        """``-0.5 / delta^2`` for the centres currently held.
+
+        Upstream takes the spacing off an fp32 linspace, so its coefficient carries an fp32
+        rounding error that the exponent then multiplies by up to ~10. Taking it in float64
+        costs nothing (it is one scalar) and keeps the whole expansion within fp32 epsilon of
+        the exact one.
+        """
+        o = self.offset.to(torch.float64)
+        self.coeff = -0.5 / (o[1] - o[0]).item() ** 2
 
     def forward(self, dist: Tensor) -> Tensor:
         d = dist.view(-1, 1) - self.offset.view(1, -1)

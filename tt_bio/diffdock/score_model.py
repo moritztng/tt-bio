@@ -89,9 +89,28 @@ class AtomEncoder(nn.Module):
 def radius_edges(pos: Tensor, cutoff: float, *, loop: bool = False) -> Tensor:
     """Every ordered pair inside *cutoff*, as ``[2, E]`` of ``(src, dst)``.
 
-    Upstream calls ``torch_cluster.radius_graph``, which caps a node at 32 neighbours; this
-    takes them all. Single complex only -- the rollout batches poses of one complex, which
-    share a graph, so there is no cross-graph pair to exclude.
+    Single complex only -- the rollout batches poses of one complex, which share a graph, so
+    there is no cross-graph pair to exclude.
+
+    **Upstream caps a node at 32 neighbours here and this does not, deliberately.**
+    ``torch_cluster.radius_graph`` keeps ``max_num_neighbors=32`` by default (upstream raises
+    it to 10000 only for the cross graph, so the cap on this one and on the bond-conv graph is
+    deliberate or forgotten, but it is what the weights were trained with). Matching it is not
+    achievable by any clean reimplementation, measured on a 60-point cloud with every true
+    degree at 57-59:
+
+    * the kept 32 are **neither the first 32 by index nor the nearest 32** -- they fall out of
+      the CPU kernel's cell-list traversal order (0 of 60 nodes kept an index-order prefix);
+    * the selection is **not permutation-equivariant**: relabelling the same points changes 16
+      of 1920 kept edges, so upstream's own score depends on ligand atom order once the cap
+      binds.
+
+    Taking every neighbour is therefore the defensible choice: it is deterministic, invariant
+    to atom order, and a superset of whatever upstream kept. The divergence is inactive on
+    every complex graded so far -- the densest golden ligand (``8AEU_M0L``, 41 heavy atoms)
+    peaks at degree 29 against the cap of 32 -- but it WILL bind on a large compact ligand, and
+    when it does the gap is upstream's artifact, not this function's error. Quantify it against
+    the accuracy bar on such a ligand before changing anything here.
     """
     d = torch.cdist(pos, pos)
     mask = d < cutoff
