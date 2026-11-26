@@ -1005,18 +1005,21 @@ class Trunk(Module):
         low = self.dtype if zd == ttnn.float32 and self.dtype == ttnn.bfloat16 else None
         s = z = None
         self._ran = (0, 0)
-        for c in conds:
-            zb = None
-            if s is None:
-                s_in, z_in = ttnn.clone(s_init), ttnn.clone(z_init)
-            else:
-                s_in = self._recycle(s_init, s, self.s_norm, self.s_proj, self.residual_dtype)
-                z_in = self._recycle(z_init, z, self.z_norm, self.z_proj, zd, low=low)
-                if low is not None:
-                    z_in, zb = z_in
-                ttnn.deallocate(s)
-                ttnn.deallocate(z)
-            s, z = self.run_pass(s_in, z_in, c, masks, zb=zb)
+        # Under a tape every cycle but the last runs under no_grad, as upstream trains it (only the last
+        # pass is differentiated); all cycles still run. With no tape `recycle_region` is a null context.
+        for cyc, c in enumerate(conds):
+            with ops.recycle_region(cyc, len(conds) - 1):
+                zb = None
+                if s is None:
+                    s_in, z_in = ttnn.clone(s_init), ttnn.clone(z_init)
+                else:
+                    s_in = self._recycle(s_init, s, self.s_norm, self.s_proj, self.residual_dtype)
+                    z_in = self._recycle(z_init, z, self.z_norm, self.z_proj, zd, low=low)
+                    if low is not None:
+                        z_in, zb = z_in
+                    ttnn.deallocate(s)
+                    ttnn.deallocate(z)
+                s, z = self.run_pass(s_in, z_in, c, masks, zb=zb)
         if res_mask is not None and lever("mask_at_mix"):
             # the passes left the padded tokens unmasked; the call hands them back as zeros, as upstream does
             ms, mz = _masked_copy(s, res_mask, self.residual_dtype), _masked_copy(z, res_pair_mask_c, zd)
