@@ -453,6 +453,26 @@ _ROWS: tuple[Artifact, ...] = (
              approx_bytes=2609507429,
              note="ESM-2 650M, the sequence embedding Nesso-1 conditions on"),
 
+    # -- DiffDock-L ------------------------------------------------------------
+    # One zip holding both checkpoints. Upstream's inference.py fetches
+    # `releases/latest/download/diffdock_models.zip`, which 404s: the latest release is
+    # v1.1.3 and neither it nor v1.1.2 ships assets. The weights have only ever been on the
+    # v1.1 release, so this row names v1.1 explicitly rather than inheriting a moving
+    # "latest" that is already broken.
+    Artifact("diffdock", ("diffdock",), "file", "MIT (gcorso/DiffDock)",
+             url="https://github.com/gcorso/DiffDock/releases/download/v1.1/diffdock_models.zip",
+             filename="diffdock_models.zip", subdir="diffdock",
+             sha256="5a95b6a1555be47ab1d6f0a8ffd25152f7fe32f5956005bb821e13e7a37d4a3d",
+             approx_bytes=129825226,
+             derived=Derived("diffdock/models", "zip",
+                             expect=("score_model/best_ema_inference_epoch_model.pt",
+                                     "score_model/model_parameters.yml",
+                                     "confidence_model/best_model_epoch75.pt",
+                                     "confidence_model/model_parameters.yml"),
+                             discard_archive=True),
+             note="DiffDock-L v1.1 score + confidence checkpoints, extracted to "
+                  "<cache>/diffdock/models"),
+
     # -- BoltzGen: six flat files under <cache>/boltzgen -----------------------
     Artifact("boltzgen-diverse", ("boltzgen",), "file", "MIT",
              repo=BOLTZGEN_REPO, filename="boltzgen1_diverse.ckpt", subdir="boltzgen",
@@ -1225,6 +1245,27 @@ def _produce(producer: str, archive: Path, staging: Path, *, quiet: bool = False
             os.replace(src, staging)
         finally:
             shutil.rmtree(holding, ignore_errors=True)
+    elif producer == "zip":
+        import zipfile
+        _echo(f"Extracting {archive.name}", quiet)
+        staging.mkdir(parents=True, exist_ok=True)
+        with zipfile.ZipFile(archive) as zf:
+            for member in zf.infolist():
+                # A zip entry's name is attacker-controlled in general; ours is pinned by
+                # sha256, but the extraction stays inside the staging directory regardless.
+                target = (staging / member.filename).resolve()
+                if not str(target).startswith(str(staging.resolve()) + os.sep):
+                    raise ValueError(f"{archive.name}: entry {member.filename!r} escapes the output directory")
+            zf.extractall(staging)
+        inner = list(staging.iterdir())
+        if len(inner) == 1 and inner[0].is_dir():
+            # Promote a single top-level directory, as the tar producer does, so the staged
+            # tree is exactly what lands at the destination.
+            holding = staging.with_name(staging.name + ".zip")
+            shutil.rmtree(holding, ignore_errors=True)
+            os.replace(inner[0], holding)
+            shutil.rmtree(staging, ignore_errors=True)
+            os.replace(holding, staging)
     elif producer == "af2-params":
         # A member-filtered extraction, not the stock `tar` producer: the AlphaFold archive is
         # 4 GB of five model variants and AF2-IG reads exactly one of them, so extracting the
