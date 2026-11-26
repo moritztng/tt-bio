@@ -63,7 +63,7 @@ from typing import Dict, Optional, Sequence
 from .mesh import Axis
 
 __all__ = ["drive", "driving", "inside", "rank", "world", "reducer", "replicas",
-           "host_threads",
+           "host_threads", "shard_edges",
            "out_dir", "node", "master_sha", "report", "tick", "RANK_ENV", "WORLD_ENV",
            "RUN_ENV"]
 
@@ -302,53 +302,79 @@ class ProcessAxis(Axis):
     # -- the collective itself
 
     def _exchange(self, vec, *, record: bool = True):
-        """Sum ``vec`` across every rank on the axis: publish, reduce-scatter, all-gather.
+        """Sum ``vec`` across every rank on the axis: :meth:`reduce_scatter`, then :meth:`all_gather`.
 
-        Every rank publishes its whole vector, then sums only its own ``1/width`` slice of
-        every peer's file and publishes that slice, then reads the ``width`` reduced slices
-        back. Each rank therefore reads about two vectors per step whatever the width, where
-        loading every peer's whole file read ``width`` of them and did ``width`` times the
-        adds: at RFD4-Proteina's 178 M parameters that was 2.3 s at two ranks and 4.8 s at
-        four, growing linearly (``perf/r4t_scale/``).
+        Each rank reads about two vectors per step whatever the width, where loading every
+        peer's whole file read ``width`` of them and did ``width`` times the adds: at
+        RFD4-Proteina's 178 M parameters that was 2.3 s at two ranks and 4.8 s at four,
+        growing linearly (``perf/r4t_scale/``). The sum is bit-identical to that full sum.
+        """
+        t0 = time.perf_counter()
+        acc = self.all_gather(self.reduce_scatter(vec))
+        st = self.state
+        pub, wait = st.pop("_pub"), st.pop("_wait")
+        if record:
+            st["publish_s"].append(pub)
+            st["wait_s"].append(wait)
+            st["add_s"].append(time.perf_counter() - t0 - pub - wait)
+            st["bytes"] = max(st["bytes"], int(vec.nbytes))
+        return acc
 
-        The owner of a slice adds the peers in rank order 0..width-1, the same order the full
-        sum used, so the result is bit-identical to it and identical on every rank, which is
-        the invariant :func:`drive` checks. Reads are memory-mapped, so a slice costs its own
-        bytes and not the file's. Every publish is a write to a temporary name and an
-        ``os.replace``, so a peer polling the directory never sees a half-written file.
+    def reduce_scatter(self, vec, edges=None):
+        """This rank's slice ``vec[edges[rank]:edges[rank+1]]`` of the sum across the axis.
+
+        ``edges`` (``width + 1`` offsets) defaults to an even split; :func:`shard_edges` gives
+        tensor-aligned ones, so a rank can own whole parameters (Muon orthogonalises whole
+        matrices). Every rank publishes its whole vector and the owner of a slice adds the
+        peers in rank order 0..width-1, the order a full sum uses, so the slice is
+        bit-identical to the same slice of that sum. Reads are memory-mapped, so a slice costs
+        its own bytes and not the file's. Pair it with :meth:`all_gather` on the same step.
         """
         import numpy as np
         step = self.state["step"] = self.state["step"] + 1
         d, w, me = Path(self.run), self.width, self.dp_rank
+        edges = (np.linspace(0, vec.size, w + 1).astype(np.int64) if edges is None
+                 else np.asarray(edges, dtype=np.int64))
+        if len(edges) != w + 1 or edges[0] != 0 or edges[-1] != vec.size or (np.diff(edges) < 0).any():
+            raise ValueError(f"edges {edges.tolist()} do not split {vec.size} elements into "
+                             f"{w} ordered slices")
         t0 = time.perf_counter()
         _publish(d, f"s{step}_r{me}", vec)
         t_pub = time.perf_counter()
         full = self._await(d, step, "r")
-        t_wait1 = time.perf_counter()
-        edges = np.linspace(0, vec.size, w + 1).astype(np.int64)
+        t_wait = time.perf_counter()
         lo, hi = int(edges[me]), int(edges[me + 1])
         part = np.zeros(hi - lo, dtype=vec.dtype)
-        for p in full:
-            part += np.load(p, mmap_mode="r")[lo:hi]
+        for f in full:
+            part += np.load(f, mmap_mode="r")[lo:hi]
+        self.state.update(_open=(step, edges, vec.size, vec.dtype), _pub=t_pub - t0,
+                          _wait=t_wait - t_pub)
+        return part
+
+    def all_gather(self, part):
+        """Every rank's slice of the step :meth:`reduce_scatter` opened, as one vector.
+
+        ``part`` need not be what ``reduce_scatter`` returned: a sharded optimizer hands back
+        the slice of weights it just stepped, and every rank gets all of them in the same
+        bytes. A rank past this barrier knows every rank finished reading step s-1, so the
+        files ``_KEEP_STEPS`` back are safe to drop.
+        """
+        import numpy as np
+        step, edges, n, dtype = self.state.pop("_open")
+        d, me = Path(self.run), self.dp_rank
+        if part.size != edges[me + 1] - edges[me]:
+            raise ValueError(f"rank {me} holds {part.size} elements for a slice of "
+                             f"{int(edges[me + 1] - edges[me])}")
         _publish(d, f"s{step}_q{me}", part)
-        del part
-        t_red = time.perf_counter()
+        t0 = time.perf_counter()
         slices = self._await(d, step, "q")
-        t_wait2 = time.perf_counter()
-        acc = np.empty_like(vec)
-        for r, p in enumerate(slices):
-            acc[edges[r]:edges[r + 1]] = np.load(p, mmap_mode="r")
-        # Sum, not mean: see the module docstring. A rank past step s's second barrier knows
-        # every rank finished reading step s-1, so _KEEP_STEPS back is safe to drop.
+        if "_wait" in self.state:
+            self.state["_wait"] += time.perf_counter() - t0
+        acc = np.empty(n, dtype=np.asarray(part).dtype)
+        for r, f in enumerate(slices):
+            acc[edges[r]:edges[r + 1]] = np.load(f, mmap_mode="r")
         for kind in "rq":
             (d / f"s{step - _KEEP_STEPS}_{kind}{me}.npy").unlink(missing_ok=True)
-        st = self.state
-        if not record:
-            return acc
-        st["publish_s"].append(t_pub - t0)
-        st["wait_s"].append((t_wait1 - t_pub) + (t_wait2 - t_red))
-        st["add_s"].append((t_red - t_wait1) + (time.perf_counter() - t_wait2))
-        st["bytes"] = max(st["bytes"], int(vec.nbytes))
         return acc
 
     def _await(self, d: Path, step: int, kind: str) -> list:
@@ -365,6 +391,25 @@ class ProcessAxis(Axis):
                     f"of hanging it")
             time.sleep(0.002)
         return want
+
+
+def shard_edges(sizes, world: int):
+    """``world + 1`` offsets splitting tensors of ``sizes`` (in order) into contiguous groups.
+
+    Every edge lands on a tensor boundary, the one nearest ``k * total / world``, so each rank
+    owns whole parameters; edges never move backwards, and a rank may own none when tensors
+    are fewer or larger than the split. Deterministic, so every rank computes the same edges.
+    """
+    import numpy as np
+    bounds = np.concatenate([[0], np.cumsum(np.asarray(sizes, dtype=np.int64))])
+    total = int(bounds[-1])
+    edges = [0]
+    for k in range(1, world):
+        want = k * total / world
+        i = int(np.argmin(np.abs(bounds - want)))
+        edges.append(max(edges[-1], int(bounds[i])))
+    edges.append(total)
+    return np.asarray(edges, dtype=np.int64)
 
 
 def _publish(d: Path, name: str, arr) -> None:
