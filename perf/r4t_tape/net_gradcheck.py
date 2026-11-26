@@ -34,6 +34,7 @@ def main():
     ap.add_argument("--ref", default="", help="reuse a saved reference (npz from --save-ref)")
     ap.add_argument("--save-ref", default="")
     ap.add_argument("--out", default="")
+    ap.add_argument("--terms-out", default="", help="write the reference and device per-term losses (JSON)")
     ap.add_argument("--ref-dtype", choices=("float64", "float32"), default="float64",
                     help="float32: the same reference in host float32, saved with --save-ref and not graded; "
                     "its distance from the float64 one is what float32 arithmetic alone costs this network")
@@ -115,15 +116,18 @@ def main():
             out["insertion_logits"] = o["insertion"]["logits"]
         return out
 
+    ref_terms = {}   # the reference's per-term loss at the base point (last loss_fn call before FD)
+
     def loss_fn():
         """Value = the registered loss; gradient = its seeds through the outputs (the step's own surrogate)."""
         s_i, z_i = glue.initial_states(bw)
         c = conds()[-1]
         s, _z = REF.trunk(w, s_i, z_i, [c], mask, cfg["nlayers"], state=frozen, **kw)
         o = flat(glue.heads(s, bw))
-        total, _bd, seeds = RO.rfd4_loss({**npy(bw), "exploration_k": 1},
+        total, bd, seeds = RO.rfd4_loss({**npy(bw), "exploration_k": 1},
                                          {k: v.detach().double().numpy() for k, v in o.items()}, RO.WEIGHTS)
         sur = sum((o[k] * torch.from_numpy(np.asarray(g)).to(o[k].dtype)).sum() for k, g in seeds.items())
+        ref_terms.update({k: v.get("value") for k, v in bd.items() if isinstance(v, dict)})
         return sur - sur.detach() + float(total)
 
     names = sorted(got)
@@ -137,6 +141,14 @@ def main():
             gs = torch.autograd.grad(L, [params[k] for k in names], allow_unused=True)
         ref_grads = {k: (np.zeros_like(got[k]) if g is None else g.detach().numpy()) for k, g in zip(names, gs)}
         print(f"reference loss {float(L):.9e} (device {meta['loss']})", flush=True)
+        base_terms = dict(ref_terms)
+        dev_terms = meta.get("terms") or {}
+        for k, v in base_terms.items():
+            d = dev_terms.get(k)
+            rel = abs(d - v) / abs(v) if d is not None and v else None
+            print(f"term {k}: reference {v!r} device {d!r} rel {rel}", flush=True)
+        if a.terms_out:
+            json.dump({"reference": base_terms, "device": dev_terms, "dtype": a.ref_dtype}, open(a.terms_out, "w"), indent=1)
         if a.ref_dtype != "float64":
             np.savez(a.save_ref, **{k: v.astype(np.float64) for k, v in ref_grads.items()})
             print(f"{a.ref_dtype} reference saved to {a.save_ref}.npz (not graded)")
