@@ -12,6 +12,8 @@ step of any run takes dt to t=0 and skips its noise, so a short run is not a pre
 one. Both sides are read out the same way.
 """
 
+import json
+import sys
 from dataclasses import replace
 from pathlib import Path
 
@@ -355,3 +357,60 @@ def test_kabsch_batch_agrees_with_the_shipped_fp64_implementation():
         ref_r, mean_a, mean_b = align.rigid_transform(a[i], b[i])
         ref = (a[i].double() - mean_a) @ ref_r + mean_b
         assert float((ref.float() - fitted[i]).abs().max()) < 1e-4
+
+
+# --------------------------------------------------------------------------- real model
+# dfd-ref captured a full 19-step run of the released checkpoint on a PoseBusters complex,
+# recording the score network's own outputs, every RNG draw in call order and the pose in and
+# out of every step. Replaying it grades the rollout against the real model without a forward
+# pass: the scores are upstream's, so anything that disagrees is this module. The grading code
+# is the script's, not a second copy of it.
+
+REAL = Path(__file__).parent / "fixtures" / "diffdock" / "real_rollout" / "8G43_ZU6"
+
+
+@pytest.fixture(scope="module")
+def real_grade():
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts" / "diffdock_port"))
+    import sampling_real_grade
+
+    return sampling_real_grade
+
+
+def test_real_rollout_matches_upstream_trajectory(real_grade):
+    """Every step of a real 19-step run: the perturbation arithmetic and the pose move."""
+    pytest.importorskip("rdkit")
+    index = json.loads((REAL / "index.json").read_text())
+    traj = np.load(REAL / "trajectory.npz")
+    scores_npz = np.load(REAL / "scores.npz")
+    draws = np.load(REAL / "draws.npz", allow_pickle=True)
+
+    steps = int(traj["n_steps"])
+    n_poses = int(index["recipe"]["samples_per_complex"])
+    n_torsions = traj["s00_tor_update"].shape[0] // n_poses
+    cfg = sampling.SamplingConfig.from_recipe()
+    bounds = real_grade.sigma_bounds()
+
+    recorded = [{
+        "pos_in": torch.from_numpy(traj[f"s{k:02d}_pos_in"]),
+        "pos_out": torch.from_numpy(traj[f"s{k:02d}_pos_out"]),
+        "tr": torch.from_numpy(traj[f"s{k:02d}_tr_update"]),
+        "rot": torch.from_numpy(traj[f"s{k:02d}_rot_update"]),
+        "tor": torch.from_numpy(traj[f"s{k:02d}_tor_update"]),
+    } for k in range(steps)]
+    scores = [{k: torch.from_numpy(scores_npz[f"s{i:02d}_{k}"]) for k in ("tr", "rot", "tor")}
+              for i in range(steps)]
+
+    triples = real_grade.per_step_draws(draws, n_poses, n_torsions, steps)
+    assert len(triples) == steps - 1        # no_final_step_noise draws nothing on the last step
+
+    worst = real_grade.grade_updates(cfg, bounds, scores, recorded, triples, steps)
+    assert max(worst.values()) == 0.0, worst
+
+    from tt_bio.diffdock.ligand import build_ligand_graph, read_molecule
+
+    graph = build_ligand_graph(read_molecule(REAL / "8G43_ZU6_ligand.sdf", remove_hs=False),
+                               remove_hs=True)
+    moved = real_grade.grade_moves(recorded, graph["edge_index"].T[graph["edge_mask"]],
+                                   graph["mask_rotate"], n_poses)
+    assert moved == 0.0, moved
