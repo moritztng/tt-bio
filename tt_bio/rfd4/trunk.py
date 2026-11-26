@@ -100,10 +100,14 @@ def _masked_copy(x, mask, dtype, alias=False):
         if x.dtype == dtype:
             return x if alias else ttnn.clone(x)
         return ttnn.typecast(x, dtype)
-    xd = _as(x, dtype)
-    out = ttnn.multiply(xd, mask)
-    if xd is not x:
-        ttnn.deallocate(xd)
+    # Operand and mask in one dtype. A float32 trunk keeps a bfloat16 pair stream under `pair_bf16z`, and
+    # ttnn.multiply of a bf16 [b, n, n, c] by an fp32 [b, n, n, 1] mask wrote wrong values into ~0.4 % of the
+    # real entries, different ones each call (r4t net6, `perf/r4t_tape/mask_dtype.py`). Served calls match.
+    xd, md = _as(x, dtype), _as(mask, dtype)
+    out = ttnn.multiply(xd, md)
+    for t, given in ((xd, x), (md, mask)):
+        if t is not given:
+            ttnn.deallocate(t)
     return out
 
 

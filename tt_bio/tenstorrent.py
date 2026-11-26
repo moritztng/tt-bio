@@ -10419,9 +10419,23 @@ def _in_proj_matmul(x, w, ckc, memory_config, bias=None, split=None, dtype=None)
         kw["config"] = ttnn.MinimalMatmulConfig(
             M_block_size=8, K_block_size=6, N_block_size=1, subblock_h=4, subblock_w=1,
             compute_with_storage_grid_size=_mm_core_coord(*COMPUTE_GRID_MAIN))
-    return ttnn.experimental.minimal_matmul(
-        x, w, bias_tensor=bias, memory_config=memory_config, dtype=dtype,
-        compute_kernel_config=ckc, **kw)
+    try:
+        return ttnn.experimental.minimal_matmul(
+            x, w, bias_tensor=bias, memory_config=memory_config, dtype=dtype,
+            compute_kernel_config=ckc, **kw)
+    except RuntimeError as exc:
+        # float32 operands (device_dtype_override(float32): a training run's fp32 control arm)
+        # double every circular-buffer tile, and the default blocks then overrun L1 whatever the
+        # chunk width (1,683,968 B against 1,572,864 B at RFD4 seq 64), so the caller's narrowing
+        # retry cannot help. K block 1 holds one tile column per operand. Reached only after a
+        # refusal, so every call that runs today runs unchanged.
+        if "circular buffers" not in str(exc) or x.dtype != ttnn.float32 or kw:
+            raise
+        return ttnn.experimental.minimal_matmul(
+            x, w, bias_tensor=bias, memory_config=memory_config, dtype=dtype,
+            compute_kernel_config=ckc, config=ttnn.MinimalMatmulConfig(
+                M_block_size=8, K_block_size=1, N_block_size=8, subblock_h=2, subblock_w=2,
+                compute_with_storage_grid_size=_mm_core_coord(*COMPUTE_GRID_MAIN)))
 
 
 def _trimul_out_proj(
