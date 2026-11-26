@@ -254,7 +254,8 @@ class DeviceEdgeTile:
 
     KDIR = None
 
-    def __init__(self, device, tp, fc, groups=None, *, math_fidelity=None, ablate: int = 0):
+    def __init__(self, device, tp, fc, groups=None, *, math_fidelity=None, ablate: int = 0,
+                 tap: int = 0):
         import ttnn
         from pathlib import Path
         self.ttnn, self.device = ttnn, device
@@ -282,7 +283,14 @@ class DeviceEdgeTile:
         self.L2 = [up(g.L2) for g in plan.groups]
         self.G = [up(s["Gpack"]) for s in self.sched]
         self._pd = {}
-        self.ablate = ablate
+        self.ablate, self.tap = ablate, tap
+        # diagnostic tap (see compute.cpp): each group writes its Y / AB / Wt tiles instead
+        if tap:
+            self.tap_n = [[g.n_y, s["nab"], g.n_w][tap - 1] for g, s in zip(plan.groups, self.sched)]
+        else:
+            self.tap_n = [g.n_out_tiles for g in plan.groups]
+        self.tap0 = [sum(self.tap_n[:i]) for i in range(len(self.tap_n))]
+        self.out_w = sum(self.tap_n) * TILE
 
     def _cores(self):
         grid = self.device.compute_with_storage_grid_size()
@@ -302,7 +310,7 @@ class DeviceEdgeTile:
         TA = ttnn.TensorAccessorArgs
         src = ttnn.KernelDescriptor.SourceType.FILE_PATH
         KH, KA, KB = plan.hidden_pad // TILE, plan.in_pad // TILE, plan.n_sh
-        OUTW = plan.out_pad // TILE
+        OUTW = self.out_w // TILE
         kernels, cbs = [], []
         bf, f32 = ttnn.bfloat16, ttnn.float32
         tb, tf = 2048, 4096
@@ -323,7 +331,7 @@ class DeviceEdgeTile:
                 crt[x][y] = [n]
                 wrt[x][y] = [first, n]
             nbj, nab, NW, NG = len(s["bj"]), s["nab"], g.n_w, s["nG"]
-            NOUT = g.n_out_tiles
+            NOUT = self.tap_n[gi]
             lst = lambda v: ",".join(str(int(x)) for x in v) if v else "0"
             rd = ttnn.KernelDescriptor(
                 kernel_source=str(self.kdir / "reader.cpp"), source_type=src, core_ranges=cr,
@@ -335,12 +343,13 @@ class DeviceEdgeTile:
                 common_runtime_args=[0] * 6, config=ttnn.ReaderConfigDescriptor())
             wr = ttnn.KernelDescriptor(
                 kernel_source=str(self.kdir / "writer.cpp"), source_type=src, core_ranges=cr,
-                compile_time_args=[NOUT, g.out_tile0, OUTW] + list(TA(out).get_compile_time_args()),
+                compile_time_args=[NOUT, self.tap0[gi], OUTW] + list(TA(out).get_compile_time_args()),
                 runtime_args=wrt, common_runtime_args=[0], config=ttnn.WriterConfigDescriptor())
             cfg = ttnn.ComputeConfigDescriptor(math_fidelity=self.fidelity, fp32_dest_acc_en=True)
             cp = ttnn.KernelDescriptor(
                 kernel_source=str(self.kdir / "compute.cpp"), source_type=src, core_ranges=cr,
-                compile_time_args=[KH, nbj, KA, nab, g.n_y, NW, NOUT, NW * KH, NG, self.ablate],
+                compile_time_args=[KH, nbj, KA, nab, g.n_y, NW, NOUT, NW * KH, NG, self.ablate,
+                                   self.tap],
                 defines=[("AB_LIST", lst(s["ab"])), ("Y_LIST", lst(s["y"])),
                          ("W_LIST", lst(s["w"]))],
                 runtime_args=crt, config=cfg)
@@ -359,7 +368,7 @@ class DeviceEdgeTile:
         h = ttnn.relu(ttnn.linear(cast(edge_attr), self.w1, bias=self.b1, dtype=bf))
         a = cast(x1)
         b = ttnn.matmul(cast(sh), self.erep, dtype=bf)
-        out = ttnn.empty(ttnn.Shape([E, self.plan.out_pad]), ttnn.float32, ttnn.TILE_LAYOUT,
+        out = ttnn.empty(ttnn.Shape([E, self.out_w]), ttnn.float32, ttnn.TILE_LAYOUT,
                          self.device, ttnn.DRAM_MEMORY_CONFIG)
         key = E // TILE
         if key not in self._pd:

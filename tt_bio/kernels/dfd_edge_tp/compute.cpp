@@ -35,6 +35,9 @@ void kernel_main() {
     // Diagnostic ablation, 0 in production: bit 0 skips the AB and Y math, bit 1 the weight-tile
     // loop (CB traffic is kept, so a hang that survives an ablation is not in the skipped math).
     constexpr uint32_t ABL = get_compile_time_arg_val(9);
+    // Diagnostic tap, 0 in production: 1 writes the Y tiles, 2 the AB tiles, 3 the Wt tiles to
+    // the output (fp32, NOUT of them) instead of the contraction.
+    constexpr uint32_t TAP = get_compile_time_arg_val(10);
     constexpr uint32_t ZERO = 32;  // the zero tile after the 32 one-hot tiles
     const uint32_t n_et = get_arg_val<uint32_t>(0);
 
@@ -84,8 +87,35 @@ void kernel_main() {
             tile_regs_release();
         }
         cb_push_back(cb_y, NY);
-        cb_pop_front(cb_ab, NAB);
         cb_wait_front(cb_y, NY);
+        if constexpr (TAP != 0) {
+            constexpr uint32_t src = TAP == 1 ? cb_y : (TAP == 2 ? cb_ab : cb_l2);
+            cb_reserve_back(cb_out, NOUT);
+            pack_reconfig_data_format(cb_out);
+            for (uint32_t o = 0; o < NOUT; ++o) {
+                if constexpr (TAP == 3) {
+                    mm_init_short(cb_h, cb_l2);
+                } else {
+                    copy_tile_to_dst_init_short(src);
+                }
+                tile_regs_acquire();
+                if constexpr (TAP == 3) {
+                    for (uint32_t kt = 0; kt < KH; ++kt) matmul_tiles(cb_h, cb_l2, kt, o * KH + kt, 0);
+                } else {
+                    copy_tile(src, o, 0);
+                }
+                tile_regs_commit();
+                tile_regs_wait();
+                pack_tile<true>(0, cb_out, o);
+                tile_regs_release();
+            }
+            cb_push_back(cb_out, NOUT);
+            cb_pop_front(cb_ab, NAB);
+            cb_pop_front(cb_h, KH);
+            cb_pop_front(cb_y, NY);
+            continue;
+        }
+        cb_pop_front(cb_ab, NAB);
 
         // zero the output tiles
         cb_reserve_back(cb_out, NOUT);
