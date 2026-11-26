@@ -1210,7 +1210,7 @@ def _mmvjp_xt(x):
     for i, (k, xr, xt) in enumerate(_MMVJP_XT):
         if not xr.is_allocated() or not xt.is_allocated():
             continue
-        if k == key and xr is x:
+        if k == key:  # the held xr keeps that buffer from being reused, so the key names one set of bytes
             MMVJP_STATS["xt_hit"] = MMVJP_STATS.get("xt_hit", 0) + 1
             _MMVJP_XT.append(_MMVJP_XT.pop(i))
             return xt
