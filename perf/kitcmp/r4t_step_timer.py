@@ -17,8 +17,11 @@ import torch
 
 
 class StepTimer(L.Callback):
-    def __init__(self, out: str):
+    def __init__(self, out: str, dump_dir: str | None = None, dump_n: int = 0):
         self.out, self.t_prev, self.t0, self.rec = out, None, None, None
+        # Parity/curve arms only (never a timed arm): save the first dump_n collated batches exactly as the step
+        # receives them, with every RNG state the step will draw from, so another stack can replay the same step.
+        self.dump_dir, self.dump_n = dump_dir, int(dump_n)
         self.f = open(out, "a", buffering=1)
 
     def _sync(self):
@@ -40,11 +43,36 @@ class StepTimer(L.Callback):
     def on_train_batch_start(self, trainer, pl_module, batch, batch_idx):
         self.step = int(pl_module.global_step)  # read before training_step bumps it
         self.rec = None
+        if self.dump_dir and self.step < self.dump_n:
+            self._dump(batch)
         if torch.cuda.is_available():
             torch.cuda.reset_peak_memory_stats()
         self.t0 = self._sync()
         if self.t_prev is None:
             self.t_prev = self.t0
+
+    def _dump(self, batch):
+        import os
+        import random
+
+        import numpy as np
+
+        def cpu(x):
+            if torch.is_tensor(x):
+                return x.detach().cpu().clone()
+            if isinstance(x, dict):
+                return {k: cpu(v) for k, v in x.items()}
+            if isinstance(x, (list, tuple)):
+                return type(x)(cpu(v) for v in x)
+            return x
+
+        os.makedirs(self.dump_dir, exist_ok=True)
+        torch.save({
+            "step": self.step, "batch": cpu(batch),
+            "torch_cpu_rng": torch.get_rng_state(),
+            "torch_cuda_rng": torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None,
+            "numpy_rng": np.random.get_state(), "python_rng": random.getstate(),
+        }, os.path.join(self.dump_dir, f"batch_{self.step:05d}.pt"))
 
     def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx):
         t1 = self._sync()
