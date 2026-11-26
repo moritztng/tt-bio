@@ -25,7 +25,7 @@ import ttnn
 
 # Covered: matmul, linear, experimental.minimal_matmul (the trimul in-projection; uncovered it alone
 # held the PairUpdate forward at 6.1e-4 against float64, covered 1.2e-7), sum, mean, layer_norm,
-# rms_norm, transpose, permute, transformer.scaled_dot_product_attention (the fused kernel refuses float32
+# rms_norm, transpose, permute, softmax, transformer.scaled_dot_product_attention (the fused kernel refuses float32
 # outright, so a grad-off pass of a float32 trunk has no card route at all). Computing the elementwise verbs on the host as well moved nothing.
 EXACT_STATS: dict = {}
 _ACT = {None: lambda t: t, "relu": torch.relu, "silu": torch.nn.functional.silu,
@@ -122,6 +122,17 @@ def _reduce(real, name, op):
     return reduce
 
 
+def _softmax(real):
+    # fp32 ttnn.softmax reads 1.2e-3 against float64 with the trunk's kernel config, 1.8e-2 without (fp32_ops.py)
+    def softmax(x, dim=-1, *args, memory_config=None, **kw):
+        if args or not _f32_dev(x) or set(kw) - {"compute_kernel_config", "numeric_stable"}:
+            _note("softmax", False, _why(x))
+            return real(x, dim, *args, memory_config=memory_config, **kw)
+        _note("softmax", True)
+        return _back(torch.softmax(_host(x), dim), x, memory_config)
+    return softmax
+
+
 def _norm(real, name, center):
     def norm(x, *args, epsilon=1e-12, weight=None, bias=None, residual_input_tensor=None,
              memory_config=None, **kw):
@@ -181,7 +192,8 @@ def exact_fp32():
     swap = {"matmul": _mm, "linear": _lin,
             "sum": lambda r: _reduce(r, "sum", torch.sum), "mean": lambda r: _reduce(r, "mean", torch.mean),
             "layer_norm": lambda r: _norm(r, "layer_norm", True), "rms_norm": lambda r: _norm(r, "rms_norm", False),
-            "transpose": lambda r: _move(r, "transpose"), "permute": lambda r: _move(r, "permute")}
+            "transpose": lambda r: _move(r, "transpose"), "permute": lambda r: _move(r, "permute"),
+            "softmax": _softmax}
     real = {k: getattr(ttnn, k) for k in swap}
     real_mmm, real_sdpa = ttnn.experimental.minimal_matmul, ttnn.transformer.scaled_dot_product_attention
     try:
