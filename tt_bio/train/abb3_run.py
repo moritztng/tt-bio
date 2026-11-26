@@ -91,6 +91,7 @@ import torch
 
 from . import abb3_dataset, provenance
 from .abb3_checkpoint import latest_checkpoint, load_run_state, save_run_state
+from .checks import GradientCoverage
 from .cotenancy import CotenantSampler
 from .hostreduce import HostReduce, master_hash
 from .prefetch import host_stream
@@ -423,7 +424,7 @@ def run(step, dataset, cfg: RunConfig, *, resume: bool = True, on_step=None) -> 
                                           for i in range(0, len(b.per_chip[cfg.rank]),
                                                          cfg.micro_batch)],
                          dataset, cfg.prefetch)
-    coverage_left, never_moved = GRADIENT_COVERAGE_STEPS, None
+    coverage = GradientCoverage(GRADIENT_COVERAGE_STEPS)
     with provenance.during(seed=cfg.seed, config=cfg.as_dict()) as prov:
         while True:
             # `t_data` is stamped BEFORE the stream is pulled, so with a prefetch depth the wait
@@ -441,12 +442,9 @@ def run(step, dataset, cfg: RunConfig, *, resume: bool = True, on_step=None) -> 
             t0 = time.perf_counter()
             parts, timing = step.step(micros)
             wall = time.perf_counter() - t0
-            if coverage_left:
-                dead = set(step.ungradiented)
-                never_moved = dead if never_moved is None else (never_moved & dead)
-                coverage_left -= 1
-                if not coverage_left:
-                    _assert_every_parameter_trains(never_moved, len(step.params), gs, cfg.rank)
+            never_moved = coverage.observe(step.ungradiented)
+            if never_moved is not None:
+                _assert_every_parameter_trains(never_moved, len(step.params), gs, cfg.rank)
             terms = {k: round(v - prev_terms.get(k, 0.0), 4)
                      for k, v in step.loss_terms.items()}
             prev_terms = dict(step.loss_terms)
