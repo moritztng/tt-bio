@@ -2,7 +2,7 @@
 # r4t-scale DP curve on anx-glx: real RFD4 step, widths 1..32, cards 0..w-1, 8 steps each, torch threads min(16, 64/w).
 # Grades each width against the 1-chip leg with trunk_curve.py. Out ~/fleet/r4t/curve/w<w>/, curve_<w>.json.
 R=~/fleet/r4t; O=$R/curve; mkdir -p $O; cd $R/r4t-scale
-for w in 1 2 4 8 16 32; do
+for w in ${WIDTHS:-1 2 4 8 16 32}; do
   [ -e ~/fleet/HANDBACK ] && { echo HANDBACK >> $O/chain.log; exit 4; }
   c=$(seq -s, 0 $((w-1))); t=$((64/w)); [ $t -gt 16 ] && t=16
   echo "w$w start $(date -u +%T) omp $t" >> $O/chain.log
