@@ -762,7 +762,7 @@ class AdamW:
             if skip[i]:
                 writes_skipped += 1
             else:
-                t.value = to_device(theta, t.value.device(), dtype=t.value.dtype)
+                _write(t, theta)
         self.last_lr, self.last_clip, self.last_grad_norm = lr, clip, gnorm
         self.peak_lr = max(self.peak_lr, float(lr))
         self.last_per_sample = False

@@ -178,3 +178,26 @@ def test_the_owner_decides_each_write_back_and_every_rank_follows(tmp_path, muon
             dev = optim.round_to_device_dtype(o.params[n].value.arr, _DType())
             assert np.array_equal(dev, optim.round_to_device_dtype(o.master[n], _DType())), n
     assert ref.last_writes_skipped == (0 if lr > 1e-3 else len(SHAPES))
+
+
+def test_a_host_torch_leaf_is_written_back_through_its_own_write(tmp_path, monkeypatch, muon):
+    """The real step mixes device weights with `bridge.HostParam` leaves (host torch glue). The
+    sharded write-back must hand those to `write`, as the replicated step does: a torch tensor
+    has no callable `.device()`, and the 2-chip real step died on exactly that."""
+    import torch
+    from tt_bio.train.bridge import HostParam
+    plain = _params
+
+    def mixed():
+        ps = plain()
+        ps["d"] = HostParam(torch.from_numpy(ps["d"].value.arr.copy()))   # owned by rank 1
+        ps["b"] = HostParam(torch.from_numpy(ps["b"].value.arr.copy()))   # owned by rank 0
+        return ps
+
+    monkeypatch.setattr(sys.modules[__name__], "_params", mixed)
+    out, ref = _run(tmp_path, muon=muon)
+    for o in (out[0], out[1]):
+        for n in SHAPES:
+            np.testing.assert_allclose(o.master[n], ref.master[n], rtol=1e-5, atol=1e-6)
+        for n in "bd":
+            assert np.array_equal(o.params[n].p.numpy(), o.master[n]), n
