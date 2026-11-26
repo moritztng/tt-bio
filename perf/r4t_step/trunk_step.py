@@ -22,6 +22,7 @@ are seeded tensors and the loss seed lands on s (`<s, C>/numel`). Prints one JSO
      to OUT/rank<r>.log and its checkpoints under OUT/rank<r>/. Master digests must agree across ranks.
 """
 import argparse
+import contextlib
 import hashlib
 import json
 import os
@@ -56,6 +57,10 @@ def main():
     ap.add_argument("--cand-pair", choices=("host", "card"), default="card",
                     help="where the grad-off K-candidate pass builds z_init: host (upstream's builder) or the serving "
                          "card path (rfd4.pair.PairOnCard: host constant + bins, card assembly). The taped winner is always host.")
+    ap.add_argument("--cand-levers", choices=("training", "serving"), default="serving",
+                    help="lever set of the grad-off K-candidate pass: the training set, or that set plus the dropped levers that "
+                         "switch at run time (pair_bf16z, dit_sigf32, tok_recycle_mm; r4t-perf K2). The pass only picks the "
+                         "winner, so the gradient is unchanged whenever the winner is")
     ap.add_argument("--lnbw-weights", choices=("on", "off"), default="on",
                     help="LayerNorm backward with trainable gamma/beta in one fused kernel (tt_bio.lnbw weights form, "
                          "r4t-perf L2) or the composed ttnn path")
@@ -68,10 +73,15 @@ def main():
                          "under tt_bio.train.exact_fp32 (host float64, rounded once)")
     ap.add_argument("--break", dest="brk", action="store_true",
                     help="with --grad-dump: the gross broken arm, block 0's Q slice dropped from its fold VJP")
+    ap.add_argument("--gate-bw", choices=("on", "off"), default="on",
+                    help="backward of every o * sigmoid(g) gate as one kernel (tt_bio.gate_bw, r4t-perf G1) or the "
+                         "seven-op composed path")
     a = ap.parse_args()
     if a.arm == "fp32-exact":
         os.environ["TT_BIO_LEVERS"] = "none"   # Trunk builds on mode_levers(), which reads this, not lever_scope
         a.lnbw_weights = "off"   # the fused LN-backward kernel is a perf lever; the control arm verified by r4t-tape has none
+        a.gate_bw = "off"        # likewise the fused gate backward (r4t-perf G1)
+        a.cand_levers = "training"   # and the serving levers in the candidate pass (r4t-perf K2)
     if a.curve_dump and a.dp_cards:
         raise SystemExit("--curve-dump is a single-card leg: every rank would append to one CurveLog")
     if a.dp_cards and a.dp_rank < 0:
@@ -105,6 +115,8 @@ def main():
     from tt_bio import tenstorrent as T, autograd as ag
     from tt_bio import lnbw
     lnbw.WEIGHTS = a.lnbw_weights == "on"
+    from tt_bio import gate_bw
+    gate_bw.GATE_BW_FUSED = a.gate_bw == "on"
     from tt_bio.rfd4 import network as N, engine as E, trunk as TR
     from tt_bio.train.folds import Folds
     from tt_bio.train.checkpoint import Checkpointer, load_adapter
@@ -345,6 +357,25 @@ def main():
         def tmask(b):
             return TR.trunk_masks(b["padding_mask"].float(), dev, dtype=trunk.dtype, residual_dtype=trunk.residual_dtype)
 
+        @contextlib.contextmanager
+        def cand_scope():
+            """--cand-levers serving: the candidate pass adds the run-time levers training drops; pair_bf16z also
+            carries the pair stream in bf16, a dtype the trunk and its pair updates read from attributes."""
+            if a.cand_levers != "serving":
+                yield
+                return
+            mods = [trunk] + list(trunk.pair_updates.values())
+            saved = [(m, m.pair_residual_dtype if m is trunk else m.residual_dtype) for m in mods]
+            trunk.pair_residual_dtype = ttnn.bfloat16
+            for m in mods[1:]:
+                m.residual_dtype = ttnn.bfloat16
+            try:
+                with T.lever_scope(levers | {"pair_bf16z", "dit_sigf32", "tok_recycle_mm"}):
+                    yield
+            finally:
+                for m, d in saved:
+                    setattr(m, "pair_residual_dtype" if m is trunk else "residual_dtype", d)
+
         def real_example(taped):
             """Upstream's step on the dumped batch: k candidates grad-off through glue + trunk + heads, the
             winner by our own exploration loss, then the winner re-run with grad (host glue, taped trunk)."""
@@ -355,7 +386,7 @@ def main():
                 ck = conds_for(bt)
                 s0, z0 = glue.initial_states(bt, pair_constant=glue.pair_split.constant(bt) if pc else None)
             with T.lever_scope(levers), ag.tape():
-                with ag.no_grad():
+                with ag.no_grad(), cand_scope():
                     zk0 = pc(z0, 0) if pc else put(z0, trunk.pair_dtype(mk))
                     sk, zk = trunk(put(s0), zk0, [put(c, trunk.dtype) for c in ck], mk)
                     sh = ttnn.to_torch(getattr(sk, "value", sk)).float().reshape(s0.shape)
@@ -508,7 +539,7 @@ def main():
                               fold_bwd_s=round(t2b - t2, 4), opt_s=round(t2c - t2b, 4), rebuild_s=round(t3 - t2c, 4), rebuild_split=dict(RB), idle_dev_w=len(idle), step_s=round(t3 - t0, 4), retained_B=retained,
                               dead=len(dead), dead_names=sorted(dead)[:20], dev_base_B=base, dev_after_bwd_B=after_bwd, params=len(params), n_elems=int(sum(v.size for v in opt.master.values())),
                               master_digest=md, aiclk=[min(sm or [0]), max(sm or [0])], aiclk_med=sorted(sm)[len(sm) // 2] if sm else 0,
-                              k=a.k, depth=a.depth, n=n, lnbw_reach=dict(lnbw.REACH), **extra,
+                              k=a.k, depth=a.depth, n=n, lnbw_reach=dict(lnbw.REACH), gate_bw=list(gate_bw.STATS), **extra,
                               host_maxrss_GiB=round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 2**20, 3))),
               flush=True)
         if a.save_at and step + 1 == a.save_at:   # before the guard, so a refusal still leaves the resume test its input

@@ -1,0 +1,6 @@
+START 2026-11-26T14:55:34Z tree abeac2b56 load 4.81
+RC_off 1 15:02:51 gate=0
+RC_on 1 15:13:11 gate=1
+RC_off2 1 15:20:00 gate=0
+RC_brk 1 15:28:56 gate=1
+END 2026-11-26T15:28:56Z
