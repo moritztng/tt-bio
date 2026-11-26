@@ -65,13 +65,12 @@ def read_molecule(path: str | Path, *, sanitize: bool = True, remove_hs: bool = 
     return mol
 
 
-def generate_conformer(mol, *, seed: int | None = None) -> bool:
-    """Embed one ETKDGv2 conformer in place. True if random coordinates were used.
+class ConformerTimeout(RuntimeError):
+    """ETKDG did not finish inside the budget it was given."""
 
-    Upstream retries the standard embedding three times and only then falls back
-    to random coordinates plus an MMFF cleanup. `seed` is tt-bio's addition: at
-    the default (None) the embedding uses RDKit's own stream, as upstream does.
-    """
+
+def _embed(mol, *, seed: int | None = None) -> bool:
+    """Upstream's `generate_conformer`, exactly: three tries then random coords."""
     params = AllChem.ETKDGv2()
     if seed is not None:
         params.randomSeed = int(seed)
@@ -84,7 +83,72 @@ def generate_conformer(mol, *, seed: int | None = None) -> bool:
     return True
 
 
-def read_ligand(description: str, *, seed: int | None = None):
+def _embed_in_child(mol, seed, timeout_s: float) -> bool:
+    """Run the embedding in a child process and copy the coordinates back.
+
+    A child, not a signal: `EmbedMolecule` is one long call into RDKit's C++, so
+    SIGALRM is not delivered until it returns and a timeout would never fire.
+    The child sends back only the conformer positions, which keeps the parent's
+    atom ordering — the ligand graph is indexed by it — authoritative.
+    """
+    import multiprocessing as mp
+
+    def work(q, child, seed):
+        import numpy as np
+        random_coords = _embed(child, seed=seed)
+        q.put((np.asarray(child.GetConformer().GetPositions()), random_coords))
+
+    # fork, so the molecule reaches the child by inheriting the parent's memory.
+    # Serialising it would not be equivalent: a mol block round trip drops the
+    # computed implicit valences and ETKDG then refuses the molecule outright.
+    ctx = mp.get_context("fork")
+    q = ctx.Queue()
+    proc = ctx.Process(target=work, args=(q, Chem.Mol(mol), seed))
+    proc.start()
+    try:
+        positions, random_coords = q.get(timeout=timeout_s)
+    except Exception as exc:  # queue.Empty, or the child died
+        proc.terminate()
+        proc.join(5)
+        raise ConformerTimeout(
+            f"ETKDG did not produce a conformer within {timeout_s} s "
+            f"({Chem.MolToSmiles(mol)})") from exc
+    finally:
+        proc.join(5)
+        if proc.is_alive():  # pragma: no cover - terminate already sent
+            proc.kill()
+
+    conformer = Chem.Conformer(mol.GetNumAtoms())
+    for i, (x, y, z) in enumerate(positions):
+        conformer.SetAtomPosition(i, (float(x), float(y), float(z)))
+    mol.RemoveAllConformers()
+    mol.AddConformer(conformer, assignId=True)
+    return random_coords
+
+
+def generate_conformer(mol, *, seed: int | None = None,
+                       timeout_s: float | None = None) -> bool:
+    """Embed one ETKDGv2 conformer in place. True if random coordinates were used.
+
+    Upstream retries the standard embedding three times and only then falls back
+    to random coordinates plus an MMFF cleanup. `seed` is tt-bio's addition: at
+    the default (None) the embedding uses RDKit's own stream, as upstream does.
+
+    `timeout_s` is tt-bio's other addition (D-dfd-input-7), and it is the one
+    that matters for a screen. ETKDG has no internal wall-clock bound and really
+    does run away: capturing the PoseBusters set, `7QTA_URI`'s 21-heavy-atom
+    ligand sat inside a single `EmbedMolecule` call for over 46 minutes. A hang
+    is not an exception, so `build_batch`'s per-complex isolation cannot catch
+    it and one ligand stops a 10,000-ligand run. At the default (None) the
+    behaviour is upstream's; with a budget the complex is isolated as a failure.
+    """
+    if timeout_s is None:
+        return _embed(mol, seed=seed)
+    return _embed_in_child(mol, seed, timeout_s)
+
+
+def read_ligand(description: str, *, seed: int | None = None,
+                conformer_timeout_s: float | None = None):
     """A ligand from a SMILES string or a 3D file, with a fresh conformer.
 
     Upstream's detection order: try SMILES first, fall back to the file reader.
@@ -98,7 +162,7 @@ def read_ligand(description: str, *, seed: int | None = None):
             raise ValueError(f"RDKit could not read the molecule {description}")
         mol.RemoveAllConformers()
     mol = Chem.AddHs(mol)
-    generate_conformer(mol, seed=seed)
+    generate_conformer(mol, seed=seed, timeout_s=conformer_timeout_s)
     return mol
 
 
