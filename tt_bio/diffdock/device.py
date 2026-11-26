@@ -219,18 +219,39 @@ class DeviceConvLayer:
     built once per static graph (tt-atom's form, ``tt_atom/model.py``); the mask scales the
     messages and is what the divisor sums, so a node with every edge masked gets
     ``0 / eps = 0`` rather than NaN, which is the all-masked rule of D-dfd-orch-10.
+
+    *edge_tp* picks the per-edge FC + tensor product: ``"gemm"`` (:class:`DeviceEdgeTP`) or
+    ``"tile"`` (:class:`~tt_bio.diffdock.edge_tile.DeviceEdgeTile`, one fused kernel). The tile
+    kernel writes its own column order; the 0/1 permutation back to e3nn's commutes with the
+    scatter, so it is applied on node rows after it.
     """
 
-    def __init__(self, device, layer, *, dtype=None):
+    def __init__(self, device, layer, *, dtype=None, edge_tp: str = "gemm"):
         import ttnn
         if layer.residual_first:
             raise NotImplementedError("the confidence model's residual-first order is not ported yet")
         self.ttnn, self.device, self.layer = ttnn, device, layer
         self.dtype = dtype or ttnn.float32
         fcs = list(layer.fc) if layer.edge_groups > 1 else [layer.fc]
-        self.tps = [DeviceEdgeTP(device, layer.tp, fc, dtype=self.dtype) for fc in fcs]
         self.in_dim, self.out_dim = layer.in_irreps.dim, layer.out_irreps.dim
         self.out_pad = pad32(self.out_dim)
+        self.ckc = ttnn.types.BlackholeComputeKernelConfig(
+            math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,
+            fp32_dest_acc_en=True, packer_l1_acc=True)
+        self.perm = None
+        if edge_tp == "gemm":
+            self.tps = [DeviceEdgeTP(device, layer.tp, fc, dtype=self.dtype) for fc in fcs]
+        elif edge_tp == "tile":
+            from tt_bio.diffdock.edge_tile import DeviceEdgeTile
+            self.tps = [DeviceEdgeTile(device, layer.tp, fc) for fc in fcs]
+            perm = self.tps[0].plan.perm
+            if any(not torch.equal(t.plan.perm, perm) for t in self.tps[1:]):
+                raise ValueError("edge groups disagree on the kernel column order")
+            self.perm = ttnn.from_torch(_pad2(perm, perm.shape[0], self.out_pad).float(),
+                                        dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT,
+                                        device=device)
+        else:
+            raise ValueError(f"edge_tp must be gemm or tile, not {edge_tp!r}")
         bn = layer.batch_norm
         scale = torch.ones(self.out_pad, dtype=torch.float64)
         shift = torch.zeros(self.out_pad, dtype=torch.float64)
@@ -281,8 +302,10 @@ class DeviceConvLayer:
             lo += n
         msg = msgs[0] if len(msgs) == 1 else ttnn.concat(msgs, dim=0)
         msg = ttnn.multiply(msg, edge_mask)
-        ckc = self.tps[0].ckc
+        ckc = self.ckc
         s = ttnn.matmul(g["S"], msg, compute_kernel_config=ckc, dtype=self.dtype)
+        if self.perm is not None:
+            s = ttnn.matmul(s, self.perm, compute_kernel_config=ckc, dtype=self.dtype)
         div = ttnn.matmul(g["S"], edge_mask, compute_kernel_config=ckc, dtype=self.dtype)
         div = ttnn.reciprocal(ttnn.clamp(div, min=float(torch.finfo(torch.float32).eps)))
         out = ttnn.multiply(s, div)
@@ -308,7 +331,8 @@ class DeviceConvModule(torch.nn.Module):
     :attr:`log`, so a full forward reports every convolution against its own golden.
     """
 
-    def __init__(self, device, layer, *, dtype=None, grade: bool = False, name: str = ""):
+    def __init__(self, device, layer, *, dtype=None, grade: bool = False, name: str = "",
+                 edge_tp: str = "gemm"):
         super().__init__()
         import copy
         self.name, self.log = name, []
@@ -318,7 +342,8 @@ class DeviceConvModule(torch.nn.Module):
         self.secs = 0.0
         self.host = copy.deepcopy(layer).double() if grade else None
         self.layer = layer
-        self.dev = DeviceConvLayer(device, copy.deepcopy(layer).float(), dtype=dtype)
+        self.dev = DeviceConvLayer(device, copy.deepcopy(layer).float(), dtype=dtype,
+                                   edge_tp=edge_tp)
 
     def forward(self, node_attr, edge_index, edge_attr, edge_sh, out_nodes=None,
                 reduce="mean", edge_weight=1.0, edge_mask=None, edge_chunk=None):
@@ -375,7 +400,8 @@ class DeviceConvModule(torch.nn.Module):
         return out
 
 
-def convs_on_device(model, device, *, dtype=None, grade: bool = False) -> dict:
+def convs_on_device(model, device, *, dtype=None, grade: bool = False,
+                    edge_tp: str = "gemm") -> dict:
     """Swap every convolution in *model* for a :class:`DeviceConvModule`, in place.
 
     Returns ``{module path: DeviceConvModule}`` so a caller can read each one's grade log.
@@ -387,5 +413,5 @@ def convs_on_device(model, device, *, dtype=None, grade: bool = False) -> dict:
             if isinstance(child, TensorProductConvLayer):
                 full = f"{path}.{name}" if path else name
                 mod._modules[name] = swapped[full] = DeviceConvModule(
-                    device, child, dtype=dtype, grade=grade, name=full)
+                    device, child, dtype=dtype, grade=grade, name=full, edge_tp=edge_tp)
     return swapped

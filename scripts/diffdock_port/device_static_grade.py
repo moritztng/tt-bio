@@ -38,6 +38,8 @@ def main():
     ap.add_argument("--fixture", required=True)
     ap.add_argument("--poses", type=int, default=0, help="0: as many as the fixture carries")
     ap.add_argument("--bf16", action="store_true")
+    ap.add_argument("--edge-tp", default="gemm", choices=["gemm", "tile"],
+                    help="tile: the fused edge-tile kernel (tt_bio/diffdock/edge_tile.py)")
     ap.add_argument("--time-only", action="store_true",
                     help="no host reference and no per-conv grading: a timing run")
     ap.add_argument("--repeats", type=int, default=3, help="timed repeats per step, warm")
@@ -72,7 +74,7 @@ def main():
 
     dev = get_device()
     convs = ddev.convs_on_device(card, dev, dtype=ttnn.bfloat16 if args.bf16 else None,
-                                 grade=not args.time_only)
+                                 grade=not args.time_only, edge_tp=args.edge_tp)
     samples, stop = [], threading.Event()
     th = threading.Thread(target=sample_aiclk, daemon=True,
                           args=(stop, samples, os.environ.get("TT_VISIBLE_DEVICES", "0")))
@@ -80,7 +82,8 @@ def main():
 
     out = {"complex": fx["complex"], "convs_on_device": len(convs),
            "poses_in_fixture": int(fx["steps"][sorted(fx["steps"])[0]].lig_pos.shape[0]),
-           "dtype": "bfloat16" if args.bf16 else "float32", "steps": {}}
+           "dtype": "bfloat16" if args.bf16 else "float32", "edge_tp": args.edge_tp,
+           "steps": {}}
     for k, step in sorted(fx["steps"].items()):
         have = step.lig_pos.shape[0]
         P = args.poses or have
