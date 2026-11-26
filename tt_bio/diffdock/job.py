@@ -135,6 +135,18 @@ class DockOptions:
             out[f.name] = str(v) if isinstance(v, Path) else v
         return out
 
+    @classmethod
+    def from_dict(cls, data: dict) -> "DockOptions":
+        """The inverse of :meth:`as_dict`, for options that travelled to a worker as JSON."""
+        names = {f.name for f in fields(cls)}
+        kw = {k: v for k, v in data.items() if k in names}
+        for name in ("checkpoint", "confidence_checkpoint"):
+            if kw.get(name) is not None:
+                kw[name] = Path(kw[name])
+        if kw.get("pocket") is not None:
+            kw["pocket"] = tuple(float(x) for x in kw["pocket"])
+        return cls(**kw)
+
 
 @dataclass(frozen=True)
 class DockJob:

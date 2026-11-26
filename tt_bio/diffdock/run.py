@@ -45,24 +45,16 @@ class PoseRolloutFailed(RuntimeError):
 
 
 def dock(jobs: list[DockJob], options: DockOptions, out_dir, *, cache=None,
-         isolate: bool = False, download: bool = False) -> dict:
-    """Dock every job, writing upstream's layout under ``out_dir``. Returns a summary."""
+         isolate: bool = False, download: bool = False, model=None) -> dict:
+    """Dock every job, writing upstream's layout under ``out_dir``. Returns a summary.
+
+    ``model`` is a network :func:`load_model` already built, which a fleet worker keeps
+    across the complexes it is handed; without it this call loads its own.
+    """
     out_dir = Path(out_dir).expanduser()
     out_dir.mkdir(parents=True, exist_ok=True)
-    model = None
-    if not options.no_model:
-        # Resolve both checkpoints before the first complex: a missing weight file is not
-        # a per-complex failure, and finding out after 9,999 rows is worse than before one.
-        checkpoints.resolve("score", options.checkpoint, cache, download=download)
-        if not options.no_confidence:
-            checkpoints.resolve("confidence", options.confidence_checkpoint, cache,
-                                download=download)
-        # And the network itself once for the whole screen, not once per complex: 30 M
-        # parameters, and a device path would otherwise re-open a card 10,000 times.
-        try:
-            model = network.load(options, cache=cache, download=download)
-        except network.ScoreNetworkUnavailable as e:
-            raise SamplerUnavailable(str(e)) from e
+    if model is None and not options.no_model:
+        model = load_model(options, cache=cache, download=download)
 
     done, failures = [], []
     for job in jobs:
@@ -79,6 +71,22 @@ def dock(jobs: list[DockJob], options: DockOptions, out_dir, *, cache=None,
                 break
     output.write_failures(out_dir, failures)
     return {"docked": done, "failed": failures, "out_dir": str(out_dir)}
+
+
+def load_model(options: DockOptions, *, cache=None, download: bool = False):
+    """The score network (and confidence model) ``options`` name, once for a whole screen."""
+    # Resolve both checkpoints before the first complex: a missing weight file is not
+    # a per-complex failure, and finding out after 9,999 rows is worse than before one.
+    checkpoints.resolve("score", options.checkpoint, cache, download=download)
+    if not options.no_confidence:
+        checkpoints.resolve("confidence", options.confidence_checkpoint, cache,
+                            download=download)
+    # And the network itself once for the whole screen, not once per complex: 30 M
+    # parameters, and a device path would otherwise re-open a card 10,000 times.
+    try:
+        return network.load(options, cache=cache, download=download)
+    except network.ScoreNetworkUnavailable as e:
+        raise SamplerUnavailable(str(e)) from e
 
 
 def _dock_one(job: DockJob, options: DockOptions, write_dir: Path, *, cache=None,
