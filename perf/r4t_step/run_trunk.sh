@@ -8,6 +8,12 @@ for i in $(seq 1 240); do
   if [ "$who" = "fleet-r4t-step" ] && [ -z "$(sudo -n fuser /dev/tenstorrent/2 2>/dev/null)" ]; then break; fi
   echo "$(date -u +%FT%TZ) waiting: active=$who" >> $OUT/wait.log; sleep 30
 done
+# the card-0 smoke (crop 128, 2 steps) must have passed, or the window is handed back unused
+for i in $(seq 1 120); do grep -q "^RC" ~/r4t/step/smoke0/run.log 2>/dev/null && break; sleep 30; done
+if ! grep -q "^RC 0 " ~/r4t/step/smoke0/run.log 2>/dev/null; then
+  echo "SMOKE FAILED $(date -u +%FT%TZ); not running, booking dropped" > $OUT/run.log
+  python3 ~/spd/feed/book.py rm fleet-r4t-step; exit 3
+fi
 R(){ env PYTHONPATH=$PWD TT_VISIBLE_DEVICES=2 TT_BIO_LEASE_CARDS=2 TT_BIO_LEASE_HOLDER=worker:r4t-step timeout 1500 $PY perf/r4t_step/trunk_step.py "$@"; }
 echo "START $(date -u +%FT%TZ) sha $(git rev-parse --short HEAD)" > $OUT/run.log
 rm -rf $OUT/ckA $OUT/ckR $OUT/ckD
