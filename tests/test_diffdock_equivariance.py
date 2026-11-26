@@ -33,7 +33,7 @@ open), so :class:`ScoreStack` wires the port's own pieces -- `StaticGraphs`, the
 `TensorProductConvLayer` stack, `CenterHead` -- into upstream's shape: 11 conv layers over the
 ligand and cross edge groups, then the centre convolution for tr/rot and a bond-centre
 convolution to scalars for tor. It runs at the released checkpoint's depth, `sh_lmax` and irrep
-pattern with narrower channels (ns=16, nv=4 against the release's 48/10), because depth is what
+pattern with narrower channels (ns=8, nv=2 against the release's 48/10), because depth is what
 accumulates round-off and width is what costs seconds. When `dfd-parity` lands the assembled
 network, point `ScoreStack` at it; the grading below does not change.
 
@@ -85,7 +85,7 @@ UPSTREAM_PINNED_FLOOR = {"tr": 1.57e-7, "rot": 1.25e-6, "tor": 9.29e-7}
 # transformed files costs 1.54e-2 on rot, from one flipped contact edge in 2376.
 UPSTREAM_REBUILT_ROT = 1.54e-2
 
-NS, NV = 16, 4
+NS, NV = 8, 2
 N_CONV = 11                  # the released v1.1 score checkpoint's depth
 SH_IRREPS = "1x0e + 1x1o + 1x2e"
 # The released checkpoint's own irrep ladder (`reduce_pseudoscalars`, `sh_lmax=2`, no second
@@ -94,7 +94,7 @@ SH_IRREPS = "1x0e + 1x1o + 1x2e"
 SEQ = irrep_seq(NS, NV, use_second_order_repr=False, reduce_pseudoscalars=True)
 NODE_IRREPS = SEQ[-1]
 SIGMA_EMBED_DIM = 16
-DISTANCE_EMBED_DIM = 16
+DISTANCE_EMBED_DIM = 8
 LIG_MAX_RADIUS = 5.0
 TRANSFORM_SEEDS = (0, 1, 2, 3, 4)   # seed 0 is the R = I, t = 0 control
 
@@ -206,8 +206,8 @@ def complexes():
     out = []
     if FIXTURE.exists():
         out += [_fixture_complex(0), _fixture_complex(18)]
-    out.append(_synthetic_complex(7, n_lig=18, n_rec=64, n_poses=1, cross_cutoff=12.0))
-    out.append(_synthetic_complex(11, n_lig=12, n_rec=48, n_poses=2, cross_cutoff=9.0))
+    out.append(_synthetic_complex(7, n_lig=18, n_rec=40, n_poses=1, cross_cutoff=12.0))
+    out.append(_synthetic_complex(11, n_lig=12, n_rec=32, n_poses=2, cross_cutoff=9.0))
     return out
 
 
