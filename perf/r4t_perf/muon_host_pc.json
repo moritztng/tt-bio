@@ -1,0 +1,1 @@
+{"host": "pc (AMD Ryzen 5 8600G)", "threads": 6, "torch": "2.14.1+cpu", "ns_s_per_step": 3.754, "tflop_per_step": 2.8434, "host_gflops": 757.4, "device_roof_s": 0.02458, "date": "2026-11-26"}
