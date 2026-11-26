@@ -79,13 +79,23 @@ def main():
     th.start()
 
     out = {"complex": fx["complex"], "convs_on_device": len(convs),
+           "poses_in_fixture": int(fx["steps"][sorted(fx["steps"])[0]].lig_pos.shape[0]),
            "dtype": "bfloat16" if args.bf16 else "float32", "steps": {}}
     for k, step in sorted(fx["steps"].items()):
-        P = args.poses or step.lig_pos.shape[0]
+        have = step.lig_pos.shape[0]
+        P = args.poses or have
         n_lig = step.lig_pos.shape[1]
+        poses = step.lig_pos
+        if P > have:
+            # a timing run at the protocol's 10 poses on a 3-pose fixture: the poses of a batch
+            # are the same graph at different coordinates, so repeating them is the same work.
+            # Never do this for a grade -- it would grade the same pose several times.
+            if not args.time_only:
+                raise SystemExit(f"--poses {P} but the fixture carries {have}")
+            poses = step.lig_pos[torch.arange(P) % have]
         c = StaticComplex.build(graph.ligand, rec_x, graph.receptor["pos"].float(),
                                 graph.receptor["edge_index"], P)
-        lig_pos = pad_nodes(step.lig_pos[:P].reshape(P * n_lig, 3).float(), c.sg.n_lig_padded)
+        lig_pos = pad_nodes(poses[:P].reshape(P * n_lig, 3).float(), c.sg.n_lig_padded)
         sig = (step.t_tr, step.tr_sigma, step.rot_sigma, step.tor_sigma)
         with torch.no_grad():
             h = None if args.time_only else static_forward(host, c, lig_pos, *sig,
