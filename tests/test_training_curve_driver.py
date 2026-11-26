@@ -339,3 +339,69 @@ def test_a_reference_leg_that_does_not_say_is_refused(tmp_path):
             log.record(i, v)
     with pytest.raises(CurveContractError, match="header has no"):
         grade_curve_files(o, a, bare)
+
+
+# --------------------------------------------- a relaunch into the same file (dead attempt)
+
+def restarted(tmp_path, name, side, dead, live, p=None, **meta):
+    """A log holding a dead attempt (header + ``dead`` rows) and then a live one, exactly the
+    shape r4t-gpu-baseline's A100 legs have: the first run OOMed after step 0 and the relaunch
+    appended its own header to the same file."""
+    p = p or plan(len(live))
+    path = write(tmp_path, name, side, dead, p=p, **meta)
+    path.write_text(path.read_text() + write(tmp_path, name + ".2", side, live, p=p,
+                                             **meta).read_text())
+    return path
+
+
+def test_a_relaunch_into_the_same_file_grades_on_the_live_attempt(tmp_path):
+    p = plan(8)
+    full = curve(8)
+    path = restarted(tmp_path, "ours.jsonl", "ours", full[:1], full, p=p)
+    header, losses = read_curve(path)
+    assert np.allclose(losses, full)                 # the dead attempt's rows are not steps
+    assert header["superseded"] == [1]               # and the reader says it saw one
+
+
+def test_two_different_runs_in_one_file_are_refused(tmp_path):
+    p = plan(8)
+    full = curve(8)
+    with pytest.raises(CurveContractError, match="two runs in one file"):
+        read_curve(_mixed(tmp_path, p, full))
+    # mislabelled side, same plan: also two runs in one file
+    path = write(tmp_path, "b.jsonl", "ours", full[:2], p=p)
+    path.write_text(path.read_text()
+                    + write(tmp_path, "b2.jsonl", "gpu_a", full, p=p,
+                            device="cuda:X", dtype="float32", tf32=False).read_text())
+    with pytest.raises(CurveContractError, match="two runs in one file"):
+        read_curve(path)
+
+
+def _mixed(tmp_path, p, full):
+    path = write(tmp_path, "m.jsonl", "ours", full[:2], p=p)
+    other = write(tmp_path, "m2.jsonl", "ours", full, p=plan(8, seed=99))
+    path.write_text(path.read_text() + other.read_text())
+    return path
+
+
+def test_a_gap_in_the_live_attempt_still_fails(tmp_path):
+    """The dead prefix must not become a way to hide a broken live attempt."""
+    p = plan(8)
+    full = curve(8)
+    path = restarted(tmp_path, "ours.jsonl", "ours", full[:1], full, p=p)
+    lines = path.read_text().splitlines()
+    del lines[-3]                                     # drop one step out of the live attempt
+    path.write_text("\n".join(lines) + "\n")
+    with pytest.raises(CurveContractError, match="steps are not"):
+        read_curve(path)
+
+
+def test_a_resume_of_a_relaunched_log_keeps_the_dead_attempt_and_the_live_prefix(tmp_path):
+    p = plan(10)
+    full = curve(10)
+    path = restarted(tmp_path, "ours.jsonl", "ours", full[:1], full[:7], p=p)
+    with CurveLog(path, p, "ours", start=5) as log:
+        for i in range(5, 10):
+            log.record(i, full[i])
+    header, losses = read_curve(path)
+    assert np.allclose(losses, full) and header["superseded"] == [1]

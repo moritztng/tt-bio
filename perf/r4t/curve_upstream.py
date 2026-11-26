@@ -258,6 +258,11 @@ def run(args):
     plan = CurvePlan.from_dict(json.loads(Path(args.plan).read_text()))
     cfg, model = build_model(repo, torch.float32)
     model = model.to(device)
+    if getattr(model, "autoencoder", None) is not None:
+        # The frozen AE only produces the clean sample, and corrupt() runs add_clean_samples on
+        # the CPU batch, so moving it to cuda with the rest crashes the leg at step 0
+        # (r4t-gpu-baseline, 2026-11-26). It stays on the host; nothing else changes.
+        model.autoencoder.to("cpu")
     ds, index = dataset_index(cfg, 0)
     missing = [e for e in plan.example_ids if e not in index]
     if missing:

@@ -181,7 +181,10 @@ class CurveLog:
         if len(losses) < self.start:
             raise CurveContractError(f"{self.path}: resume at step {self.start} but the log ends "
                                      f"at step {len(losses) - 1}")
-        keep = [ln for ln in self.path.read_text().splitlines() if ln.strip()][:self.start + 1]
+        lines = [ln for ln in self.path.read_text().splitlines() if ln.strip()]
+        last = max(i for i, ln in enumerate(lines)
+                   if json.loads(ln).get("kind") == "r4t-curve")
+        keep = lines[:last + self.start + 1]  # dead attempts stay, they are the run's record
         tmp = self.path.with_suffix(self.path.suffix + ".tmp")
         tmp.write_text("\n".join(keep) + "\n")
         tmp.replace(self.path)
@@ -216,6 +219,35 @@ class CurveLog:
         self.close()
 
 
+def _segment(path, lines) -> tuple:
+    """Split a log into attempts and return (header, row objects) of the LAST one.
+
+    A leg that died and was relaunched into the same file leaves its dead attempt in place:
+    header, a few rows, then the live attempt's own header. The grader reads the last attempt
+    and reports the dead ones, but only once every attempt agrees on the plan and the side --
+    two different runs concatenated is a contract error, not a log with a dead prefix.
+    """
+    try:
+        objs = [json.loads(ln) for ln in lines]
+    except json.JSONDecodeError as e:
+        raise CurveContractError(f"{path}: not JSONL ({e})") from e
+    heads = [i for i, o in enumerate(objs)
+             if isinstance(o, dict) and o.get("kind") == "r4t-curve"]
+    if not heads or heads[0] != 0:
+        raise CurveContractError(f"{path}: first line is not a curve-log header")
+    bounds = heads + [len(objs)]
+    attempts = [(objs[bounds[k]], objs[bounds[k] + 1:bounds[k + 1]]) for k in range(len(heads))]
+    first = attempts[0][0]
+    for h, _ in attempts[1:]:
+        if (h.get("plan_digest"), h.get("side")) != (first.get("plan_digest"), first.get("side")):
+            raise CurveContractError(
+                f"{path}: attempt {h.get('side')!r}/{h.get('plan_digest')} appended to a log of "
+                f"{first.get('side')!r}/{first.get('plan_digest')}; two runs in one file")
+    header, rows = attempts[-1]
+    header["superseded"] = [len(r) for _, r in attempts[:-1]]
+    return header, rows
+
+
 def read_curve(path) -> tuple:
     """A curve log -> (header, losses). Raises :class:`CurveContractError` on a broken log."""
     path = Path(path)
@@ -225,12 +257,8 @@ def read_curve(path) -> tuple:
         raise CurveContractError(f"{path}: {e}") from e
     if not lines:
         raise CurveContractError(f"{path}: empty")
-    try:
-        header = json.loads(lines[0])
-        rows = [json.loads(ln) for ln in lines[1:]]
-    except json.JSONDecodeError as e:
-        raise CurveContractError(f"{path}: not JSONL ({e})") from e
-    if header.get("kind") != "r4t-curve" or header.get("side") not in SIDES:
+    header, rows = _segment(path, lines)
+    if header.get("side") not in SIDES:
         raise CurveContractError(f"{path}: first line is not a curve-log header")
     plan = CurvePlan.from_dict(header["plan"])
     if plan.digest() != header.get("plan_digest"):
