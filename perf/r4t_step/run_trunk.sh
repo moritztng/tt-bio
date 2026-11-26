@@ -16,7 +16,7 @@ R(){ env PYTHONPATH=$PWD TT_VISIBLE_DEVICES=$C TT_BIO_LEASE_CARDS=$C TT_BIO_LEAS
 echo "START $(date -u +%FT%TZ) sha $(git rev-parse --short HEAD)" > $OUT/run.log
 rm -rf $OUT/ckS $OUT/ckA $OUT/ckR $OUT/ckD
 R --n 128 --k 2 --depth 2 --steps 2 --out $OUT/ckS > $OUT/S.log 2>&1; rc=$?; echo "RC_S $rc" >> $OUT/run.log
-[ $rc = 0 ] || { python3 ~/spd/feed/book.py rm fleet-r4t-step; echo "END smoke failed $(date -u +%FT%TZ)" >> $OUT/run.log; exit 3; }
+[ $rc = 0 ] || { echo "END smoke failed $(date -u +%FT%TZ)" >> $OUT/run.log; exit 3; }
 R --n 256 --k 4 --depth 2 --steps 6 --save-at 5 --out $OUT/ckA > $OUT/A.log 2>&1; echo "RC_A $?" >> $OUT/run.log
 R --n 256 --k 4 --depth 2 --steps 6 --resume $OUT/ckA/adapter-00000005.safetensors --out $OUT/ckR > $OUT/R.log 2>&1; echo "RC_R $?" >> $OUT/run.log
 R --n 256 --k 1 --depth 2 --steps 6 --detach-at 3 --out $OUT/ckD > $OUT/D.log 2>&1; echo "RC_D $?" >> $OUT/run.log
