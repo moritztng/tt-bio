@@ -88,6 +88,7 @@ def main():
     # winner reads it. The first build and a resume build still run the forward: the unreached/orphan checks
     # after them need every weight to exist.
     inline = os.environ.get("R4T_REBUILD_INLINE", "1") == "1"   # default ON since ca9fa7ac4: digest-identical to the lazy-forward rebuild (rb/I4.jsonl)
+    pack = os.environ.get("R4T_DEVICE_PACK", "0") == "1"   # r4t-perf R2: bfp8 weights packed on the card in the rebuild (Folds.recording device_pack)
     # The trimul in-projection is cached per chunk width on first use, and caches filled in the grad-off
     # candidate pass reach the taped winner as untracked constants (R1 first form: step-2 digest moved, every
     # linear_{a,b}_{p,g} grad dead). `train_in_proj` holds the two sources as registered device tensors and
@@ -140,7 +141,7 @@ def main():
         ttnn.synchronize_device(dev); _rb1 = time.time()
         close_rec()
         if lazy or not inline:
-            with folds.recording() as sd:
+            with folds.recording(device_pack=pack) as sd:
                 trunk = E.load_trunk(glue, sd, cfg)
                 if in_proj:
                     RB["trimuls"] = len([m.train_in_proj() for m in trimuls(trunk)])
@@ -148,7 +149,7 @@ def main():
                 one_example(0, False)   # lazy uploads (trimul in-projections at this chunk width), on the taped route
                 ttnn.synchronize_device(dev); _rb3 = time.time()
         else:
-            rec = folds.recording()
+            rec = folds.recording(device_pack=pack)
             sd = rec.__enter__()
             trunk = E.load_trunk(glue, sd, cfg)
             if in_proj:
