@@ -74,4 +74,8 @@ if [ -z "$WIN" ]; then echo "no arm trained" > $B/RFD4-FAILED; exit 4; fi
 for spec in "${ARMS[@]}"; do [ "${spec%%|*}" = "$WIN" ] && WOV=${spec#*|}; done
 # shellcheck disable=SC2086
 [ $(date +%s) -lt $(( DEADLINE - ARM_TIMEOUT )) ] && run_arm "final-$WIN" "$FINAL" $WOV
+# Parity batches for r4t-accuracy (never timed): fp32 eager, the first 16 collated batches + RNG states dumped, so
+# >= 8 of them carry upstream's own recycle depth >= 2 (D-gb-6). Its losses are the upstream reference values.
+[ $(date +%s) -lt $(( DEADLINE - ARM_TIMEOUT )) ] && run_arm parity-fp32 16 precision=32 nn.use_torch_compile=false \
+  "+callbacks.r4t_timer.dump_dir=$R/parity-fp32/dump" +callbacks.r4t_timer.dump_n=16
 touch $B/RFD4-DONE; say "done after $(( $(date +%s) - T0 ))s"
