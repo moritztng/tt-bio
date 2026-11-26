@@ -65,7 +65,7 @@ def _grads(rank, step):
     return {n: rng.standard_normal(s).astype(np.float32) for n, s in SHAPES.items()}
 
 
-def _run(tmp_path, broken=False, steps=3, muon=None):
+def _run(tmp_path, broken=False, steps=3, muon=None, drop=None):
     Path(tmp_path).mkdir(parents=True, exist_ok=True)
     out = {}
 
@@ -77,6 +77,11 @@ def _run(tmp_path, broken=False, steps=3, muon=None):
             g = _grads(r, s)
             if broken and r == 1:
                 g = {n: v * 2 for n, v in g.items()}   # a rank stepping on a different gradient
+            if drop is not None and s >= 2:
+                if drop == "absent":
+                    del g["b"]
+                else:
+                    g["b"] = np.zeros_like(g["b"])
             opt.step(replicas={n: [v] for n, v in g.items()})
         out[r] = opt
 
@@ -150,3 +155,12 @@ def test_a_sharded_checkpoint_is_complete_and_resumes_bit_identically(tmp_path, 
     for n in SHAPES:
         assert np.array_equal(res[("b", 0)].master[n], full[0].master[n])
         assert np.array_equal(res[("b", 1)].master[n], full[0].master[n])
+
+
+def test_an_absent_gradient_sends_zeros_not_the_reused_slot(tmp_path, muon):
+    """The send slot is rewritten in place, so it still holds an earlier step's bytes: a
+    parameter with no gradient this step must be sent as zeros, exactly like an explicit zero."""
+    gone, _ = _run(tmp_path / "absent", steps=5, muon=muon, drop="absent")
+    zero, _ = _run(tmp_path / "zero", steps=5, muon=muon, drop="zero")
+    for n in SHAPES:
+        assert np.array_equal(gone[0].master[n], zero[0].master[n]), n

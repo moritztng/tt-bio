@@ -667,12 +667,15 @@ class AdamW:
                 f"no per-chip gradients to reduce")
         names, offs, edges, owned = self._shard_layout()
         me = ax.dp_rank
-        flat = np.zeros(int(offs[-1]), np.float32)
+        # Filled in place in the slot the axis publishes, so the send is not another copy.
+        # The slot holds an earlier step's bytes, so every element is written, absent ones too.
+        flat = ax.send_buffer(int(offs[-1]))
         absent = set()
         for i, n in enumerate(names):
             got = replicas.get(n)
             if got is None or n in disabled:
                 absent.add(n)
+                flat[offs[i]:offs[i + 1]] = 0.0
                 continue
             g = np.asarray(to_host(list(got)[0]), np.float32).reshape(-1)
             if n in self.held:
@@ -731,13 +734,18 @@ class AdamW:
                          "grad_norm": float(np.linalg.norm(g))}
         mine = (np.concatenate([self.master[names[i]].ravel() for i in owned]) if owned
                 else np.zeros(0, np.float32))
-        full = ax.all_gather(mine)
+        # Edges are tensor-aligned, so every parameter sits whole in its owner's slice and is
+        # copied from that rank's mapping straight into the master.
+        parts = ax.all_gather_parts(mine)
+        owner_of = np.searchsorted(edges, offs[:-1], side="right") - 1
         writes_skipped = 0
         for i, n in enumerate(names):
             t, theta = self.params[n], self.master[n]
             before = round_to_device_dtype(theta, t.value.dtype)
             before = None if before is None else np.array(before, copy=True)
-            theta[...] = full[offs[i]:offs[i + 1]].reshape(theta.shape)
+            r = min(int(owner_of[i]), len(parts) - 1)
+            lo = int(offs[i] - edges[r])
+            theta[...] = parts[r][lo:lo + theta.size].reshape(theta.shape)
             after = round_to_device_dtype(theta, t.value.dtype)
             if before is not None and after is not None and np.array_equal(after, before):
                 writes_skipped += 1

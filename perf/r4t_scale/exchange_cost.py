@@ -29,16 +29,29 @@ def grad(rank, step, n):
     return v
 
 
-def rank_main(rank, world, n, steps, run, broken, q):
+def rank_main(rank, world, n, steps, run, broken, q, zero_copy=False):
     from tt_bio.train.launcher import ProcessAxis
     ax = ProcessAxis(name="dp", device_ids=tuple(range(world)), dp_rank=rank, run=str(run))
-    rows = []
+    rows, out = [], None
     for s in range(1, steps + 1):
         v = grad(rank, s, n)
         if broken and rank == world - 1 and s == 2:
             v[n // 2] += np.float32(1.0)
         t0 = time.perf_counter()
-        tot = ax._exchange(v)
+        if zero_copy:
+            # The optimizer's path: fill the send slot instead of a vector of its own (the fill
+            # is the gradient readback it does anyway, so it stays outside the timed wall),
+            # and gather into a buffer kept across steps.
+            buf = ax.send_buffer(n)
+            buf[...] = v
+            t0 = time.perf_counter()
+            if out is None:
+                out = np.empty(n, np.float32)
+            tot = ax.all_gather(ax.reduce_scatter(buf), out=out)
+            for k in ("_pub", "_wait"):
+                ax.state.pop(k, None)
+        else:
+            tot = ax._exchange(v)
         wall = time.perf_counter() - t0
         row = {"step": s, "wall_s": wall,
                "digest": hashlib.blake2b(tot.tobytes(), digest_size=8).hexdigest()}
@@ -62,6 +75,8 @@ def main():
     ap.add_argument("--n", type=int, default=N_RFD4)
     ap.add_argument("--shm", default="/dev/shm")
     ap.add_argument("--broken", action="store_true")
+    ap.add_argument("--zero-copy", action="store_true",
+                    help="fill the send slot (send_buffer) and gather into a kept buffer")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
     run = Path(a.shm) / f"r4t-scale-x-{os.getpid()}"
@@ -70,7 +85,7 @@ def main():
     q = ctx.Queue()
     load0 = os.getloadavg()
     t0 = time.perf_counter()
-    ps = [ctx.Process(target=rank_main, args=(r, a.world, a.n, a.steps, run, a.broken, q))
+    ps = [ctx.Process(target=rank_main, args=(r, a.world, a.n, a.steps, run, a.broken, q, a.zero_copy))
           for r in range(a.world)]
     try:
         for p in ps:
