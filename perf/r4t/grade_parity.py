@@ -23,6 +23,11 @@ Curve (``--curve FILE``). JSON::
 ``gpu_b`` is upstream re-run at a second seed on the same GPU and is not optional: the bar is
 ``max(2 % of upstream's final-200 mean, 1.5 x the seed-to-seed gap)``, so without it a
 cross-arch gap has no scale to be judged against.
+
+Curve logs (``--ours/--gpu-a/--gpu-b``). The JSONL a run writes through
+``tt_bio.train.curve.CurveLog``, which carries the plan both sides executed. Preferred over
+``--curve``: the plan digest in each header is what proves the two runs did the same work.
+Exit codes: 0 PASS, 1 FAIL, 2 refused (no seed-B control, different plans, broken log).
 """
 
 from __future__ import annotations
@@ -34,6 +39,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
+from tt_bio.train.curve import (CurveContractError, grade_curve_files,  # noqa: E402
+                                read_curve, summarise)
 from tt_bio.train.parity import (CURVE_MIN_STEPS, LOSS_PARITY_BARS,  # noqa: E402
                                  LOSS_PARITY_MIN_BATCHES, curve_match, loss_parity)
 
@@ -66,13 +73,37 @@ def do_curve(doc: dict) -> int:
     return 0 if report.passed else 1
 
 
+def do_logs(ours: str, gpu_a: str, gpu_b: str | None) -> int:
+    """Grade three curve logs. A contract error is exit 2: refused, neither PASS nor FAIL."""
+    try:
+        report = grade_curve_files(ours, gpu_a, gpu_b)
+    except CurveContractError as e:
+        print(f"CURVE: REFUSED -- {e}")
+        return 2
+    print(report)
+    for name, path in (("ours", ours), ("gpu A", gpu_a), ("gpu B", gpu_b)):
+        header, losses = read_curve(path)
+        prov = {k: header[k] for k in ("host", "sha", "upstream_sha", "board", "aiclk_mhz",
+                                       "chip") if k in header}
+        print(f"  {name}: {summarise(losses)} {json.dumps(prov, sort_keys=True)}")
+    return 0 if report.passed else 1
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     g = ap.add_mutually_exclusive_group(required=True)
     g.add_argument("--parity", metavar="FILE")
     g.add_argument("--curve", metavar="FILE")
+    g.add_argument("--ours", metavar="LOG", help="curve log for our side (with --gpu-a/--gpu-b)")
+    ap.add_argument("--gpu-a", metavar="LOG")
+    ap.add_argument("--gpu-b", metavar="LOG")
     a = ap.parse_args()
+    if a.ours:
+        if not a.gpu_a:
+            print("CURVE: REFUSED -- --ours needs --gpu-a (and --gpu-b, the seed control)")
+            return 2
+        return do_logs(a.ours, a.gpu_a, a.gpu_b)
     return do_parity(_load(a.parity)) if a.parity else do_curve(_load(a.curve))
 
 
