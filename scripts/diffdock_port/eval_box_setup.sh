@@ -34,9 +34,10 @@ echo "== shipping to $RT"
 PATHS=$(git -C "$REPO" ls-tree --name-only HEAD | grep -vx perf)
 # shellcheck disable=SC2086
 git -C "$REPO" archive --format=tar HEAD $PATHS | $SSH "mkdir -p ~/dfd/tt-bio && tar -x -C ~/dfd/tt-bio"
-# One tar stream per tree, not rsync: PoseBusters is 428 directories of small files and rsync
-# pays a round trip for each one. Measured 2026-11-26 from pc to a Texas box: rsync moved 13 MB
-# of the 180 MB set in 3 minutes, the same bytes as one tar stream take about 6.
+# One tar stream per tree, not rsync. PoseBusters is 428 directories of small files, and the
+# 2026-11-26 run to a Texas box spent its first ~3 minutes on the file list before any bytes
+# moved; a tar stream starts sending immediately and needs no per-file handshake. Neither is
+# resumable here, which is fine: the dock itself is.
 tar -C "$(dirname "$PB")" -chf - "$(basename "$PB")" | $SSH "mkdir -p ~/dfd/pb && tar -xf - -C ~/dfd/pb"
 tar -C "$CKPT" -chf - . | $SSH "mkdir -p ~/.boltz/diffdock/models && tar -xf - -C ~/.boltz/diffdock/models"
 
