@@ -49,11 +49,13 @@ def rank_main(rank, world, n, steps, run, broken, q):
     names = [f"p{i:04d}" for i in range(len(sizes))]
     params = {nm: _Param(np.full(s, 0.02, np.float32)) for nm, s in zip(names, sizes)}
     ax = L.ProcessAxis(name="dp", device_ids=tuple(range(world)), dp_rank=rank, run=str(run))
-    tm = {"rs": 0.0, "ga": 0.0}
+    tm = {"rs": 0.0, "ga": 0.0, "rs_wait": 0.0}
 
     def timed(fn, key):
         def w(*a, **k):
             t0 = time.perf_counter(); r = fn(*a, **k); tm[key] += time.perf_counter() - t0
+            if key == "rs":  # the part of rs spent waiting for the last peer to publish
+                tm["rs_wait"] += ax.state.get("_wait", 0.0)
             return r
         return w
     object.__setattr__(ax, "reduce_scatter", timed(ax.reduce_scatter, "rs"))
@@ -69,14 +71,14 @@ def rank_main(rank, world, n, steps, run, broken, q):
             grads[nm].fill(np.float32(1e-3 * ((i + s + rank) % 7 - 3)))
         if broken and rank == world - 1 and s == 1:
             grads[names[0]][0] += np.float32(1.0)
-        tm["rs"] = tm["ga"] = 0.0
+        tm["rs"] = tm["ga"] = tm["rs_wait"] = 0.0
         t0 = time.perf_counter()
         opt.step(replicas={nm: [g] for nm, g in grads.items()})
         wall = time.perf_counter() - t0
         h = hashlib.blake2b(digest_size=8)
         for nm in names[::17]:
             h.update(opt.master[nm].tobytes())
-        row = {"step": s, "step_s": wall, "rs_s": tm["rs"], "gather_s": tm["ga"],
+        row = {"step": s, "step_s": wall, "rs_s": tm["rs"], "rs_wait_s": tm["rs_wait"], "gather_s": tm["ga"],
                "digest": h.hexdigest()}
         if rank == 0 and s == 1:
             ref = optim.AdamW({nm: _Param(np.full(z, 0.02, np.float32)) for nm, z in zip(names, sizes)},
@@ -121,7 +123,7 @@ def main():
     out = {"host": socket.gethostname(), "world": a.world, "n": a.n, "steps": a.steps,
            "broken": a.broken, "ranks_agree": agree, "ref_ok": ref_ok, "PASS": agree and ref_ok,
            "median_step_s": med("step_s"), "median_slowest_rank_step_s": float(np.median(slowest)),
-           "median_rs_s": med("rs_s"), "median_gather_s": med("gather_s"),
+           "median_rs_s": med("rs_s"), "median_rs_wait_s": med("rs_wait_s"), "median_gather_s": med("gather_s"),
            "torch_threads": res[0]["threads"], "loadavg_before": load0, "per_rank": res}
     Path(a.out).write_text(json.dumps(out, indent=1))
     print(json.dumps({k: v for k, v in out.items() if k != "per_rank"}))
