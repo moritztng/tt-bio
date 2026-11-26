@@ -977,7 +977,7 @@ LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffus
            "pair_tail_cm", "pair_batch", "pair_block_hifi2", "trimul_t1g8", "trimul_tail_hifi2", "pair_bfp8z",
            "trimul_t1_fgate", "pair_x8", "pair_x8t", "tok_recycle_mm", "tok_w8", "trimul_x8", "ws_ln_resid", "dit_pad_short", "bg_featproc", "ef2_msa_ffn", "ef2_opm_proj", "trimul_t1_part",
            "trimul_t1_3g", "trimul_t1split", "adaln_at", "dit_kl1", "mask_at_mix", "mask_at_mix_z8", "trunk_trace", "dit_qkvf_h4",
-           "ws_ln_t1l1", "dit_gres", "atom_kvw", "trimul_t1_stats", "trimul_t1_stats2", "pair_bias_fuse")
+           "ws_ln_t1l1", "dit_gres", "atom_kvw", "trimul_t1_stats", "trimul_t1_stats2", "pair_bias_fuse", "apb_sdpa")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -1011,7 +1011,7 @@ UNGRADED_LEVERS = frozenset({"trunk_trace", "dit_bf16", "atom_kvcat", "bres_ta_h
                              "trimul_tail_hifi2", "pair_bfp8z", "trimul_t1_fgate", "pair_x8", "pair_x8t",
                              "tok_recycle_mm", "tok_w8", "trimul_x8", "ws_ln_resid", "dit_pad_short", "bg_featproc", "ef2_msa_ffn", "ef2_opm_proj", "trimul_t1_part",
                              "trimul_t1_3g", "trimul_t1split", "ws_ln_t1l1", "dit_gres", "atom_kvw",
-                             "trimul_t1_stats", "trimul_t1_stats2", "pair_bias_fuse"})
+                             "trimul_t1_stats", "trimul_t1_stats2", "pair_bias_fuse", "apb_sdpa"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -2913,6 +2913,7 @@ B2_TOKEN_DIT_SDPA_STATS = [0, 0]     # [served, declined] at the token-DiT site
 # projection, which is why this is priced per shape and not asserted.
 _APB_CONCAT_HEADS = env_flag("TT_BIO_APB_CONCAT_HEADS", False)
 APB_CONCAT_HEADS_STATS = [0, 0]      # [served, declined] at the token head re-assembly (either switch)
+APB_SDPA_STATS = [0, 0]              # [one _sdpa32 program, the op chain] at the pair-biased token attention (`apb_sdpa`)
 # dit_qkvf: the bf16 token DiT's attention as OpenFold3's dit_fuse runs it (`_sdpa32_fused`): read out of the
 # fused qkv projection and written [B, S, n_heads * padded_head_dim], so neither nlp_create_qkv_heads nor the
 # head re-assembly runs; the gate and output projection take apb_cat's padded-lane weights. HiFi2 like the
@@ -3460,6 +3461,28 @@ def _sdpa32(q, k, v, mask, scale: float) -> ttnn.Tensor:
     SG.sdpa(dev, q, k, v, mask, out, chunk, k_chunk, grid, _SDPA32_CKC, scale, boxes=boxes,
             pv_l1acc=_sdpa32_pv_l1acc(dev, k_chunk))
     return out
+
+
+def _apb_sdpa32(q, k, v, bias, scale: float):
+    """`apb_sdpa`: a pair-biased token attention that runs the fp32 `_accurate_softmax` chain (Protenix-v2's
+    pairformer and confidence head) as one `_sdpa32` program, softmax((q @ k^T + bias) * scale) @ v. q, k, v and
+    the per-head bias are upcast to fp32 (the program wants one dtype across its operands), the output comes back in
+    q's dtype like the chain's. None where the token axis has no `sdpa32_chunk` or the bias is not one unpadded
+    [B, H, n, n] tensor, so the caller keeps its chain."""
+    n = int(q.shape[2])
+    shape = [int(q.shape[0]), int(q.shape[1]), n, n]
+    if not (lever("apb_sdpa") and bias is not None and sdpa32_chunk(n) and int(k.shape[2]) == n
+            and [int(d) for d in bias.shape] == shape and [int(d) for d in bias.padded_shape] == shape):
+        return None
+    up = [t if t.dtype == ttnn.float32 else ttnn.typecast(t, ttnn.float32) for t in (q, k, v, bias)]
+    o = _sdpa32(*up, scale)
+    for t, u in zip((q, k, v, bias), up):
+        if u is not t:
+            ttnn.deallocate(u)
+    if q.dtype != ttnn.float32:
+        o32, o = o, ttnn.typecast(o, q.dtype)
+        ttnn.deallocate(o32)
+    return o
 
 
 def _sdpa32_fused(qkv, mask, scale: float, heads: int, out_dtype=ttnn.float32, ckc=None,
@@ -14301,19 +14324,22 @@ class AttentionPairBias(Module):
                 # cycles). matmul + ttnn.softmax + matmul on the same q/k/v/bias is
                 # PCC-clean (0.99993 vs 0.98128). SDPA scales its additive mask along
                 # with QK, so (q@k^T + z) * head_dim**-0.5 reproduces it exactly.
-                kt = ttnn.transpose(k, -2, -1)
-                logits = batched_matmul(q, kt, compute_kernel_config=self.compute_kernel_config)
-                ttnn.deallocate(kt)
-                if z is not None:
-                    logits = ttnn.add_(logits, z)
-                logits = ttnn.multiply_(logits, self.head_dim**-0.5)
-                probs = (_accurate_softmax(logits, self.compute_kernel_config)
-                         if self.accurate_softmax else
-                         ttnn.softmax(logits, dim=-1,
-                                      compute_kernel_config=self.compute_kernel_config))
-                ttnn.deallocate(logits)
-                o = batched_matmul(probs, v, compute_kernel_config=self.compute_kernel_config)
-                ttnn.deallocate(probs)
+                o = _apb_sdpa32(q, k, v, z, self.head_dim**-0.5) if self.accurate_softmax else None
+                APB_SDPA_STATS[0 if o is not None else 1] += 1
+                if o is None:
+                    kt = ttnn.transpose(k, -2, -1)
+                    logits = batched_matmul(q, kt, compute_kernel_config=self.compute_kernel_config)
+                    ttnn.deallocate(kt)
+                    if z is not None:
+                        logits = ttnn.add_(logits, z)
+                    logits = ttnn.multiply_(logits, self.head_dim**-0.5)
+                    probs = (_accurate_softmax(logits, self.compute_kernel_config)
+                             if self.accurate_softmax else
+                             ttnn.softmax(logits, dim=-1,
+                                          compute_kernel_config=self.compute_kernel_config))
+                    ttnn.deallocate(logits)
+                    o = batched_matmul(probs, v, compute_kernel_config=self.compute_kernel_config)
+                    ttnn.deallocate(probs)
             ttnn.deallocate(q)
             ttnn.deallocate(k)
             ttnn.deallocate(v)
