@@ -81,3 +81,27 @@ def test_the_old_agreement_tolerance_accepts_the_kinked_value():
     f, t, g, bar = _shared_kink(h, scale)
     v = CK._smooth_central(f, t, 0, h, 0.5 * CK.FD_BAR * scale)
     assert v is not None and abs(v - g) > CK.FD_BAR * scale
+
+
+def _mostly_kinked(n=16, kinked=12, h=1e-2):
+    """sum(a w) + sum_i<kinked relu(w_i - 0.05 h): those coordinates straddle a kink at h and h/10."""
+    g = torch.Generator().manual_seed(0)
+    a = torch.randn(n, generator=g, dtype=torch.float64)
+    w = torch.zeros(n, dtype=torch.float64).requires_grad_(True)
+    return (lambda: (a * w).sum() + torch.relu(w[:kinked] - 0.05 * h).sum()), [w]
+
+
+def test_a_mostly_kinked_tensor_still_gets_its_smooth_probes():
+    loss, ps = _mostly_kinked()
+    kinks = []
+    worst, probed, _ = CK.fd_check(loss, ps, n_probe=4, h=1e-2, kinks=kinks)
+    assert probed == 4 and kinks and all(i < 12 for i in kinks) and worst < CK.FD_BAR
+
+
+def test_one_draw_per_probe_leaves_the_same_tensor_unverified():
+    # the A arm: drawing exactly n_probe coordinates (the old sampler) mostly lands on kinks
+    loss, (w,) = _mostly_kinked()
+    loss().backward()
+    flat, scale = w.detach().reshape(-1), w.grad.abs().max().item()
+    hits = sum(CK._smooth_central(loss, flat, i, 1e-2, CK.FD_AGREE * CK.FD_BAR * scale) is None for i in range(16))
+    assert hits == 12

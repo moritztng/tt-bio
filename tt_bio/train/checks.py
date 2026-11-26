@@ -147,8 +147,11 @@ def fd_check(loss_fn, params, n_probe=40, h=1e-5, seed=0, mag_floor=1e-6, kinks=
     the pair moves down a decade (``h/10`` and ``h/100``); a coordinate still disagreeing there
     is skipped. That test never
     reads the analytic gradient, so it cannot hide a wrong one. Skipped coordinate indices are appended
-    to ``kinks`` when a list is given, and if more coordinates are skipped than probed the result is ``inf``:
-    a reference that cannot be differenced has not been verified.
+    to ``kinks`` when a list is given. A skipped coordinate is replaced by another eligible one, up to
+    ``4 * n_probe`` draws per tensor, so a heavily kinked tensor still gets its smooth probes instead of
+    a coin flip deciding the verdict (net5 fp32 trunk arm: 104 probed, 110 skipped, unverified). If
+    fewer than half the requested probes found a smooth coordinate the result is ``inf``: a reference
+    that cannot be differenced has not been verified.
 
     Returns ``(worst relative disagreement, coordinates probed, coordinates eligible)``.
     """
@@ -167,7 +170,7 @@ def fd_check(loss_fn, params, n_probe=40, h=1e-5, seed=0, mag_floor=1e-6, kinks=
         loss = loss_fn()
         loss.backward()
     resolution_floor = 1.0e4 * 2.22e-16 * abs(loss.item()) / (2.0 * h)
-    worst, probed, eligible, skipped = 0.0, 0, 0, 0
+    worst, probed, eligible, skipped, wanted = 0.0, 0, 0, 0, 0
     for p in params:
         flat = p.detach().reshape(-1)
         ana = p.grad.detach().reshape(-1).clone()
@@ -179,8 +182,12 @@ def fd_check(loss_fn, params, n_probe=40, h=1e-5, seed=0, mag_floor=1e-6, kinks=
         eligible += int(ok.size)
         if ok.size == 0:
             continue
-        idx = rng.choice(ok, size=min(n_probe, ok.size), replace=False)
-        for i in idx:
+        want = min(n_probe, ok.size)
+        wanted += want
+        got = 0
+        for i in rng.permutation(ok)[:4 * want]:
+            if got == want:
+                break
             i = int(i)
             num = _smooth_central(loss_fn, flat, i, h, FD_AGREE * FD_BAR * scale)
             if num is None:
@@ -193,7 +200,8 @@ def fd_check(loss_fn, params, n_probe=40, h=1e-5, seed=0, mag_floor=1e-6, kinks=
             # difference is a difference of two nearly equal float64 losses.
             worst = max(worst, abs(num - ana[i].item()) / scale)
             probed += 1
-    if skipped > probed:
+            got += 1
+    if 2 * probed < wanted:
         worst = float("inf")
     return worst, probed, eligible
 
