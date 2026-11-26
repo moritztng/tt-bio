@@ -231,6 +231,8 @@ class ProcessAxis(Axis):
 
     dp_rank: int = 0
     run: str = ""
+    #: Slots peers may still be reading once a phase's barrier passes: the one just published.
+    _SLOTS_HELD = 1
     #: per-step timings, mutated in place because the dataclass is frozen. Three numbers per
     #: step and not one: ``publish``+``add`` is what the collective costs, while ``wait`` is
     #: mostly the slower peer's step tail. Summing them into one "comm" figure reports load
@@ -339,7 +341,7 @@ class ProcessAxis(Axis):
             raise ValueError(f"edges {edges.tolist()} do not split {vec.size} elements into "
                              f"{w} ordered slices")
         t0 = time.perf_counter()
-        _publish(d, f"s{step}_r{me}", vec)
+        self._put(d, f"s{step}_r{me}", vec)
         t_pub = time.perf_counter()
         full = self._await(d, step, "r")
         t_wait = time.perf_counter()
@@ -373,7 +375,7 @@ class ProcessAxis(Axis):
         if part.size != edges[me + 1] - edges[me]:
             raise ValueError(f"rank {me} holds {part.size} elements for a slice of "
                              f"{int(edges[me + 1] - edges[me])}")
-        _publish(d, f"s{step}_q{me}", part)
+        self._put(d, f"s{step}_q{me}", part)
         t0 = time.perf_counter()
         slices = self._await(d, step, "q")
         if "_wait" in self.state:
@@ -384,6 +386,35 @@ class ProcessAxis(Axis):
         for kind in "rq":
             (d / f"s{step - _KEEP_STEPS}_{kind}{me}.npy").unlink(missing_ok=True)
         return acc
+
+    def _put(self, d: Path, name: str, arr) -> None:
+        """Publish ``arr`` as ``d/name.npy``: a symlink to one of this rank's slot files.
+
+        A fresh 714 MB file on /dev/shm costs 0.26 s in page allocation where rewriting a
+        resident one costs 0.06 s (``perf/r4t_scale/fault_bench.py``), and every rank pays it
+        every phase, so slots are rewritten in place. A slot is rewritten only once every peer
+        has finished reading it: ranks make the same collective calls in the same order and
+        each reads a phase's files before publishing its next one, so once this rank has seen
+        every peer's file of the NEXT phase, the slot it published before that is free
+        (:meth:`_await`).
+        """
+        import numpy as np
+        st = self.state
+        arr = np.ascontiguousarray(arr)
+        key = (arr.dtype.str, arr.shape)
+        free = st.setdefault("_free", {}).setdefault(key, [])
+        if free:
+            slot = free.pop()
+            mode = "r+b"  # same dtype and shape, so the same bytes: rewritten in place
+        else:
+            st["_nslot"] = st.get("_nslot", 0) + 1
+            slot, mode = f"slot{self.dp_rank}_{st['_nslot']}.npy", "wb"
+        with open(d / slot, mode) as fh:
+            np.save(fh, arr)
+        tmp = d / f"{name}.part"
+        os.symlink(slot, tmp)
+        os.replace(tmp, d / f"{name}.npy")
+        st.setdefault("_sent", []).append((key, slot))
 
     def _await(self, d: Path, step: int, kind: str) -> list:
         """The ``width`` files of one phase of ``step``, once all exist. Times out, never hangs."""
@@ -398,6 +429,12 @@ class ProcessAxis(Axis):
                     f"{here}. A rank that died holding the barrier stops the run here instead "
                     f"of hanging it")
             time.sleep(0.002)
+        # Every peer published this phase, so every peer finished reading the phase before.
+        sent = self.state.get("_sent", [])
+        done = len(sent) - self._SLOTS_HELD
+        for key, slot in sent[:done]:
+            self.state["_free"][key].append(slot)
+        del sent[:done]
         return want
 
 
@@ -418,15 +455,6 @@ def shard_edges(sizes, world: int):
         edges.append(max(edges[-1], int(bounds[i])))
     edges.append(total)
     return np.asarray(edges, dtype=np.int64)
-
-
-def _publish(d: Path, name: str, arr) -> None:
-    """Write ``arr`` as ``d/name.npy`` atomically: a temporary name, then ``os.replace``."""
-    import numpy as np
-    tmp = d / f"{name}.part"
-    with open(tmp, "wb") as fh:
-        np.save(fh, arr)
-    os.replace(tmp, d / f"{name}.npy")
 
 
 def reducer(axis: Axis) -> Axis:
