@@ -279,3 +279,24 @@ def test_the_masked_step_has_one_shape_across_the_crop_sweep(real):
         logs.append(log)
     # step 0 pays the Wigner-3j cast once (the warm-up rule); compare from step 1
     assert_shape_stable(logs[1:])
+
+
+@pytest.mark.parametrize("step", STEPS)
+def test_a_float64_reference_gets_the_float32_crop(real, step):
+    """Upstream's `crop_beyond` casts the pose with `.float()`, so on a float64 receptor its own
+    expression raises and no float64 reference of a cropped step exists. `rec_keep` takes the
+    decision in float32 on both sides: the same keep-set as the production fp32 step, returned in
+    the caller's dtype, so a float64 grade of a cropped step runs and grades the same crop."""
+    full, steps = real
+    d = steps[step]
+    lig, cutoff = d["lig"], d["cutoff"]
+    n_lig, n_rec = lig.shape[0], full.shape[0]
+    s = G.StaticGraphs.build(n_lig, n_rec, torch.zeros((2, 0), dtype=torch.long), n_poses=1)
+    lig_p = torch.zeros(s.n_lig_padded, 3)
+    lig_p[:n_lig] = lig
+    rec_p = torch.zeros(s.n_rec_padded, 3)
+    rec_p[:n_rec] = full
+    want = s.rec_keep(lig_p, rec_p, cutoff)
+    got = s.rec_keep(lig_p.double(), rec_p.double(), cutoff)
+    assert got.dtype == torch.float64
+    assert torch.equal(got.float(), want)
