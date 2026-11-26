@@ -6,9 +6,11 @@ cd ~/.coworker/wt/r4t-step || exit 1
 C=${1:-2}; OUT=~/r4t/step/trunk; mkdir -p $OUT
 PY=~/scratch/shipflow/venv-c4f99e695d34/bin/python
 ok=
+# my window: $OWNER if given, else any r4t-step booking (dispatcher fleet-r4t-step or a hand-made r4t-step-*)
+mine(){ if [ -n "$OWNER" ]; then [ "$1" = "$OWNER" ]; else case "$1" in fleet-r4t-step|r4t-step-*) return 0;; esac; return 1; fi; }
 for i in $(seq 1 300); do
   who=$(python3 ~/spd/feed/book.py active $C 2>/dev/null)
-  if [ "$who" = "${OWNER:-fleet-r4t-step}" ] && [ -z "$(sudo -n fuser /dev/tenstorrent/$C 2>/dev/null)" ]; then ok=1; break; fi
+  if mine "$who" && [ -z "$(sudo -n fuser /dev/tenstorrent/$C 2>/dev/null)" ]; then ok=1; break; fi
   echo "$(date -u +%FT%TZ) waiting: active=$who" >> $OUT/wait.log; sleep 30
 done
 [ -n "$ok" ] || { echo "NO WINDOW $(date -u +%FT%TZ)" > $OUT/run.log; exit 4; }
