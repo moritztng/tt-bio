@@ -32,7 +32,7 @@ for _ in $(seq "${NMAX:-6}"); do
   vl_pick "$L" "$Q" "$TRIEDF" 0 || { log "no untried offer matches: $Q"; break; }
   echo "$O" >> "$TRIEDF"
   vl_floor_ok "$ODPH" || { log "REFUSED at offer $O: credit \$$(vl_credit) would cross the floor"; exit 4; }
-  vl_rent "${IMAGE:-nvidia/cuda:12.4.1-devel-ubuntu24.04}" "${DISK:-60}" || { echo "$OM" >> "$TRIEDF"; log "offer $O: create failed"; continue; }
+  vl_rent "${IMAGE:-nvidia/cuda:13.0.1-cudnn-devel-ubuntu24.04}" "${DISK:-60}" || { echo "$OM" >> "$TRIEDF"; log "offer $O: create failed"; continue; }
   vl_ssh || { vl_destroy "$I" "no ssh: intended_status=$(vl_state "$I")"; continue; }
   echo "$S" > "$OUT/ssh-$L"; echo "$I $O" > "$OUT/instance-$L"
 
