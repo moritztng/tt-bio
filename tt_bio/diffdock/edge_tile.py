@@ -254,7 +254,7 @@ class DeviceEdgeTile:
 
     KDIR = None
 
-    def __init__(self, device, tp, fc, groups=None, *, math_fidelity=None):
+    def __init__(self, device, tp, fc, groups=None, *, math_fidelity=None, ablate: int = 0):
         import ttnn
         from pathlib import Path
         self.ttnn, self.device = ttnn, device
@@ -282,6 +282,7 @@ class DeviceEdgeTile:
         self.L2 = [up(g.L2) for g in plan.groups]
         self.G = [up(s["Gpack"]) for s in self.sched]
         self._pd = {}
+        self.ablate = ablate
 
     def _cores(self):
         grid = self.device.compute_with_storage_grid_size()
@@ -339,7 +340,7 @@ class DeviceEdgeTile:
             cfg = ttnn.ComputeConfigDescriptor(math_fidelity=self.fidelity, fp32_dest_acc_en=True)
             cp = ttnn.KernelDescriptor(
                 kernel_source=str(self.kdir / "compute.cpp"), source_type=src, core_ranges=cr,
-                compile_time_args=[KH, nbj, KA, nab, g.n_y, NW, NOUT, NW * KH, NG],
+                compile_time_args=[KH, nbj, KA, nab, g.n_y, NW, NOUT, NW * KH, NG, self.ablate],
                 defines=[("AB_LIST", lst(s["ab"])), ("Y_LIST", lst(s["y"])),
                          ("W_LIST", lst(s["w"]))],
                 runtime_args=crt, config=cfg)

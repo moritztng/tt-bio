@@ -43,6 +43,7 @@ def main():
     ap.add_argument("--layers", default=",".join(SIGNATURES))
     ap.add_argument("--reps", type=int, default=5)
     ap.add_argument("--no-baseline", action="store_true")
+    ap.add_argument("--ablate", type=int, default=0, help="diagnostic: compute-kernel ablation mask")
     ap.add_argument("--out")
     args = ap.parse_args()
 
@@ -69,7 +70,7 @@ def main():
         tp, fc = layer(cfg, sd, name)
         ea, x1, x2 = inputs(tp, fc, E, gen)
         try:
-            mod = DeviceEdgeTile(dev, tp, fc)
+            mod = DeviceEdgeTile(dev, tp, fc, ablate=args.ablate)
         except NotImplementedError as e:
             rows[name] = dict(skipped=str(e))
             print(name, "skipped:", e, flush=True)

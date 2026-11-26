@@ -32,6 +32,9 @@ void kernel_main() {
     constexpr uint32_t NOUT = get_compile_time_arg_val(6);
     constexpr uint32_t NL2 = get_compile_time_arg_val(7);
     constexpr uint32_t NG = get_compile_time_arg_val(8);
+    // Diagnostic ablation, 0 in production: bit 0 skips the AB and Y math, bit 1 the weight-tile
+    // loop (CB traffic is kept, so a hang that survives an ablation is not in the skipped math).
+    constexpr uint32_t ABL = get_compile_time_arg_val(9);
     constexpr uint32_t ZERO = 32;  // the zero tile after the 32 one-hot tiles
     const uint32_t n_et = get_arg_val<uint32_t>(0);
 
@@ -52,7 +55,7 @@ void kernel_main() {
         mul_tiles_init(cb_a, cb_b);
         pack_reconfig_data_format(cb_ab);
         cb_reserve_back(cb_ab, NAB);
-        for (uint32_t i = 0; i < NAB; i += 4) {
+        for (uint32_t i = 0; i < NAB && !(ABL & 1); i += 4) {
             const uint32_t n = NAB - i < 4 ? NAB - i : 4;
             tile_regs_acquire();
             for (uint32_t q = 0; q < n; ++q) mul_tiles(cb_a, cb_b, ab_list[2 * (i + q) + 1], ab_list[2 * (i + q)], q);
@@ -71,7 +74,7 @@ void kernel_main() {
         pack_reconfig_data_format(cb_y);
         cb_reserve_back(cb_y, NY);
         uint32_t p = 0;
-        for (uint32_t yi = 0; yi < NY; ++yi) {
+        for (uint32_t yi = 0; yi < NY && !(ABL & 1); ++yi) {
             const uint32_t n = y_list[p++];
             tile_regs_acquire();
             for (uint32_t q = 0; q < n; ++q, p += 2) matmul_tiles(cb_ab, cb_g, y_list[p], y_list[p + 1], 0);
@@ -97,7 +100,7 @@ void kernel_main() {
         tile_regs_release();
 
         p = 0;
-        for (uint32_t wi = 0; wi < NW; ++wi) {
+        for (uint32_t wi = 0; wi < NW && !(ABL & 2); ++wi) {
             const uint32_t n = w_list[p];
             const uint32_t* e = &w_list[p + 1];
             p += 1 + 3 * n;
