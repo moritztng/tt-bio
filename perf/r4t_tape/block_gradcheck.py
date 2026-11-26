@@ -40,7 +40,9 @@ def main():
     ap.add_argument("--scale-grad", metavar="PARAM",
                     help="subtle broken arm: multiply this parameter's device gradient by 1.10 (D28)")
     ap.add_argument("--arm", choices=("prod", "bf16", "fp32"), default="prod")
-    ap.add_argument("--module", choices=("trunk_block", "pair_update"), default="trunk_block")
+    ap.add_argument("--module", choices=("trunk_block", "pair_update", "trunk"), default="trunk_block")
+    ap.add_argument("--layers", type=int, default=3, help="trunk: blocks (a pair update after block 0)")
+    ap.add_argument("--cycles", type=int, default=2, help="trunk: recycles; only the last is differentiated")
     ap.add_argument("--sdpa-own", action="store_true",
                     help="tape SDPA with its own chunked forward (fp32-capable) instead of the fused kernel")
     ap.add_argument("--out", type=Path)
@@ -82,6 +84,19 @@ def main():
         keys, ins, out_t, cut = ("x", "z", "cond", "mask", "bias"), ("x", "z", "cond"), x, "q_w"
         ref_fn = lambda w, I: REF.trunk_block(w, I["x"], I["z"], I["cond"], mask, n_heads=H)  # noqa: E731
         out_mask = mask[..., None]
+    elif a.module == "trunk":
+        # The whole trunk as training runs it: every recycle executes, only the last is differentiated
+        # (`ops.recycle_region`; upstream `grad: last`). Seeded on s, which every parameter reaches.
+        w64 = REF.trunk_weights(a.layers, DIM, DP, DC, H, seed=11)
+        gc = torch.Generator().manual_seed(13)
+        early = [bf(torch.randn(1, a.n, DC, generator=gc, dtype=torch.float64)) for _ in range(a.cycles - 1)]
+        cond = bf(torch.randn(1, a.n, DC, generator=gc, dtype=torch.float64))
+        build = lambda sd: TR.Trunk(tt.WeightScope(sd), ckc, a.layers, H, dtype=dt)  # noqa: E731
+        keys, ins, out_t, cut = ("x", "z", "cond"), ("x", "z", "cond"), x, "q_w"
+        ref_fn = lambda w, I: REF.trunk(w, I["x"], I["z"], early + [I["cond"]], mask, a.layers,  # noqa: E731
+                                        n_heads=H, grad_last=True)[0]
+        out_mask = mask[..., None]
+        z = z * pair[..., None]
     else:
         w64 = REF.pair_update_weights(DIM, DP, 256, seed=5, prefix="pu")
         build = lambda sd: TR.PairUpdate(tt.WeightScope(sd).child("pu"), ckc, dtype=dt)  # noqa: E731
@@ -98,20 +113,26 @@ def main():
     with TR.lever_scope(levers):
         raw = {"x": up(x), "z": up(z), "cond": up(cond), "mask": up(mask[..., None]), "bias": up(bias_mask),
                "pm": up(pair), "pmc": up(pair[..., None])}
+        if a.module == "trunk":
+            tmasks = TR.trunk_masks(mask, dev, dtype=dt, residual_dtype=dt)
+            econds = [up(c) for c in early]
+            call = lambda m, A: m(A[0], A[1], econds + [A[2]], tmasks)[0]  # noqa: E731
+        else:
+            call = lambda m, A: m(*A)  # noqa: E731
         with f.recording() as sd:
             m = build(sd)
             # lazy uploads, as served. The fused SDPA refuses fp32, so the fp32 arm warms on the tape
             # (a verb dispatches to its tape entry only when an operand is a taped Tensor).
             if a.arm == "fp32":
                 with T.tape():
-                    m(*(ag.Tensor(raw[k], requires_grad=True) if k in ins else raw[k] for k in keys))
+                    call(m, [ag.Tensor(raw[k], requires_grad=True) if k in ins else raw[k] for k in keys])
             else:
-                m(*(raw[k] for k in keys))
+                call(m, [raw[k] for k in keys])
             L = {k: (ag.Tensor(v, requires_grad=True) if k in ins else v) for k, v in raw.items()}
             for _p, _o, _k, t in tt.walk_device_weights(m):
                 ag.parameter(t)
             with T.tape():
-                out = m(*(L[k] for k in keys))
+                out = call(m, [L[k] for k in keys])
             for _p, _o, _k, t in tt.walk_device_weights(m):  # a declined fused path can upload more
                 ag.parameter(t)
         walked = {p: t for p, _o, _k, t in tt.walk_device_weights(m)}
