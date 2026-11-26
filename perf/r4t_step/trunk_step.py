@@ -28,6 +28,9 @@ def main():
     ap.add_argument("--detach-at", type=int, default=-1)
     ap.add_argument("--out", default=os.path.expanduser("~/r4t/step/tck"))
     a = ap.parse_args()
+    import faulthandler
+    import signal
+    faulthandler.register(signal.SIGUSR1)   # kill -USR1 <pid> prints every thread stack to the log
     from tt_bio.main import ensure_p300_mesh_descriptor
     ensure_p300_mesh_descriptor()
     import torch
