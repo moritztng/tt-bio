@@ -13,7 +13,14 @@ SCREEN=${SCREEN:-25} FINAL=${FINAL:-45} ARM_TIMEOUT=${ARM_TIMEOUT:-1200}
 
 # Install + import gate + census: box_rfd4.sh's, unchanged (pinned upstream sha, cu13 extras, the apt fixes).
 SETUP_ONLY=1 bash /root/kc/box_rfd4.sh "$CAP_H" || { echo setup > $B/RFD4-FAILED; exit 2; }
-export DATA_PATH=/root/data_path HF_HOME=/root/hf RFD4=/root/rfd4 PY R4T_KC=/root/kc
+# Xet transfers stalled forever on vast machine 146917 (745 MB of the bundle, then nothing; every arm timed out
+# inside the download). Plain HTTPS, and the bundle fetched once here so ARM_TIMEOUT only ever times training.
+export DATA_PATH=/root/data_path HF_HOME=/root/hf RFD4=/root/rfd4 PY R4T_KC=/root/kc HF_HUB_DISABLE_XET=1
+for i in 1 2 3; do
+  timeout 1200 /opt/rfd4-venv/bin/hf download nvidia/RFD4-Proteina model.safetensors config.json \
+    --revision a06e2509c7033b010fc43614e9fd840303588502 >> $R/weights.log 2>&1 && break
+  say "weights fetch attempt $i failed"; [ $i = 3 ] && { echo weights > $B/RFD4-FAILED; exit 3; }
+done
 if [ ! -f $DATA_PATH/test_dataset/test_systems.parquet ]; then
   mkdir -p $DATA_PATH && /opt/rfd4-venv/bin/hf download nvidia/RFD4-Proteina test_dataset/test_dataset.tar.gz \
     --revision a06e2509c7033b010fc43614e9fd840303588502 --local-dir $DATA_PATH > $R/data.log 2>&1 &&
