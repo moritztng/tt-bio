@@ -4,8 +4,8 @@ Loaded into upstream's `rfd4-train` with
     +callbacks.r4t_timer._target_=r4t_step_timer.StepTimer +callbacks.r4t_timer.out=<path.jsonl>
 and PYTHONPATH pointing at this directory. It changes nothing in the step; it only reads clocks.
 
-Per step it writes one JSON line: global step, recycle depth (upstream's own synced draw, recomputed from the
-same seed), the device step (batch start to batch end, synchronized), the full step (previous batch end to
+Per step it writes one JSON line: global step, recycle depth (the value upstream's own
+handle_recycling returned), the device step (batch start to batch end, synchronized), the full step (previous batch end to
 this one, so dataloader waits are inside it), loss and its terms, and peak allocated memory.
 """
 
@@ -13,7 +13,6 @@ import json
 import time
 
 import lightning as L
-import numpy as np
 import torch
 
 
@@ -27,14 +26,20 @@ class StepTimer(L.Callback):
             torch.cuda.synchronize()
         return time.perf_counter()
 
+    def on_fit_start(self, trainer, pl_module):
+        # Record the recycle depth upstream actually drew for the step: wrap its own method, return value untouched.
+        inner = pl_module.handle_recycling
+
+        def handle_recycling(*a, **kw):
+            n = inner(*a, **kw)
+            self.rec = n
+            return n
+
+        pl_module.handle_recycling = handle_recycling
+
     def on_train_batch_start(self, trainer, pl_module, batch, batch_idx):
         self.step = int(pl_module.global_step)  # read before training_step bumps it
-        tr = pl_module.cfg_exp.training
-        # Same draw as Proteina.handle_recycling when n_recycle_sync is on; it builds its own rng, so reading it
-        # here consumes nothing from the step's random state.
-        if tr.get("n_recycle_sync", False) and tr.get("n_recycle_sampler", "uniform") == "poisson":
-            rng = np.random.default_rng(0x5EED0000 + self.step)
-            self.rec = int(np.clip(rng.poisson(float(tr.get("n_recycle_lambda", 3.0))), 1, int(tr.n_recycle_max)))
+        self.rec = None
         if torch.cuda.is_available():
             torch.cuda.reset_peak_memory_stats()
         self.t0 = self._sync()
