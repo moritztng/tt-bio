@@ -1,0 +1,25 @@
+  (1) add the line 'export VAR_NAME=path/to/variable' to your .bashrc or .zshrc file
+  (2) set it in your current shell with 'export VAR_NAME=path/to/variable'
+  (3) write it to a .env file in the root of the atomworks.io repository
+Environment variable PDB_MIRROR_PATH not set. Will not be able to use function requiring this variable. To set it you may:
+  (1) add the line 'export VAR_NAME=path/to/variable' to your .bashrc or .zshrc file
+  (2) set it in your current shell with 'export VAR_NAME=path/to/variable'
+  (3) write it to a .env file in the root of the atomworks.io repository
+Fetching 2 files:   0%|          | 0/2 [00:00<?, ?it/s]Fetching 2 files: 100%|██████████| 2/2 [00:00<00:00, 530.72it/s]
+cuEquivariance is unavailable; using torch. Reason: cuequivariance-ops-torch>=0.13 is required (No module named 'cuequivariance_ops_torch')
+  return torch.rms_norm(input, normalized_shape, weight, eps)
+s dtype under autocast at head input: torch.float32
+fp32 A/A max abs: 0.0
+batch08 cand0 all       n=  56 s rel 9.158e-03
+batch08 cand0 insertion n=   5 s rel 1.056e-02
+batch08 cand0 rest      n=  51 s rel 9.007e-03
+batch08 cand1 all       n=  56 s rel 9.504e-03
+batch08 cand1 insertion n=   5 s rel 1.469e-02
+batch08 cand1 rest      n=  51 s rel 8.837e-03
+batch08 cand2 all       n=  56 s rel 8.109e-03
+batch08 cand2 insertion n=   5 s rel 9.402e-03
+batch08 cand2 rest      n=  51 s rel 7.967e-03
+batch08 cand3 all       n=  56 s rel 8.059e-03
+batch08 cand3 insertion n=   5 s rel 8.755e-03
+batch08 cand3 rest      n=  51 s rel 7.987e-03
+winners [1] depth 2

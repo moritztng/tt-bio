@@ -294,3 +294,28 @@ def summarise(losses: Sequence[float], window: int = 100) -> dict:
     return {"steps": int(x.size), "first": float(x[0]), "last": float(x[-1]),
             f"mean_last_{w}": float(x[-w:].mean()),
             "finite": bool(np.isfinite(x).all())}
+
+
+def read_dump_dir(path) -> tuple["CurvePlan", list[Path]]:
+    """A directory of plan-step inputs (``curve_upstream.py --dump-dir``) -> its plan and its
+    step files in step order.
+
+    Every file is checked against ``plan.json``'s digest, so a leg can never train on one plan's
+    tensors while logging another's: mixing two dumps in a directory, or pointing a run at a
+    plan it was not dumped for, raises here rather than producing a log that grades.
+    """
+    path = Path(path)
+    plan = CurvePlan.from_dict(json.loads((path / "plan.json").read_text()))
+    files = sorted(path.glob("step*.npz"))
+    if not files:
+        raise CurveContractError(f"{path}: no step*.npz")
+    want = plan.digest()
+    for f in files:
+        got = str(np.load(f, allow_pickle=False)["plan_digest"])
+        if got != want:
+            raise CurveContractError(f"{f.name} was dumped for plan {got}, plan.json is {want}")
+    missing = [i for i in range(len(files)) if files[i].name != f"step{i:05d}.npz"]
+    if missing:
+        raise CurveContractError(f"{path}: step files are not a gapless run from 0 "
+                                 f"(first bad index {missing[0]}: {files[missing[0]].name})")
+    return plan, files

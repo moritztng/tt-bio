@@ -37,7 +37,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from loss_parity_reference import HF_REPO, HF_REV, build_model  # noqa: E402
+from loss_parity_reference import HF_REPO, HF_REV, build_model, flat, load_batch  # noqa: E402
 from tt_bio.train.curve import CurveLog, CurvePlan  # noqa: E402
 from tt_bio.train.parity import GradientCoverage, zero_or_missing  # noqa: E402
 
@@ -136,6 +136,24 @@ def to_device(x, device):
     return x
 
 
+def corrupt(model, batch, spec, k):
+    """The network input of one plan step: upstream's clean sample, then `t` and noise at the
+    step's seeds. Weight-independent, so the TT leg can take it from a dump (`--dump-dir`) and
+    see the tensors this script trains on, not a re-derivation of them."""
+    import torch
+    fm = model.fm
+    batch["coords_nm"] = batch["coords"] / 10.0
+    batch["coord_mask"] = batch["atom37_mask"]
+    batch["strict_feats"] = True
+    with torch.no_grad():
+        batch = model.add_clean_samples(batch)
+        torch.manual_seed(spec.t_seed)
+        t = fm.sample_t(shape=(batch["padding_mask"].shape[0] // k,),
+                        device=batch["padding_mask"].device)
+        torch.manual_seed(spec.noise_seed)
+        return fm.corrupt_batch(batch, t={dm: v.repeat_interleave(k) for dm, v in t.items()})
+
+
 def train_step(model, batch, spec, k, optimizers, schedulers, clip_val, device):
     """Upstream's training step, with the plan's t, noise and recycle depth.
 
@@ -147,17 +165,7 @@ def train_step(model, batch, spec, k, optimizers, schedulers, clip_val, device):
     from rfproteina.utils.torch import minimum_loss_attempt_indices
 
     fm = model.fm
-    batch["coords_nm"] = batch["coords"] / 10.0
-    batch["coord_mask"] = batch["atom37_mask"]
-    batch["strict_feats"] = True
-    with torch.no_grad():
-        batch = model.add_clean_samples(batch)
-        torch.manual_seed(spec.t_seed)
-        t = fm.sample_t(shape=(batch["padding_mask"].shape[0] // k,),
-                        device=batch["padding_mask"].device)
-        torch.manual_seed(spec.noise_seed)
-        batch = fm.corrupt_batch(batch, t={dm: v.repeat_interleave(k) for dm, v in t.items()})
-    batch = to_device(batch, device)
+    batch = to_device(corrupt(model, batch, spec, k), device)
     nn_out = model.call_nn(batch, n_recycle=spec.n_recycle)
     losses = fm.compute_loss(batch=batch, nn_out=nn_out)
     names = model.cfg_exp.training.get("exploration_losses", fm.data_modes)
@@ -177,6 +185,67 @@ def train_step(model, batch, spec, k, optimizers, schedulers, clip_val, device):
     return float(loss.detach()), {n: float(v.detach()) for n, v in terms.items()}, dead
 
 
+def dump(model, ds, index, plan, args):
+    """Write each plan step's network input as `step<NNNNN>.npz` in `load_batch`'s format: the
+    corrupted batch, the torch RNG state `call_nn` starts from, and the step's recycle depth.
+
+    The TT leg trains on these files, so both sides see the same tensors by construction rather
+    than by two implementations of the plan agreeing. `--check-dump` reruns step 0 from its file
+    and must land on this script's own step-0 loss (no update has happened before step 0)."""
+    import numpy as np
+    import torch
+    out = Path(args.dump_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "plan.json").write_text(json.dumps(asdict(plan), indent=1))
+    n = args.dump_steps or plan.steps
+    cache = {}
+    for i in range(n):
+        spec = plan.step(i)
+        eid = spec.example_ids[0]                 # batch_size 1 in the plans we run today
+        if eid not in cache:
+            cache[eid] = collate(ds, index[eid], plan.crop, plan.exploration_k,
+                                 seed=example_seed(plan.seed, eid))
+        b = corrupt(model, {k: (v.clone() if torch.is_tensor(v) else v) for k, v in cache[eid].items()},
+                    spec, plan.exploration_k)
+        np.savez_compressed(out / f"step{i:05d}.npz", **{f"in/{k}": v for k, v in flat(b).items()},
+                            rng_state=torch.get_rng_state().numpy(), winners=np.array([-1]),
+                            depth=np.int64(spec.n_recycle), seed=np.int64(spec.noise_seed),
+                            plan_digest=np.array(plan.digest()), example_id=np.array(eid))
+    print(f"dumped {n} steps of plan {plan.digest()} to {out}")
+
+
+def check_dump(path: Path, log: Path) -> int:
+    """Step 0 from its dump, at the released weights, against the step-0 loss a run of the same
+    plan logged. Exit 0 when they agree to the replay floor, 1 otherwise, 2 when the log ran
+    a different plan."""
+    import numpy as np
+    import torch
+    from rfproteina.utils.torch import minimum_loss_attempt_indices
+    from loss_parity_reference import REPLAY_TOL
+    torch.set_num_threads(int(os.environ.get("OMP_NUM_THREADS", "8")))
+    _, model = build_model(Path(os.environ["RFD4_REPO"]).expanduser(), torch.float32)
+    fm = model.fm
+    batch, meta, _, _ = load_batch(path / "step00000.npz", torch.float32)
+    k = json.loads((path / "plan.json").read_text())["exploration_k"]
+    torch.set_rng_state(meta["rng_state"])
+    with torch.no_grad():
+        losses = fm.compute_loss(batch=batch, nn_out=model.call_nn(batch, n_recycle=meta["depth"]))
+        names = model.cfg_exp.training.get("exploration_losses", fm.data_modes)
+        win = minimum_loss_attempt_indices(losses=losses, loss_names=list(names), attempts_per_example=k)
+        loss = float(sum(v.mean() for v in fm.optimization_terms({n: v[win] for n, v in losses.items()}).values()))
+    lines = [json.loads(ln) for ln in log.read_text().splitlines() if ln.strip()]
+    dumped = str(np.load(path / "step00000.npz")["plan_digest"])
+    if lines[0].get("plan_digest") != dumped:
+        print(f"REFUSED: {log} ran plan {lines[0].get('plan_digest')}, the dump is plan {dumped}")
+        return 2
+    logged = next(r["loss"] for r in lines if r.get("step") == 0)
+    rel = abs(loss - logged) / abs(logged)
+    ok = rel <= REPLAY_TOL
+    print(json.dumps({"dump_step0_loss": loss, "logged_step0_loss": logged, "rel": rel,
+                      "tol": REPLAY_TOL, "verdict": "MATCH" if ok else "MISMATCH"}))
+    return 0 if ok else 1
+
+
 def run(args):
     import torch
     torch.set_num_threads(int(os.environ.get("OMP_NUM_THREADS", "8")))
@@ -193,6 +262,9 @@ def run(args):
     missing = [e for e in plan.example_ids if e not in index]
     if missing:
         raise SystemExit(f"the plan names examples this dataset does not have: {missing[:4]}")
+
+    if args.dump_dir:
+        return dump(model, ds, index, plan, args)
 
     torch.manual_seed(plan.seed + args.seed_offset)
     opts = model.configure_optimizers()
@@ -269,6 +341,11 @@ def main():
                     "punctuation, so lines, not a separator char): parameters this plan's data "
                     "cannot drive (see CurvePlan.exempt)")
     ap.add_argument("--note", default="")
+    ap.add_argument("--dump-dir", default="", help="with --plan: write every step's network input "
+                    "here for the TT leg instead of training (see dump())")
+    ap.add_argument("--dump-steps", type=int, default=0, help="dump only the first N steps (0: all)")
+    ap.add_argument("--check-dump", default="", help="LOG: rerun step 0 from --dump-dir and match "
+                    "the step-0 loss LOG recorded for the same plan")
     ap.add_argument("--sha", default=os.environ.get("TT_BIO_SHA", ""))
     a = ap.parse_args()
     if a.make_plan:
@@ -285,7 +362,9 @@ def main():
         print(f"{a.plan}: {plan.steps} steps, crop {plan.crop}, {len(plan.example_ids)} ids, "
               f"digest {plan.digest()}, graded={plan.graded}")
         return
-    if not a.out:
+    if a.check_dump:
+        sys.exit(check_dump(Path(a.dump_dir), Path(a.check_dump)))
+    if not a.out and not a.dump_dir:
         raise SystemExit("--out is required when running a plan")
     run(a)
 
