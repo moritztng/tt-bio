@@ -94,10 +94,31 @@ def nn_outputs(rng, b, n, x1, xt, t):
     return out
 
 
-def run_one(fm, seed, n_ex, k, n, broken=False):
+def fixture_batch(rng, k):
+    """Upstream's own crops, from the committed fixture (`tt_bio/train/rfd4_data.py`)."""
+    from tt_bio.train import rfd4_data
+    b = rfd4_data.load()
+    if int(b["exploration_k"]) != k:
+        raise SystemExit(f"fixture was built at exploration_k={int(b['exploration_k'])}")
+    batch = {key: b[key] for key in rfd4_data.FIXTURE_KEYS}
+    batch["molecule_iid"] = batch["molecule_iid"].astype(np.int64)
+    batch["insertion_source_idx"] = batch["insertion_source_idx"].astype(np.int64)
+    batch["residue_type"] = batch["residue_type"].astype(np.int64)
+    batch["condition_sequence_1_residue"] = batch["condition_sequence_1_residue"].astype(np.int64)
+    batch.pop("coords"), batch.pop("atom37_mask"), batch.pop("token_type"), batch.pop("chain_iid")
+    ca = np.asarray(b["coords"], np.float64)[:, :, 1, :] / 10.0
+    # The AE is frozen and its latents are a function of its checkpoint; parity of the LOSS
+    # does not need upstream's own latents, only the same ones on both sides.
+    lat = np.repeat(rng.normal(size=(ca.shape[0] // k, ca.shape[1], LATENT))[:, None], k, 1)
+    return batch, {"bb_ca": ca, "local_latents": lat.reshape(ca.shape[0], ca.shape[1], LATENT)}
+
+
+def run_one(fm, seed, n_ex, k, n, broken=False, fixture=False):
     from rfproteina.utils.torch import minimum_loss_attempt_indices
     rng = np.random.default_rng(seed)
-    batch_np, x1 = make_batch(rng, n_ex, k, n)
+    batch_np, x1 = fixture_batch(rng, k) if fixture else make_batch(rng, n_ex, k, n)
+    n = batch_np["padding_mask"].shape[1]
+    n_ex = batch_np["padding_mask"].shape[0] // k
     t_ex = {m: R.sample_t(rng, (n_ex,), m) for m in R.MODES}
     t = {m: np.repeat(v, k) for m, v in t_ex.items()}
     b = n_ex * k
@@ -157,13 +178,15 @@ def main():
     ap.add_argument("--tokens", type=int, default=256)
     ap.add_argument("--tol", type=float, default=1.0e-4, help="PLAN.md G3 fp32-arm bar")
     ap.add_argument("--out", type=Path)
+    ap.add_argument("--fixture", action="store_true",
+                    help="use the committed fixture's real crops instead of synthetic batches")
     ap.add_argument("--broken", action="store_true",
                     help="control arm: drop loss_weight on our side; must FAIL")
     a = ap.parse_args()
     torch.set_default_dtype(torch.float64)
     from rfproteina.flow_matching.product_space_flow_matcher import ProductSpaceFlowMatcher
     fm = ProductSpaceFlowMatcher(upstream_cfg())
-    rows = [run_one(fm, s, a.examples, R.EXPLORATION_K, a.tokens, a.broken) for s in range(a.n)]
+    rows = [run_one(fm, s, a.examples, R.EXPLORATION_K, a.tokens, a.broken, a.fixture) for s in range(a.n)]
     worst = max(max(r["terms_rel"].values()) for r in rows)
     worst = max(worst, max(r["total_rel"] for r in rows), max(r["x_t_rel"] for r in rows))
     gworst = max(max(r["grad_rel"].values()) for r in rows)
