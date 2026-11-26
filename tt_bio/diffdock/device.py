@@ -144,12 +144,16 @@ class DeviceEdgeTP:
                 t = t.reshape(1, -1)
             return ttnn.from_torch(t, dtype=dt, layout=ttnn.TILE_LAYOUT, device=device)
 
-        self.w1 = up(fc[0].weight.detach().T)
-        self.b1 = up(fc[0].bias.detach())
+        # The edge-feature and hidden widths (144 at ns=48) are not tile multiples; zero rows
+        # and columns keep the pad lanes at relu(0) = 0, so they never feed a weight.
+        hp, fp = pad32(self.hidden), pad32(self.n_edge_features)
+        self.w1 = up(_pad2(fc[0].weight.detach().T, fp, hp))
+        self.b1 = up(_pad2(fc[0].bias.detach().reshape(1, -1), 1, hp))
         # The 0/1 placement matrices are exact in bf16; the 3j values and the FC weights are not.
         self.paths = [
             dict(G=up(p.G), E=up(p.E, ttnn.bfloat16), Q=up(p.Q, ttnn.bfloat16),
-                 S=up(p.S, ttnn.bfloat16), W2d=up(p.W2d), b2d=up(p.b2d))
+                 S=up(p.S, ttnn.bfloat16), W2d=up(_pad2(p.W2d, hp, p.W2d.shape[1])),
+                 b2d=up(p.b2d))
             for p in path_constants(tp, fc)
         ]
         self.ckc = ttnn.types.BlackholeComputeKernelConfig(
@@ -169,6 +173,10 @@ class DeviceEdgeTP:
             part = mm(ttnn.multiply(wt, y), p["S"])
             out = part if out is None else ttnn.add(out, part)
         return out
+
+
+def _pad2(t: Tensor, rows: int, cols: int) -> Tensor:
+    return torch.nn.functional.pad(t, (0, cols - t.shape[1], 0, rows - t.shape[0]))
 
 
 def to_device(device, x: Tensor, dtype=None):
