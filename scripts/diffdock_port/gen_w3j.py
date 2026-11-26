@@ -17,16 +17,28 @@ import sys
 import torch
 from e3nn import o3
 
-# (l_in, l_sh, l_out) reachable in the released DiffDock-L. Feature irreps never exceed
-# l=1 and outputs never exceed l=1, so the sh side is the only one that runs to l=4 -- the
-# torsion conv's harmonics come from FullTensorProduct(0e+1o+2e, 2e) and pair with l_out=0.
-NEEDED = sorted({
+# The triples reachable in the released DiffDock-L, as two separate families.
+#
+# 1. The weighted convolutions. Feature irreps never exceed l=1 and conv outputs never
+#    exceed l=1, so only the harmonics side runs high -- the torsion conv's harmonics come
+#    out of FullTensorProduct(0e+1o+2e, 2e) and reach l=4, paired with l_out=0.
+# 2. That FullTensorProduct itself. It is unweighted, but it still contracts 3j tensors, and
+#    its *first* argument is the harmonics, so it reaches l1=2 -- outside family 1 entirely.
+#    Missing these is not a silent wrong answer: wigner_3j raises and names this script.
+CONV = {
     (l1, l2, l3)
     for l1 in range(2)
     for l2 in range(5)
     for l3 in range(2)
     if abs(l1 - l2) <= l3 <= l1 + l2
-})
+}
+FULL_TP_TOR = {
+    (l1, 2, l3)
+    for l1 in (0, 1, 2)
+    for l3 in range(5)
+    if abs(l1 - 2) <= l3 <= l1 + 2
+}
+NEEDED = sorted(CONV | FULL_TP_TOR)
 
 
 def main(out_path):

@@ -38,10 +38,18 @@ SMALL = [("4x0e + 2x1o + 2x1e + 2x0o", SH, "4x0e + 2x1o + 2x1e + 2x0o")]
 
 
 def test_tables_are_normalised_and_have_the_selection_rules():
-    for (l1, l2, l3) in [(0, 0, 0), (0, 1, 1), (1, 0, 1), (1, 1, 0), (1, 1, 1), (1, 2, 1)]:
+    import json
+    from tt_bio.diffdock import tensor_product as TP
+    keys = sorted(json.loads(TP._TABLE_PATH.read_text())["tables"])
+    # The 6 the weighted convolutions reach, plus the 8 FullTensorProduct(sh, 2e) reaches
+    # for the torsion head -- that one takes the harmonics as its *first* argument, so it
+    # runs to l1=2, outside the conv family entirely.
+    assert len(keys) == 14
+    for (l1, l2, l3) in [tuple(int(x) for x in k.split(",")) for k in keys]:
         w = wigner_3j(l1, l2, l3, dtype=torch.float64)
         assert w.shape == (2 * l1 + 1, 2 * l2 + 1, 2 * l3 + 1)
         assert torch.linalg.norm(w).item() == pytest.approx(1.0, abs=1e-12)
+        assert abs(l1 - l2) <= l3 <= l1 + l2
     # l x l -> 0 is the identity over sqrt(2l+1); this pins both scale and sign.
     assert torch.allclose(wigner_3j(1, 1, 0, dtype=torch.float64)[:, :, 0],
                           torch.eye(3, dtype=torch.float64) / math.sqrt(3), atol=1e-12)
@@ -49,7 +57,7 @@ def test_tables_are_normalised_and_have_the_selection_rules():
 
 def test_an_unlisted_signature_fails_loudly():
     with pytest.raises(KeyError, match="gen_w3j"):
-        wigner_3j(2, 2, 2)
+        wigner_3j(3, 1, 2)
 
 
 @pytest.mark.parametrize("sig", SIGNATURES)
