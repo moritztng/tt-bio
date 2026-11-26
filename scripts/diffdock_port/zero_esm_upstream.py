@@ -39,6 +39,9 @@ PB, lm_embeddings_for = _dg.PB, _dg.lm_embeddings_for
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--id", default="7A9E_R4W")
+    ap.add_argument("--protein", default=None,
+                    help="override the PoseBusters pdb, e.g. upstream's own 1a46 example")
+    ap.add_argument("--ligand", default=None, help="sdf path or a SMILES string")
     ap.add_argument("--fill", default="0,0.02,real",
                     help="comma list: a constant for every ESM column, or 'real' for the "
                          "embedding upstream computed")
@@ -58,7 +61,8 @@ def main():
     from utils.utils import get_model
 
     cid = a.id
-    prot, lig = PB / cid / f"{cid}_protein.pdb", PB / cid / f"{cid}_ligand.sdf"
+    prot = Path(a.protein) if a.protein else PB / cid / f"{cid}_protein.pdb"
+    lig = a.ligand if a.ligand else str(PB / cid / f"{cid}_ligand.sdf")
     run_dir = D / "runs/net-parity" / cid
     run_dir.mkdir(parents=True, exist_ok=True)
     inf = yaml.safe_load((D / "upstream/default_inference_args.yaml").read_text())
@@ -67,11 +71,12 @@ def main():
 
     ds = InferenceDataset(
         out_dir=str(run_dir), complex_names=[cid], protein_files=[str(prot)],
-        ligand_descriptions=[str(lig)], protein_sequences=[None], lm_embeddings=True,
+        ligand_descriptions=[lig], protein_sequences=[None], lm_embeddings=True,
         receptor_radius=sma.receptor_radius, remove_hs=sma.remove_hs,
         c_alpha_max_neighbors=sma.c_alpha_max_neighbors, all_atoms=sma.all_atoms,
         atom_radius=sma.atom_radius, atom_max_neighbors=sma.atom_max_neighbors,
-        precomputed_lm_embeddings=lm_embeddings_for(cid, str(prot)),
+        precomputed_lm_embeddings=lm_embeddings_for(cid, str(prot)) if a.protein is None
+        else None,
         knn_only_graph=(not sma.not_knn_only_graph) if hasattr(sma, "not_knn_only_graph") else False)
 
     device = torch.device("cpu")
