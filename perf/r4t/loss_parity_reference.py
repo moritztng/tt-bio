@@ -127,7 +127,7 @@ def build_model(repo: Path, dtype):
     return cfg, model
 
 
-def batches(cfg, n, seed, min_tokens):
+def batches(cfg, n, seed, min_tokens, start=0):
     """Upstream's pipeline, skipping examples too small to grade a relative bar.
 
     The first system in upstream's published test_dataset crops to 4 real tokens, and at that
@@ -143,7 +143,7 @@ def batches(cfg, n, seed, min_tokens):
     torch.manual_seed(seed)
     np.random.seed(seed)
     got = 0
-    for i in range(len(ds)):
+    for i in range(start, len(ds)):
         if got == n:
             return
         try:
@@ -201,6 +201,9 @@ def main():
     ap.add_argument("--dtype", choices=("float32", "float64"), default="float32")
     ap.add_argument("--min-tokens", type=int, default=32,
                     help="skip examples smaller than this; see batches() on the 4-token system")
+    ap.add_argument("--start", type=int, default=0, help="first dataset index to consider")
+    ap.add_argument("--index-offset", type=int, default=0,
+                    help="number the dumps from here, to extend an existing set without overwriting")
     ap.add_argument("--replay", action="store_true",
                     help="do not generate: rerun call_nn from the dumps in --out and match them")
     a = ap.parse_args()
@@ -214,7 +217,8 @@ def main():
     cfg, model = build_model(repo, dtype)
     a.out.mkdir(parents=True, exist_ok=True)
     summary = []
-    for i, (eid, batch) in enumerate(batches(cfg, a.n, a.seed, a.min_tokens)):
+    for j, (eid, batch) in enumerate(batches(cfg, a.n, a.seed, a.min_tokens, a.start)):
+        i = j + a.index_offset
         seed = 0x4733_0000 + i
         nn_in, rng, out, losses, win, terms, wall = run(model, batch, seed, a.depth, dtype)
         np.savez_compressed(a.out / f"batch{i:02d}.npz", **{f"in/{k}": v for k, v in nn_in.items()},
@@ -227,9 +231,18 @@ def main():
                "zero_terms": sorted(k for k, v in terms.items() if v == 0.0)}
         summary.append(row)
         print(json.dumps(row), flush=True)
+        # A term that is zero in EVERY graded batch is graded trivially (the bar passes both
+        # sides at zero) but never exercised, so coverage is reported beside the values. These
+        # PLINDER systems carry no chiral centre, unindexed token or conditioned residue each,
+        # so covering all five terms means choosing examples that between them do.
+        covered = {k for row in summary for k, v in row["terms"].items() if v != 0.0}
         (a.out / "summary.json").write_text(json.dumps(
             {"upstream_sha": os.popen(f"git -C {repo} rev-parse HEAD").read().strip(),
-             "hf": f"{HF_REPO}@{HF_REV}", "crop": CROP, "k": K, "batches": summary}, indent=1))
+             "hf": f"{HF_REPO}@{HF_REV}", "crop": CROP, "k": K, "depth": a.depth,
+             "term_coverage": {k: sum(1 for r in summary if r["terms"].get(k, 0.0) != 0.0)
+                               for k in (summary[0]["terms"] if summary else {})},
+             "terms_never_exercised": sorted(set(summary[0]["terms"]) - covered) if summary else [],
+             "batches": summary}, indent=1))
 
 
 if __name__ == "__main__":
