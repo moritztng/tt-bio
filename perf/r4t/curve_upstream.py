@@ -127,7 +127,7 @@ def train_step(model, batch, spec, k, optimizers, schedulers, clip_val):
         opt.zero_grad(set_to_none=True)
     for sch in schedulers:
         sch.step()
-    return float(loss), {n: float(v) for n, v in terms.items()}, dead
+    return float(loss.detach()), {n: float(v.detach()) for n, v in terms.items()}, dead
 
 
 def run(args):
