@@ -260,7 +260,13 @@ def main():
         sys.exit(replay(repo, a.out, dtype))
     cfg, model = build_model(repo, dtype)
     a.out.mkdir(parents=True, exist_ok=True)
-    summary = []
+    # Extending an existing set (--index-offset) must not drop the rows already written:
+    # summary.json is rewritten whole each batch, so the earlier rows are carried forward.
+    prior = a.out / "summary.json"
+    summary = (json.loads(prior.read_text())["batches"]
+               if a.index_offset and prior.exists() else [])
+    if summary:
+        print(f"extending {len(summary)} existing batches from {prior}", file=sys.stderr)
     ids = set(a.ids.split(",")) if a.ids else None
     for j, (eid, batch) in enumerate(batches(cfg, a.n, a.seed, a.min_tokens, a.start, ids)):
         i = j + a.index_offset
