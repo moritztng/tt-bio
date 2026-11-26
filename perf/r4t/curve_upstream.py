@@ -24,6 +24,7 @@ Grade with `perf/r4t/grade_parity.py --ours OURS --gpu-a A --gpu-b B`.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import socket
@@ -41,6 +42,11 @@ from tt_bio.train.curve import CurveLog, CurvePlan  # noqa: E402
 from tt_bio.train.parity import GradientCoverage, zero_or_missing  # noqa: E402
 
 SCHEMA = "rfproteina.datapipes.schema.proteina.ProteinaDataSample"
+
+
+def example_seed(plan_seed: int, example_id: str) -> int:
+    """The plan's seed for one example's pipeline draw. By id, so order never changes a crop."""
+    return (plan_seed ^ int(hashlib.sha256(example_id.encode()).hexdigest()[:8], 16)) % (2**31)
 
 
 def _upstream_sha(repo: Path) -> str:
@@ -66,8 +72,27 @@ def dataset_index(cfg, min_tokens: int):
     return ds, index
 
 
-def collate(ds, i, crop, k):
+def collate(ds, i, crop, k, seed=None):
+    """One example through upstream's pipeline, at a seed the plan fixes.
+
+    Upstream's design-task transform draws from the GLOBAL numpy RNG while the example is being
+    built (`transforms/design_task.py`: coverage fraction, which chains and residues are
+    conditioned, which motif, which tip atoms), so two processes running the same plan see
+    different conditioning unless that RNG is pinned here. Measured 2026-11-26: without this,
+    three legs of the same 20-step plan disagreed on step 0's loss by up to 7 %, and one of them
+    lost the insertion supervision entirely, which the G2 guard then refused. Seeding per example
+    id (not per step) keeps the cache sound: an id always yields the same crop and conditioning.
+    """
+    import random
+
+    import numpy as np
+    import torch
     from rfproteina.datapipes.collate import collate_batch
+
+    if seed is not None:
+        random.seed(seed)
+        np.random.seed(seed % (2**32))
+        torch.manual_seed(seed)
     b = collate_batch([ds[i]], schema=SCHEMA, fixed_dimensions={"I": crop},
                       keep_atom_array=False, num_replicates=k)
     return b["feats"] if "feats" in b else b
@@ -84,7 +109,7 @@ def make_plan(cfg, args) -> CurvePlan:
     ids = []
     for eid in wanted:
         i = index[eid]
-        feats = collate(ds, i, args.crop, args.exploration_k)
+        feats = collate(ds, i, args.crop, args.exploration_k, seed=example_seed(args.seed, eid))
         tokens = int(feats["padding_mask"][0].sum())
         if tokens < args.min_tokens:
             print(f"skip {eid}: {tokens} tokens < {args.min_tokens}", file=sys.stderr)
@@ -98,7 +123,7 @@ def make_plan(cfg, args) -> CurvePlan:
     exempt = tuple(tuple(line.split("=", 1)) for line in args.exempt.splitlines() if line.strip())
     return CurvePlan(steps=args.steps, crop=args.crop, example_ids=tuple(ids),
                      batch_size=args.batch_size, exploration_k=args.exploration_k,
-                     warmup=args.warmup, exempt=exempt, note=args.note)
+                     warmup=args.warmup, seed=args.seed, exempt=exempt, note=args.note)
 
 
 def train_step(model, batch, spec, k, optimizers, schedulers, clip_val):
@@ -159,7 +184,7 @@ def run(args):
     guard = GradientCoverage([n for n, p in model.nn.named_parameters() if p.requires_grad],
                              exempt=dict(plan.exempt), where=f"{args.side} curve leg: ")
     meta = {"upstream_sha": _upstream_sha(repo), "hf": f"{HF_REPO}@{HF_REV}",
-            "seed_offset": args.seed_offset, "dtype": "float32", "device": "cpu",
+            "seed_offset": args.seed_offset, "data_seed": "plan.seed ^ sha256(example_id)", "dtype": "float32", "device": "cpu",
             "threads": torch.get_num_threads(), "sha": args.sha, "host": socket.gethostname(),
             "optimizers": [type(o).__name__ for o in optimizers], "clip": clip_val,
             # Which feature each exempt creator index is, so an exemption's reason is checkable
@@ -175,7 +200,8 @@ def run(args):
             feats = {}
             for eid in spec.example_ids:          # batch_size 1 in the plans we run today
                 if eid not in cache:
-                    cache[eid] = collate(ds, index[eid], plan.crop, plan.exploration_k)
+                    cache[eid] = collate(ds, index[eid], plan.crop, plan.exploration_k,
+                                         seed=example_seed(plan.seed, eid))
                 feats = {k: (v.clone() if torch.is_tensor(v) else v)
                          for k, v in cache[eid].items()}
             loss, terms, dead = train_step(model, feats, spec, plan.exploration_k,
@@ -197,12 +223,16 @@ def main():
     ap.add_argument("--make-plan", action="store_true")
     ap.add_argument("--out", help="curve log to append to")
     ap.add_argument("--side", choices=("ours", "gpu_a", "gpu_b"), default="gpu_a")
-    ap.add_argument("--seed-offset", type=int, default=0, help="second seed for the gpu_b control")
+    ap.add_argument("--seed-offset", type=int, default=0,
+                    help="second seed for the gpu_b control; it moves the step's t and noise, "
+                         "never the data (the pipeline draw is pinned per example id)")
     ap.add_argument("--steps", type=int, default=2000)
     ap.add_argument("--crop", type=int, default=256)
     ap.add_argument("--batch-size", type=int, default=1)
     ap.add_argument("--exploration-k", type=int, default=4)
     ap.add_argument("--warmup", type=int, default=200)
+    ap.add_argument("--seed", type=lambda v: int(v, 0), default=0x47330000,
+                    help="the plan's seed: per-step t/noise and the per-example pipeline draw")
     ap.add_argument("--min-tokens", type=int, default=32)
     ap.add_argument("--max-ids", type=int, default=0, help="cap the plan's id list (0: all)")
     ap.add_argument("--ids", default="", help="comma-separated example ids for the plan, in "
