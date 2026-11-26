@@ -1,22 +1,22 @@
 #!/bin/bash
-# r4t-step: wait for our qb2 chip-2 booking to be live and the node free, then run the trunk-step arms in order.
+# r4t-step: inside our qb2 chip-2 booking (book.py owner fleet-r4t-step), a crop-128 smoke first, then the
+# trunk-step arms A (6 steps, save at 5), R (resume, step 6 must match A), D (detached layer: G2 must refuse).
+# Never opens the card outside the booking: a wait that times out exits.
 cd ~/.coworker/wt/r4t-step || exit 1
 OUT=~/r4t/step/trunk; mkdir -p $OUT
 PY=~/scratch/shipflow/venv-c4f99e695d34/bin/python
-for i in $(seq 1 240); do
+ok=
+for i in $(seq 1 300); do
   who=$(python3 ~/spd/feed/book.py active 2 2>/dev/null)
-  if [ "$who" = "fleet-r4t-step" ] && [ -z "$(sudo -n fuser /dev/tenstorrent/2 2>/dev/null)" ]; then break; fi
+  if [ "$who" = "fleet-r4t-step" ] && [ -z "$(sudo -n fuser /dev/tenstorrent/2 2>/dev/null)" ]; then ok=1; break; fi
   echo "$(date -u +%FT%TZ) waiting: active=$who" >> $OUT/wait.log; sleep 30
 done
-# the card-0 smoke (crop 128, 2 steps) must have passed, or the window is handed back unused
-for i in $(seq 1 120); do grep -q "^RC" ~/r4t/step/smoke0/run.log 2>/dev/null && break; sleep 30; done
-if ! grep -q "^RC 0 " ~/r4t/step/smoke0/run.log 2>/dev/null; then
-  echo "SMOKE FAILED $(date -u +%FT%TZ); not running, booking dropped" > $OUT/run.log
-  python3 ~/spd/feed/book.py rm fleet-r4t-step; exit 3
-fi
+[ -n "$ok" ] || { echo "NO WINDOW $(date -u +%FT%TZ)" > $OUT/run.log; exit 4; }
 R(){ env PYTHONPATH=$PWD TT_VISIBLE_DEVICES=2 TT_BIO_LEASE_CARDS=2 TT_BIO_LEASE_HOLDER=worker:r4t-step timeout 1500 $PY perf/r4t_step/trunk_step.py "$@"; }
 echo "START $(date -u +%FT%TZ) sha $(git rev-parse --short HEAD)" > $OUT/run.log
-rm -rf $OUT/ckA $OUT/ckR $OUT/ckD
+rm -rf $OUT/ckS $OUT/ckA $OUT/ckR $OUT/ckD
+R --n 128 --k 2 --depth 2 --steps 2 --out $OUT/ckS > $OUT/S.log 2>&1; rc=$?; echo "RC_S $rc" >> $OUT/run.log
+[ $rc = 0 ] || { python3 ~/spd/feed/book.py rm fleet-r4t-step; echo "END smoke failed $(date -u +%FT%TZ)" >> $OUT/run.log; exit 3; }
 R --n 256 --k 4 --depth 2 --steps 6 --save-at 5 --out $OUT/ckA > $OUT/A.log 2>&1; echo "RC_A $?" >> $OUT/run.log
 R --n 256 --k 4 --depth 2 --steps 6 --resume $OUT/ckA/adapter-00000005.safetensors --out $OUT/ckR > $OUT/R.log 2>&1; echo "RC_R $?" >> $OUT/run.log
 R --n 256 --k 1 --depth 2 --steps 6 --detach-at 3 --out $OUT/ckD > $OUT/D.log 2>&1; echo "RC_D $?" >> $OUT/run.log
