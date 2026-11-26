@@ -23,11 +23,17 @@ applies the final layer norm before recording the last layer), which is the same
 
 from __future__ import annotations
 
+from collections import OrderedDict
 from typing import Callable, Iterable
 
 import torch
 
 from tt_bio.diffdock.config import ESM2_DIM, ESM2_MODEL, ESM2_TRUNCATION
+
+#: distinct sequences kept per encoder; a dock needs one receptor, a screen a few.
+CACHED_SEQUENCES = 8
+
+_ENCODERS: dict[tuple, Callable[[str], torch.Tensor]] = {}
 
 
 def split_chains(sequence: str) -> list[str]:
@@ -67,13 +73,49 @@ def cpu_encoder(model_name: str = ESM2_MODEL, cache_dir=None) -> Callable[[str],
     return encode
 
 
-def encoder(*, on_device: bool = True, model_name: str = ESM2_MODEL, cache_dir=None):
-    """``seq -> [1, L+2, 1280]``, on the card by default, on the host when asked."""
-    if on_device:
-        from tt_bio.saprot import esm2_encoder
+def memoize(encode: Callable[[str], torch.Tensor], *, keep: int = CACHED_SEQUENCES):
+    """The same encoder with each distinct sequence embedded once, newest *keep* kept.
 
-        return esm2_encoder(model_name, cache_dir)
-    return cpu_encoder(model_name, cache_dir)
+    A screen docks thousands of ligands against a handful of receptors, and the confidence
+    graph needs the same rows the score graph did, so the embedding is the one part of a dock
+    that is recomputed for nothing. The bound matters: a chain is ``L x 1280`` float32, about
+    1 MB per 200 residues, and a screen over hundreds of distinct receptors would otherwise
+    grow without end.
+    """
+    store: "OrderedDict[str, torch.Tensor]" = OrderedDict()
+
+    def cached(seq: str) -> torch.Tensor:
+        got = store.pop(seq, None)
+        if got is None:
+            got = encode(seq)
+        store[seq] = got
+        while len(store) > keep:
+            store.popitem(last=False)
+        return got
+
+    cached.cache = store          # the cache-hit test reads this, nothing else does
+    return cached
+
+
+def encoder(*, on_device: bool = True, model_name: str = ESM2_MODEL, cache_dir=None):
+    """``seq -> [1, L+2, 1280]``, on the card by default, on the host when asked.
+
+    Built once per process per (checkpoint, path, cache dir) and memoized: 650 M parameters
+    are not reloaded per complex, and a card is not reopened per complex. The card and the
+    host keep separate entries on purpose -- they are the same weights to about 1.3 %
+    relative Frobenius, not to the bit, and a run must not silently mix the two.
+    """
+    key = (model_name, on_device, None if cache_dir is None else str(cache_dir))
+    enc = _ENCODERS.get(key)
+    if enc is None:
+        if on_device:
+            from tt_bio.saprot import esm2_encoder
+
+            base = esm2_encoder(model_name, cache_dir)
+        else:
+            base = cpu_encoder(model_name, cache_dir)
+        enc = _ENCODERS[key] = memoize(base)
+    return enc
 
 
 def receptor_embeddings(

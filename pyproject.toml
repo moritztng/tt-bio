@@ -143,6 +143,7 @@ include = ["tt_bio*"]
 "tt_bio.boltzgen.resources" = ["*.json"]
 "tt_bio.boltzgen.resources.config" = ["*.yaml"]
 "tt_bio.boltzgen.resources.splits" = ["*.txt"]
+"tt_bio.diffdock" = ["*.yaml", "*.json"]   # recipe.yaml is read at CLI import: without it `tt-bio` itself crashes
 # kernel sources: tt_bio/reblock_permute.py, tt_bio/mm_generic.py (triatt /
 # triatt_sdpa / trimul fused kernels) and friends load them by path
 # (KERNEL_DIR, ttnn KernelDescriptor FILE_PATH) on the DEFAULT path, so a clean
