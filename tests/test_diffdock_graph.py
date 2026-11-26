@@ -31,7 +31,7 @@ torch = pytest.importorskip("torch")
 from tt_bio.diffdock import graph as G  # noqa: E402
 from tt_bio.diffdock.conv import TensorProductConvLayer, bucket  # noqa: E402
 from tt_bio.diffdock.features import GaussianSmearing  # noqa: E402
-from tt_bio.diffdock.harmonics import spherical_harmonics  # noqa: E402
+from tt_bio.diffdock.geometry import spherical_harmonics  # noqa: E402
 
 FIXTURE = Path(__file__).parent / "data/diffdock_graph/8G43_ZU6_steps.npz"
 STEPS = (0, 8, 18)
@@ -156,9 +156,9 @@ def test_harmonics_match_e3nn_on_upstreams_own_edges(golden, step):
     rows = d["cross_sample_rows"].long()
     ei = d["cross_edge_index"][:, rows].long()
     vec = d["rec_pos"][ei[1]] - d["lig_pos"][ei[0]]
-    assert torch.allclose(spherical_harmonics(vec, SH_LS), d["cross_edge_sh_sample"],
+    assert torch.allclose(spherical_harmonics(SH_LS, vec), d["cross_edge_sh_sample"],
                           atol=FEATURE_TOL, rtol=0)
-    assert torch.allclose(spherical_harmonics(-vec, SH_LS), d["rev_cross_edge_sh_sample"],
+    assert torch.allclose(spherical_harmonics(SH_LS, -vec), d["rev_cross_edge_sh_sample"],
                           atol=FEATURE_TOL, rtol=0)
 
 
@@ -179,7 +179,7 @@ def test_harmonics_are_finite_for_a_zero_length_edge():
     e3nn normalises with an epsilon for the same reason. A NaN here would survive the mask:
     0 * NaN is NaN, and the node sum would be NaN for every node the pad edge touches.
     """
-    sh = spherical_harmonics(torch.zeros(3, 3), SH_LS)
+    sh = spherical_harmonics(SH_LS, torch.zeros(3, 3))
     assert torch.isfinite(sh).all()
     assert sh[:, 0].tolist() == [1.0, 1.0, 1.0]
     assert sh[:, 1:].abs().max() == 0
@@ -226,8 +226,8 @@ def test_node_update_matches_the_dynamic_graph(golden, step):
         edge_index = torch.cat([lig_ei, cross_ei], dim=1)
         edge_attr = [lig_expansion(lig_vec.norm(dim=-1)),
                      cross_expansion(cross_vec.norm(dim=-1))]
-        edge_sh = torch.cat([spherical_harmonics(lig_vec, SH_LS),
-                             spherical_harmonics(cross_vec, SH_LS)])
+        edge_sh = torch.cat([spherical_harmonics(SH_LS, lig_vec),
+                             spherical_harmonics(SH_LS, cross_vec)])
         mask = None
         if lig_mask is not None:
             mask = torch.cat([lig_mask, cross_mask])
@@ -292,8 +292,8 @@ def test_node_update_matches_a_brute_force_dynamic_graph():
         return layer(node_attr, torch.cat([lig_ei, cross_ei], dim=1),
                      [lig_expansion(lig_vec.norm(dim=-1)),
                       cross_expansion(cross_vec.norm(dim=-1))],
-                     torch.cat([spherical_harmonics(lig_vec, SH_LS),
-                                spherical_harmonics(cross_vec, SH_LS)]),
+                     torch.cat([spherical_harmonics(SH_LS, lig_vec),
+                                spherical_harmonics(SH_LS, cross_vec)]),
                      out_nodes=n_nodes, edge_mask=mask)
 
     inside = (rec_pos[None] / cutoff - lig_pos[:, None] / cutoff).norm(dim=-1) <= 1
@@ -335,7 +335,7 @@ def test_a_masked_edge_is_not_counted_in_the_mean():
     ei = G.complete_pairs(n, n, exclude_diagonal=True)
     keep = torch.zeros(ei.shape[1], dtype=torch.bool)
     keep[::2] = True
-    sh = spherical_harmonics(torch.randn(ei.shape[1], 3), SH_LS)
+    sh = spherical_harmonics(SH_LS, torch.randn(ei.shape[1], 3))
     attr = torch.randn(ei.shape[1], n_edge_features)
     half = layer(node_attr, ei[:, keep], [attr[keep], attr[:0]], sh[keep])
     masked = layer(node_attr, ei, [attr, attr[:0]], sh, edge_mask=keep.float())
@@ -413,8 +413,8 @@ def test_batched_node_update_equals_the_poses_run_one_at_a_time():
         out = layer(node_attr, torch.cat([s.lig_edge_index, cross_ei], dim=1),
                     [lig_expansion(lig_vec.norm(dim=-1)),
                      cross_expansion(cross_vec.norm(dim=-1))],
-                    torch.cat([spherical_harmonics(lig_vec, SH_LS),
-                               spherical_harmonics(cross_vec, SH_LS)]),
+                    torch.cat([spherical_harmonics(SH_LS, lig_vec),
+                               spherical_harmonics(SH_LS, cross_vec)]),
                     out_nodes=s.n_lig_padded + s.n_rec_padded,
                     edge_mask=torch.cat([s.lig_mask(lp, LIG_MAX_RADIUS),
                                          s.cross_mask(lp, rp, cutoff)]))
@@ -463,8 +463,8 @@ def test_edge_chunking_does_not_change_the_result(chunk):
     args = (node_attr, torch.cat([s.lig_edge_index, cross_ei], dim=1),
             [GaussianSmearing(0.0, LIG_MAX_RADIUS, n_edge_features)(lig_vec.norm(dim=-1)),
              GaussianSmearing(0.0, CROSS_MAX_DISTANCE, n_edge_features)(cross_vec.norm(dim=-1))],
-            torch.cat([spherical_harmonics(lig_vec, SH_LS),
-                       spherical_harmonics(cross_vec, SH_LS)]))
+            torch.cat([spherical_harmonics(SH_LS, lig_vec),
+                       spherical_harmonics(SH_LS, cross_vec)]))
     kw = dict(out_nodes=s.n_lig_padded + s.n_rec_padded,
               edge_mask=torch.cat([s.lig_mask(lp, LIG_MAX_RADIUS),
                                    s.cross_mask(lp, rp, 25.0)]))

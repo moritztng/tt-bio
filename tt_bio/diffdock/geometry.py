@@ -25,6 +25,17 @@ import torch
 from torch import Tensor
 
 _S3, _S5, _S15 = math.sqrt(3.0), math.sqrt(5.0), math.sqrt(15.0)
+_EPS = 1e-12          # torch.nn.functional.normalize's default, which e3nn relies on
+
+
+def unit(vec: Tensor) -> Tensor:
+    """``F.normalize(vec, dim=-1)`` written out: unit vectors, and zero for a zero vector.
+
+    Spelled out rather than called because the same epsilon has to hold for the rotation axes
+    in :mod:`tt_bio.diffdock.conformer`, where a padded bond gives a zero-length axis and a
+    NaN there would survive every mask downstream (`0 * NaN` is `NaN`).
+    """
+    return vec / vec.norm(dim=-1, keepdim=True).clamp_min(_EPS)
 
 
 def spherical_harmonics(ls, vec: Tensor) -> Tensor:
@@ -37,7 +48,7 @@ def spherical_harmonics(ls, vec: Tensor) -> Tensor:
     degrees = _parse_ls(ls)
     if max(degrees) > 2:
         raise ValueError(f"DiffDock never needs l > 2 harmonics; got {degrees}")
-    v = torch.nn.functional.normalize(vec, dim=-1)
+    v = unit(vec)
     x, y, z = v[..., 0], v[..., 1], v[..., 2]
     blocks = []
     for l in degrees:

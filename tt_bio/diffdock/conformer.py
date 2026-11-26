@@ -39,7 +39,7 @@ from __future__ import annotations
 import torch
 from torch import Tensor
 
-from .harmonics import unit
+from .geometry import unit
 from .kabsch import apply_rigid, kabsch_proper
 
 _SMALL_ANGLE = 1e-6      # upstream's eps, kept so the two agree term for term
