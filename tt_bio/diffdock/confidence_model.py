@@ -358,3 +358,70 @@ def load_released(state_dict: dict, config: DiffDockConfig, *,
         raise ValueError(f"confidence checkpoint does not fit: missing={missing[:8]} "
                          f"unexpected={unexpected[:8]}")
     return model.eval()
+
+
+# ------------------------------------------------------- ranking poses on host torch
+
+#: What upstream substitutes for a pose the network could not score
+#: (``utils/sampling.py``: ``confidence = confidence.nan_to_num(nan=-1000)``). It is far
+#: below any real logit, so such a pose sorts last rather than disappearing.
+UNSCORABLE = -1000.0
+
+
+def load_checkpoint(ckpt_path, params_dir=None) -> "ConfidenceModel":
+    """Load the released confidence network from a checkpoint file on disk.
+
+    *params_dir* defaults to the checkpoint's own directory, which is upstream's layout
+    (``best_model_epoch75.pt`` beside ``model_parameters.yml``) and what
+    :func:`tt_bio.diffdock.checkpoints.resolve` returns.
+    """
+    from pathlib import Path
+
+    from tt_bio.diffdock import config as dfd_config
+
+    ckpt_path = Path(ckpt_path)
+    directory = Path(params_dir) if params_dir is not None else ckpt_path.parent
+    cfg = dfd_config.load(directory, old_model=True, name="confidence")
+    state = torch.load(ckpt_path, map_location="cpu", weights_only=False)
+    return load_released(state, cfg)
+
+
+def score_poses(model: "ConfidenceModel", receptor: dict, ligand: dict,
+                poses: Tensor) -> Tensor:
+    """Confidence of every pose, as a ``[N]`` tensor. Higher is better.
+
+    *receptor* is a graph built with ``all_atoms=True`` (``input.CONFIDENCE_GRAPH``) and
+    must be in the same frame as *poses* -- both centred, or neither. *poses* is
+    ``[N, n_lig, 3]``.
+
+    One forward pass per pose. Upstream collates the N poses into one disjoint graph, which
+    is the same arithmetic: no edge joins two poses and both normalisations read running
+    statistics in eval mode, so nothing couples them. Keeping the pose axis out of the graph
+    is also what lets the device path hold every shape static.
+
+    Only column 0 is returned. The head emits two class logits and upstream ranks on the
+    first; column 1 is near but not equal to its negation, so averaging or flattening the
+    two would change the order.
+    """
+    if "atom" not in receptor:
+        raise ValueError(
+            "the confidence model needs an all-atom receptor graph; build it with "
+            "input.CONFIDENCE_GRAPH (all_atoms=True), not SCORE_GRAPH")
+    atom = receptor["atom"]
+    out = []
+    with torch.no_grad():
+        for pose in poses:
+            raw = model(
+                ligand["x"].float(), pose.float(), ligand["edge_index"].long(),
+                ligand["edge_attr"].float(), receptor["x"].float(),
+                receptor["pos"].float(), receptor["edge_index"].long(),
+                atom["x"].float(), atom["pos"].float(), atom["edge_index"].long(),
+                atom["atom_rec_edge_index"].long())
+            out.append(raw[:, 0])
+    return torch.cat(out).nan_to_num(nan=UNSCORABLE)
+
+
+def rank_poses(poses: Tensor, scores: Tensor):
+    """``(poses, scores)`` reordered best first. Ties keep their sampling order."""
+    order = torch.argsort(-scores, stable=True)
+    return poses[order], scores[order]

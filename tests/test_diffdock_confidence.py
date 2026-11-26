@@ -180,3 +180,100 @@ def _ring(n: int) -> torch.Tensor:
     """A connected `[2, n]` graph, so no node is isolated."""
     src = torch.arange(n)
     return torch.stack([src, (src + 1) % n])
+
+
+# -- ranking poses, and the `tt-bio dock` wiring ------------------------------------------
+
+RECEPTOR = Path("/home/moritz/scratch/dfd/patchtest/examples/1a46_protein_processed.pdb")
+ASPIRIN = "CC(=O)Oc1ccccc1C(=O)O"
+
+
+def test_rank_poses_sorts_best_first_and_keeps_ties_in_sampling_order():
+    from tt_bio.diffdock.confidence_model import rank_poses
+
+    poses = torch.arange(5 * 2 * 3, dtype=torch.float32).reshape(5, 2, 3)
+    scores = torch.tensor([0.0, 2.0, -1.0, 2.0, 1.0])
+    ranked, ordered = rank_poses(poses, scores)
+    assert ordered.tolist() == [2.0, 2.0, 1.0, 0.0, -1.0]
+    # The two 2.0s keep poses 1 then 3: a stable sort is what makes a run reproducible.
+    assert torch.equal(ranked[0], poses[1]) and torch.equal(ranked[1], poses[3])
+
+
+def test_score_poses_refuses_a_score_only_receptor_graph():
+    """Handing it the score network's graph must fail, not score something else.
+
+    The score model's receptor graph has no `atom` entry. Silently falling back to the
+    residue graph would produce a plausible number from the wrong network input.
+    """
+    from tt_bio.diffdock.confidence_model import score_poses
+
+    with pytest.raises(ValueError, match="all-atom"):
+        score_poses(None, {"x": torch.zeros(1, 1)}, {}, torch.zeros(1, 1, 3))
+
+
+def test_score_poses_is_the_per_pose_forward_and_takes_column_zero():
+    """`score_poses` over N poses equals N direct calls, column 0, in order."""
+    from tt_bio.diffdock.confidence_model import score_poses
+
+    state, cfg = _checkpoint(), _config()
+    model = load_released(state, cfg)
+    torch.manual_seed(0)
+
+    n_lig, n_rec, n_atom = 5, 6, 9
+    lig = {"x": torch.zeros(n_lig, len(_lig_dims())),
+           "edge_index": torch.tensor([[0, 1, 2, 3], [1, 2, 3, 4]]),
+           "edge_attr": torch.zeros(4, cfg.in_lig_edge_features)}
+    rec = {"x": torch.zeros(n_rec, 1 + 1280), "pos": torch.randn(n_rec, 3) * 4,
+           "edge_index": _ring(n_rec),
+           "atom": {"x": torch.zeros(n_atom, 4), "pos": torch.randn(n_atom, 3) * 4,
+                    "edge_index": _ring(n_atom),
+                    "atom_rec_edge_index": torch.stack(
+                        [torch.arange(n_atom), torch.arange(n_atom) % n_rec])}}
+    poses = torch.randn(3, n_lig, 3) * 2
+
+    got = score_poses(model, rec, lig, poses)
+    assert got.shape == (3,)
+    with torch.no_grad():
+        want = [model(lig["x"], p, lig["edge_index"], lig["edge_attr"], rec["x"],
+                      rec["pos"], rec["edge_index"], rec["atom"]["x"], rec["atom"]["pos"],
+                      rec["atom"]["edge_index"], rec["atom"]["atom_rec_edge_index"])[0, 0]
+                for p in poses]
+    assert torch.allclose(got, torch.stack(want))
+
+
+@pytest.mark.skipif(not RECEPTOR.exists(), reason="no local receptor structure")
+def test_dock_writes_ranked_poses_when_a_confidence_checkpoint_is_given(tmp_path,
+                                                                        monkeypatch):
+    """`tt-bio dock` end to end on host torch: poses out, ranked, scores written.
+
+    The ESM-2 pass is stubbed: a 650 MB encoder download is not what this test is about,
+    and the embedding's *values* cannot change whether the ranking is wired -- only its
+    shape, which the stub keeps. Everything after it is the real thing: the real receptor
+    structure, the real all-atom graph, the released 19 MB checkpoint and the real head.
+    """
+    import json
+
+    from click.testing import CliRunner
+
+    from tt_bio.diffdock import esm
+    from tt_bio.main import cli
+
+    if not (CKPT_DIR / "best_model_epoch75.pt").exists():
+        pytest.skip("no confidence checkpoint")
+    monkeypatch.setattr(esm, "receptor_embeddings",
+                        lambda chains, **kw: [torch.zeros(len(c), 1280) for c in chains])
+
+    out = tmp_path / "o"
+    r = CliRunner().invoke(cli, [
+        "dock", str(RECEPTOR), "--ligand", ASPIRIN, "--name", "x", "--no_model",
+        "--diffusion_samples", "3", "--confidence_checkpoint", str(CKPT_DIR),
+        "--out_dir", str(out)], catch_exceptions=False)
+    assert r.exit_code == 0, r.output
+
+    ranking = json.loads((out / "x" / "confidence.json").read_text())
+    assert [row["rank"] for row in ranking] == [1, 2, 3]
+    scores = [row["confidence"] for row in ranking]
+    assert all(s is not None for s in scores), "a named checkpoint must produce scores"
+    assert scores == sorted(scores, reverse=True), "poses must be written best first"
+    # Rank 1 is written twice, bare and suffixed, as upstream does.
+    assert (out / "x" / "rank1.sdf").exists()
