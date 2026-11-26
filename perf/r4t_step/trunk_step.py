@@ -56,7 +56,18 @@ def main():
     ap.add_argument("--cand-pair", choices=("host", "card"), default="card",
                     help="where the grad-off K-candidate pass builds z_init: host (upstream's builder) or the serving "
                          "card path (rfd4.pair.PairOnCard: host constant + bins, card assembly). The taped winner is always host.")
+    ap.add_argument("--grad-dump", default="", help="write every trained parameter's gradient of the first "
+                    "step (host glue + upstream trunk leaves, after the fold VJPs) to PATH.npz with PATH.json "
+                    "(winner, batch, loss, clock) and stop before the optimizer: the device side of "
+                    "perf/r4t_tape/net_gradcheck.py")
+    ap.add_argument("--arm", choices=("prod", "fp32-exact"), default="prod",
+                    help="fp32-exact: the D49 control, float32 trunk with no levers and every contraction "
+                         "under tt_bio.train.exact_fp32 (host float64, rounded once)")
+    ap.add_argument("--break", dest="brk", action="store_true",
+                    help="with --grad-dump: the gross broken arm, block 0's Q slice dropped from its fold VJP")
     a = ap.parse_args()
+    if a.arm == "fp32-exact":
+        os.environ["TT_BIO_LEVERS"] = "none"   # Trunk builds on mode_levers(), which reads this, not lever_scope
     if a.curve_dump and a.dp_cards:
         raise SystemExit("--curve-dump is a single-card leg: every rank would append to one CurveLog")
     if a.dp_cards and a.dp_rank < 0:
@@ -84,6 +95,13 @@ def main():
     from tt_bio.train.checkpoint import Checkpointer, load_adapter
     from tt_bio.train.optim import AdamW
     from tt_bio.train.parity import GradientCoverage, zero_or_missing
+    import contextlib
+    from tt_bio.train import exact_fp32 as EX
+    TD = ttnn.float32 if a.arm == "fp32-exact" else None
+    arm = contextlib.ExitStack()
+    if TD is not None:   # the trimul follows the override; contractions go exact on the host
+        arm.enter_context(T.device_dtype_override(ttnn.float32))
+        arm.enter_context(EX.exact_fp32())
 
     dev = T.get_device()
     card = int(os.environ["TT_VISIBLE_DEVICES"].split(",")[0])
@@ -123,7 +141,7 @@ def main():
         glue.pair_split = PairSplit(glue.pair_repr_builder)
         card_pair.append(PairOnCard(glue.pair_split, dev))
         return card_pair[0]
-    trunk = E.load_trunk(glue, state, cfg, training=True)   # an unrecorded build for the lever set and dtypes; build() replaces it
+    trunk = E.load_trunk(glue, state, cfg, training=True, dtype=TD)   # an unrecorded build for the lever set and dtypes; build() replaces it
 
     RB = {}
 
@@ -187,7 +205,7 @@ def main():
         close_rec()
         if lazy or not inline:
             with folds.recording(device_pack=pack) as sd:
-                trunk = E.load_trunk(glue, sd, cfg, training=True)
+                trunk = E.load_trunk(glue, sd, cfg, training=True, dtype=TD)
                 if in_proj:
                     RB["trimuls"] = len([m.train_in_proj() for m in trimuls(trunk)])
                 ttnn.synchronize_device(dev); _rb2 = time.time()
@@ -196,7 +214,7 @@ def main():
         else:
             rec = folds.recording(device_pack=pack)
             sd = rec.__enter__()
-            trunk = E.load_trunk(glue, sd, cfg, training=True)
+            trunk = E.load_trunk(glue, sd, cfg, training=True, dtype=TD)
             if in_proj:
                 RB["trimuls"] = len([m.train_in_proj() for m in trimuls(trunk)])
             # The trimul chunk width depends on the batch: the K-candidate pass fills its own width, and the
@@ -434,6 +452,11 @@ def main():
         ttnn.synchronize_device(dev)
         t2 = time.time()
         after_bwd = used()
+        if a.grad_dump and a.brk:
+            walked = {p: t for p, _o, _k, t in T.walk_device_weights(trunk)}
+            cut = next(p for p in walked if p.endswith("q_w"))
+            folds.sources.pop(id(walked[cut]))
+            extra["dropped"] = cut
         idle = folds.tape_backward()   # device-weight gradients through each fold's VJP into the upstream leaves
         grads = {nm: (None if p.grad is None else p.grad.float().numpy()) for nm, p in params.items()}
         dead = zero_or_missing(grads)
@@ -441,6 +464,20 @@ def main():
             import numpy as _np
             _np.savez(os.environ["R4T_DUMP_G"], **{nm.replace(".", "__"): g for nm, g in grads.items()
                                                     if g is not None and "pair_update_layers" in nm})
+        if a.grad_dump:
+            import numpy as _np
+            sm = clk[c0:] or clk[-1:]
+            _np.savez(a.grad_dump + ".npz", **{nm: g for nm, g in grads.items() if g is not None})
+            meta = dict(extra, loss=loss, arm=a.arm, levers=sorted(levers) if not isinstance(levers, str) else levers,
+                        dtype=str(trunk.dtype), n=n, card=card, aiclk=[min(sm or [0]), max(sm or [0])],
+                        exact={"%s/%s" % k: v for k, v in sorted(EX.EXACT_STATS.items())},
+                        no_grad=sorted(nm for nm, g in grads.items() if g is None), sha=os.environ.get("TT_BIO_SHA", ""))
+            open(a.grad_dump + ".json", "w").write(json.dumps(meta, indent=1, default=str))
+            print(json.dumps(dict(grad_dump=a.grad_dump, n_grads=len(grads), loss=loss, aiclk=meta["aiclk"],
+                                  exact=meta["exact"])), flush=True)
+            stop.set()
+            arm.close()
+            return 0
         t2b = time.time()
         opt.step(replicas={nm: [g] for nm, g in grads.items() if g is not None}) if ax else opt.step()
         for p in params.values():
