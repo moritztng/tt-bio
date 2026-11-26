@@ -91,7 +91,7 @@ def _sample_one(job: DockJob, options: DockOptions, write_dir: Path, receptor: P
     """
     import torch
 
-    from tt_bio.diffdock import chunking, esm, input as dfd_input, sampling
+    from tt_bio.diffdock import chunking, esm, input as dfd_input, neighbour_cap, sampling
 
     spec = dfd_input.ComplexSpec(name=job.name, protein_path=str(receptor),
                                  ligand_description=job.ligand)
@@ -104,6 +104,10 @@ def _sample_one(job: DockJob, options: DockOptions, write_dir: Path, receptor: P
     graph = dfd_input.build_complex_graph(spec, seed=options.seed, receptor_path=receptor,
                                           lm_embeddings=embeddings,
                                           all_atoms=model.config.all_atoms)
+    # Say so when this ligand is dense enough that upstream's torch_cluster graph would be
+    # truncated and ours is not (D-dfd-trace-1). One `cdist` on a ligand, once per complex.
+    neighbour_cap.check_ligand_graph(graph.ligand["pos"], model.config.lig_max_radius,
+                                     label=job.name, on_input=True)
 
     cfg = _sampling_config(options)
     bounds = sampling.SigmaBounds.from_config(model.config)

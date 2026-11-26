@@ -72,6 +72,30 @@ def test_the_guard_warns_on_the_fad_crystal_pose_and_is_quiet_on_a_normal_ligand
     assert not quiet.binds
 
 
+def test_the_input_check_catches_a_ligand_sitting_exactly_on_the_cap(fad):
+    """`on_input=True` must fire on 7F8T_FAD's start conformer, which is at 32, not over it.
+
+    Without this the pre-flight check calls the one cap-binding complex in PoseBusters clear,
+    because the truncation only appears once the pose has moved.
+    """
+    start = torch.tensor(fad["start_conf"]["pos"], dtype=torch.float32)
+    report = cap_report(neighbour_degrees(start, CUTOFF))
+    assert report.at_cap and not report.binds
+    with pytest.warns(RuntimeWarning, match="sits exactly on upstream's 32-neighbour cap"):
+        check_ligand_graph(start, CUTOFF, label="7F8T_FAD", on_input=True)
+
+
+def test_a_normal_ligand_passes_the_input_check_quietly():
+    """The check must not cry wolf on the 427 of 428 ligands that are nowhere near the cap."""
+    g = torch.Generator().manual_seed(1)
+    pos = torch.rand(30, 3, generator=g) * 14.0
+    assert int(neighbour_degrees(pos, CUTOFF).max()) < UPSTREAM_MAX_NEIGHBORS
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", RuntimeWarning)
+        report = check_ligand_graph(pos, CUTOFF, on_input=True)
+    assert not report.at_cap
+
+
 def test_degree_count_matches_the_edge_set_the_port_actually_builds(fad):
     """The guard must count the port's own edges, not a near-miss of them."""
     pos = torch.tensor(fad["crystal"]["pos"], dtype=torch.float32)

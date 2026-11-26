@@ -33,7 +33,10 @@ LIGAND = FIX / "6Z5Z_BDF_ligand.sdf"
 STUB_CONFIG = SimpleNamespace(
     all_atoms=False, no_torsion=False, crop_beyond=20.0,
     tr_sigma_min=0.1, tr_sigma_max=19.0, rot_sigma_min=0.03, rot_sigma_max=1.55,
-    tor_sigma_min=0.0314, tor_sigma_max=3.14)
+    tor_sigma_min=0.0314, tor_sigma_max=3.14,
+    # The released recipe's ligand radius. `run.dock` checks the ligand against upstream's
+    # 32-neighbour cap through it (tt_bio/diffdock/neighbour_cap.py).
+    lig_max_radius=5.0)
 
 
 class StubNetwork:

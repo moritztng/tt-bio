@@ -64,12 +64,26 @@ class CapReport:
         """True when upstream's graph would differ from this port's on these coordinates."""
         return self.truncated_nodes > 0
 
+    @property
+    def at_cap(self) -> bool:
+        """True when some atom is at the cap, so a small move would push it over.
+
+        Distinct from :attr:`binds` because a degree of exactly 32 is not truncation, and
+        this is the case that matters on a docking *input*: 7F8T_FAD's start conformer sits
+        at exactly 32 and crosses as the ligand moves over the 19 diffusion steps. A guard
+        that only looked for ``binds`` on the input would call that complex clear.
+        """
+        return self.max_degree >= self.cap
+
     def __str__(self) -> str:
-        if not self.binds:
-            return f"max degree {self.max_degree} is within upstream's cap of {self.cap}"
-        return (f"{self.truncated_nodes} atom(s) exceed upstream's {self.cap}-neighbour cap "
-                f"(max degree {self.max_degree}); this port keeps {self.excess_edges} edge(s) "
-                f"upstream would have dropped")
+        if self.binds:
+            return (f"{self.truncated_nodes} atom(s) exceed upstream's {self.cap}-neighbour "
+                    f"cap (max degree {self.max_degree}); this port keeps {self.excess_edges} "
+                    f"edge(s) upstream would have dropped")
+        if self.at_cap:
+            return (f"an atom sits exactly on upstream's {self.cap}-neighbour cap; it crosses "
+                    f"as soon as the ligand moves, and the pose moves every step")
+        return f"max degree {self.max_degree} is within upstream's cap of {self.cap}"
 
 
 def neighbour_degrees(pos: Tensor, cutoff: float) -> Tensor:
@@ -109,19 +123,23 @@ def cap_report(degrees: Tensor, cap: int = UPSTREAM_MAX_NEIGHBORS) -> CapReport:
 
 def check_ligand_graph(lig_pos: Tensor, cutoff: float, *,
                        cap: int = UPSTREAM_MAX_NEIGHBORS,
-                       label: str = "ligand", warn: bool = True) -> CapReport:
-    """Report, and by default warn, when the ligand radius graph passes upstream's cap.
+                       label: str = "ligand", warn: bool = True,
+                       on_input: bool = False) -> CapReport:
+    """Report, and by default warn, when the ligand radius graph reaches upstream's cap.
 
-    Called on the coordinates a step actually runs on. The warning is the point: on such a
-    complex this port and upstream are running different graphs, so upstream's published
-    score is not the number to grade against without saying so.
+    The warning is the point: on such a complex this port and upstream run different graphs,
+    so upstream's published score is not a number to grade against without saying so.
+
+    *on_input* widens the trigger from :attr:`CapReport.binds` to :attr:`CapReport.at_cap`,
+    for the pre-flight check on a docking input, where the ligand has 19 steps left to move.
     """
     report = cap_report(neighbour_degrees(lig_pos, cutoff), cap)
-    if warn and report.binds:
+    if warn and (report.at_cap if on_input else report.binds):
         warnings.warn(
             f"{label}: {report}. tt-bio keeps the complete {cutoff} A neighbourhood "
-            f"(D-dfd-trace-1); upstream DiffDock's torch_cluster graph would be truncated "
-            f"here, so the two scores are not comparable on this complex.",
+            f"(D-dfd-trace-1); upstream DiffDock's torch_cluster graph truncates to {cap} "
+            f"neighbours in an order that depends on the coordinate frame, so the two are "
+            f"not comparable pose for pose on this complex.",
             RuntimeWarning, stacklevel=2)
     return report
 
