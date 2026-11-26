@@ -162,3 +162,15 @@ def test_the_same_seed_gives_the_same_inputs_in_a_DIFFERENT_process():
     a, b = (r.stdout.strip() for r in runs)
     assert a == b, (f"case_rng depends on the hash salt: PYTHONHASHSEED=0 gave {a} and "
                     f"PYTHONHASHSEED=12345 gave {b}")
+
+
+# RFD4's RMSNorm, at the three widths its trunk issues it (`perf/r4t_tape/gradcheck_rms.py`).
+RMS = _load("_rms_ref", "perf/r4t_tape/gradcheck_rms.py")
+
+
+@pytest.mark.parametrize("name", sorted(RMS.CASES))
+def test_the_rms_norm_reference_agrees_with_finite_differences(name):
+    worst, probed, eligible = _fd(lambda n, r: RMS.build(n, r), lambda n, t: RMS.ref_forward(t), name)
+    assert probed > 0, f"{name}: nothing was probed, so nothing was checked"
+    assert worst < FD_BAR, (f"{name}: float64 reference disagrees with central differences by "
+                            f"{worst:.2e} over {probed} of {eligible} resolvable coordinates")
