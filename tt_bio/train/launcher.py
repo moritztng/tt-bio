@@ -302,46 +302,78 @@ class ProcessAxis(Axis):
     # -- the collective itself
 
     def _exchange(self, vec, *, record: bool = True):
-        """Sum ``vec`` across every rank on the axis. Publish, barrier, add.
+        """Sum ``vec`` across every rank on the axis: publish, reduce-scatter, all-gather.
 
-        The publish is a write to a temporary name and an ``os.replace``, so a peer polling
-        the directory never sees a half-written file -- a reader that did would sum garbage
-        into the gradient and the run would keep going.
+        Every rank publishes its whole vector, then sums only its own ``1/width`` slice of
+        every peer's file and publishes that slice, then reads the ``width`` reduced slices
+        back. Each rank therefore reads about two vectors per step whatever the width, where
+        loading every peer's whole file read ``width`` of them and did ``width`` times the
+        adds: at RFD4-Proteina's 178 M parameters that was 2.3 s at two ranks and 4.8 s at
+        four, growing linearly (``perf/r4t_scale/``).
+
+        The owner of a slice adds the peers in rank order 0..width-1, the same order the full
+        sum used, so the result is bit-identical to it and identical on every rank, which is
+        the invariant :func:`drive` checks. Reads are memory-mapped, so a slice costs its own
+        bytes and not the file's. Every publish is a write to a temporary name and an
+        ``os.replace``, so a peer polling the directory never sees a half-written file.
         """
         import numpy as np
         step = self.state["step"] = self.state["step"] + 1
-        d = Path(self.run)
+        d, w, me = Path(self.run), self.width, self.dp_rank
         t0 = time.perf_counter()
-        mine = d / f"s{step}_r{self.dp_rank}.npy"
-        tmp = d / f"s{step}_r{self.dp_rank}.part"
-        with open(tmp, "wb") as fh:
-            np.save(fh, vec)
-        os.replace(tmp, mine)
+        _publish(d, f"s{step}_r{me}", vec)
         t_pub = time.perf_counter()
-        peers = [d / f"s{step}_r{r}.npy" for r in range(self.width)]
-        while not all(p.exists() for p in peers):
-            if time.perf_counter() - t_pub > BARRIER_TIMEOUT_S:
-                here = sorted(p.name for p in peers if p.exists())
-                raise TimeoutError(
-                    f"rank {self.dp_rank} waited {BARRIER_TIMEOUT_S:.0f} s at step {step} for "
-                    f"{self.width} gradients and has {here}. A rank that died holding the "
-                    f"barrier stops the run here instead of hanging it")
-            time.sleep(0.002)
-        t_wait = time.perf_counter()
-        acc = np.zeros_like(vec)
-        for p in peers:
-            acc += np.load(p)
-        # Sum, not mean: see the module docstring.
-        stale = d / f"s{step - _KEEP_STEPS}_r{self.dp_rank}.npy"
-        stale.unlink(missing_ok=True)
+        full = self._await(d, step, "r")
+        t_wait1 = time.perf_counter()
+        edges = np.linspace(0, vec.size, w + 1).astype(np.int64)
+        lo, hi = int(edges[me]), int(edges[me + 1])
+        part = np.zeros(hi - lo, dtype=vec.dtype)
+        for p in full:
+            part += np.load(p, mmap_mode="r")[lo:hi]
+        _publish(d, f"s{step}_q{me}", part)
+        del part
+        t_red = time.perf_counter()
+        slices = self._await(d, step, "q")
+        t_wait2 = time.perf_counter()
+        acc = np.empty_like(vec)
+        for r, p in enumerate(slices):
+            acc[edges[r]:edges[r + 1]] = np.load(p, mmap_mode="r")
+        # Sum, not mean: see the module docstring. A rank past step s's second barrier knows
+        # every rank finished reading step s-1, so _KEEP_STEPS back is safe to drop.
+        for kind in "rq":
+            (d / f"s{step - _KEEP_STEPS}_{kind}{me}.npy").unlink(missing_ok=True)
         st = self.state
         if not record:
             return acc
         st["publish_s"].append(t_pub - t0)
-        st["wait_s"].append(t_wait - t_pub)
-        st["add_s"].append(time.perf_counter() - t_wait)
+        st["wait_s"].append((t_wait1 - t_pub) + (t_wait2 - t_red))
+        st["add_s"].append((t_red - t_wait1) + (time.perf_counter() - t_wait2))
         st["bytes"] = max(st["bytes"], int(vec.nbytes))
         return acc
+
+    def _await(self, d: Path, step: int, kind: str) -> list:
+        """The ``width`` files of one phase of ``step``, once all exist. Times out, never hangs."""
+        want = [d / f"s{step}_{kind}{r}.npy" for r in range(self.width)]
+        t0 = time.perf_counter()
+        while not all(p.exists() for p in want):
+            if time.perf_counter() - t0 > BARRIER_TIMEOUT_S:
+                here = sorted(p.name for p in want if p.exists())
+                raise TimeoutError(
+                    f"rank {self.dp_rank} waited {BARRIER_TIMEOUT_S:.0f} s at step {step} for "
+                    f"{self.width} {'gradients' if kind == 'r' else 'reduced slices'} and has "
+                    f"{here}. A rank that died holding the barrier stops the run here instead "
+                    f"of hanging it")
+            time.sleep(0.002)
+        return want
+
+
+def _publish(d: Path, name: str, arr) -> None:
+    """Write ``arr`` as ``d/name.npy`` atomically: a temporary name, then ``os.replace``."""
+    import numpy as np
+    tmp = d / f"{name}.part"
+    with open(tmp, "wb") as fh:
+        np.save(fh, arr)
+    os.replace(tmp, d / f"{name}.npy")
 
 
 def reducer(axis: Axis) -> Axis:
