@@ -1,6 +1,6 @@
 #!/bin/bash
-# D43 wiring gate: the worktree code with NO TT_BIO_LEVERS must reproduce run9 (explicit list minus
-# transition_b8) digests on batches 00 and 07, i.e. trunk_step now trains on the training set by default.
+# D43 wiring gate: the worktree code with NO TT_BIO_LEVERS must reproduce run9x arm `five` (explicit list minus
+# the 5 serving levers) digests on batches 00 and 07 (4e0f88d11bbfbe80 / 280c9d47), i.e. trunk_step now trains on the training set by default.
 C=${1:?card}; WT=$HOME/.coworker/wt/r4t-perf; OUT=$HOME/r4t/perf/bis/gd; D=$HOME/r4t/step
 PY=$HOME/scratch/shipflow/venv-c4f99e695d34/bin/python
 mkdir -p $OUT; cd $WT

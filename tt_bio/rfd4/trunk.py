@@ -809,11 +809,12 @@ WH_FAST_LEVERS = NORMAL_LEVERS | {"mask_at_mix_z8"}
 WH_NORMAL_LEVERS = NORMAL_LEVERS | {"trimul_t1_stats", "pair_bias_fuse"}
 
 
-#: Levers training leaves out (D43, state/r4t/rows/perf.md). Only 5 of NORMAL_LEVERS serve at crop 256. With all on,
-#: the no-update loss-parity arm put bb_ca 1.95x and 1.64x over its D37 allowance on batches 00 and 07; with
-#: `transition_b8` off both pass (0.43x, 0.21x) but batch 08 then misses (2.7x), so this set is provisional until the
-#: 9-batch grade of every serving lever closes. Inference keeps the full set: its grade is the design RMSD above.
-TRAIN_DROPS = frozenset({"transition_b8"})
+#: Levers training leaves out (D43, state/r4t/rows/perf.md): every lever that serves at crop 256. With all on, the
+#: no-update loss-parity arm put bb_ca over its D37 allowance on batches 00 and 07. Over 9 batches, every single
+#: serving lever off and every pair with `transition_b8` still misses bb_ca or sequence_prediction somewhere; only
+#: all five off passes both terms on all 9. The other 28 are digest-neutral at crop 256 and stay. Inference keeps
+#: the full set: its grade is the design RMSD above.
+TRAIN_DROPS = frozenset({"dit_sigf32", "pair_bf16z", "tok_recycle_mm", "tok_w8", "transition_b8"})
 
 
 def mode_levers(training: bool = False) -> frozenset:
