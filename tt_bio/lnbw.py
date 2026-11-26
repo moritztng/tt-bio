@@ -207,7 +207,8 @@ def layer_norm_bw_weights(x, g, gamma, eps):
     pd = ttnn.ProgramDescriptor(kernels=[reader, writer, compute], semaphores=[], cbs=entry["cbs"])
     REACH["served: weights"] += 1
     ins = [x, g] + ([gamma] if gamma is not None else [])
-    dx = ttnn.generic_op(ins + [out] + parts, pd)
+    ttnn.generic_op(ins + [out] + parts, pd)  # returns the LAST io tensor (a partial), not dx
+    dx = out
     red = []
     for t in parts:
         red.append(ttnn.sum(t, dim=0, keepdim=True, compute_kernel_config=precise_config()))
