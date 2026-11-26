@@ -35,6 +35,14 @@ ESM2_DIM = 1280
 ESM2_TRUNCATION = 1022          # upstream's per-chain cap, enforced on both sides
 
 
+#: ``CGModel.__init__``'s own default for ``rec_max_radius``. ``utils/utils.get_model`` passes
+#: ``lig_max_radius=args.max_radius`` and ``cross_max_distance=args.cross_max_distance`` but
+#: never passes ``rec_max_radius``, so every released checkpoint was built with this value --
+#: independently of ``receptor_radius``, which is the dataset's kNN radius and a different
+#: parameter. The checkpoint's own ``rec_distance_expansion.offset`` buffer spans 0..30.
+_REC_MAX_RADIUS_DEFAULT = 30.0
+
+
 @dataclass(frozen=True)
 class DiffDockConfig:
     """What the port needs from ``model_parameters.yml``, in upstream's names."""
@@ -62,6 +70,7 @@ class DiffDockConfig:
     embedding_type: str
     embedding_scale: int
     lig_max_radius: float
+    #: Sets the centres of ``rec_distance_expansion`` only. See ``_REC_MAX_RADIUS_DEFAULT``.
     rec_max_radius: float
     c_alpha_max_neighbors: int
     atom_radius: float
@@ -164,7 +173,14 @@ class DiffDockConfig:
 
 
 def _full_tensor_product_irreps(a: Irreps, b: Irreps) -> Irreps:
-    """``o3.FullTensorProduct(a, b).irreps_out``, in e3nn's (unsorted) path order."""
+    """``o3.FullTensorProduct(a, b).irreps_out``.
+
+    e3nn collects the paths in enumeration order and then **sorts** the result; ``Irrep`` is a
+    ``tuple`` there, so the sort is ``(l, p)`` ascending -- odd before even at every l. That
+    sorted layout is what ``tor_bond_conv``'s weights were trained against, so anything
+    reading this string to lay out a kernel needs the sort, not the enumeration order.
+    Verified against e3nn 0.5.1; see tt_bio/diffdock/full_tensor_product.py.
+    """
     from tt_bio.diffdock.irreps import Irrep
 
     out = []
@@ -172,7 +188,7 @@ def _full_tensor_product_irreps(a: Irreps, b: Irreps) -> Irreps:
         for tb in b:
             for l in range(abs(ta.l - tb.l), ta.l + tb.l + 1):
                 out.append(Irrep(ta.mul * tb.mul, l, ta.p * tb.p))
-    return Irreps(tuple(out))
+    return Irreps(tuple(sorted(out, key=lambda t: (t.l, t.p))))
 
 
 # ---------------------------------------------------------------------------
@@ -236,7 +252,13 @@ def load(model_dir: str | Path, *, old_model: bool, name: str = "") -> DiffDockC
         embedding_type=str(raw.get("embedding_type", "sinusoidal")),
         embedding_scale=int(raw.get("embedding_scale", 10000)),
         lig_max_radius=float(raw["max_radius"]),
-        rec_max_radius=float(raw["receptor_radius"]),
+        # NOT receptor_radius. That is the dataset's kNN preprocessing radius (15 A here);
+        # the model's own rec_max_radius is a separate constructor argument that
+        # utils/utils.get_model never passes, so it keeps CGModel's default of 30. It sets
+        # the centres of rec_distance_expansion, and the released checkpoint stores those
+        # centres spanning 0..30, which is the proof. Reading receptor_radius here made the
+        # receptor Gaussians 4x too narrow.
+        rec_max_radius=_REC_MAX_RADIUS_DEFAULT,
         c_alpha_max_neighbors=int(raw.get("c_alpha_max_neighbors") or 0),
         atom_radius=float(raw.get("atom_radius") or 0),
         atom_max_neighbors=int(raw.get("atom_max_neighbors") or 0),

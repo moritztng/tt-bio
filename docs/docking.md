@@ -1,0 +1,98 @@
+# Docking with `tt-bio dock`
+
+`tt-bio dock` places a small molecule in a receptor and ranks the poses. One model today,
+DiffDock-L: diffusion over the ligand's position, orientation and torsion angles, with a
+separate confidence model that scores and orders what came out.
+
+```bash
+tt-bio dock receptor.pdb --ligand 'CC(=O)Oc1ccccc1C(=O)O' --model diffdock
+tt-bio dock ligands.csv --model diffdock --out_dir screen/      # a screen
+tt-bio dock job.yaml --model diffdock                           # the tt-bio job form
+```
+
+The positional argument is a receptor structure (.pdb or .cif), a protein sequence, a CSV, a
+job YAML, or a directory of YAMLs. Defaults are DiffDock-L's published recipe, so a plain
+command reproduces the paper's inference settings: 10 poses, a 20-step schedule of which 19
+run, no noise on the final step.
+
+> The reverse diffusion is still being ported. `--no_model`, upstream's randomized
+> seed-conformer baseline, runs today on CPU and writes the full output layout; the sampled
+> poses arrive with the model.
+
+## Input
+
+Upstream's CSV works unchanged, with the same four columns:
+
+```csv
+complex_name,protein_path,protein_sequence,ligand_description
+1a46,receptors/1a46.pdb,,CC(=O)Oc1ccccc1C(=O)O
+peptide,,MKTAYIAKQRQISFVKSHFSRQ,ligands/lig.sdf
+```
+
+An empty `complex_name` becomes `complex_<row>`; a row with a sequence instead of a path has
+its receptor folded first. The YAML form is tt-bio's, and reads like every other model's:
+
+```yaml
+version: 1
+sequences:
+  - protein:
+      id: A
+      file: receptor.cif
+  - ligand:
+      id: L
+      smiles: 'CC(=O)Oc1ccccc1C(=O)O'
+docking:
+  diffusion_samples: 10
+  pocket: [12.4, 3.1, -8.7]
+```
+
+`docking:` carries exactly what the command line carries. Anything docking cannot honour, a
+nucleic-acid chain or an affinity request for instance, is refused or noted by the same check
+every fold goes through (see [model capabilities](model-capabilities.md)).
+
+## Output
+
+```
+screen/1a46/rank1.sdf
+screen/1a46/rank1_confidence-0.42.sdf
+...
+screen/1a46/rank10_confidence-3.17.sdf
+screen/1a46/confidence.json
+screen/failures.csv            # only if a row failed
+```
+
+The SDF names are upstream's, down to the two copies of rank 1, so a pipeline that parses
+them keeps working. `confidence.json` is tt-bio's addition: rank, confidence and filename, so
+you do not have to read floats out of filenames. With `--no_confidence` there is no
+confidence model, the ranking is sample order and the files are plain `rank<N>.sdf`.
+
+In a screen one bad ligand does not stop the run. The failures land in `failures.csv` with
+the error for each, and `--limit_failures` (default 5) decides when to give up. A single
+complex on the command line fails immediately instead, with the reason.
+
+## Pocket docking
+
+Without a pocket the whole receptor is searched. With one, poses start inside it:
+
+```bash
+tt-bio dock receptor.pdb --ligand lig.sdf --pocket 12.4,3.1,-8.7 --pocket_radius 5
+```
+
+## Weights
+
+`tt-bio weights --download diffdock` fetches the v1.1 release (124 MiB), verifies its
+sha256 and extracts both checkpoints; a run fetches it on first use. To point at your own
+copy, `--checkpoint` and `--confidence_checkpoint` take either a `.pt` file or a directory in
+upstream's layout, so an existing `workdir/v1.1/score_model` works as is.
+
+## Options
+
+`tt-bio dock --help` lists every flag with its default. The mapping from upstream's names:
+`--samples_per_complex` is `--diffusion_samples`, `--inference_steps` is `--sampling_steps`,
+`--batch_size` is `--max_parallel_samples` (poses scored in one device call, default 10; it
+halves itself if the card refuses a batch, and the poses it produces do not change either
+way), `--save_visualisation` is `--save_trajectory`,
+`--loglevel` is `--log`, and `--old_score_model`/`--old_confidence_model` collapse into
+`--weights {diffdock-l,diffdock}`. The nine low-temperature sampling constants have no flags
+of their own; they are a fitted set, and `--config` takes upstream's
+`default_inference_args.yaml` verbatim if you want to change them.

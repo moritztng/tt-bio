@@ -17,7 +17,9 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-_TERM = re.compile(r"^\s*(\d+)\s*x\s*(\d+)([eo])\s*$")
+# e3nn lets a term drop its multiplicity: "2e" is "1x2e".  The torsion head's second
+# input is written that way upstream, so parse accepts both spellings.
+_TERM = re.compile(r"^\s*(?:(\d+)\s*x\s*)?(\d+)([eo])\s*$")
 
 
 @dataclass(frozen=True)
@@ -55,7 +57,8 @@ class Irreps:
             m = _TERM.match(part)
             if not m:
                 raise ValueError(f"not an irreps term: {part!r} (in {text!r})")
-            terms.append(Irrep(int(m.group(1)), int(m.group(2)), 1 if m.group(3) == "e" else -1))
+            terms.append(Irrep(int(m.group(1) or 1), int(m.group(2)),
+                               1 if m.group(3) == "e" else -1))
         if not terms:
             raise ValueError(f"empty irreps: {text!r}")
         return cls(tuple(terms))
