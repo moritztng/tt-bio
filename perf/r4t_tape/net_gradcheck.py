@@ -34,11 +34,15 @@ def main():
     ap.add_argument("--ref", default="", help="reuse a saved reference (npz from --save-ref)")
     ap.add_argument("--save-ref", default="")
     ap.add_argument("--out", default="")
+    ap.add_argument("--ref-dtype", choices=("float64", "float32"), default="float64",
+                    help="float32: the same reference in host float32, saved with --save-ref and not graded; "
+                    "its distance from the float64 one is what float32 arithmetic alone costs this network")
     a = ap.parse_args()
     here = os.path.dirname(os.path.abspath(__file__))
     sys.path[:0] = [os.path.join(here, "..", "r4t"), os.path.join(here, "..", "..", "tests")]
     import torch
-    torch.set_default_dtype(torch.float64)   # tensors the feature factory makes itself follow the reference dtype
+    RD = getattr(torch, a.ref_dtype)
+    torch.set_default_dtype(RD)   # tensors the feature factory makes itself follow the reference dtype
     import rfd4_reference as REF
     from loss_parity_reference import load_batch
     from tt_bio.rfd4 import network as N, engine as E
@@ -50,15 +54,15 @@ def main():
     win = int(meta["winner"])
     state, config = N.load_checkpoint(E._resolve_weights(E.DEFAULT_WEIGHTS))
     cfg = config["nn"]
-    glue = N.FlowGlue(state, config).double()
+    glue = N.FlowGlue(state, config).to(RD)
     glue.requires_grad_(True)
     # A few upstream features are built in float32 from batch data (no parameter reaches them); lift every float
     # input of a glue layer to float64 so the reference stays float64 from the first parameter on.
     for mod in glue.modules():
         if isinstance(mod, (torch.nn.Linear, torch.nn.LayerNorm)):
             mod.register_forward_pre_hook(lambda _m, args: tuple(
-                x.double() if torch.is_tensor(x) and x.is_floating_point() else x for x in args))
-    bt, bmeta, _rec, _ = load_batch(a.batch, dtype=torch.float64)
+                x.to(RD) if torch.is_tensor(x) and x.is_floating_point() else x for x in args))
+    bt, bmeta, _rec, _ = load_batch(a.batch, dtype=RD)
     K = int(bt["padding_mask"].shape[0])
     depth = max(1, int(bmeta["depth"]))
 
@@ -72,13 +76,13 @@ def main():
             d.detach().numpy() if torch.is_tensor(d) else d)
 
     bw = take(bt, win)
-    mask = bw["padding_mask"].double()
+    mask = bw["padding_mask"].to(RD)
     # trunk leaves: the upstream `nn.` tensors the device trunk reads, float64, named as the dump names them
     w = {}
     params = {}
     for k, v in state.items():
         if k.startswith("nn."):
-            t = v.detach().double().clone().requires_grad_(True)
+            t = v.detach().to(RD).clone().requires_grad_(True)
             w[k[3:]] = t
             for nm in (k, k[3:]):
                 if nm in got:
@@ -133,6 +137,10 @@ def main():
             gs = torch.autograd.grad(L, [params[k] for k in names], allow_unused=True)
         ref_grads = {k: (np.zeros_like(got[k]) if g is None else g.detach().numpy()) for k, g in zip(names, gs)}
         print(f"reference loss {float(L):.9e} (device {meta['loss']})", flush=True)
+        if a.ref_dtype != "float64":
+            np.savez(a.save_ref, **{k: v.astype(np.float64) for k, v in ref_grads.items()})
+            print(f"{a.ref_dtype} reference saved to {a.save_ref}.npz (not graded)")
+            return
         # FD on a spread sample: the largest tensor of each kind, so every code path is differenced once
         kinds = {}
         for k in names:
