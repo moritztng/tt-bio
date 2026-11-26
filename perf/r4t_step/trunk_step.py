@@ -38,7 +38,20 @@ def main():
     ap.add_argument("--batch", default="")
     ap.add_argument("--exempt", default="")
     ap.add_argument("--out", default=os.path.expanduser("~/r4t/step/tck"))
+    ap.add_argument("--curve-dump", default="", help="the G3 curve leg: a directory of plan-step "
+                    "inputs from `curve_upstream.py --dump-dir` (plan.json beside them). Step i "
+                    "trains on step<i>.npz at ITS drawn depth, in order, no cycling.")
+    ap.add_argument("--curve-out", default="", help="with --curve-dump: the CurveLog to append to, "
+                    "the file grade_parity.py --ours reads")
     a = ap.parse_args()
+    if a.curve_dump:
+        from tt_bio.train.curve import CurveLog, read_dump_dir
+        cdir = os.path.expanduser(a.curve_dump)
+        cplan, cfiles = read_dump_dir(cdir)   # refuses a dump that is not this plan's
+        if not a.curve_out:
+            raise SystemExit("--curve-out is required with --curve-dump")
+        a.batch = ",".join(str(f) for f in cfiles)
+        a.steps = min(a.steps, len(cfiles)) if a.steps != 6 else len(cfiles)
     import faulthandler
     import signal
     faulthandler.register(signal.SIGUSR1)   # kill -USR1 <pid> prints every thread stack to the log
@@ -151,7 +164,7 @@ def main():
         cur = {}
 
         def use(step):
-            nm, b, m, _rec, rl = batches[step % len(batches)]
+            nm, b, m, _rec, rl = batches[step if a.curve_dump else step % len(batches)]
             cur.update(name=nm, bt=b, meta=m, ref=rl, K=int(b["padding_mask"].shape[0]), depth=max(1, int(m["depth"])))
         use(0)
         glue.requires_grad_(True)
@@ -227,7 +240,8 @@ def main():
             sur = sum((o[k] * torch.from_numpy(np.asarray(g)).to(o[k].dtype)).sum() for k, g in seeds.items())
             br.backward(sur)
             terms = {k: v.get("value") for k, v in bd.items() if isinstance(v, dict)}
-            ref = {k: float(cur["ref"][k][ctx["win"]]) for k in terms if k in cur["ref"]}
+            ref = {k: float(cur["ref"][k][ctx["win"]]) for k in terms if k in cur["ref"]
+                   and ctx["win"] < len(cur["ref"][k])}
             return total, terms, ref
         real = (real_example, real_loss)
 
@@ -259,6 +273,13 @@ def main():
                 cyc[nm] = why
     cov = GradientCoverage(names, exempt=cyc, where="r4t-step trunk: ")
     threading.Thread(target=sample, daemon=True).start()
+    clog = None
+    if a.curve_dump:
+        clog = CurveLog(os.path.expanduser(a.curve_out), cplan, "ours",
+                        meta={"sha": os.environ.get("TT_BIO_SHA", ""), "card": card,
+                              "dump_dir": cdir, "dtype": str(trunk.dtype),
+                              "levers": sorted(levers) if isinstance(levers, (set, list, tuple))
+                              else str(levers), "device": "tenstorrent", "k": a.k, "n": a.n})
     for step in range(start, a.steps):
         ttnn.synchronize_device(dev)
         base = used()
@@ -275,7 +296,7 @@ def main():
             ttnn.synchronize_device(dev)
             extra_mem = used()
             st = s
-            extra = dict(dev_after_heads_B=extra_mem, batch=cur["name"], winner=ctx["win"], upstream_winner=int(cur["meta"]["winners"][0]), depth_upstream=cur["depth"],
+            extra = dict(dev_after_heads_B=extra_mem, batch=cur["name"], winner=ctx["win"], upstream_winner=(None if a.curve_dump else int(cur["meta"]["winners"][0])), depth_upstream=cur["depth"],
                          terms=terms, upstream_terms=ref)
         else:
             s, z = one_example(step, True)
@@ -311,9 +332,17 @@ def main():
               flush=True)
         if a.save_at and step + 1 == a.save_at:   # before the guard, so a refusal still leaves the resume test its input
             print(json.dumps(dict(saved=str(ck.save(step + 1, opt, metrics={"loss": loss}, force=True)))), flush=True)
-        if not a.resume:
+        if clog is not None:
+            clog.record(step, loss, terms=extra.get("terms"), n_recycle=cur["depth"],
+                        seconds=round(t3 - t0, 2), dead=len(dead), example=cur["name"],
+                        aiclk_med=sorted(sm)[len(sm) // 2] if sm else 0, master_digest=md)
+        # G2 rides along, as on the upstream side: a depth-1 step trains neither cycle projection
+        # (state/r4t/rows/accuracy.md), so counting it would refuse ~1 healthy run in 150.
+        if not a.resume and (not real or cur["depth"] >= 2):
             cov.observe(dead)
     stop.set()
+    if clog is not None:
+        clog.close()
 
 
 if __name__ == "__main__":
