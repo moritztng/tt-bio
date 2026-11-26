@@ -328,3 +328,97 @@ def test_a_masked_edge_is_not_counted_in_the_mean():
     half = layer(node_attr, ei[:, keep], [attr[keep], attr[:0]], sh[keep])
     masked = layer(node_attr, ei, [attr, attr[:0]], sh, edge_mask=keep.float())
     assert torch.allclose(half, masked, atol=1e-6, rtol=0)
+
+
+# --------------------------------------------------------------- pose batching
+
+def _pose_system(n_lig, n_rec, n_poses, seed=0):
+    """One complex, *n_poses* poses: same topology and receptor, different coordinates."""
+    torch.manual_seed(seed)
+    lig = torch.randn(n_poses, n_lig, 3) * 2.0 + torch.randn(n_poses, 1, 3) * 3.0
+    rec = (torch.randn(n_rec, 3) * 8.0).repeat(n_poses, 1, 1)
+    chain = torch.stack([torch.arange(n_lig - 1), torch.arange(1, n_lig)])
+    bonds = torch.cat([chain, chain.flip(0)], dim=1)
+    return lig, rec, bonds
+
+
+def test_pose_batch_is_block_diagonal():
+    """Every pose's edges stay inside its own node block -- the one thing batching can break.
+
+    tt-atom's note applies unchanged (``tt_atom/disjoint.py``): build each system's edge set
+    separately and offset it, never a radius graph over the concatenated coordinates, or an
+    edge wires one pose's ligand to another pose's receptor. Here the edge set is complete
+    per pose, so the check is that the offsets partition it.
+    """
+    n_lig, n_rec, n_poses = 7, 11, 4
+    _, _, bonds = _pose_system(n_lig, n_rec, n_poses)
+    s = G.StaticGraphs.build(n_lig, n_rec, bonds, n_rot_bonds=3, n_poses=n_poses)
+    real_cross = s.cross_edge_index[:, :n_lig * n_rec * n_poses]
+    assert (real_cross[0] // n_lig == real_cross[1] // n_rec).all()
+    real_lig = s.lig_edge_index[:, :s.lig_n_bond_edges + n_lig * (n_lig - 1) * n_poses]
+    assert (real_lig[0] // n_lig == real_lig[1] // n_lig).all()
+    real_tor = s.tor_edge_index[:, :3 * n_lig * n_poses]
+    assert (real_tor[0] // 3 == real_tor[1] // n_lig).all()
+    # every pose contributes the same edges, shifted
+    one = G.StaticGraphs.build(n_lig, n_rec, bonds, n_rot_bonds=3, n_poses=1)
+    per_pose = one.cross_edge_index[:, :n_lig * n_rec]
+    for p in range(n_poses):
+        block = real_cross[:, p * n_lig * n_rec:(p + 1) * n_lig * n_rec]
+        assert torch.equal(block - torch.tensor([[p * n_lig], [p * n_rec]]), per_pose)
+
+
+def test_batched_node_update_equals_the_poses_run_one_at_a_time():
+    """A pose batch is ten independent complexes in one call, and must stay that way.
+
+    Same convolution, same coordinates: the batched output's slice for pose p has to be what
+    running pose p alone gives. It would not be if the mean divisor leaked across poses, if a
+    pad edge pointed into another pose's block, or if a per-pose cutoff were applied to the
+    wrong edges -- so the cutoffs here differ per pose, which is the shape upstream's
+    ``cross_cutoff`` tensor has.
+    """
+    n_lig, n_rec, n_poses = 9, 13, 4
+    in_dim, n_edge_features = 16, 24
+    lig, rec, bonds = _pose_system(n_lig, n_rec, n_poses, seed=3)
+    cutoffs = torch.tensor([30.0, 24.0, 21.0, 20.5])
+    layer = _conv(in_dim, n_edge_features)
+    lig_expansion = GaussianSmearing(0.0, LIG_MAX_RADIUS, n_edge_features)
+    cross_expansion = GaussianSmearing(0.0, CROSS_MAX_DISTANCE, n_edge_features)
+    torch.manual_seed(11)
+    lig_attr = torch.randn(n_poses, n_lig, in_dim)
+    rec_attr = torch.randn(n_rec, in_dim).repeat(n_poses, 1, 1)
+
+    def run(s, lig_pos, rec_pos, lig_attr, rec_attr, cutoff):
+        node_attr = torch.zeros(s.n_lig_padded + s.n_rec_padded, in_dim)
+        node_attr[:s.n_lig_total] = lig_attr.reshape(-1, in_dim)
+        node_attr[s.rec_offset:s.rec_offset + s.n_rec_total] = rec_attr.reshape(-1, in_dim)
+        lp = torch.zeros(s.n_lig_padded, 3)
+        lp[:s.n_lig_total] = lig_pos.reshape(-1, 3)
+        rp = torch.zeros(s.n_rec_padded, 3)
+        rp[:s.n_rec_total] = rec_pos.reshape(-1, 3)
+        cross_ei = s.cross_edge_index_global()
+        lig_vec = lp[s.lig_edge_index[1]] - lp[s.lig_edge_index[0]]
+        cross_vec = rp[cross_ei[1] - s.rec_offset] - lp[cross_ei[0]]
+        out = layer(node_attr, torch.cat([s.lig_edge_index, cross_ei], dim=1),
+                    [lig_expansion(lig_vec.norm(dim=-1)),
+                     cross_expansion(cross_vec.norm(dim=-1))],
+                    torch.cat([spherical_harmonics(lig_vec, SH_LS),
+                               spherical_harmonics(cross_vec, SH_LS)]),
+                    out_nodes=s.n_lig_padded + s.n_rec_padded,
+                    edge_mask=torch.cat([s.lig_mask(lp, LIG_MAX_RADIUS),
+                                         s.cross_mask(lp, rp, cutoff)]))
+        return (out[:s.n_lig_total].reshape(s.n_poses, s.n_lig, -1),
+                out[s.rec_offset:s.rec_offset + s.n_rec_total].reshape(s.n_poses, s.n_rec, -1))
+
+    batched = run(G.StaticGraphs.build(n_lig, n_rec, bonds, n_poses=n_poses),
+                  lig, rec, lig_attr, rec_attr, cutoffs)
+    single = G.StaticGraphs.build(n_lig, n_rec, bonds, n_poses=1)
+    scale = batched[0].abs().max()
+    assert scale > 0
+    for p in range(n_poses):
+        one = run(single, lig[p], rec[p], lig_attr[p], rec_attr[p], cutoffs[p])
+        for batch_out, one_out in zip(batched, one):
+            # the receptor rows are identically zero here on both sides: both edge groups
+            # scatter to ligand nodes, and the group that feeds receptor nodes is the
+            # reverse-cross one, which is the cross group with its rows swapped.
+            err = (batch_out[p] - one_out[0]).abs().max() / scale
+            assert err < 1e-6, f"pose {p}: {err:.3e}"
