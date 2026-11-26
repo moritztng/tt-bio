@@ -77,8 +77,13 @@ def make_plan(cfg, args) -> CurvePlan:
     """Choose the data order once, from the ids the pipeline actually yields at this crop."""
     import torch
     ds, index = dataset_index(cfg, args.min_tokens)
+    wanted = [e for e in args.ids.split(",") if e] or list(index)
+    missing = [e for e in wanted if e not in index]
+    if missing:
+        raise SystemExit(f"--ids names examples the pipeline does not yield: {missing}")
     ids = []
-    for eid, i in index.items():
+    for eid in wanted:
+        i = index[eid]
         feats = collate(ds, i, args.crop, args.exploration_k)
         tokens = int(feats["padding_mask"][0].sum())
         if tokens < args.min_tokens:
@@ -90,9 +95,10 @@ def make_plan(cfg, args) -> CurvePlan:
     if not ids:
         raise SystemExit("no example survived the pipeline at this crop")
     del torch
+    exempt = tuple(tuple(pair.split("=", 1)) for pair in args.exempt.split(";") if pair)
     return CurvePlan(steps=args.steps, crop=args.crop, example_ids=tuple(ids),
                      batch_size=args.batch_size, exploration_k=args.exploration_k,
-                     warmup=args.warmup, note=args.note)
+                     warmup=args.warmup, exempt=exempt, note=args.note)
 
 
 def train_step(model, batch, spec, k, optimizers, schedulers, clip_val):
@@ -148,8 +154,10 @@ def run(args):
     clip_val = float(model.cfg_exp.opt.gradient_clip_val)
     model.train()
 
+    # The plan's exemptions, not the run's: a parameter this id set cannot drive is named with
+    # upstream's reason in the plan, before the run, and refusing is the default for everything else.
     guard = GradientCoverage([n for n, p in model.nn.named_parameters() if p.requires_grad],
-                             where=f"{args.side} curve leg: ")
+                             exempt=dict(plan.exempt), where=f"{args.side} curve leg: ")
     meta = {"upstream_sha": _upstream_sha(repo), "hf": f"{HF_REPO}@{HF_REV}",
             "seed_offset": args.seed_offset, "dtype": "float32", "device": "cpu",
             "threads": torch.get_num_threads(), "sha": args.sha, "host": socket.gethostname(),
@@ -192,6 +200,10 @@ def main():
     ap.add_argument("--warmup", type=int, default=200)
     ap.add_argument("--min-tokens", type=int, default=32)
     ap.add_argument("--max-ids", type=int, default=0, help="cap the plan's id list (0: all)")
+    ap.add_argument("--ids", default="", help="comma-separated example ids for the plan, in "
+                    "order, instead of every id the pipeline yields")
+    ap.add_argument("--exempt", default="", help="name=reason pairs, ';'-separated: parameters "
+                    "this plan's data cannot drive (see CurvePlan.exempt)")
     ap.add_argument("--note", default="")
     ap.add_argument("--sha", default=os.environ.get("TT_BIO_SHA", ""))
     a = ap.parse_args()

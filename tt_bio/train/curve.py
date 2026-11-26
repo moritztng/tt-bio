@@ -74,6 +74,13 @@ class CurvePlan:
     n_recycle_max: int = 9
     n_recycle_lambda: float = 3.0
     dataset: str = "test_dataset"
+    #: Parameters this plan's data cannot drive, each with upstream's reason, as
+    #: ``((name, reason), ...)``. The G2 guard refuses a run in which a trainable parameter gets
+    #: no gradient, and upstream's own run over a small id set trips it honestly: a feature no
+    #: example carries returns ``zeros + 0.0 * weight.sum()`` (feature_factory.py:770), and the
+    #: insertion head is driven only by examples with unindexed tokens. An exemption belongs in
+    #: the plan, where it is hashed into the digest before the run, never discovered mid-run.
+    exempt: tuple = ()
     note: str = ""
 
     def __post_init__(self):
@@ -84,6 +91,10 @@ class CurvePlan:
         if not 0 <= self.warmup <= self.steps:
             raise ValueError(f"warmup {self.warmup} outside [0, {self.steps}]")
         object.__setattr__(self, "example_ids", tuple(str(e) for e in self.example_ids))
+        ex = tuple((str(n), str(r)) for n, r in self.exempt)
+        if any(not r for _, r in ex):
+            raise ValueError("every exemption carries upstream's reason, not a bare name")
+        object.__setattr__(self, "exempt", ex)
 
     @property
     def graded(self) -> bool:
@@ -116,7 +127,13 @@ class CurvePlan:
         if unknown:
             raise CurveContractError(f"plan carries unknown fields {unknown}: a field the writer "
                                      f"had and the reader does not would change the run silently")
-        return cls(**{k: (tuple(v) if k == "example_ids" else v) for k, v in d.items()})
+        def conv(k, v):
+            if k == "example_ids":
+                return tuple(v)
+            if k == "exempt":
+                return tuple(tuple(e) for e in v)
+            return v
+        return cls(**{k: conv(k, v) for k, v in d.items()})
 
 
 @dataclass(frozen=True)

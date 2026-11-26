@@ -233,3 +233,30 @@ def test_grader_cli_exits_0_1_and_2(tmp_path):
     assert fail.returncode == 1 and "FAIL" in fail.stdout
     refused = run("--ours", ours, "--gpu-a", a)
     assert refused.returncode == 2 and "REFUSED" in refused.stdout and "seed-B" in refused.stdout
+
+
+# --------------------------------------------- exemptions, which belong in the plan
+
+def test_exemptions_are_part_of_the_plan_and_of_its_digest():
+    """A parameter this id set cannot drive is named before the run, with upstream's reason.
+
+    Upstream's own 20-step run over four PLINDER crops tripped the G2 guard on five parameters:
+    three embedding tables whose feature no example carries (upstream returns
+    ``zeros + 0.0 * weight.sum()``, feature_factory.py:770) and the insertion head's q/k
+    projections, which only examples with unindexed tokens drive. That is the guard working, so
+    the exemption is pre-registered in the plan rather than discovered mid-run.
+    """
+    reason = "no example in this id set carries the feature"
+    with_ex = plan(20, exempt=(("nn.insertion_q_proj.weight", reason),))
+    assert with_ex.digest() != plan(20).digest()
+    assert with_ex.exempt == (("nn.insertion_q_proj.weight", reason),)
+    with pytest.raises(ValueError, match="reason"):
+        plan(20, exempt=(("nn.insertion_q_proj.weight", ""),))
+
+
+def test_exemptions_survive_a_round_trip_through_a_log(tmp_path):
+    p = plan(5, exempt=(("a.weight", "upstream zeroes it when the feature is absent"),))
+    path = write(tmp_path, "ours.jsonl", "ours", curve(5), p=p)
+    header, _ = read_curve(path)
+    assert header["plan_obj"].exempt == p.exempt
+    assert header["plan_obj"].digest() == p.digest()
