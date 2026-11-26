@@ -38,6 +38,12 @@ def save_adapter(path, opt: AdamW, *, meta: Optional[dict] = None) -> None:
     would quietly decay the adapter.
     """
     from safetensors.numpy import save_file
+    if getattr(opt, "shard", False) and getattr(opt.data_parallel, "width", 1) > 1:
+        # A sharded optimizer holds moments only for the parameters this rank owns. Saving it
+        # here would write zeros for every other rank's moments and the resume would restart
+        # their Adam state from scratch while looking healthy, so it refuses instead.
+        raise NotImplementedError(
+            "saving a shard=True optimizer: its moments live on every rank; gather them first")
     tensors = {}
     for name, arr in opt.master.items():
         tensors[f"master{_SPLIT}{name}"] = arr

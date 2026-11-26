@@ -214,9 +214,16 @@ class AdamW:
     def __init__(self, params: Dict[str, ag.Tensor], *, lr: float = 3e-4,
                  betas=(0.9, 0.999), eps: float = 1e-8, weight_decay: float = 0.01,
                  clip_norm: float = 10.0, schedule=None,
-                 data_parallel: Optional[Axis] = None, master_dtype="float32"):
+                 data_parallel: Optional[Axis] = None, master_dtype="float32",
+                 shard: bool = False):
         import numpy as np
         _require_fp32_master(master_dtype)
+        # ZeRO-1 across the launcher's ranks: each rank steps only the parameters it owns
+        # (whole tensors, `launcher.shard_edges`) and builds moments only for those, then the
+        # stepped masters are gathered so every rank still holds the same full master and
+        # writes the same device weights. Host RAM for moments and host-Adam time divide by
+        # the width; see `_step_sharded`.
+        self.shard = bool(shard)
         self.master_dtype = "float32"
         # The DP axis, not a device count and not a flag. `step()` reduces across it, and a
         # width of 1 makes that a no-op rather than a special case.
@@ -331,6 +338,8 @@ class AdamW:
         gradient, because that failure is invisible in every metric a user watches.
         """
         import numpy as np
+        if self.shard and self.data_parallel is not None and self.data_parallel.width > 1:
+            return self._step_sharded(replicas, set(disabled))
         self._reduce(replicas)
         disabled = set(disabled)
         per_sample = bool(self.accum)
@@ -487,6 +496,92 @@ class AdamW:
         self.last_writes_skipped = writes_skipped
         self.last_report = report
         self.accum, self.participation, self.accum_count = {}, {}, 0
+        return report
+
+    def _step_sharded(self, replicas, disabled) -> dict:
+        """One AdamW step with the optimizer state sharded across the DP ranks (ZeRO-1).
+
+        reduce-scatter the gradient on tensor-aligned edges, so this rank receives the summed
+        gradient of exactly the parameters it owns; take the global clip norm from every
+        rank's sum of squares; step the owned masters (moments are built lazily, so only for
+        those); all-gather the stepped masters and write every device weight from them. Every
+        rank applies the same gathered bytes, so the master-hash invariant still holds. The
+        global norm is summed per rank and then across ranks, so it can differ from the
+        replicated optimizer's in the last bits: identical across ranks, not bit-identical to
+        the unsharded step. Per-sample accumulation is not supported here yet and refuses.
+        """
+        import numpy as np
+        from .launcher import shard_edges
+        ax = self.data_parallel
+        if self.accum:
+            raise NotImplementedError("shard=True with per-sample clip_and_accumulate")
+        if not replicas:
+            raise UnreducedGradients(
+                f"the data-parallel axis {ax} is {ax.width} chips wide and step() was given "
+                f"no per-chip gradients to reduce")
+        names = sorted(self.master)
+        sizes = [self.master[n].size for n in names]
+        if getattr(self, "_edges", None) is None or len(self._edges) != ax.width + 1:
+            self._edges = shard_edges(sizes, ax.width)
+        edges, me = self._edges, ax.dp_rank
+        flat = np.zeros(sum(sizes), np.float32)
+        offs = np.concatenate([[0], np.cumsum(sizes)]).astype(np.int64)
+        for i, n in enumerate(names):
+            got = replicas.get(n)
+            if got is None or n in disabled:
+                continue
+            g = np.asarray(to_host(list(got)[0]), np.float32).reshape(-1)
+            if n in self.held:
+                g = g.copy(); g[self.held[n].reshape(-1)] = 0.0
+            flat[offs[i]:offs[i + 1]] = g
+        part = ax.reduce_scatter(flat, edges)
+        del flat
+        lo = int(edges[me])
+        owned = [i for i in range(len(names)) if edges[me] <= offs[i] and offs[i + 1] <= edges[me + 1]]
+        local = {names[i]: part[offs[i] - lo:offs[i + 1] - lo].reshape(self.master[names[i]].shape)
+                 for i in owned}
+        sq = sum(float(g.ravel() @ g.ravel()) for g in local.values())
+        gnorm = math.sqrt(ax.sum_scalars([sq])[0])
+        clip = self.clip_coef(gnorm)
+        lr = self.lr if self.schedule is None else float(self.schedule(self.steps))
+        self.steps += 1
+        self.beta1_pow *= self.beta1
+        self.beta2_pow *= self.beta2
+        bc1, bc2 = 1.0 - self.beta1_pow, 1.0 - self.beta2_pow
+        report = {}
+        for n, g in local.items():
+            if clip != 1.0:
+                g = g * clip
+            m, v, theta = self.exp_avg[n], self.exp_avg_sq[n], self.master[n]
+            m *= self.beta1
+            m += (1.0 - self.beta1) * g
+            v *= self.beta2
+            v += (1.0 - self.beta2) * (g * g)
+            upd = lr * ((m / bc1) / (np.sqrt(v / bc2) + self.eps) + self.weight_decay * theta)
+            if n in self.held:
+                upd[self.held[n]] = 0.0
+            theta -= upd
+            report[n] = {"master_step": float(np.linalg.norm(upd)),
+                         "grad_norm": float(np.linalg.norm(g))}
+        mine = (np.concatenate([self.master[names[i]].ravel() for i in owned]) if owned
+                else np.zeros(0, np.float32))
+        full = ax.all_gather(mine)
+        writes_skipped = 0
+        for i, n in enumerate(names):
+            t, theta = self.params[n], self.master[n]
+            before = round_to_device_dtype(theta, t.value.dtype)
+            before = None if before is None else np.array(before, copy=True)
+            theta[...] = full[offs[i]:offs[i + 1]].reshape(theta.shape)
+            after = round_to_device_dtype(theta, t.value.dtype)
+            if before is not None and after is not None and np.array_equal(after, before):
+                writes_skipped += 1
+            else:
+                t.value = to_device(theta, t.value.device(), dtype=t.value.dtype)
+        self.last_lr, self.last_clip, self.last_grad_norm = lr, clip, gnorm
+        self.peak_lr = max(self.peak_lr, float(lr))
+        self.last_per_sample = False
+        self.last_writes_skipped = writes_skipped
+        self.last_report = report
         return report
 
     def _reduce(self, replicas) -> None:

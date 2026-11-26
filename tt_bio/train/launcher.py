@@ -347,8 +347,10 @@ class ProcessAxis(Axis):
         part = np.zeros(hi - lo, dtype=vec.dtype)
         for f in full:
             part += np.load(f, mmap_mode="r")[lo:hi]
-        self.state.update(_open=(step, edges, vec.size, vec.dtype), _pub=t_pub - t0,
-                          _wait=t_wait - t_pub)
+        # A stack, so a small exchange (the clip norm's sum_scalars) can run between a
+        # sharded optimizer's reduce_scatter and its all_gather.
+        self.state.setdefault("_open", []).append((step, edges, vec.size))
+        self.state.update(_pub=t_pub - t0, _wait=t_wait - t_pub)
         return part
 
     def all_gather(self, part):
@@ -360,7 +362,7 @@ class ProcessAxis(Axis):
         files ``_KEEP_STEPS`` back are safe to drop.
         """
         import numpy as np
-        step, edges, n, dtype = self.state.pop("_open")
+        step, edges, n = self.state["_open"].pop()
         d, me = Path(self.run), self.dp_rank
         if part.size != edges[me + 1] - edges[me]:
             raise ValueError(f"rank {me} holds {part.size} elements for a slice of "
