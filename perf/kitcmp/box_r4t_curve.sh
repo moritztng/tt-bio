@@ -34,7 +34,7 @@ leg(){ # side seed_offset gpu
     --out $C/$1.jsonl --side $1 --seed-offset $2 --device cuda --sha "src-$SHA" > $C/$1.log 2>&1
   echo $? > $C/$1.rc; say "$1 rc=$(cat $C/$1.rc) steps=$(($(wc -l < $C/$1.jsonl 2>/dev/null || echo 1) - 1))"
 }
-if [ "$(nvidia-smi -L | wc -l)" -ge 2 ]; then leg gpu_a 0 0 & leg gpu_b 1 1 & wait
+if [ "$(nvidia-smi -L | wc -l)" -ge 2 ]; then leg gpu_a 0 0 & A=$!; leg gpu_b 1 1 & wait $A $!  # not a bare wait: the smi logger above never exits
 else leg gpu_a 0 0; leg gpu_b 1 0; fi
 [ "$(cat $C/gpu_a.rc)$(cat $C/gpu_b.rc)" = 00 ] || { echo "leg rc a=$(cat $C/gpu_a.rc) b=$(cat $C/gpu_b.rc)" > $B/RFD4-FAILED; exit 4; }
 touch $B/RFD4-DONE; say "done after $(( $(date +%s) - T0 ))s"
