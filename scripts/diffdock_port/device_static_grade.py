@@ -104,14 +104,20 @@ def main():
                 m.log.clear()
             # warm first: the first call on a shape JITs its kernels, which is not the step cost
             static_forward(card, c, lig_pos, *sig, crop_cutoff=step.crop_cutoff)
-            times = []
+            times, card_secs = [], []
             for _ in range(args.repeats if args.time_only else 1):
+                for m in convs.values():
+                    m.secs = 0.0
                 t0 = time.perf_counter()
                 g = static_forward(card, c, lig_pos, *sig, crop_cutoff=step.crop_cutoff)
                 times.append(time.perf_counter() - t0)
+                card_secs.append(sum(m.secs for m in convs.values()))
             secs = min(times)
         key = "seconds_per_step_warm" if args.time_only else "seconds_untraced_with_grading"
+        i = times.index(secs)
         row = {"poses": P, key: secs, "times": times,
+               "seconds_in_device_layers": card_secs[i],
+               "card_busy_fraction": card_secs[i] / secs,
                "edges": {"lig": int(c.sg.lig_edge_index.shape[1]),
                          "cross": int(c.sg.cross_edge_index.shape[1]),
                          "rec": int(c.rec_edge_index.shape[1]),
@@ -130,7 +136,8 @@ def main():
             for n in ("tr", "rot", "tor") if row[n])
             + ("" if args.time_only else
                f"  worst conv pcc {min(v['min_pcc'] for v in worst.values() if v['min_pcc'])}")
-            + f"  {secs:.2f} s warm", flush=True)
+            + f"  {secs:.2f} s warm, card {100 * card_secs[times.index(secs)] / secs:.0f} %",
+            flush=True)
 
     stop.set()
     th.join(timeout=30)

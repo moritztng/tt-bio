@@ -312,14 +312,20 @@ class DeviceConvModule(torch.nn.Module):
         super().__init__()
         import copy
         self.name, self.log = name, []
+        #: wall seconds spent inside :meth:, summed over calls. Upload, the device ops
+        #: and the read-back: everything this module owns. The rest of a step is host glue, so
+        #: 1 - sum(secs) / step is the card's idle fraction in the untraced form.
+        self.secs = 0.0
         self.host = copy.deepcopy(layer).double() if grade else None
         self.layer = layer
         self.dev = DeviceConvLayer(device, copy.deepcopy(layer).float(), dtype=dtype)
 
     def forward(self, node_attr, edge_index, edge_attr, edge_sh, out_nodes=None,
                 reduce="mean", edge_weight=1.0, edge_mask=None, edge_chunk=None):
+        import time
         import ttnn
         from tt_bio.diffdock.graph import pad_count
+        _t0 = time.perf_counter()
         if reduce != "mean" or not (isinstance(edge_weight, float) and edge_weight == 1.0):
             raise NotImplementedError("the card layer is the released model's: mean, unweighted")
         E = edge_index.shape[1]
@@ -353,6 +359,7 @@ class DeviceConvModule(torch.nn.Module):
                        ttnn.from_torch(m.reshape(-1, 1), dtype=ttnn.float32,
                                        layout=ttnn.TILE_LAYOUT, device=d))
         out = ttnn.to_torch(out)[:n_out, :self.layer.out_irreps.dim].to(node_attr.dtype)
+        self.secs += time.perf_counter() - _t0
         if self.host is not None:
             with torch.no_grad():
                 ref = self.host(node_attr.double(), edge_index,
