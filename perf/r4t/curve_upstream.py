@@ -95,7 +95,7 @@ def make_plan(cfg, args) -> CurvePlan:
     if not ids:
         raise SystemExit("no example survived the pipeline at this crop")
     del torch
-    exempt = tuple(tuple(pair.split("=", 1)) for pair in args.exempt.split(";") if pair)
+    exempt = tuple(tuple(line.split("=", 1)) for line in args.exempt.splitlines() if line.strip())
     return CurvePlan(steps=args.steps, crop=args.crop, example_ids=tuple(ids),
                      batch_size=args.batch_size, exploration_k=args.exploration_k,
                      warmup=args.warmup, exempt=exempt, note=args.note)
@@ -207,8 +207,9 @@ def main():
     ap.add_argument("--max-ids", type=int, default=0, help="cap the plan's id list (0: all)")
     ap.add_argument("--ids", default="", help="comma-separated example ids for the plan, in "
                     "order, instead of every id the pipeline yields")
-    ap.add_argument("--exempt", default="", help="name=reason pairs, ';'-separated: parameters "
-                    "this plan's data cannot drive (see CurvePlan.exempt)")
+    ap.add_argument("--exempt", default="", help="name=reason pairs, one a line (reasons carry "
+                    "punctuation, so lines, not a separator char): parameters this plan's data "
+                    "cannot drive (see CurvePlan.exempt)")
     ap.add_argument("--note", default="")
     ap.add_argument("--sha", default=os.environ.get("TT_BIO_SHA", ""))
     a = ap.parse_args()
