@@ -39,6 +39,8 @@ def main():
     ap.add_argument("--host-norm", action="store_true", help="probe: Frobenius normalization on host (bf16, upstream order), iterations on device")
     ap.add_argument("--no-l1acc", action="store_true", help="packer_l1_acc off (partials stay in DEST)")
     ap.add_argument("--iters", type=int, default=5, help="Newton-Schulz iterations; 4 = the B1'' algorithmic broken arm")
+    ap.add_argument("--snap", help="D34: torch file of upstream's real NS inputs (dump_momentum.py) instead of randn")
+    ap.add_argument("--min-dim", type=int, default=0, help="D34 hybrid: only matrices with min dim >= this go to the device")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
     from tt_bio.main import ensure_p300_mesh_descriptor
@@ -106,7 +108,14 @@ def main():
         return x
 
     gen = torch.Generator().manual_seed(0)
-    groups = []
+    groups, gidx = [], []
+    if a.snap:
+        snap = torch.load(a.snap)
+        for gi, g in enumerate(snap["groups"]):
+            if min(g.shape[1:]) >= a.min_dim:
+                g = g.float()
+                groups.append(g.transpose(-1, -2).contiguous() if g.shape[-2] > g.shape[-1] else g); gidx.append(gi)
+        shapes = []
     for (r, c), cnt in shapes:
         w = torch.randn(cnt, r, c, generator=gen)
         if r > c:
@@ -140,11 +149,11 @@ def main():
             ed, eh = float((od[k] - ref[k]).norm() / n), float((hb[k] - ref[k]).norm() / n)
             ok = ed <= 1.5 * eh
             worst = max(worst, ed / eh)
-            per.append([list(w.shape[1:]), k, ed, eh])
+            per.append([list(w.shape[1:]), k, ed, eh] + ([gidx[gi]] if a.snap else []))
             if not ok:
                 fail.append([list(w.shape[1:]), k, ed, eh])
     dts = [t1 - t0 for t0, t1 in times]
-    res = dict(arm=a.arm, iters=a.iters, host_norm=a.host_norm, kchunk=a.kchunk, fidelity=a.fidelity, l1acc=not a.no_l1acc, broken=a.broken, host="qb2", chip=card, board="p300c", sha=sha,
+    res = dict(arm=a.arm, iters=a.iters, snap=a.snap, min_dim=a.min_dim, host_norm=a.host_norm, kchunk=a.kchunk, fidelity=a.fidelity, l1acc=not a.no_l1acc, broken=a.broken, host="qb2", chip=card, board="p300c", sha=sha,
                n_matrices=sum(g.shape[0] for g in groups), reps=a.reps, step_s=[round(d, 4) for d in dts],
                step_s_min=round(min(dts), 4), aiclk=[min(ck), max(ck), len(ck)] if ck else None,
                worst_edev_over_ehost=round(worst, 3), n_fail=len(fail), fail=fail[:20],
