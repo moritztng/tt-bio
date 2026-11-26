@@ -78,6 +78,10 @@ In a screen one bad ligand does not stop the run. The failures land in `failures
 the error for each, and `--limit_failures` (default 5) decides when to give up. A single
 complex on the command line fails immediately instead, with the reason.
 
+A pose whose coordinates go non-finite during sampling is kept at its last finite position,
+logged with a warning and given a confidence of -1000, so it ranks last instead of above a
+real pose. The complex itself only fails if every one of its poses does.
+
 ## Several cards and the fleet
 
 A screen spreads across cards one complex per card at a time. `--devices 0,1,2,3` starts a
