@@ -78,7 +78,7 @@ def main():
     cfg = config["nn"]
     glue = N.FlowGlue(state, config)
     folds = Folds(state)
-    trunk = E.load_trunk(glue, state, cfg)   # an unrecorded build for the lever set and dtypes; build() replaces it
+    trunk = E.load_trunk(glue, state, cfg, training=True)   # an unrecorded build for the lever set and dtypes; build() replaces it
 
     RB = {}
 
@@ -142,7 +142,7 @@ def main():
         close_rec()
         if lazy or not inline:
             with folds.recording(device_pack=pack) as sd:
-                trunk = E.load_trunk(glue, sd, cfg)
+                trunk = E.load_trunk(glue, sd, cfg, training=True)
                 if in_proj:
                     RB["trimuls"] = len([m.train_in_proj() for m in trimuls(trunk)])
                 ttnn.synchronize_device(dev); _rb2 = time.time()
@@ -151,7 +151,7 @@ def main():
         else:
             rec = folds.recording(device_pack=pack)
             sd = rec.__enter__()
-            trunk = E.load_trunk(glue, sd, cfg)
+            trunk = E.load_trunk(glue, sd, cfg, training=True)
             if in_proj:
                 RB["trimuls"] = len([m.train_in_proj() for m in trimuls(trunk)])
             # The trimul chunk width depends on the batch: the K-candidate pass fills its own width, and the

@@ -809,11 +809,22 @@ WH_FAST_LEVERS = NORMAL_LEVERS | {"mask_at_mix_z8"}
 WH_NORMAL_LEVERS = NORMAL_LEVERS | {"trimul_t1_stats", "pair_bias_fuse"}
 
 
-def mode_levers() -> frozenset:
-    """This process's RFD4 trunk lever set: the mode's set for this card's arch, or TT_BIO_LEVERS."""
+#: Levers training leaves out (D43, state/r4t/rows/perf.md). Only 5 of NORMAL_LEVERS serve at crop 256. With all on,
+#: the no-update loss-parity arm put bb_ca 1.95x and 1.64x over its D37 allowance on batches 00 and 07; with
+#: `transition_b8` off both pass (0.43x, 0.21x) but batch 08 then misses (2.7x), so this set is provisional until the
+#: 9-batch grade of every serving lever closes. Inference keeps the full set: its grade is the design RMSD above.
+TRAIN_DROPS = frozenset({"transition_b8"})
+
+
+def mode_levers(training: bool = False) -> frozenset:
+    """This process's RFD4 trunk lever set: the mode's set for this card's arch (less TRAIN_DROPS when
+    `training`), or TT_BIO_LEVERS."""
     from ..tenstorrent import is_wormhole
     wh = is_wormhole()
-    return model_levers(normal=WH_NORMAL_LEVERS if wh else NORMAL_LEVERS, fast=WH_FAST_LEVERS if wh else FAST_LEVERS)
+    normal, fast = (WH_NORMAL_LEVERS, WH_FAST_LEVERS) if wh else (NORMAL_LEVERS, FAST_LEVERS)
+    if training:
+        normal, fast = normal - TRAIN_DROPS, fast - TRAIN_DROPS
+    return model_levers(normal=normal, fast=fast)
 
 
 class Trunk(Module):
@@ -839,12 +850,12 @@ class Trunk(Module):
     _ran = (0, 0)
 
     def __init__(self, state_dict, ckc, nlayers: int = 24, n_heads: int = 16, every_n: int = 2,
-                 dtype=None, residual_dtype=None, pair_residual_dtype=None):
+                 dtype=None, residual_dtype=None, pair_residual_dtype=None, training: bool = False):
         super().__init__(state_dict, ckc)
         self.dtype = dtype or ttnn.bfloat16
         self.residual_dtype = residual_dtype or self.dtype
         self.nlayers = nlayers
-        self._levers = mode_levers()
+        self._levers = mode_levers(training)
         self.pair_residual_dtype = pair_residual_dtype or (
             (ttnn.bfloat8_b if "pair_bfp8z" in self._levers else ttnn.bfloat16) if "pair_bf16z" in self._levers
             else self.residual_dtype)

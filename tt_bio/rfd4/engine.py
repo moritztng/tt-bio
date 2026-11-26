@@ -92,9 +92,10 @@ class Engine(Protocol):
         ...
 
 
-def load_trunk(glue, state: dict, cfg: dict):
+def load_trunk(glue, state: dict, cfg: dict, training: bool = False):
     """The device trunk over the `nn.` weights the heads left to it. Refuses a checkpoint where a
-    weight is read by neither, so a renamed or extra tensor fails the load instead of designing."""
+    weight is read by neither, so a renamed or extra tensor fails the load instead of designing.
+    `training` builds it on the training lever set (`trunk.TRAIN_DROPS`)."""
     import ttnn
 
     from tt_bio.rfd4 import network as _network
@@ -110,7 +111,8 @@ def load_trunk(glue, state: dict, cfg: dict):
     # stays out of NORMAL_LEVERS and is reachable only through TT_BIO_LEVERS.
     trunk = Trunk(scope, trunk_compute_kernel_config(compute_kernel_config()), nlayers=cfg["nlayers"],
                   n_heads=cfg["nheads"],
-                  every_n=cfg["update_pair_repr_every_n"], residual_dtype=ttnn.float32)
+                  every_n=cfg["update_pair_repr_every_n"], residual_dtype=ttnn.float32,
+                  training=training)
     glue.check_trunk_reads(scope.reads)
     return trunk
 
