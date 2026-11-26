@@ -145,9 +145,20 @@ def sorted_rows(a: np.ndarray) -> np.ndarray:
 
 
 def golden_modules(cid: str) -> dict[tuple[str, int], Path]:
-    """``{(dotted module name, call index): npz}`` for the confidence goldens of *cid*."""
+    """``{(dotted module name, call index): npz}`` for the confidence goldens of *cid*.
+
+    A missing directory is reported, not returned as "nothing to grade". `glob` on a path
+    that does not exist yields nothing, which reads identically to a complex whose modules
+    all agree -- and that is exactly how two complexes came back with a clean-looking
+    `modules 0` after their `__mod` directories went away.
+    """
+    directory = GOLD / f"{cid}__mod"
+    if not directory.is_dir():
+        print(f"   {cid}: NO module goldens ({directory} does not exist); "
+              f"per-module grading skipped, final-output numbers unaffected")
+        return {}
     out = {}
-    for p in sorted((GOLD / f"{cid}__mod").glob(f"{cid}__conf__*.npz")):
+    for p in sorted(directory.glob(f"{cid}__conf__*.npz")):
         m = re.fullmatch(rf"{re.escape(cid)}__conf__(.+)__c(\d+)", p.stem)
         if not m:
             continue
