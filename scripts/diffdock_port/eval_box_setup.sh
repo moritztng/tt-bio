@@ -30,7 +30,10 @@ $SSH 'command -v rsync >/dev/null && command -v curl >/dev/null ||
        apt-get -qq install -y rsync curl ca-certificates >/dev/null)'
 
 echo "== shipping to $RT"
-git -C "$REPO" archive --format=tar HEAD | $SSH "mkdir -p ~/dfd/tt-bio && tar -x -C ~/dfd/tt-bio"
+# Everything but perf/, which is 772 of the tree's 921 MB and holds nothing the dock imports.
+PATHS=$(git -C "$REPO" ls-tree --name-only HEAD | grep -vx perf)
+# shellcheck disable=SC2086
+git -C "$REPO" archive --format=tar HEAD $PATHS | $SSH "mkdir -p ~/dfd/tt-bio && tar -x -C ~/dfd/tt-bio"
 rsync -a -e "$RSH" -L "$PB" "$RT:dfd/pb/"
 rsync -a -e "$RSH" -L "$CKPT/" "$RT:.boltz/diffdock/models/"
 
