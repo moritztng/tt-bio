@@ -105,8 +105,10 @@ def main() -> None:
             crop_cutoff=None if cfg.crop_beyond is None else 3 * tr_s + cfg.crop_beyond)
         with torch.no_grad():
             tr, rot, tor = score(step)
-        want = {k2: torch.as_tensor(scores[f"s{k:02d}_{k2}"])[: args.poses].float()
-                for k2 in ("tr", "rot", "tor")}
+        # tor is flat [B*m]: slice it per pose, not per row
+        want = {k2: torch.as_tensor(scores[f"s{k:02d}_{k2}"]).reshape(n_poses, -1)
+                [: args.poses].float() for k2 in ("tr", "rot", "tor")}
+        want["tor"] = want["tor"].reshape(-1)
         fixture["steps"][k], fixture["want"][k] = step, want
         got = {"tr": tr.reshape(want["tr"].shape), "rot": rot.reshape(want["rot"].shape),
                "tor": tor.reshape(want["tor"].shape) if want["tor"].numel() else tor}
