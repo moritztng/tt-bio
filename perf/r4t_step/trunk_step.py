@@ -92,7 +92,7 @@ def main():
     # candidate pass reach the taped winner as untracked constants (R1 first form: step-2 digest moved, every
     # linear_{a,b}_{p,g} grad dead). `train_in_proj` holds the two sources as registered device tensors and
     # cuts chunks per call, so nothing is cached. Implied by R4T_REBUILD_INLINE.
-    in_proj = inline or os.environ.get("R4T_TRAIN_IN_PROJ") == "1"
+    in_proj = os.environ.get("R4T_TRAIN_IN_PROJ") == "1"   # train_in_proj rounds dW to bf16 (gcmp.txt); not implied
 
     def trimuls(root):
         seen, out, todo = set(), [], [root]
@@ -112,6 +112,14 @@ def main():
         return out
 
     open_rec = []
+
+    def walk_register():
+        """Inline mode, between the grad-off candidates and the taped winner: register what the candidate pass
+        cached (per-width uploads AND the device concats derived from them), as the stock rebuild's walk after
+        its lazy forward does, before any taped read."""
+        if open_rec:
+            for _p, _o, _k, t in T.walk_device_weights(trunk):
+                ag.parameter(t)
 
     def close_rec():
         while open_rec:
@@ -265,6 +273,7 @@ def main():
                 with ag.no_grad():
                     sk, zk = trunk(put(s0), put(z0, trunk.pair_dtype(mk)), [put(c, trunk.dtype) for c in ck], mk)
                     sh = ttnn.to_torch(getattr(sk, "value", sk)).float().reshape(s0.shape)
+                walk_register()
                 for t in (sk, zk):
                     ttnn.deallocate(getattr(t, "value", t))
                 with torch.no_grad():
