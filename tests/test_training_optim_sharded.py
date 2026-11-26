@@ -65,13 +65,13 @@ def _grads(rank, step):
     return {n: rng.standard_normal(s).astype(np.float32) for n, s in SHAPES.items()}
 
 
-def _run(tmp_path, broken=False, steps=3, muon=None, drop=None):
+def _run(tmp_path, broken=False, steps=3, muon=None, drop=None, lr=1e-2):
     Path(tmp_path).mkdir(parents=True, exist_ok=True)
     out = {}
 
     def rank(r):
         ax = L.ProcessAxis(name="dp", device_ids=(0, 1), dp_rank=r, run=str(tmp_path))
-        opt = optim.AdamW(_params(), lr=1e-2, clip_norm=0.5, weight_decay=0.01,
+        opt = optim.AdamW(_params(), lr=lr, clip_norm=0.5, weight_decay=0.01,
                           data_parallel=ax, shard=True, muon=muon)
         for s in range(steps):
             g = _grads(r, s)
@@ -88,7 +88,7 @@ def _run(tmp_path, broken=False, steps=3, muon=None, drop=None):
     ts = [threading.Thread(target=rank, args=(r,)) for r in (0, 1)]
     [t.start() for t in ts]
     [t.join(timeout=60) for t in ts]
-    ref = optim.AdamW(_params(), lr=1e-2, clip_norm=0.5, weight_decay=0.01, muon=muon)
+    ref = optim.AdamW(_params(), lr=lr, clip_norm=0.5, weight_decay=0.01, muon=muon)
     for s in range(steps):
         g0, g1 = _grads(0, s), _grads(1, s)
         for n, p in ref.params.items():
@@ -164,3 +164,17 @@ def test_an_absent_gradient_sends_zeros_not_the_reused_slot(tmp_path, muon):
     zero, _ = _run(tmp_path / "zero", steps=5, muon=muon, drop="zero")
     for n in SHAPES:
         assert np.array_equal(gone[0].master[n], zero[0].master[n]), n
+
+
+@pytest.mark.parametrize("lr", [1e-2, 1e-9])
+def test_the_owner_decides_each_write_back_and_every_rank_follows(tmp_path, muon, lr):
+    """The owner rounds its own parameters and gathers 'rounded away' flags; every rank writes
+    exactly what the replicated step writes. At lr 1e-2 every update survives bf16 and must
+    reach the device copy; at 1e-9 every update rounds away and every write must be skipped."""
+    out, ref = _run(tmp_path, muon=muon, lr=lr)
+    for o in (out[0], out[1]):
+        assert o.last_writes_skipped == ref.last_writes_skipped
+        for n in SHAPES:
+            dev = optim.round_to_device_dtype(o.params[n].value.arr, _DType())
+            assert np.array_equal(dev, optim.round_to_device_dtype(o.master[n], _DType())), n
+    assert ref.last_writes_skipped == (0 if lr > 1e-3 else len(SHAPES))
