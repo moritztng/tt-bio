@@ -29,14 +29,15 @@ import numpy as np
 
 CROP, K = 256, 4
 
-#: What makes each optimization term non-zero for an example. Measured over the 16 crops of
-#: upstream's published test_dataset (the committed fixture): `sequence_prediction` is exercised
-#: by 14 of them, but `signed_volume` by ONE (2plh, a single chiral centre) and
-#: `insertion_prediction` by ONE (7rcu__4, five unindexed tokens). A sequential scan of the first
-#: eight therefore grades neither, so a covering set has to name them (`--ids`).
-TERM_DRIVERS = {"signed_volume": "tetrahedral_vertices >= 0",
+#: What supervises each optimization term that can come out zero, and how many of the 16 crops in
+#: upstream's published test_dataset drive it (`perf/r4t/term_coverage.py`, which carries the
+#: masks). `sequence_prediction` is scored on tokens that are NOT sequence-conditioned, so a fully
+#: conditioned example scores zero: 12 of 16. `signed_volume` is driven by ONE (2plh, a single
+#: chiral centre) and `insertion_prediction` by ONE (7rcu__4, five unindexed tokens), so a set
+#: taken in dataset order grades those two trivially at zero on both sides (`--ids`).
+TERM_DRIVERS = {"sequence_prediction": "P & ~C & L & R & (condition_sequence_1_residue == 0)",
                 "insertion_prediction": "insertion_source_idx >= 0",
-                "sequence_prediction": "condition_sequence_1_residue > 0"}
+                "signed_volume": "tetrahedral_vertices >= 0"}
 COVERING_IDS = ("2plh__1__1.A__1.G", "7rcu__4__1.U_1.V__1.FA")
 HF_REPO, HF_REV = "nvidia/RFD4-Proteina", "a06e2509c7033b010fc43614e9fd840303588502"
 
