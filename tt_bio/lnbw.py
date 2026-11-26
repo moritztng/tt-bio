@@ -118,8 +118,9 @@ def _build(x, g, gamma, out, eps, device, parts=None):
     for t in (x, g, gamma if gamma is not None else x):
         reader_ct.extend(ttnn.TensorAccessorArgs(t).get_compile_time_args())
     writer_ct = [Wt, do_w] + list(ttnn.TensorAccessorArgs(out).get_compile_time_args())
-    if do_w:
-        writer_ct += list(ttnn.TensorAccessorArgs(parts[0]).get_compile_time_args())
+    # Always present: `if constexpr` outside a template does not discard, so the x-only writer still
+    # instantiates the partials' accessor and needs args at that offset (dx's stand in, never read).
+    writer_ct += list(ttnn.TensorAccessorArgs(parts[0] if do_w else out).get_compile_time_args())
 
     rr, wr, cr = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
     first, core = 0, 0
