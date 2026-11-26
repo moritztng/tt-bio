@@ -509,10 +509,10 @@ def test_score_only_writes_unranked(tmp_path, monkeypatch):
     monkeypatch.setattr(cm, "load_checkpoint", lambda *a, **kw: pytest.fail(
         "--no_confidence loaded the confidence checkpoint"))
 
-    samples = 3
+    samples = 4
     rollout: list = []
     out = dock_on_host_torch(tmp_path / "results", monkeypatch, samples=samples,
-                             actual_steps=2, confidence=False, rollout=rollout)
+                             actual_steps=3, confidence=False, rollout=rollout)
     write_dir = out / "cx"
 
     assert {p.name for p in write_dir.glob("*.sdf")} == \
@@ -527,9 +527,9 @@ def test_score_only_writes_unranked(tmp_path, monkeypatch):
     written = np.asarray([sdf_coords(write_dir / f"rank{r}.sdf")[1]
                           for r in range(1, samples + 1)])
     sampled = np.asarray(rollout[0])
-    offsets = written - sampled
-    assert offsets.max() - offsets.min() < 1e-3, \
-        "pose N as written is not sample N shifted by original_center: the order moved"
+    flat = (written - sampled).reshape(-1, 3)
+    assert np.all(flat.max(axis=0) - flat.min(axis=0) < 1e-3), \
+        "pose N as written is not sample N shifted by one constant: the order moved"
 
 
 def test_old_architecture_loads_and_runs():
@@ -538,10 +538,10 @@ def test_old_architecture_loads_and_runs():
     `--weights` carries both (`WEIGHTS[name] -> (old_score_model, old_filtering_model)`).
     The confidence side is the old architecture and always is: upstream's default recipe
     sets `old_filtering_model: true`, and the released 19 MB checkpoint is that network --
-    which this test shows by loading it strictly under `old_model=True` and watching the same
-    checkpoint be *refused* under `old_model=False`. That refusal is the point: the two
-    architectures have the same widths, so a flag that did nothing would still produce finite
-    numbers from the wrong network.
+    which this test shows by loading it strictly under `old_model=True` and watching
+    `old_model=False` be *refused* -- upstream's other confidence architecture, which is not
+    ported and has no released weights here. That refusal is the point: the two have
+    identical widths, so a flag that did nothing would still produce finite numbers.
 
     The score side has no released weights for the old architecture anywhere (the v1.1 asset
     is DiffDock-L), and it is not ported, so `--weights diffdock` is refused by name
@@ -570,10 +570,17 @@ def test_old_architecture_loads_and_runs():
                     torch.stack([torch.arange(n_atom), torch.arange(n_atom) % n_rec]))
     assert out.shape == (1, 2) and torch.isfinite(out).all()
 
-    # The same checkpoint under the new architecture: refused, not quietly mis-loaded.
+    # Asking for the *other* confidence architecture is refused, not quietly served this one.
+    # The two have identical widths, so without a guard the flag would be decorative: a
+    # caller asking for the new network would get the old one and a confidence that looked
+    # fine. `load_checkpoint` carries the choice, so a wrong `old_filtering_model` is named.
     new_cfg = dfd_config.load(CKPT_DIR, old_model=False, name="confidence")
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError, match="AAOldModel"):
         load_released(state, new_cfg)
+    with pytest.raises(ValueError, match="AAOldModel"):
+        from tt_bio.diffdock.confidence_model import load_checkpoint
+
+        load_checkpoint(CKPT_DIR / "best_model_epoch75.pt", CKPT_DIR, old_model=False)
 
     # And the old score architecture is named as missing rather than silently substituted.
     with pytest.raises(network.ScoreNetworkUnavailable, match="old_score_model"):

@@ -137,6 +137,17 @@ class ConfidenceModel(nn.Module):
         super().__init__()
         if not config.all_atoms:
             raise ValueError("the confidence checkpoint is the all-atom model")
+        if not config.old_model:
+            # The mirror of ScoreModel's own guard. Upstream ships two confidence
+            # architectures at identical widths and picks between them with
+            # `old_filtering_model`; its recipe sets that true and the released checkpoint is
+            # the old one, so this class is `AAOldModel` and nothing else. Without this the
+            # flag would be decorative: the wrong setting would load the old network anyway
+            # and report a confidence that looked fine.
+            raise ValueError(
+                "ConfidenceModel is upstream's AAOldModel (old_filtering_model: true, the "
+                "released checkpoint's architecture). The newer confidence network is not "
+                "ported and has no released weights here.")
         self.config = config
         ns, nv = config.ns, config.nv
         self.ns, self.nv = ns, nv
@@ -368,12 +379,17 @@ def load_released(state_dict: dict, config: DiffDockConfig, *,
 UNSCORABLE = -1000.0
 
 
-def load_checkpoint(ckpt_path, params_dir=None) -> "ConfidenceModel":
+def load_checkpoint(ckpt_path, params_dir=None, *, old_model: bool = True) -> "ConfidenceModel":
     """Load the released confidence network from a checkpoint file on disk.
 
     *params_dir* defaults to the checkpoint's own directory, which is upstream's layout
     (``best_model_epoch75.pt`` beside ``model_parameters.yml``) and what
     :func:`tt_bio.diffdock.checkpoints.resolve` returns.
+
+    *old_model* is upstream's ``old_filtering_model``, which its default recipe sets true and
+    which the released checkpoint needs. It is a parameter rather than a constant so that a
+    caller asking for the other architecture is told it is missing instead of being handed
+    this one.
     """
     from pathlib import Path
 
@@ -381,7 +397,7 @@ def load_checkpoint(ckpt_path, params_dir=None) -> "ConfidenceModel":
 
     ckpt_path = Path(ckpt_path)
     directory = Path(params_dir) if params_dir is not None else ckpt_path.parent
-    cfg = dfd_config.load(directory, old_model=True, name="confidence")
+    cfg = dfd_config.load(directory, old_model=old_model, name="confidence")
     state = torch.load(ckpt_path, map_location="cpu", weights_only=False)
     return load_released(state, cfg)
 

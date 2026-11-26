@@ -104,5 +104,6 @@ def load(options, *, cache=None, download: bool = False) -> ScoreNetwork:
     if not options.no_confidence:
         c_ckpt, c_params = checkpoints.resolve("confidence", options.confidence_checkpoint,
                                                cache, download=download)
-        confidence = cm.load_checkpoint(c_ckpt, c_params.parent)
+        confidence = cm.load_checkpoint(c_ckpt, c_params.parent,
+                                        old_model=options.old_filtering_model)
     return score_model.HostScoreNetwork(model, confidence_model=confidence)
