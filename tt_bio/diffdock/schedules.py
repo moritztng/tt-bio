@@ -99,8 +99,16 @@ def compute_so3_score_norms() -> np.ndarray:
     return out
 
 
-def compute_torus_score_norms(quad_points: int = 20001, wraps: int = 100) -> np.ndarray:
-    """``[SIGMA_N + 1]`` mean square wrapped-normal score, by quadrature not by sampling."""
+def compute_torus_score_norms(quad_points: int = 20001, wraps: int = 12) -> np.ndarray:
+    """``[SIGMA_N + 1]`` mean square wrapped-normal score, by quadrature not by sampling.
+
+    ``wraps=12`` rather than upstream's 100: at the widest sigma on the grid (2 pi) the
+    ``|n| = 12`` image is ``exp(-72)`` relative to the central one, below float64 resolution,
+    and the table is bit-identical to ``wraps=100`` at the narrowest, middle and widest sigma
+    (checked 2026-11-26). It is ten times cheaper. ``quad_points=20001`` agrees with 80001 to
+    3e-16 at the narrowest sigma, where the integrand is sharpest, and there the result also
+    matches the unwrapped closed form ``1/sigma^2`` to 7e-14.
+    """
     sigma = torus_sigma_grid()
     x = np.linspace(-np.pi, np.pi, quad_points)
     n = np.arange(-wraps, wraps + 1).reshape(-1, 1)

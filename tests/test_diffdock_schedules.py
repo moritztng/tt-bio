@@ -129,3 +129,14 @@ def test_torus_sits_inside_upstreams_monte_carlo_spread():
     rel = np.abs(ours[live] - theirs[live]) / np.abs(theirs[live])
     assert np.median(rel) < TORUS_MC_SPREAD, f"median {np.median(rel):.3e}"
     assert np.percentile(rel, 99) < 3 * TORUS_MC_SPREAD, f"p99 {np.percentile(rel, 99):.3e}"
+
+
+def test_narrow_torus_matches_the_unwrapped_closed_form():
+    """An independent grade that needs no upstream: for a narrow wrapped normal the images
+    vanish, the score is ``-x / sigma^2`` and its mean square is exactly ``1 / sigma^2``.
+    Measured 7e-14 relative at the narrowest grid point."""
+    s = S.torus_sigma_grid()
+    t = S.torus_score_norm_table()
+    narrow = s < 0.05
+    rel = np.abs(t[narrow] * s[narrow] ** 2 - 1.0)
+    assert rel.max() < 1e-10, f"max relative {rel.max():.3e}"
