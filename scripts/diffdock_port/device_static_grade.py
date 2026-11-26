@@ -38,6 +38,9 @@ def main():
     ap.add_argument("--fixture", required=True)
     ap.add_argument("--poses", type=int, default=0, help="0: as many as the fixture carries")
     ap.add_argument("--bf16", action="store_true")
+    ap.add_argument("--time-only", action="store_true",
+                    help="no host reference and no per-conv grading: a timing run")
+    ap.add_argument("--repeats", type=int, default=3, help="timed repeats per step, warm")
     ap.add_argument("--out")
     args = ap.parse_args()
 
@@ -69,7 +72,7 @@ def main():
 
     dev = get_device()
     convs = ddev.convs_on_device(card, dev, dtype=ttnn.bfloat16 if args.bf16 else None,
-                                 grade=True)
+                                 grade=not args.time_only)
     samples, stop = [], threading.Event()
     th = threading.Thread(target=sample_aiclk, daemon=True,
                           args=(stop, samples, os.environ.get("TT_VISIBLE_DEVICES", "0")))
@@ -85,19 +88,26 @@ def main():
         lig_pos = pad_nodes(step.lig_pos[:P].reshape(P * n_lig, 3).float(), c.sg.n_lig_padded)
         sig = (step.t_tr, step.tr_sigma, step.rot_sigma, step.tor_sigma)
         with torch.no_grad():
-            h = static_forward(host, c, lig_pos, *sig, crop_cutoff=step.crop_cutoff)
+            h = None if args.time_only else static_forward(host, c, lig_pos, *sig,
+                                                           crop_cutoff=step.crop_cutoff)
             for m in convs.values():
                 m.log.clear()
-            t0 = time.perf_counter()
-            g = static_forward(card, c, lig_pos, *sig, crop_cutoff=step.crop_cutoff)
-            secs = time.perf_counter() - t0
-        row = {"poses": P, "seconds_untraced_with_grading": secs,
+            # warm first: the first call on a shape JITs its kernels, which is not the step cost
+            static_forward(card, c, lig_pos, *sig, crop_cutoff=step.crop_cutoff)
+            times = []
+            for _ in range(args.repeats if args.time_only else 1):
+                t0 = time.perf_counter()
+                g = static_forward(card, c, lig_pos, *sig, crop_cutoff=step.crop_cutoff)
+                times.append(time.perf_counter() - t0)
+            secs = min(times)
+        key = "seconds_per_step_warm" if args.time_only else "seconds_untraced_with_grading"
+        row = {"poses": P, key: secs, "times": times,
                "edges": {"lig": int(c.sg.lig_edge_index.shape[1]),
                          "cross": int(c.sg.cross_edge_index.shape[1]),
                          "rec": int(c.rec_edge_index.shape[1]),
                          "tor": int(c.sg.tor_edge_index.shape[1])}}
         for name, t in zip(("tr", "rot", "tor"), range(3)):
-            row[name] = grade(g[t].reshape(-1), h[t].reshape(-1))
+            row[name] = {} if h is None else grade(g[t].reshape(-1), h[t].reshape(-1))
         worst = {}
         for name, m in convs.items():
             pc = [e["pcc"] for e in m.log if e["pcc"] is not None]
@@ -108,8 +118,9 @@ def main():
         print(f"step {k}: " + "  ".join(
             f"{n} pcc {row[n].get('pcc')} rel {row[n].get('max_rel_err'):.3e}"
             for n in ("tr", "rot", "tor") if row[n])
-            + f"  worst conv pcc {min(v['min_pcc'] for v in worst.values() if v['min_pcc'])}"
-            + f"  {secs:.1f} s", flush=True)
+            + ("" if args.time_only else
+               f"  worst conv pcc {min(v['min_pcc'] for v in worst.values() if v['min_pcc'])}")
+            + f"  {secs:.2f} s warm", flush=True)
 
     stop.set()
     th.join(timeout=30)
