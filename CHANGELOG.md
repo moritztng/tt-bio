@@ -20,6 +20,10 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 - **Protenix-v2 is about 2 % faster on Wormhole.** The pair-biased token attention now runs as one fp32 program read
   straight out of the fused projection, in both modes: 512 tokens at 1000 MHz go 40.2 -> 39.4 s (`--fast`) and
   46.2 -> 45.6 s. Graded on 11 complexes x 4 seeds with no accuracy loss; Blackhole is unchanged.
+- **ESMFold2 and ESMFold2-Fast fold about 4 % faster on Wormhole**, in both normal and `--fast` mode. A 512-residue
+  fold on a Galaxy chip at 1000 MHz: ESMFold2 22.9 -> 21.8 s (normal) and 22.2 -> 21.3 s (`--fast`), ESMFold2-Fast
+  13.5 -> 13.0 s and 13.4 -> 12.9 s. The triangle update keeps one pair tensor in 8-bit block floating point across
+  two kernels; structures change slightly and pass each mode's accuracy bar on 11 complexes x 4 seeds.
 
 ## [0.45.2] - 2026-11-25
 
