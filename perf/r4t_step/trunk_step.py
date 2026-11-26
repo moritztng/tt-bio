@@ -38,6 +38,9 @@ def main():
     ap.add_argument("--batch", default="")
     ap.add_argument("--exempt", default="")
     ap.add_argument("--out", default=os.path.expanduser("~/r4t/step/tck"))
+    ap.add_argument("--cand-pair", choices=("host", "card"), default="host",
+                    help="where the grad-off K-candidate pass builds z_init: host (upstream's builder) or the serving "
+                         "card path (rfd4.pair.PairOnCard: host constant + bins, card assembly). The taped winner is always host.")
     a = ap.parse_args()
     import faulthandler
     import signal
@@ -78,6 +81,10 @@ def main():
     cfg = config["nn"]
     glue = N.FlowGlue(state, config)
     folds = Folds(state)
+    pair_card = None
+    if a.cand_pair == "card":   # r4t-perf P1: the candidate pass builds its pair as serving does
+        from tt_bio.rfd4.pair import PairOnCard
+        pair_card = PairOnCard(glue.pair_split, dev)
     trunk = E.load_trunk(glue, state, cfg, training=True)   # an unrecorded build for the lever set and dtypes; build() replaces it
 
     RB = {}
@@ -274,10 +281,11 @@ def main():
             mk = tmask(bt)
             with torch.no_grad():
                 ck = conds_for(bt)
-                s0, z0 = glue.initial_states(bt)
+                s0, z0 = glue.initial_states(bt, pair_constant=glue.pair_split.constant(bt) if pair_card else None)
             with T.lever_scope(levers), ag.tape():
                 with ag.no_grad():
-                    sk, zk = trunk(put(s0), put(z0, trunk.pair_dtype(mk)), [put(c, trunk.dtype) for c in ck], mk)
+                    zk0 = pair_card(z0, 0) if pair_card else put(z0, trunk.pair_dtype(mk))
+                    sk, zk = trunk(put(s0), zk0, [put(c, trunk.dtype) for c in ck], mk)
                     sh = ttnn.to_torch(getattr(sk, "value", sk)).float().reshape(s0.shape)
                 walk_register()
                 for t in (sk, zk):
