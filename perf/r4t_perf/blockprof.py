@@ -307,6 +307,8 @@ def main():
     wall_b = min(r["bwd_s"] for r in res["arms"]["wall"])
     res["arms"]["drain"] = dict(step=row, fwd=table(recs["fwd"], wall_f), bwd=table(recs["bwd"], wall_b))
     res["arms"]["wall_aa"] = [step()[0] for _ in range(a.reps)]  # A/A: same arm after the instrument is removed
+    from tt_bio import lnbw
+    res["lnbw"] = dict(weights=lnbw.WEIGHTS, reach=dict(lnbw.REACH))
     json.dump(res, open(a.out, "w"), indent=1)
     print(json.dumps(res["arms"]["wall"]), json.dumps(res["arms"]["wall_aa"]), flush=True)
     stop.set()
