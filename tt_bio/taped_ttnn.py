@@ -1261,6 +1261,11 @@ def _reblock_vjp(dims):
     instead of pinning it, and these are the largest tensors the trunk moves.
     """
     def entry(shipped, args, kwargs):
+        # `out=` fills a caller's buffer in place: a node here would hang off the return value
+        # while the caller reads its own buffer untaped, silently cutting the gradient upstream.
+        # `eligible_back(..., into=True)` keeps such calls off the tape; this catches a new one.
+        if kwargs.get("out") is not None or len(args) > 3:
+            raise RuntimeError("reblock_permute: an in-place out= move cannot be taped")
         x = _wrap(args[0])
         ra, rk = _raw(args, kwargs)
         out_v = shipped(*ra, **rk)
