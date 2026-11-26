@@ -7,6 +7,11 @@ are seeded tensors and the loss seed lands on s (`<s, C>/numel`). Prints one JSO
 
   --save-at k / --resume PATH: checkpoint after step k / continue from it in a fresh process (bit-identical check)
   --detach-at j: cut the graph in front of trunk layer j (the G2 fail arm)
+  --batch PATH: the real step on a batch upstream itself trained on (`perf/r4t/loss_parity_reference.py` dumps:
+     every feature, x_1/x_t/t, k candidates, depth, upstream winners and losses). Host glue (conditioning,
+     initial representations, pair builder) and heads run with grad on the host and join the tape through
+     `train.bridge.Bridge`; the loss is `train.rfd4_objective.rfd4_loss`. The candidates' winner is chosen
+     from our own heads, as upstream does, and printed beside upstream's.
 """
 import argparse
 import hashlib
@@ -26,6 +31,7 @@ def main():
     ap.add_argument("--save-at", type=int, default=0)
     ap.add_argument("--resume", default="")
     ap.add_argument("--detach-at", type=int, default=-1)
+    ap.add_argument("--batch", default="")
     ap.add_argument("--out", default=os.path.expanduser("~/r4t/step/tck"))
     a = ap.parse_args()
     import faulthandler
@@ -104,18 +110,20 @@ def main():
         z0 = torch.randn(a.k, n, n, P, generator=gs) * 0.5
         return s0, z0
 
-    def winner(s_init, z_init):
+    def winner(s_init, z_init, conds=None, masks=None):
         """The production `Trunk.__call__` at depth d: under a tape every cycle but the last runs no_grad
         (`ops.recycle_region`, upstream's `recycle_grad: last`), so only the last pass is differentiated."""
+        conds = [cond1] * a.depth if conds is None else conds
+        masks = masks1 if masks is None else masks
         if a.detach_at < 0:
-            return trunk(s_init, z_init, [cond1] * a.depth, masks1)
+            return trunk(s_init, z_init, conds, masks)
         blk = trunk.blocks[a.detach_at]
 
         def cut(s, *r, **kw):
             return type(blk).__call__(blk, ttnn.clone(s.value if isinstance(s, ag.Tensor) else s), *r, **kw)
         trunk.blocks[a.detach_at] = cut
         try:
-            return trunk(s_init, z_init, [cond1] * a.depth, masks1)
+            return trunk(s_init, z_init, conds, masks)
         finally:
             trunk.blocks[a.detach_at] = blk
 
@@ -135,11 +143,98 @@ def main():
                     return winner(s_init, z_init)
             return winner(s_init, z_init)
 
+    real = None
+    if a.batch:
+        import sys
+        import numpy as np
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "r4t"))
+        from loss_parity_reference import load_batch
+        from tt_bio.train import rfd4_objective as RO
+        from tt_bio.train.bridge import Bridge, host_params
+        bt, meta, _rec, ref_loss = load_batch(a.batch)
+        K, depth = int(bt["padding_mask"].shape[0]), max(1, int(meta["depth"]))
+        glue.requires_grad_(True)
+
+        def take(d, i):
+            if isinstance(d, dict):
+                return {k: take(v, i) for k, v in d.items()}
+            return d[i:i + 1] if torch.is_tensor(d) and d.dim() and d.shape[0] == K else d
+
+        def npy(d):
+            return {k: npy(v) for k, v in d.items()} if isinstance(d, dict) else (
+                d.detach().numpy() if torch.is_tensor(d) else d)
+
+        def conds_for(b):
+            cs = [glue.conditioning(b, None)]
+            for cyc in range(1, depth):
+                cs.append(glue.conditioning(b, depth - cyc - 1) if glue.condition_on_recycle_remaining else cs[0])
+            return cs
+
+        def flat(o):
+            v = lambda m: next(iter(o[m].values()))
+            out = {"v_bb_ca": v("bb_ca"), "v_local_latents": v("local_latents")}
+            if "sequence" in o:
+                out["sequence_logits"] = o["sequence"]["logits"]
+            if "insertion" in o:
+                out["insertion_logits"] = o["insertion"]["logits"]
+            return out
+
+        def tmask(b):
+            return TR.trunk_masks(b["padding_mask"].float(), dev, dtype=trunk.dtype, residual_dtype=trunk.residual_dtype)
+
+        def real_example(taped):
+            """Upstream's step on the dumped batch: k candidates grad-off through glue + trunk + heads, the
+            winner by our own exploration loss, then the winner re-run with grad (host glue, taped trunk)."""
+            mk = tmask(bt)
+            with torch.no_grad():
+                ck = conds_for(bt)
+                s0, z0 = glue.initial_states(bt)
+            with T.lever_scope(levers), ag.tape():
+                with ag.no_grad():
+                    sk, zk = trunk(put(s0), put(z0, trunk.pair_dtype(mk)), [put(c, trunk.dtype) for c in ck], mk)
+                    sh = ttnn.to_torch(getattr(sk, "value", sk)).float().reshape(s0.shape)
+                for t in (sk, zk):
+                    ttnn.deallocate(getattr(t, "value", t))
+                with torch.no_grad():
+                    ok = {k: v.double().numpy() for k, v in flat(glue.heads(sh, bt)).items()}
+                _t, bd, _s = RO.rfd4_loss({**npy(bt), "exploration_k": K}, ok, RO.WEIGHTS)
+                win = int(bd["winners"][0])
+                bw = take(bt, win)
+                br = Bridge(dev, trunk.dtype)
+                m1 = tmask(bw)
+                if not taped:
+                    with torch.no_grad(), ag.no_grad():
+                        s_i, z_i = glue.initial_states(bw)
+                        return winner(put(s_i), put(z_i, trunk.pair_dtype(m1)),
+                                      [put(c, trunk.dtype) for c in conds_for(bw)], m1)
+                cs = conds_for(bw)
+                s_i, z_i = glue.initial_states(bw)
+                s, z = winner(br.up(s_i, ttnn.float32), br.up(z_i, trunk.pair_dtype(m1)),
+                              [br.up(c) for c in cs], m1)
+            return s, z, dict(br=br, bw=bw, win=win, shape=s_i.shape)
+
+        def real_loss(s, ctx):
+            """rfd4_loss on our heads; its seeds are d total / d output, so <outputs, seeds> carries the
+            gradient into the heads, back over the bridge into the tape and from its inputs into the glue."""
+            br, bw = ctx["br"], ctx["bw"]
+            sh = br.down(s if isinstance(s, ag.Tensor) else ag.Tensor(s, requires_grad=True)).reshape(ctx["shape"])
+            o = flat(glue.heads(sh, bw))
+            total, bd, seeds = RO.rfd4_loss({**npy(bw), "exploration_k": 1},
+                                            {k: v.detach().double().numpy() for k, v in o.items()}, RO.WEIGHTS)
+            sur = sum((o[k] * torch.from_numpy(np.asarray(g)).to(o[k].dtype)).sum() for k, g in seeds.items())
+            br.backward(sur)
+            terms = {k: v.get("value") for k, v in bd.items() if isinstance(v, dict)}
+            ref = {k: float(ref_loss[k][ctx["win"]]) for k in terms if k in ref_loss}
+            return total, terms, ref
+        real = (real_example, real_loss)
+
     ag.install()
     build()
     unreached = set(folds.unreached())   # one autograd pass over every fold; never inside a per-leaf loop
     every = folds.params()
     params = {nm: p for nm, p in every.items() if nm not in unreached}
+    if real:
+        params.update(host_params(glue, "glue."))
     names = list(params)
     cyc = {nm: "depth-1 draws feed a zero state into the cycle projection; trains at depth >= 2"
            for nm in names if "cycle" in nm and a.depth < 2}
@@ -156,13 +251,24 @@ def main():
         base = used()
         c0 = len(clk)
         t0 = time.time()
-        s, z = one_example(step, True)
-        ttnn.synchronize_device(dev)
-        t1 = time.time()
-        retained = used() - base
-        st = s if isinstance(s, ag.Tensor) else ag.Tensor(s)
-        loss = float((ttnn.to_torch(st.value).float().reshape(Cs.shape) * Cs).sum() / numel)
-        ag.backward([st], [seed_s])
+        extra = {}
+        if real:
+            s, z, ctx = real[0](True)
+            ttnn.synchronize_device(dev)
+            t1 = time.time()
+            retained = used() - base
+            loss, terms, ref = real[1](s, ctx)
+            st = s
+            extra = dict(winner=ctx["win"], upstream_winner=int(meta["winners"][0]), depth_upstream=depth,
+                         terms=terms, upstream_terms=ref)
+        else:
+            s, z = one_example(step, True)
+            ttnn.synchronize_device(dev)
+            t1 = time.time()
+            retained = used() - base
+            st = s if isinstance(s, ag.Tensor) else ag.Tensor(s)
+            loss = float((ttnn.to_torch(st.value).float().reshape(Cs.shape) * Cs).sum() / numel)
+            ag.backward([st], [seed_s])
         ttnn.synchronize_device(dev)
         t2 = time.time()
         idle = folds.tape_backward()   # device-weight gradients through each fold's VJP into the upstream leaves
@@ -183,7 +289,7 @@ def main():
                               fold_bwd_s=round(t2b - t2, 4), opt_s=round(t2c - t2b, 4), rebuild_s=round(t3 - t2c, 4), idle_dev_w=len(idle), step_s=round(t3 - t0, 4), retained_B=retained,
                               dead=len(dead), dead_names=sorted(dead)[:6], params=len(params), n_elems=int(sum(v.size for v in opt.master.values())),
                               master_digest=md, aiclk=[min(sm or [0]), max(sm or [0])], aiclk_med=sorted(sm)[len(sm) // 2] if sm else 0,
-                              k=a.k, depth=a.depth, n=n,
+                              k=a.k, depth=a.depth, n=n, **extra,
                               host_maxrss_GiB=round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 2**20, 3))),
               flush=True)
         if not a.resume:
