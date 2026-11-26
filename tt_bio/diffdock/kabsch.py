@@ -22,12 +22,18 @@ unconverged after 12 steps on an ill-conditioned matrix, where this one is done 
 inverse is cheap enough that there is no reason to take that trade.)
 
 **The one case this does not cover is a reflection.** When `det(H) < 0` the closest orthogonal
-matrix is not a rotation, and upstream switches to `V diag(1,1,-1) U^T`; the polar factor
-cannot see that branch. It cannot arise here — the two point clouds are the same conformer
-before and after a torsion update, so they are related by a near-identity rotation — and
-:func:`kabsch_batch` returns the determinant beside the transform so a caller can accumulate a
-flag on device and check it once after the loop, the same pattern the NaN guard uses. Do not
-reuse this function for aligning *different* structures; use `tt_bio.align` for those.
+matrix is not a rotation, and upstream switches to `V diag(1,1,-1) U^T`; that correction
+flips the smallest singular direction, which needs the singular vectors, so the polar factor
+cannot take it -- it returns the improper orthogonal matrix instead.
+
+It takes a badly distorted conformer to get there, well outside what a torsion update to a
+real ligand produces, but it is reachable: a 24-atom free chain with every bond rotated by
+~0.3 rad puts 1 pose in 10 on the wrong side (`tests/test_diffdock_conformer.py::
+test_a_reflecting_pose_is_flagged_by_the_determinant`). So this is a *detected* limitation
+rather than an impossible one: :func:`kabsch_batch` returns the determinant beside the
+transform, and the traced loop accumulates it on device and reads it once at the end, the same
+pattern the NaN guard uses. Do not reuse this function for aligning *different* structures;
+use `tt_bio.align` for those.
 """
 
 from __future__ import annotations
