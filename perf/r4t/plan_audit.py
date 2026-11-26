@@ -25,6 +25,22 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 
+# The exact parameter name each audited feature owns. Exact names, not a substring test:
+# "feat_creators.1" is a prefix of "feat_creators.16", so matching by prefix would read an
+# exemption for the charge table as an exemption for feat_creators.1 and pass a real hole.
+PARAM_OF = {
+    "charge": "init_repr_factory.feat_creators.16.embedding.weight",
+    "element": "init_repr_factory.feat_creators.17.embedding.weight",
+    "ss": "init_repr_factory.feat_creators.7.ss_embedding.weight",
+}
+
+
+def contradicted(exempt_names, drives):
+    """The exemptions this id set contradicts: exempt, and driven by at least one of its ids."""
+    exempt = set(map(str, exempt_names))
+    return {name: ids for name, ids in drives.items() if ids and name in exempt}
+
+
 def main() -> int:
     import torch  # noqa: F401  (upstream's stack needs it imported before hydra)
 
@@ -58,23 +74,21 @@ def main() -> int:
         print(json.dumps(row), flush=True)
 
     drives = {
-        "feat_creators.16 (AtomChargeSeqFeat)": [r["id"] for r in rows
-                                                 if r["charge"] and r["atomized"] > 0],
-        "feat_creators.17 (AtomicElementSeqFeat)": [r["id"] for r in rows
-                                                    if r["element"] and r["atomized"] > 0],
-        "feat_creators.7 (SecondaryStructureSeqFeat)": [r["id"] for r in rows if r["ss_nonzero"]],
+        PARAM_OF["charge"]: [r["id"] for r in rows if r["charge"] and r["atomized"] > 0],
+        PARAM_OF["element"]: [r["id"] for r in rows if r["element"] and r["atomized"] > 0],
+        PARAM_OF["ss"]: [r["id"] for r in rows if r["ss_nonzero"]],
     }
     print("SUMMARY", json.dumps({"ids": len(rows), "ss_values": dict(sorted(ss_total.items())),
                                  "driven_by": {k: len(v) for k, v in drives.items()},
                                  "drivers": drives}))
-    # An exemption whose feature this id set DOES drive is a hole in the guard, not a note.
-    bad = [name for name, ids in drives.items()
-           if ids and any(name.split()[0].split("(")[0].strip() in str(e[0])
-                          for e in plan.get("exempt", []))]
+    bad = contradicted([e[0] for e in plan.get("exempt", [])], drives)
     if bad:
-        print(f"FAIL: the plan exempts a parameter its own data drives: {bad}")
+        for name, ids in sorted(bad.items()):
+            print(f"FAIL: the plan exempts {name}, which {len(ids)} of its own ids drive "
+                  f"(first: {ids[0]})")
         return 1
-    print("PASS: every exemption in the plan names a parameter this id set cannot drive")
+    print(f"PASS: all {len(plan.get('exempt', []))} exemptions name a parameter this id set "
+          f"cannot drive")
     return 0
 
 
