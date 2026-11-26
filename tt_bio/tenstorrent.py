@@ -10829,7 +10829,7 @@ class TriangleMultiplication(Module):
                 "train_in_proj covers the in-projection weights only; this checkpoint's "
                 "g_in/p_in biases would still be cached constants")
         up = lambda t: ttnn.from_torch(  # noqa: E731
-            t, layout=ttnn.TILE_LAYOUT, device=self.device, dtype=ttnn.bfloat16)
+            t, layout=ttnn.TILE_LAYOUT, device=self.device, dtype=_dtype(ttnn.bfloat16))
         self.g_in_weight, self.p_in_weight = up(self._g_in_t), up(self._p_in_t)
         self._gp_cache.clear()
         self._gp_gout_cache.clear()
@@ -10861,7 +10861,7 @@ class TriangleMultiplication(Module):
             return cached
         chunks = [
             ttnn.from_torch(
-                t, layout=ttnn.TILE_LAYOUT, device=self.device, dtype=ttnn.bfloat16,
+                t, layout=ttnn.TILE_LAYOUT, device=self.device, dtype=_dtype(ttnn.bfloat16),
             )
             for t in self._gp_fused_order((self._g_in_t, self._p_in_t), C, group)
         ]
@@ -11949,7 +11949,7 @@ class TriangleMultiplication(Module):
                             program_config=program_config if not live else
                             _triangle_mul_program_config(seq_len_tiles, _trimul_ibw_full(),
                                                          _trimul_subblock(), not large_seq, live),
-                            dtype=ttnn.bfloat8_b if x8(out_mc) else ttnn.bfloat16,
+                            dtype=ttnn.bfloat8_b if x8(out_mc) else _dtype(ttnn.bfloat16),
                             transpose_a=defer_a,
                             transpose_b=defer_b,
                         )
