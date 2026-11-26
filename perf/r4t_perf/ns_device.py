@@ -84,7 +84,9 @@ def main():
                 p = ttnn.add(ttnn.multiply(g, B), ttnn.multiply(mm(gb, gb, f32), C), dtype=f32)
                 x = ttnn.add(ttnn.multiply(x, A), mm(ttnn.typecast(p, b16), x, f32), dtype=b16)
             else:
-                g = mm(x, x, b16, transpose_b=True)
+                # fp32 out then one typecast: a bf16-output matmul TRUNCATES at pack (CPU replay of truncating only
+                # the gram reproduces the device to median 0.994, b1p/trunc.py), which left NS 3.4 % above exact bf16.
+                g = ttnn.typecast(mm(x, x, f32, transpose_b=True), b16)
                 p = ttnn.add(ttnn.multiply(ttnn.typecast(g, f32), B), ttnn.multiply(mm(g, g, f32), C), dtype=b16)
                 x = ttnn.add(ttnn.multiply(ttnn.typecast(x, f32), A), mm(p, x, f32), dtype=b16)
         return x
