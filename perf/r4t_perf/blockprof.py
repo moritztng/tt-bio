@@ -277,11 +277,15 @@ def main():
         return row, recs
 
     def untaped():
+        """Production grad-off: the hooks come out first. `install()` routes tt_bio.ops through the tape even
+        outside `tape()`, so an installed forward hands an autograd Tensor to a bare ttnn.reshape (trunk._write)."""
+        ag.uninstall()
         ttnn.synchronize_device(dev)
         t0 = time.time()
         o = mod(xt, zt, None, None, None)
         ttnn.synchronize_device(dev)
         t1 = time.time()
+        ag.install()
         d = hashlib.sha256(ttnn.to_torch(o.value if isinstance(o, ag.Tensor) else o).float().numpy().tobytes()
                            ).hexdigest()[:16]
         return dict(fwd_s=round(t1 - t0, 5), aiclk=clk_between(t0, t1), out_digest=d)

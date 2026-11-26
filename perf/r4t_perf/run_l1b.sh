@@ -10,7 +10,7 @@ free() { python3 ~/spd/feed/book.py active 2 2>/dev/null | grep -qw fleet-r4t-pe
 ok=; for i in $(seq 1 120); do free && { ok=1; break; }; echo "$(date -u +%FT%TZ) waiting: $(python3 ~/spd/feed/book.py active 2)" >> $OUT/wait.log; sleep 30; done
 [ -n "$ok" ] || { echo "NO WINDOW $(date -u +%FT%TZ)" > $OUT/run.log; exit 4; }
 echo "START $(date -u +%FT%TZ) sha $(git rev-parse --short HEAD)" > $OUT/run.log
-for arm in "" "--broken"; do
+for arm in ${NS_ARMS-"" "--broken"}; do
   free || { echo "CARD TAKEN before ns$arm $(date -u +%FT%TZ)" >> $OUT/run.log; exit 5; }
   env $ENVS timeout 300 $PY perf/r4t_perf/ns_device.py --shapes perf/r4t_perf/rfd4_denoiser_2d_shapes.txt --arm gram $arm \
     --out $OUT/ns_gram${arm:+_broken}.json > $OUT/ns_gram${arm:+_broken}.log 2>&1
