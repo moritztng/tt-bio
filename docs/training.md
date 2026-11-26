@@ -482,6 +482,17 @@ Two things follow from walking, and both are checked rather than assumed.
 `train.checks.weight_coverage(model)` reports what a run reaches as leaves against total and
 names every miss, because a leaf count with no denominator cannot show a shortfall.
 
+**A run in which some parameter never trains is refused, not reported.** After the fifth step
+the loop intersects the set of parameters whose gradient was missing or identically zero on
+every step so far, and raises naming them. Five steps rather than one: most published
+initialisations zero each residual branch's output projection, so the weights behind it have an
+exactly zero gradient on step 1 and a normal one on step 2 (36 of 174 parameters on
+RFD4-Proteina's own blocks). Nothing else catches this -- ABodyBuilder3 once ran 1,388 steps
+with 356 of 436 parameters dead while the loss, the gradient norm and the per-step checkpoint
+digest all looked healthy. `coverage_steps=` sets the count; a parameter that legitimately
+never trains goes in by name with its reason rather than by widening anything
+(`train.GradientCoverage(names, exempt={...})`).
+
 `lora_factors_for` runs the shipped forward once with a census hook installed. Every call that
 routes through `tt_bio.ops.linear` announces itself with its own shapes; a call that does not
 route through it is not adaptable, and the census says so by not listing it. The hook records
