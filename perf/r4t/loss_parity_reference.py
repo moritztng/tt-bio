@@ -28,6 +28,16 @@ from pathlib import Path
 import numpy as np
 
 CROP, K = 256, 4
+
+#: What makes each optimization term non-zero for an example. Measured over the 16 crops of
+#: upstream's published test_dataset (the committed fixture): `sequence_prediction` is exercised
+#: by 14 of them, but `signed_volume` by ONE (2plh, a single chiral centre) and
+#: `insertion_prediction` by ONE (7rcu__4, five unindexed tokens). A sequential scan of the first
+#: eight therefore grades neither, so a covering set has to name them (`--ids`).
+TERM_DRIVERS = {"signed_volume": "tetrahedral_vertices >= 0",
+                "insertion_prediction": "insertion_source_idx >= 0",
+                "sequence_prediction": "condition_sequence_1_residue > 0"}
+COVERING_IDS = ("2plh__1__1.A__1.G", "7rcu__4__1.U_1.V__1.FA")
 HF_REPO, HF_REV = "nvidia/RFD4-Proteina", "a06e2509c7033b010fc43614e9fd840303588502"
 
 
@@ -151,7 +161,7 @@ def build_model(repo: Path, dtype):
     return cfg, model
 
 
-def batches(cfg, n, seed, min_tokens, start=0):
+def batches(cfg, n, seed, min_tokens, start=0, only_ids=None):
     """Upstream's pipeline, skipping examples too small to grade a relative bar.
 
     The first system in upstream's published test_dataset crops to 4 real tokens, and at that
@@ -178,6 +188,8 @@ def batches(cfg, n, seed, min_tokens, start=0):
         b = collate_batch([s], schema="rfproteina.datapipes.schema.proteina.ProteinaDataSample",
                           fixed_dimensions={"I": CROP}, keep_atom_array=False, num_replicates=K)
         feats = b["feats"] if "feats" in b else b
+        if only_ids is not None and str(s["example_id"]) not in only_ids:
+            continue
         tokens = int(feats["padding_mask"][0].sum())
         if tokens < min_tokens:
             print(f"skip {i} ({s['example_id']}): {tokens} tokens < {min_tokens}", file=sys.stderr)
@@ -228,6 +240,9 @@ def main():
     ap.add_argument("--start", type=int, default=0, help="first dataset index to consider")
     ap.add_argument("--index-offset", type=int, default=0,
                     help="number the dumps from here, to extend an existing set without overwriting")
+    ap.add_argument("--ids", default=None,
+                    help="comma-separated example_ids to accept, for covering a term the "
+                         "sequential scan misses (see TERM_DRIVERS)")
     ap.add_argument("--emit-ref", type=Path,
                     help="write the grader's `ref` half from --out/summary.json and exit")
     ap.add_argument("--replay", action="store_true",
@@ -246,7 +261,8 @@ def main():
     cfg, model = build_model(repo, dtype)
     a.out.mkdir(parents=True, exist_ok=True)
     summary = []
-    for j, (eid, batch) in enumerate(batches(cfg, a.n, a.seed, a.min_tokens, a.start)):
+    ids = set(a.ids.split(",")) if a.ids else None
+    for j, (eid, batch) in enumerate(batches(cfg, a.n, a.seed, a.min_tokens, a.start, ids)):
         i = j + a.index_offset
         seed = 0x4733_0000 + i
         nn_in, rng, out, losses, win, terms, wall = run(model, batch, seed, a.depth, dtype)
