@@ -118,7 +118,11 @@ upstream's layout, so an existing `workdir/v1.1/score_model` works as is.
 halves itself if the card refuses a batch, and the poses it produces do not change either
 way), `--save_visualisation` is `--save_trajectory`,
 `--loglevel` is `--log`, and `--old_score_model`/`--old_confidence_model` collapse into
-`--weights {diffdock-l,diffdock}`. The nine low-temperature sampling constants have no flags
+`--weights {diffdock-l,diffdock}`. Only `diffdock-l` runs: the confidence network is the old
+architecture either way (upstream's recipe sets `old_filtering_model: true` and the released
+checkpoint is that network), but the pre-DiffDock-L *score* architecture is not implemented
+and has no released weights, so `--weights diffdock` is refused instead of quietly running
+DiffDock-L. The nine low-temperature sampling constants have no flags
 of their own; they are a fitted set, and `--config` takes upstream's
 `default_inference_args.yaml` verbatim if you want to change them.
 
