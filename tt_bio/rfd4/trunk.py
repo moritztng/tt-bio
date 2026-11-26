@@ -1122,7 +1122,9 @@ class Trunk(Module):
         and a run that reserved none simply stays eager."""
         # A trunk a caller built without `__init__` (a stand-in in the work-counting tests, a subclass
         # that never resolved a lever set) has no `_levers` and simply does not replay.
-        return "trunk_trace" in getattr(self, "_levers", ()) and trace_region_size() > 0
+        # Never under a tape: a replay hands back raw outputs of a program the tape never saw, so the
+        # graph would end at the trunk with no error, and a capture would record the tape's own verbs.
+        return "trunk_trace" in getattr(self, "_levers", ()) and trace_region_size() > 0 and not ops.taping()
 
     @staticmethod
     def trace_key(s, z, cs):
