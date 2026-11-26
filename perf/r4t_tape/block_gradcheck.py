@@ -87,7 +87,7 @@ def main():
         w64 = REF.block_weights(DIM, DP, DC, H, seed=0)
         build = lambda sd: TR.TrunkBlock(tt.WeightScope(sd), ckc, H, dtype=dt)  # noqa: E731
         keys, ins, out_t, cut = ("x", "z", "cond", "mask", "bias"), ("x", "z", "cond"), x, "q_w"
-        ref_fn = lambda w, I: REF.trunk_block(w, I["x"], I["z"], I["cond"], mask, n_heads=H)  # noqa: E731
+        ref_fn = lambda w, I, r=REF.ident: REF.trunk_block(w, I["x"], I["z"], I["cond"], mask, n_heads=H, rnd=r)  # noqa: E731
         out_mask = mask[..., None]
     elif a.module == "trunk":
         # The whole trunk as training runs it: every recycle executes, only the last is differentiated
@@ -103,15 +103,15 @@ def main():
         # also see every earlier cycle move, 0.98 off at n=64).
         frozen = REF.trunk({k: bf(v.double()) for k, v in w64.items()}, x, z * pair[..., None], early, mask,
                            a.layers, n_heads=H)
-        ref_fn = lambda w, I: REF.trunk(w, I["x"], I["z"], [I["cond"]], mask, a.layers,  # noqa: E731
-                                        n_heads=H, state=frozen)[0]
+        ref_fn = lambda w, I, r=REF.ident: REF.trunk(w, I["x"], I["z"], [I["cond"]], mask, a.layers,  # noqa: E731
+                                                      n_heads=H, state=frozen, rnd=r)[0]
         out_mask = mask[..., None]
         z = z * pair[..., None]
     else:
         w64 = REF.pair_update_weights(DIM, DP, 256, seed=5, prefix="pu")
         build = lambda sd: TR.PairUpdate(tt.WeightScope(sd).child("pu"), ckc, dtype=dt)  # noqa: E731
         keys, ins, out_t, cut = ("x", "z", "mask", "pm", "pmc"), ("x", "z"), z, "xi_w"
-        ref_fn = lambda w, I: REF.pair_update(w, "pu", I["x"], I["z"], mask)  # noqa: E731
+        ref_fn = lambda w, I, r=REF.ident: REF.pair_update(w, "pu", I["x"], I["z"], mask, r)  # noqa: E731
         out_mask = pair[..., None]
         z = z * out_mask  # the pair stream arrives masked, as the trunk passes it
     w64 = {k: bf(v.double()) for k, v in w64.items()}
@@ -188,9 +188,23 @@ def main():
                        op_class="reduction", dtype=dname, n_probe=a.probe, seed=a.seed)
     print(rep, flush=True)
     comp = CK.composed_verdict(rep)
+    # The floor any bf16 forward sits on: the float64 gradient of the same reference with every op's output
+    # rounded to bf16 (backward exact). Informational; at a ReLU it is the mask flips, not the VJP.
+    floor = {}
+    if a.arm != "fp32":
+        ws = [ref[k] for k in names]
+        with torch.enable_grad():
+            g64 = torch.autograd.grad((ref_fn(wref, ref) * seed).sum(), ws, allow_unused=True)
+            gem = torch.autograd.grad((ref_fn(wref, ref, REF.bf16) * seed).sum(), ws, allow_unused=True)
+        for k, u, v in zip(names, g64, gem):
+            if u is not None and v is not None and float(u.norm()) > 0 and float((v - u).norm()) > 0:
+                floor[k] = float((v - u).norm() / u.norm())
+        worst = sorted(((rep.grads[k]["rel_l2"] / floor[k], k) for k in floor if k in rep.grads), reverse=True)[:5]
+        print("bf16-forward floor (float64 grad of a bf16-rounded forward): max %.3e median %.3e; device/floor worst %s"
+              % (max(floor.values()), sorted(floor.values())[len(floor) // 2], [(k, round(r, 2)) for r, k in worst]), flush=True)
     res = {"module": a.module, "arm": a.arm, "sdpa_own": a.sdpa_own or a.arm == "fp32", "levers": sorted(levers),
            "break": a.brk, "scale_grad": a.scale_grad, "dropped": dropped, "seed": a.seed, "n": a.n, "real": a.real,
-           "fwd_rel": fwd_rel, "warm_moved": warm_moved, "pass_g1": rep.passed, "composed": comp, "fd_worst": rep.fd_worst, "fd_kinked": rep.fd_kinked,
+           "fwd_rel": fwd_rel, "bf16_floor": floor, "warm_moved": warm_moved, "pass_g1": rep.passed, "composed": comp, "fd_worst": rep.fd_worst, "fd_kinked": rep.fd_kinked,
            "grads": {k: {q: g[q] for q in ("rel_l2", "cos", "pass")} for k, g in rep.grads.items()},
            "output_digest": __import__("hashlib").sha256(ttnn.to_torch(out.value).float().numpy().tobytes()).hexdigest()[:16]}
     if a.out:
