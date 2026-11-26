@@ -1826,8 +1826,13 @@ def _row_mean(v, cfg, K: int):
     return ttnn.divide(ttnn.sum(v, dim=-1, keepdim=True, compute_kernel_config=cfg), float(K))
 
 
-def _layer_norm_bw(x, gamma, beta, eps, bwcfg):
-    """The layer-norm backward, shared by ``layer_norm`` and ``_taped_layer_norm``.
+def _layer_norm_bw(x, gamma, beta, eps, bwcfg, center=True):
+    """The layer-norm backward, shared by ``layer_norm``, ``_taped_layer_norm`` and, with
+    ``center=False``, ``_taped_rms_norm``.
+
+    RMSNorm is this op with the mean pinned at zero, ``norm = x * rsqrt(mean(x^2) + eps)``, and
+    its ``dx`` is the same expression without ``- mean(dnorm)``, the derivative of the centring.
+    One closure for both, so a fix to one is a fix to both.
 
     One definition, because the two sites carried verbatim copies of it and a fix to either
     one was a fix to neither.
@@ -1843,7 +1848,8 @@ def _layer_norm_bw(x, gamma, beta, eps, bwcfg):
         xv = x.value
         # dx alone, which is all a sequence gradient asks for, in one kernel when it serves
         # (`tt_bio.lnbw`). A weight gradient needs the composed path's `norm`.
-        if x.requires_grad and not any(p is not None and p.requires_grad for p in (gamma, beta)):
+        if center and x.requires_grad and not any(p is not None and p.requires_grad
+                                                  for p in (gamma, beta)):
             from . import lnbw
             gv = None if gamma is None else gamma.value
             if lnbw.eligible(xv, g, gv):
@@ -1861,8 +1867,7 @@ def _layer_norm_bw(x, gamma, beta, eps, bwcfg):
         gv = None if gamma is None else gamma.value
         if gv is not None and gv.dtype != dt:
             gv = ttnn.typecast(gv, dt)
-        mean = _row_mean(xv, bwcfg, K)
-        centered = ttnn.subtract(xv, mean)
+        centered = ttnn.subtract(xv, _row_mean(xv, bwcfg, K)) if center else xv
         var = _row_mean(ttnn.multiply(centered, centered), bwcfg, K)
         rstd = ttnn.rsqrt(ttnn.add(var, eps))
         norm = ttnn.multiply(centered, rstd)
@@ -1873,10 +1878,9 @@ def _layer_norm_bw(x, gamma, beta, eps, bwcfg):
         if x.requires_grad:
             dnorm = ttnn.multiply(g, gv) if gv is not None else g
             # dx = (dnorm - mean(dnorm) - norm * mean(dnorm * norm)) * rstd
-            dn_mean = _row_mean(dnorm, bwcfg, K)
             dn_norm_mean = _row_mean(ttnn.multiply(dnorm, norm), bwcfg, K)
-            dx = ttnn.subtract(ttnn.subtract(dnorm, dn_mean),
-                               ttnn.multiply(norm, dn_norm_mean))
+            lead = ttnn.subtract(dnorm, _row_mean(dnorm, bwcfg, K)) if center else dnorm
+            dx = ttnn.subtract(lead, ttnn.multiply(norm, dn_norm_mean))
             x.add_grad(ttnn.multiply(dx, rstd))
     return bw
 
@@ -3971,7 +3975,7 @@ def _taped_linear(shipped, args, kwargs):
     return activated
 
 
-def _taped_layer_norm(shipped, args, kwargs):
+def _taped_layer_norm(shipped, args, kwargs, center=True):
     """`ops.layer_norm` with a gradient. The VALUE comes from `shipped`.
 
     `l1_headroom` is dropped on purpose. It asks for an L1-resident RESULT, and a backward
@@ -3992,6 +3996,10 @@ def _taped_layer_norm(shipped, args, kwargs):
     kw.pop("l1_headroom", None)
     eps = kw.pop("epsilon", 1e-5)
     cfg = kw.pop("compute_kernel_config", None)
+    if kw.get("residual_input_tensor") is not None:
+        raise NotImplementedError(
+            "tt_bio.autograd has no backward for a norm with a fused residual_input_tensor; "
+            "the tape would drop the residual's gradient. Add it, do not strip it.")
     xv = x.value
     out_v = shipped(xv, weight=(gamma.value if gamma is not None else None),
                     bias=(beta.value if beta is not None else None),
@@ -4000,9 +4008,19 @@ def _taped_layer_norm(shipped, args, kwargs):
     parents = [t for t in (x, gamma, beta) if t is not None]
 
     def make():
-        return _layer_norm_bw(x, gamma, beta, eps, bwcfg)
+        return _layer_norm_bw(x, gamma, beta, eps, bwcfg, center=center)
 
     return _tape(out_v, parents, make)
+
+
+def _taped_rms_norm(shipped, args, kwargs):
+    """``ttnn.rms_norm`` with a gradient: the layer norm's entry with the centring off.
+
+    The forward is the shipped kernel with the site's own arguments, so it is production's
+    value byte for byte. RFD4 issues it at every AdaLN, QK norm and recycle norm; ESMFold2
+    and RFD3 issue the same verb.
+    """
+    return _taped_layer_norm(shipped, args, kwargs, center=False)
 
 
 _TAPED = {"linear": _taped_linear, "layer_norm": _taped_layer_norm}
