@@ -230,6 +230,13 @@ def summarise(chips, rundir, clocks, cpu, args):
                          "max": max(vals), "samples": len(vals)} if vals else None)
     host = [c["busy_frac"] for c in cpu if lo <= c["t"] <= hi]
     steps_per_s = counted / window if window > 0 else None
+    # What the rest of the box was doing. qb2 is shared: a baseline taken while another campaign
+    # runs on the other chips carries that campaign's host load, and the curve it anchors is not a
+    # curve. Measured, not assumed: box CPU-seconds in the window minus this run's own.
+    nproc = os.cpu_count()
+    host_med = sorted(host)[len(host) // 2] if host else None
+    external = ((host_med * nproc * window - sum(w["cpu_s"] for w in ws)) / window
+                if host_med is not None and window > 0 else None)
     return {"chips": chips, "k": len(chips), "window_s": window,
             "steps_counted": counted, "steps_per_s": steps_per_s,
             "complexes_per_s": steps_per_s / STEPS_PER_COMPLEX if steps_per_s else None,
@@ -241,7 +248,10 @@ def summarise(chips, rundir, clocks, cpu, args):
                 "median": sorted(host)[len(host) // 2] if host else None,
                 "max": max(host) if host else None, "samples": len(host)},
             "host_cpu_s_per_step": sum(w["cpu_s"] for w in ws) / counted if counted else None,
-            "nproc": os.cpu_count(), "poses": args.poses,
+            "own_cpu_cores": sum(w["cpu_s"] for w in ws) / window if window > 0 else None,
+            "external_cpu_cores": external,
+            "contended": external is not None and external > 1.0,
+            "nproc": nproc, "poses": args.poses,
             "steps_per_complex": STEPS_PER_COMPLEX,
             "t_start": lo, "t_end": hi, "workers": ws}
 
