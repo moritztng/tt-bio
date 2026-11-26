@@ -29,12 +29,25 @@ if [ ! -f $DATA_PATH/test_dataset/test_systems.parquet ]; then
 fi
 # fp8 needs Transformer Engine, which upstream leaves optional and whose torch extension ships only as source.
 # Built in the background (nice, 4 jobs) against the image's nvcc 13 + cuDNN so the screen does not wait on it;
-# the fp8 arm runs last and waits for the build. Bring-up3 (A100) showed the arm dies at import without it.
+# the fp8 arm runs last and waits for the build. It goes into its OWN dir, never the shared venv: on the B200 run
+# (62720305) a TE install into /opt/rfd4-venv whose core lib needs a newer cublasLt than torch's 13.1.1.3 killed
+# every later arm, because peft imports transformer_engine whenever it is installed. TE 2.21's core lib needs
+# cublasLtGroupedMatrixLayoutInit_internal, so the arm preloads a current cublas from the same dir.
+TE=/opt/te
 ( export CUDA_HOME=/usr/local/cuda NVTE_FRAMEWORK=pytorch MAX_JOBS=4 \
     NVTE_CUDA_ARCHS=$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader | head -1 | tr -d .)
-  nice -n 19 timeout 2400 $PY -m pip install ninja pybind11 > $R/te.log 2>&1 &&
-  nice -n 19 timeout 2400 $PY -m pip install --no-build-isolation "transformer_engine[pytorch]==2.21.0" >> $R/te.log 2>&1 &&
-  $PY -c "import transformer_engine.pytorch" >> $R/te.log 2>&1 && touch $R/TE-OK || touch $R/TE-FAILED ) &
+  P=$TE/bin; mkdir -p $P
+  nice -n 19 timeout 600 $PY -m pip install --target $P ninja pybind11 > $R/te.log 2>&1 &&
+  export PATH=$P/bin:$PATH PYTHONPATH=$P &&
+  nice -n 19 timeout 2400 $PY -m pip install --target $TE --no-deps --no-build-isolation transformer_engine==2.21.0 \
+    transformer_engine_cu13==2.21.0 transformer_engine_torch==2.21.0 nvidia-cublas==13.10.1.6 nvidia-cudnn-frontend==1.33.0 \
+    nvidia-cutlass-dsl==4.8.1 nvidia-cutlass-dsl-libs-base==4.8.1 nvidia-cutlass-dsl-libs-core==4.8.1 \
+    nvidia-cutlass-dsl-libs-cu13==4.8.1 onnx==1.23.2 onnx_ir==1.1.0 onnxscript==0.7.2 ml_dtypes==0.7.0 \
+    importlib-metadata==10.2.0 lazy-importer==0.1.0 nvdlfw-inspect==0.2.2 zipp==4.1.2 >> $R/te.log 2>&1 &&
+  echo "PYTHONPATH=$TE LD_PRELOAD=$(find $TE -name 'libcublasLt.so.13' | head -1):$(find $TE -name 'libcublas.so.13' | head -1)" > $R/te.env &&
+  env $(cat $R/te.env) $PY -c "import transformer_engine.pytorch" >> $R/te.log 2>&1 && touch $R/TE-OK || touch $R/TE-FAILED ) &
+# Guard: the shared venv must not carry TE, or every arm dies at import (above). Checked again before each arm.
+venv_clean(){ ! $PY -c "import importlib.util as u, sys; sys.exit(0 if u.find_spec('transformer_engine') else 1)" 2>/dev/null; }
 
 nohup nvidia-smi --query-gpu=timestamp,clocks.sm,clocks.mem,power.draw,power.limit,temperature.gpu,utilization.gpu,utilization.memory,clocks_event_reasons.active,memory.used \
   --format=csv,noheader -l 1 >> $B/smi.csv 2>&1 &
@@ -65,7 +78,9 @@ run_arm(){ # name n overrides... (a token env:K=V sets K=V for this arm only)
   if [ "$a" = fp8-te ]; then  # wait for the background Transformer Engine build, bounded
     for _ in $(seq 240); do [ -e $R/TE-OK ] || [ -e $R/TE-FAILED ] && break; sleep 10; done
     say "fp8-te: Transformer Engine $( [ -e $R/TE-OK ] && echo built || echo 'NOT built, see te.log')"
+    [ -e $R/TE-OK ] && read -ra te < $R/te.env && e+=("${te[@]}")
   fi
+  venv_clean || say "WARNING: transformer_engine importable from the shared venv, $a may die at import"
   date -u +%FT%TZ > $o/start
   env "${e[@]}" timeout $ARM_TIMEOUT bash /root/kc/r4t_train_cmd.sh $o $n "${h[@]}" > $o/log 2>&1; echo $? > $o/rc
   date -u +%FT%TZ > $o/end
