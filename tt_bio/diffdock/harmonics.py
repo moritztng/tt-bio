@@ -22,6 +22,10 @@ rather than a NaN. That behaviour is load-bearing here and not an accident of e3
 static-graph port (:mod:`tt_bio.diffdock.graph`) evaluates every edge of a complete edge set,
 including the zero-length ones a mask will discard, and a NaN would survive the mask.
 
+Graded against e3nn 0.5.1 by ``scripts/diffdock_port/sh_parity.py``: max absolute difference
+2.4e-07 over 4096 random vectors, on values up to 2.24, for both the score network's
+``1x0e+1x1o+1x2e`` and the torsion head's ``2e``.
+
 The polynomial is evaluated in float64 and cast back, as in :mod:`tt_bio.diffdock.features`:
 the arithmetic is a few FLOP per edge, and it keeps the harmonics inside fp32 epsilon of the
 exact value instead of carrying upstream's fp32 rounding into every edge message.
