@@ -103,7 +103,11 @@ def radius_edges(pos: Tensor, cutoff: float, *, loop: bool = False) -> Tensor:
       the CPU kernel's cell-list traversal order (0 of 60 nodes kept an index-order prefix);
     * the selection is **not permutation-equivariant**: relabelling the same points changes 16
       of 1920 kept edges, so upstream's own score depends on ligand atom order once the cap
-      binds.
+      binds;
+    * and it is **not rotation-invariant**: rotating the same cloud changes the kept set of
+      every one of the 60 nodes (``state/dfd/evidence/cap-selection.json``, dfd-knn32). That is
+      the decisive property -- reproducing the cap would make the port's output depend on the
+      input's orientation, breaking SE(3) equivariance, not merely on its atom order.
 
     Taking every neighbour is therefore the defensible choice: it is deterministic, invariant
     to atom order, and a superset of whatever upstream kept. The divergence is inactive on
