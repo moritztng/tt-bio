@@ -32,6 +32,7 @@ import subprocess
 import sys
 import time
 from dataclasses import asdict
+from dataclasses import replace as dc_replace
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
@@ -256,8 +257,20 @@ def run(args):
         torch.backends.cudnn.allow_tf32 = False
     repo = Path(os.environ["RFD4_REPO"]).expanduser()
     plan = CurvePlan.from_dict(json.loads(Path(args.plan).read_text()))
+    if args.seed_offset:
+        # The offset has to reach the STEP seeds. Setting torch's global seed alone (what this
+        # did until 2026-11-26) changes nothing a step reads, because every t and noise draw is
+        # seeded from the plan by step index -- which is how the first two A100 legs came out
+        # byte-identical for 111 steps. The plan digest deliberately excludes the offset, so A
+        # and B still compare as the same plan.
+        plan = dc_replace(plan, seed_offset=args.seed_offset)
     cfg, model = build_model(repo, torch.float32)
     model = model.to(device)
+    if getattr(model, "autoencoder", None) is not None:
+        # The frozen AE only produces the clean sample, and corrupt() runs add_clean_samples on
+        # the CPU batch, so moving it to cuda with the rest crashes the leg at step 0
+        # (r4t-gpu-baseline, 2026-11-26). It stays on the host; nothing else changes.
+        model.autoencoder.to("cpu")
     ds, index = dataset_index(cfg, 0)
     missing = [e for e in plan.example_ids if e not in index]
     if missing:
