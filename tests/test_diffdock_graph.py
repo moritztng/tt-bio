@@ -422,3 +422,40 @@ def test_batched_node_update_equals_the_poses_run_one_at_a_time():
             # reverse-cross one, which is the cross group with its rows swapped.
             err = (batch_out[p] - one_out[0]).abs().max() / scale
             assert err < 1e-6, f"pose {p}: {err:.3e}"
+
+
+# --------------------------------------------------------------- OOM chunking
+
+@pytest.mark.parametrize("chunk", [32, 97, 4096])
+def test_edge_chunking_does_not_change_the_result(chunk):
+    """Chunking the edge axis bounds the memory, not the answer.
+
+    The intermediate it bounds is the per-edge tensor-product weight block, 4,164 values per
+    edge at the released hyperparameters; everything else in the layer is narrow. A chunk is
+    a fixed shape, so the chunked loop still traces, and the only thing that moves is the
+    order the partial sums land in a node's accumulator.
+    """
+    torch.manual_seed(0)
+    n_lig, n_rec, in_dim, n_edge_features = 9, 13, 16, 24
+    lig, rec, bonds = _pose_system(n_lig, n_rec, 2, seed=5)
+    s = G.StaticGraphs.build(n_lig, n_rec, bonds, n_poses=2)
+    layer = _conv(in_dim, n_edge_features)
+    node_attr = torch.randn(s.n_lig_padded + s.n_rec_padded, in_dim)
+    lp = torch.zeros(s.n_lig_padded, 3)
+    lp[:s.n_lig_total] = lig.reshape(-1, 3)
+    rp = torch.zeros(s.n_rec_padded, 3)
+    rp[:s.n_rec_total] = rec.reshape(-1, 3)
+    cross_ei = s.cross_edge_index_global()
+    lig_vec = lp[s.lig_edge_index[1]] - lp[s.lig_edge_index[0]]
+    cross_vec = rp[cross_ei[1] - s.rec_offset] - lp[cross_ei[0]]
+    args = (node_attr, torch.cat([s.lig_edge_index, cross_ei], dim=1),
+            [GaussianSmearing(0.0, LIG_MAX_RADIUS, n_edge_features)(lig_vec.norm(dim=-1)),
+             GaussianSmearing(0.0, CROSS_MAX_DISTANCE, n_edge_features)(cross_vec.norm(dim=-1))],
+            torch.cat([spherical_harmonics(lig_vec, SH_LS),
+                       spherical_harmonics(cross_vec, SH_LS)]))
+    kw = dict(out_nodes=s.n_lig_padded + s.n_rec_padded,
+              edge_mask=torch.cat([s.lig_mask(lp, LIG_MAX_RADIUS),
+                                   s.cross_mask(lp, rp, 25.0)]))
+    whole = layer(*args, **kw)
+    chunked = layer(*args, edge_chunk=chunk, **kw)
+    assert (whole - chunked).abs().max() / whole.abs().max() < 1e-6
