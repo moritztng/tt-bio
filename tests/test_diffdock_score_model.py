@@ -134,3 +134,25 @@ def test_radius_edges_takes_every_neighbour_not_upstreams_32():
     e = radius_edges(pos, 5.0)
     assert e.shape[1] == 40 * 39
     assert (e[0] != e[1]).all()
+
+
+def test_radius_edges_is_invariant_to_atom_order():
+    """The property that makes taking every neighbour the right call where upstream caps.
+
+    ``torch_cluster.radius_graph``'s capped selection comes out of its cell-list traversal,
+    so relabelling the same points changes which edges survive: measured, 16 of 1920 kept
+    edges moved on a 60-point cloud whose true degrees were 57-59, and 0 of 60 nodes kept an
+    index-order prefix. Upstream's score therefore depends on ligand atom order once the cap
+    binds. This port's graph is a pure function of the geometry, and that is pinned here.
+    """
+    torch.manual_seed(0)
+    pos = torch.randn(48, 3, dtype=torch.float64) * 0.8  # dense: every degree well over 32
+    base = radius_edges(pos, 5.0)
+    assert base.shape[1] > 48 * 32, "the cloud must be dense enough for upstream's cap to bind"
+
+    perm = torch.randperm(48)
+    moved = radius_edges(pos[perm], 5.0)
+    remapped = torch.stack([perm[moved[0]], perm[moved[1]]])
+
+    as_set = lambda e: {(int(a), int(b)) for a, b in zip(*e.tolist())}
+    assert as_set(remapped) == as_set(base)
