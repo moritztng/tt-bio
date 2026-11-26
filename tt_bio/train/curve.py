@@ -226,6 +226,36 @@ def read_curve(path) -> tuple:
     return header, [float(r["loss"]) for r in rows]
 
 
+def _check_reference_legs(headers, paths) -> None:
+    """The two upstream legs are the scale the bar is read against, so they have to be the same
+    run twice at a different seed: same device, fp32, TF32 off.
+
+    TF32 is the one that would pass unnoticed. It is on by default for matmuls on an Ampere or
+    later card, costs the mantissa 13 bits, and a leg that silently ran at 10-bit precision
+    widens the A-B gap the bar divides by, so a TT leg would be graded against a looser bar than
+    the one registered. A header that does not carry the fields (a log written before they
+    existed) is refused too: the grader cannot confirm what it cannot see.
+    """
+    for side in ("gpu_a", "gpu_b"):
+        meta = headers[side]
+        for field in ("device", "dtype", "tf32"):
+            if field not in meta:
+                raise CurveContractError(
+                    f"{paths[side]}: header has no {field!r}; a reference leg must say what it "
+                    f"ran on and in what precision before it can be the scale for a bar")
+        if meta["dtype"] != "float32":
+            raise CurveContractError(f"{paths[side]}: reference leg ran in {meta['dtype']}, the "
+                                     f"registered legs are float32")
+        if meta["tf32"]:
+            raise CurveContractError(f"{paths[side]}: reference leg ran with TF32 on, so it is "
+                                     f"not the fp32 leg the bar was registered against")
+    if headers["gpu_a"]["device"] != headers["gpu_b"]["device"]:
+        raise CurveContractError(
+            f"the seed control ran on different hardware than seed A "
+            f"({headers['gpu_a']['device']} vs {headers['gpu_b']['device']}): "
+            f"their gap then carries a hardware difference and is no longer a seed scale")
+
+
 def grade_curve_files(ours, gpu_a, gpu_b=None) -> CurveMatch:
     """Grade three curve logs against the pre-registered G3 bars.
 
@@ -251,6 +281,7 @@ def grade_curve_files(ours, gpu_a, gpu_b=None) -> CurveMatch:
     short = {side: len(c) for side, c in curves.items() if len(c) != plan.steps}
     if short:
         raise CurveContractError(f"log(s) do not cover the plan's {plan.steps} steps: {short}")
+    _check_reference_legs(headers, given)
     return curve_match(curves["ours"], curves["gpu_a"], curves["gpu_b"], plan.warmup)
 
 

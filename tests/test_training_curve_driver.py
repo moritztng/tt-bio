@@ -34,6 +34,8 @@ def curve(n, seed=1, floor=1.0, noise=0.02):
 
 def write(tmp_path, name, side, losses, p=None, **meta):
     p = p or plan(len(losses))
+    if side.startswith("gpu"):      # the grader demands a reference leg declare its hardware
+        meta = {"device": "cuda:NVIDIA B200", "dtype": "float32", "tf32": False, **meta}
     path = tmp_path / name
     with CurveLog(path, p, side, meta=meta) as log:
         for i, v in enumerate(losses):
@@ -260,3 +262,50 @@ def test_exemptions_survive_a_round_trip_through_a_log(tmp_path):
     header, _ = read_curve(path)
     assert header["plan_obj"].exempt == p.exempt
     assert header["plan_obj"].digest() == p.digest()
+
+
+# ---------------------------------------------- the reference legs declare what they ran on
+
+def test_a_reference_leg_with_tf32_on_is_refused(tmp_path):
+    """TF32 is the refusal that matters: it is on by default on an Ampere-or-later card, drops
+    the matmul mantissa to 10 bits, and so widens the A-B gap the bar divides by. A leg that ran
+    that way would hand the TT side a looser bar than the one registered."""
+    n = 400
+    p = plan(n)
+    o = write(tmp_path, "ours.jsonl", "ours", curve(n, seed=3), p=p)
+    a = write(tmp_path, "gpu_a.jsonl", "gpu_a", curve(n, seed=1), p=p)
+    b = write(tmp_path, "gpu_b.jsonl", "gpu_b", curve(n, seed=2), p=p, tf32=True)
+    with pytest.raises(CurveContractError, match="TF32 on"):
+        grade_curve_files(o, a, b)
+    # and the same three logs grade when the control declares fp32
+    b2 = write(tmp_path, "gpu_b2.jsonl", "gpu_b", curve(n, seed=2), p=p)
+    assert grade_curve_files(o, a, b2).steps == n
+
+
+def test_a_reference_leg_in_the_wrong_dtype_or_on_other_hardware_is_refused(tmp_path):
+    n = 400
+    p = plan(n)
+    o = write(tmp_path, "ours.jsonl", "ours", curve(n, seed=3), p=p)
+    a = write(tmp_path, "gpu_a.jsonl", "gpu_a", curve(n, seed=1), p=p)
+    half = write(tmp_path, "b_half.jsonl", "gpu_b", curve(n, seed=2), p=p, dtype="bfloat16")
+    with pytest.raises(CurveContractError, match="float32"):
+        grade_curve_files(o, a, half)
+    other = write(tmp_path, "b_other.jsonl", "gpu_b", curve(n, seed=2), p=p,
+                  device="cuda:NVIDIA H100")
+    with pytest.raises(CurveContractError, match="different hardware"):
+        grade_curve_files(o, a, other)
+
+
+def test_a_reference_leg_that_does_not_say_is_refused(tmp_path):
+    """A log written before the fields existed cannot be graded: the grader will not confirm
+    what it cannot see."""
+    n = 400
+    p = plan(n)
+    o = write(tmp_path, "ours.jsonl", "ours", curve(n, seed=3), p=p)
+    a = write(tmp_path, "gpu_a.jsonl", "gpu_a", curve(n, seed=1), p=p)
+    bare = tmp_path / "bare.jsonl"
+    with CurveLog(bare, p, "gpu_b") as log:       # no meta at all
+        for i, v in enumerate(curve(n, seed=2)):
+            log.record(i, v)
+    with pytest.raises(CurveContractError, match="header has no"):
+        grade_curve_files(o, a, bare)
