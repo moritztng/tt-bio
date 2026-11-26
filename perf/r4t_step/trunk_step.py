@@ -392,6 +392,12 @@ def main():
         idle = folds.tape_backward()   # device-weight gradients through each fold's VJP into the upstream leaves
         grads = {nm: (None if p.grad is None else p.grad.float().numpy()) for nm, p in params.items()}
         dead = zero_or_missing(grads)
+        if ax:
+            # G2 judges the gradient the optimizer steps on, the rank sum: a leaf that only another
+            # rank's example reaches (a feature embedding its batch lacks) is alive. Dead = dead on every rank.
+            order = sorted(grads)
+            hits = ax.sum_scalars([float(nm not in dead) for nm in order])
+            dead = {nm for nm, h in zip(order, hits) if h == 0.0}
         if os.environ.get("R4T_DUMP_G") and step == start:
             import numpy as _np
             _np.savez(os.environ["R4T_DUMP_G"], **{nm.replace(".", "__"): g for nm, g in grads.items()
