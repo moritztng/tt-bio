@@ -39,7 +39,7 @@ _BYTES = {ttnn.bfloat16: 2048, ttnn.float32: 4096}
 CB_X, CB_G, CB_GAMMA, CB_SCALER, CB_EPS = 0, 1, 2, 3, 4
 CB_MEAN, CB_XC, CB_TMP, CB_VAR, CB_RSTD, CB_NORM, CB_DN, CB_A, CB_B, CB_T, CB_OUT = \
     5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 16
-CB_ACC_GN, CB_ACC_B, CB_T2 = 17, 18, 19
+CB_ACC_GN, CB_ACC_B, CB_T2, CB_WO_GN, CB_WO_B = 17, 18, 19, 20, 21
 #: L1 a core may spend on the weights form's circular buffers (BH has ~1.5 MB per core).
 _L1_W = 1_200_000
 
@@ -78,7 +78,7 @@ def eligible(x, g, gamma, *, weights: bool = False) -> bool:
             return _decline("gamma")
     if weights:
         wt = xs[-1] // _TILE
-        need = (2 * wt * 2048) * 3 + wt * 2048 + 5 * 4096 + 5 * wt * 4096 + 2 * (2 * wt * 4096) + wt * 4096 + 2048
+        need = (2 * wt * 2048) * 3 + wt * 2048 + 5 * 4096 + 5 * wt * 4096 + 2 * (2 * wt * 4096) + 3 * wt * 4096 + 2048
         if need > _L1_W:
             return _decline("l1")
     return True
@@ -107,7 +107,8 @@ def _build(x, g, gamma, out, eps, device, parts=None):
     cbs += [_cb(i, Wt, f32, grid) for i in (CB_XC, CB_TMP, CB_NORM, CB_DN, CB_T)]
     do_w = int(parts is not None)
     if do_w:
-        cbs += [_cb(CB_ACC_GN, 2 * Wt, f32, grid), _cb(CB_ACC_B, 2 * Wt, f32, grid), _cb(CB_T2, Wt, f32, grid)]
+        cbs += [_cb(CB_ACC_GN, 2 * Wt, f32, grid), _cb(CB_ACC_B, 2 * Wt, f32, grid), _cb(CB_T2, Wt, f32, grid),
+                _cb(CB_WO_GN, Wt, f32, grid), _cb(CB_WO_B, Wt, f32, grid)]
 
     inv = struct.unpack("<I", struct.pack("<f", 1.0 / K))[0] >> 16
     scaler = (inv << 16) | inv

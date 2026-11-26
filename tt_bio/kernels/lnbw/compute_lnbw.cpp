@@ -20,7 +20,7 @@
 constexpr uint32_t Wt = get_compile_time_arg_val(1);
 constexpr uint32_t DO_GAMMA = get_compile_time_arg_val(2);
 constexpr uint32_t DO_W = get_compile_time_arg_val(3);
-constexpr uint32_t cb_acc_gn = 17, cb_acc_b = 18, cb_t2 = 19;
+constexpr uint32_t cb_acc_gn = 17, cb_acc_b = 18, cb_t2 = 19, cb_wo_gn = 20, cb_wo_b = 21;
 constexpr uint32_t cb_x = 0, cb_g = 1, cb_gamma = 2, cb_scaler = 3, cb_eps = 4, cb_mean = 5,
                    cb_xc = 6, cb_tmp = 7, cb_var = 8, cb_rstd = 9, cb_norm = 10, cb_dn = 11,
                    cb_a = 12, cb_b = 13, cb_t = 14, cb_out = 16;
@@ -154,5 +154,18 @@ void kernel_main() {
         stage<MUL_COL>(cb_xc, cb_rstd, cb_out);               // dx = v * rstd
         cb_pop_front(cb_xc, Wt);
         cb_pop_front(cb_rstd, 1);
+    }
+    if constexpr (DO_W) {
+        // Hand the sums over in CBs only the writer consumes: the accumulators are produced AND popped
+        // here, and the writer's own read pointer on them never moves, so it would read whichever half
+        // of the 2*Wt ring the row count's parity left the final sum in.
+        if (num_rows > 0) {
+            cb_wait_front(cb_acc_gn, Wt);
+            stage<COPY>(cb_acc_gn, cb_acc_gn, cb_wo_gn);
+            cb_pop_front(cb_acc_gn, Wt);
+            cb_wait_front(cb_acc_b, Wt);
+            stage<COPY>(cb_acc_b, cb_acc_b, cb_wo_b);
+            cb_pop_front(cb_acc_b, Wt);
+        }
     }
 }
