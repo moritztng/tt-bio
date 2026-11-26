@@ -24,7 +24,8 @@ One deliberate difference from upstream: where upstream keeps at most 32 neighbo
 atom, this port keeps every neighbour inside the radius, because the subset upstream's cap keeps
 changes when you rotate the same molecule and a pose should not depend on the frame its input
 was written in. The cap binds on 1 of the 428 PoseBusters ligands, so almost no run sees a
-difference at all.
+difference at all, and a dock whose ligand does reach it warns, naming the complex, so you
+never compare such a pose against an upstream number without knowing.
 
 ## Input
 
