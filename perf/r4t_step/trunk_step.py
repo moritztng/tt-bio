@@ -262,7 +262,14 @@ def main():
     names = list(params)
     cyc = {nm: "depth-1 draws feed a zero state into the cycle projection; trains at depth >= 2"
            for nm in names if "cycle" in nm and a.depth < 2}
-    opt = AdamW(dict(params), lr=1e-4, clip_norm=1.0, weight_decay=0.0)
+    if a.curve_dump:
+        # A curve leg is graded against upstream's curve, so it takes upstream's step: Muon +
+        # Adam, per-group clip 1.0 (rfd4_objective.update_rule). Plain AdamW here read 11 %
+        # above upstream from step 7 on the first graded leg; that gap was the optimizer.
+        from tt_bio.train.rfd4_objective import update_rule
+        opt = update_rule(dict(params))
+    else:
+        opt = AdamW(dict(params), lr=1e-4, clip_norm=1.0, weight_decay=0.0)
     start = 0
     if a.resume:
         start = int(load_adapter(a.resume, dict(params), dev, opt=opt)["step"])
@@ -277,9 +284,10 @@ def main():
     threading.Thread(target=sample, daemon=True).start()
     clog = None
     if a.curve_dump:
+        from tt_bio.train.rfd4_objective import UPDATE_RULE as RO_RULE
         clog = CurveLog(os.path.expanduser(a.curve_out), cplan, "ours",
                         meta={"sha": os.environ.get("TT_BIO_SHA", ""), "card": card,
-                              "dump_dir": cdir, "dtype": str(trunk.dtype),
+                              "dump_dir": cdir, "dtype": str(trunk.dtype), **RO_RULE,
                               "levers": sorted(levers) if isinstance(levers, (set, list, tuple))
                               else str(levers), "device": "tenstorrent", "k": a.k, "n": a.n},
                         start=start)

@@ -290,6 +290,10 @@ def read_curve(path) -> tuple:
     return header, [float(r["loss"]) for r in rows]
 
 
+#: What every curve leg must declare, and the matched leg must share with seed A.
+UPDATE_RULE = ("optimizers", "clip")
+
+
 def _check_reference_legs(headers, paths) -> None:
     """The two upstream legs are the scale the bar is read against, so they have to be the same
     run twice at a different seed: same device, fp32, TF32 off.
@@ -347,6 +351,31 @@ def _check_seed_control(headers, curves, paths) -> None:
             f"seed gap the bar is scaled by is exactly zero: there is no control here")
 
 
+def _check_update_rule(headers, paths) -> None:
+    """All three legs must train with the same update rule, or the curve compares optimizers.
+
+    "Matched compute" is the same tensors AND the same step: a leg that runs plain AdamW against
+    upstream's Muon + Adam descends a different path from the same start, and its curve gap
+    then measures the optimizer, not the port. That is exactly how the first graded TT leg
+    (2026-11-26, AdamW at 1e-4 against GroupedMuon + Adam) read 11 % high from step 7 on. So
+    every leg declares its optimizers and its clip, and the grader refuses a mismatch or a leg
+    that does not say. The names are upstream's (``type(opt).__name__``): a TT leg that
+    implements Muon + Adam declares ``["GroupedMuon", "Adam"]``.
+    """
+    for side, meta in headers.items():
+        for field in UPDATE_RULE:
+            if field not in meta:
+                raise CurveContractError(
+                    f"{paths[side]}: header has no {field!r}; a leg must declare its update rule "
+                    f"before its curve can be compared at matched compute")
+    for side in ("ours", "gpu_b"):
+        for field in UPDATE_RULE:
+            if headers[side][field] != headers["gpu_a"][field]:
+                raise CurveContractError(
+                    f"{paths[side]}: {field} {headers[side][field]!r} is not seed A's "
+                    f"{headers['gpu_a'][field]!r}, so the curves compare two update rules")
+
+
 def grade_curve_files(ours, gpu_a, gpu_b=None) -> CurveMatch:
     """Grade three curve logs against the pre-registered G3 bars.
 
@@ -374,6 +403,7 @@ def grade_curve_files(ours, gpu_a, gpu_b=None) -> CurveMatch:
     if short:
         raise CurveContractError(f"log(s) do not cover the plan's {plan.steps} steps: {short}")
     _check_reference_legs(headers, given)
+    _check_update_rule(headers, given)
     return curve_match(curves["ours"], curves["gpu_a"], curves["gpu_b"], plan.warmup)
 
 

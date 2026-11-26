@@ -43,6 +43,10 @@ def save_adapter(path, opt: AdamW, *, meta: Optional[dict] = None) -> None:
         tensors[f"master{_SPLIT}{name}"] = arr
         tensors[f"exp_avg{_SPLIT}{name}"] = opt.exp_avg[name]
         tensors[f"exp_avg_sq{_SPLIT}{name}"] = opt.exp_avg_sq[name]
+    # Muon's state is its momentum buffer, not the Adam moments: without it a resumed run
+    # restarts Muon's momentum at zero and quietly takes a different step than an unbroken one.
+    for name in getattr(opt, "muon_names", ()):
+        tensors[f"momentum_buffer{_SPLIT}{name}"] = opt.momentum_buffer[name]
     header = {"optimizer": json.dumps(opt.state_dict()),
               "tt_bio_adapter": "1"}
     if meta:
@@ -75,6 +79,13 @@ def load_adapter(path, params: Dict[str, ag.Tensor], device, *, opt: Optional[Ad
             opt.master[name] = arr.copy()
             opt.exp_avg[name] = blob[f"exp_avg{_SPLIT}{name}"].astype(np.float32).copy()
             opt.exp_avg_sq[name] = blob[f"exp_avg_sq{_SPLIT}{name}"].astype(np.float32).copy()
+    if opt is not None:
+        lost = [n for n in getattr(opt, "muon_names", ()) if f"momentum_buffer{_SPLIT}{n}" not in blob]
+        if lost:
+            raise ValueError(f"{path}: no Muon momentum for {len(lost)} parameter(s) (e.g. {lost[0]}); "
+                             f"it was saved by a run without Muon, and resuming would zero it")
+        for name in getattr(opt, "muon_names", ()):
+            opt.momentum_buffer[name] = blob[f"momentum_buffer{_SPLIT}{name}"].astype(np.float32).copy()
     with open(path, "rb") as fh:
         n = int.from_bytes(fh.read(8), "little")
         header = json.loads(fh.read(n))

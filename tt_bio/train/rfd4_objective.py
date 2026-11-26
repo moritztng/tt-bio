@@ -36,6 +36,7 @@ import numpy as np
 from .objectives import Objective, register
 
 __all__ = [
+    "MUON_EXCLUDE", "UPDATE_RULE", "update_rule",
     "MODES", "TERMS", "WEIGHTS", "T_DISTRIBUTION", "EXPLORATION_K", "STOCHASTIC_CENTERING_SCALE",
     "SEQ_MASK_TOKEN", "RECYCLE", "masks", "sample_t", "recycle_depth", "corrupt", "fm_loss",
     "sequence_loss", "insertion_loss", "signed_volume_loss", "select_winners", "terms",
@@ -332,3 +333,31 @@ register(Objective(
     doc="RFD4-Proteina flow matching: bb_ca and local_latents x_1-space MSE with the "
         "1/((1-t)^2+1e-5) weight, sequence and insertion CE, signed-volume hinge x2.5, "
         "lowest-loss of 4 noise candidates per example"))
+
+
+# --------------------------------------------------------------------- the update rule
+
+#: Upstream's `opt.muon_exclude_param_patterns` (configs/training_proteina.yaml), verbatim, plus
+#: the same heads under ``glue.``: the TT trunk names its host-side heads and factories
+#: ``glue.<upstream name minus nn.>``, so the second pattern has to see both prefixes.
+MUON_EXCLUDE = (r"_factory\.",
+                r"^(nn|glue)\.(local_latents_linear|ca_linear|insertion_q_proj|insertion_k_proj)\.")
+
+#: What a curve leg declares in its header (`tt_bio.train.curve.UPDATE_RULE`): upstream's
+#: optimizer class names and its per-optimizer clip, so the grader can hold it against seed A.
+UPDATE_RULE = {"optimizers": ["GroupedMuon", "Adam"], "clip": 1.0}
+
+
+def update_rule(params, *, lr: float = 1e-4):
+    """Upstream's RFD4 step on our parameters: Muon on 2-D weights outside `MUON_EXCLUDE`
+    (match_rms_adamw, torch's defaults: momentum 0.95, Nesterov, weight decay 0.1), Adam on the
+    rest (weight decay 0), each group clipped to norm 1.0 on its own, no warmup
+    (`muon_warmup_steps` / `adam_warmup_steps` are 0 in training_proteina.yaml).
+
+    The first graded curve leg ran plain AdamW on all 558 parameters instead and read 11 % above
+    upstream from step 7: a matched-compute leg has to take upstream's step, not just its data.
+    """
+    from .optim import AdamW, Muon
+    return AdamW(params, lr=lr, betas=(0.9, 0.999), eps=1e-8, weight_decay=0.0,
+                 clip_norm=UPDATE_RULE["clip"],
+                 muon=Muon(exclude=MUON_EXCLUDE, adjust_lr_fn="match_rms_adamw"))

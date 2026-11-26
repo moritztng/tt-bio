@@ -43,6 +43,7 @@ def write(tmp_path, name, side, losses, p=None, offset=None, **meta):
         p = dataclasses.replace(p, seed_offset=offset)
     if side.startswith("gpu"):      # the grader demands a reference leg declare its hardware
         meta = {"device": "cuda:NVIDIA B200", "dtype": "float32", "tf32": False, **meta}
+    meta = {"optimizers": ["GroupedMuon", "Adam"], "clip": 1.0, **meta}
     path = tmp_path / name
     with CurveLog(path, p, side, meta=meta) as log:
         for i, v in enumerate(losses):
@@ -472,3 +473,35 @@ def test_a_real_seed_control_grades(tmp_path):
     gb = write(tmp_path, "gpu_b.jsonl", "gpu_b", curve(2000, seed=2),
                p=dataclasses.replace(p, seed_offset=1))
     assert not grade_curve_files(ours, ga, gb).failures
+
+
+# ------------------------------------------------- the update rule is part of matched compute
+
+def test_a_leg_on_another_optimizer_is_refused(tmp_path):
+    """The first graded TT leg ran AdamW against upstream's Muon + Adam and read 11 % high from
+    step 7: that gap measured the optimizer. Same curves, matching declarations, grade."""
+    n = 400
+    p = plan(n)
+    a = write(tmp_path, "gpu_a.jsonl", "gpu_a", curve(n, seed=1), p=p)
+    b = write(tmp_path, "gpu_b.jsonl", "gpu_b", curve(n, seed=2), p=p)
+    adamw = write(tmp_path, "o1.jsonl", "ours", curve(n, seed=3), p=p, optimizers=["AdamW"])
+    with pytest.raises(CurveContractError, match="two update rules"):
+        grade_curve_files(adamw, a, b)
+    clip = write(tmp_path, "o2.jsonl", "ours", curve(n, seed=3), p=p, clip=10.0)
+    with pytest.raises(CurveContractError, match="two update rules"):
+        grade_curve_files(clip, a, b)
+    ok = write(tmp_path, "o3.jsonl", "ours", curve(n, seed=3), p=p)
+    assert grade_curve_files(ok, a, b).steps == n
+
+
+def test_a_leg_that_does_not_declare_its_optimizer_is_refused(tmp_path):
+    n = 400
+    p = plan(n)
+    a = write(tmp_path, "gpu_a.jsonl", "gpu_a", curve(n, seed=1), p=p)
+    b = write(tmp_path, "gpu_b.jsonl", "gpu_b", curve(n, seed=2), p=p)
+    o = tmp_path / "o.jsonl"
+    with CurveLog(o, p, "ours", meta={"clip": 1.0}) as log:
+        for i, v in enumerate(curve(n, seed=3)):
+            log.record(i, v)
+    with pytest.raises(CurveContractError, match="no 'optimizers'"):
+        grade_curve_files(o, a, b)
