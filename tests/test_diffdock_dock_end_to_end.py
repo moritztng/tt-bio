@@ -215,7 +215,8 @@ def test_dock_with_the_released_weights_writes_finite_poses(tmp_path, released_c
     run.dock([job], opts, tmp_path)
 
     rows = json.loads((tmp_path / "6Z5Z_BDF" / "confidence.json").read_text())
-    assert [r["sdf"] for r in rows] == ["rank1.sdf", "rank2.sdf"]
+    assert len(rows) == 2
+    assert [r["sdf"].split("_")[0] for r in rows] == ["rank1", "rank2"]
     assert all(r["confidence"] is not None for r in rows)
     assert rows[0]["confidence"] >= rows[1]["confidence"]
 

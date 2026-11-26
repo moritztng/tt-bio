@@ -569,6 +569,17 @@ def _repair_nans(tr_score: Tensor, rot_score: Tensor, tor_score: Tensor):
     A NaN score would otherwise poison every later step of that pose. Upstream replaces it
     with 1 % of the head's mean magnitude, which perturbs the pose slightly and usually
     recovers on the next step.
+
+    One case upstream's version does not survive: when a head is NaN in *every* row, its
+    `nanmean` is itself NaN, so the replacement value is NaN and the guard does nothing. The
+    rollout then carries NaN into `modify_conformer`, where the Kabsch SVD raises and the
+    whole complex fails. It is reachable -- a pose that drifts out of the pocket at low sigma
+    leaves the receptor crop empty, and a receptor-less complex overflows the ligand tower --
+    and it is likelier the fewer poses are in flight, since one finite row is enough to give
+    the mean a value. Falling back to a zero nudge there keeps that step from moving the pose
+    at all, which is the only defined answer when no magnitude exists to scale. Nothing
+    changes while any row of the head is finite, so this never touches upstream's path on a
+    run that has numbers.
     """
     if not bool(torch.isnan(tr_score).any() or torch.isnan(rot_score).any()
                 or (tor_score is not None and torch.isnan(tor_score).any())):
@@ -579,5 +590,7 @@ def _repair_nans(tr_score: Tensor, rot_score: Tensor, tor_score: Tensor):
             out.append(score)
             continue
         eps = float(0.01 * torch.nanmean(score.abs()))
+        if not np.isfinite(eps):
+            eps = 0.0
         out.append(torch.nan_to_num(score, nan=eps, posinf=eps, neginf=-eps))
     return tuple(out)
