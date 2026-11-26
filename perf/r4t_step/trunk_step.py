@@ -42,10 +42,11 @@ def main():
     ap.add_argument("--cand-pair", choices=("host", "card"), default="card",
                     help="where the grad-off K-candidate pass builds z_init: host (upstream's builder) or the serving "
                          "card path (rfd4.pair.PairOnCard: host constant + bins, card assembly). The taped winner is always host.")
-    ap.add_argument("--cand-levers", choices=("training", "serving"), default="serving",
+    ap.add_argument("--cand-levers", choices=("training", "serving", "inference"), default="serving",
                     help="lever set of the grad-off K-candidate pass: the training set, or that set plus the dropped levers that "
                          "switch at run time (pair_bf16z, dit_sigf32, tok_recycle_mm; r4t-perf K2). The pass only picks the "
-                         "winner, so the gradient is unchanged whenever the winner is")
+                         "winner, so the gradient is unchanged whenever the winner is; inference also lets the fused kernels without a tape entry "
+                         "serve that pass (ops.NOGRAD_IS_INFERENCE, r4t-perf K4)")
     ap.add_argument("--lnbw-weights", choices=("on", "off"), default="on",
                     help="LayerNorm backward with trainable gamma/beta in one fused kernel (tt_bio.lnbw weights form, "
                          "r4t-perf L2) or the composed ttnn path")
@@ -302,9 +303,12 @@ def main():
         def cand_scope():
             """--cand-levers serving: the candidate pass adds the run-time levers training drops; pair_bf16z also
             carries the pair stream in bf16, a dtype the trunk and its pair updates read from attributes."""
-            if a.cand_levers != "serving":
+            if a.cand_levers == "training":
                 yield
                 return
+            from tt_bio import ops as _ops
+            nogi = _ops.NOGRAD_IS_INFERENCE
+            _ops.NOGRAD_IS_INFERENCE = a.cand_levers == "inference" or nogi
             mods = [trunk] + list(trunk.pair_updates.values())
             saved = [(m, m.pair_residual_dtype if m is trunk else m.residual_dtype) for m in mods]
             trunk.pair_residual_dtype = ttnn.bfloat16
@@ -316,6 +320,7 @@ def main():
             finally:
                 for m, d in saved:
                     setattr(m, "pair_residual_dtype" if m is trunk else "residual_dtype", d)
+                _ops.NOGRAD_IS_INFERENCE = nogi
 
         def real_example(taped):
             """Upstream's step on the dumped batch: k candidates grad-off through glue + trunk + heads, the
