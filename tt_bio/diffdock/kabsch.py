@@ -1,38 +1,22 @@
-"""Batched Kabsch alignment without an SVD, for the inside of the diffusion loop.
+"""The in-loop Kabsch for a traced step: Horn's quaternion, no SVD and no branch.
 
-The torsion update in `modify_conformer_batch` ends with a Kabsch superposition of the
-torsion-rotated conformer back onto the rigid one, once per pose per step. tt-bio's standing
-position is that Kabsch belongs on the host in float64 (`tt_bio/align.py`, skill
-`ttnn-host-kabsch`), and for scoring and output that is right: it moves every coordinate we
-write. This one is different — it is inside the loop, it feeds the next step, and a host SVD
-there is a device sync on every one of the 19 steps, which is what a traced loop exists to
-avoid.
+`tt_bio/diffdock/sampling.py::modify_conformer` -- the canonical step, graded bit-identical
+against upstream -- ends with upstream's Kabsch: an SVD per pose, then a `where` on the
+determinant that swaps in `V diag(1,1,-1) U^T` when the best orthogonal map is a reflection.
+Both halves are host-shaped. A traced loop cannot take the SVD, and a branch-free
+replacement has to cover the reflection case, not just flag it: when it fires, the obvious
+SVD-free route (the orthogonal polar factor by Newton iteration) returns the improper matrix
+and is 1.9 out on the rotation entries. That case is reachable inside the loop -- a torsion
+update at an early step is large enough -- which is D-dfd-trace-5.
 
-So compute the same rotation a different way. Kabsch's rotation is the orthogonal polar
-factor of the correlation matrix: for `H = Am Bm^T`, upstream takes `H = U S V^T` and returns
-`R = V U^T`, which is exactly the polar factor of `H^T`. The polar factor is reachable by Newton's
-iteration `X <- 1/2 (X + X^-T)`, which on a 3x3 is three cross products and a division: no
-SVD, no eigenvalues, no data-dependent branch, the same shape every iteration. With Higham's
-determinant scaling it converges quadratically from any non-singular start, so it holds up on
-a far-from-identity rotation as well as on the near-identity ones the loop produces.
+Horn's formulation avoids it by construction. The optimal rotation is the unit quaternion
+maximising `q^T K q` for Davenport's symmetric 4x4 `K`; every unit quaternion is a *proper*
+rotation, so there is no reflection branch to take. The dominant eigenvector comes out of ten
+4x4 squarings (`A^1024`, rescaled each time) with the column picked by a device argmax.
+Graded against sampling's SVD Kabsch, reflection case included: 9.8e-07 in float32.
 
-(The inverse-free Newton-Schulz iteration `X <- 1/2 X (3I - X^T X)` is the other candidate and
-needs no division, but its rate is set by the smallest singular value: it is still visibly
-unconverged after 12 steps on an ill-conditioned matrix, where this one is done in six. A 3x3
-inverse is cheap enough that there is no reason to take that trade.)
-
-**A reflection needs the other routine in this module.** When `det(H) < 0` the closest
-orthogonal matrix is not a rotation, and upstream switches to `V diag(1,1,-1) U^T`; that
-correction flips the smallest singular direction, so the polar factor cannot take it and
-returns the improper matrix instead. It is reachable -- a 24-atom free chain with every bond
-rotated ~0.3 rad gets there -- and the error when it happens is radian-scale (1.9 on the
-matrix entries), not a rounding, so flagging it is not enough. :func:`kabsch_proper` solves
-the same problem through Horn's quaternion instead: the optimal quaternion is the dominant
-eigenvector of Davenport's symmetric 4x4, every unit quaternion is a proper rotation by
-construction, and the eigenvector comes out of ten 4x4 matmuls. That is the one
-:func:`tt_bio.diffdock.conformer.modify_conformer` calls; :func:`kabsch_batch` stays as the
-cheaper routine for the reflection-free case and because it is what the polar argument above
-is about. Neither replaces `tt_bio.align` for scoring alignments: those stay host fp64.
+This is for the traced step only. Scoring and output alignments stay in `tt_bio/align.py`,
+host fp64; the eager sampler keeps its own SVD Kabsch, which is upstream's arithmetic.
 """
 
 from __future__ import annotations
@@ -40,16 +24,9 @@ from __future__ import annotations
 import torch
 from torch import Tensor
 
-# Measured against a float64 SVD on torsion-perturbed and randomly rotated clouds
-# (tests/test_diffdock_kabsch.py): 2 steps land 2.2e-02 A off, 3 steps 3.3e-05 A, and 4 steps
-# reach 1.6e-06 A, which is the fp32 floor and does not improve after. Eight is margin on a
-# 3x3, where a step costs three cross products.
-NEWTON_STEPS = 8
-
-# Squarings for :func:`proper_rotation`: `A^(2^SQUARINGS)`. Measured against upstream's full
-# Kabsch, reflection branch included, on torsion-perturbed and mirrored clouds: 6 squarings
-# land 1.9e-02 out, 8 at 5.5e-05, and 10 reach 9.8e-07 in float32, which is the fp32 floor.
-# Ten 4x4 matmuls per pose per step is nothing next to one conv layer.
+# Squarings for :func:`proper_rotation`: `A^(2^SQUARINGS)`. Measured against the SVD Kabsch,
+# reflection branch included, on torsion-perturbed and mirrored clouds: 6 squarings land
+# 1.9e-02 out, 8 at 5.5e-05, and 10 reach 9.8e-07 in float32, which is the fp32 floor.
 SQUARINGS = 10
 
 
@@ -74,46 +51,6 @@ def _nonzero(x: Tensor) -> Tensor:
     tiny = torch.finfo(x.dtype).tiny
     return torch.where(x.abs() < tiny, torch.full_like(x, tiny), x)
 
-
-def polar_rotation(m: Tensor, steps: int = NEWTON_STEPS) -> Tensor:
-    """The orthogonal polar factor of ``[..., 3, 3]``, by scaled Newton iteration.
-
-    ``m = Q P`` with ``Q`` orthogonal and ``P`` symmetric positive semi-definite; this returns
-    ``Q``, the closest orthogonal matrix to ``m`` in the Frobenius norm. A fixed step count,
-    so it traces; *steps* is not tuned per input.
-    """
-    x = m
-    for _ in range(steps):
-        inv_t, det = _inverse_transpose_and_det(x)
-        gamma = _nonzero(det).abs().pow(-1.0 / 3.0)[..., None, None]
-        x = 0.5 * (gamma * x + inv_t / gamma)
-    return x
-
-
-def kabsch_batch(a: Tensor, b: Tensor, steps: int = NEWTON_STEPS):
-    """Upstream's ``rigid_transform_Kabsch_3D_torch_batch`` without the SVD.
-
-    *a*, *b*: ``[B, N, 3]``. Returns ``(R, t, det)`` with ``R`` ``[B, 3, 3]`` and ``t``
-    ``[B, 3, 1]``, in upstream's convention, so the caller applies them the same way:
-    ``a @ R.transpose(1, 2) + t.transpose(1, 2)``. *det* is the determinant of the correlation
-    matrix; a negative entry means the reflection branch this does not implement.
-    """
-    if a.shape != b.shape or a.shape[-1] != 3:
-        raise ValueError(f"expected two [B, N, 3] clouds, got {tuple(a.shape)} and "
-                         f"{tuple(b.shape)}")
-    centroid_a, centroid_b = a.mean(dim=1, keepdim=True), b.mean(dim=1, keepdim=True)
-    h = (a - centroid_a).transpose(1, 2) @ (b - centroid_b)
-    r = polar_rotation(h.transpose(1, 2), steps)
-    t = (-r @ centroid_a.transpose(1, 2)) + centroid_b.transpose(1, 2)
-    return r, t, _inverse_transpose_and_det(h)[1]
-
-
-def apply_rigid(pos: Tensor, r: Tensor, t: Tensor) -> Tensor:
-    """``pos @ R^T + t^T``, upstream's application order."""
-    return pos @ r.transpose(1, 2) + t.transpose(1, 2)
-
-
-# --------------------------------------------------------------------------- proper rotation
 
 def _davenport_k(h: Tensor) -> Tensor:
     """Davenport's symmetric 4x4 ``K`` for a correlation matrix ``H`` (``[..., 3, 3]``).
@@ -159,14 +96,42 @@ def proper_rotation(h: Tensor, squarings: int = SQUARINGS) -> Tensor:
     pick = diag.argmax(dim=-1)[..., None, None].expand(a.shape[:-2] + (4, 1))
     q = a.gather(-1, pick)[..., 0]
     q = q / q.norm(dim=-1, keepdim=True).clamp_min(torch.finfo(h.dtype).tiny)
-    from .conformer import quaternion_to_matrix      # local: conformer imports kabsch
     return quaternion_to_matrix(q)
 
 
-def kabsch_proper(a: Tensor, b: Tensor, squarings: int = SQUARINGS):
-    """:func:`kabsch_batch`'s signature, but always a proper rotation (handles reflections)."""
+def kabsch_horn(a: Tensor, b: Tensor, squarings: int = SQUARINGS):
+    """Sampling's ``kabsch_batch`` contract -- `b ~ a @ R.T + t.T`, both ``[B, N, 3]`` -- plus ``det(H)``.
+
+    ``det`` is returned as a diagnostic only: a negative entry is a step where upstream took
+    its reflection branch, which this matches without branching.
+    """
     centroid_a, centroid_b = a.mean(dim=1, keepdim=True), b.mean(dim=1, keepdim=True)
     h = (a - centroid_a).transpose(1, 2) @ (b - centroid_b)
     r = proper_rotation(h, squarings)
     t = (-r @ centroid_a.transpose(1, 2)) + centroid_b.transpose(1, 2)
     return r, t, _inverse_transpose_and_det(h)[1]
+
+
+def apply_rigid(pos: Tensor, r: Tensor, t: Tensor) -> Tensor:
+    """``pos @ R^T + t^T``, upstream's application order.
+
+    Restored after the dfd-trace merge, which renamed ``kabsch_proper`` to
+    :func:`kabsch_horn` and dropped this helper; ``conformer.py`` is its caller.
+    """
+    return pos @ r.transpose(1, 2) + t.transpose(1, 2)
+
+
+def quaternion_to_matrix(q: Tensor) -> Tensor:
+    """``[..., 4] -> [..., 3, 3]``, real part first; the ``2/|q|^2`` factor normalises as it goes.
+
+    The same formula sampling's ``axis_angle_to_matrix`` inlines; split out here because Horn's
+    method produces a quaternion directly.
+    """
+    r, i, j, k = torch.unbind(q, -1)
+    two = 2.0 / (q * q).sum(-1)
+    out = torch.stack([
+        1 - two * (j * j + k * k), two * (i * j - k * r), two * (i * k + j * r),
+        two * (i * j + k * r), 1 - two * (i * i + k * k), two * (j * k - i * r),
+        two * (i * k - j * r), two * (j * k + i * r), 1 - two * (i * i + j * j),
+    ], dim=-1)
+    return out.reshape(q.shape[:-1] + (3, 3))

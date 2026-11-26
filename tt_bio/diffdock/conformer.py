@@ -40,7 +40,7 @@ import torch
 from torch import Tensor
 
 from .harmonics import unit
-from .kabsch import apply_rigid, kabsch_proper
+from .kabsch import apply_rigid, kabsch_horn
 
 _SMALL_ANGLE = 1e-6      # upstream's eps, kept so the two agree term for term
 
@@ -128,5 +128,5 @@ def modify_conformer(pos: Tensor, tr_update: Tensor, rot_update: Tensor,
     if torsion_updates is None or not len(bonds):
         return rigid, None
     flexible = apply_torsions(rigid, bonds, mask_rotate, torsion_updates)
-    r, t, det = kabsch_proper(flexible, rigid)
+    r, t, det = kabsch_horn(flexible, rigid)
     return apply_rigid(flexible, r, t), det
