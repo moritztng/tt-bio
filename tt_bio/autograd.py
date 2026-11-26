@@ -1855,6 +1855,18 @@ def _layer_norm_bw(x, gamma, beta, eps, bwcfg, center=True):
             if lnbw.eligible(xv, g, gv):
                 x.add_grad(lnbw.layer_norm_bw(xv, g, gv, eps))
                 return
+        # dx, dgamma and dbeta in one kernel when the training lever serves (`lnbw.WEIGHTS`).
+        if center and x.requires_grad and any(p is not None and p.requires_grad for p in (gamma, beta)):
+            from . import lnbw
+            gv = None if gamma is None else gamma.value
+            if lnbw.eligible(xv, g, gv, weights=True):
+                dx, dg, db = lnbw.layer_norm_bw_weights(xv, g, gv, eps)
+                if gamma is not None and gamma.requires_grad:
+                    gamma.add_grad(ttnn.reshape(dg, list(gamma.value.shape)))
+                if beta is not None and beta.requires_grad:
+                    beta.add_grad(ttnn.reshape(db, list(beta.value.shape)))
+                x.add_grad(dx)
+                return
         K = int(xv.shape[-1])
         # ONE dtype through the closure. A fan-in accumulator is fp32 and the activation it
         # meets is bf16, and `ttnn.multiply(bf16, fp32)` is not a function of its inputs: it

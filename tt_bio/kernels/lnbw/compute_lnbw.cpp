@@ -3,6 +3,9 @@
 //   dx = (dn - mean(dn) - norm * mean(dn * norm)) * rstd
 // The same two-pass statistics as `autograd._layer_norm_bw`; intermediates are float32 CBs and
 // the reductions accumulate in a float32 DEST.
+// DO_W (training, trainable gamma/beta): this core also keeps float32 running sums of g * norm and g over
+// its tile-rows, elementwise per tile (32 rows x K), and hands them to the writer once at the end. The
+// caller sums those per-core partials over rows: dgamma = sum(g * norm), dbeta = sum(g).
 #include <cstdint>
 #define REDUCE_OP PoolType::SUM
 #define REDUCE_DIM ReduceDim::REDUCE_ROW
@@ -16,6 +19,8 @@
 
 constexpr uint32_t Wt = get_compile_time_arg_val(1);
 constexpr uint32_t DO_GAMMA = get_compile_time_arg_val(2);
+constexpr uint32_t DO_W = get_compile_time_arg_val(3);
+constexpr uint32_t cb_acc_gn = 17, cb_acc_b = 18, cb_t2 = 19;
 constexpr uint32_t cb_x = 0, cb_g = 1, cb_gamma = 2, cb_scaler = 3, cb_eps = 4, cb_mean = 5,
                    cb_xc = 6, cb_tmp = 7, cb_var = 8, cb_rstd = 9, cb_norm = 10, cb_dn = 11,
                    cb_a = 12, cb_b = 13, cb_t = 14, cb_out = 16;
@@ -38,7 +43,7 @@ ALWI void row_mean(uint32_t in, uint32_t out, bool pop) {
     if (pop) cb_pop_front(in, Wt);
 }
 
-enum Op { SUB_COL, MUL_COL, MUL_ROW, MUL, SUB };
+enum Op { SUB_COL, MUL_COL, MUL_ROW, MUL, SUB, ADD, COPY };
 
 // out[i] = a[i] (op) b[i or 0], Wt tiles. Neither input is popped here.
 template <Op OP>
@@ -50,6 +55,8 @@ ALWI void stage(uint32_t a, uint32_t b, uint32_t out) {
     if constexpr (OP == MUL_ROW) mul_bcast_rows_init_short(a, b);
     if constexpr (OP == MUL) mul_tiles_init(a, b);
     if constexpr (OP == SUB) sub_tiles_init(a, b);
+    if constexpr (OP == ADD) add_tiles_init(a, b);
+    if constexpr (OP == COPY) copy_tile_to_dst_init_short(a);
     cb_reserve_back(out, Wt);
     for (uint32_t i = 0; i < Wt; ++i) {
         tile_regs_acquire();
@@ -58,6 +65,8 @@ ALWI void stage(uint32_t a, uint32_t b, uint32_t out) {
         if constexpr (OP == MUL_ROW) mul_tiles_bcast_rows(a, b, i, i, 0);
         if constexpr (OP == MUL) mul_tiles(a, b, i, i, 0);
         if constexpr (OP == SUB) sub_tiles(a, b, i, i, 0);
+        if constexpr (OP == ADD) add_tiles(a, b, i, i, 0);
+        if constexpr (OP == COPY) copy_tile(a, i, 0);
         tile_regs_commit();
         tile_regs_wait();
         pack_tile(0, out);
@@ -101,6 +110,24 @@ void kernel_main() {
         stage<MUL_COL>(cb_xc, cb_rstd, cb_norm);              // norm
         cb_pop_front(cb_xc, Wt);
         cb_wait_front(cb_g, Wt);
+        if constexpr (DO_W) {
+            cb_wait_front(cb_norm, Wt);
+            if (r == 0) {
+                stage<MUL>(cb_g, cb_norm, cb_acc_gn);
+                stage<COPY>(cb_g, cb_g, cb_acc_b);
+            } else {
+                // acc' = acc + term, written behind acc in the same 2*Wt CB, then the old acc popped.
+                stage<MUL>(cb_g, cb_norm, cb_t2);
+                cb_wait_front(cb_t2, Wt);
+                cb_wait_front(cb_acc_gn, Wt);
+                stage<ADD>(cb_acc_gn, cb_t2, cb_acc_gn);
+                cb_pop_front(cb_acc_gn, Wt);
+                cb_pop_front(cb_t2, Wt);
+                cb_wait_front(cb_acc_b, Wt);
+                stage<ADD>(cb_acc_b, cb_g, cb_acc_b);
+                cb_pop_front(cb_acc_b, Wt);
+            }
+        }
         if constexpr (DO_GAMMA) {
             stage<MUL_ROW>(cb_g, cb_gamma, cb_dn);            // dn = g * gamma
             cb_pop_front(cb_g, Wt);

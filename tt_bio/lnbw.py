@@ -6,8 +6,10 @@ is wrong on Blackhole. A BindCraft 2 round runs 384 pair-sized ones at 288 token
 the same expression, with the same two-pass statistics, one tile-row (32 rows x K) at a time in
 L1: float32 intermediates, float32 DEST for the row reductions.
 
-x-only. The weights' gradients stay on the composed path, which is the only one that computes
-them; BindCraft 2 differentiates the sequence, never the weights.
+`layer_norm_bw` is x-only (BindCraft 2 differentiates the sequence, never the weights).
+`layer_norm_bw_weights` is the training form: the same kernel also returns gamma's and beta's
+gradients, from float32 per-core running sums of g * norm and g (r4t-perf L2: with trainable
+gamma/beta the composed path was 46 % of an RFD4 PairUpdate backward at crop 256).
 """
 from __future__ import annotations
 
@@ -25,6 +27,8 @@ KERNEL_DIR = pathlib.Path(__file__).parent / "kernels" / "lnbw"
 
 #: The lever. Off unless armed; `bindcraft2.fast_round()` arms it for the round it was graded on.
 FUSED = env_flag("TT_BIO_LNBW_FUSED", False)
+#: The training lever (weights' gradients from the kernel). Off unless armed; graded in perf/r4t_perf.
+WEIGHTS = env_flag("TT_BIO_LNBW_WEIGHTS", False)
 
 #: Served and declined calls by reason, cumulative; sample at a round boundary.
 REACH: collections.Counter = collections.Counter()
@@ -35,6 +39,9 @@ _BYTES = {ttnn.bfloat16: 2048, ttnn.float32: 4096}
 CB_X, CB_G, CB_GAMMA, CB_SCALER, CB_EPS = 0, 1, 2, 3, 4
 CB_MEAN, CB_XC, CB_TMP, CB_VAR, CB_RSTD, CB_NORM, CB_DN, CB_A, CB_B, CB_T, CB_OUT = \
     5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 16
+CB_ACC_GN, CB_ACC_B, CB_T2 = 17, 18, 19
+#: L1 a core may spend on the weights form's circular buffers (BH has ~1.5 MB per core).
+_L1_W = 1_200_000
 
 
 def _decline(reason: str) -> bool:
@@ -42,11 +49,12 @@ def _decline(reason: str) -> bool:
     return False
 
 
-def eligible(x, g, gamma) -> bool:
-    """What the kernel serves: bf16 x and g of one shape, TILE, interleaved, a channel
+def eligible(x, g, gamma, *, weights: bool = False) -> bool:
+    """With ``weights``, the training form: armed by WEIGHTS instead of FUSED, and the per-core
+    buffers (two 2*Wt float32 accumulators on top of the x-only set) must fit in L1. What the kernel serves: bf16 x and g of one shape, TILE, interleaved, a channel
     width that is a power-of-two multiple of 32 (1/K exact in the bf16 reduce scaler), and gamma
     absent or one row of K."""
-    if not FUSED:
+    if not (WEIGHTS if weights else FUSED):
         return False
     # A float32 cotangent (a fan-in accumulator) is declined: the composed path computes that
     # case in exact float32 (1.5e-4 rel L2 against float64 at 64x64x128), and this kernel's FPU
@@ -68,6 +76,11 @@ def eligible(x, g, gamma) -> bool:
         if gamma.dtype != ttnn.bfloat16 or gamma.layout != ttnn.TILE_LAYOUT or gsh[-1] != K or \
                 any(d != 1 for d in gsh[:-1]):
             return _decline("gamma")
+    if weights:
+        wt = xs[-1] // _TILE
+        need = (2 * wt * 2048) * 3 + wt * 2048 + 5 * 4096 + 5 * wt * 4096 + 2 * (2 * wt * 4096) + wt * 4096 + 2048
+        if need > _L1_W:
+            return _decline("l1")
     return True
 
 
@@ -77,7 +90,7 @@ def _cb(idx, depth, dtype, grid):
                              format_descriptors=[fmt])
 
 
-def _build(x, g, gamma, out, eps, device):
+def _build(x, g, gamma, out, eps, device, parts=None):
     K = int(x.shape[-1])
     Wt = K // _TILE
     rows = math.prod(int(d) for d in x.padded_shape) // (K * _TILE)
@@ -92,6 +105,9 @@ def _build(x, g, gamma, out, eps, device):
         cbs.append(_cb(CB_GAMMA, Wt, bf16, grid))
     cbs += [_cb(i, 1, f32, grid) for i in (CB_MEAN, CB_VAR, CB_RSTD, CB_A, CB_B)]
     cbs += [_cb(i, Wt, f32, grid) for i in (CB_XC, CB_TMP, CB_NORM, CB_DN, CB_T)]
+    do_w = int(parts is not None)
+    if do_w:
+        cbs += [_cb(CB_ACC_GN, 2 * Wt, f32, grid), _cb(CB_ACC_B, 2 * Wt, f32, grid), _cb(CB_T2, Wt, f32, grid)]
 
     inv = struct.unpack("<I", struct.pack("<f", 1.0 / K))[0] >> 16
     scaler = (inv << 16) | inv
@@ -100,19 +116,23 @@ def _build(x, g, gamma, out, eps, device):
     reader_ct = [Wt, do_gamma, scaler, eps_bits]
     for t in (x, g, gamma if gamma is not None else x):
         reader_ct.extend(ttnn.TensorAccessorArgs(t).get_compile_time_args())
-    writer_ct = [Wt] + list(ttnn.TensorAccessorArgs(out).get_compile_time_args())
+    writer_ct = [Wt, do_w] + list(ttnn.TensorAccessorArgs(out).get_compile_time_args())
+    if do_w:
+        writer_ct += list(ttnn.TensorAccessorArgs(parts[0]).get_compile_time_args())
 
     rr, wr, cr = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
-    first = 0
+    first, core = 0, 0
     for group, per in ((cg1, work1), (cg2, work2)):
         for rng in group.ranges():
             for cx in range(rng.start.x, rng.end.x + 1):
                 for cy in range(rng.start.y, rng.end.y + 1):
                     rr[cx][cy] = [first, per]
-                    wr[cx][cy] = [first, per]
+                    wr[cx][cy] = [first, per, core]
                     cr[cx][cy] = [per]
                     first += per
+                    core += 1
     assert first == rows, (first, rows)
+    assert not do_w or int(parts[0].shape[0]) == core * _TILE, (parts[0].shape, core)
 
     cfg = ttnn.ComputeConfigDescriptor(math_fidelity=ttnn.MathFidelity.HiFi4, fp32_dest_acc_en=True)
     reader = ttnn.KernelDescriptor(
@@ -123,13 +143,13 @@ def _build(x, g, gamma, out, eps, device):
     writer = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "writer_lnbw.cpp"),
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH, core_ranges=grid,
-        compile_time_args=writer_ct, runtime_args=wr, common_runtime_args=[0],
+        compile_time_args=writer_ct, runtime_args=wr, common_runtime_args=[0, 0, 0],
         config=ttnn.WriterConfigDescriptor())
     compute = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "compute_lnbw.cpp"),
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH, core_ranges=grid,
-        compile_time_args=[0, Wt, do_gamma], runtime_args=cr, config=cfg)
-    return {"kernels": [reader, writer, compute], "cbs": cbs}
+        compile_time_args=[0, Wt, do_gamma, do_w], runtime_args=cr, config=cfg)
+    return {"kernels": [reader, writer, compute], "cbs": cbs, "cores": core}
 
 
 def layer_norm_bw(x, g, gamma, eps):
@@ -154,3 +174,42 @@ def layer_norm_bw(x, g, gamma, eps):
     REACH["served"] += 1
     ins = [x, g] + ([gamma] if gamma is not None else [])
     return ttnn.generic_op(ins + [out], pd)
+
+
+def _cores(x, device):
+    rows = math.prod(int(d) for d in x.padded_shape) // (int(x.shape[-1]) * _TILE)
+    return core_split.split_work_to_cores(device.compute_with_storage_grid_size(), rows, 0)[0]
+
+
+def layer_norm_bw_weights(x, g, gamma, eps):
+    """``(dx, dgamma, dbeta)`` of ``layer_norm(x) * gamma + beta`` for cotangent g. dx in the dtype
+    `layer_norm_bw` returns; dgamma and dbeta float32 of shape [1, K] (the caller reshapes to its
+    weight), each the device sum over rows of this kernel's per-core float32 partials."""
+    from .autograd import precise_config
+    device = x.device()
+    K = int(x.shape[-1])
+    out_dtype = ttnn.float32 if g.dtype == ttnn.float32 else ttnn.bfloat16
+    out = ttnn.allocate_tensor_on_device(x.shape, out_dtype, ttnn.TILE_LAYOUT, device, ttnn.DRAM_MEMORY_CONFIG)
+    n = _cores(x, device) * _TILE
+    parts = [ttnn.allocate_tensor_on_device(ttnn.Shape([n, K]), ttnn.float32, ttnn.TILE_LAYOUT, device,
+                                            ttnn.DRAM_MEMORY_CONFIG) for _ in range(2)]
+    key = ("w", device.id(), tuple(int(d) for d in x.padded_shape), x.dtype, g.dtype,
+           gamma is not None, float(eps), x.memory_config().buffer_type,
+           g.memory_config().buffer_type,
+           None if gamma is None else gamma.memory_config().buffer_type)
+    entry = _CACHE.get(key)
+    if entry is None:
+        entry = _CACHE[key] = _build(x, g, gamma, out, eps, device, parts)
+    reader, writer, compute = entry["kernels"]
+    reader.common_runtime_args = [x.buffer_address(), g.buffer_address(),
+                                  gamma.buffer_address() if gamma is not None else 0]
+    writer.common_runtime_args = [out.buffer_address(), parts[0].buffer_address(), parts[1].buffer_address()]
+    pd = ttnn.ProgramDescriptor(kernels=[reader, writer, compute], semaphores=[], cbs=entry["cbs"])
+    REACH["served: weights"] += 1
+    ins = [x, g] + ([gamma] if gamma is not None else [])
+    dx = ttnn.generic_op(ins + [out] + parts, pd)
+    red = []
+    for t in parts:
+        red.append(ttnn.sum(t, dim=0, keepdim=True, compute_kernel_config=precise_config()))
+        ttnn.deallocate(t)
+    return dx, red[0], red[1]
