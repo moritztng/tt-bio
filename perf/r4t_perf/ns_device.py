@@ -107,7 +107,7 @@ def main():
         times.append((t0, t1)); del o
     stop.set()
     ck = [c for t, c in clk if any(t0 <= t <= t1 for t0, t1 in times)]
-    worst, fail = 0.0, []
+    worst, fail, per = 0.0, [], []
     h = hashlib.sha256()
     for gi, (w, o) in enumerate(zip(groups, outs)):
         od = ttnn.to_torch(o).double()
@@ -120,6 +120,7 @@ def main():
             ed, eh = float((od[k] - ref[k]).norm() / n), float((hb[k] - ref[k]).norm() / n)
             ok = ed <= 1.5 * eh
             worst = max(worst, ed / eh)
+            per.append([list(w.shape[1:]), k, ed, eh])
             if not ok:
                 fail.append([list(w.shape[1:]), k, ed, eh])
     dts = [t1 - t0 for t0, t1 in times]
@@ -127,9 +128,9 @@ def main():
                n_matrices=sum(g.shape[0] for g in groups), reps=a.reps, step_s=[round(d, 4) for d in dts],
                step_s_min=round(min(dts), 4), aiclk=[min(ck), max(ck), len(ck)] if ck else None,
                worst_edev_over_ehost=round(worst, 3), n_fail=len(fail), fail=fail[:20],
-               B1="PASS" if not fail else "FAIL", digest=h.hexdigest()[:16])
+               B1="PASS" if not fail else "FAIL", digest=h.hexdigest()[:16], per=per)
     json.dump(res, open(a.out, "w"), indent=1)
-    print(json.dumps({k: v for k, v in res.items() if k != "fail"}))
+    print(json.dumps({k: v for k, v in res.items() if k not in ("fail", "per")}))
 
 
 if __name__ == "__main__":
