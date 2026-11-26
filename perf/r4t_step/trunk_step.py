@@ -88,6 +88,29 @@ def main():
     # winner reads it. The first build and a resume build still run the forward: the unreached/orphan checks
     # after them need every weight to exist.
     inline = os.environ.get("R4T_REBUILD_INLINE") == "1"
+    # The trimul in-projection is cached per chunk width on first use, and caches filled in the grad-off
+    # candidate pass reach the taped winner as untracked constants (R1 first form: step-2 digest moved, every
+    # linear_{a,b}_{p,g} grad dead). `train_in_proj` holds the two sources as registered device tensors and
+    # cuts chunks per call, so nothing is cached. Implied by R4T_REBUILD_INLINE.
+    in_proj = inline or os.environ.get("R4T_TRAIN_IN_PROJ") == "1"
+
+    def trimuls(root):
+        seen, out, todo = set(), [], [root]
+        while todo:
+            o = todo.pop()
+            if id(o) in seen:
+                continue
+            seen.add(id(o))
+            if hasattr(o, "train_in_proj") and hasattr(o, "width_variants"):
+                out.append(o)
+            if isinstance(o, (list, tuple)):
+                todo.extend(o)
+            elif isinstance(o, dict):
+                todo.extend(o.values())
+            elif hasattr(o, "__dict__") and not isinstance(o, (torch.Tensor, ttnn.Tensor, type)):
+                todo.extend(v for v in vars(o).values() if not isinstance(v, (torch.Tensor, ttnn.Tensor)))
+        return out
+
     open_rec = []
 
     def close_rec():
@@ -111,6 +134,8 @@ def main():
         if lazy or not inline:
             with folds.recording() as sd:
                 trunk = E.load_trunk(glue, sd, cfg)
+                if in_proj:
+                    RB["trimuls"] = len([m.train_in_proj() for m in trimuls(trunk)])
                 ttnn.synchronize_device(dev); _rb2 = time.time()
                 one_example(0, False)   # lazy uploads (trimul in-projections at this chunk width), on the taped route
                 ttnn.synchronize_device(dev); _rb3 = time.time()
@@ -118,6 +143,8 @@ def main():
             rec = folds.recording()
             sd = rec.__enter__()
             trunk = E.load_trunk(glue, sd, cfg)
+            if in_proj:
+                RB["trimuls"] = len([m.train_in_proj() for m in trimuls(trunk)])
             ttnn.synchronize_device(dev); _rb2 = _rb3 = time.time()
             recorded = ttnn.from_torch
 
