@@ -14,6 +14,7 @@ The upstream comparisons are skipped when the reference clone is absent.
 """
 
 import math
+import os
 from pathlib import Path
 
 import pytest
@@ -115,6 +116,10 @@ def test_the_non_finite_so3_entries_are_upstreams_too_and_are_unreachable():
     assert max(bad_up) < _so3_index(ROT_SIGMA_MIN)
 
 
+@pytest.mark.skipif(not os.environ.get("DFD_SLOW_UPSTREAM"),
+                    reason="importing upstream's utils/torus.py recomputes its 10000-draw "
+                           "Monte Carlo and loads two 200 MB caches: over 23 min. Set "
+                           "DFD_SLOW_UPSTREAM=1 to run it.")
 @pytest.mark.skipif(not (UPSTREAM / ".score.npy").exists(),
                     reason="upstream clone with its .npy caches is not present")
 def test_torus_sits_inside_upstreams_monte_carlo_spread(monkeypatch):
