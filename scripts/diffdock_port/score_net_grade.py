@@ -58,6 +58,9 @@ def main():
     T = lambda k, d=torch.float32: torch.as_tensor(z[k]).to(d)
     for k in [int(s) for s in z["steps"]]:
         p = f"s{k}_"
+        if p + "t_tr" not in z:   # older archives list steps that never fired
+            print(f"step {k:2d} absent from the archive, skipped", flush=True)
+            continue
         t_tr, t_rot, t_tor = (float(z[p + "t_tr"]), float(z[p + "t_rot"]),
                               float(z[p + "t_tor"]))
         tr_s, rot_s, tor_s = bounds.sigmas(t_tr, t_rot, t_tor)

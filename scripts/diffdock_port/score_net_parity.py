@@ -140,7 +140,15 @@ def main():
              temp_psi=[inf["temp_psi_tr"], inf["temp_psi_rot"], inf["temp_psi_tor"]],
              temp_sigma_data=[inf["temp_sigma_data_tr"], inf["temp_sigma_data_rot"],
                               inf["temp_sigma_data_tor"]])
-    flat["steps"] = np.asarray(want, np.int32)
+    # Record the steps that actually FIRED, not the ones asked for: `sampling` calls forward
+    # `actual_steps` times, so indices run 0..actual_steps-1 and a `--steps` entry at or past
+    # that count never captures anything. Writing `want` here made the grade die on a KeyError
+    # for a step whose tensors are simply not in the archive.
+    fired = sorted({int(k.split("_", 1)[0][1:]) for k in flat})
+    missed = [s for s in want if s not in fired]
+    if missed:
+        print(f"WARNING: steps {missed} never fired ({state['step'] + 1} forward calls)")
+    flat["steps"] = np.asarray(fired, np.int32)
     flat["complex"] = np.asarray(cid)
     np.savez(a.out, **flat)
     print("wrote", a.out, "steps", want)
