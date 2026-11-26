@@ -53,6 +53,9 @@ def main():
     ap.add_argument("--gate-bw", choices=("on", "off"), default="on",
                     help="backward of every o * sigmoid(g) gate as one kernel (tt_bio.gate_bw, r4t-perf G1) or the "
                          "seven-op composed path")
+    ap.add_argument("--cover-steps", type=int, default=0,
+                    help="steps the no-gradient guard intersects over (default: the guard's own minimum). A run cycling "
+                         "logged batches sets it to the cycle length: a head no early batch drives is not dead")
     a = ap.parse_args()
     import faulthandler
     import signal
@@ -398,7 +401,8 @@ def main():
             if ln.strip() and not ln.startswith("#"):
                 nm, why = ln.rstrip("\n").split("\t", 1)
                 cyc[nm] = why
-    cov = GradientCoverage(names, exempt=cyc, where="r4t-step trunk: ")
+    cov = GradientCoverage(names, exempt=cyc, where="r4t-step trunk: ",
+                           **({"steps": a.cover_steps} if a.cover_steps else {}))
     threading.Thread(target=sample, daemon=True).start()
     for step in range(start, a.steps):
         ttnn.synchronize_device(dev)
