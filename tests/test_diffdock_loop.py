@@ -153,7 +153,12 @@ def test_ode_and_quiet_steps_zero_the_noise_column_rather_than_skipping_a_branch
     assert (ode.score - 0.5 * plain.score).abs().max().item() < 1e-4
 
 
-def test_the_guard_is_identical_to_samplings_on_a_clean_score():
+def test_the_guard_is_the_samplers_own_function():
+    """One repair, both paths: this module imports sampling's (D-dfd-sampling-9)."""
+    assert guard_scores is S.guard_scores
+
+
+def test_the_guard_leaves_a_clean_score_alone():
     g = torch.Generator().manual_seed(1)
     score = torch.randn(10, 3, generator=g)
     clean, n_bad = guard_scores(score)
@@ -161,21 +166,20 @@ def test_the_guard_is_identical_to_samplings_on_a_clean_score():
     assert torch.equal(S._repair_nans(score, score, score)[0], clean)
 
 
-def test_the_guard_repairs_like_sampling_and_counts_the_poses():
+def test_the_guard_repairs_and_counts_the_poses():
     score = torch.tensor([[1.0, -2.0, 3.0], [float('nan'), 0.5, 0.5],
                           [2.0, 1.0, -1.0], [-4.0, 1.0, 1.0]])
     clean, n_bad = guard_scores(score)
-    want = S._repair_nans(score, score, score)[0]
     assert n_bad.item() == 1
     assert torch.isfinite(clean).all()
-    assert (clean - want).abs().max().item() < 1e-6, "same repair value as sampling's"
+    assert torch.equal(S._repair_nans(score, score, score)[0], clean)
 
 
-def test_an_infinity_does_not_poison_the_repair_value():
-    """The one place this differs from `nanmean`, stated as a test rather than a comment."""
+def test_an_infinity_is_repaired_and_does_not_poison_the_repair_value():
+    """Upstream's `isnan` branch misses this; both of our paths repair it."""
     score = torch.tensor([[1.0, -2.0, 3.0], [float('inf'), 1.0, -1.0]])
     clean, n_bad = guard_scores(score)
     assert n_bad.item() == 1 and torch.isfinite(clean).all()
-    assert torch.isnan(S._repair_nans(score, score, score)[0]).any() \
-        or torch.isinf(S._repair_nans(score, score, score)[0]).any(), \
-        "sampling's nanmean takes the infinity into the mean; this is the difference"
+    assert torch.isfinite(S._repair_nans(score, score, score)[0]).all()
+    # 1 % of the mean magnitude over the finite entries, the infinity left out of it.
+    assert abs(clean[1, 0].item() - 0.01 * (1 + 2 + 3 + 1 + 1) / 5) < 1e-6
