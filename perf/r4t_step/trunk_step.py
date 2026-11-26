@@ -44,7 +44,7 @@ def main():
     ap.add_argument("--lnbw-weights", choices=("on", "off"), default="on",
                     help="LayerNorm backward with trainable gamma/beta in one fused kernel (tt_bio.lnbw weights form, "
                          "r4t-perf L2) or the composed ttnn path")
-    ap.add_argument("--gate-bw", choices=("on", "off"), default="off",
+    ap.add_argument("--gate-bw", choices=("on", "off"), default="on",
                     help="backward of every o * sigmoid(g) gate as one kernel (tt_bio.gate_bw, r4t-perf G1) or the "
                          "seven-op composed path")
     a = ap.parse_args()
