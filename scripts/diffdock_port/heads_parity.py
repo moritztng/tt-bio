@@ -15,7 +15,7 @@ tensors; the glue between them is ``CGModel.forward`` lines 368-395 and
 across several graphs and noise levels: this grades the head with real weights, not the
 whole network on a real complex -- that is the goldens' job.
 
-Also graded on its own: ``tt_bio.diffdock.geometry.spherical_harmonics`` vs e3nn.
+Also graded on its own: ``tt_bio.diffdock.harmonics.spherical_harmonics`` vs e3nn.
 """
 
 import json
@@ -30,7 +30,7 @@ from models.layers import GaussianSmearing as RefSmearing  # noqa: E402
 from models.tensor_layers import TensorProductConvLayer as RefConv  # noqa: E402
 from utils import so3  # noqa: E402
 
-from tt_bio.diffdock.geometry import spherical_harmonics  # noqa: E402
+from tt_bio.diffdock.harmonics import spherical_harmonics  # noqa: E402
 from tt_bio.diffdock.heads import CenterHead  # noqa: E402
 
 CKPT = "/home/moritz/scratch/dfd/ckpt/extracted/score_model/best_ema_inference_epoch_model.pt"
@@ -51,8 +51,8 @@ def grade_sh():
     v = torch.randn(4096, 3) * 7
     v[0] = 0.0                                            # the zero-length edge case
     out = {}
-    for irreps in (SH, "2e"):
-        a = spherical_harmonics(irreps, v)
+    for irreps, ls in ((SH, (0, 1, 2)), ("2e", (2,))):
+        a = spherical_harmonics(v, ls)
         b = o3.spherical_harmonics(irreps, v, normalize=True, normalization="component")
         out[irreps] = _cmp(a, b)
     return out
