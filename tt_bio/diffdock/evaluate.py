@@ -215,6 +215,89 @@ def posebusters_validity(rows, config="redock", table_path=None) -> dict:
             "n": len(valid), "table": str(table_path) if table_path else None}
 
 
+# ------------------------------------------------------------------ benchmark driver
+
+
+def _poses(complex_dir: Path, max_rank: int):
+    """``rank<k>.sdf`` (or upstream's ``rank<k>_confidence*.sdf``) in confidence order."""
+    from rdkit import Chem
+
+    out = []
+    for k in range(1, max_rank + 1):
+        hit = next((p for p in [complex_dir / f"rank{k}.sdf",
+                                *sorted(complex_dir.glob(f"rank{k}_confidence*.sdf"))]
+                    if p.exists() and p.stat().st_size > 0), None)
+        if hit is None:
+            break
+        m = next(Chem.SDMolSupplier(str(hit), sanitize=True, removeHs=True), None)
+        if m is None:
+            break
+        out.append(m)
+    return out
+
+
+def _references(truth_dir: Path, cid: str):
+    """Every crystal copy in ``<id>_ligands.sdf``, falling back to the single ``_ligand.sdf``."""
+    from rdkit import Chem
+
+    multi = truth_dir / cid / f"{cid}_ligands.sdf"
+    one = truth_dir / cid / f"{cid}_ligand.sdf"
+    if multi.exists():
+        refs = [m for m in Chem.SDMolSupplier(str(multi), sanitize=True, removeHs=True)
+                if m is not None]
+        if refs:
+            return refs
+    m = next(Chem.SDMolSupplier(str(one), sanitize=True, removeHs=True), None) if one.exists() else None
+    return [m] if m is not None else []
+
+
+def grade_set(ids, poses_dir, truth_dir, max_rank=10, prefix="") -> dict:
+    """Grade a whole held-out set of poses on disk against its crystal ligands.
+
+    ``poses_dir/<id>/rank<k>.sdf`` against ``truth_dir/<id>/<id>_ligand(s).sdf``, which is the
+    layout both PoseBusters and upstream's ``--out_dir`` use. Returns ``per_complex`` records
+    and the :func:`success_rates` block over the complexes that produced poses.
+
+    ``n_attempted`` and ``n_scored`` are reported separately and a complex with no pose stays
+    in the list with ``scored: False``. A per-complex failure that quietly leaves the
+    denominator is how a broken run reads as a good one.
+    """
+    poses_dir, truth_dir = Path(poses_dir), Path(truth_dir)
+    ids = list(ids)
+    recs, mat, cents, selfd = [], [], [], []
+    for cid in ids:
+        preds, refs = _poses(poses_dir / cid, max_rank), _references(truth_dir, cid)
+        if not preds or not refs:
+            recs.append({"id": cid, "scored": False,
+                         "why": "no pose" if not preds else "no reference"})
+            continue
+        rmsd, naive, cen, msd = [], False, [], []
+        for p in preds:
+            v, used_naive = best_symmetry_rmsd(refs, p)
+            naive |= used_naive
+            rmsd.append(v)
+            cen.append(min(centroid_distance(r, p) for r in refs))
+            msd.append(min_self_distance(_heavy(p).GetConformer().GetPositions()))
+        xyz = _heavy(preds[0]).GetConformer().GetPositions()
+        recs.append({"id": cid, "scored": True, "rmsd": rmsd, "centroid": cen,
+                     "min_self_distance": msd, "n_refs": len(refs), "naive_rmsd_used": naive,
+                     "nonfinite_coords": not bool(np.isfinite(xyz).all())})
+        mat.append(rmsd)
+        cents.append(cen)
+        selfd.append(msd)
+    # The aggregate is rectangular, so a ragged set is graded at the narrowest complex's depth
+    # and `samples_graded` says what that was. Padding the short ones instead would either
+    # invent poses or move the pooled rate, and both are worse than saying the depth out loud.
+    width = min((len(r) for r in mat), default=0)
+    agg = success_rates([r[:width] for r in mat], [c[:width] for c in cents],
+                        [s[:width] for s in selfd], prefix=prefix) if width else {}
+    return {"per_complex": recs, "n_attempted": len(ids),
+            "n_scored": sum(1 for r in recs if r["scored"]),
+            "n_naive_rmsd": sum(1 for r in recs if r.get("naive_rmsd_used")),
+            "nan_or_collapse": sum(1 for r in recs if r.get("nonfinite_coords")),
+            "samples_graded": width, "metrics": agg}
+
+
 # ------------------------------------------------------------------------- gnina
 
 
