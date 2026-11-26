@@ -27,10 +27,11 @@ from typing import Hashable, Iterable, Mapping, Optional, Sequence
 
 import numpy as np
 
-__all__ = ["LOSS_PARITY_BARS", "LOSS_PARITY_MIN_BATCHES", "CURVE_MIN_STEPS", "CURVE_TAIL",
+__all__ = ["LOSS_PARITY_BARS", "LOSS_PARITY_MIN_BATCHES", "LOSS_PARITY_FLOOR_FACTOR",
+           "LOSS_PARITY_FLOOR_EXEMPT", "CURVE_MIN_STEPS", "CURVE_TAIL",
            "CURVE_REL", "CURVE_SEED_FACTOR", "CURVE_WINDOW", "CURVE_DRIFT", "TRAINS_MIN_STEPS",
-           "LossParity", "loss_parity", "CurveMatch", "curve_match", "GradientCoverage",
-           "zero_or_missing"]
+           "LossParity", "loss_parity", "floor_digest", "CurveMatch", "curve_match",
+           "GradientCoverage", "zero_or_missing"]
 
 
 # ---------------------------------------------------------------------------- loss parity
@@ -42,6 +43,22 @@ __all__ = ["LOSS_PARITY_BARS", "LOSS_PARITY_MIN_BATCHES", "CURVE_MIN_STEPS", "CU
 LOSS_PARITY_BARS = {"bfloat16": 1.0e-2, "float32": 1.0e-4}
 LOSS_PARITY_MIN_BATCHES = 8
 
+# D37 (r4t-orchestrator, 2026-11-26), registered before the 9-batch TT arm existed. Upstream's
+# OWN bf16 forward of the same model, same batch, same weights misses its fp32 loss by more than
+# 1e-2 on two of the first four batches (bb_ca 2.09e-1 and 1.52e-1 on the two where bb_ca is
+# ~2e-3 and the relative measure magnifies it). A bar that upstream itself fails grades the
+# dtype, not the port, so a bf16 term is allowed the larger of the registered relative bar and
+# LOSS_PARITY_FLOOR_FACTOR times upstream's own bf16 deviation on that term and batch:
+#
+#     |ours - ref| <= max(LOSS_PARITY_BARS["bfloat16"] * |ref|, 1.5 * |up_bf16 - ref|)
+#
+# The floor is per term per batch and comes from a committed, digest-stamped measurement
+# (``perf/r4t/floor/up_bf16.json``), never from the arm being graded. ``total`` is exempt: it is
+# the sum of terms at their natural scale, upstream's bf16 total stays within 2.3e-3, and a
+# floor on it would let a big term hide behind a loose sum.
+LOSS_PARITY_FLOOR_FACTOR = 1.5
+LOSS_PARITY_FLOOR_EXEMPT = frozenset({"total"})
+
 
 @dataclass
 class LossParity:
@@ -52,6 +69,10 @@ class LossParity:
     worst_batch: int
     worst_term: str
     failures: list = field(default_factory=list)
+    floored: bool = False
+    worst_margin: float = 0.0
+    worst_margin_batch: int = -1
+    worst_margin_term: str = ""
 
     @property
     def passed(self) -> bool:
@@ -61,42 +82,92 @@ class LossParity:
         head = (f"LOSS-PARITY: {'PASS' if self.passed else 'FAIL'} rel={self.worst_rel:.3e} "
                 f"tol={self.bar:.1e} n={self.n} dtype={self.dtype} worst=batch "
                 f"{self.worst_batch} term {self.worst_term!r}")
+        if self.floored:
+            head += (f" floor=up_bf16x{LOSS_PARITY_FLOOR_FACTOR} "
+                     f"margin={self.worst_margin:.3g}@batch {self.worst_margin_batch} "
+                     f"term {self.worst_margin_term!r}")
         return "\n".join([head] + ["  " + f for f in self.failures])
 
 
+def floor_digest(rows: Sequence[Mapping[str, object]]) -> str:
+    """Digest of a committed bf16 floor column, so a grader can refuse an edited one."""
+    import hashlib
+    import json
+    payload = [{"batch": str(r["batch"]),
+                "up_bf16": {k: float(v) for k, v in sorted(dict(r["up_bf16"]).items())},
+                "ref": {k: float(v) for k, v in sorted(dict(r["ref"]).items())}}
+               for r in rows]
+    blob = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+    return hashlib.sha256(blob).hexdigest()[:16]
+
+
 def loss_parity(ours: Sequence[Mapping[str, float]], ref: Sequence[Mapping[str, float]],
-                dtype: str) -> LossParity:
+                dtype: str,
+                floor: Optional[Sequence[Mapping[str, float]]] = None) -> LossParity:
     """Grade per-batch loss terms against the reference's. Every term, every batch.
 
     ``ours[i]`` and ``ref[i]`` map term name to value for batch ``i`` and must carry the same
     names, the total included. A term one side has and the other lacks is a failure, not a
     skip: a loss that silently drops a term matches on everything it still computes.
+
+    ``floor[i]`` is upstream's OWN bf16 value for each term of batch ``i`` (D37). With it, a
+    non-exempt term passes when ``|ours - ref| <= max(bar * |ref|, 1.5 * |floor - ref|)``; the
+    caller aligns ``floor`` with ``ref`` by batch identity, not by position in a glob. A floor
+    is only meaningful for the bf16 arm: the fp32 arm removes the operand rounding it measures.
     """
     bar = LOSS_PARITY_BARS[dtype]
+    if floor is not None:
+        if dtype != "bfloat16":
+            raise ValueError(f"the bf16 floor does not apply to the {dtype} arm")
+        if len(floor) != len(ref):
+            raise ValueError(f"floor has {len(floor)} batches, reference has {len(ref)}")
     fails = []
     if len(ours) != len(ref):
         fails.append(f"{len(ours)} batches against {len(ref)} reference batches")
     if len(ref) < LOSS_PARITY_MIN_BATCHES:
         fails.append(f"n={len(ref)} batches, the bar needs >= {LOSS_PARITY_MIN_BATCHES}")
     worst = (0.0, -1, "")
+    worst_margin = (0.0, -1, "")
     for i, (a, b) in enumerate(zip(ours, ref)):
         if set(a) != set(b):
             fails.append(f"batch {i}: terms differ, ours-only {sorted(set(a) - set(b))}, "
                          f"ref-only {sorted(set(b) - set(a))}")
+        f = dict(floor[i]) if floor is not None else None
         for k in sorted(set(a) & set(b)):
             x, y = float(a[k]), float(b[k])
-            if not (math.isfinite(x) and math.isfinite(y)):
-                rel = math.inf
+            finite = math.isfinite(x) and math.isfinite(y)
+            if not finite:
+                rel, dev = math.inf, math.inf
             elif x == y:
-                rel = 0.0
+                rel, dev = 0.0, 0.0
             else:
-                rel = abs(x - y) / abs(y) if y != 0.0 else math.inf
+                dev = abs(x - y)
+                rel = dev / abs(y) if y != 0.0 else math.inf
             if rel > worst[0] or worst[1] < 0:
                 worst = (rel, i, k)
-            if rel > bar:
-                fails.append(f"batch {i} term {k!r}: ours {x!r} ref {y!r} rel {rel:.3e}")
+            allowance, how = bar * abs(y) if finite else 0.0, f"rel {rel:.3e} > {bar:.1e}"
+            if f is not None and k not in LOSS_PARITY_FLOOR_EXEMPT:
+                if k not in f:
+                    fails.append(f"batch {i} term {k!r}: no upstream bf16 floor recorded")
+                    continue
+                up = float(f[k])
+                if not math.isfinite(up):
+                    fails.append(f"batch {i} term {k!r}: upstream bf16 floor is not finite")
+                    continue
+                fl = LOSS_PARITY_FLOOR_FACTOR * abs(up - y)
+                if fl > allowance:
+                    allowance = fl
+                    how = (f"|ours-ref| {dev:.3e} > {LOSS_PARITY_FLOOR_FACTOR} x "
+                           f"|up_bf16-ref| {abs(up - y):.3e}")
+            margin = dev / allowance if allowance > 0.0 else (0.0 if dev == 0.0 else math.inf)
+            if margin > worst_margin[0] or worst_margin[1] < 0:
+                worst_margin = (margin, i, k)
+            if not (dev <= allowance):
+                fails.append(f"batch {i} term {k!r}: ours {x!r} ref {y!r} {how}")
     return LossParity(dtype=dtype, bar=bar, n=len(ref), worst_rel=worst[0],
-                      worst_batch=worst[1], worst_term=worst[2], failures=fails)
+                      worst_batch=worst[1], worst_term=worst[2], failures=fails,
+                      floored=floor is not None, worst_margin=worst_margin[0],
+                      worst_margin_batch=worst_margin[1], worst_margin_term=worst_margin[2])
 
 
 # ---------------------------------------------------------------------------- the curve

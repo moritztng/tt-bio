@@ -187,3 +187,67 @@ def test_zero_or_missing_counts_none_and_all_zero():
     grads = {"none": None, "zero": torch.zeros(3), "np0": np.zeros(2),
              "live": torch.tensor([0.0, 1e-30]), "nplive": np.array([0.0, -1.0])}
     assert P.zero_or_missing(grads) == {"none", "zero", "np0"}
+
+
+# ------------------------------------------- D37: the bf16 bar has upstream's own bf16 floor
+
+def test_floor_constants_are_the_registered_ones():
+    assert P.LOSS_PARITY_FLOOR_FACTOR == 1.5
+    assert P.LOSS_PARITY_FLOOR_EXEMPT == frozenset({"total"})
+
+
+def _floor(ref, rel, term="bb_ca"):
+    """Upstream's own bf16 column: `term` off by `rel`, every other term exact."""
+    return [{k: v * (1.0 + rel) if k == term else v for k, v in b.items()} for b in ref]
+
+
+def test_floor_admits_a_term_upstreams_own_bf16_misses_by_more_than_the_bar():
+    ref = _batches()
+    ours = _scaled(ref, 0.04, term="bb_ca")          # 4 %, over the 1 % bar
+    assert not P.loss_parity(ours, ref, "bfloat16").passed
+    r = P.loss_parity(ours, ref, "bfloat16", _floor(ref, 0.05))   # upstream itself is 5 % off
+    assert r.passed and r.floored, str(r)
+    assert 0.5 < r.worst_margin < 0.6                             # 0.04 / (1.5 * 0.05)
+
+
+def test_floor_does_not_admit_more_than_one_and_a_half_times_upstreams_miss():
+    ref = _batches()
+    r = P.loss_parity(_scaled(ref, 0.08, term="bb_ca"), ref, "bfloat16", _floor(ref, 0.05))
+    assert not r.passed and r.worst_term == "bb_ca"
+
+
+def test_floor_never_tightens_the_registered_relative_bar():
+    """A term upstream's bf16 reproduces exactly still gets the full 1e-2."""
+    ref = _batches()
+    r = P.loss_parity(_scaled(ref, 0.009, term="seq"), ref, "bfloat16", _floor(ref, 0.0))
+    assert r.passed, str(r)
+    assert not P.loss_parity(_scaled(ref, 0.011, term="seq"), ref, "bfloat16",
+                             _floor(ref, 0.0)).passed
+
+
+def test_total_is_exempt_from_the_floor():
+    ref = _batches()
+    ours = _scaled(ref, 0.03, term="total")
+    assert not P.loss_parity(ours, ref, "bfloat16", _floor(ref, 0.05, term="total")).passed
+
+
+def test_floor_is_refused_on_the_fp32_arm_and_on_a_length_mismatch():
+    ref = _batches()
+    with pytest.raises(ValueError):
+        P.loss_parity(ref, ref, "float32", _floor(ref, 0.0))
+    with pytest.raises(ValueError):
+        P.loss_parity(ref, ref, "bfloat16", _floor(ref, 0.0)[:5])
+
+
+def test_a_missing_floor_term_fails_rather_than_skipping():
+    ref = _batches()
+    fl = [dict(b) for b in _floor(ref, 0.0)]
+    del fl[2]["bb_ca"]
+    assert not P.loss_parity(ref, ref, "bfloat16", fl).passed
+
+
+def test_floor_digest_moves_with_any_edited_number():
+    rows = [{"batch": "b0", "up_bf16": {"x": 1.0}, "ref": {"x": 1.0}}]
+    d = P.floor_digest(rows)
+    assert d == P.floor_digest([{"batch": "b0", "ref": {"x": 1.0}, "up_bf16": {"x": 1.0}}])
+    assert d != P.floor_digest([{"batch": "b0", "up_bf16": {"x": 1.0000001}, "ref": {"x": 1.0}}])
