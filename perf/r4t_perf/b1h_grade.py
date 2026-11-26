@@ -15,7 +15,7 @@ from b1prime import errs, wide
 def grade(snap, d, min_dim):
     groups = torch.load(snap)["groups"]
     per = {(gi, k): (ed, eh) for s, k, ed, eh, gi in d["per"]}
-    rat, fa, fc, n_host, seen = [], [], [], 0, 0
+    rat, fa, fc, n_host, seen, n_zero = [], [], [], 0, 0, 0
     for gi, g in enumerate(groups):
         if min(g.shape[1:]) < min_dim:
             n_host += g.shape[0]; continue
@@ -24,12 +24,14 @@ def grade(snap, d, min_dim):
             ee, _ = errs(w[i:i + 8])
             for j in range(ee.shape[0]):
                 k = i + j; ed, eh = per[(gi, k)]; seen += 1
+                if float(w[k].norm()) == 0.0:  # a parameter this example did not drive: NS(0) = 0 on every path
+                    n_zero += 1; continue
                 q = ed / float(ee[j]); rat.append(q)
                 if q > 1.15: fa.append([list(w.shape[1:]), gi, k, round(q, 4)])
                 if ed > 1.5 * eh: fc.append([list(w.shape[1:]), gi, k, ed, eh])
     assert seen == len(per), (seen, len(per))
     med = statistics.median(rat)
-    return dict(n_device=len(rat), n_host=n_host, median=round(med, 4), max=round(max(rat), 4), n_a_fail=len(fa),
+    return dict(n_device=len(rat), n_zero=n_zero, n_host=n_host, median=round(med, 4), max=round(max(rat), 4), n_a_fail=len(fa),
                 a_fail=fa[:20], n_c_fail=len(fc), c_fail=fc[:20], fails=bool(med > 1.05 or fa or fc),
                 sha=d["sha"], digest=d["digest"], aiclk=d["aiclk"], step_s_min=d["step_s_min"])
 
