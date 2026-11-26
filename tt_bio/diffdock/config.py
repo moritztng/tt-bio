@@ -164,7 +164,14 @@ class DiffDockConfig:
 
 
 def _full_tensor_product_irreps(a: Irreps, b: Irreps) -> Irreps:
-    """``o3.FullTensorProduct(a, b).irreps_out``, in e3nn's (unsorted) path order."""
+    """``o3.FullTensorProduct(a, b).irreps_out``.
+
+    e3nn collects the paths in enumeration order and then **sorts** the result; ``Irrep`` is a
+    ``tuple`` there, so the sort is ``(l, p)`` ascending -- odd before even at every l. That
+    sorted layout is what ``tor_bond_conv``'s weights were trained against, so anything
+    reading this string to lay out a kernel needs the sort, not the enumeration order.
+    Verified against e3nn 0.5.1; see tt_bio/diffdock/full_tensor_product.py.
+    """
     from tt_bio.diffdock.irreps import Irrep
 
     out = []
@@ -172,7 +179,7 @@ def _full_tensor_product_irreps(a: Irreps, b: Irreps) -> Irreps:
         for tb in b:
             for l in range(abs(ta.l - tb.l), ta.l + tb.l + 1):
                 out.append(Irrep(ta.mul * tb.mul, l, ta.p * tb.p))
-    return Irreps(tuple(out))
+    return Irreps(tuple(sorted(out, key=lambda t: (t.l, t.p))))
 
 
 # ---------------------------------------------------------------------------

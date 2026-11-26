@@ -5,6 +5,11 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+### Changed
+- **Groundwork for DiffDock-L docking.** Its weights, configuration and feature code are in the package, but there is
+  no `tt-bio` command for it yet; nothing a user runs changes. Its receptor embedding reuses the ESM-2 650M encoder
+  Nesso-1 already loads on the card, so both models share one copy per process.
+
 ## [0.45.2] - 2026-11-25
 
 ### Fixed
