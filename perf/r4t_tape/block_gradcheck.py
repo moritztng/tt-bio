@@ -7,6 +7,14 @@ The device block runs taped under the production lever set; its weights are buil
 reference is `tests/rfd4_reference.trunk_block` (upstream's `MultiheadAttnAndTransition.forward`) in
 float64 at the same bf16-rounded point, validated against central differences by `checks.gradcheck`.
 `--break` drops the Q slice of the `to_qkv` split from the fold backward, which must FAIL.
+
+Arms: `prod` = the shipped lever set (bfp8 token weights under `tok_w8`/`transition_b8`); `bf16` = the same
+without the levers that STORE a trainable weight below bf16 (AdamW refuses a bfp8 leaf, T9); `fp32` = that,
+with the block in float32, which must show the error collapse.
+
+The device block takes the residual stream already masked and does not re-mask its output (the sublayers
+mask their own updates), where upstream masks x on entry and exit. The two VJPs agree for a seed that is
+zero on padded tokens, which a masked loss gives; so x and the seed are masked here, as RFD4 trains.
 """
 from __future__ import annotations
 
@@ -26,6 +34,7 @@ def main():
     ap.add_argument("--real", type=int, default=96)
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--break", dest="brk", action="store_true")
+    ap.add_argument("--arm", choices=("prod", "bf16", "fp32"), default="prod")
     ap.add_argument("--out", type=Path)
     a = ap.parse_args()
     from tt_bio.main import ensure_p300_mesh_descriptor
@@ -39,21 +48,31 @@ def main():
     DIM, DP, DC, H = 768, 384, 256, 12
     bf = lambda t: t.to(torch.bfloat16).to(torch.float64)  # noqa: E731
 
+    W8 = {"tok_w8", "transition_b8", "trimul_gin_w8", "trimul_t1w8", "pair_bf16z", "pair_bfp8z"}
+    levers = set(TR.mode_levers())
+    if a.arm != "prod":
+        levers = {v for v in levers if v not in W8 and not v.startswith("pair_x8")}
+    dt = ttnn.float32 if a.arm == "fp32" else ttnn.bfloat16
+    if a.arm == "fp32":
+        bf = lambda t: t  # noqa: E731
+
     def up(t):
-        return ttnn.from_torch(t.to(torch.float32).contiguous(), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT,
+        return ttnn.from_torch(t.to(torch.float32).contiguous(), dtype=dt, layout=ttnn.TILE_LAYOUT,
                                device=dev, memory_config=ttnn.DRAM_MEMORY_CONFIG)
 
     w64 = {k: bf(v.double()) for k, v in REF.block_weights(DIM, DP, DC, H, seed=0).items()}
     x, z, cond, mask = (bf(t) for t in REF.block_inputs(1, a.n, DIM, DP, DC, lengths=[a.real], seed=1))
     pair = mask[:, :, None] * mask[:, None, :]
     bias_mask = torch.where(pair.bool(), 0.0, REF.NEG_INF)[:, None]
+    x = x * mask[..., None]
     seed = torch.randn(1, a.n, DIM, generator=torch.Generator().manual_seed(a.seed), dtype=torch.float64)
+    seed = seed * mask[..., None]
 
     f = Folds({k: v.float() for k, v in w64.items()})
-    with TR.lever_scope(TR.mode_levers()):
+    with TR.lever_scope(levers):
         raw = {"x": up(x), "z": up(z), "cond": up(cond), "mask": up(mask[..., None]), "bias": up(bias_mask)}
         with f.recording() as sd:
-            m = TR.TrunkBlock(tt.WeightScope(sd), TR.compute_kernel_config(), H)
+            m = TR.TrunkBlock(tt.WeightScope(sd), TR.compute_kernel_config(), H, dtype=dt)
             m(raw["x"], raw["z"], raw["cond"], raw["mask"], raw["bias"])  # lazy uploads, as served
             L = {k: (ag.Tensor(v, requires_grad=True) if k in ("x", "z", "cond") else v) for k, v in raw.items()}
             for _p, _o, _k, t in tt.walk_device_weights(m):
@@ -74,21 +93,22 @@ def main():
     ref.update({k: t.clone().requires_grad_(True) for k, t in (("x", x), ("z", z), ("cond", cond))})
     names = list(got)
     wref = {k: ref[k] for k in w64}
-    rep = CK.gradcheck("trunk_block/bfloat16" + ("/broken" if a.brk else ""),
+    dname = "float32" if a.arm == "fp32" else "bfloat16"
+    rep = CK.gradcheck(f"trunk_block/{a.arm}" + ("/broken" if a.brk else ""),
                        ref_loss=lambda: (REF.trunk_block(wref, ref["x"], ref["z"], ref["cond"], mask, n_heads=H)
                                          * seed).sum(),
                        ref_params=[ref[k] for k in names], tt_grads={k: got[k] for k in names},
-                       op_class="reduction", dtype="bfloat16", n_probe=24, seed=a.seed)
+                       op_class="reduction", dtype=dname, n_probe=24, seed=a.seed)
     print(rep, flush=True)
     worst = max(rep.grads.items(), key=lambda kv: kv[1]["rel_l2"])
-    res = {"break": a.brk, "dropped": dropped, "seed": a.seed, "n": a.n, "real": a.real, "pass": rep.passed,
+    res = {"arm": a.arm, "levers": sorted(levers), "break": a.brk, "dropped": dropped, "seed": a.seed, "n": a.n, "real": a.real, "pass": rep.passed,
            "fd_worst": rep.fd_worst, "worst": [worst[0], worst[1]["rel_l2"]],
            "grads": {k: {q: g[q] for q in ("rel_l2", "cos", "pass")} for k, g in rep.grads.items()},
            "output_digest": __import__("hashlib").sha256(ttnn.to_torch(out.value).float().numpy().tobytes()).hexdigest()[:16]}
     if a.out:
         a.out.parent.mkdir(parents=True, exist_ok=True)
         a.out.write_text(json.dumps(res, indent=1))
-    print(json.dumps({k: res[k] for k in ("pass", "worst", "fd_worst", "dropped", "output_digest")}))
+    print(json.dumps({k: res[k] for k in ("arm", "pass", "worst", "fd_worst", "dropped", "output_digest")}))
     print("ALL_PASS" if rep.passed else "SOME_FAIL")
     return 0 if rep.passed else 1
 
