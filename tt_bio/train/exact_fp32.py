@@ -14,7 +14,7 @@ Everything else, every elementwise op, every taped gradient rule and the order i
 tape composes them, still runs on the card as shipped. It is a verification instrument for the
 gradient check's fp32 arm: it is never entered by a served path, it changes nothing outside the
 `with`, and a call it does not cover (a non-float32 operand, an unknown keyword that changes the
-math) goes to the real verb untouched, counted in `EXACT_STATS["passed"]`.
+math) goes to the real verb untouched, counted under "passed:<operand dtypes>".
 """
 from __future__ import annotations
 
@@ -23,6 +23,9 @@ import contextlib
 import torch
 import ttnn
 
+# Covered: matmul, linear, experimental.minimal_matmul (the trimul in-projection; uncovered it alone
+# held the PairUpdate forward at 6.1e-4 against float64, covered 1.2e-7), sum, mean, layer_norm,
+# rms_norm, transpose, permute. Computing the elementwise verbs on the host as well moved nothing.
 EXACT_STATS: dict = {}
 _ACT = {None: lambda t: t, "relu": torch.relu, "silu": torch.nn.functional.silu,
         "gelu": torch.nn.functional.gelu, "sigmoid": torch.sigmoid}
@@ -69,6 +72,21 @@ def _mm(real):
         _note("matmul", True)
         return _back(A @ B, a, memory_config)
     return matmul
+
+
+def _mmm(real):
+    """`ttnn.experimental.minimal_matmul`: the trimul in-projection's matmul (`config` is blocking only)."""
+    def minimal_matmul(x, w, *args, bias_tensor=None, memory_config=None, dtype=None, **kw):
+        if args or not _f32_dev(x, w, bias_tensor) or dtype not in (None, ttnn.float32) \
+                or set(kw) - {"compute_kernel_config", "config"}:
+            _note("minimal_matmul", False, _why(x, w, bias_tensor) + ",args=%d,dtype=%s" % (len(args), dtype))
+            return real(x, w, *args, bias_tensor=bias_tensor, memory_config=memory_config, dtype=dtype, **kw)
+        y = _host(x) @ _host(w)
+        if bias_tensor is not None:
+            y = y + _host(bias_tensor).reshape(-1)[: y.shape[-1]]
+        _note("minimal_matmul", True)
+        return _back(y, x, memory_config)
+    return minimal_matmul
 
 
 def _lin(real):
@@ -146,12 +164,15 @@ def exact_fp32():
             "layer_norm": lambda r: _norm(r, "layer_norm", True), "rms_norm": lambda r: _norm(r, "rms_norm", False),
             "transpose": lambda r: _move(r, "transpose"), "permute": lambda r: _move(r, "permute")}
     real = {k: getattr(ttnn, k) for k in swap}
+    real_mmm = ttnn.experimental.minimal_matmul
     try:
         for k, f in swap.items():
             setattr(ttnn, k, f(real[k]))
+        ttnn.experimental.minimal_matmul = _mmm(real_mmm)
         taped_ttnn.forget_shim_bindings()
         yield EXACT_STATS
     finally:
         for k, v in real.items():
             setattr(ttnn, k, v)
+        ttnn.experimental.minimal_matmul = real_mmm
         taped_ttnn.forget_shim_bindings()
