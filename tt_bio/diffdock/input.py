@@ -15,6 +15,9 @@ Differences from upstream, all recorded in state/dfd/DECISIONS.md:
   failures instead of printing a count (FEATURE-PLAN conflict 1).
 * A sequence-only receptor is folded with tt-bio's esmfold2, not upstream's
   esmfold_v1 (D-dfd-input-5).
+* `conformer_timeout_s` bounds ETKDG so one runaway ligand cannot stop a screen;
+  at the default there is no bound and the behaviour is upstream's
+  (D-dfd-input-7).
 """
 
 from __future__ import annotations
@@ -82,6 +85,7 @@ def build_complex_graph(
     lm_embeddings: list | None = None,
     seed: int | None = None,
     receptor_path: str | Path | None = None,
+    conformer_timeout_s: float | None = None,
 ) -> ComplexGraph:
     """Build one complex's graph. Raises on anything it cannot parse.
 
@@ -94,7 +98,8 @@ def build_complex_graph(
             f"{spec.name}: no receptor structure; fold the sequence first "
             "(tt_bio.diffdock.input.fold_sequence_receptors)")
 
-    mol = read_ligand(spec.ligand_description, seed=seed)
+    mol = read_ligand(spec.ligand_description, seed=seed,
+                      conformer_timeout_s=conformer_timeout_s)
     ligand = build_ligand_graph(mol, remove_hs=True)
 
     receptor_struct = parse_receptor(path)
@@ -178,6 +183,7 @@ def build_batch(
     seed: int | None = None,
     embeddings_for: Callable[[ComplexSpec], list] | None = None,
     receptor_paths: dict[str, str] | None = None,
+    conformer_timeout_s: float | None = None,
 ) -> BatchResult:
     """Build every complex in a batch, isolating the ones that fail.
 
@@ -194,6 +200,7 @@ def build_batch(
                 seed=seed,
                 lm_embeddings=embeddings_for(spec) if embeddings_for else None,
                 receptor_path=(receptor_paths or {}).get(spec.name),
+                conformer_timeout_s=conformer_timeout_s,
             ))
         except Exception as exc:  # noqa: BLE001 - one bad row must not end the screen
             result.failures.append((spec.name, f"{type(exc).__name__}: {exc}"))
