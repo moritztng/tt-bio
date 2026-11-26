@@ -44,6 +44,9 @@ def main():
     ap.add_argument("--lnbw-weights", choices=("on", "off"), default="on",
                     help="LayerNorm backward with trainable gamma/beta in one fused kernel (tt_bio.lnbw weights form, "
                          "r4t-perf L2) or the composed ttnn path")
+    ap.add_argument("--gate-bw", choices=("on", "off"), default="off",
+                    help="backward of every o * sigmoid(g) gate as one kernel (tt_bio.gate_bw, r4t-perf G1) or the "
+                         "seven-op composed path")
     a = ap.parse_args()
     import faulthandler
     import signal
@@ -55,6 +58,8 @@ def main():
     from tt_bio import tenstorrent as T, autograd as ag
     from tt_bio import lnbw
     lnbw.WEIGHTS = a.lnbw_weights == "on"
+    from tt_bio import gate_bw
+    gate_bw.GATE_BW_FUSED = a.gate_bw == "on"
     from tt_bio.rfd4 import network as N, engine as E, trunk as TR
     from tt_bio.train.folds import Folds
     from tt_bio.train.checkpoint import Checkpointer, load_adapter
@@ -419,7 +424,7 @@ def main():
                               fold_bwd_s=round(t2b - t2, 4), opt_s=round(t2c - t2b, 4), rebuild_s=round(t3 - t2c, 4), rebuild_split=dict(RB), idle_dev_w=len(idle), step_s=round(t3 - t0, 4), retained_B=retained,
                               dead=len(dead), dead_names=sorted(dead)[:20], dev_base_B=base, dev_after_bwd_B=after_bwd, params=len(params), n_elems=int(sum(v.size for v in opt.master.values())),
                               master_digest=md, aiclk=[min(sm or [0]), max(sm or [0])], aiclk_med=sorted(sm)[len(sm) // 2] if sm else 0,
-                              k=a.k, depth=a.depth, n=n, lnbw_reach=dict(lnbw.REACH), **extra,
+                              k=a.k, depth=a.depth, n=n, lnbw_reach=dict(lnbw.REACH), gate_bw=list(gate_bw.STATS), **extra,
                               host_maxrss_GiB=round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 2**20, 3))),
               flush=True)
         if a.save_at and step + 1 == a.save_at:   # before the guard, so a refusal still leaves the resume test its input
