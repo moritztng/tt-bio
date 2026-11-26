@@ -263,7 +263,7 @@ def test_the_run_loop_drives_the_schedule_and_writes_it_into_every_row(tmp_path)
 def test_the_run_loop_stops_on_a_parameter_that_never_receives_a_gradient(tmp_path):
     """The loop reads `step.ungradiented` every launch, and that read has to be exercised HERE.
 
-    `_assert_every_parameter_trains` has its own unit tests, but those call it with a set. The
+    `parity.GradientCoverage` has its own unit tests, but those drive it with sets. The
     defect it exists to catch reached 1,451 steps because the loop, not the function, is where
     a dead parameter has to be noticed, and this test failed as an `AttributeError` when the
     fake did not carry the attribute the loop reads: a stub that had fallen behind the

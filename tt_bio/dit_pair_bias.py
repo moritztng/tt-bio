@@ -20,6 +20,7 @@ from pathlib import Path
 import ttnn
 
 from . import core_split
+from . import ops as _ops
 
 KERNEL_DIR = Path(__file__).resolve().parent / "kernels" / "dit_pair_bias"
 W_CB, Z_CB, M_CB, RM_CB, T_CB, OUT_CB = 0, 1, 2, 3, 4, 16
@@ -35,6 +36,8 @@ def _l1_bytes(kt, ht) -> int:
 
 def eligible(z, wt, mask) -> bool:
     """z [B, I, n, C] and mask [1 or B, 1, n, n] bf16 TILE in DRAM, W^T [1, 1, H, C]; H, C, n tile multiples."""
+    if _ops.declines_under_tape("pair_bias", z, wt, mask):   # no tape entry: see `rms_eligible`
+        return False
     ts = [z, wt, mask]
     if any(t.dtype != ttnn.bfloat16 or t.layout != ttnn.TILE_LAYOUT
            or t.memory_config().memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED
@@ -141,6 +144,10 @@ def rms_eligible(z, wt, rows=False) -> bool:
     """z [B, n, n, C] bf16 (or bfloat8_b, `pair_bfp8z`) TILE in DRAM with n and C tile multiples (no padding anywhere), W^T [1, 1, 32, C].
     `rows` also takes z [B, I, I, C] padded to [B, I, n, C]: the output is [B, H, n, n] and its rows and keys >= I are
     finite values the caller masks."""
+    # A `generic_op` with no tape entry: under a tape, with an operand on it, decline so the composed
+    # path (every verb of it taped) runs instead of cutting the graph. A no-op with no tape open.
+    if _ops.declines_under_tape("rms_pair_bias", z, wt):
+        return False
     ts = [z, wt]
     if any(t.dtype != ttnn.bfloat16 and not (t is z and t.dtype == ttnn.bfloat8_b) or t.layout != ttnn.TILE_LAYOUT
            or t.memory_config().memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED

@@ -27,6 +27,7 @@ import struct
 import ttnn
 
 from . import core_split
+from . import ops as _ops
 
 KERNEL_DIR = Path(__file__).resolve().parent / "kernels" / "outer_residual"
 Z_CB, I_CB, J_CB, OUT_CB, LO_CB = 0, 1, 2, 16, 17
@@ -49,6 +50,10 @@ def eligible(z, pi, pj) -> bool:
     """z [B, n, n, C] float32, bfloat16 or bfloat8_b (`pair_bfp8z`), pi [B, n, C] and pj [B, n, C] (or pj4
     [B, n, 1, C]) bfloat16, all TILE interleaved, n and C tile multiples (no padding: every tile of z has a whole pi
     tile)."""
+    # A `generic_op` with no tape entry: under a tape, with an operand on it, decline so the composed
+    # path (every verb of it taped) runs instead of cutting the graph. A no-op with no tape open.
+    if _ops.declines_under_tape("outer_residual", z, pi, pj):
+        return False
     if z.dtype not in (ttnn.float32, ttnn.bfloat16, ttnn.bfloat8_b) or pi.dtype != ttnn.bfloat16 or pj.dtype != ttnn.bfloat16:
         return False
     if any(t.layout != ttnn.TILE_LAYOUT or t.memory_config().memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED
