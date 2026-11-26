@@ -895,16 +895,21 @@ def _permute_fwd(shipped, ra, rk, dims):
     `_permute_back` unchanged: for these two `dims` that is the inverse kernel.
     """
     if len(ra) and not rk.get("pad_value"):
-        from . import reblock_permute as R
+        from . import ops, reblock_permute as R
         if not R.TAPED_MOVE:
             return shipped(*ra, **rk)
         x = ra[0]
         try:
             mc = rk.get("memory_config") or x.memory_config()
+            # Raw, under `untaped_kernel`: with the registry's `reblock_permute` entry installed
+            # the fused wrapper would record a second node over an untracked leaf of `x`, and
+            # this node's cotangent would never reach `x` (K9: every trimul in-projection dead).
             if dims == [0, 3, 1, 2] and R.eligible(x, mc, taped_ok=True):
-                return R.reblock_permute(x, mc)
+                with ops.untaped_kernel():
+                    return R.reblock_permute(x, mc)
             if dims == [0, 2, 3, 1] and R.eligible_back(x, mc, taped_ok=True):
-                return R.reblock_permute_back(x, mc)
+                with ops.untaped_kernel():
+                    return R.reblock_permute_back(x, mc)
         except AttributeError:
             pass
     return shipped(*ra, **rk)
