@@ -239,8 +239,8 @@ def _v_matmul(shipped, args, kwargs):
             if a.requires_grad:
                 rows = _via2d if len(bshape) == 2 else (lambda t, fn: fn(t))
                 da = (rows(g, lambda v: ag._pair_mm_or(
-                                v, b.value, not tb, lambda: ag.bmm(v, b.value, False, not tb,
-                                                                   compute_kernel_config=cfg),
+                                v, b.value, not tb, lambda: ag._mmvjp_dx(v, b.value, cfg, pre=tb) or ag.bmm(
+                                    v, b.value, False, not tb, compute_kernel_config=cfg),
                                 cfg) if len(bshape) == 2 else
                            ag.bmm(v, b.value, False, not tb, compute_kernel_config=cfg))
                       if not ta else
@@ -255,8 +255,9 @@ def _v_matmul(shipped, args, kwargs):
                 # would fold that away: measured as a (64, 32) gradient arriving at a
                 # (1, 4, 64, 32) value in AttentionPairBias.
                 if (not ta and not tb and len(ashape) > 2 and len(bshape) == 2):
-                    db = _matmul(_flat2d(a.value), _flat2d(g), transpose_a=True,
-                                 compute_kernel_config=cfg, dtype=ttnn.float32)
+                    af, gf = _flat2d(a.value), _flat2d(g)
+                    db = ag._mmvjp_dw(af, gf, cfg) or _matmul(af, gf, transpose_a=True,
+                                                              compute_kernel_config=cfg, dtype=ttnn.float32)
                 else:
                     db = (ag.bmm(a.value, g, not ta, compute_kernel_config=cfg) if not tb else
                           ag.bmm(g, a.value, True, ta, compute_kernel_config=cfg))
