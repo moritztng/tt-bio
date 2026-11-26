@@ -38,6 +38,7 @@ def main():
     here = os.path.dirname(os.path.abspath(__file__))
     sys.path[:0] = [os.path.join(here, "..", "r4t"), os.path.join(here, "..", "..", "tests")]
     import torch
+    torch.set_default_dtype(torch.float64)   # tensors the feature factory makes itself follow the reference dtype
     import rfd4_reference as REF
     from loss_parity_reference import load_batch
     from tt_bio.rfd4 import network as N, engine as E
@@ -51,6 +52,12 @@ def main():
     cfg = config["nn"]
     glue = N.FlowGlue(state, config).double()
     glue.requires_grad_(True)
+    # A few upstream features are built in float32 from batch data (no parameter reaches them); lift every float
+    # input of a glue layer to float64 so the reference stays float64 from the first parameter on.
+    for mod in glue.modules():
+        if isinstance(mod, (torch.nn.Linear, torch.nn.LayerNorm)):
+            mod.register_forward_pre_hook(lambda _m, args: tuple(
+                x.double() if torch.is_tensor(x) and x.is_floating_point() else x for x in args))
     bt, bmeta, _rec, _ = load_batch(a.batch, dtype=torch.float64)
     K = int(bt["padding_mask"].shape[0])
     depth = max(1, int(bmeta["depth"]))
