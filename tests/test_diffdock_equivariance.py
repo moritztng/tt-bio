@@ -58,7 +58,7 @@ from tt_bio.diffdock import graph as G  # noqa: E402
 from tt_bio.diffdock.config import irrep_seq  # noqa: E402
 from tt_bio.diffdock.conv import TensorProductConvLayer, pad_nodes  # noqa: E402
 from tt_bio.diffdock.features import GaussianSmearing  # noqa: E402
-from tt_bio.diffdock.geometry import spherical_harmonics  # noqa: E402
+from tt_bio.diffdock.harmonics import spherical_harmonics  # noqa: E402
 from tt_bio.diffdock.heads import CenterHead  # noqa: E402
 
 FIXTURE = Path(__file__).parent / "data/diffdock_graph/8G43_ZU6_steps.npz"
@@ -88,6 +88,7 @@ UPSTREAM_REBUILT_ROT = 1.54e-2
 NS, NV = 8, 2
 N_CONV = 11                  # the released v1.1 score checkpoint's depth
 SH_IRREPS = "1x0e + 1x1o + 1x2e"
+SH_LS = (0, 1, 2)  # SH_IRREPS as degrees, the order harmonics.spherical_harmonics takes
 # The released checkpoint's own irrep ladder (`reduce_pseudoscalars`, `sh_lmax=2`, no second
 # order repr), at narrower channels. Layer i maps SEQ[min(i, -1)] -> SEQ[min(i+1, -1)], so the
 # first three layers grow the irreps and the rest are stationary -- upstream's own walk.
@@ -269,8 +270,8 @@ class ScoreStack(torch.nn.Module):
 
         lig_vec = G.edge_vectors(pos, pos, lig_edges)
         cross_vec = G.edge_vectors(pos, pos, cross_edges)
-        lig_sh = spherical_harmonics(SH_IRREPS, lig_vec)
-        cross_sh = spherical_harmonics(SH_IRREPS, cross_vec)
+        lig_sh = spherical_harmonics(lig_vec, SH_LS)
+        cross_sh = spherical_harmonics(cross_vec, SH_LS)
         lig_dist = self.distance_expansion(lig_vec.norm(dim=-1))
         cross_dist = self.cross_expansion(cross_vec.norm(dim=-1))
 
@@ -292,7 +293,7 @@ class ScoreStack(torch.nn.Module):
         # torsion: bond centre <- ligand atom, contracted with l=2 harmonics to scalars
         tor_edges = gr.tor_edge_index
         tor_vec = G.edge_vectors(bond_pos, pos, tor_edges)
-        tor_sh = spherical_harmonics(SH_IRREPS, tor_vec)
+        tor_sh = spherical_harmonics(tor_vec, SH_LS)
         tor_scalars = node_attr[:, :NS]
         tor_attr = torch.cat([self.distance_expansion(tor_vec.norm(dim=-1)),
                               tor_scalars[tor_edges[1]], tor_scalars[tor_edges[1]]], dim=-1)
@@ -398,7 +399,7 @@ def test_a_non_scalar_channel_in_the_edge_features_would_fail_this_test(stack):
                          pad_nodes(rec_pos, gr.n_rec_padded)])
         edges = gr.lig_edge_index
         vec = G.edge_vectors(pos, pos, edges)
-        sh = spherical_harmonics(SH_IRREPS, vec)
+        sh = spherical_harmonics(vec, SH_LS)
         node_attr = pad_nodes(kw["node_scalars"], pos.shape[0])
         # the l=1 block of the harmonics standing in for a rotating node channel
         bad = sh[:, 1:4].repeat(1, (2 * NS + DISTANCE_EMBED_DIM) // 3 + 1)
