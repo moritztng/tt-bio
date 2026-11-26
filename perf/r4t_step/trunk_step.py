@@ -101,7 +101,7 @@ def main():
             if id(o) in seen:
                 continue
             seen.add(id(o))
-            if hasattr(o, "train_in_proj") and hasattr(o, "width_variants"):
+            if hasattr(o, "prewarm") and hasattr(o, "width_variants"):
                 out.append(o)
             if isinstance(o, (list, tuple)):
                 todo.extend(o)
@@ -153,6 +153,11 @@ def main():
             trunk = E.load_trunk(glue, sd, cfg)
             if in_proj:
                 RB["trimuls"] = len([m.train_in_proj() for m in trimuls(trunk)])
+            # The trimul chunk width depends on the batch: the K-candidate pass fills its own width, and the
+            # batch-1 winner would upload its in-projection INSIDE its taped verb, after the verb has resolved
+            # its parents (R1 forms 1 and 3: 14 sources recorded, read, never on the tape). `prewarm` fills
+            # exactly the entry `__call__` will use, so the winner width exists and is walked below.
+            RB["prewarmed"] = len([m.prewarm(a.n, 1) for m in trimuls(trunk) if hasattr(m, "prewarm")])
             ttnn.synchronize_device(dev); _rb2 = _rb3 = time.time()
             recorded = ttnn.from_torch
 
