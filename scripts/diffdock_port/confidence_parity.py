@@ -145,9 +145,20 @@ def sorted_rows(a: np.ndarray) -> np.ndarray:
 
 
 def golden_modules(cid: str) -> dict[tuple[str, int], Path]:
-    """``{(dotted module name, call index): npz}`` for the confidence goldens of *cid*."""
+    """``{(dotted module name, call index): npz}`` for the confidence goldens of *cid*.
+
+    A missing directory is reported, not returned as "nothing to grade". `glob` on a path
+    that does not exist yields nothing, which reads identically to a complex whose modules
+    all agree -- and that is exactly how two complexes came back with a clean-looking
+    `modules 0` after their `__mod` directories went away.
+    """
+    directory = GOLD / f"{cid}__mod"
+    if not directory.is_dir():
+        print(f"   {cid}: NO module goldens ({directory} does not exist); "
+              f"per-module grading skipped, final-output numbers unaffected")
+        return {}
     out = {}
-    for p in sorted((GOLD / f"{cid}__mod").glob(f"{cid}__conf__*.npz")):
+    for p in sorted(directory.glob(f"{cid}__conf__*.npz")):
         m = re.fullmatch(rf"{re.escape(cid)}__conf__(.+)__c(\d+)", p.stem)
         if not m:
             continue
@@ -185,10 +196,19 @@ def grade(cid: str, model, cfg) -> dict:
                  "truncated": bool(truncated), "pcc": pcc(a, b),
                  "max_rel_err": max_rel_err(a, b)}
         if entry["pcc"] < 0.999 and not truncated and a.ndim == 2:
-            # Only worth the sort when the row-wise number already failed.
+            # Only worth the extra work when the row-wise number already failed.
             sa, sb = sorted_rows(a), sorted_rows(b)
             entry["pcc_sorted"] = pcc(sa, sb)
             entry["max_rel_err_sorted"] = max_rel_err(sa, sb)
+            # Sorting rows cannot rescue a tensor whose *channels* are also ordered
+            # differently: the lexicographic key is then a different key on each side.
+            # The port's tensor product emits e3nn's output irreps in its own channel
+            # order, so for `.tp` outputs both axes are permuted. Sorting every scalar is
+            # invariant to both and answers the only question that matters of an
+            # activation whose layout is known to differ: are these the same numbers?
+            # It cannot localise an error and is never the headline -- the final output
+            # and the ranking are.
+            entry["pcc_all_sorted"] = pcc(np.sort(a, axis=None), np.sort(b, axis=None))
         modules.append(entry)
 
     ok = [m for m in modules if "pcc" in m]
@@ -207,7 +227,8 @@ def grade(cid: str, model, cfg) -> dict:
         }
 
     def _best(m):
-        return max(m.get("pcc", 0.0), m.get("pcc_sorted", 0.0))
+        return max(m.get("pcc", 0.0), m.get("pcc_sorted", 0.0),
+                   m.get("pcc_all_sorted", 0.0))
 
     return {
         "complex": cid, "n_poses": int(got.shape[0]),
@@ -219,6 +240,9 @@ def grade(cid: str, model, cfg) -> dict:
             "n_graded": len(ok),
             "min_pcc": min((m["pcc"] for m in ok), default=None),
             "min_pcc_after_sort": min((_best(m) for m in ok), default=None),
+            "layout_only": sorted(m["module"] for m in ok
+                                  if m.get("pcc", 1.0) < 0.999
+                                  and m.get("pcc_all_sorted", 0.0) >= 0.999),
             "max_rel_err": max((m["max_rel_err"] for m in ok), default=None),
             "row_order_only": sorted(m["module"] for m in ok
                                      if m.get("pcc", 1.0) < 0.999
@@ -255,8 +279,9 @@ def main() -> int:
         sorted_pcc = ("n/a" if m["min_pcc_after_sort"] is None
                       else f"{m['min_pcc_after_sort']:.6f}")
         print(f"   modules {m['n_graded']}  min PCC {worst_pcc}  "
-              f"min PCC allowing a row permutation {sorted_pcc}  "
-              f"row-order-only {len(m['row_order_only'])}", flush=True)
+              f"min PCC allowing a reordering {sorted_pcc}  "
+              f"row-order-only {len(m['row_order_only'])}  "
+              f"layout-only {len(m['layout_only'])}", flush=True)
 
     if results:
         n = len(results)
@@ -268,8 +293,14 @@ def main() -> int:
                   f"  full order {sum(r[label]['full_order_same'] for r in have)}/{len(have)}"
                   f"  worst PCC {min(r[label]['pcc'] for r in have):.8f}"
                   f"  worst max rel {max(r[label]['max_rel_err'] for r in have):.3e}")
-        print(f"worst module PCC allowing a row permutation: "
-              f"{min(r['modules']['min_pcc_after_sort'] for r in results):.6f}")
+        graded = [r["modules"]["min_pcc_after_sort"] for r in results
+                  if r["modules"]["min_pcc_after_sort"] is not None]
+        if graded:
+            print(f"worst module PCC allowing a reordering: {min(graded):.6f}")
+        if len(graded) < len(results):
+            print(f"WARNING: {len(results) - len(graded)} of {len(results)} complexes "
+                  f"matched no module golden at all -- that is the grader, not the port, "
+                  f"and the final-output numbers above are unaffected")
     if args.json:
         args.json.write_text(json.dumps(results, indent=1))
     return 0
