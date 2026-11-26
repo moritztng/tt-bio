@@ -14,6 +14,7 @@ def main():
     ap.add_argument("--dtype", choices=("bf16", "fp32"), default="fp32")
     ap.add_argument("--n", type=int, default=64)
     ap.add_argument("--real", type=int, default=48)
+    ap.add_argument("--wide", action="store_true", help="fp32: device_dtype_override(float32) too")
     a = ap.parse_args()
     from tt_bio.main import ensure_p300_mesh_descriptor
     ensure_p300_mesh_descriptor()
@@ -36,7 +37,9 @@ def main():
         have = ttnn.to_torch(dev_t).double().reshape(want.shape)
         return float(((have - want) * m).norm() / (want * m).norm())
 
-    with TR.lever_scope(set()):
+    import contextlib
+    wide = tt.device_dtype_override(ttnn.float32) if a.dtype == "fp32" and a.wide else contextlib.nullcontext()
+    with TR.lever_scope(set()), wide:
         m = TR.PairUpdate(tt.WeightScope({k: v.float() for k, v in w.items()}).child("pu"), TR.compute_kernel_config(), dtype=dt)
         M = pm[..., None]
         zd, pmd, pmcd = up(z), up(pm), up(M)

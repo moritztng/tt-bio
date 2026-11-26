@@ -20,7 +20,7 @@ zero on padded tokens, which a masked loss gives; so x and the seed are masked h
 """
 from __future__ import annotations
 
-import argparse, json, sys
+import argparse, contextlib, json, sys
 from pathlib import Path
 
 import torch
@@ -120,7 +120,10 @@ def main():
     I0 = {"x": x, "z": z, "cond": cond}
 
     f = Folds({k: v.float() for k, v in w64.items()})
-    with TR.lever_scope(levers):
+    # float32 everywhere: the shared trimul computes in the process dtype (`_dtype()`), not the operand
+    # dtype, so without the override the fp32 arm ran its triangle multiplications in bf16 on fp32 inputs
+    wide = tt.device_dtype_override(ttnn.float32) if a.arm == "fp32" else contextlib.nullcontext()
+    with TR.lever_scope(levers), wide:
         def inputs():
             return {"x": up(x), "z": up(z), "cond": up(cond), "mask": up(mask[..., None]), "bias": up(bias_mask),
                     "pm": up(pair), "pmc": up(pair[..., None])}
