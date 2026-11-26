@@ -98,8 +98,7 @@ def main():
         dl = ddev.DeviceConvLayer(dev, layer.float())
         layer.double()
         xp = torch.nn.functional.pad(x.float(), (0, ddev.pad32(x.shape[1]) - x.shape[1]))
-        table = (ttnn.from_torch(xp, dtype=ttnn.float32, layout=ttnn.ROW_MAJOR_LAYOUT, device=dev),
-                 ttnn.from_torch(xp, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev))
+        table = ttnn.from_torch(xp, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev)
         g = dl.graph(ei, N, N)
         got = dl(table, g, [ddev.to_device(dev, t) for t in groups], ddev.to_device(dev, sh),
                  ttnn.from_torch(mask.float().reshape(E, 1), dtype=ttnn.float32,

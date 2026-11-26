@@ -187,6 +187,30 @@ def to_device(device, x: Tensor, dtype=None):
                            device=device)
 
 
+def gather_rows(table, idx, n: int):
+    """``table[idx]`` for a TILE ``[N, d]`` table and a ``[1, n]`` uint32 row index.
+
+    ``ttnn.embedding`` only takes a bf16 table. A bf16 table goes straight through; a float32
+    one is split into three bf16 slices, ``hi + mid + lo``, each the rounding of what the ones
+    before it left, so 3 x 8 mantissa bits carry all 24 of float32 and the gather stays an exact
+    copy. The split runs on the card, so a table the previous layer produced never leaves it.
+    """
+    import ttnn
+    bf, rm = ttnn.bfloat16, ttnn.ROW_MAJOR_LAYOUT
+    if table.dtype == bf:
+        return ttnn.reshape(ttnn.embedding(idx, ttnn.to_layout(table, rm), layout=ttnn.TILE_LAYOUT),
+                            (n, table.shape[-1]))
+    out, rest = None, table
+    for k in range(3):
+        part = ttnn.typecast(rest, bf)
+        if k < 2:
+            rest = ttnn.subtract(rest, ttnn.typecast(part, ttnn.float32))
+        got = ttnn.embedding(idx, ttnn.to_layout(part, rm), layout=ttnn.TILE_LAYOUT)
+        got = ttnn.typecast(ttnn.reshape(got, (n, table.shape[-1])), ttnn.float32)
+        out = got if out is None else ttnn.add(out, got)
+    return out
+
+
 class DeviceConvLayer:
     """:class:`tt_bio.diffdock.conv.TensorProductConvLayer` on the card, score-network order.
 
@@ -243,15 +267,13 @@ class DeviceConvLayer:
         return dict(idx=idx, S=S, E=E, n_out=n_out)
 
     def __call__(self, node_attr, g, edge_attr_groups, edge_sh, edge_mask):
-        """*node_attr* is ``[N, pad32(in_dim)]`` in ROW_MAJOR (the gather table) and TILE.
+        """*node_attr* is ``[N, pad32(in_dim)]`` TILE.
 
         *edge_attr_groups* are TILE ``[E_g, pad32(F)]`` blocks partitioning the edges in order,
         *edge_sh* ``[E, pad32(sh)]`` TILE and *edge_mask* ``[E, 1]`` TILE.
         """
         ttnn = self.ttnn
-        table_rm, table_tile = node_attr
-        x1 = ttnn.embedding(g["idx"], table_rm, layout=ttnn.TILE_LAYOUT, dtype=self.dtype)
-        x1 = ttnn.reshape(x1, (g["E"], x1.shape[-1]))
+        x1 = gather_rows(node_attr, g["idx"], g["E"])
         msgs, lo = [], 0
         for tp, ea in zip(self.tps, edge_attr_groups):
             n = ea.shape[0]
@@ -267,7 +289,7 @@ class DeviceConvLayer:
         if self.layer.batch_norm is not None:
             out = ttnn.add(ttnn.multiply(out, self.bn_scale), self.bn_shift)
         if self.layer.residual:
-            res = table_tile
+            res = node_attr
             if res.shape[-1] != self.out_pad:
                 res = ttnn.pad(res, [(0, 0), (0, self.out_pad - res.shape[-1])], value=0.0)
             out = ttnn.add(out, res)
