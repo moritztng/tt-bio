@@ -14,6 +14,7 @@ The upstream comparisons are skipped when the reference clone is absent.
 """
 
 import math
+import os
 from pathlib import Path
 
 import pytest
@@ -115,6 +116,10 @@ def test_the_non_finite_so3_entries_are_upstreams_too_and_are_unreachable():
     assert max(bad_up) < _so3_index(ROT_SIGMA_MIN)
 
 
+@pytest.mark.skipif(not os.environ.get("DFD_SLOW_UPSTREAM"),
+                    reason="importing upstream's utils/torus.py recomputes its 10000-draw "
+                           "Monte Carlo and loads two 200 MB caches: over 23 min. Set "
+                           "DFD_SLOW_UPSTREAM=1 to run it.")
 @pytest.mark.skipif(not (UPSTREAM / ".score.npy").exists(),
                     reason="upstream clone with its .npy caches is not present")
 def test_torus_sits_inside_upstreams_monte_carlo_spread():
@@ -129,3 +134,14 @@ def test_torus_sits_inside_upstreams_monte_carlo_spread():
     rel = np.abs(ours[live] - theirs[live]) / np.abs(theirs[live])
     assert np.median(rel) < TORUS_MC_SPREAD, f"median {np.median(rel):.3e}"
     assert np.percentile(rel, 99) < 3 * TORUS_MC_SPREAD, f"p99 {np.percentile(rel, 99):.3e}"
+
+
+def test_narrow_torus_matches_the_unwrapped_closed_form():
+    """An independent grade that needs no upstream: for a narrow wrapped normal the images
+    vanish, the score is ``-x / sigma^2`` and its mean square is exactly ``1 / sigma^2``.
+    Measured 7e-14 relative at the narrowest grid point."""
+    s = S.torus_sigma_grid()
+    t = S.torus_score_norm_table()
+    narrow = s < 0.05
+    rel = np.abs(t[narrow] * s[narrow] ** 2 - 1.0)
+    assert rel.max() < 1e-10, f"max relative {rel.max():.3e}"
