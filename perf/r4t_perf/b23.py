@@ -121,7 +121,7 @@ def main():
             t0 = time.time(); o_ = full(); ttnn.synchronize_device(dev); ts.append((t0, time.time())); del o_
         stop.set()
         ck = [c for t, c in clk if any(t0 <= t <= t1 for t0, t1 in ts)]
-        res["time"] = dict(step_s=[round(t1 - t0, 4) for t0, t1 in ts], aiclk=[min(ck), max(ck), len(ck)] if ck else None,
+        res["time"] = dict(windows=ts, step_s=[round(t1 - t0, 4) for t0, t1 in ts], aiclk=[min(ck), max(ck), len(ck)] if ck else None,
                            elements=int(sum(r * c * cnt for (r, c), cnt in shapes) + 179456))
     json.dump(res, open(a.out, "w"), indent=1)
     print(json.dumps(res))
