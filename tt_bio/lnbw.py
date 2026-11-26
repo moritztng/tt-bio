@@ -67,7 +67,9 @@ def eligible(x, g, gamma, *, weights: bool = False) -> bool:
     if xs != gs:
         return _decline("shape")
     K = xs[-1]
-    if K % _TILE or K & (K - 1) or len(xs) < 2 or xs[-2] % _TILE:
+    # The x-only form keeps its graded domain (power-of-two K); the weights form also takes any multiple
+    # of 32, its mean finished by an exact fp32 SFPU multiply (`_mean_fix`).
+    if K % _TILE or (K & (K - 1) and not weights) or len(xs) < 2 or xs[-2] % _TILE:
         return _decline("width")
     if any(t.memory_config().memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED for t in (x, g)):
         return _decline("sharded")
@@ -110,7 +112,9 @@ def _build(x, g, gamma, out, eps, device, parts=None):
         cbs += [_cb(CB_ACC_GN, 2 * Wt, f32, grid), _cb(CB_ACC_B, 2 * Wt, f32, grid), _cb(CB_T2, Wt, f32, grid),
                 _cb(CB_WO_GN, Wt, f32, grid), _cb(CB_WO_B, Wt, f32, grid)]
 
-    inv = struct.unpack("<I", struct.pack("<f", 1.0 / K))[0] >> 16
+    p2 = 1 << (K.bit_length() - 1)  # largest power of two <= K: 1/p2 is exact in bf16
+    inv = struct.unpack("<I", struct.pack("<f", 1.0 / p2))[0] >> 16
+    mean_fix = 0 if p2 == K else struct.unpack("<I", struct.pack("<f", p2 / K))[0]
     scaler = (inv << 16) | inv
     eps_bits = struct.unpack("<I", struct.pack("<f", float(eps)))[0]
 
@@ -150,7 +154,7 @@ def _build(x, g, gamma, out, eps, device, parts=None):
     compute = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "compute_lnbw.cpp"),
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH, core_ranges=grid,
-        compile_time_args=[0, Wt, do_gamma, do_w], runtime_args=cr, config=cfg)
+        compile_time_args=[0, Wt, do_gamma, do_w, mean_fix], runtime_args=cr, config=cfg)
     return {"kernels": [reader, writer, compute], "cbs": cbs, "cores": core}
 
 

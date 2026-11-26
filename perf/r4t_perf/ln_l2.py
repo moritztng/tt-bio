@@ -94,6 +94,9 @@ def main():
     res["L2_accuracy"] = "PASS" if ok else "FAIL"
     tc, tf = res["arms"]["composed"]["time"]["s_min"], res["arms"]["fused"]["time"]["s_min"]
     res["speedup"] = round(tc / tf, 3)
+    res["arms"]["fused"]["served"] = res["reach"].get("served: weights", 0) > 0
+    if not res["arms"]["fused"]["served"]:
+        res["L2_accuracy"] = "FAIL (kernel never served: the composed path was graded twice)"
     json.dump(res, open(a.out, "w"), indent=1)
     print(json.dumps(res))
 

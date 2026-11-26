@@ -16,10 +16,14 @@
 #include "api/compute/tile_move_copy.h"
 #include "api/compute/eltwise_unary/eltwise_unary.h"
 #include "api/compute/eltwise_unary/rsqrt.h"
+#include "api/compute/eltwise_unary/binop_with_scalar.h"
 
 constexpr uint32_t Wt = get_compile_time_arg_val(1);
 constexpr uint32_t DO_GAMMA = get_compile_time_arg_val(2);
 constexpr uint32_t DO_W = get_compile_time_arg_val(3);
+// K not a power of two: the bf16 scaler is 2^-floor(log2 K) (exact) and the mean is finished by an fp32
+// multiply by 2^floor(log2 K) / K on the SFPU, in DEST, before the pack. 0 = scaler already exactly 1/K.
+constexpr uint32_t MEAN_FIX = get_compile_time_arg_val(4);
 constexpr uint32_t cb_acc_gn = 17, cb_acc_b = 18, cb_t2 = 19, cb_wo_gn = 20, cb_wo_b = 21;
 constexpr uint32_t cb_x = 0, cb_g = 1, cb_gamma = 2, cb_scaler = 3, cb_eps = 4, cb_mean = 5,
                    cb_xc = 6, cb_tmp = 7, cb_var = 8, cb_rstd = 9, cb_norm = 10, cb_dn = 11,
@@ -35,6 +39,10 @@ ALWI void row_mean(uint32_t in, uint32_t out, bool pop) {
     reduce_init<REDUCE_OP, REDUCE_DIM, true>(in, cb_scaler, out);
     for (uint32_t i = 0; i < Wt; ++i) reduce_tile<REDUCE_OP, REDUCE_DIM, true>(in, cb_scaler, i, 0, 0);
     reduce_uninit<true>();
+    if constexpr (MEAN_FIX != 0) {
+        binop_with_scalar_tile_init();
+        mul_unary_tile(0, MEAN_FIX);
+    }
     tile_regs_commit();
     tile_regs_wait();
     pack_tile(0, out);
