@@ -9,6 +9,7 @@ seed-B control, a side that ran a different recycle depth.
 
 from __future__ import annotations
 
+import dataclasses
 import json
 
 import numpy as np
@@ -32,8 +33,14 @@ def curve(n, seed=1, floor=1.0, noise=0.02):
     return floor + 2.0 * np.exp(-s / 300.0) + noise * rng.standard_normal(n)
 
 
-def write(tmp_path, name, side, losses, p=None, **meta):
+def write(tmp_path, name, side, losses, p=None, offset=None, **meta):
+    """Write one leg. ``gpu_b`` gets seed offset 1 unless a test asks for another: a seed-B leg
+    at offset 0 is the one the grader refuses, so it has to be written on purpose."""
     p = p or plan(len(losses))
+    if offset is None and side == "gpu_b" and not p.seed_offset:
+        offset = 1
+    if offset is not None:
+        p = dataclasses.replace(p, seed_offset=offset)
     if side.startswith("gpu"):      # the grader demands a reference leg declare its hardware
         meta = {"device": "cuda:NVIDIA B200", "dtype": "float32", "tf32": False, **meta}
     path = tmp_path / name
@@ -334,7 +341,7 @@ def test_a_reference_leg_that_does_not_say_is_refused(tmp_path):
     o = write(tmp_path, "ours.jsonl", "ours", curve(n, seed=3), p=p)
     a = write(tmp_path, "gpu_a.jsonl", "gpu_a", curve(n, seed=1), p=p)
     bare = tmp_path / "bare.jsonl"
-    with CurveLog(bare, p, "gpu_b") as log:       # no meta at all
+    with CurveLog(bare, dataclasses.replace(p, seed_offset=1), "gpu_b") as log:   # no meta at all
         for i, v in enumerate(curve(n, seed=2)):
             log.record(i, v)
     with pytest.raises(CurveContractError, match="header has no"):
@@ -405,3 +412,63 @@ def test_a_resume_of_a_relaunched_log_keeps_the_dead_attempt_and_the_live_prefix
             log.record(i, full[i])
     header, losses = read_curve(path)
     assert np.allclose(losses, full) and header["superseded"] == [1]
+
+
+# ------------------------------------------------- the seed control has to be a second draw
+
+def test_the_offset_moves_the_step_seeds_but_not_the_plan_digest():
+    p = plan(10)
+    q = dataclasses.replace(p, seed_offset=1)
+    assert q.digest() == p.digest()                       # same plan: A and B are comparable
+    assert [s.example_ids for s in map(p.step, range(4))] == \
+           [s.example_ids for s in map(q.step, range(4))]
+    assert [s.n_recycle for s in map(p.step, range(4))] == \
+           [s.n_recycle for s in map(q.step, range(4))]
+    assert all(p.step(i).t_seed != q.step(i).t_seed       # but every draw is a different one
+               and p.step(i).noise_seed != q.step(i).noise_seed for i in range(10))
+    seeds = {s for i in range(10) for s in (p.step(i).t_seed, p.step(i).noise_seed)} | \
+            {s for i in range(10) for s in (q.step(i).t_seed, q.step(i).noise_seed)}
+    assert len(seeds) == 40                               # and the two streams never collide
+
+
+def test_a_seed_b_leg_without_an_offset_is_refused(tmp_path):
+    """The hole this was written for: upstream's --seed-offset only reset the global torch seed,
+    so the two A100 legs of 2026-11-26 were byte-identical for 111 steps and the bar's
+    1.5 x |A - B| branch was silently zero."""
+    p = plan(300)
+    a = curve(300, seed=1)
+    ours = write(tmp_path, "ours.jsonl", "ours", a + 0.001, p=p)
+    ga = write(tmp_path, "gpu_a.jsonl", "gpu_a", a, p=p)
+    gb = write(tmp_path, "gpu_b.jsonl", "gpu_b", a, p=p, offset=0)   # a copy of A
+    with pytest.raises(CurveContractError, match="not a seed control"):
+        grade_curve_files(ours, ga, gb)
+
+
+def test_a_b_identical_is_refused_even_when_the_header_claims_an_offset(tmp_path):
+    p = plan(300)
+    a = curve(300, seed=1)
+    ours = write(tmp_path, "ours.jsonl", "ours", a + 0.001, p=p)
+    ga = write(tmp_path, "gpu_a.jsonl", "gpu_a", a, p=p)
+    gb = write(tmp_path, "gpu_b.jsonl", "gpu_b", a, p=dataclasses.replace(p, seed_offset=1))
+    with pytest.raises(CurveContractError, match="identical to seed A"):
+        grade_curve_files(ours, ga, gb)
+
+
+def test_a_matched_leg_may_not_carry_an_offset(tmp_path):
+    p = plan(300)
+    a = curve(300, seed=1)
+    ours = write(tmp_path, "ours.jsonl", "ours", a + 0.001, p=dataclasses.replace(p, seed_offset=2))
+    ga = write(tmp_path, "gpu_a.jsonl", "gpu_a", a, p=p)
+    gb = write(tmp_path, "gpu_b.jsonl", "gpu_b", curve(300, seed=2), p=dataclasses.replace(p, seed_offset=1))
+    with pytest.raises(CurveContractError, match="matched compute"):
+        grade_curve_files(ours, ga, gb)
+
+
+def test_a_real_seed_control_grades(tmp_path):
+    p = plan(2000)
+    a = curve(2000, seed=1)
+    ours = write(tmp_path, "ours.jsonl", "ours", curve(2000, seed=3), p=p)
+    ga = write(tmp_path, "gpu_a.jsonl", "gpu_a", a, p=p)
+    gb = write(tmp_path, "gpu_b.jsonl", "gpu_b", curve(2000, seed=2),
+               p=dataclasses.replace(p, seed_offset=1))
+    assert not grade_curve_files(ours, ga, gb).failures
