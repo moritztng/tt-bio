@@ -411,6 +411,22 @@ under ~150 tokens fp32 is the more faithful arm, and `--trunk fp32` switches bac
 [`docs/nesso1.md`](docs/nesso1.md) for the input schema, the four upstream limits, and what to watch
 when comparing numbers against another implementation.
 
+## Docking
+
+`tt-bio dock` places a small molecule in a receptor and ranks the poses with DiffDock-L.
+
+```bash
+tt-bio dock receptor.pdb --ligand 'CC(=O)Oc1ccccc1C(=O)O' --model diffdock
+tt-bio dock ligands.csv --model diffdock --out_dir screen/
+```
+
+Poses are written in upstream DiffDock's layout (`rank1.sdf`,
+`rank1_confidence-0.42.sdf`, ...) plus a `confidence.json` listing the ranking, so an
+existing pipeline reads them unchanged. Defaults are DiffDock-L's published recipe. The
+reverse diffusion is still being ported; `--no_model`, the seed-conformer baseline, runs
+today. See [`docs/docking.md`](docs/docking.md) for the input forms, pocket docking and the
+full flag map.
+
 ## Design
 
 Design new binders and protein structures from a target or motif specification, with one command:
