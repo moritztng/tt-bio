@@ -48,6 +48,8 @@ def main():
     ap.add_argument("--levers", choices=("arm", "none"), default="arm",
                     help="none: every mode lever off (the plain ttnn path), to locate a forward disagreement")
     ap.add_argument("--fwd-only", action="store_true", help="stop after the forward-vs-reference line")
+    ap.add_argument("--exact", action="store_true",
+                    help="fp32 arm: matmul/linear/sum/mean/norms/transposes exact fp32 (tt_bio.train.exact_fp32, D49(2))")
     ap.add_argument("--out", type=Path)
     ap.add_argument("--floor-only", type=Path, metavar="JSON",
                     help="host only: write the bf16-emulated floor column (D39) for this config and stop")
@@ -168,7 +170,11 @@ def main():
     # float32 everywhere: the shared trimul computes in the process dtype (`_dtype()`), not the operand
     # dtype, so without the override the fp32 arm ran its triangle multiplications in bf16 on fp32 inputs
     wide = tt.device_dtype_override(ttnn.float32) if a.arm == "fp32" else contextlib.nullcontext()
-    with TR.lever_scope(levers), wide:
+    if a.exact and a.arm != "fp32":
+        raise SystemExit("--exact is a control for the fp32 arm only")
+    from tt_bio.train import exact_fp32 as EX
+    exact = EX.exact_fp32() if a.exact else contextlib.nullcontext()
+    with TR.lever_scope(levers), wide, exact:
         def inputs():
             return {"x": up(x), "z": up(z), "cond": up(cond), "mask": up(mask[..., None]), "bias": up(bias_mask),
                     "pm": up(pair), "pmc": up(pair[..., None])}
@@ -218,6 +224,7 @@ def main():
     served_rel = float((served - want).mul(out_mask).norm() / want.mul(out_mask).norm())
     print(f"forward vs float64 reference: taped rel_l2 {fwd_rel:.3e}, warm call {served_rel:.3e}; "
           f"warm call moved its inputs by {warm_moved}; levers {sorted(levers)}", flush=True)
+    print("exact-fp32 calls", dict(sorted(("%s/%s" % k, v) for k, v in EX.EXACT_STATS.items())), flush=True)
     if a.fwd_only:
         return 0
     # a one-cycle trunk never reads the recycle projections (rms(0) = 0): no gradient, named not graded
@@ -254,6 +261,7 @@ def main():
               % (max(floor.values()), sorted(floor.values())[len(floor) // 2], [(k, round(r, 2)) for r, k in worst]), flush=True)
     res = {"module": a.module, "arm": a.arm, "sdpa_own": a.sdpa_own or a.arm == "fp32", "levers": sorted(levers),
            "break": a.brk, "scale_grad": a.scale_grad, "dropped": dropped, "seed": a.seed, "n": a.n, "real": a.real,
+           "exact": {"%s/%s" % k: v for k, v in sorted(EX.EXACT_STATS.items())},
            "fwd_rel": fwd_rel, "bf16_floor": floor, "warm_moved": warm_moved, "pass_g1": rep.passed, "composed": comp, "fd_worst": rep.fd_worst, "fd_kinked": rep.fd_kinked,
            "grads": {k: {q: g[q] for q in ("rel_l2", "cos", "pass")} for k, g in rep.grads.items()},
            "output_digest": __import__("hashlib").sha256(ttnn.to_torch(out.value).float().numpy().tobytes()).hexdigest()[:16]}
