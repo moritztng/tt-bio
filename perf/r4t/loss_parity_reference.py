@@ -102,6 +102,30 @@ def replay(repo, out_dir, dtype):
     return 0 if rows and worst == 0.0 else 1
 
 
+def emit_ref(out_dir: Path, dest: Path) -> int:
+    """summary.json -> the `ref` half of `perf/r4t/grade_parity.py --parity`'s document.
+
+    The TT side fills `ours` with the same term names on the same batches and the verdict is
+    mechanical. `total` is carried as a term because the grader compares it like any other: a
+    loss that drops a term matches on everything it still computes.
+    """
+    s = json.loads((Path(out_dir) / "summary.json").read_text())
+    ref = [dict(b["terms"], total=b["total"]) for b in s["batches"]]
+    doc = {"dtype": "float32", "ref": ref, "ours": [],
+           "provenance": {"reference": "upstream RFD4-Proteina on CPU (D14)",
+                          "upstream_sha": s.get("upstream_sha"), "hf": s.get("hf"),
+                          "crop": s.get("crop"), "k": s.get("k"),
+                          "depth": sorted({b["depth"] for b in s["batches"]}),
+                          "dtype": sorted({b["dtype"] for b in s["batches"]}),
+                          "batches": [{"i": b["batch"], "example_id": b["example_id"],
+                                       "tokens": b["tokens"], "seed": b["seed"],
+                                       "zero_terms": b.get("zero_terms", [])} for b in s["batches"]],
+                          "dumps": str(Path(out_dir).resolve())}}
+    dest.write_text(json.dumps(doc, indent=1))
+    print(f"{dest}: {len(ref)} reference batches, terms {sorted(ref[0]) if ref else []}")
+    return 0
+
+
 def build_model(repo: Path, dtype):
     import torch
     from hydra import compose, initialize_config_dir
@@ -204,9 +228,14 @@ def main():
     ap.add_argument("--start", type=int, default=0, help="first dataset index to consider")
     ap.add_argument("--index-offset", type=int, default=0,
                     help="number the dumps from here, to extend an existing set without overwriting")
+    ap.add_argument("--emit-ref", type=Path,
+                    help="write the grader's `ref` half from --out/summary.json and exit")
     ap.add_argument("--replay", action="store_true",
                     help="do not generate: rerun call_nn from the dumps in --out and match them")
     a = ap.parse_args()
+
+    if a.emit_ref:                     # needs numpy and json only, not upstream's stack
+        sys.exit(emit_ref(a.out, a.emit_ref))
 
     import torch
     torch.set_num_threads(int(os.environ.get("OMP_NUM_THREADS", "8")))
