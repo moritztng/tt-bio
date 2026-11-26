@@ -277,15 +277,15 @@ def main():
         return row, recs
 
     def untaped():
-        """Production grad-off: the hooks come out first. `install()` routes tt_bio.ops through the tape even
-        outside `tape()`, so an installed forward hands an autograd Tensor to a bare ttnn.reshape (trunk._write)."""
-        ag.uninstall()
+        """Grad-off forward through the dispatching attach point (tape() + no_grad: production op, no node).
+        A bare call fails: walked_weights leaves the module holding autograd leaves, which plain ttnn.reshape
+        (trunk._write) refuses, installed or not."""
         ttnn.synchronize_device(dev)
         t0 = time.time()
-        o = mod(xt, zt, None, None, None)
+        with ag.tape(), ag.no_grad():
+            o = mod(xt, zt, None, None, None)
         ttnn.synchronize_device(dev)
         t1 = time.time()
-        ag.install()
         d = hashlib.sha256(ttnn.to_torch(o.value if isinstance(o, ag.Tensor) else o).float().numpy().tobytes()
                            ).hexdigest()[:16]
         return dict(fwd_s=round(t1 - t0, 5), aiclk=clk_between(t0, t1), out_digest=d)
