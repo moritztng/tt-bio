@@ -3777,6 +3777,17 @@ def checkpoint(fn, *inputs: Tensor, params: Sequence[Tensor] = (), offload: bool
 _ACTIVATIONS = {"relu": relu, "sigmoid": sigmoid, "silu": silu}
 
 
+def _activation(a):
+    """The composed backward for a fused `activation`: a name, or a `ttnn.UnaryWithParam` such as the
+    `dit_sigf32` epilogue (`tenstorrent._SIGMOID_F32`, an approx-mode SIGMOID on an fp32 dest). Its params only
+    choose how the packer evaluates the function, so the derivative is the plain one; what composing instead of
+    fusing costs in the forward is measured by gradcheck like any other activation's."""
+    if isinstance(a, str):
+        return _ACTIVATIONS.get(a)
+    op = getattr(a, "op_type", None)
+    return _ACTIVATIONS.get(op.name.lower()) if op is not None else None
+
+
 # Wrappers built over raw ttnn handles the CALLER still owns, keyed by the handle's id.
 # Cleared when the tape closes; the wrapper holds the handle, so the id cannot be reused
 # while the entry is live.
@@ -4025,7 +4036,7 @@ def _taped_linear(shipped, args, kwargs):
     activation = kw.pop("activation", None)
     act = None
     if activation is not None:
-        act = _ACTIVATIONS.get(activation)
+        act = _activation(activation)
         if act is None:
             raise NotImplementedError(
                 f"tt_bio.autograd has no backward for the fused activation {activation!r}. "

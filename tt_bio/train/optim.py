@@ -120,6 +120,15 @@ def _require_fp32_master(dtype) -> None:
         f"having a master -- and it is written by casting the master down each step")
 
 
+def _write(t, theta) -> None:
+    """Hand a stepped master to its leaf: a device weight is re-uploaded in its own dtype, a
+    `bridge.HostParam` (host torch glue) is updated in place."""
+    if hasattr(t, "write"):
+        t.write(theta)
+    else:
+        t.value = to_device(theta, t.value.device(), dtype=t.value.dtype)
+
+
 def round_to_device_dtype(arr, dtype):
     """``arr`` as the device would hold it, computed on the host. No PCIe.
 
@@ -587,13 +596,13 @@ class AdamW:
             if dev_before is None:
                 # A dtype torch cannot express. Pay the round trip rather than guess.
                 dev_before = to_host(t.value).astype(np.float32).reshape(theta.shape)
-                t.value = to_device(theta, t.value.device(), dtype=t.value.dtype)
+                _write(t, theta)
                 dev_after = to_host(t.value).astype(np.float32).reshape(theta.shape)
                 kept = float(np.linalg.norm(dev_after - dev_before))
             elif identity_cast:
                 # Nothing can round away, so the device step is the master step exactly and
                 # the write always happens.
-                t.value = to_device(theta, t.value.device(), dtype=t.value.dtype)
+                _write(t, theta)
                 kept = want
             else:
                 dev_after = round_to_device_dtype(theta, t.value.dtype)
@@ -606,7 +615,7 @@ class AdamW:
                     # 0.810 for exactly this reason.
                     writes_skipped += 1
                 else:
-                    t.value = to_device(theta, t.value.device(), dtype=t.value.dtype)
+                    _write(t, theta)
                 kept = float(np.linalg.norm(dev_after - dev_before))
             report[name] = {"master_step": want, "device_step": kept,
                             "kept": (kept / want) if want > 0 else float("nan"),
