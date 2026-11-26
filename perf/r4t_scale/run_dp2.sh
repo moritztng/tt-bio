@@ -1,6 +1,6 @@
 #!/bin/bash
 # 2-chip DP pair-stack point on cards 0,1 inside the r4t-scale-dp2 booking (book.py). Waits for the
-# window and for both nodes to be free, then replicated and shard=True arms, 6 steps each.
+# window and for both nodes to be free, then replicated and shard=True arms, 6 steps each, then the concurrent 2-card equivalence arm.
 set -u
 WT=$HOME/.coworker/wt/r4t-scale; V=$HOME/scratch/shipflow/venv-c4f99e695d34/bin/python
 cd $WT; export PYTHONPATH=$WT
@@ -15,4 +15,5 @@ for arm in rep shard; do
   TT_BIO_LEASE_HOLDER=worker:r4t-scale TT_BIO_LEASE_CARDS=0,1 timeout 2000 $V perf/r4t_scale/dp_pairstack.py --cards 0,1 --steps 6 $extra --out $O > $O/driver.log 2>&1
   echo "$arm rc=$?" >> $HOME/r4t/scale/dp2.done
 done
+bash perf/r4t_scale/run_equiv2.sh; echo "equiv2 rc=$?" >> $HOME/r4t/scale/dp2.done
 python3 $HOME/spd/feed/book.py rm r4t-scale-dp2
