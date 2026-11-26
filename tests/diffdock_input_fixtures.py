@@ -16,8 +16,12 @@ from pathlib import Path
 
 import numpy as np
 
-#: Smallest single-chain, a larger ligand, and a two-chain receptor.
-CHOSEN = ("6Z5Z_BDF", "7BJ6_TVK", "7BNH_BEZ")
+#: Smallest single-chain, a larger ligand, a two-chain receptor, and 7FT9_4MB,
+#: which is here because the first three all missed a defect: it writes three
+#: single-residue chain parts after the four main chains, so it is the only
+#: fixture whose residue order distinguishes file order from chain-grouped
+#: order. See the 7FT9_4MB note in state/dfd/INPUT.md.
+CHOSEN = ("6Z5Z_BDF", "7BJ6_TVK", "7BNH_BEZ", "7FT9_4MB")
 
 
 def main():
