@@ -53,12 +53,17 @@ from typing import Callable, Dict, Optional, Sequence
 import numpy as np
 
 __all__ = ["gradcheck", "GradcheckReport", "BARS", "MASK_BAR", "FD_BAR", "OP_CLASSES",
-           "metrics", "fd_check", "WeightCoverage", "weight_coverage"]
+           "metrics", "fd_check", "WeightCoverage", "weight_coverage", "COMPOSED_BAR", "composed_verdict"]
 
 
 # The reference's own bar against central differences. It is not a device number: this is
 # float64 against float64 and a disagreement above it means the reference is wrong.
 FD_BAR = 2e-6
+
+# A composed block or the whole network (D28, OF3T section 3d): per-tensor rel_L2 max, median of the
+# per-tensor rel_L2, worst cosine. G1 (BARS) stays the bar for a single VJP; a composition stacks
+# several device floors, so it is graded on the spread across tensors, not on any one op's floor.
+COMPOSED_BAR = (5.0e-02, 2.0e-02, 0.9999)
 
 # fraction of gate coordinates a kinked op's device gradient and reference must agree on
 MASK_BAR = 0.99
@@ -388,3 +393,17 @@ def weight_coverage(model) -> WeightCoverage:
     return WeightCoverage(total=len(found), registered=len(found) - len(unregistered),
                           with_grad=with_grad, unregistered=unregistered,
                           without_grad=without_grad)
+
+
+def composed_verdict(rep: "GradcheckReport") -> dict:
+    """Grade a composed block's report on ``COMPOSED_BAR``. Needs a verified reference."""
+    mx_bar, med_bar, cos_bar = COMPOSED_BAR
+    if not (rep.reference_verified and rep.grads):
+        return {"pass": False, "why": "reference not verified" if rep.grads else "no gradients"}
+    rel = {k: g["rel_l2"] for k, g in rep.grads.items()}
+    worst = max(rel, key=rel.get)
+    low = min(rep.grads, key=lambda k: rep.grads[k]["cos"])
+    med = float(np.median(list(rel.values())))
+    out = {"max": [worst, rel[worst]], "median": med, "min_cos": [low, rep.grads[low]["cos"]]}
+    out["pass"] = bool(rel[worst] <= mx_bar and med <= med_bar and rep.grads[low]["cos"] >= cos_bar)
+    return out

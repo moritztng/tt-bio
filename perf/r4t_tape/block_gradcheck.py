@@ -37,6 +37,8 @@ def main():
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--probe", type=int, default=24, help="central-difference coords per tensor")
     ap.add_argument("--break", dest="brk", action="store_true")
+    ap.add_argument("--scale-grad", metavar="PARAM",
+                    help="subtle broken arm: multiply this parameter's device gradient by 1.10 (D28)")
     ap.add_argument("--arm", choices=("prod", "bf16", "fp32"), default="prod")
     ap.add_argument("--module", choices=("trunk_block", "pair_update"), default="trunk_block")
     ap.add_argument("--sdpa-own", action="store_true",
@@ -120,6 +122,8 @@ def main():
             f.sources.pop(id(walked[dropped]))
         f.tape_backward()
     got = {n: v.grad.double().numpy() for n, v in f.leaves.items()}
+    if a.scale_grad:
+        got[a.scale_grad] = got[a.scale_grad] * 1.10
     for k in ins:
         got[k] = ttnn.to_torch(L[k].grad).double().reshape(I0[k].shape).numpy()
     ref = {k: v.clone().requires_grad_(True) for k, v in w64.items()}
@@ -127,22 +131,24 @@ def main():
     names = list(got)
     wref = {k: ref[k] for k in w64}
     dname = "float32" if a.arm == "fp32" else "bfloat16"
-    rep = CK.gradcheck(f"{a.module}/{a.arm}" + ("/own" if a.sdpa_own else "") + ("/broken" if a.brk else ""),
+    rep = CK.gradcheck(f"{a.module}/{a.arm}" + ("/own" if a.sdpa_own else "") + ("/broken" if a.brk else "") + (f"/x1.10:{a.scale_grad}" if a.scale_grad else ""),
                        ref_loss=lambda: (ref_fn(wref, ref) * seed).sum(),
                        ref_params=[ref[k] for k in names], tt_grads={k: got[k] for k in names},
                        op_class="reduction", dtype=dname, n_probe=a.probe, seed=a.seed)
     print(rep, flush=True)
-    worst = max(rep.grads.items(), key=lambda kv: kv[1]["rel_l2"])
-    res = {"module": a.module, "arm": a.arm, "sdpa_own": a.sdpa_own or a.arm == "fp32", "levers": sorted(levers), "break": a.brk, "dropped": dropped, "seed": a.seed, "n": a.n, "real": a.real, "pass": rep.passed,
-           "fd_worst": rep.fd_worst, "worst": [worst[0], worst[1]["rel_l2"]],
+    comp = CK.composed_verdict(rep)
+    res = {"module": a.module, "arm": a.arm, "sdpa_own": a.sdpa_own or a.arm == "fp32", "levers": sorted(levers),
+           "break": a.brk, "scale_grad": a.scale_grad, "dropped": dropped, "seed": a.seed, "n": a.n, "real": a.real,
+           "pass_g1": rep.passed, "composed": comp, "fd_worst": rep.fd_worst, "fd_kinked": rep.fd_kinked,
            "grads": {k: {q: g[q] for q in ("rel_l2", "cos", "pass")} for k, g in rep.grads.items()},
            "output_digest": __import__("hashlib").sha256(ttnn.to_torch(out.value).float().numpy().tobytes()).hexdigest()[:16]}
     if a.out:
         a.out.parent.mkdir(parents=True, exist_ok=True)
         a.out.write_text(json.dumps(res, indent=1))
-    print(json.dumps({k: res[k] for k in ("module", "arm", "pass", "worst", "fd_worst", "dropped", "output_digest")}))
-    print("ALL_PASS" if rep.passed else "SOME_FAIL")
-    return 0 if rep.passed else 1
+    print(json.dumps({k: res[k] for k in ("module", "arm", "pass_g1", "composed", "fd_worst", "fd_kinked", "dropped",
+                                          "scale_grad", "output_digest")}))
+    print("COMPOSED_PASS" if comp["pass"] else "COMPOSED_FAIL")
+    return 0 if comp["pass"] else 1
 
 
 if __name__ == "__main__":
