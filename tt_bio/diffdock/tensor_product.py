@@ -100,13 +100,26 @@ class FullyConnectedTensorProduct(torch.nn.Module):
         self._in_slices = self.in_irreps.slices()
         self._sh_slices = self.sh_irreps.slices()
         self._out_slices = self.out_irreps.slices()
-        for n, (i, j, k) in enumerate(paths):
-            self.register_buffer(
-                f"w3j_{n}",
-                wigner_3j(self.in_irreps.terms[i].l, self.sh_irreps.terms[j].l,
-                          self.out_irreps.terms[k].l),
-                persistent=False,
-            )
+        # The 3j tensors are exact constants, kept at float64 and cast to the compute dtype
+        # at use. They are deliberately NOT buffers: a buffer follows the module's dtype, so
+        # `.float()` would round the constants once and permanently, and `.double()` could
+        # not get them back. Rounding them to fp32 costs 2e-8, which shows up directly as an
+        # equivariance residual -- 3.8e-9 on the conv signature, four orders of magnitude
+        # above float64 roundoff, and invisible in any PCC.
+        self._w3j64 = [
+            wigner_3j(self.in_irreps.terms[i].l, self.sh_irreps.terms[j].l,
+                      self.out_irreps.terms[k].l, dtype=torch.float64)
+            for i, j, k in paths
+        ]
+        self._w3j_cast: dict = {}
+
+    def _w3j(self, n: int, like: Tensor) -> Tensor:
+        key = (n, like.dtype, like.device)
+        got = self._w3j_cast.get(key)
+        if got is None:
+            got = self._w3j64[n].to(dtype=like.dtype, device=like.device)
+            self._w3j_cast[key] = got
+        return got
 
     def forward(self, x1: Tensor, x2: Tensor, weight: Tensor) -> Tensor:
         if x1.shape[-1] != self.in_irreps.dim:
@@ -129,7 +142,7 @@ class FullyConnectedTensorProduct(torch.nn.Module):
 
             a = x1[..., self._in_slices[i]].reshape(*lead, u, 2 * ti.l + 1)
             b = x2[..., self._sh_slices[j]].reshape(*lead, v, 2 * tj.l + 1)
-            w3j = getattr(self, f"w3j_{n}").to(x1.dtype)
+            w3j = self._w3j(n, x1)
             part = torch.einsum("...uvw,...ui,...vj,ijk->...wk", w, a, b, w3j)
             part = part.reshape(*lead, w_mul * (2 * tk.l + 1)) * self.path_weights[n]
             out[..., self._out_slices[k]] += part

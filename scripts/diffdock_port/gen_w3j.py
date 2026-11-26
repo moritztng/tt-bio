@@ -32,13 +32,16 @@ NEEDED = sorted({
 def main(out_path):
     table = {}
     for l1, l2, l3 in NEEDED:
-        w = o3.wigner_3j(l1, l2, l3).to(torch.float64)
+        # dtype=float64 matters: e3nn's default is float32, and a table rounded to
+        # float32 carries a 2e-8 error that shows up directly as an equivariance
+        # residual. These are exact constants; ship them at full precision.
+        w = o3.wigner_3j(l1, l2, l3, dtype=torch.float64)
         assert w.shape == (2 * l1 + 1, 2 * l2 + 1, 2 * l3 + 1)
         table[f"{l1},{l2},{l3}"] = w.flatten().tolist()
     payload = {
         "_source": "e3nn o3.wigner_3j",
         "_e3nn_version": __import__("e3nn").__version__,
-        "_note": "row-major (2l1+1, 2l2+1, 2l3+1); Frobenius norm 1; sign is e3nn's",
+        "_note": "row-major (2l1+1, 2l2+1, 2l3+1); Frobenius norm 1 to float64; sign is e3nn's. Generated at float64: e3nn's own runtime table is float32 and is 2e-8 off, which is visible as an equivariance residual.",
         "tables": table,
     }
     with open(out_path, "w") as fh:
