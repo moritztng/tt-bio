@@ -32,7 +32,7 @@ import time
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--n", type=int, default=256)
+    ap.add_argument("--n", type=int, default=256, help="token length; taken from --batch when one is given")
     ap.add_argument("--k", type=int, default=4)
     ap.add_argument("--depth", type=int, default=2)
     ap.add_argument("--steps", type=int, default=6)
@@ -82,6 +82,15 @@ def main():
             raise SystemExit("--curve-out is required with --curve-dump")
         a.batch = ",".join(str(f) for f in cfiles)
         a.steps = min(a.steps, len(cfiles)) if a.steps != 6 else len(cfiles)
+    if a.batch:
+        # A real batch fixes the token length. The trimul prewarm below fills the in-projection entry at
+        # a.n; at any other width the winner uploads it inside its taped verb and those weights get no
+        # gradient (a 64-token crop under the 256 default lost 56 in-projection grads).
+        import numpy as _np
+        lens = {int(_np.load(f)["in/padding_mask"].shape[1]) for f in a.batch.split(",")}
+        if len(lens) != 1:
+            raise SystemExit(f"--batch files disagree on token length: {sorted(lens)}")
+        a.n = lens.pop()
     import faulthandler
     import signal
     faulthandler.register(signal.SIGUSR1)   # kill -USR1 <pid> prints every thread stack to the log
