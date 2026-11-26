@@ -87,7 +87,7 @@ def main():
     # and each lazy upload of a leaf-fed tensor is declared a parameter the moment it is made, before the taped
     # winner reads it. The first build and a resume build still run the forward: the unreached/orphan checks
     # after them need every weight to exist.
-    inline = os.environ.get("R4T_REBUILD_INLINE") == "1"
+    inline = os.environ.get("R4T_REBUILD_INLINE", "1") == "1"   # default ON since ca9fa7ac4: digest-identical to the lazy-forward rebuild (rb/I4.jsonl)
     # The trimul in-projection is cached per chunk width on first use, and caches filled in the grad-off
     # candidate pass reach the taped winner as untracked constants (R1 first form: step-2 digest moved, every
     # linear_{a,b}_{p,g} grad dead). `train_in_proj` holds the two sources as registered device tensors and
