@@ -268,8 +268,14 @@ def main() -> int:
                   f"  full order {sum(r[label]['full_order_same'] for r in have)}/{len(have)}"
                   f"  worst PCC {min(r[label]['pcc'] for r in have):.8f}"
                   f"  worst max rel {max(r[label]['max_rel_err'] for r in have):.3e}")
-        print(f"worst module PCC allowing a row permutation: "
-              f"{min(r['modules']['min_pcc_after_sort'] for r in results):.6f}")
+        graded = [r["modules"]["min_pcc_after_sort"] for r in results
+                  if r["modules"]["min_pcc_after_sort"] is not None]
+        if graded:
+            print(f"worst module PCC allowing a row permutation: {min(graded):.6f}")
+        if len(graded) < len(results):
+            print(f"WARNING: {len(results) - len(graded)} of {len(results)} complexes "
+                  f"matched no module golden at all -- that is the grader, not the port, "
+                  f"and the final-output numbers above are unaffected")
     if args.json:
         args.json.write_text(json.dumps(results, indent=1))
     return 0
