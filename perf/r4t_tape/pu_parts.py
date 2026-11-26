@@ -5,7 +5,8 @@ from pathlib import Path
 
 import torch
 
-sys.path[:0] = [str(Path(__file__).resolve().parents[2] / "tests")]
+ROOT = Path(__file__).resolve().parents[2]
+sys.path[:0] = [str(ROOT), str(ROOT / "tests")]
 
 
 def main():
