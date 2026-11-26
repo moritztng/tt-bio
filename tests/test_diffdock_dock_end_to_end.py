@@ -239,3 +239,23 @@ def test_trajectory_pdb_is_parsable(tmp_path):
     first = text.split("ENDMDL")[0]
     again = Chem.MolFromPDBBlock(first, sanitize=False, removeHs=False)
     assert again is not None and again.GetNumAtoms() == mol.GetNumAtoms()
+
+
+def test_dock_writes_a_heteroaromatic_ligand(tmp_path, stubbed):
+    """A thiophene ligand reaches disk.
+
+    The writer kekulises. Preparing the pose molecule with ``RemoveHs(..., sanitize=False)``
+    leaves the aromatic flags without kekulisation, so ``SDWriter.write`` raised
+    ``KekulizeException`` after the whole rollout had run and lost the complex, leaving a
+    0-byte ``rank1.sdf``. It hit 273 of the 428 PoseBusters ligands (`dfd-eval`, the
+    PoseBusters id below is the one it was found on).
+    """
+    job = DockJob(name="5S8I_2LY", receptor_path=RECEPTOR, ligand="CNC(=O)c1scc2c1OCCO2")
+    summary = run.dock([job], options(), tmp_path, isolate=True)
+
+    assert summary["failed"] == []
+    rank1 = tmp_path / "5S8I_2LY" / "rank1.sdf"
+    assert rank1.stat().st_size > 0
+    from rdkit import Chem
+    mol = next(Chem.SDMolSupplier(str(rank1), sanitize=True, removeHs=True), None)
+    assert mol is not None and mol.GetNumAtoms() == 13
