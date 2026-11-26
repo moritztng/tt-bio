@@ -90,8 +90,23 @@ def read_ligand(description: str, *, seed: int | None = None):
     Upstream's detection order: try SMILES first, fall back to the file reader.
     Either way any conformer in the input is dropped, hydrogens are added, and
     one conformer is embedded, so a crystal pose never leaks into the input.
+
+    A path is still handed to the SMILES parser first, to keep that order, but RDKit's
+    complaint about it is silenced: it is five lines of parse error about a filename that
+    read perfectly well a moment later.
     """
-    mol = Chem.MolFromSmiles(description)
+    from pathlib import Path
+
+    from rdkit import RDLogger
+
+    looks_like_a_path = Path(description).expanduser().exists()
+    if looks_like_a_path:
+        RDLogger.DisableLog("rdApp.error")
+    try:
+        mol = Chem.MolFromSmiles(description)
+    finally:
+        if looks_like_a_path:
+            RDLogger.EnableLog("rdApp.error")
     if mol is None:
         mol = read_molecule(description, sanitize=True, remove_hs=False)
         if mol is None:

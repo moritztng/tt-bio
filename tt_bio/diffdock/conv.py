@@ -275,14 +275,19 @@ class TensorProductConvLayer(nn.Module):
 
     def forward(self, node_attr, edge_index, edge_attr, edge_sh, out_nodes=None,
                 reduce="mean", edge_weight=1.0, edge_mask=None, edge_chunk=None):
-        if edge_index.shape[1] == 0 and node_attr.shape[0] == 0:
-            raise ValueError("no edges and no nodes")
+        n_out = out_nodes if out_nodes is not None else node_attr.shape[0]
         if edge_index.shape[1] == 0:
-            # D-dfd-orch-10: a conv with zero edges returns zeros, it does not crash --
-            # upstream raises here, on np.array_split(..., 0). The row count is out_nodes
-            # when the layer scatters to a different node set (the torsion head's bonds).
-            out = torch.zeros((out_nodes or node_attr.shape[0], self.out_size),
-                              dtype=node_attr.dtype, device=node_attr.device)
+            # The row count is the DESTINATION's, which for a cross group is not the source's
+            # (D-dfd-orch-10). The confidence model's ligand-receptor group reads receptor
+            # nodes and writes ligand nodes, and goes empty whenever a pose drifts out of the
+            # pocket; returning the source count there made the caller's residual add fail.
+            # `n_out == 0` is that same case taken one step further -- the score model's own
+            # receptor tower, when the crop at low sigma keeps no residue at all -- and an
+            # empty `[0, out_size]` is its answer, not an error. The whole receptor side then
+            # contributes nothing and the ligand tower carries the step, which is what
+            # upstream's crop does too.
+            out = torch.zeros((n_out, self.out_size), dtype=node_attr.dtype,
+                              device=node_attr.device)
         else:
             out = tp_scatter(self.tp, self.fc, node_attr, edge_index, edge_attr, edge_sh,
                              out_nodes, reduce, edge_weight, edge_mask, edge_chunk)

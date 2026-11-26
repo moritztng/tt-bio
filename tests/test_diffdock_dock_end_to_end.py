@@ -33,7 +33,10 @@ LIGAND = FIX / "6Z5Z_BDF_ligand.sdf"
 STUB_CONFIG = SimpleNamespace(
     all_atoms=False, no_torsion=False, crop_beyond=20.0,
     tr_sigma_min=0.1, tr_sigma_max=19.0, rot_sigma_min=0.03, rot_sigma_max=1.55,
-    tor_sigma_min=0.0314, tor_sigma_max=3.14)
+    tor_sigma_min=0.0314, tor_sigma_max=3.14,
+    # The released recipe's ligand radius. `run.dock` checks the ligand against upstream's
+    # 32-neighbour cap through it (tt_bio/diffdock/neighbour_cap.py).
+    lig_max_radius=5.0)
 
 
 class StubNetwork:
@@ -87,6 +90,23 @@ def stubbed(monkeypatch):
 
     monkeypatch.setattr(esm, "receptor_embeddings", embeddings)
     return net, seen
+
+
+@pytest.fixture
+def released_checkpoints():
+    """The released v1.1 score and confidence checkpoints, or a skip.
+
+    They are 124 MiB and not in the repo, so a host without them skips rather than
+    downloading inside a test run.
+    """
+    try:
+        root = checkpoints.models_root()
+    except checkpoints.CheckpointMissing as e:
+        pytest.skip(str(e))
+    score, confidence = root / checkpoints.SCORE_DIR, root / checkpoints.CONFIDENCE_DIR
+    if not (score / checkpoints.SCORE_CKPT).exists():
+        pytest.skip(f"no score checkpoint under {root}")
+    return score, confidence
 
 
 def options(**kw):
@@ -168,12 +188,49 @@ def test_no_confidence_keeps_sample_order(tmp_path, stubbed):
     assert [r["sdf"] for r in rows] == ["rank1.sdf", "rank2.sdf", "rank3.sdf"]
 
 
-def test_real_network_absent_says_so(tmp_path, monkeypatch):
-    """Without the stub, the seam is the one thing that fails, and it says what is missing."""
-    monkeypatch.setattr(checkpoints, "resolve", lambda *a, **kw: None)
+def test_missing_weights_name_the_command_that_fixes_them(tmp_path, monkeypatch):
+    """With no checkpoint on the host, the dock stops before the first complex and says how."""
+    monkeypatch.setattr(checkpoints.weights, "cached_path", lambda *a, **kw: None)
     job = DockJob(name="c", receptor_path=RECEPTOR, ligand=str(LIGAND))
-    with pytest.raises(run.SamplerUnavailable, match="score network is not implemented"):
+    with pytest.raises(checkpoints.CheckpointMissing, match="tt-bio weights --download"):
         run.dock([job], options(), tmp_path)
+
+
+def test_load_returns_a_score_network(released_checkpoints):
+    """The seam is wired: `load` hands back the real network, not a NotImplemented."""
+    score_dir, confidence_dir = released_checkpoints
+    net = network.load(options(checkpoint=score_dir, confidence_checkpoint=confidence_dir))
+    assert isinstance(net, network.ScoreNetwork)
+    assert net.config.name and net.config.all_atoms is False
+    assert net.confidence_model is not None
+    assert sum(p.numel() for p in net.model.parameters()) == 30_222_796
+
+
+def test_dock_with_the_released_weights_writes_finite_poses(tmp_path, released_checkpoints):
+    """One real complex through the real network, on the CPU. Three steps, two poses:
+    this proves the path runs and writes, not that it docks well -- the pose quality bar is
+    `dfd-eval`'s and the score parity is the assembled-network matrix in
+    `state/dfd/parity/score.json`."""
+    score_dir, confidence_dir = released_checkpoints
+    job = DockJob(name="6Z5Z_BDF", receptor_path=RECEPTOR, ligand=str(LIGAND))
+    opts = DockOptions(seed=7, diffusion_samples=2, sampling_steps=3, actual_steps=3,
+                       checkpoint=score_dir, confidence_checkpoint=confidence_dir)
+    run.dock([job], opts, tmp_path)
+
+    rows = json.loads((tmp_path / "6Z5Z_BDF" / "confidence.json").read_text())
+    assert len(rows) == 2
+    assert [r["sdf"].split("_")[0] for r in rows] == ["rank1", "rank2"]
+    assert all(r["confidence"] is not None for r in rows)
+    assert rows[0]["confidence"] >= rows[1]["confidence"]
+
+    from rdkit import Chem
+
+    for row in rows:
+        mol = next(iter(Chem.SDMolSupplier(str(tmp_path / "6Z5Z_BDF" / row["sdf"]),
+                                           removeHs=False, sanitize=False)))
+        pos = mol.GetConformer().GetPositions()
+        assert pos.shape[0] == mol.GetNumAtoms()
+        assert bool((abs(pos) < 1e4).all()) and not bool((pos != pos).any())
 
 
 def test_trajectory_pdb_is_parsable(tmp_path):

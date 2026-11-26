@@ -35,11 +35,10 @@ network does not implement it and is run step by step;
 `tests/test_diffdock_trace.py::test_traced_rollout_matches_untraced` is what says the two
 agree, and it skips until a device network offers this member.
 
-**Nothing implements this yet.** The port's score network is `dfd-parity`'s `score_model`
-feature; until it lands, `load` raises and `tt-bio dock` says so in one line instead of
-failing somewhere inside a loader. Wiring it up is replacing the body of `load` -- the dock
+`load` returns the host implementation, `score_model.HostScoreNetwork`, around the released
+v1.1 weights. A card implementation replaces that return value and nothing else: the dock
 path above it (graph, ESM-2 embeddings, randomised start, rollout, ranking, upstream's output
-layout) is written and runs against any object with these two members.
+layout) runs against any object with these members.
 """
 
 from __future__ import annotations
@@ -64,8 +63,32 @@ class ScoreNetwork(Protocol):
 
 
 def load(options, *, cache=None, download: bool = False) -> ScoreNetwork:
-    """The score network for ``options.weights``, on the host or on a card."""
-    raise ScoreNetworkUnavailable(
-        "the DiffDock-L score network is not implemented yet (dfd-parity owns `score_model`); "
-        "the reverse-diffusion sampler it plugs into is complete and graded, and "
-        "`--no_model` runs the seed-conformer baseline end to end today")
+    """The score network for ``options.checkpoint``, with its confidence model.
+
+    Host torch today: :class:`tt_bio.diffdock.score_model.HostScoreNetwork` around the
+    released v1.1 weights, which this port loads strictly (30,222,796 parameters, no
+    missing and no unexpected key). The card path replaces this return value and nothing
+    else -- that is what the two-member interface above is for.
+
+    The confidence checkpoint is loaded here too, once per screen rather than once per
+    complex, unless ``--no_confidence`` says the poses keep their sampling order.
+    """
+    import torch
+
+    from tt_bio.diffdock import checkpoints
+    from tt_bio.diffdock import config as dfd_config
+    from tt_bio.diffdock import confidence_model as cm
+    from tt_bio.diffdock import score_model
+
+    ckpt, params = checkpoints.resolve("score", options.checkpoint, cache,
+                                       download=download)
+    cfg = dfd_config.load(params.parent, old_model=False, name="diffdock")
+    state = torch.load(ckpt, map_location="cpu", weights_only=False)
+    model = score_model.load_released(state, cfg)
+
+    confidence = None
+    if not options.no_confidence:
+        c_ckpt, c_params = checkpoints.resolve("confidence", options.confidence_checkpoint,
+                                               cache, download=download)
+        confidence = cm.load_checkpoint(c_ckpt, c_params.parent)
+    return score_model.HostScoreNetwork(model, confidence_model=confidence)

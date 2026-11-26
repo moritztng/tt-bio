@@ -255,3 +255,33 @@ def test_a_yaml_diffdock_cannot_honour_is_refused_not_dropped(tmp_path):
     r = run(str(path), "--out_dir", str(tmp_path / "o"))
     assert r.exit_code != 0
     assert "RNA" in r.output or "rna" in r.output
+
+
+def test_a_shorter_run_keeps_the_recipes_shape():
+    """`--sampling_steps 4` on its own used to run 19 steps of a 4-entry schedule.
+
+    `actual_steps` truncates the schedule, so it only means something relative to
+    `sampling_steps`: shortening the run keeps the recipe's "stop one step early" shape,
+    and asking for more steps than are scheduled runs all of them.
+    """
+    from tt_bio.diffdock.job import override
+
+    o = override(DockOptions(), {"sampling_steps": 4})
+    assert (o.sampling_steps, o.actual_steps, o.steps) == (4, 3, 3)
+
+    both = override(DockOptions(), {"sampling_steps": 6, "actual_steps": 6})
+    assert both.steps == 6, "an explicit pair is honoured"
+
+    clamped = override(DockOptions(), {"sampling_steps": 4, "actual_steps": 19})
+    assert clamped.steps == 4, "more steps than the schedule holds runs the schedule"
+
+    assert DockOptions().steps == 19, "the default recipe is untouched"
+
+
+@needs_receptor
+def test_a_shorter_run_docks(tmp_path):
+    """The flag combination above, through the command, on a real receptor."""
+    out = run(str(RECEPTOR), "--ligand", ASPIRIN, "--no_model", "--sampling_steps", "4",
+              "--diffusion_samples", "2", "--out_dir", str(tmp_path))
+    assert out.exit_code == 0, out.output
+    assert (tmp_path / "complex_0" / "rank1.sdf").exists()

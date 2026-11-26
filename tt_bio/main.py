@@ -2289,7 +2289,8 @@ def dock(data, ligand, name, out_dir, model, config, loglevel, cache, device_ids
 
     from tt_bio.capabilities import check_capabilities
     from tt_bio.diffdock import run as dock_run
-    from tt_bio.diffdock.job import DockJob, DockOptions, looks_like_sequence, read_jobs
+    from tt_bio.diffdock.job import (DockJob, DockOptions, looks_like_sequence,
+                                     override as dock_override, read_jobs)
 
     level = getattr(logging, loglevel.upper())
     logging.basicConfig(level=level)
@@ -2326,7 +2327,10 @@ def dock(data, ligand, name, out_dir, model, config, loglevel, cache, device_ids
         explicit["checkpoint"] = Path(explicit["checkpoint"])
     if "confidence_checkpoint" in explicit:
         explicit["confidence_checkpoint"] = Path(explicit["confidence_checkpoint"])
-    options = replace(options, **explicit)
+    try:
+        options = dock_override(options, explicit)
+    except ValueError as e:
+        raise click.ClickException(str(e))
 
     if not jobs:
         if not ligand:
