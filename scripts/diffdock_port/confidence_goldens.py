@@ -132,12 +132,56 @@ def run_confidence(cid: str, store=None, *, ids_dir: Path | None = None):
     return torch.nan_to_num(out, nan=-1000).cpu().numpy(), graph
 
 
+#: The confidence graph tensors the port's `ConfidenceModel.forward` takes, in its argument
+#: order. Dumping them lets the parity grade feed BOTH sides the identical graph, so a
+#: disagreement is the network's and not the dataset builder's. Graph construction is
+#: `dfd-input`'s to grade, and conflating the two would hide either.
+INPUT_KEYS = ("lig_x", "bond_index", "bond_attr", "rec_x", "rec_pos", "rec_edge_index",
+              "atom_x", "atom_pos", "atom_edge_index", "atom_rec_edge_index")
+
+
+def dump_inputs(cid: str) -> dict:
+    """Write upstream's confidence graph for `cid` as plain arrays.
+
+    `rec_x` carries the ESM-2 block already concatenated, exactly as the dataset hands it to
+    `rec_node_embedding`; the sigma columns are NOT included, because the model appends those
+    itself from the diffusion time.
+    """
+    from argparse import Namespace as NS
+
+    from capture_goldens import lm_embeddings_for
+
+    with open(D / "ckpt/extracted/confidence_model/model_parameters.yml") as f:
+        cma = NS(**yaml.full_load(f))
+    prot = PB / cid / f"{cid}_protein.pdb"
+    lm = lm_embeddings_for(cid, str(prot), str(D / "runs/confidence_goldens" / cid))
+    g = build_confidence_graph(cid, cma, lm)
+
+    arrays = {
+        "lig_x": g["ligand"].x, "bond_index": g["ligand", "ligand"].edge_index,
+        "bond_attr": g["ligand", "ligand"].edge_attr,
+        "rec_x": g["receptor"].x, "rec_pos": g["receptor"].pos,
+        "rec_edge_index": g["receptor", "receptor"].edge_index,
+        "atom_x": g["atom"].x, "atom_pos": g["atom"].pos,
+        "atom_edge_index": g["atom", "atom"].edge_index,
+        "atom_rec_edge_index": g["atom", "receptor"].edge_index,
+    }
+    out = {k: np.asarray(v.cpu()) for k, v in arrays.items()}
+    path = GOLD / f"{cid}__s0" / "confidence_inputs.npz"
+    np.savez_compressed(path, **out)
+    print(f"{cid}: inputs -> {path.name} "
+          + " ".join(f"{k}{tuple(v.shape)}" for k, v in out.items()), flush=True)
+    return out
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--id", action="append", dest="ids", default=None)
     ap.add_argument("--no-goldens", action="store_true",
                     help="only recheck the rebuild against poses.npz")
     ap.add_argument("--max-calls", type=int, default=1)
+    ap.add_argument("--inputs-only", action="store_true",
+                    help="dump the confidence graph tensors and stop")
     args = ap.parse_args()
     ids = args.ids or list(DEFAULT_IDS)
 
@@ -145,8 +189,14 @@ def main() -> int:
     import dfd_ref_lib as L
 
     torch.set_grad_enabled(False)
+    if args.inputs_only:
+        for cid in ids:
+            dump_inputs(cid)
+        return 0
+
     report = {}
     for cid in ids:
+        dump_inputs(cid)
         gold_dir = GOLD / f"{cid}__s0"
         store = None
         if not args.no_goldens:
