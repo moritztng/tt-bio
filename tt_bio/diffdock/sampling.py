@@ -40,7 +40,9 @@ import numpy as np
 import torch
 from torch import Tensor
 
+from tt_bio.diffdock.harmonics import unit
 from tt_bio.diffdock.job import RECIPE
+
 
 def recipe() -> dict:
     """The shipped inference recipe, verbatim (D-dfd-2); a fresh copy of ``job.RECIPE``."""
@@ -274,8 +276,12 @@ def torsion_update_batch(pos: Tensor, edge_index: Tensor, mask_rotate, updates: 
     pos = pos + 0
     mask_rotate = _as_mask(mask_rotate)
     for idx, (u, v) in enumerate(edge_index):
-        rot_vec = pos[:, u] - pos[:, v]
-        rot_vec = rot_vec / torch.linalg.norm(rot_vec, dim=-1, keepdims=True) * updates[:, idx:idx + 1]
+        # `unit`, not a raw division by the norm: a pose thrown far enough out that fp32
+        # collapses a bond to zero length would otherwise give NaN here, and the NaN lands in
+        # the Kabsch SVD two lines later, where it takes every pose of the complex down. This
+        # is the device path's normalisation (loop.apply_torsions) and it is a no-op above
+        # 1e-12, so upstream's trajectory is unchanged (D-dfd-sampling-9).
+        rot_vec = unit(pos[:, u] - pos[:, v]) * updates[:, idx:idx + 1]
         rot_mat = axis_angle_to_matrix(rot_vec)
         moving = mask_rotate[idx]
         pos[:, moving] = torch.bmm(pos[:, moving] - pos[:, v:v + 1],
