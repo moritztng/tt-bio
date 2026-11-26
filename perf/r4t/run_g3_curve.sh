@@ -1,6 +1,7 @@
 #!/bin/bash
 # The G3 curve leg on one booked BH chip: trunk_step --curve-dump over the committed 2,000-step plan's
-# dumped inputs, checkpoint every 100 steps, and on a crash resume from the newest checkpoint written
+# dumped inputs, checkpoint every 10 steps (ring of 3, 1.44 GB each; the one a loss spike > 5x the
+# trailing median started from is pinned so it replays), and on a crash resume from the newest checkpoint written
 # since the last attempt (the CurveLog truncates to the resume step, so the log stays one gap-free run).
 #
 #   run_g3_curve.sh CARD SRC DUMP OUT     SRC = a checkout of the code under test (.sha beside it)
@@ -25,12 +26,12 @@ for try in 1 2 3 4; do
   env PYTHONPATH=$SRC TT_VISIBLE_DEVICES=$C TT_BIO_LEASE_CARDS=$C TT_BIO_LEASE_HOLDER=worker:r4t-accuracy \
       TT_BIO_SDPA_OWN_FORWARD=1 TT_BIO_SHA=$sha \
       $PY perf/r4t_step/trunk_step.py --n 256 --k 4 --curve-dump "$DUMP" --curve-out "$OUT/ours.jsonl" \
-      --save-every 100 --exempt perf/r4t_step/g2_exempt.tsv --out "$OUT/ck" ${last:+--resume "$last"} \
+      --save-every 10 --keep 3 --pin-spike 5 --exempt perf/r4t_step/g2_exempt.tsv --out "$OUT/ck" ${last:+--resume "$last"} \
       >> "$OUT/leg.log" 2>&1
   rc=$?
   echo "RC try$try $rc $(date -u +%T) resumed_from=${last:-none}" >> "$OUT/run.log"
   [ $rc = 0 ] && { echo "END $(date -u +%FT%TZ)" >> "$OUT/run.log"; break; }
-  # Resume only past a NEW checkpoint: a failure before step 100 (a G2 guard refusal included, which a
+  # Resume only past a NEW checkpoint: a failure before step 10 (a G2 guard refusal included, which a
   # resumed run would no longer check) or one that made no progress since the last resume stops here.
   now=$(ls -1 "$OUT"/ck/adapter-*.safetensors 2>/dev/null | tail -1)
   if [ $try = 4 ] || [ -z "$now" ] || [ "$now" = "$last" ]; then echo "GAVE-UP $(date -u +%FT%TZ)" >> "$OUT/run.log"; break; fi

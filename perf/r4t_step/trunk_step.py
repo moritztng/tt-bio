@@ -43,6 +43,11 @@ def main():
                     "trains on step<i>.npz at ITS drawn depth, in order, no cycling.")
     ap.add_argument("--save-every", type=int, default=0, help="checkpoint every N steps (newest "
                     "two kept), so a long leg resumes with --resume instead of starting over")
+    ap.add_argument("--keep", type=int, default=0, help="with --save-every: keep the newest N "
+                    "checkpoints by step, not by loss (a resume ring)")
+    ap.add_argument("--pin-spike", type=float, default=0.0, help="pin, never prune, the "
+                    "checkpoint a step started from when its loss exceeds F x the median of the "
+                    "previous 100 (>= 20 seen), so the spike replays from it")
     ap.add_argument("--curve-out", default="", help="with --curve-dump: the CurveLog to append to, "
                     "the file grade_parity.py --ours reads")
     a = ap.parse_args()
@@ -274,7 +279,8 @@ def main():
     if a.resume:
         start = int(load_adapter(a.resume, dict(params), dev, opt=opt)["step"])
         build()
-    ck = Checkpointer(a.out, every=a.save_every or 10**9, keep=2 if a.save_every else 10)
+    ck = Checkpointer(a.out, every=a.save_every or 10**9, keep=a.keep or (2 if a.save_every else 10))
+    seen = []   # losses this process logged, for --pin-spike
     if a.exempt:
         for ln in open(a.exempt):
             if ln.strip() and not ln.startswith("#"):
@@ -343,8 +349,15 @@ def main():
               flush=True)
         if a.save_at and step + 1 == a.save_at:   # before the guard, so a refusal still leaves the resume test its input
             print(json.dumps(dict(saved=str(ck.save(step + 1, opt, metrics={"loss": loss}, force=True)))), flush=True)
-        if a.save_every and ck.due(step + 1):
-            print(json.dumps(dict(saved=str(ck.save(step + 1, opt, metrics={"loss": loss})))), flush=True)
+        if a.pin_spike:
+            ref = sorted(seen[-100:])[len(seen[-100:]) // 2] if len(seen) >= 20 else None
+            if ref is not None and loss > a.pin_spike * ref:
+                print(json.dumps(dict(spike=step, loss=loss, median100=ref, example=cur["name"] if real else None,
+                                      pinned=str(ck.pin(step)))), flush=True)
+            seen.append(loss)
+        if a.save_every and ck.due(step + 1):   # --keep: a ring by step, so no metric to rank by
+            print(json.dumps(dict(saved=str(ck.save(step + 1, opt, metrics=None if a.keep else {"loss": loss})))),
+                  flush=True)
         if clog is not None:
             clog.record(step, loss, terms=extra.get("terms"), n_recycle=cur["depth"],
                         seconds=round(t3 - t0, 2), dead=len(dead), example=cur["name"],
