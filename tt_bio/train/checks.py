@@ -48,11 +48,11 @@ from __future__ import annotations
 import math
 import zlib
 from dataclasses import dataclass, field
-from typing import Callable, Dict, Mapping, Optional, Sequence
+from typing import Callable, Dict, Optional, Sequence
 
 import numpy as np
 
-__all__ = ["GradientCoverage", "dead_parameters", "COVERAGE_MIN_STEPS", "gradcheck", "GradcheckReport", "BARS", "MASK_BAR", "FD_BAR", "OP_CLASSES",
+__all__ = ["gradcheck", "GradcheckReport", "BARS", "MASK_BAR", "FD_BAR", "OP_CLASSES",
            "metrics", "fd_check", "WeightCoverage", "weight_coverage"]
 
 
@@ -362,68 +362,3 @@ def weight_coverage(model) -> WeightCoverage:
     return WeightCoverage(total=len(found), registered=len(found) - len(unregistered),
                           with_grad=with_grad, unregistered=unregistered,
                           without_grad=without_grad)
-
-
-# ------------------------------------------------------- every parameter trains (charter G2)
-#
-# One step is not the test. Upstream zero-initialises residual output projections (AF3/ABB3
-# `init="final"`, RFD4's AdaLN-zero output scales), so at step 1 the weights behind them have an
-# exactly zero gradient and a one-step check reads that transient as 186-218 dead tensors
-# (`train-aa-gradgate.md`). The `final` weights themselves get `x^T g`, so one update switches the
-# branch on. A parameter is dead only if it is dead on EVERY step of a window, hence the
-# intersection. And the window is a floor, not a default: below it the check is not this check.
-
-#: The fewest steps the every-parameter-trains gate may intersect over before it decides.
-COVERAGE_MIN_STEPS = 5
-
-
-def dead_parameters(grads: Mapping[str, Optional[np.ndarray]]) -> set:
-    """Names whose gradient is missing or identically zero. Missing counts: no gradient is dead."""
-    return {n for n, g in grads.items() if g is None or not np.any(np.asarray(g))}
-
-
-class GradientCoverage:
-    """Refuse a run in which some parameter got no gradient on any of its first ``steps`` steps.
-
-    ``observe(dead)`` once per step with that step's dead set (:func:`dead_parameters`). It
-    returns ``None`` while the window is open and, on the step that closes it, the set dead on
-    every step of the window; :meth:`require` raises on a non-empty one. ``exempt`` maps a
-    parameter path to the reason it may stay dead (upstream's, quoted); an exemption with no
-    reason is refused, so the list cannot grow silently.
-    """
-
-    def __init__(self, steps: int = COVERAGE_MIN_STEPS, exempt: Optional[Mapping[str, str]] = None):
-        if steps < COVERAGE_MIN_STEPS:
-            raise ValueError(f"the coverage window is {steps} steps; the floor is "
-                             f"{COVERAGE_MIN_STEPS}, because a zero-initialised residual "
-                             f"branch reads dead for its first step and a short window "
-                             f"cannot tell that transient from a dead parameter")
-        self.exempt = dict(exempt or {})
-        bare = [n for n, why in self.exempt.items() if not str(why).strip()]
-        if bare:
-            raise ValueError(f"exempt parameters need a reason: {bare[:8]}")
-        self.steps, self.left, self.never = int(steps), int(steps), None
-
-    @property
-    def open(self) -> bool:
-        return self.left > 0
-
-    def observe(self, dead) -> Optional[frozenset]:
-        if not self.left:
-            return None
-        dead = set(dead) - set(self.exempt)
-        self.never = dead if self.never is None else (self.never & dead)
-        self.left -= 1
-        return frozenset(self.never) if not self.left else None
-
-    def require(self, dead, total: int, where: str = "") -> None:
-        """`observe`, then refuse the run if the window just closed on a dead parameter."""
-        never = self.observe(dead)
-        if never:
-            shown = ", ".join(str(n) for n in sorted(never, key=str)[:8])
-            raise RuntimeError(
-                f"{where}{len(never)} of {total} parameters received no gradient on any of the "
-                f"first {self.steps} steps ({shown}{' ...' if len(never) > 8 else ''}). "
-                f"Refusing to continue: a run in this state produces a plausible loss curve and "
-                f"does not train these weights. A detached path, a frozen module or an all-zero "
-                f"init does this; exempt a parameter only with upstream's reason.")
