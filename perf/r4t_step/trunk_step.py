@@ -16,6 +16,10 @@ are seeded tensors and the loss seed lands on s (`<s, C>/numel`). Prints one JSO
      `train.bridge.Bridge`; the loss is `train.rfd4_objective.rfd4_loss`. The candidates' winner is chosen
      from our own heads, as upstream does, and printed beside upstream's.
   --exempt FILE: G2 exemptions, one `name<TAB>upstream's reason` a line
+  --dp-cards C0,C1,..: data parallel, one rank per card (processes), gradients summed by the launcher's
+     collective (`train.launcher.ProcessAxis`); --shard steps a ZeRO-1 slice per rank. Rank r's example at
+     step i is index i*world + r, so a world-w step consumes w distinct examples; each rank's JSON lines go
+     to OUT/rank<r>.log and its checkpoints under OUT/rank<r>/. Master digests must agree across ranks.
 """
 import argparse
 import hashlib
@@ -38,7 +42,15 @@ def main():
     ap.add_argument("--batch", default="")
     ap.add_argument("--exempt", default="")
     ap.add_argument("--out", default=os.path.expanduser("~/r4t/step/tck"))
+    ap.add_argument("--dp-cards", default="")
+    ap.add_argument("--shard", action="store_true")
+    ap.add_argument("--dp-rank", type=int, default=-1, help=argparse.SUPPRESS)
+    ap.add_argument("--dp-run", default="", help=argparse.SUPPRESS)
     a = ap.parse_args()
+    if a.dp_cards and a.dp_rank < 0:
+        return launch(a)
+    world = len(a.dp_cards.split(",")) if a.dp_cards else 1
+    rank = max(a.dp_rank, 0)
     import faulthandler
     import signal
     faulthandler.register(signal.SIGUSR1)   # kill -USR1 <pid> prints every thread stack to the log
@@ -329,7 +341,11 @@ def main():
     names = list(params)
     cyc = {nm: "depth-1 draws feed a zero state into the cycle projection; trains at depth >= 2"
            for nm in names if "cycle" in nm and a.depth < 2}
-    opt = AdamW(dict(params), lr=1e-4, clip_norm=1.0, weight_decay=0.0)
+    ax = None
+    if world > 1:
+        from tt_bio.train.launcher import ProcessAxis
+        ax = ProcessAxis(name="dp", device_ids=tuple(range(world)), dp_rank=rank, run=a.dp_run)
+    opt = AdamW(dict(params), lr=1e-4, clip_norm=1.0, weight_decay=0.0, data_parallel=ax, shard=a.shard)
     start = 0
     if a.resume:
         start = int(load_adapter(a.resume, dict(params), dev, opt=opt)["step"])
@@ -349,7 +365,7 @@ def main():
         t0 = time.time()
         extra = {}
         if real:
-            use(step)
+            use(step * world + rank)
             s, z, ctx = real[0](True)
             close_rec()
             ttnn.synchronize_device(dev)
@@ -362,7 +378,7 @@ def main():
             extra = dict(dev_after_heads_B=extra_mem, batch=cur["name"], winner=ctx["win"], upstream_winner=int(cur["meta"]["winners"][0]), depth_upstream=cur["depth"],
                          terms=terms, upstream_terms=ref)
         else:
-            s, z = one_example(step, True)
+            s, z = one_example(step * world + rank, True)
             close_rec()
             ttnn.synchronize_device(dev)
             t1 = time.time()
@@ -381,7 +397,7 @@ def main():
             _np.savez(os.environ["R4T_DUMP_G"], **{nm.replace(".", "__"): g for nm, g in grads.items()
                                                     if g is not None and "pair_update_layers" in nm})
         t2b = time.time()
-        opt.step()
+        opt.step(replicas={nm: [g] for nm, g in grads.items() if g is not None}) if ax else opt.step()
         for p in params.values():
             p.grad = None
         t2c = time.time()
@@ -391,7 +407,7 @@ def main():
         del s, z, st
         md = hashlib.sha256(b"".join(opt.master[k].tobytes() for k in sorted(opt.master))).hexdigest()[:16]
         sm = clk[c0:] or clk[-1:]
-        print(json.dumps(dict(step=step + 1, loss=loss, fwd_s=round(t1 - t0, 4), bwd_s=round(t2 - t1, 4),
+        print(json.dumps(dict(step=step + 1, rank=rank, world=world, loss=loss, fwd_s=round(t1 - t0, 4), bwd_s=round(t2 - t1, 4),
                               fold_bwd_s=round(t2b - t2, 4), opt_s=round(t2c - t2b, 4), rebuild_s=round(t3 - t2c, 4), rebuild_split=dict(RB), idle_dev_w=len(idle), step_s=round(t3 - t0, 4), retained_B=retained,
                               dead=len(dead), dead_names=sorted(dead)[:20], dev_base_B=base, dev_after_bwd_B=after_bwd, params=len(params), n_elems=int(sum(v.size for v in opt.master.values())),
                               master_digest=md, aiclk=[min(sm or [0]), max(sm or [0])], aiclk_med=sorted(sm)[len(sm) // 2] if sm else 0,
@@ -405,5 +421,36 @@ def main():
     stop.set()
 
 
+def launch(a):
+    """One trunk_step process per card, each pinned to its own card and lease; waits for all of them."""
+    import subprocess
+    import sys
+    from pathlib import Path
+    cards = a.dp_cards.split(",")
+    out = Path(a.out)
+    out.mkdir(parents=True, exist_ok=True)
+    run = Path("/dev/shm") / f"r4t-trunk-dp-{os.getpid()}"
+    run.mkdir()
+    holder = os.environ.get("TT_BIO_LEASE_HOLDER", "worker:r4t-scale")
+    skip = {"--dp-cards", "--out", "--dp-rank", "--dp-run"}
+    argv, it = [], iter(sys.argv[1:])
+    for t in it:   # forward every flag but the launcher's own
+        if t.split("=")[0] in skip:
+            if "=" not in t:
+                next(it, None)
+            continue
+        argv.append(t)
+    procs = []
+    for r, c in enumerate(cards):
+        env = dict(os.environ, TT_VISIBLE_DEVICES=c, TT_BIO_LEASE_CARDS=c, TT_BIO_LEASE_HOLDER=holder)
+        cmd = [sys.executable, os.path.abspath(__file__), *argv, "--dp-cards", a.dp_cards, "--dp-rank", str(r),
+               "--dp-run", str(run), "--out", str(out / f"rank{r}")]
+        procs.append(subprocess.Popen(cmd, env=env, stdout=open(out / f"rank{r}.log", "w"), stderr=subprocess.STDOUT))
+    rcs = [p.wait() for p in procs]
+    subprocess.run(["rm", "-rf", str(run)])
+    print(json.dumps(dict(world=len(cards), cards=cards, rcs=rcs)), flush=True)
+    return 0 if not any(rcs) else 1
+
+
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

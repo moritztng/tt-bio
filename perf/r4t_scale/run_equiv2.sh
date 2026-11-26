@@ -31,3 +31,4 @@ $V perf/r4t_scale/dp_equiv.py --role reduce --k 2 --broken --out $O >> $O/run.lo
 $V perf/r4t_scale/dp_equiv.py --role grade --out $O >> $O/run.log 2>&1; echo "broken grade rc=$? (must be 1)" >> $O/run.log
 cp $O/verdict.json $O/verdict_broken.json
 echo "end $(date -u +%FT%TZ)" >> $O/run.log
+bash $HOME/.coworker/wt/r4t-scale/perf/r4t_scale/run_trunk2.sh   # real-step DP points (appended 07:59Z; runs before run_dp2.sh releases the booking)
