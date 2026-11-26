@@ -7,7 +7,9 @@
 set -u
 N=${1:?chip}; R=${2:?outdir}; LAND=${3:?land sha}; shift 3
 ARMS=${*:-rfd3 pxdesign protenix-v2}
-PY=${PY:-$HOME/scratch/shipflow/venv312-1384f4c1b7bf/bin/python}
+# The newest finished shipflow venv, as gapboard_chain.sh picks it: a hardcoded hash goes stale and
+# release_gate.py's preflight then refuses the interpreter (rg1: assertpy missing, pyarrow 26 > <22).
+if [ -z "${PY:-}" ]; then V=$(ls -dt "$HOME"/scratch/shipflow/venv-*/done | head -1); PY=${V%/done}/bin/python; fi
 T=${T:-$HOME/r4t/land/trees}
 BOOK="python3 $HOME/spd/feed/book.py"; OWN=fleet-r4t-land; SECS=${SECS:-10800}
 mkdir -p "$R"; R=$(cd "$R" && pwd)
