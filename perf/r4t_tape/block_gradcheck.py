@@ -78,7 +78,9 @@ def main():
         raw = {"x": up(x), "z": up(z), "cond": up(cond), "mask": up(mask[..., None]), "bias": up(bias_mask)}
         with f.recording() as sd:
             m = TR.TrunkBlock(tt.WeightScope(sd), TR.compute_kernel_config(), H, dtype=dt)
-            m(raw["x"], raw["z"], raw["cond"], raw["mask"], raw["bias"])  # lazy uploads, as served
+            # lazy uploads, as served; the fp32 arm warms under a tape too, the fused SDPA refuses fp32
+            with (T.tape() if a.arm == "fp32" else __import__("contextlib").nullcontext()):
+                m(raw["x"], raw["z"], raw["cond"], raw["mask"], raw["bias"])
             L = {k: (ag.Tensor(v, requires_grad=True) if k in ("x", "z", "cond") else v) for k, v in raw.items()}
             for _p, _o, _k, t in tt.walk_device_weights(m):
                 ag.parameter(t)
