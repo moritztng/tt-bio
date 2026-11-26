@@ -37,20 +37,34 @@ class Folds:
         self.consts = {}   # id(device handle) -> handle uploaded from a tensor no leaf feeds
 
     @contextmanager
-    def recording(self):
+    def recording(self, device_pack: bool = False):
         """Yields the leaf state dict to build from; every `ttnn.from_torch` of a tensor that wants a
         gradient is recorded until exit. The weight is uploaded from the detached source, so the build is
-        the serving build bit for bit."""
+        the serving build bit for bit.
+
+        ``device_pack`` packs bfloat8_b weights on the card (float32 upload, then typecast) instead of on
+        the host, which is most of a per-step rebuild: host packing runs at ~110 Melem/s and does not
+        thread. Not bit-identical: the card rounds a tie half away from zero where the host rounds it to
+        even, so ~4e-6 of elements differ by one ulp and none lands further from the float32 source."""
         import ttnn
         from .. import tenstorrent as tt
         if getattr(tt, "_weight_cache", None) is not None:
             raise RuntimeError("Folds.recording under the shared weight cache: a cached tile has no torch source")
         real = ttnn.from_torch
 
+        def upload(x, *a, **k):
+            if not (device_pack and not a and k.get("dtype") == ttnn.bfloat8_b
+                    and k.get("device") is not None and k.get("layout") == ttnn.TILE_LAYOUT):
+                return real(x, *a, **k)
+            t32 = real(x.to(torch.float32), **{**k, "dtype": ttnn.float32})
+            t = ttnn.typecast(t32, ttnn.bfloat8_b)
+            ttnn.deallocate(t32)
+            return t
+
         def rec(x, *a, **k):
             if not torch.is_tensor(x):
                 return real(x, *a, **k)
-            t = real(x.detach(), *a, **k)
+            t = upload(x.detach(), *a, **k)
             if x.requires_grad:
                 self.sources[id(t)] = (t, x)
             else:

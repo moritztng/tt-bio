@@ -809,11 +809,23 @@ WH_FAST_LEVERS = NORMAL_LEVERS | {"mask_at_mix_z8"}
 WH_NORMAL_LEVERS = NORMAL_LEVERS | {"trimul_t1_stats", "pair_bias_fuse"}
 
 
-def mode_levers() -> frozenset:
-    """This process's RFD4 trunk lever set: the mode's set for this card's arch, or TT_BIO_LEVERS."""
+#: Levers training leaves out (D43, state/r4t/rows/perf.md): every lever that serves at crop 256. With all on, the
+#: no-update loss-parity arm put bb_ca over its D37 allowance on batches 00 and 07. Over 9 batches, every single
+#: serving lever off and every pair with `transition_b8` still misses bb_ca or sequence_prediction somewhere; only
+#: all five off passes both terms on all 9. The other 28 are digest-neutral at crop 256 and stay. Inference keeps
+#: the full set: its grade is the design RMSD above.
+TRAIN_DROPS = frozenset({"dit_sigf32", "pair_bf16z", "tok_recycle_mm", "tok_w8", "transition_b8"})
+
+
+def mode_levers(training: bool = False) -> frozenset:
+    """This process's RFD4 trunk lever set: the mode's set for this card's arch (less TRAIN_DROPS when
+    `training`), or TT_BIO_LEVERS."""
     from ..tenstorrent import is_wormhole
     wh = is_wormhole()
-    return model_levers(normal=WH_NORMAL_LEVERS if wh else NORMAL_LEVERS, fast=WH_FAST_LEVERS if wh else FAST_LEVERS)
+    normal, fast = (WH_NORMAL_LEVERS, WH_FAST_LEVERS) if wh else (NORMAL_LEVERS, FAST_LEVERS)
+    if training:
+        normal, fast = normal - TRAIN_DROPS, fast - TRAIN_DROPS
+    return model_levers(normal=normal, fast=fast)
 
 
 class Trunk(Module):
@@ -839,12 +851,12 @@ class Trunk(Module):
     _ran = (0, 0)
 
     def __init__(self, state_dict, ckc, nlayers: int = 24, n_heads: int = 16, every_n: int = 2,
-                 dtype=None, residual_dtype=None, pair_residual_dtype=None):
+                 dtype=None, residual_dtype=None, pair_residual_dtype=None, training: bool = False):
         super().__init__(state_dict, ckc)
         self.dtype = dtype or ttnn.bfloat16
         self.residual_dtype = residual_dtype or self.dtype
         self.nlayers = nlayers
-        self._levers = mode_levers()
+        self._levers = mode_levers(training)
         self.pair_residual_dtype = pair_residual_dtype or (
             (ttnn.bfloat8_b if "pair_bfp8z" in self._levers else ttnn.bfloat16) if "pair_bf16z" in self._levers
             else self.residual_dtype)

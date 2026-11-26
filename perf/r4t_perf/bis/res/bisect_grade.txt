@@ -1,0 +1,36 @@
+P                    b00 3.913e-03 (1.95x) a8e63c29e383164a aiclk[1325, 1350] b07 7.692e-03 (1.64x) d2659ce0b839de6c aiclk[1318, 1350] FAIL
+ALL                  b00 3.913e-03 (1.95x) a8e63c29e383164a aiclk[1312, 1350] b07 7.692e-03 (1.64x) d2659ce0b839de6c aiclk[1312, 1350] FAIL
+C                    b00 1.943e-03 (0.97x) c53b50326082fde5 aiclk[1331, 1350] b07 1.844e-03 (0.39x) 85c49b927235787f aiclk[1331, 1350] PASS
+dit_sigf32           b00 4.427e-03 (2.21x) 88a9125c6b551e2c aiclk[1337, 1350] b07 7.472e-03 (1.59x) d680df51d2e6c2b6 aiclk[1306, 1350] FAIL
+mask_at_mix          b00 3.913e-03 (1.95x) a8e63c29e383164a aiclk[1331, 1350] b07 7.692e-03 (1.64x) d2659ce0b839de6c aiclk[1318, 1350] FAIL
+pair_batch           b00 3.913e-03 (1.95x) a8e63c29e383164a aiclk[1306, 1350] b07 7.692e-03 (1.64x) d2659ce0b839de6c aiclk[1312, 1350] FAIL
+pair_bf16z           b00 4.892e-03 (2.44x) a5aa3f32ec6cc4ab aiclk[1318, 1350] b07 2.360e-03 (0.50x) f5dce42f5fd222ec aiclk[1318, 1350] FAIL
+pair_bfp8z           b00 3.913e-03 (1.95x) a8e63c29e383164a aiclk[1306, 1350] b07 7.692e-03 (1.64x) d2659ce0b839de6c aiclk[1331, 1350] FAIL
+pair_bias_rms        b00 3.913e-03 (1.95x) a8e63c29e383164a aiclk[1312, 1350] b07 7.692e-03 (1.64x) d2659ce0b839de6c aiclk[1343, 1350] FAIL
+pair_block           b00 3.913e-03 (1.95x) a8e63c29e383164a aiclk[1343, 1350] b07 7.692e-03 (1.64x) d2659ce0b839de6c aiclk[1312, 1350] FAIL
+pair_block_hifi2     b00 3.913e-03 (1.95x) a8e63c29e383164a aiclk[1337, 1350] b07 7.692e-03 (1.64x) d2659ce0b839de6c aiclk[1318, 1350] FAIL
+pair_mm              b00 missing b07 missing ?
+pair_mm_tr           b00 missing b07 missing ?
+pair_tail            b00 3.913e-03 (1.95x) a8e63c29e383164a aiclk[1312, 1350] b07 7.692e-03 (1.64x) d2659ce0b839de6c aiclk[1312, 1350] FAIL
+pair_tail_cm         b00 3.913e-03 (1.95x) a8e63c29e383164a aiclk[1312, 1350] b07 7.692e-03 (1.64x) d2659ce0b839de6c aiclk[1318, 1350] FAIL
+pair_tail_small      b00 3.913e-03 (1.95x) a8e63c29e383164a aiclk[1312, 1350] b07 7.692e-03 (1.64x) d2659ce0b839de6c aiclk[1343, 1350] FAIL
+pair_write_res       b00 3.913e-03 (1.95x) a8e63c29e383164a aiclk[1343, 1350] b07 7.692e-03 (1.64x) d2659ce0b839de6c aiclk[1306, 1350] FAIL
+pair_x8              b00 3.913e-03 (1.95x) a8e63c29e383164a aiclk[1306, 1350] b07 7.692e-03 (1.64x) d2659ce0b839de6c aiclk[1337, 1350] FAIL
+pair_x8t             b00 3.913e-03 (1.95x) a8e63c29e383164a aiclk[1312, 1350] b07 7.692e-03 (1.64x) d2659ce0b839de6c aiclk[1312, 1350] FAIL
+tok_recycle_mm       b00 2.940e-03 (1.47x) 13efbc56b649f4f9 aiclk[1318, 1350] b07 3.949e-03 (0.84x) c6a319f5581c8f4a aiclk[1312, 1350] FAIL
+tok_w8               b00 4.966e-03 (2.48x) b75d9dc170ff236d aiclk[1318, 1350] b07 5.362e-03 (1.14x) eee5db8f6e50aa90 aiclk[1312, 1350] FAIL
+transition_b8        b00 8.615e-04 (0.43x) 5fc443e844d81ca9 aiclk[1312, 1350] b07 9.728e-04 (0.21x) 34d7de2a5507c9c8 aiclk[1312, 1350] PASS
+trimul_bres          b00 3.913e-03 (1.95x) a8e63c29e383164a aiclk[1343, 1350] b07 7.692e-03 (1.64x) d2659ce0b839de6c aiclk[1325, 1350] FAIL
+trimul_bres_hifi2    b00 3.913e-03 (1.95x) a8e63c29e383164a aiclk[1318, 1350] b07 7.692e-03 (1.64x) d2659ce0b839de6c aiclk[1337, 1350] FAIL
+trimul_gin           b00 3.913e-03 (1.95x) a8e63c29e383164a aiclk[1312, 1350] b07 7.692e-03 (1.64x) d2659ce0b839de6c aiclk[1306, 1350] FAIL
+trimul_gin_hifi2     b00 3.913e-03 (1.95x) a8e63c29e383164a aiclk[1312, 1350] b07 7.692e-03 (1.64x) d2659ce0b839de6c aiclk[1343, 1350] FAIL
+trimul_gin_w8        b00 3.913e-03 (1.95x) a8e63c29e383164a aiclk[1306, 1350] b07 7.692e-03 (1.64x) d2659ce0b839de6c aiclk[1331, 1350] FAIL
+trimul_sig6          b00 3.913e-03 (1.95x) a8e63c29e383164a aiclk[1343, 1350] b07 7.692e-03 (1.64x) d2659ce0b839de6c aiclk[1312, 1350] FAIL
+trimul_t1            b00 3.913e-03 (1.95x) a8e63c29e383164a aiclk[1306, 1350] b07 7.692e-03 (1.64x) d2659ce0b839de6c aiclk[1318, 1350] FAIL
+trimul_t1_dram       b00 3.913e-03 (1.95x) a8e63c29e383164a aiclk[1312, 1350] b07 7.692e-03 (1.64x) d2659ce0b839de6c aiclk[1343, 1350] FAIL
+trimul_t1_fgate      b00 3.913e-03 (1.95x) a8e63c29e383164a aiclk[1312, 1350] b07 7.692e-03 (1.64x) d2659ce0b839de6c aiclk[1337, 1350] FAIL
+trimul_t1_psig       b00 3.913e-03 (1.95x) a8e63c29e383164a aiclk[1343, 1350] b07 7.692e-03 (1.64x) d2659ce0b839de6c aiclk[1312, 1350] FAIL
+trimul_t1b8          b00 3.913e-03 (1.95x) a8e63c29e383164a aiclk[1312, 1350] b07 7.692e-03 (1.64x) d2659ce0b839de6c aiclk[1343, 1350] FAIL
+trimul_t1g8          b00 3.913e-03 (1.95x) a8e63c29e383164a aiclk[1318, 1350] b07 7.692e-03 (1.64x) d2659ce0b839de6c aiclk[1312, 1350] FAIL
+trimul_t1w8          b00 3.913e-03 (1.95x) a8e63c29e383164a aiclk[1318, 1350] b07 7.692e-03 (1.64x) d2659ce0b839de6c aiclk[1343, 1350] FAIL
+trimul_tail_hifi2    b00 3.913e-03 (1.95x) a8e63c29e383164a aiclk[1343, 1350] b07 7.692e-03 (1.64x) d2659ce0b839de6c aiclk[1312, 1350] FAIL
