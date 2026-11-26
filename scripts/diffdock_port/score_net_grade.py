@@ -64,8 +64,9 @@ def main():
     for k in present:
         p = f"s{k}_"
         if not all(p + n in z.files for n in ("t_tr", "tr", "rot", "tor")):
+            # An older archive lists steps that never fired: record and skip, never grade.
             out["missing"].append(k)
-            print(f"step {k:2d} MISSING tensors", flush=True)
+            print(f"step {k:2d} MISSING tensors, skipped", flush=True)
             continue
         t_tr, t_rot, t_tor = (float(z[p + "t_tr"]), float(z[p + "t_rot"]),
                               float(z[p + "t_tor"]))
