@@ -2572,6 +2572,14 @@ def run_worker_loop(
             # open chip — reusing the persistent device instead of cold-opening a
             # fresh one per shard (which raced the UMD device-init path and
             # deadlocked). Free the predict model first (memory) but keep the chip.
+            if cfg.get("kind") == "dock":
+                state.free_model()
+                _free_rfd4_engine()
+                for job in jobs:
+                    _execute_dock_job_inprocess(client, run_id, worker_id, meta, job, cfg)
+                continue
+            _free_dock_model()
+
             if cfg.get("kind") == "design":
                 state.free_model()
                 shard = {"rfd3": _execute_rfd3_job_inprocess,
@@ -3194,6 +3202,88 @@ def _rfd4_engine(cfg: dict[str, Any]):
         set_fast_mode(fast)   # read once, when the trunk picks its lever set
         _RFD4_ENGINE = ((recipe, fast), get_engine(**({"recipe": recipe} if recipe else {})))
     return _RFD4_ENGINE[1]
+
+
+def _execute_dock_job_inprocess(
+    client: ControllerClient,
+    run_id: str,
+    worker_id: str,
+    meta: dict[str, Any],
+    job: dict[str, Any],
+    cfg: dict[str, Any],
+) -> None:
+    """Dock one complex IN-PROCESS on this worker's chip (tt_bio/diffdock/fleet.py).
+
+    The job carries its receptor and ligand by value and the run config carries the options,
+    so the complex docks exactly as a local `tt-bio dock` would and lands in the same layout.
+    The network stays resident across complexes (``_DOCK_MODEL``): it is loaded once per
+    screen on a local run, and a fleet worker is the same screen split across cards.
+    """
+    from tt_bio.diffdock import fleet, run as dock_run
+    from tt_bio.diffdock.job import DockOptions
+
+    job_id = job["id"]
+    t0 = time.time()
+    row: dict[str, Any] = {"id": job_id, "name": job.get("name") or job_id, "status": "failed"}
+    outputs: dict[str, str] = {}
+    workdir = Path(tempfile.mkdtemp(prefix=f"tt-bio-dock-{job_id}-"))
+    try:
+        client.event(run_id, worker_id, {"event": "start", **meta, "name": row["name"]})
+    except Exception:
+        pass
+    try:
+        payload = json.loads(base64.b64decode(job.get("input_b64", "")).decode("utf-8"))
+        dock_job = fleet.job_from_payload(payload, workdir / "in")
+        row["name"] = dock_job.name
+        options = DockOptions.from_dict(cfg.get("options") or {})
+        out_dir = workdir / "out"
+        summary = dock_run.dock([dock_job], options, out_dir, download=True,
+                                model=_dock_model(options))
+        row.update({"status": "ok", "files": summary["docked"][0]["files"],
+                    "runtime_s": round(time.time() - t0, 1)})
+        outputs = _read_outputs(out_dir, _shared_outputs_dir(cfg))
+    except Exception as exc:
+        traceback.print_exc()
+        row["error"] = _err_text(exc)
+    finally:
+        shutil.rmtree(workdir, ignore_errors=True)
+
+    try:
+        client.complete(
+            run_id, worker_id, row,
+            {**meta, "event": "done", "name": row["name"], "status": row["status"],
+             "time": round(time.time() - t0, 1), "error": row.get("error", ""), "row": row},
+            outputs=outputs or None,
+        )
+    except Exception:
+        traceback.print_exc()
+
+
+#: (the options that build it, network) — the docking network this worker holds.
+_DOCK_MODEL: tuple[Any, Any] = (None, None)
+
+
+def _dock_model(options):
+    """This worker's docking network, rebuilt only when the weights the run names change."""
+    global _DOCK_MODEL
+    if options.no_model:
+        return None
+    key = (options.weights, str(options.checkpoint), str(options.confidence_checkpoint),
+           options.no_confidence)
+    if _DOCK_MODEL[0] != key or _DOCK_MODEL[1] is None:
+        from tt_bio.diffdock import run as dock_run
+
+        _DOCK_MODEL = (None, None)
+        _DOCK_MODEL = (key, dock_run.load_model(options, download=True))
+    return _DOCK_MODEL[1]
+
+
+def _free_dock_model() -> None:
+    """Drop this worker's docking network, if it holds one, before another model loads."""
+    global _DOCK_MODEL
+    if _DOCK_MODEL[1] is not None:
+        _DOCK_MODEL = (None, None)
+        gc.collect()
 
 
 def _forward_design_progress(path: Path, pos: int, emit) -> int:
