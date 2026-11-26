@@ -60,7 +60,10 @@ def load_batch(path, dtype=None):
 
     `strict_feats` is set: the feature factory fills a MISSING feature with a silent zero default
     unless it is on (`nn/feature_factory.py:196`), and a replay that quietly lost a key must raise
-    rather than train against zeros (LESSONS-OF3T T1). It is not in the dump because it is a flag,
+    rather than train against zeros (LESSONS-OF3T T1). It does NOT cover every feature: upstream's
+    `chirality` and `charge` features fall back to zeros with only a warning whatever the flag says,
+    so losing either key is caught only by the outputs moving, on a batch where it is non-zero
+    (chirality: 2plh alone in this set). `replay --drop chirality` on that batch is the control. It is not in the dump because it is a flag,
     not data; neither is `example_id_batch`, which only names the example in an error message.
     """
     import torch
@@ -85,32 +88,61 @@ def load_batch(path, dtype=None):
     return batch, meta, recorded, losses
 
 
-def replay(repo, out_dir, dtype):
-    """Prove a dump is sufficient: rerun `call_nn` from the file alone and match the recorded outputs.
+# A dump replays when call_nn + compute_loss rerun from the file alone land within this of what
+# was recorded. Not zero: CPU float32 matmuls in the generating process and in a fresh one differ
+# at the last bits (measured worst 2.5e-6 over 9 batches, deterministic per process and not a
+# thread-count effect), while anything the dump failed to carry moves outputs at O(1) or raises
+# under strict_feats. 1e-5 sits 10x under G3's fp32 bar, so the floor never eats into the bar.
+REPLAY_TOL = 1e-5
 
-    This is the artifact's contract check. If the dump is missing something the network reads, the
-    replayed outputs move (or the strict feature factory raises) and this fails -- which is what a
-    second implementation grading itself against these files needs to be able to rely on.
+
+def _rel(a, b):
+    scale = float(np.max(np.abs(b))) if b.size else 0.0
+    diff = float(np.max(np.abs(a - b))) if b.size else 0.0
+    return 0.0 if diff == 0.0 else diff / max(scale, 1e-30)
+
+
+def replay(repo, out_dir, dtype, drop=None):
+    """Prove a dump is sufficient: rerun `call_nn` and `compute_loss` from the file alone.
+
+    Both the network outputs and every per-row loss term must land within REPLAY_TOL of the
+    recording (compute_loss writes `*/x_1` into the outputs in place, so it is rerun too and those
+    are compared like the rest). `drop` removes one input key first: the control showing the check
+    fails when the dump is missing something the network reads.
     """
     import torch
     _, model = build_model(repo, dtype)
     worst, rows = 0.0, []
     for path in sorted(Path(out_dir).glob("batch*.npz")):
-        batch, meta, recorded, _ = load_batch(path, dtype)
+        batch, meta, recorded, rec_losses = load_batch(path, dtype)
+        if drop:
+            d = batch
+            *head, leaf = drop.split("/")
+            for h in head:
+                d = d[h]
+            del d[leaf]
         torch.set_rng_state(meta["rng_state"])
-        with torch.no_grad():
-            out = flat(model.call_nn(batch, n_recycle=meta["depth"]))
-        miss = sorted(set(recorded) - set(out)) + sorted(set(out) - set(recorded))
-        rel = {k: float(np.max(np.abs(out[k] - recorded[k])) /
-                        max(float(np.max(np.abs(recorded[k]))), 1e-30)) for k in recorded if k in out}
-        bad = max(rel.values()) if rel else float("inf")
+        try:
+            with torch.no_grad():
+                nn_out = model.call_nn(batch, n_recycle=meta["depth"])
+                losses = model.fm.compute_loss(batch=batch, nn_out=nn_out)
+        except Exception as e:  # a missing feature under strict_feats
+            rows.append({"file": path.name, "worst_rel": float("inf"), "error": repr(e)[:200]})
+            worst = float("inf")
+            print(json.dumps(rows[-1]), flush=True)
+            continue
+        out = flat(nn_out) | {f"loss/{k}": v.numpy() for k, v in losses.items()}
+        ref = recorded | {f"loss/{k}": v for k, v in rec_losses.items()}
+        miss = sorted(set(ref) ^ set(out))
+        rel = {k: _rel(out[k], ref[k]) for k in ref if k in out}
+        bad = float("inf") if miss or not rel else max(rel.values())
         worst = max(worst, bad)
-        rows.append({"file": path.name, "worst_rel": bad, "missing_or_extra": miss,
-                     "per_tensor": rel})
+        rows.append({"file": path.name, "worst_rel": bad, "missing_or_extra": miss, "per_tensor": rel})
         print(json.dumps(rows[-1]), flush=True)
-    print(json.dumps({"batches": len(rows), "worst_rel": worst,
-                      "verdict": "REPLAYABLE" if rows and worst == 0.0 else "NOT BIT-EXACT"}))
-    return 0 if rows and worst == 0.0 else 1
+    ok = bool(rows) and worst <= REPLAY_TOL
+    print(json.dumps({"batches": len(rows), "worst_rel": worst, "tol": REPLAY_TOL, "drop": drop,
+                      "verdict": "REPLAYABLE" if ok else "NOT REPLAYABLE"}))
+    return 0 if ok else 1
 
 
 def emit_ref(out_dir: Path, dest: Path) -> int:
@@ -246,6 +278,8 @@ def main():
                          "sequential scan misses (see TERM_DRIVERS)")
     ap.add_argument("--emit-ref", type=Path,
                     help="write the grader's `ref` half from --out/summary.json and exit")
+    ap.add_argument("--drop", default=None,
+                    help="with --replay: delete this input key first (the control that must FAIL)")
     ap.add_argument("--replay", action="store_true",
                     help="do not generate: rerun call_nn from the dumps in --out and match them")
     a = ap.parse_args()
@@ -258,7 +292,7 @@ def main():
     dtype = getattr(torch, a.dtype)
     repo = Path(os.environ["RFD4_REPO"]).expanduser()
     if a.replay:
-        sys.exit(replay(repo, a.out, dtype))
+        sys.exit(replay(repo, a.out, dtype, a.drop))
     cfg, model = build_model(repo, dtype)
     a.out.mkdir(parents=True, exist_ok=True)
     # Extending an existing set (--index-offset) must not drop the rows already written:
