@@ -24,8 +24,9 @@ from tt_bio.diffdock import graph as G  # noqa: E402
 from tt_bio.diffdock.conv import TensorProductConvLayer  # noqa: E402
 from tt_bio.diffdock.features import GaussianSmearing  # noqa: E402
 from tt_bio.diffdock.harmonics import spherical_harmonics  # noqa: E402
-from tt_bio.diffdock.loop import build_schedule  # noqa: E402
-from tt_bio.diffdock.conformer import modify_conformer  # noqa: E402
+from tt_bio.diffdock import sampling as S  # noqa: E402
+from tt_bio.diffdock.loop import coefficient_table, fixed_update  # noqa: E402
+
 from tt_bio.diffdock.trace import (assert_shape_stable, first_difference,  # noqa: E402
                                     record_ops)
 
@@ -34,7 +35,7 @@ N_POSES = 4            # the shapes are per-pose-blocked; 4 proves the blocking,
 N_LIG, N_REC, N_ROT = 24, 48, 6
 LIG_MAX_RADIUS, CROSS_MAX_DISTANCE = 5.0, 80.0
 SH_LS = (0, 1, 2)
-SIGMAS = {'tr': (0.1, 19.0), 'rot': (0.03, 1.55), 'tor': (0.0314, 3.14)}
+BOUNDS = S.SigmaBounds(0.1, 19.0, 0.03, 1.55, 0.0314, 3.14)   # the checkpoint's own
 
 
 def _complex(seed=0):
@@ -84,9 +85,9 @@ def _step_fn(s, rec_pos, bonds, mask_rotate, table):
         tr_z, rot_z, tor_z = noise
         sc, nz = table.row(t_idx)
         pos = lig_pos.reshape(N_POSES, s.n_lig_padded, 3)
-        pos, _ = modify_conformer(pos, sc[0] * tr_score + nz[0] * tr_z,
-                                  sc[1] * rot_score + nz[1] * rot_z,
-                                  sc[2] * tor_score + nz[2] * tor_z, bonds, mask_rotate)
+        pos, _ = fixed_update(pos, sc[0] * tr_score + nz[0] * tr_z,
+                              sc[1] * rot_score + nz[1] * rot_z,
+                              sc[2] * tor_score + nz[2] * tor_z, bonds, mask_rotate)
         return pos.reshape(-1, 3)
 
     return step
@@ -98,7 +99,7 @@ def _run(step, lig_pos, sched, n_steps, seed=5):
     for t_idx in range(n_steps):
         # upstream's own cutoff sweep: 3 * tr_sigma + 20, 77 A down to 20.5 A
         t = sched[t_idx]
-        tr_sigma = SIGMAS['tr'][0] ** (1 - t) * SIGMAS['tr'][1] ** t
+        tr_sigma = BOUNDS.sigmas(t, t, t)[0]
         noise = (torch.randn(N_POSES, 3), torch.randn(N_POSES, 3), torch.randn(N_POSES, N_ROT))
         lig_pos, log = record_ops(step, lig_pos, t_idx, 3 * tr_sigma + 20.0, noise)
         logs.append(log)
@@ -107,8 +108,8 @@ def _run(step, lig_pos, sched, n_steps, seed=5):
 
 def _loop():
     s, lig_pos, rec_pos, bonds, mask_rotate = _complex()
-    sched = [1.0 - i * 0.05 for i in range(N_STEPS)]
-    table = build_schedule(sched, sched, sched, SIGMAS)
+    sched = list(S.t_schedule(N_STEPS + 1))[:N_STEPS]   # the sampler's own schedule
+    table = coefficient_table(S.SamplingConfig.from_recipe(actual_steps=N_STEPS), BOUNDS)
     return _step_fn(s, rec_pos, bonds, mask_rotate, table), lig_pos, sched
 
 
