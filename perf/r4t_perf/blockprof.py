@@ -236,6 +236,15 @@ def main():
     params = lora.walked_weights(mod, None, mod, xt, zt, None, None, None)
     leaves = list(params.values()) if hasattr(params, "values") else list(params)
     instrument_nodes(ag)
+    from tt_bio import lnbw as _lnbw
+    _elig, _seen = _lnbw.eligible, {}
+
+    def _eligible(x, g, gamma, **k):  # which LN backward calls the kernel serves, by shape, dtype and form
+        r = _elig(x, g, gamma, **k)
+        key = f"{list(x.shape)} x={x.dtype} g={g.dtype} gamma={gamma is not None} weights={k.get('weights', False)} -> {r}"
+        _seen[key] = _seen.get(key, 0) + 1
+        return r
+    _lnbw.eligible = _eligible
 
     def step(prof=None):
         """One taped fwd + bwd. prof: None (wall) or 'drain' (per-verb drained attribution)."""
@@ -308,7 +317,7 @@ def main():
     res["arms"]["drain"] = dict(step=row, fwd=table(recs["fwd"], wall_f), bwd=table(recs["bwd"], wall_b))
     res["arms"]["wall_aa"] = [step()[0] for _ in range(a.reps)]  # A/A: same arm after the instrument is removed
     from tt_bio import lnbw
-    res["lnbw"] = dict(weights=lnbw.WEIGHTS, reach=dict(lnbw.REACH))
+    res["lnbw"] = dict(weights=lnbw.WEIGHTS, reach=dict(lnbw.REACH), calls=_seen)
     json.dump(res, open(a.out, "w"), indent=1)
     print(json.dumps(res["arms"]["wall"]), json.dumps(res["arms"]["wall_aa"]), flush=True)
     stop.set()
