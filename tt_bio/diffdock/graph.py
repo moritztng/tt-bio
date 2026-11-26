@@ -108,12 +108,33 @@ def cross_mask(lig_pos: Tensor, rec_pos: Tensor, edge_index: Tensor,
     Dividing first and comparing with 1 is not the same floating-point expression as
     comparing with the cutoff, and an edge can land on the other side of the boundary. This
     reproduces the expression, not the intent.
+
+    *cutoff* is one number, or one per edge (what :meth:`StaticGraphs.cross_mask` passes for
+    a pose batch, where upstream gives every graph in the batch its own cutoff).
     """
-    if torch.is_tensor(cutoff) and cutoff.numel() > 1:
-        raise ValueError("one cutoff per graph; batch the poses as disjoint graphs instead")
-    c = cutoff if torch.is_tensor(cutoff) else torch.as_tensor(cutoff, dtype=lig_pos.dtype)
-    vec = edge_vectors(lig_pos / c, rec_pos / c, edge_index)
+    c = torch.as_tensor(cutoff, dtype=lig_pos.dtype, device=lig_pos.device)
+    if c.numel() not in (1, edge_index.shape[1]):
+        raise ValueError(f"cutoff has {c.numel()} entries for {edge_index.shape[1]} edges")
+    c = c.reshape(-1, 1) if c.numel() > 1 else c
+    vec = (rec_pos[edge_index[1]] - lig_pos[edge_index[0]]) / c
     return (vec.norm(dim=-1) <= 1.0).to(lig_pos.dtype)
+
+
+def tile_disjoint(edge_index: Tensor, n_copies: int, src_stride: int,
+                  dst_stride: int) -> Tensor:
+    """*n_copies* of an edge set side by side, each shifted onto its own node block.
+
+    The disjoint-union batching tt-atom uses (``tt_atom/disjoint.py``), with the one
+    simplification DiffDock allows: every pose has the same node count, so the offsets are a
+    stride rather than a cumulative sum, and the batched edge set is one broadcast of the
+    single-pose one rather than a list to concatenate.
+    """
+    if n_copies == 1:
+        return edge_index
+    src = torch.arange(n_copies, device=edge_index.device) * src_stride
+    dst = torch.arange(n_copies, device=edge_index.device) * dst_stride
+    out = edge_index[None, :, :] + torch.stack([src, dst], dim=1)[:, :, None]
+    return out.permute(1, 0, 2).reshape(2, -1)
 
 
 @dataclass(frozen=True)
@@ -129,17 +150,30 @@ class StaticGraphs:
     length and not ``n_lig``.
     """
 
-    n_lig: int
-    n_rec: int
-    n_rot_bonds: int
+    n_lig: int                    # per pose
+    n_rec: int                    # per pose
+    n_rot_bonds: int              # per pose
+    n_poses: int
     lig_bond_edges: Tensor        # [2, n_bond_edges], the molecule's own bonds, always on
     lig_edge_index: Tensor        # [2, padded] bond edges then the complete non-self pairs
-    lig_n_bond_edges: int
+    lig_n_bond_edges: int         # over the whole batch
     cross_edge_index: Tensor      # [2, padded] ligand <- receptor, complete
     tor_edge_index: Tensor        # [2, padded] bond centre <- ligand atom, complete
-    n_lig_padded: int
+    n_lig_padded: int             # the whole ligand block, every pose
     n_rec_padded: int
     n_bond_padded: int
+
+    @property
+    def n_lig_total(self) -> int:
+        return self.n_lig * self.n_poses
+
+    @property
+    def n_rec_total(self) -> int:
+        return self.n_rec * self.n_poses
+
+    @property
+    def n_rot_bonds_total(self) -> int:
+        return self.n_rot_bonds * self.n_poses
 
     def cross_edge_index_global(self) -> Tensor:
         """The cross edge set on the conv stack's combined node axis.
@@ -165,32 +199,42 @@ class StaticGraphs:
         return self.n_lig_padded + self.n_rec_padded - 1
 
     @classmethod
-    def build(cls, n_lig: int, n_rec: int, lig_bond_edges: Tensor,
-              n_rot_bonds: int = 0, device=None) -> "StaticGraphs":
-        device = device or lig_bond_edges.device
-        n_lig_padded, n_rec_padded = pad_count(n_lig), pad_count(n_rec)
-        n_bond_padded = pad_count(n_rot_bonds) if n_rot_bonds else 0
+    def build(cls, n_lig: int, n_rec: int, lig_bond_edges: Tensor, n_rot_bonds: int = 0,
+              n_poses: int = 1, device=None) -> "StaticGraphs":
+        """The complete edge sets for *n_poses* copies of one complex, padded.
 
-        n_bond_edges = lig_bond_edges.shape[1]
+        The poses are one disjoint-union graph, as upstream batches them: ten copies of the
+        same ligand against ten copies of the same receptor, differing only in coordinates.
+        The node axis is upstream's too -- every pose's ligand nodes, then every pose's
+        receptor nodes -- because PyG batches a ``HeteroData`` by node type, and the score
+        network reads ``node_attr[:n_ligand_nodes]`` at the end expecting exactly that.
+        """
+        device = device or lig_bond_edges.device
+        n_lig_padded = pad_count(n_lig * n_poses)
+        n_rec_padded = pad_count(n_rec * n_poses)
+        n_bond_padded = pad_count(n_rot_bonds * n_poses) if n_rot_bonds else 0
         lig_pad = n_lig_padded - 1
-        lig_edges = torch.cat([
-            lig_bond_edges.to(device),
-            complete_pairs(n_lig, n_lig, exclude_diagonal=True, device=device),
-        ], dim=1)
+
+        bonds = tile_disjoint(lig_bond_edges.to(device), n_poses, n_lig, n_lig)
+        pairs = tile_disjoint(complete_pairs(n_lig, n_lig, exclude_diagonal=True,
+                                             device=device), n_poses, n_lig, n_lig)
+        lig_edges = torch.cat([bonds, pairs], dim=1)
         lig_edges = pad_edge_index(lig_edges, bucket(lig_edges.shape[1]), lig_pad)
 
-        cross = complete_pairs(n_lig, n_rec, device=device)
+        cross = tile_disjoint(complete_pairs(n_lig, n_rec, device=device),
+                              n_poses, n_lig, n_rec)
         cross = pad_edge_index(cross, bucket(cross.shape[1]), (lig_pad, n_rec_padded - 1))
 
         if n_rot_bonds:
-            tor = complete_pairs(n_rot_bonds, n_lig, device=device)
-            tor = pad_edge_index(tor, bucket(tor.shape[1]), n_bond_padded - 1)
+            tor = tile_disjoint(complete_pairs(n_rot_bonds, n_lig, device=device),
+                                n_poses, n_rot_bonds, n_lig)
+            tor = pad_edge_index(tor, bucket(tor.shape[1]), (n_bond_padded - 1, lig_pad))
         else:
             tor = torch.zeros((2, 0), dtype=torch.long, device=device)
 
-        return cls(n_lig=n_lig, n_rec=n_rec, n_rot_bonds=n_rot_bonds,
+        return cls(n_lig=n_lig, n_rec=n_rec, n_rot_bonds=n_rot_bonds, n_poses=n_poses,
                    lig_bond_edges=lig_bond_edges.to(device), lig_edge_index=lig_edges,
-                   lig_n_bond_edges=n_bond_edges, cross_edge_index=cross, tor_edge_index=tor,
+                   lig_n_bond_edges=bonds.shape[1], cross_edge_index=cross, tor_edge_index=tor,
                    n_lig_padded=n_lig_padded, n_rec_padded=n_rec_padded,
                    n_bond_padded=n_bond_padded)
 
@@ -204,7 +248,8 @@ class StaticGraphs:
         counts twice in the divisor, and the checkpoint was trained that way.
         """
         n_bond, n_padded = self.lig_n_bond_edges, self.lig_edge_index.shape[1]
-        radius_block = self.lig_edge_index[:, n_bond:n_bond + self.n_lig * (self.n_lig - 1)]
+        n_pairs = self.n_lig * (self.n_lig - 1) * self.n_poses
+        radius_block = self.lig_edge_index[:, n_bond:n_bond + n_pairs]
         mask = torch.cat([
             torch.ones(n_bond, dtype=lig_pos.dtype, device=lig_pos.device),
             within(edge_vectors(lig_pos, lig_pos, radius_block), lig_max_radius),
@@ -212,11 +257,18 @@ class StaticGraphs:
         return pad_mask(mask, n_padded)
 
     def cross_mask(self, lig_pos: Tensor, rec_pos: Tensor, cutoff) -> Tensor:
-        real = self.n_lig * self.n_rec
-        mask = cross_mask(lig_pos, rec_pos, self.cross_edge_index[:, :real], cutoff)
+        """*cutoff* is one number, or one per pose: upstream's cutoff is per graph."""
+        per_pose = self.n_lig * self.n_rec
+        real = per_pose * self.n_poses
+        c = torch.as_tensor(cutoff, dtype=lig_pos.dtype, device=lig_pos.device)
+        if c.numel() > 1:
+            if c.numel() != self.n_poses:
+                raise ValueError(f"{c.numel()} cutoffs for {self.n_poses} poses")
+            c = c.reshape(-1).repeat_interleave(per_pose)
+        mask = cross_mask(lig_pos, rec_pos, self.cross_edge_index[:, :real], c)
         return pad_mask(mask, self.cross_edge_index.shape[1])
 
     def tor_mask(self, lig_pos: Tensor, bond_pos: Tensor, lig_max_radius: float) -> Tensor:
-        real = self.n_rot_bonds * self.n_lig
+        real = self.n_rot_bonds * self.n_lig * self.n_poses
         vec = edge_vectors(bond_pos, lig_pos, self.tor_edge_index[:, :real])
         return pad_mask(within(vec, lig_max_radius), self.tor_edge_index.shape[1])
