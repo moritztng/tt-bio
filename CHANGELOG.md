@@ -5,10 +5,18 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+### Added
+- **`tt-bio dock --model diffdock` places a ligand in a receptor and ranks the poses.** DiffDock-L, end to end:
+  upstream's four-column CSV or a tt-bio job YAML in, upstream's `rank1.sdf` / `rank1_confidence-0.42.sdf` layout
+  out, plus a `confidence.json` with the ranking. Defaults are the published inference recipe, so a plain command
+  reproduces the paper's settings, and `tt-bio weights --download diffdock` fetches the v1.1 release. The score
+  network is graded against upstream's own at PCC 0.9999999999984 or better across three complexes at five points
+  of the schedule. It runs on CPU for now; the card path comes next. See
+  [`docs/docking.md`](docs/docking.md).
+
 ### Changed
-- **Groundwork for DiffDock-L docking.** Its weights, configuration and feature code are in the package, but there is
-  no `tt-bio` command for it yet; nothing a user runs changes. Its receptor embedding reuses the ESM-2 650M encoder
-  Nesso-1 already loads on the card, so both models share one copy per process.
+- Docking's receptor embedding reuses the ESM-2 650M encoder Nesso-1 already loads on the card, so both models
+  share one copy per process. Nesso-1's output is unchanged.
 - **Protenix-v2 is about 2 % faster on Wormhole.** The pair-biased token attention now runs as one fp32 program read
   straight out of the fused projection, in both modes: 512 tokens at 1000 MHz go 40.2 -> 39.4 s (`--fast`) and
   46.2 -> 45.6 s. Graded on 11 complexes x 4 seeds with no accuracy loss; Blackhole is unchanged.

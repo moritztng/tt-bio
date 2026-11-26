@@ -20,6 +20,12 @@ against upstream's own at PCC 0.9999999999984 or better on every output, over th
 at five points of the schedule. `--no_model` still runs upstream's randomized seed-conformer
 baseline, which needs no checkpoint.
 
+One deliberate difference from upstream: where upstream keeps at most 32 neighbours per ligand
+atom, this port keeps every neighbour inside the radius, because the subset upstream's cap keeps
+changes when you rotate the same molecule and a pose should not depend on the frame its input
+was written in. The cap binds on 1 of the 428 PoseBusters ligands, so almost no run sees a
+difference at all.
+
 ## Input
 
 Upstream's CSV works unchanged, with the same four columns:
