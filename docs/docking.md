@@ -121,3 +121,19 @@ way), `--save_visualisation` is `--save_trajectory`,
 `--weights {diffdock-l,diffdock}`. The nine low-temperature sampling constants have no flags
 of their own; they are a fitted set, and `--config` takes upstream's
 `default_inference_args.yaml` verbatim if you want to change them.
+
+The rest, by what they change:
+
+- `--name` names a single complex and its output directory (default `complex_0`, as upstream).
+- `--actual_steps` is how many of the `--sampling_steps` actually run; the recipe stops one
+  early (19 of 20).
+- `--initial_noise_std` sets the width of the starting translation prior in units of
+  `tr_sigma_max` (upstream `--initial_noise_std_proportion`, default the fitted value).
+- `--init_at_residue` starts the ligand at a random receptor residue instead of the receptor
+  centre (upstream `--choose_residue`).
+- `--sampler ode` integrates the probability-flow ODE instead of the default stochastic
+  reverse diffusion, `sde` (upstream `--ode`).
+- `--deterministic` takes the randomness out of the diffusion steps (upstream `--no_random`);
+  with `--seed` a run then reproduces step for step.
+- `--minimize gnina` post-minimizes the top pose with gnina, found on `PATH` or given with
+  `--gnina_path`. The default is `none`.
