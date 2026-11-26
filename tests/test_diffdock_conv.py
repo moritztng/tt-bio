@@ -199,3 +199,32 @@ def test_residual_order_differs_between_the_two_layer_classes():
     na, ei, ea, es = _graph(40, 300, a.in_irreps.dim)
     with torch.no_grad():
         assert not torch.allclose(a(na, ei, [ea], es), b(na, ei, [ea], es), atol=1e-4)
+
+
+def test_a_conv_with_zero_edges_returns_zeros_at_the_right_width():
+    """D-dfd-orch-10: upstream raises here (``np.array_split(..., 0)``); the port must not.
+
+    A step whose cross cutoff keeps no receptor inside it, or a ligand with no rotatable
+    bond, hands a layer an empty edge set. The answer is the empty mean -- zeros -- and it
+    must have ``out_nodes`` rows when the layer scatters to a different node set than it
+    reads from, which is exactly the torsion head's bond conv.
+    """
+    layer = _layer(edge_groups=1, residual=False, batch_norm=True)
+    node_attr, _, edge_attr, edge_sh = _graph(32, 4, layer.in_irreps.dim)
+    empty = torch.zeros((2, 0), dtype=torch.long)
+    with torch.no_grad():
+        out = layer(node_attr, empty, [edge_attr[:0]], edge_sh[:0])
+        few = layer(node_attr, empty, [edge_attr[:0]], edge_sh[:0], out_nodes=7)
+    assert out.shape == (32, layer.out_size) and torch.equal(out, torch.zeros_like(out))
+    assert few.shape == (7, layer.out_size) and torch.equal(few, torch.zeros_like(few))
+
+
+def test_an_all_masked_edge_set_is_zero_not_nan():
+    """The divisor is the mask's sum, so masking every edge divides 0 by 0 unless clamped."""
+    layer = _layer(edge_groups=1, residual=False, batch_norm=False)
+    node_attr, edge_index, edge_attr, edge_sh = _graph(32, 128, layer.in_irreps.dim)
+    mask = torch.zeros(edge_index.shape[1], dtype=torch.bool)
+    with torch.no_grad():
+        out = layer(node_attr, edge_index, [edge_attr], edge_sh, edge_mask=mask)
+    assert torch.isfinite(out).all()
+    assert torch.equal(out, torch.zeros_like(out))
