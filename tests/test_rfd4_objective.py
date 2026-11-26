@@ -130,3 +130,51 @@ def test_t_sampler_moments():
         t = R.sample_t(rng, (200_000,), m)
         mean = p3 * 0.5 + (1 - p3) * p1 / (p1 + p2)
         assert abs(t.mean() - mean) < 3e-3 and t.min() >= 0 and t.max() <= 1
+
+
+def test_fixture_is_upstreams_crops():
+    """The committed fixture: upstream's own pipeline output, 16 examples x k=4 at crop 256."""
+    from tt_bio.train import rfd4_data
+
+    b = rfd4_data.load()
+    assert b["exploration_k"] == 4 and int(b["crop"]) == 256
+    assert b["padding_mask"].shape == (64, 256) and len(set(b["example_ids"])) == 16
+    # k adjacent rows are the SAME example: upstream's collate replicates, it does not re-crop
+    for key in ("padding_mask", "coords", "residue_type", "loss_weight"):
+        v = b[key].reshape(16, 4, *b[key].shape[1:])
+        assert (v == v[:, :1]).all(), key
+    m = R.masks(b)
+    assert (m["sup"]["bb_ca"] <= m["emit"]["bb_ca"]).all()
+    assert (m["emit"]["local_latents"] <= m["emit"]["bb_ca"]).all()
+    assert m["sup"]["bb_ca"].sum() > 0 and (b["loss_weight"] > 1).any()
+
+
+def test_objective_runs_on_the_fixture():
+    from tt_bio.train import rfd4_data
+
+    b = rfd4_data.load()
+    with pytest.raises(KeyError, match="autoencoder"):      # never a zero latent
+        rfd4_data.clean_samples(b)
+    rng = np.random.default_rng(0)
+    # A stand-in for the frozen AE: this exercises the plumbing, NOT upstream's target.
+    enc = lambda batch: rng.normal(size=batch["coords"].shape[:2] + (rfd4_data.LATENT_PLACEHOLDER,))
+    x1 = rfd4_data.clean_samples(b, encode=enc)
+    nb = b["padding_mask"].shape[0]
+    t = {m: np.repeat(R.sample_t(rng, (nb // 4,), m), 4) for m in R.MODES}
+    eps = {m: rng.normal(size=x1[m].shape) for m in R.MODES}
+    mol = b["molecule_iid"].astype(np.int64)
+    offsets = {int(g): rng.normal(size=(nb, 3)) for g in np.unique(mol)}
+    batch = {**b, "molecule_iid": mol}
+    batch.update(R.corrupt(batch, x1, t, eps, offsets))
+    batch["t"] = t
+    outputs = {"v_bb_ca": rng.normal(size=x1["bb_ca"].shape),
+               "v_local_latents": rng.normal(size=x1["local_latents"].shape),
+               "sequence_logits": rng.normal(size=(nb, 256, 147)),
+               "insertion_logits": rng.normal(size=(nb, 256, 256))}
+    total, br, seeds = R.rfd4_loss(batch, outputs, R.WEIGHTS)
+    assert np.isfinite(total) and total > 0
+    assert len(br["winners"]) == 16
+    for name in ("bb_ca", "local_latents", "sequence_prediction"):
+        assert br[name]["value"] > 0, (name, br[name])
+    for g in seeds.values():
+        assert np.isfinite(g).all()
