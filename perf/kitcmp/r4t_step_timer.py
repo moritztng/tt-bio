@@ -56,19 +56,11 @@ class StepTimer(L.Callback):
         import random
 
         import numpy as np
-
-        def cpu(x):
-            if torch.is_tensor(x):
-                return x.detach().cpu().clone()
-            if isinstance(x, dict):
-                return {k: cpu(v) for k, v in x.items()}
-            if isinstance(x, (list, tuple)):
-                return type(x)(cpu(v) for v in x)
-            return x
+        from lightning_utilities.core.apply_func import apply_to_collection
 
         os.makedirs(self.dump_dir, exist_ok=True)
         torch.save({
-            "step": self.step, "batch": cpu(batch),
+            "step": self.step, "batch": apply_to_collection(batch, torch.Tensor, lambda t: t.detach().cpu().clone()),
             "torch_cpu_rng": torch.get_rng_state(),
             "torch_cuda_rng": torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None,
             "numpy_rng": np.random.get_state(), "python_rng": random.getstate(),
