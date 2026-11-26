@@ -1,0 +1,10 @@
+Fetching 2 files:   0%|          | 0/2 [00:00<?, ?it/s]Fetching 2 files: 100%|██████████| 2/2 [00:00<00:00, 1190.55it/s]
+Environment variable CCD_MIRROR_PATH not set. Will not be able to use function requiring this variable. To set it you may:
+  (1) add the line 'export VAR_NAME=path/to/variable' to your .bashrc or .zshrc file
+  (2) set it in your current shell with 'export VAR_NAME=path/to/variable'
+  (3) write it to a .env file in the root of the atomworks.io repository
+Environment variable PDB_MIRROR_PATH not set. Will not be able to use function requiring this variable. To set it you may:
+  (1) add the line 'export VAR_NAME=path/to/variable' to your .bashrc or .zshrc file
+  (2) set it in your current shell with 'export VAR_NAME=path/to/variable'
+  (3) write it to a .env file in the root of the atomworks.io repository
+{"step": 1, "loss": 56.97578882643821, "fwd_s": 2.4798, "bwd_s": 1.3742, "fold_bwd_s": 0.4922, "opt_s": 0.9838, "rebuild_s": 0.1876, "rebuild_split": {"free_s": 0.0033, "load_s": 0.1825, "lazy_fwd_s": 0.0, "register_s": 0.0017, "prewarmed": 14}, "idle_dev_w": 50, "step_s": 5.5176, "retained_B": 12639787008, "dead": 1, "dead_names": ["glue.init_repr_factory.feat_creators.7.ss_embedding.weight"], "dev_base_B": 888713216, "dev_after_bwd_B": 2452801536, "params": 558, "n_elems": 178448304, "master_digest": "a06f6e4c37bcd2ac", "aiclk": [1306, 1350], "aiclk_med": 1350, "k": 4, "depth": 2, "n": 256, "lnbw_reach": {"served: weights": 35, "declined: l1": 7}, "gate_bw": [42, 0], "dev_after_heads_B": 2452801536, "batch": "batch08.npz", "winner": 1, "upstream_winner": 1, "depth_upstream": 2, "terms": {"bb_ca": 0.10754528279341971, "local_latents": 56.14509113041176, "insertion_prediction": 0.004289005813230371, "sequence_prediction": 0.7188634074198104, "signed_volume": 0.0}, "upstream_terms": {"bb_ca": 0.10803326219320297, "local_latents": 56.11806869506836, "insertion_prediction": 0.004195714835077524, "sequence_prediction": 0.7112658619880676, "signed_volume": 0.0}, "host_maxrss_GiB": 9.59}

@@ -42,7 +42,7 @@ def main():
     ap.add_argument("--cand-pair", choices=("host", "card"), default="card",
                     help="where the grad-off K-candidate pass builds z_init: host (upstream's builder) or the serving "
                          "card path (rfd4.pair.PairOnCard: host constant + bins, card assembly). The taped winner is always host.")
-    ap.add_argument("--cand-levers", choices=("training", "serving"), default="training",
+    ap.add_argument("--cand-levers", choices=("training", "serving"), default="serving",
                     help="lever set of the grad-off K-candidate pass: the training set, or that set plus the dropped levers that "
                          "switch at run time (pair_bf16z, dit_sigf32, tok_recycle_mm; r4t-perf K2). The pass only picks the "
                          "winner, so the gradient is unchanged whenever the winner is")
