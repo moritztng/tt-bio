@@ -55,7 +55,7 @@ def contract(n_lig, n_rec, n_rot, n_poses, ns, nv) -> dict:
         "tor_edge_index": [2, n_tor_edges],
         "rec_pos": [n_rec_nodes, 3],
         "rec_node_attr": [n_rec_nodes, ns],
-        "rec_edge_index_knn": [2, "24 * n_rec (upstream's k)"],
+        "rec_edge_index_knn": [2, "bucket(k * n_rec * n_poses), StaticGraphs.rec_edge_index"],
         "coefficient_table_score": list(table.score.shape),
         "coefficient_table_noise": list(table.noise.shape),
         "mask_rotate": [n_rot, n_lig_nodes // n_poses],
@@ -65,6 +65,10 @@ def contract(n_lig, n_rec, n_rot, n_poses, ns, nv) -> dict:
         "lig_edge_mask": [n_lig_edges, 1],
         "cross_edge_mask": [n_cross_edges, 1],
         "tor_edge_mask": [n_tor_edges, 1],
+        # crop_beyond as a mask (D-dfd-orch-11): StaticGraphs.rec_keep, rec_edge_mask,
+        # cropped_cross_mask -- the receptor keeps its full shape for all steps
+        "rec_keep": [n_rec_nodes],
+        "rec_edge_mask": ["E_rec", 1],
         "lig_edge_sh": [n_lig_edges, 9],
         "cross_edge_sh": [n_cross_edges, 9],
         "node_attr": [n_lig_nodes + n_rec_nodes, node_dim],
@@ -110,6 +114,14 @@ def contract(n_lig, n_rec, n_rot, n_poses, ns, nv) -> dict:
                     "belong to no one. Measured: step 0 issues 6 ops the others do not."),
             "capture_granularity": "all steps in one capture, not one capture per step",
             "host_returns_inside_the_loop": "none -- diagnostics are accumulated on device",
+        },
+        "receptor_crop": {
+            "form": "node mask over the full receptor, never a resize (D-dfd-orch-11)",
+            "keep": "cdist(rec, lig) < 3*tr_sigma + crop_beyond, per pose (StaticGraphs.rec_keep)",
+            "edges": "rec-rec edge kept iff both ends kept; cross mask multiplied by keep[rec]",
+            "proof": ("tests/test_diffdock_crop.py: keep-set == upstream's cropped receptor at "
+                      "steps 0/8/18 of 8G43_ZU6 (99/99/96 of 99); masked vs cropped conv stack "
+                      "0.0 deviation on every surviving node; op log identical over the sweep"),
         },
         "host_reference": {
             "module": "tt_bio.diffdock.loop",
