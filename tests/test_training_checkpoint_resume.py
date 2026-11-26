@@ -83,13 +83,17 @@ class _Opt:
     """Stands in for `AdamW` across the surface `load_adapter` actually touches.
 
     `AdamW.__init__` calls `to_host` on device tensors, so it is not constructible here; what
-    the resume path uses is the three dicts and `load_state_dict`, which is all of this.
+    the resume path uses is the three dicts, `load_state_dict` and `drop_unowned`, which is all
+    of this.
     """
 
     def __init__(self):
         self.master, self.exp_avg, self.exp_avg_sq = {}, {}, {}
         self.steps = 0
         self.lr = 0.0
+
+    def drop_unowned(self):
+        """A replicated optimizer owns every parameter, so there is nothing to drop."""
 
     def load_state_dict(self, d):
         self.steps = d["steps"]

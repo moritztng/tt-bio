@@ -39,7 +39,9 @@ a general one. The script reproduces the number, it does not store it: the run i
 from __future__ import annotations
 
 import math
-from typing import TYPE_CHECKING, Dict, Optional
+import re
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Callable, Dict, Optional
 
 from .mesh import Axis, UnreducedGradients
 from .tensors import to_device, to_host
@@ -47,7 +49,8 @@ from .tensors import to_device, to_host
 if TYPE_CHECKING:
     from .. import autograd as ag
 
-__all__ = ["AdamW", "af3_lr", "DISPLACEMENT_BAND", "round_to_device_dtype", "unit_roundoff"]
+__all__ = ["AdamW", "Muon", "EMA", "linear_warmup", "af3_lr", "DISPLACEMENT_BAND",
+           "round_to_device_dtype", "unit_roundoff"]
 
 
 # The band the cumulative ratio has to stay inside. Wide enough that bf16 rounding of a
@@ -188,6 +191,104 @@ def unit_roundoff(dtype) -> float:
     """
     return 2.0 ** -8 if "bfloat16" in str(dtype).lower() else 2.0 ** -24
 
+def linear_warmup(lr: float, steps: int):
+    """``LambdaLR(min((step + 1) / steps, 1))`` as RFD4-Proteina builds it (`proteina.py:475`).
+
+    Read at the count of COMPLETED steps, as ``AdamW.step`` reads every schedule, so the first
+    update runs at ``lr / steps``: LambdaLR evaluates its lambda at 0 on construction.
+    """
+    return lambda step: lr * min((step + 1) / max(steps, 1), 1.0)
+
+
+@dataclass(frozen=True)
+class Muon:
+    """Route 2-D weights to Muon inside ``AdamW``; everything else stays on Adam.
+
+    RFD4-Proteina trains this way (`utils/optim_utils.py::build_optimizers`): every trainable
+    2-D parameter whose name matches none of ``exclude`` takes Muon's update, the rest (norms,
+    biases, embeddings, output heads) Adam's. Defaults are ``torch.optim.Muon``'s, which
+    upstream does not override, so **Muon's weight decay is 0.1** while its Adam has none.
+
+    Upstream clips each optimizer's gradients separately (`proteina.py`, one
+    ``clip_gradients`` per optimizer), so the two groups get their own global norm here too.
+    A parameter with no gradient is skipped outright, as ``torch.optim.Muon`` skips it.
+
+    The Newton-Schulz iteration runs in bfloat16 on host torch with upstream's own op order
+    (`utils/grouped_muon.py::_orthogonalize`); it is part of the update rule, not a precision
+    choice of ours. ``adjust_lr_fn="original"`` scales by ``sqrt(max(1, out / in))`` and so
+    needs the torch (out, in) orientation: set ``rows_are_outputs=False`` for weights stored
+    (in, out), as ttnn linears are. ``match_rms_adamw`` (the RFD4 release) is symmetric.
+    """
+
+    exclude: tuple = ()
+    momentum: float = 0.95
+    nesterov: bool = True
+    ns_coefficients: tuple = (3.4445, -4.775, 2.0315)
+    ns_steps: int = 5
+    eps: float = 1e-7
+    weight_decay: float = 0.1
+    adjust_lr_fn: Optional[str] = "match_rms_adamw"
+    rows_are_outputs: bool = True
+    schedule: Optional[Callable] = None
+
+    def takes(self, name: str, shape) -> bool:
+        return (len(shape) == 2 and min(shape) > 0
+                and not any(re.search(p, name) for p in self.exclude))
+
+    def ratio(self, shape) -> float:
+        if self.adjust_lr_fn in (None, "original"):
+            out, inp = shape if self.rows_are_outputs else shape[::-1]
+            return math.sqrt(max(1.0, out / inp))
+        if self.adjust_lr_fn == "match_rms_adamw":
+            return 0.2 * math.sqrt(max(shape))
+        raise ValueError(f"unknown Muon adjust_lr_fn {self.adjust_lr_fn!r}")
+
+    def orthogonalize(self, update):
+        """Upstream's bf16 Newton-Schulz on one matrix; float32 numpy in and out."""
+        import torch
+        if self.ns_steps >= 100:
+            raise ValueError("Muon ns_steps must be below 100")
+        a, b, c = self.ns_coefficients
+        x = torch.from_numpy(update)[None].bfloat16()
+        flip = x.shape[-2] > x.shape[-1]
+        if flip:
+            x = x.transpose(-1, -2)
+        x.div_(x.norm(dim=(-2, -1), keepdim=True).clamp(min=self.eps))
+        for _ in range(self.ns_steps):
+            gram = torch.bmm(x, x.transpose(-1, -2))
+            x = torch.baddbmm(x, torch.baddbmm(gram, gram, gram, beta=b, alpha=c), x, beta=a)
+        x = x.transpose(-1, -2) if flip else x
+        return x[0].float().numpy()
+
+
+class EMA:
+    """The exponential moving average RFD4-Proteina keeps (`utils/simple_ema.py`, decay 0.999).
+
+    torch's ``AveragedModel`` with ``get_ema_multi_avg_fn``: the first ``update`` COPIES the
+    weights (it runs after the first optimizer step, so the average starts from step 1, not
+    from initialisation), every later one is ``ema += (1 - decay) * (w - ema)``. Kept over the
+    fp32 master, which is the weight upstream averages.
+    """
+
+    def __init__(self, decay: float = 0.999):
+        if not 0.0 <= decay <= 1.0:
+            raise ValueError(f"EMA decay must be in [0, 1], got {decay}")
+        self.decay = float(decay)
+        self.n_averaged = 0
+        self.shadow: Dict[str, "np.ndarray"] = {}
+
+    def update(self, master: Dict[str, "np.ndarray"]) -> None:
+        import numpy as np
+        if self.n_averaged == 0:
+            self.shadow = {n: np.array(v, np.float32, copy=True) for n, v in master.items()}
+        else:
+            w = np.float32(1.0 - self.decay)
+            for n, v in master.items():
+                e = self.shadow[n]
+                e += w * (v - e)
+        self.n_averaged += 1
+
+
 class AdamW:
     """AdamW with fp32 master weights, after ``adamw_full_precision.cpp``.
 
@@ -214,9 +315,16 @@ class AdamW:
     def __init__(self, params: Dict[str, ag.Tensor], *, lr: float = 3e-4,
                  betas=(0.9, 0.999), eps: float = 1e-8, weight_decay: float = 0.01,
                  clip_norm: float = 10.0, schedule=None,
-                 data_parallel: Optional[Axis] = None, master_dtype="float32"):
+                 data_parallel: Optional[Axis] = None, master_dtype="float32",
+                 muon: Optional[Muon] = None, shard: bool = False):
         import numpy as np
         _require_fp32_master(master_dtype)
+        # ZeRO-1 across the launcher's ranks: each rank steps only the parameters it owns
+        # (whole tensors, `launcher.shard_edges`) and builds moments only for those, then the
+        # stepped masters are gathered so every rank still holds the same full master and
+        # writes the same device weights. Host RAM for moments and host-Adam time divide by
+        # the width; see `_step_sharded`.
+        self.shard = bool(shard)
         self.master_dtype = "float32"
         # The DP axis, not a device count and not a flag. `step()` reduces across it, and a
         # width of 1 makes that a no-op rather than a special case.
@@ -268,6 +376,12 @@ class AdamW:
         # resident from construction rather than faulted in on demand.
         self.exp_avg = _Moments(self.master)
         self.exp_avg_sq = _Moments(self.master)
+        # Muon's routing, decided once from names and shapes. Empty when `muon` is None, and
+        # then every branch below is the plain AdamW it always was.
+        self.muon = muon
+        self.muon_names = frozenset(n for n, v in self.master.items()
+                                    if muon is not None and muon.takes(n, v.shape))
+        self.momentum_buffer = _Moments(self.master)
         # The per-sample clipping accumulator. Empty means the caller clips the batch once;
         # non-empty means `clip_and_accumulate` ran per sample and `step()` uses what it
         # summed rather than clipping a second time. `recipes.py`'s loop fills it, which is
@@ -331,6 +445,8 @@ class AdamW:
         gradient, because that failure is invisible in every metric a user watches.
         """
         import numpy as np
+        if self._sharded():
+            return self._step_sharded(replicas, set(disabled))
         self._reduce(replicas)
         disabled = set(disabled)
         per_sample = bool(self.accum)
@@ -368,7 +484,21 @@ class AdamW:
         read = {}
         gnorm = (math.sqrt(sum(float(v.ravel() @ v.ravel()) for v in self.accum.values()))
                  if per_sample else self.grad_norm(disabled, keep=read))
-        clip = 1.0 if per_sample else self.clip_coef(gnorm)
+        clip = clip_muon = 1.0 if per_sample else self.clip_coef(gnorm)
+        if self.muon_names:
+            if per_sample:
+                raise NotImplementedError(
+                    "per-sample clipping with Muon: no upstream trains that way, so there is "
+                    "no reference to be right against")
+            # One norm per optimizer, as upstream clips each of its two optimizers alone.
+            sq = lambda names: math.sqrt(sum(float(v.ravel() @ v.ravel())
+                                             for n, v in read.items() if n in names))
+            gnorm_muon = sq(self.muon_names)
+            gnorm = sq(read.keys() - self.muon_names)
+            clip, clip_muon = self.clip_coef(gnorm), self.clip_coef(gnorm_muon)
+            self.last_grad_norm_muon = gnorm_muon
+            lr_muon = (self.lr if self.muon.schedule is None
+                       else float(self.muon.schedule(self.steps - 1)))
         report = {}
         writes_skipped = 0
         for name, t in self.params.items():
@@ -407,21 +537,32 @@ class AdamW:
             g = None if name in disabled else (
                 self.accum.get(name) if per_sample else (
                     None if t.grad is None else read.pop(name)))
-            if g is None:
-                g = np.zeros_like(self.master[name])
-            elif clip != 1.0:
-                g = g * clip
-            m = self.exp_avg[name]
-            v = self.exp_avg_sq[name]
-            m *= self.beta1
-            m += (1.0 - self.beta1) * g
-            v *= self.beta2
-            v += (1.0 - self.beta2) * (g * g)
             theta = self.master[name]
-            upd = lr * ((m / bc1) / (np.sqrt(v / bc2) + self.eps)
-                        + self.weight_decay * theta)
+            new = None
+            if name in self.muon_names:
+                if g is None:
+                    upd, g = np.zeros_like(theta), np.zeros_like(theta)
+                else:
+                    g = g * clip_muon if clip_muon != 1.0 else g
+                    new = self._muon_new(name, g, theta, lr_muon)
+                    upd = theta - new
+            else:
+                if g is None:
+                    g = np.zeros_like(self.master[name])
+                elif clip != 1.0:
+                    g = g * clip
+                m = self.exp_avg[name]
+                v = self.exp_avg_sq[name]
+                m *= self.beta1
+                m += (1.0 - self.beta1) * g
+                v *= self.beta2
+                v += (1.0 - self.beta2) * (g * g)
+                upd = lr * ((m / bc1) / (np.sqrt(v / bc2) + self.eps)
+                            + self.weight_decay * theta)
             if name in self.held:
                 upd[self.held[name]] = 0.0
+                if new is not None:
+                    new = theta - upd     # a held element keeps its value under Muon too
             # The control the brief demands, measured rather than asserted: the step the
             # weight the FORWARD reads actually took, after rounding to the device dtype.
             # A master update that vanishes in the cast is an expensive no-op.
@@ -445,7 +586,10 @@ class AdamW:
             # `kept: 0.0`. Identity is what separates the two regimes here, not equality.
             dev_before = round_to_device_dtype(theta, t.value.dtype)
             identity_cast = dev_before is theta
-            theta -= upd
+            if new is None:
+                theta -= upd
+            else:
+                theta[...] = new      # torch's own op order, not theta - (theta - new)
             # `norm(upd)` IS `norm(theta - before)`: `theta -= upd` is the only thing that
             # moved it. Taking it off the update drops a full-census copy of every parameter
             # per step -- 1.42 GiB of allocation at OF3T's census, 0.361 s against 0.032 s.
@@ -488,6 +632,209 @@ class AdamW:
         self.last_report = report
         self.accum, self.participation, self.accum_count = {}, {}, 0
         return report
+
+    def _step_sharded(self, replicas, disabled) -> dict:
+        """One step with the optimizer state sharded across the DP ranks (ZeRO-1).
+
+        reduce-scatter the gradient on tensor-aligned edges, so this rank receives the summed
+        gradient of exactly the parameters it owns; take the global clip norms (one per
+        optimizer group, as the replicated step does) from every rank's sums of squares; step
+        the owned masters, Adam or Muon, with state built lazily so only for those; all-gather
+        the stepped masters and write every device weight from them. Muon orthogonalises whole
+        matrices, and every matrix lives on exactly one rank, so each rank runs Newton-Schulz
+        on its own share and none is split. Every rank applies the same gathered bytes, so the
+        master-hash invariant still holds. The norms are summed per rank and then across
+        ranks, so they can differ from the replicated step's in the last bits: identical
+        across ranks, not bit-identical to the unsharded step. Per-sample accumulation is not
+        supported here yet and refuses.
+        """
+        import numpy as np
+        ax = self.data_parallel
+        if self.accum:
+            raise NotImplementedError("shard=True with per-sample clip_and_accumulate")
+        if not replicas:
+            raise UnreducedGradients(
+                f"the data-parallel axis {ax} is {ax.width} chips wide and step() was given "
+                f"no per-chip gradients to reduce")
+        names, offs, edges, owned = self._shard_layout()
+        me = ax.dp_rank
+        flat = np.zeros(int(offs[-1]), np.float32)
+        absent = set()
+        for i, n in enumerate(names):
+            got = replicas.get(n)
+            if got is None or n in disabled:
+                absent.add(n)
+                continue
+            g = np.asarray(to_host(list(got)[0]), np.float32).reshape(-1)
+            if n in self.held:
+                g = g.copy(); g[self.held[n].reshape(-1)] = 0.0
+            flat[offs[i]:offs[i + 1]] = g
+        part = ax.reduce_scatter(flat, edges)
+        del flat
+        lo = int(edges[me])
+        local = {names[i]: part[offs[i] - lo:offs[i + 1] - lo].reshape(self.master[names[i]].shape)
+                 for i in owned}
+        sq = lambda muon: sum(float(g.ravel() @ g.ravel()) for n, g in local.items()
+                              if (n in self.muon_names) == muon and n not in absent)
+        sq_adam, sq_muon = ax.sum_scalars([sq(False), sq(True)])
+        if self.muon_names:
+            gnorm, gnorm_muon = math.sqrt(sq_adam), math.sqrt(sq_muon)
+            self.last_grad_norm_muon = gnorm_muon
+            lr_muon = (self.lr if self.muon.schedule is None
+                       else float(self.muon.schedule(self.steps)))
+        else:
+            gnorm = math.sqrt(sq_adam + sq_muon)
+        clip = self.clip_coef(gnorm)
+        clip_muon = self.clip_coef(gnorm_muon) if self.muon_names else clip
+        lr = self.lr if self.schedule is None else float(self.schedule(self.steps))
+        self.steps += 1
+        self.beta1_pow *= self.beta1
+        self.beta2_pow *= self.beta2
+        bc1, bc2 = 1.0 - self.beta1_pow, 1.0 - self.beta2_pow
+        report = {}
+        for n, g in local.items():
+            theta = self.master[n]
+            if n in self.muon_names:
+                # The replicated step leaves a Muon matrix with no gradient alone, momentum
+                # included (torch.optim.Muon skips it); so does this one.
+                if n in absent:
+                    continue
+                g = g * clip_muon if clip_muon != 1.0 else g
+                new = self._muon_new(n, g, theta, lr_muon)
+                upd = theta - new
+                if n in self.held:
+                    upd[self.held[n]] = 0.0
+                    new = theta - upd
+                theta[...] = new
+            else:
+                if clip != 1.0:
+                    g = g * clip
+                m, v = self.exp_avg[n], self.exp_avg_sq[n]
+                m *= self.beta1
+                m += (1.0 - self.beta1) * g
+                v *= self.beta2
+                v += (1.0 - self.beta2) * (g * g)
+                upd = lr * ((m / bc1) / (np.sqrt(v / bc2) + self.eps) + self.weight_decay * theta)
+                if n in self.held:
+                    upd[self.held[n]] = 0.0
+                theta -= upd
+            report[n] = {"master_step": float(np.linalg.norm(upd)),
+                         "grad_norm": float(np.linalg.norm(g))}
+        mine = (np.concatenate([self.master[names[i]].ravel() for i in owned]) if owned
+                else np.zeros(0, np.float32))
+        full = ax.all_gather(mine)
+        writes_skipped = 0
+        for i, n in enumerate(names):
+            t, theta = self.params[n], self.master[n]
+            before = round_to_device_dtype(theta, t.value.dtype)
+            before = None if before is None else np.array(before, copy=True)
+            theta[...] = full[offs[i]:offs[i + 1]].reshape(theta.shape)
+            after = round_to_device_dtype(theta, t.value.dtype)
+            if before is not None and after is not None and np.array_equal(after, before):
+                writes_skipped += 1
+            else:
+                t.value = to_device(theta, t.value.device(), dtype=t.value.dtype)
+        self.last_lr, self.last_clip, self.last_grad_norm = lr, clip, gnorm
+        self.peak_lr = max(self.peak_lr, float(lr))
+        self.last_per_sample = False
+        self.last_writes_skipped = writes_skipped
+        self.last_report = report
+        return report
+
+    def _sharded(self) -> bool:
+        return self.shard and self.data_parallel is not None and self.data_parallel.width > 1
+
+    def _shard_layout(self):
+        """Names in exchange order, their flat offsets, the tensor-aligned slice edges, and the
+        indices of the parameters this rank owns. Identical on every rank by construction."""
+        names, offs, e, owner = self._owners()
+        me = self.data_parallel.dp_rank
+        return names, offs, e, [i for i in range(len(names)) if owner[i] == me]
+
+    def _owners(self):
+        """Names in exchange order, flat offsets, slice edges, and each parameter's owning rank.
+
+        A parameter belongs to the one rank whose slice contains its first element; with
+        tensor-aligned edges that slice contains all of it, and an empty tensor on a boundary
+        still gets exactly one owner.
+        """
+        import numpy as np
+        from .launcher import shard_edges
+        names = sorted(self.master)
+        sizes = [self.master[n].size for n in names]
+        offs = np.concatenate([[0], np.cumsum(sizes)]).astype(np.int64)
+        w = self.data_parallel.width
+        if getattr(self, "_edges", None) is None or len(self._edges) != w + 1:
+            self._edges = shard_edges(sizes, w)
+        e = self._edges
+        owner = np.searchsorted(e, offs[:-1], side="right") - 1
+        owner = np.minimum(owner, w - 1)
+        return names, offs, e, owner
+
+    def state_families(self) -> dict:
+        """The optimizer's per-parameter state, ``{family: {name: array}}``, for a checkpoint.
+
+        ``exp_avg`` and ``exp_avg_sq`` cover the Adam parameters, ``momentum_buffer`` the Muon
+        ones. A sharded optimizer holds only its own parameters' state, so it gathers the rest
+        from the other ranks: a COLLECTIVE, every rank must call it at the same point (the
+        checkpointer saves on every rank at the same steps, each into its own directory).
+        Every rank then holds the same complete state, so a checkpoint resumes at any width.
+        """
+        adam = [n for n in sorted(self.master) if n not in self.muon_names]
+        fams = {"exp_avg": (self.exp_avg, adam), "exp_avg_sq": (self.exp_avg_sq, adam)}
+        if self.muon_names:
+            fams["momentum_buffer"] = (self.momentum_buffer, sorted(self.muon_names))
+        if not self._sharded():
+            return {f: {n: mom[n] for n in which} for f, (mom, which) in fams.items()}
+        import numpy as np
+        names, _, _, owner = self._owners()
+        rank_of = dict(zip(names, owner.tolist()))
+        me, w = self.data_parallel.dp_rank, self.data_parallel.width
+        out = {}
+        for f, (mom, which) in fams.items():
+            # `which` is sorted and ownership is contiguous in sorted order, so the family's
+            # flat vector is the ranks' owned pieces back to back, rank 0 first.
+            counts = np.zeros(w, np.int64)
+            for n in which:
+                counts[rank_of[n]] += self.master[n].size
+            edges = np.concatenate([[0], np.cumsum(counts)])
+            mine = [mom[n].ravel() for n in which if rank_of[n] == me]
+            full = self.data_parallel.all_gather(
+                np.concatenate(mine) if mine else np.zeros(0, np.float32), edges=edges)
+            out[f], o = {}, 0
+            for n in which:
+                k = self.master[n].size
+                out[f][n] = full[o:o + k].reshape(self.master[n].shape)
+                o += k
+        return out
+
+    def drop_unowned(self) -> None:
+        """Forget the state of parameters another rank owns (after loading a full checkpoint)."""
+        if not self._sharded():
+            return
+        names, _, _, owned = self._shard_layout()
+        keep = {names[i] for i in owned}
+        for mom in (self.exp_avg, self.exp_avg_sq, self.momentum_buffer):
+            for n in [n for n in dict.keys(mom) if n not in keep]:
+                del mom[n]
+
+    def _muon_new(self, name, g, theta, lr):
+        """``torch.optim.Muon``'s step for one matrix: the new master, in torch's op order.
+
+        Momentum ``buf <- lerp(buf, g, 1 - mu)``, Nesterov ``u = lerp(g, buf, mu)``,
+        ``theta <- theta * (1 - lr * wd) - lr * ratio * NS(u)``. Each lerp is written the way
+        torch evaluates it for its weight (``start + w (end - start)`` below 0.5,
+        ``end - (end - start)(1 - w)`` from 0.5), because the bf16 cast inside Newton-Schulz
+        turns a one-ulp difference in ``u`` into a 2^-8 difference in the update.
+        """
+        import numpy as np
+        mu = self.muon
+        f = np.float32
+        buf = self.momentum_buffer[name]
+        buf += f(1.0 - mu.momentum) * (g - buf)
+        u = (buf - (buf - g) * f(1.0 - mu.momentum)) if mu.nesterov else buf
+        o = mu.orthogonalize(np.ascontiguousarray(u, np.float32))
+        return theta * f(1.0 - lr * mu.weight_decay) + f(-lr * mu.ratio(theta.shape)) * o
 
     def _reduce(self, replicas) -> None:
         """Sum each parameter's gradient across the DP axis, in place on the tape.
