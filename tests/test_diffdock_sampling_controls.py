@@ -56,10 +56,13 @@ def _run_golden_case(g, cfg, *, seed=None, every_k=True):
 
     def run(steps):
         # Unseeded against a golden: upstream has no seed, so the global streams are set to
-        # the value the capture used. Seeded: the sampler's own --seed does it.
+        # the value the capture used. The extra int64 draw is upstream's DataLoader base
+        # seed, which it consumes before the first step; the port has no loader, so the
+        # streams have to be lined up here. Seeded: the sampler's own --seed does it.
         if seed is None:
             torch.manual_seed(int(g["seed"]))
             np.random.seed(int(g["seed"]))
+            torch.empty((), dtype=torch.int64).random_()
         return sampling.sample(score_fn, start, cfg=replace(cfg, actual_steps=steps),
                                bounds=BOUNDS, noise=sampling.Noise(seed=seed),
                                edge_index=edge_index.T[edge_mask],
