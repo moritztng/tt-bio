@@ -171,6 +171,16 @@ def bench_width(full, rm, cm, out_path, nl=2, ag_ring=True, force_linear=False, 
     N = rm * cm
     sub = full if (rm, cm) == (FULL_ROWS, FULL_COLS) else full.create_submesh(ttnn.MeshShape(rm, cm))
     assert sub.get_num_devices() == N
+    try:
+        return _bench_on_mesh(sub, rm, cm, out_path, nl=nl, ag_ring=ag_ring, force_linear=force_linear, reps=reps, max_payload=max_payload, sha=sha)
+    finally:
+        if sub is not full:
+            ttnn.synchronize_device(sub)
+            ttnn.close_mesh_device(sub)
+
+
+def _bench_on_mesh(sub, rm, cm, out_path, nl=2, ag_ring=True, force_linear=False, reps=5, max_payload=8192, sha=""):
+    N = rm * cm
     t0 = time.time()
     grad, sers, floor = upload_full_grad(sub, N)
     print(f"width={N} ({rm}x{cm}) nl={nl}: uploaded 1x[{TOTAL_R},{COLS}] in {time.time() - t0:.1f}s, "
@@ -328,8 +338,13 @@ def main():
     try:
         rm0, cm0 = widths[0]
         sub0 = full if (rm0, cm0) == (FULL_ROWS, FULL_COLS) else full.create_submesh(ttnn.MeshShape(rm0, cm0))
-        ok = quick_probe(sub0, rm0, cm0, nl=args.num_links, ag_ring=not args.ag_linear, force_linear=args.force_linear)
-        assert ok, "quick_probe failed"
+        try:
+            ok = quick_probe(sub0, rm0, cm0, nl=args.num_links, ag_ring=not args.ag_linear, force_linear=args.force_linear)
+            assert ok, "quick_probe failed"
+        finally:
+            if sub0 is not full:
+                ttnn.synchronize_device(sub0)
+                ttnn.close_mesh_device(sub0)
         if args.probe_only:
             return
         for rm, cm in widths:
