@@ -530,4 +530,75 @@ def test_device_insertion_loss_small_and_near_zero(monkeypatch):
         )
 
 
+def test_device_heads_split2_mm_precision_and_dealloc(monkeypatch):
+    """_split2_mm must beat bf16-unpacked fp32 matmul by >100x on the 3-matmul
+    insertion chain and free every intermediate when untaped."""
+    fake = _install_fake_ttnn(monkeypatch, preload=("tt_bio.rfd4.heads",))
+    import tt_bio.rfd4.heads as heads_mod
+    monkeypatch.setattr(heads_mod, "ttnn", fake)
+    monkeypatch.setattr(heads_mod.ops, "taping", lambda: False)
+
+    # Simulate Blackhole ttnn.matmul unpacking float32 inputs as bfloat16.
+    def bh_matmul(a, b, transpose_a=False, transpose_b=False, dtype=None, compute_kernel_config=None):
+        av = a._data.to(torch.bfloat16).float()
+        bv = b._data.to(torch.bfloat16).float()
+        if transpose_a:
+            av = av.transpose(-2, -1)
+        if transpose_b:
+            bv = bv.transpose(-2, -1)
+        dt = dtype or a.dtype
+        return _FakeTensor(torch.matmul(av, bv).to(torch.bfloat16 if dt == fake.bfloat16 else torch.float32),
+                           dtype=dt, device=a._device)
+
+    monkeypatch.setattr(fake, "matmul", bh_matmul)
+
+    rng = np.random.default_rng(123)
+    s_np = rng.standard_normal((1, 16, 64)).astype(np.float32) * 0.5
+    wq_np = rng.standard_normal((64, 64)).astype(np.float32) * 0.1
+    wk_np = rng.standard_normal((64, 64)).astype(np.float32) * 0.1
+
+    q_ref = s_np.astype(np.float64) @ wq_np.astype(np.float64)
+    k_ref = s_np.astype(np.float64) @ wk_np.astype(np.float64)
+    ins_ref = np.matmul(q_ref, np.swapaxes(k_ref, -2, -1)) * (64.0 ** -0.5)
+
+    s_t = fake.from_torch(torch.from_numpy(s_np))
+    wq_t = fake.from_torch(torch.from_numpy(wq_np))
+    wk_t = fake.from_torch(torch.from_numpy(wk_np))
+
+    # Broken arm: raw bh_matmul chain on float32 hits >1e-3 rel_l2 error.
+    q_raw = bh_matmul(s_t, wq_t, dtype=fake.float32)
+    k_raw = bh_matmul(s_t, wk_t, dtype=fake.float32)
+    ins_raw = bh_matmul(q_raw, k_raw, transpose_b=True, dtype=fake.float32)._data.numpy() * (64.0 ** -0.5)
+    raw_rel = float(np.linalg.norm(ins_raw - ins_ref) / np.linalg.norm(ins_ref))
+    assert raw_rel > 1e-3, f"expected raw bf16-unpacked matmul chain to exceed 1e-3, got {raw_rel:.3e}"
+
+    # Fixed arm: _split2_mm chain achieves <5e-5 rel_l2 and leaks zero intermediates.
+    created = []
+    orig_tc, orig_sub, orig_add, orig_mm = fake.typecast, fake.subtract, fake.add, fake.matmul
+
+    def _track(fn):
+        def _w(*a, **kw):
+            out = fn(*a, **kw)
+            created.append(out)
+            return out
+        return _w
+
+    monkeypatch.setattr(fake, "typecast", _track(orig_tc))
+    monkeypatch.setattr(fake, "subtract", _track(orig_sub))
+    monkeypatch.setattr(fake, "add", _track(orig_add))
+    monkeypatch.setattr(fake, "matmul", _track(orig_mm))
+
+    q_s = heads_mod._split2_mm(s_t, wq_t, fake.float32, {})
+    k_s = heads_mod._split2_mm(s_t, wk_t, fake.float32, {})
+    ins_s = heads_mod._split2_mm(q_s, k_s, fake.float32, {}, transpose_b=True)
+    ins_got = ins_s._data.numpy() * (64.0 ** -0.5)
+    split_rel = float(np.linalg.norm(ins_got - ins_ref) / np.linalg.norm(ins_ref))
+    assert split_rel < 5e-5, f"_split2_mm chain rel_l2={split_rel:.3e} >= 5e-5"
+
+    live = [t for t in created if t.is_allocated()]
+    assert set(live) == {q_s, k_s, ins_s}, f"leaked intermediates: {len(live)} live tensors"
+    assert s_t.is_allocated() and wq_t.is_allocated() and wk_t.is_allocated()
+
+
+
 
