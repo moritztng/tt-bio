@@ -222,3 +222,57 @@ class EdgeGeometry:
         """``(dist <= cutoff)`` as an fp32 ``[E, 1]`` mask, the host's ``<=``."""
         import ttnn
         return ttnn.typecast(ttnn.le(dist, cutoff), ttnn.float32)
+
+
+# ---------------------------------------------------------------------------
+# the step's masks: StaticGraphs.lig_mask / cross_mask / rec_edge_mask on the card
+# ---------------------------------------------------------------------------
+
+class StepMasks:
+    """The three per-step edge masks over fixed edge sets, as fp32 ``[E, 1]`` columns.
+
+    Each mask is "always on here, computed there, zero on the pad", and which row is which
+    never changes over the rollout. So the two 0/1 selectors are uploaded once and the step
+    is one comparison plus a multiply-add: no dynamic slicing, no host round trip.
+
+        mask = always + computed * predicate
+
+    The predicates are the host's own floating-point expressions, not their intent.
+    :func:`tt_bio.diffdock.graph.cross_mask` divides the edge vector by the cutoff and
+    compares the norm with 1, because ``build_cross_conv_graph`` does; comparing the norm
+    with the cutoff instead moves edges across the boundary, so this divides too.
+    """
+
+    def __init__(self, device, sg, n_lig_edges_padded: int, n_cross_edges_padded: int):
+        self.device = device
+        n_bond = sg.lig_n_bond_edges
+        n_pairs = sg.n_lig * (sg.n_lig - 1) * sg.n_poses
+        lig_always = torch.zeros(n_lig_edges_padded)
+        lig_always[:n_bond] = 1.0
+        lig_calc = torch.zeros(n_lig_edges_padded)
+        lig_calc[n_bond:n_bond + n_pairs] = 1.0
+        cross_calc = torch.zeros(n_cross_edges_padded)
+        cross_calc[:sg.n_lig * sg.n_rec * sg.n_poses] = 1.0
+        self.lig_always = upload(device, lig_always)
+        self.lig_calc = upload(device, lig_calc)
+        self.cross_calc = upload(device, cross_calc)
+
+    def lig(self, dist, lig_max_radius: float):
+        """:meth:`StaticGraphs.lig_mask`: bond edges always on, the complete block by radius."""
+        import ttnn
+        inside = ttnn.typecast(ttnn.le(dist, lig_max_radius), ttnn.float32)
+        return ttnn.add(self.lig_always, ttnn.multiply(self.lig_calc, inside))
+
+    def cross(self, vx, vy, vz, cutoff):
+        """:meth:`StaticGraphs.cross_mask`. *cutoff* is a float or an ``[E, 1]`` column."""
+        import ttnn
+        inv = 1.0 / cutoff if isinstance(cutoff, float) else ttnn.reciprocal(cutoff)
+        scaled = [ttnn.multiply(c, inv) for c in (vx, vy, vz)]
+        inside = ttnn.typecast(ttnn.le(norm3(*scaled), 1.0), ttnn.float32)
+        return ttnn.multiply(self.cross_calc, inside)
+
+    @staticmethod
+    def rec_edges(keep, src, dst, n_edges: int):
+        """:meth:`StaticGraphs.rec_edge_mask`: an edge survives the crop iff both ends do."""
+        import ttnn
+        return ttnn.multiply(gather(keep, src, n_edges), gather(keep, dst, n_edges))
