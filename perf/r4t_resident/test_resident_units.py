@@ -127,7 +127,7 @@ def test_u32_smoke(dev):
     w_tt = ttnn.from_torch(torch.from_numpy(w_np), dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev)
     w_col = _dev_reshape_f32(w_tt, (384, 1))
     assert np.array_equal(ttnn.to_torch(w_col).numpy(), w_np[:, None]), "width-1 reshape mismatch"
-    mul_tt = _dev_mul_f32(a_tt, w_col)
+    mul_tt = _dev_mul_f32(a_tt, w_col, (384, 12))
     mul_rel = _rel_l2(ttnn.to_torch(mul_tt).numpy(), a_np * w_np[:, None])
     assert mul_rel < 1e-6, f"broadcast mul (384,12)*(384,1) mismatch: {mul_rel}"
     red_tt = _dev_reduce_to_f32(mul_tt, (384, 1))

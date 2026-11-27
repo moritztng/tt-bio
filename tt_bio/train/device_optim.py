@@ -61,17 +61,13 @@ def _safe_dealloc(t, keep=None) -> None:
 def _clone_exact_f32(t):
     import ttnn
 
-    u = ttnn.bitcast(t, ttnn.uint32)
-    c = ttnn.clone(u)
-    return ttnn.bitcast(c, ttnn.float32)
+    return ttnn.clone(t)
 
 
 def _slice_exact_f32(t, beg, fin):
     import ttnn
 
-    u = ttnn.bitcast(t, ttnn.uint32)
-    s = ttnn.slice(u, beg, fin)
-    return ttnn.bitcast(s, ttnn.float32)
+    return ttnn.slice(t, beg, fin)
 
 
 def _concat_dim0_exact_f32(ts: list):
@@ -81,9 +77,7 @@ def _concat_dim0_exact_f32(ts: list):
     if len(ts) == 1:
         return _clone_exact_f32(ts[0])
     if len(ts) <= 24:
-        us = [ttnn.bitcast(t, ttnn.uint32) for t in ts]
-        c = ttnn.concat(us, dim=0)
-        return ttnn.bitcast(c, ttnn.float32)
+        return ttnn.concat(ts, dim=0)
     chunks = [_concat_dim0_exact_f32(ts[i:i + 24]) for i in range(0, len(ts), 24)]
     out = _concat_dim0_exact_f32(chunks)
     for c in chunks:
@@ -92,18 +86,53 @@ def _concat_dim0_exact_f32(ts: list):
 
 
 def transpose_exact_f32(t):
-    """Bit-exact last-2-dim transpose of a float32 TILE tensor via uint32 bitcast.
+    """Bit-exact last-2-dim transpose of a float32 TILE tensor via 3-part bf16 decomposition.
 
-    ``ttnn.transpose`` on float32 truncates mantissa bits (~TF32); bitcasting to uint32 moves
-    the raw 32-bit words without touching the FPU.
+    Direct ``ttnn.transpose`` on float32 (and ``ttnn.bitcast(..., float32)`` on ttnn 0.68.0)
+    truncates mantissa bits to TF32. Splitting an IEEE float32 (24 significand bits) into three
+    8-bit-significand bf16 slices ``hi + mid + lo``, transposing each losslessly in bf16 TILE
+    layout, and summing back in float32 preserves all 24 bits bit-exactly (0.0 max error).
     """
     import ttnn
 
     if len(t.shape) < 2:
         return _clone_exact_f32(t)
-    u = ttnn.bitcast(t, ttnn.uint32)
-    ut = ttnn.transpose(u, -2, -1)
-    return ttnn.bitcast(ut, ttnn.float32)
+    bf16, f32 = ttnn.bfloat16, ttnn.float32
+    hi = ttnn.typecast(t, bf16)
+    hi_f = ttnn.typecast(hi, f32)
+    r1 = ttnn.subtract(t, hi_f)
+    ttnn.deallocate(hi_f)
+    mid = ttnn.typecast(r1, bf16)
+    mid_f = ttnn.typecast(mid, f32)
+    r2 = ttnn.subtract(r1, mid_f)
+    ttnn.deallocate(r1)
+    ttnn.deallocate(mid_f)
+    lo = ttnn.typecast(r2, bf16)
+    ttnn.deallocate(r2)
+
+    hi_t = ttnn.transpose(hi, -2, -1)
+    ttnn.deallocate(hi)
+    hi_tf = ttnn.typecast(hi_t, f32)
+    ttnn.deallocate(hi_t)
+
+    mid_t = ttnn.transpose(mid, -2, -1)
+    ttnn.deallocate(mid)
+    mid_tf = ttnn.typecast(mid_t, f32)
+    ttnn.deallocate(mid_t)
+
+    s1 = ttnn.add(hi_tf, mid_tf)
+    ttnn.deallocate(hi_tf)
+    ttnn.deallocate(mid_tf)
+
+    lo_t = ttnn.transpose(lo, -2, -1)
+    ttnn.deallocate(lo)
+    lo_tf = ttnn.typecast(lo_t, f32)
+    ttnn.deallocate(lo_t)
+
+    out = ttnn.add(s1, lo_tf)
+    ttnn.deallocate(s1)
+    ttnn.deallocate(lo_tf)
+    return out
 
 
 def _ckc(fidelity):
@@ -195,9 +224,9 @@ def _sum_sq_last2_exact_f32(x):
 
     r2_hi, r2_lo = _split2_bf16(row_sum)
     ttnn.deallocate(row_sum)
-    ones_m = _ones_row_bf16(m, dev)
-    s_hi = ttnn.matmul(ones_m, r2_hi, dtype=f32, compute_kernel_config=ckc)
-    s_lo = ttnn.matmul(ones_m, r2_lo, dtype=f32, compute_kernel_config=ckc)
+    ones_m = _ones_col_bf16(m, dev)
+    s_hi = ttnn.matmul(r2_hi, ones_m, transpose_a=True, dtype=f32, compute_kernel_config=ckc)
+    s_lo = ttnn.matmul(r2_lo, ones_m, transpose_a=True, dtype=f32, compute_kernel_config=ckc)
     ttnn.deallocate(r2_hi)
     ttnn.deallocate(r2_lo)
     out = ttnn.add(s_hi, s_lo)          # [k, 1, 1]

@@ -215,15 +215,13 @@ def _is_aligned_for_tile(shape: tuple[int, ...], dim: int, start: int, end: int)
 
 
 def _dev_clone_f32(x):
-    """Bit-exact fp32 TILE clone via uint32 bitcast (avoids TF32 truncation)."""
+    """Bit-exact fp32 TILE clone."""
     import ttnn
-    u = ttnn.bitcast(x, ttnn.uint32)
-    c = ttnn.clone(u)
-    return ttnn.bitcast(c, ttnn.float32)
+    return ttnn.clone(x)
 
 
 def _dev_transpose_2d(x):
-    """Bit-exact 2-D float32 transpose on Tenstorrent via uint32 bitcast."""
+    """Bit-exact 2-D float32 transpose on Tenstorrent (3-part bf16 split)."""
     from .device_optim import transpose_exact_f32
     return transpose_exact_f32(x)
 
@@ -232,18 +230,16 @@ def _to_row_major_f32(x):
     import ttnn
     if x.layout == ttnn.ROW_MAJOR_LAYOUT:
         return x, False
-    u = ttnn.bitcast(x, ttnn.uint32)
-    rm_u = ttnn.to_layout(u, ttnn.ROW_MAJOR_LAYOUT)
-    return ttnn.bitcast(rm_u, ttnn.float32), rm_u
+    rm = ttnn.to_layout(x, ttnn.ROW_MAJOR_LAYOUT)
+    return rm, rm
 
 
 def _to_tile_f32(x):
     import ttnn
     if x.layout == ttnn.TILE_LAYOUT:
         return x, False
-    u = ttnn.bitcast(x, ttnn.uint32)
-    tl_u = ttnn.to_layout(u, ttnn.TILE_LAYOUT)
-    return ttnn.bitcast(tl_u, ttnn.float32), tl_u
+    tl = ttnn.to_layout(x, ttnn.TILE_LAYOUT)
+    return tl, tl
 
 
 def _dev_slice_f32(x, dim: int, start: int, end: int):
@@ -262,9 +258,7 @@ def _dev_slice_f32(x, dim: int, start: int, end: int):
     beg[d] = int(start)
     fin[d] = int(end)
     if _is_aligned_for_tile(shape, d, beg[d], fin[d]):
-        u = ttnn.bitcast(x, ttnn.uint32)
-        su = ttnn.slice(u, beg, fin)
-        return ttnn.bitcast(su, ttnn.float32)
+        return ttnn.slice(x, beg, fin)
     # Non-32-aligned last dim on a 2-D tensor (e.g. bias_ws (384, 24) -> (384, 12)):
     if rank == 2 and d == 1 and shape[0] % 32 == 0:
         xt = _dev_transpose_2d(x)
@@ -298,9 +292,7 @@ def _dev_concat_f32(xs: list, dim: int):
     aligned = all((d < rank - 2) or (int(t.shape[d]) % 32 == 0) for t in xs)
     if aligned:
         if len(xs) <= 24:
-            us = [ttnn.bitcast(t, ttnn.uint32) for t in xs]
-            cu = ttnn.concat(us, dim=d)
-            return ttnn.bitcast(cu, ttnn.float32)
+            return ttnn.concat(xs, dim=d)
         chunks = [_dev_concat_f32(xs[i:i + 24], d) for i in range(0, len(xs), 24)]
         out = _dev_concat_f32(chunks, d)
         for c in chunks:
@@ -384,9 +376,7 @@ def _dev_expand_f32(x, target_shape: tuple[int, ...]):
         return _dev_clone_f32(x)
     assert len(cur) == len(tgt), (cur, tgt)
     reps = [t // c for c, t in zip(cur, tgt)]
-    u = ttnn.bitcast(x, ttnn.uint32)
-    ru = ttnn.repeat(u, ttnn.Shape(reps))
-    return ttnn.bitcast(ru, ttnn.float32)
+    return ttnn.repeat(x, ttnn.Shape(reps))
 
 
 def _dev_broadcast_shape(t, target_shape: tuple[int, ...]):
