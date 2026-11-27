@@ -33,8 +33,14 @@ def library_crosscheck(poses: Path, ids):
     different code, so a disagreement on top-1 is a defect in one of them, and agreement is the
     cheapest check that the number is the metric it claims to be.
     """
-    sys.path.insert(0, str(REPO))
-    from tt_bio.diffdock import evaluate
+    # By file path, not `from tt_bio.diffdock import evaluate`: the package __init__ imports the
+    # input pipeline, which imports torch, and the grading environment deliberately has no torch.
+    # evaluate.py itself needs numpy, and rdkit/spyrmsd inside the functions.
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "dfd_evaluate", REPO / "tt_bio" / "diffdock" / "evaluate.py")
+    evaluate = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(evaluate)
     g = evaluate.grade_set(ids, poses, PB, max_rank=10)
     m = g["metrics"]
     # success_rates' top-k family starts at k=5, so the rank-1 rate this campaign gates on comes
