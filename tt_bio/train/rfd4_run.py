@@ -34,7 +34,9 @@ import threading
 import time
 
 
-def main(argv=None):
+def main(argv=None, on_step=None):
+    """``on_step(row)`` is called with each step's row, the same dict that is printed. Tier 0
+    (`rfd4_tier0`) hands it the status writer; a bare run hands nothing and only prints."""
     ap = argparse.ArgumentParser(prog="trunk_step")
     ap.add_argument("--n", type=int, default=256, help="token length; taken from --batch when one is given")
     ap.add_argument("--k", type=int, default=4)
@@ -584,13 +586,15 @@ def main(argv=None):
         del s, z, st
         md = hashlib.sha256(b"".join(opt.master[k].tobytes() for k in sorted(opt.master))).hexdigest()[:16]
         sm = clk[c0:] or clk[-1:]
-        print(json.dumps(dict(step=step + 1, rank=rank, world=world, loss=loss, fwd_s=round(t1 - t0, 4), bwd_s=round(t2 - t1, 4),
-                              fold_bwd_s=round(t2b - t2, 4), opt_s=round(t2c - t2b, 4), rebuild_s=round(t3 - t2c, 4), rebuild_split=dict(RB), idle_dev_w=len(idle), step_s=round(t3 - t0, 4), retained_B=retained,
-                              dead=len(dead), dead_names=sorted(dead)[:20], dev_base_B=base, dev_after_bwd_B=after_bwd, params=len(params), n_elems=int(sum(v.size for v in opt.master.values())),
-                              master_digest=md, aiclk=[min(sm or [0]), max(sm or [0])], aiclk_med=sorted(sm)[len(sm) // 2] if sm else 0,
-                              k=a.k, depth=a.depth, n=n, lnbw_reach=dict(lnbw.REACH), gate_bw=list(gate_bw.STATS), kernels={k: list(v) for k, v in __import__("tt_bio.taped_ttnn", fromlist=["x"]).KERNEL_STATS.items()}, **extra,
-                              **({"pcie": PM.take()} if PM else {}), host_maxrss_GiB=round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 2**20, 3))),
-              flush=True)
+        row = dict(step=step + 1, rank=rank, world=world, loss=loss, fwd_s=round(t1 - t0, 4), bwd_s=round(t2 - t1, 4),
+                   fold_bwd_s=round(t2b - t2, 4), opt_s=round(t2c - t2b, 4), rebuild_s=round(t3 - t2c, 4), rebuild_split=dict(RB), idle_dev_w=len(idle), step_s=round(t3 - t0, 4), retained_B=retained,
+                   dead=len(dead), dead_names=sorted(dead)[:20], dev_base_B=base, dev_after_bwd_B=after_bwd, params=len(params), n_elems=int(sum(v.size for v in opt.master.values())),
+                   master_digest=md, aiclk=[min(sm or [0]), max(sm or [0])], aiclk_med=sorted(sm)[len(sm) // 2] if sm else 0,
+                   k=a.k, depth=a.depth, n=n, lnbw_reach=dict(lnbw.REACH), gate_bw=list(gate_bw.STATS), kernels={k: list(v) for k, v in __import__("tt_bio.taped_ttnn", fromlist=["x"]).KERNEL_STATS.items()}, **extra,
+                   **({"pcie": PM.take()} if PM else {}), host_maxrss_GiB=round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 2**20, 3))
+        print(json.dumps(row), flush=True)
+        if on_step is not None:
+            on_step({**row, "s": row["step_s"]})
         if a.save_at and step + 1 == a.save_at:   # before the guard, so a refusal still leaves the resume test its input
             print(json.dumps(dict(saved=str(ck.save(step + 1, opt, metrics={"loss": loss}, force=True)))), flush=True)
         if a.pin_spike:

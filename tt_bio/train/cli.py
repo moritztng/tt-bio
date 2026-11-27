@@ -54,11 +54,19 @@ RECIPE_NAMES = ("default",)
 # duplicated, and pinned by the same test: validating `--train` must not import the tape.
 TRAIN_MODES = ("adapters", "weights")
 
-#: Models with a shipped featuriser, so `tt-bio train` can read their data. Pinned equal to
-#: `catalogue.SHIPPED` by a test; kept literal so `--help` imports nothing.
-TRAINABLE = ("openfold3",)
+#: Models `tt-bio train` can read data for. `catalogue.SHIPPED` plus the models whose step is
+#: their own (`OWN_STEP`); pinned equal to that union by a test, and kept literal so `--help`
+#: imports nothing.
+TRAINABLE = ("openfold3", "rfd4")
 
-__all__ = ["train", "ADAPTABLE", "TRAINABLE", "RECIPE_NAMES", "TRAIN_MODES", "WEIGHTS_ONLY"]
+#: Models whose training step is not `train.loop`'s, with the module that runs it. RFD4 picks a
+#: winner among k noise candidates grad-off and trains only the winner's last recycle, so the
+#: step body is `train.rfd4_run`; everything around it (folds, optimizer, checkpointer,
+#: data-parallel axis, gradient coverage) is the shared stack, which is what G6 asks for.
+OWN_STEP = {"rfd4": "tt_bio.train.rfd4_tier0"}
+
+__all__ = ["train", "ADAPTABLE", "TRAINABLE", "OWN_STEP", "RECIPE_NAMES", "TRAIN_MODES",
+           "WEIGHTS_ONLY"]
 
 
 def _echo_objectives(ctx, param, value):
@@ -222,7 +230,8 @@ def _expert(*a, **kw):
          help="Print a Tier-1 body as Tier-2 source and exit.")
 @_expert("--list-objectives", is_flag=True, is_eager=True, expose_value=False,
          callback=_echo_objectives, help="Print the objective rows and exit.")
-def train(data, model, out_dir, steps, chip_ids, dry_run, global_batch, lr, warmup_steps,
+@click.pass_context
+def train(ctx, data, model, out_dir, steps, chip_ids, dry_run, global_batch, lr, warmup_steps,
           checkpoint_every, tokens, seed, train_mode, exact, objective, recipe, rank, alpha,
           targets):
     """Train a model on the chips of this machine.
@@ -231,8 +240,11 @@ def train(data, model, out_dir, steps, chip_ids, dry_run, global_batch, lr, warm
         tt-bio train --model openfold3
         tt-bio train data/ --model openfold3
         tt-bio train data/ --model openfold3 --steps 1000 --chips 4
+        tt-bio train batches/ --model rfd4 --steps 2000 --chips 4
 
-    DATA for OpenFold3 is upstream's training-set directory (pdb_training_set/ plus a
+    DATA for RFD4 is a directory of training batches, as
+    perf/r4t/loss_parity_reference.py dumps them; without DATA an RFD4 run trains on the
+    shipped 16-example fixture. DATA for OpenFold3 is upstream's training-set directory (pdb_training_set/ plus a
     training_cache*.json). Without DATA the run fetches upstream's 8-structure sample
     (73 MB) and trains on that. The run writes OUT/status.json, whose `status` is running,
     succeeded or failed, and OUT/progress.jsonl, one JSON line per step. Run the same
@@ -271,6 +283,31 @@ def train(data, model, out_dir, steps, chip_ids, dry_run, global_batch, lr, warm
         raise click.ClickException("refusing to start on a configuration measured not to "
                                    "fit. Lower --tokens")
     if dry_run:
+        return
+
+    if model in OWN_STEP:
+        from .rfd4_tier0 import refuse_unhonoured, train_rfd4
+        # Before anything is written: a refused flag must not leave a claimed run directory
+        # behind, or the next command refuses in turn with a settings conflict.
+        typed = {n for n in ctx.params
+                 if (src := ctx.get_parameter_source(n)) is not None and src.name != "DEFAULT"}
+        refuse_unhonoured(typed)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        status = _Status(out_dir)
+        config = {"model": model, "data": str(Path(data).resolve()) if data else "fixture",
+                  "train": train_mode, "global_batch": global_batch, "tokens": crop}
+        status.claim(config, chips=list(chip_ids))
+        try:
+            train_rfd4(data=data, out_dir=out_dir, steps=steps, chip_ids=chip_ids,
+                       checkpoint_every=checkpoint_every, tokens=tokens, typed=typed,
+                       status=status)
+        except Exception as exc:                                       # noqa: BLE001
+            status.fail(exc)
+            raise
+        last = status.read()
+        click.echo(f"trained {last.get('step')} steps, loss {last.get('loss')}")
+        status.update(status="succeeded", latest=str(_latest_file(out_dir, chip_ids) or ""))
+        click.echo(f"wrote {status.path}")
         return
 
     from . import launcher
@@ -318,7 +355,7 @@ def train(data, model, out_dir, steps, chip_ids, dry_run, global_batch, lr, warm
 
 
 #: The crop a run uses when --tokens is not given: each model's first training stage.
-_DEFAULT_CROP = {"openfold3": 384}
+_DEFAULT_CROP = {"openfold3": 384, "rfd4": 256}
 
 
 class _Status:
@@ -420,6 +457,11 @@ class _Status:
                     dp=_dp_summary(run.dp), weights=self.weights,
                     checkpoint=str(best["path"]) if best else None,
                     latest=str(latest) if latest else None, record=str(self.dir / "run.json"))
+
+
+def _latest_file(out_dir, chip_ids):
+    from .rfd4_tier0 import latest_checkpoint
+    return latest_checkpoint(out_dir, chip_ids)
 
 
 def _dp_summary(dp):
