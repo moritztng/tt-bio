@@ -138,10 +138,10 @@ def test_heads(dev, glue, batch8_path: str, pcie_meter_mod):
         tot, brk, seeds = OBJ.rfd4_loss(b1, outs_np, OBJ.WEIGHTS)
         # Backprop seeds through float64 heads
         loss_proxy = (
-            (v_ca * torch.from_numpy(seeds["v_bb_ca"])).sum()
-            + (v_ll * torch.from_numpy(seeds["v_local_latents"])).sum()
-            + (v_sq * torch.from_numpy(seeds["sequence_logits"])).sum()
-            + (v_ins * torch.from_numpy(seeds["insertion_logits"])).sum()
+            (v_ca * torch.as_tensor(seeds["v_bb_ca"])).sum()
+            + (v_ll * torch.as_tensor(seeds["v_local_latents"])).sum()
+            + (v_sq * torch.as_tensor(seeds["sequence_logits"])).sum()
+            + (v_ins * torch.as_tensor(seeds["insertion_logits"])).sum()
         )
         grads = torch.autograd.grad(loss_proxy, [s64_t] + list(head_w64.values()))
         gmap = {"s": grads[0].numpy()}
@@ -233,7 +233,7 @@ def test_heads(dev, glue, batch8_path: str, pcie_meter_mod):
             pl.grad = None
 
         if pcie_meter_mod is not None and broken_mode == "none":
-            pcie_meter_mod.reset()
+            pcie_meter_mod.take()
             pcie_meter_mod.phase("heads_fwd_bwd")
 
         s_var = ag.Tensor(s_tt, requires_grad=True)
@@ -266,7 +266,7 @@ def test_heads(dev, glue, batch8_path: str, pcie_meter_mod):
 
         def up_seed(arr):
             pad = np.zeros((b, n_pad, arr.shape[-1]), dtype=np.float32)
-            pad[:, :n, :] = arr.astype(np.float32)
+            pad[:, :n, :] = np.asarray(arr, dtype=np.float32)
             return ttnn.from_torch(
                 torch.from_numpy(pad), dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev)
 
@@ -282,7 +282,7 @@ def test_heads(dev, glue, batch8_path: str, pcie_meter_mod):
 
         pcie_snap = None
         if pcie_meter_mod is not None and broken_mode == "none":
-            pcie_snap = pcie_meter_mod.snapshot()
+            pcie_snap = pcie_meter_mod.take()
 
         # Read back grads to compare vs float64
         got = {"s": ttnn.to_torch(s_var.grad).numpy()[:, :n, :]}
@@ -410,14 +410,14 @@ def test_device_folds(dev, state, cfg, glue, pcie_meter_mod):
 
     # Run dfolds.refold(dev_masters) under pcie_meter
     if pcie_meter_mod is not None:
-        pcie_meter_mod.reset()
+        pcie_meter_mod.take()
         pcie_meter_mod.phase("refold")
     ttnn.synchronize_device(dev)
     t0 = time.time()
     dfolds.refold(dev_masters)
     ttnn.synchronize_device(dev)
     refold_s = time.time() - t0
-    refold_pcie = pcie_meter_mod.snapshot() if pcie_meter_mod is not None else None
+    refold_pcie = pcie_meter_mod.take() if pcie_meter_mod is not None else None
     print(f"  refold() time={refold_s*1000:.1f} ms, pcie={refold_pcie}", flush=True)
 
     # Verify refolded handles vs host Folds build from perturbed_host
@@ -464,14 +464,14 @@ def test_device_folds(dev, state, cfg, glue, pcie_meter_mod):
 
     # DeviceFolds.tape_backward() under pcie_meter
     if pcie_meter_mod is not None:
-        pcie_meter_mod.reset()
+        pcie_meter_mod.take()
         pcie_meter_mod.phase("fold_bwd")
     ttnn.synchronize_device(dev)
     t1 = time.time()
     dev_grads, idle = dfolds.tape_backward(dev_masters)
     ttnn.synchronize_device(dev)
     bwd_s = time.time() - t1
-    bwd_pcie = pcie_meter_mod.snapshot() if pcie_meter_mod is not None else None
+    bwd_pcie = pcie_meter_mod.take() if pcie_meter_mod is not None else None
     print(f"  tape_backward() time={bwd_s*1000:.1f} ms, grads={len(dev_grads)}, idle={len(idle)}, pcie={bwd_pcie}", flush=True)
 
     assert set(dev_grads.keys()) == set(host_leaf_grads.keys()), (
@@ -500,10 +500,10 @@ def test_device_folds(dev, state, cfg, glue, pcie_meter_mod):
 
     # Check 0 PCIe bytes for both refold and fold_bwd!
     if refold_pcie:
-        tot_r = sum(v.get("h2d_bytes", 0) + v.get("d2h_bytes", 0) for v in refold_pcie.values() if isinstance(v, dict))
+        tot_r = sum(v.get("up_n", 0) + v.get("down_n", 0) for v in refold_pcie.values() if isinstance(v, dict))
         assert tot_r == 0, f"refold had non-zero PCIe bytes: {refold_pcie}"
     if bwd_pcie:
-        tot_b = sum(v.get("h2d_bytes", 0) + v.get("d2h_bytes", 0) for v in bwd_pcie.values() if isinstance(v, dict))
+        tot_b = sum(v.get("up_n", 0) + v.get("down_n", 0) for v in bwd_pcie.values() if isinstance(v, dict))
         assert tot_b == 0, f"fold_bwd had non-zero PCIe bytes: {bwd_pcie}"
     assert worst_g_rel < 1e-4, f"DeviceFolds tape_backward parity failed: {worst_g_rel} ({worst_g_name})"
     assert worst_by_dt.get("DataType.FLOAT32", 0.0) < 1e-6, f"fp32 refold mismatch: {worst_by_dt}"
