@@ -195,10 +195,11 @@ def _pad2(t: Tensor, rows: int, cols: int) -> Tensor:
     return torch.nn.functional.pad(t, (0, cols - t.shape[1], 0, rows - t.shape[0]))
 
 
-def fc1_blocks(fc, ns: int, in_pad: int):
+def fc1_blocks(fc, ns: int, in_pad: int, plan=None):
     """``(W1a, W1s, W1d, b1)`` in float64 with ``cat([ea, x[src, :ns], x[dst, :ns]]) @ W1 + b =
     ea @ W1a + x[src] @ W1s + x[dst] @ W1d + b1`` for zero-padded ``ea`` and node rows ``x`` of
-    width *in_pad*, hidden width ``pad32(hidden)``.
+    width *in_pad*. With an edge-tile *plan*, the hidden width and bias are the kernel's (its
+    folded-bias lane included); otherwise ``pad32(hidden)`` and the FC bias.
     """
     f64 = torch.float64
     W = fc[0].weight.detach().to(f64).T                 # [F, hidden]
@@ -206,9 +207,12 @@ def fc1_blocks(fc, ns: int, in_pad: int):
     a = F - 2 * ns
     if a <= 0:
         raise ValueError(f"edge features {F} cannot hold two node blocks of {ns}")
-    hp = pad32(hidden)
+    hp = plan.hidden_pad if plan is not None else pad32(hidden)
     b1 = torch.zeros(hp, dtype=f64)
-    b1[:hidden] = fc[0].bias.detach().to(f64)
+    if plan is not None:
+        b1[:] = plan.b1
+    else:
+        b1[:hidden] = fc[0].bias.detach().to(f64)
     blocks = []
     for rows, lo, hi in ((pad32(a), 0, a), (in_pad, a, a + ns), (in_pad, a + ns, F)):
         w = torch.zeros(rows, hp, dtype=f64)
@@ -257,18 +261,42 @@ class DeviceConvLayer:
     built once per static graph (tt-atom's form, ``tt_atom/model.py``); the mask scales the
     messages and is what the divisor sums, so a node with every edge masked gets
     ``0 / eps = 0`` rather than NaN, which is the all-masked rule of D-dfd-orch-10.
+
+    *edge_tp* picks the per-edge FC + tensor product: ``"gemm"`` (:class:`DeviceEdgeTP`) or
+    ``"tile"`` (:class:`~tt_bio.diffdock.edge_tile.DeviceEdgeTile`, one fused Blackhole kernel).
+    The tile kernel writes its own column order; the 0/1 permutation back to e3nn's commutes
+    with the scatter, so it is applied on node rows after it.
     """
 
-    def __init__(self, device, layer, *, dtype=None):
+    def __init__(self, device, layer, *, dtype=None, edge_tp: str = "gemm"):
         import ttnn
         if layer.residual_first:
             raise NotImplementedError("the confidence model's residual-first order is not ported yet")
         self.ttnn, self.device, self.layer = ttnn, device, layer
         self.dtype = dtype or ttnn.float32
         self.fcs = fcs = list(layer.fc) if layer.edge_groups > 1 else [layer.fc]
-        self.tps = [DeviceEdgeTP(device, layer.tp, fc, dtype=self.dtype) for fc in fcs]
         self.in_dim, self.out_dim = layer.in_irreps.dim, layer.out_irreps.dim
         self.out_pad = pad32(self.out_dim)
+        self.perm = None
+        if edge_tp == "gemm":
+            self.tps = [DeviceEdgeTP(device, layer.tp, fc, dtype=self.dtype) for fc in fcs]
+            self.ckc = self.tps[0].ckc
+        elif edge_tp == "tile":
+            from tt_bio.diffdock.edge_tile import DeviceEdgeTile
+            if device.arch() != ttnn.Arch.BLACKHOLE:
+                raise NotImplementedError("the fused edge-tile kernel is Blackhole only")
+            self.tps = [DeviceEdgeTile(device, layer.tp, fc) for fc in fcs]
+            perm = self.tps[0].plan.perm
+            if any(not torch.equal(t.plan.perm, perm) for t in self.tps[1:]):
+                raise ValueError("edge groups disagree on the kernel column order")
+            self.perm = ttnn.from_torch(_pad2(perm, perm.shape[0], self.out_pad).float(),
+                                        dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT,
+                                        device=device)
+            self.ckc = ttnn.types.BlackholeComputeKernelConfig(
+                math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,
+                fp32_dest_acc_en=True, packer_l1_acc=True)
+        else:
+            raise ValueError(f"edge_tp must be gemm or tile, not {edge_tp!r}")
         bn = layer.batch_norm
         scale = torch.ones(self.out_pad, dtype=torch.float64)
         shift = torch.zeros(self.out_pad, dtype=torch.float64)
@@ -313,13 +341,15 @@ class DeviceConvLayer:
         ``e @ W1 = edge_attr @ W1a + (x @ W1s)[src] + (x @ W1d)[dst]``: the node halves are
         multiplied on node rows and gathered, and the concatenated edge block never exists.
         ``W1s``/``W1d`` take the whole padded node row and are zero past ``ns``. The bias is the
-        edge TP's own.
+        edge TP's own, including the tile kernel's folded-bias lane.
         """
         if ns not in self._split:
             up = lambda t: self.ttnn.from_torch(t.float(), dtype=self.dtype,
                                                 layout=self.ttnn.TILE_LAYOUT, device=self.device)
             self._split[ns] = [
-                tuple(up(t) for t in fc1_blocks(fc, ns, pad32(self.in_dim))) for fc in self.fcs]
+                tuple(up(t) for t in fc1_blocks(fc, ns, pad32(self.in_dim),
+                                                getattr(tp, "plan", None)))
+                for fc, tp in zip(self.fcs, self.tps)]
         return self._split[ns]
 
     def _group_index(self, g, sizes):
@@ -346,7 +376,7 @@ class DeviceConvLayer:
         here from *node_attr* (:meth:`fc1_split`), so a stack of layers never leaves the card.
         """
         ttnn = self.ttnn
-        ckc = self.tps[0].ckc
+        ckc = self.ckc
         x1 = gather_rows(node_attr, g["idx"], g["E"])
         if ns is not None:
             sizes = tuple(int(ea.shape[0]) for ea in edge_attr_groups)
@@ -367,6 +397,8 @@ class DeviceConvLayer:
         msg = msgs[0] if len(msgs) == 1 else ttnn.concat(msgs, dim=0)
         msg = ttnn.multiply(msg, edge_mask)
         s = ttnn.matmul(g["S"], msg, compute_kernel_config=ckc, dtype=self.dtype)
+        if self.perm is not None:
+            s = ttnn.matmul(s, self.perm, compute_kernel_config=ckc, dtype=self.dtype)
         div = ttnn.matmul(g["S"], edge_mask, compute_kernel_config=ckc, dtype=self.dtype)
         div = ttnn.reciprocal(ttnn.clamp(div, min=float(torch.finfo(torch.float32).eps)))
         out = ttnn.multiply(s, div)
@@ -438,7 +470,7 @@ class DeviceConvModule(torch.nn.Module):
     """
 
     def __init__(self, device, layer, *, dtype=None, grade: bool = False, name: str = "",
-                 graphs: GraphCache | None = None):
+                 graphs: GraphCache | None = None, edge_tp: str = "gemm"):
         super().__init__()
         import copy
         self.name, self.log = name, []
@@ -452,7 +484,8 @@ class DeviceConvModule(torch.nn.Module):
         #: :meth:`run_stack` may carry this layer. Grading needs every layer's input on the host.
         self.resident = not grade
         self.layer = layer
-        self.dev = DeviceConvLayer(device, copy.deepcopy(layer).float(), dtype=dtype)
+        self.dev = DeviceConvLayer(device, copy.deepcopy(layer).float(), dtype=dtype,
+                                   edge_tp=edge_tp)
 
     def _graph(self, ei: Tensor, n_out_p: int, n_in_p: int) -> dict:
         return self.graphs.get((tuple(ei.shape), n_out_p, n_in_p), ei,
@@ -565,10 +598,13 @@ class DeviceConvModule(torch.nn.Module):
         return out
 
 
-def convs_on_device(model, device, *, dtype=None, grade: bool = False) -> dict:
+def convs_on_device(model, device, *, dtype=None, grade: bool = False,
+                    edge_tp: str = "gemm", gemm_modules=()) -> dict:
     """Swap every convolution in *model* for a :class:`DeviceConvModule`, in place.
 
-    Returns ``{module path: DeviceConvModule}`` so a caller can read each one's grade log.
+    *edge_tp* is the edge tensor-product form of every convolution except those whose path ends
+    in one of *gemm_modules*, which keep the fp32 GEMM form. Returns ``{module path:
+    DeviceConvModule}`` so a caller can read each one's grade log.
     """
     from tt_bio.diffdock.conv import TensorProductConvLayer
     swapped, graphs = {}, GraphCache()
@@ -577,8 +613,15 @@ def convs_on_device(model, device, *, dtype=None, grade: bool = False) -> dict:
             if isinstance(child, TensorProductConvLayer):
                 full = f"{path}.{name}" if path else name
                 mod._modules[name] = swapped[full] = DeviceConvModule(
-                    device, child, dtype=dtype, grade=grade, name=full, graphs=graphs)
+                    device, child, dtype=dtype, grade=grade, name=full, graphs=graphs,
+                    edge_tp="gemm" if full.endswith(tuple(gemm_modules)) else edge_tp)
     return swapped
+
+
+#: Convolutions that keep the fp32 GEMM form when the rest run the edge-tile kernel. The torsion
+#: head's bf16 kernel error broke the SE(3) check at step 18 (2 of 51 legs against a float64
+#: reference); on GEMM every leg passes (state/dfd/PERF.md, D-dfd-orch-19).
+TILE_GEMM_MODULES = ("tor_bond_conv",)
 
 
 class DeviceScoreNetwork:
@@ -594,10 +637,11 @@ class DeviceScoreNetwork:
 
     on_device = True
 
-    def __init__(self, host, device):
+    def __init__(self, host, device, *, edge_tp: str = "gemm"):
         self.host, self.device = host, device
         self.model, self.config = host.model, host.config
-        self.convs = convs_on_device(host.model, device)
+        self.convs = convs_on_device(host.model, device, edge_tp=edge_tp,
+                                     gemm_modules=TILE_GEMM_MODULES if edge_tp == "tile" else ())
 
     def score_fn(self, graph):
         from tt_bio.diffdock.conv import pad_nodes
