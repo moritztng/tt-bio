@@ -593,28 +593,143 @@ def test_device_optim(dev, state, glue, pcie_meter_mod):
         timings[ns_mode] = {
             "cold_ms": round(step_ms[0], 1),
             "warm_ms": round(float(np.median(step_ms[2:])), 1),
-            "muon_norm": st["muon_norm"], "adam_norm": st["adam_norm"],
+            "muon_norm": st["grad_norm_muon"], "adam_norm": st["grad_norm"],
             "n_muon": len(opt.muon_names), "n_adam": len(opt.adam_names),
             "n_muon_buckets": len(opt._muon_buckets), "n_adam_buckets": len(opt._adam_buckets),
             "pcie": pcie_step,
         }
         if ns_mode == "split2":
-            assert reduced_count[0] == len(host_grads) - 2
-            om_a_diff = float(np.max(np.abs(opt.host_master(omitted_adam).numpy() - params[omitted_adam].numpy())))
-            om_m_diff = float(np.max(np.abs(opt.host_master(omitted_muon).numpy() - params[omitted_muon].numpy())))
+            assert reduced_count[0] == 1, f"expected reduce_fn called once, got {reduced_count[0]}"
+            hm = opt.host_master()
+            om_a_diff = float(np.max(np.abs(hm[omitted_adam] - params[omitted_adam].numpy())))
+            om_m_diff = float(np.max(np.abs(hm[omitted_muon] - params[omitted_muon].numpy())))
             assert om_a_diff == 0.0, f"Omitted Adam param moved: {om_a_diff}"
             assert om_m_diff == 0.0, f"Omitted Muon param moved: {om_m_diff}"
-            assert opt.ema is not None and len(opt.ema.shadows) == len(params)
+            assert opt.ema is not None and opt.ema.n_averaged == 4 and len(opt.ema.host_shadow()) == len(params)
         print(
             f"  {ns_mode:14s}: cold={timings[ns_mode]['cold_ms']} ms, warm={timings[ns_mode]['warm_ms']} ms "
             f"(muon={len(opt.muon_names)} in {len(opt._muon_buckets)} bkts, "
             f"adam={len(opt.adam_names)} in {len(opt._adam_buckets)} bkts, "
-            f"norms={st['muon_norm']:.3f}/{st['adam_norm']:.3f}, pcie={pcie_step})",
+            f"norms={st['grad_norm_muon']:.3f}/{st['grad_norm']:.3f}, pcie={pcie_step})",
             flush=True,
         )
         opt.deallocate()
 
     return timings
+
+
+def test_resident_pair(dev, glue, batch8_path: str, pcie_meter_mod):
+    import torch
+    import ttnn
+    from tt_bio import autograd as ag
+    from tt_bio.rfd4.pair import PairSplit
+    from tt_bio.train.bridge import Bridge
+    from tt_bio.train.rfd4_pair import ResidentPairBuilder
+
+    print("\n=== [4/4] ResidentPairBuilder (zero pair-sized PCIe, fwd + D28 VJP parity) ===", flush=True)
+    bt = _load_npz_batch(batch8_path)
+    b1 = {
+        k: ({sk: sv[:1] for sk, sv in v.items()} if isinstance(v, dict) else (v[:1] if torch.is_tensor(v) else v))
+        for k, v in bt.items()
+    }
+    n = int(bt["padding_mask"].shape[1])
+    c = int(glue.pair_repr_builder.init_repr_factory.linear_out.weight.shape[0])
+
+    # Float64 reference on winner=0
+    ps = PairSplit(glue.pair_repr_builder)
+    fac = glue.pair_repr_builder.init_repr_factory
+    feats64 = ps.features(b1).double()  # [1, n, n, 107]
+    W64 = fac.linear_out.weight.detach().double().clone().requires_grad_(True)
+    lnw64 = fac.ln_out.weight.detach().double().clone().requires_grad_(True)
+    g0, b0 = ps.modulation(b1)
+    gam64 = g0.detach().double().clone().requires_grad_(True)
+    bet64 = b0.detach().double().clone().requires_grad_(True)
+    e1, e2 = float(fac.ln_out.eps), float(glue.pair_repr_builder.adaln.norm.eps)
+
+    x64 = feats64 @ W64.t()
+    n1_64 = x64 * torch.rsqrt((x64 * x64).mean(dim=-1, keepdim=True) + e1)
+    a64 = n1_64 * lnw64
+    bb64 = a64 * torch.rsqrt((a64 * a64).mean(dim=-1, keepdim=True) + e2)
+    z64 = bb64 * gam64[:, None, None, :] + bet64[:, None, None, :]
+
+    rng = np.random.default_rng(77)
+    dz_np = (rng.standard_normal((1, n, n, c)) * 0.05).astype(np.float32)
+    dz64 = torch.from_numpy(dz_np.astype(np.float64))
+    gW64, glnw64, ggam64, gbet64 = torch.autograd.grad((z64 * dz64).sum(), [W64, lnw64, gam64, bet64])
+    ref_g = {
+        "W": gW64.numpy(), "lnw": glnw64.numpy(),
+        "gamma": ggam64.numpy(), "beta": gbet64.numpy(),
+    }
+
+    rpb = ResidentPairBuilder(glue.pair_repr_builder, dev)
+    enc = rpb.encode_step(bt)
+    assert enc.fallback_const is None, "expected compact integer encoding on batch08"
+
+    if pcie_meter_mod is not None:
+        pcie_meter_mod.take()
+        pcie_meter_mod.phase("res_pair_cand")
+
+    t0 = time.time()
+    zk, cache = rpb.candidates(enc, dtype=ttnn.float32)
+    pcie_cand = pcie_meter_mod.take() if pcie_meter_mod is not None else None
+    zk0_np = ttnn.to_torch(zk).float().numpy()[:1]
+    ttnn.deallocate(zk)
+    cand_fwd_rel = _rel_l2(zk0_np, z64.detach().numpy())
+
+    # Taped winner pass + backward
+    for p in glue.pair_repr_builder.parameters():
+        p.grad = None
+    br = Bridge(dev, ttnn.float32)
+    dz_tt = ttnn.from_torch(torch.from_numpy(dz_np), dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev)
+    if pcie_meter_mod is not None:
+        pcie_meter_mod.take()
+        pcie_meter_mod.phase("res_pair_win_fwd")
+    with ag.tape():
+        gam_w, bet_w = rpb.modulation(b1)
+        z_t = rpb.winner_taped(cache, 0, gam_w, bet_w, br, dtype=ttnn.float32)
+    pcie_win_fwd = pcie_meter_mod.take() if pcie_meter_mod is not None else None
+    zw_np = ttnn.to_torch(z_t.value).float().numpy()
+    win_fwd_rel = _rel_l2(zw_np, z64.detach().numpy())
+    if pcie_meter_mod is not None:
+        pcie_meter_mod.take()
+        pcie_meter_mod.phase("res_pair_win_bwd")
+    ag.backward([z_t], [dz_tt])
+    ttnn.synchronize_device(dev)
+    pcie_win_bwd = pcie_meter_mod.take() if pcie_meter_mod is not None else None
+    pair_ms = (time.time() - t0) * 1000.0
+    ttnn.deallocate(dz_tt)
+    pcie_snap = {"cand": pcie_cand, "win_fwd": pcie_win_fwd, "win_bwd": pcie_win_bwd}
+
+    # Extract device gradients from bridge.ups
+    leaf_names = ["W", "lnw", "gamma", "beta"]
+    dev_g = {}
+    for nm, (h_t, d_t) in zip(leaf_names, br.ups):
+        assert d_t.grad is not None, f"missing grad for {nm}"
+        dev_g[nm] = ttnn.to_torch(d_t.grad).float().numpy().reshape(ref_g[nm].shape)
+        ttnn.deallocate(d_t.grad)
+        d_t.grad = None
+    br.ups.clear()
+    ag.release_pins()
+    rpb.deallocate()
+
+    rels = {nm: _rel_l2(dev_g[nm], ref_g[nm]) for nm in leaf_names}
+    coss = {nm: _cos(dev_g[nm], ref_g[nm]) for nm in leaf_names}
+    worst_rel = max(rels.values())
+    min_cos = min(coss.values())
+    print(
+        f"  ResidentPairBuilder: cand_fwd_rel={cand_fwd_rel:.3e}, win_fwd_rel={win_fwd_rel:.3e}, "
+        f"bwd worst_rel={worst_rel:.3e}, min_cos={min_cos:.6f}, wall={pair_ms:.1f} ms, pcie={pcie_snap}",
+        flush=True,
+    )
+    for nm in leaf_names:
+        print(f"    {nm:8s}: rel_l2={rels[nm]:.3e}  cos={coss[nm]:.6f}", flush=True)
+    assert cand_fwd_rel < 2e-3 and win_fwd_rel < 2e-3, (cand_fwd_rel, win_fwd_rel)
+    assert worst_rel <= 1e-2 and min_cos >= 0.9999, (rels, coss)
+    return {
+        "cand_fwd_rel": cand_fwd_rel, "win_fwd_rel": win_fwd_rel,
+        "worst_rel": worst_rel, "min_cos": min_cos, "rels": rels, "wall_ms": round(pair_ms, 1),
+        "pcie": pcie_snap,
+    }
 
 
 def main():
@@ -644,11 +759,15 @@ def main():
     cfg = config["nn"]
     glue = N.FlowGlue(state, config)
 
+    from tt_bio import autograd as ag
+    ag.install()
+
     res = {"card": card, "clk_node": clk_node}
     res["u32_smoke"] = test_u32_smoke(dev)
     res["heads"] = test_heads(dev, glue, args.batch8, PM)
     res["device_folds"] = test_device_folds(dev, state, cfg, glue, PM)
     res["device_optim"] = test_device_optim(dev, state, glue, PM)
+    res["resident_pair"] = test_resident_pair(dev, glue, args.batch8, PM)
 
     stop.set()
     t_clk.join(timeout=1.0)

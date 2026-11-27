@@ -435,44 +435,84 @@ def _ones_row_bf16(k: int, device):
 
 
 def _sum_dim0_exact_f32(x2d):
-    """Exact fp32 sum along dim 0 of a 2-D ``[K, M]`` TILE tensor -> ``[1, M]``.
+    """Exact IEEE float32 sum along dim 0 of a 2-D ``[K, M]`` TILE tensor -> ``[1, M]`` TILE.
 
-    Uses 3-part bf16 split ``ones([1, K]) @ (hi + mid + lo)`` in bf16->fp32 HiFi4+fp32_dest_acc so:
-    (1) padded tile rows ``K..K_pad-1`` are multiplied by exact 0.0 (zero tail leakage), and
-    (2) full 24-bit IEEE fp32 mantissa is preserved (~1e-7 accuracy instead of TF32 ~2.7e-4).
+    Uses a binary tree of float32 ``ttnn.add`` (SFPU IEEE fp32, ~1e-7 accuracy, zero TF32
+    truncation and zero padded-tail leakage):
+      - While ``K >= 64``: halves tile-aligned chunks directly in TILE layout.
+      - Once ``K < 64``: slices contiguous rows in ROW_MAJOR (``M`` is 32-aligned) and
+        accumulates pairwise in TILE layout until ``K == 1``.
     """
     import ttnn
-    from .device_optim import _ckc
 
-    k = int(x2d.shape[0])
-    ones = _ones_row_bf16(k, x2d.device())
-    ckc = _ckc(ttnn.MathFidelity.HiFi4)
-    bf16, f32 = ttnn.bfloat16, ttnn.float32
-    hi = ttnn.typecast(x2d, bf16)
-    hi_f = ttnn.typecast(hi, f32)
-    r1 = ttnn.subtract(x2d, hi_f)
-    ttnn.deallocate(hi_f)
-    mid = ttnn.typecast(r1, bf16)
-    mid_f = ttnn.typecast(mid, f32)
-    r2 = ttnn.subtract(r1, mid_f)
-    ttnn.deallocate(r1)
-    ttnn.deallocate(mid_f)
-    lo = ttnn.typecast(r2, bf16)
-    ttnn.deallocate(r2)
+    k, m = int(x2d.shape[0]), int(x2d.shape[1])
+    if k == 1:
+        return _dev_clone_f32(x2d)
 
-    s_hi = ttnn.matmul(ones, hi, dtype=f32, compute_kernel_config=ckc)
-    s_mid = ttnn.matmul(ones, mid, dtype=f32, compute_kernel_config=ckc)
-    s_lo = ttnn.matmul(ones, lo, dtype=f32, compute_kernel_config=ckc)
-    ttnn.deallocate(hi)
-    ttnn.deallocate(mid)
-    ttnn.deallocate(lo)
-    s1 = ttnn.add(s_hi, s_mid)
-    ttnn.deallocate(s_hi)
-    ttnn.deallocate(s_mid)
-    out = ttnn.add(s1, s_lo)
-    ttnn.deallocate(s1)
-    ttnn.deallocate(s_lo)
-    return out
+    cur = x2d
+    cur_owned = False
+    while k >= 64:
+        half = ((k // 32) // 2) * 32
+        left = ttnn.slice(cur, [0, 0], [half, m])
+        right = ttnn.slice(cur, [half, 0], [2 * half, m])
+        s = ttnn.add(left, right)
+        ttnn.deallocate(left)
+        ttnn.deallocate(right)
+        if 2 * half < k:
+            tail = _dev_slice_f32(cur, 0, 2 * half, k)
+            nxt = _dev_concat_f32([s, tail], 0)
+            ttnn.deallocate(s)
+            ttnn.deallocate(tail)
+        else:
+            nxt = s
+        if cur_owned:
+            ttnn.deallocate(cur)
+        cur = nxt
+        cur_owned = True
+        k = int(cur.shape[0])
+
+    while k > 1:
+        rm, rm_owner = _to_row_major_f32(cur)
+        half = k // 2
+        l_rm = ttnn.slice(rm, [0, 0], [half, m])
+        r_rm = ttnn.slice(rm, [half, 0], [2 * half, m])
+        l_tl, _ = _to_tile_f32(l_rm)
+        r_tl, _ = _to_tile_f32(r_rm)
+        s = ttnn.add(l_tl, r_tl)
+        ttnn.deallocate(l_tl)
+        ttnn.deallocate(r_tl)
+        if l_rm is not rm:
+            ttnn.deallocate(l_rm)
+        if r_rm is not rm:
+            ttnn.deallocate(r_rm)
+        if k % 2 == 1:
+            t_rm = ttnn.slice(rm, [2 * half, 0], [k, m])
+            if half == 1:
+                t_tl, _ = _to_tile_f32(t_rm)
+                nxt = ttnn.add(s, t_tl)
+                ttnn.deallocate(s)
+                ttnn.deallocate(t_tl)
+            else:
+                s_rm, s_rm_own = _to_row_major_f32(s)
+                ttnn.deallocate(s)
+                c_rm = ttnn.concat([s_rm, t_rm], dim=0)
+                if s_rm_own is not False:
+                    ttnn.deallocate(s_rm_own)
+                nxt, _ = _to_tile_f32(c_rm)
+                ttnn.deallocate(c_rm)
+            if t_rm is not rm:
+                ttnn.deallocate(t_rm)
+        else:
+            nxt = s
+        if rm_owner is not False:
+            ttnn.deallocate(rm_owner)
+        if cur_owned:
+            ttnn.deallocate(cur)
+        cur = nxt
+        cur_owned = True
+        k = int(cur.shape[0])
+
+    return cur
 
 
 def _dev_reduce_to_f32(g, target_shape: tuple[int, ...]):

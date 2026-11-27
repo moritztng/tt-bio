@@ -268,14 +268,18 @@ def _sum_sq_scalar_exact_f32(x3d):
 
 
 def _mm_sym_split2(ah, al, *, transpose_b: bool, ckc_hi, ckc_lo):
-    """Symmetric product ``A @ A^T`` (``transpose_b=True``) or ``G @ G`` (``transpose_b=False``)
-    using 2-part bf16 split: ``ah@ah + (ah@al) + (ah@al)^T`` (2 matmuls instead of 3)."""
+    """Symmetric product ``A @ A^T`` (``transpose_b=True``) or symmetric ``G @ G``
+    (``transpose_b=False``) using 2-part bf16 split: ``ah@ah + ah@al + al@ah``.
+
+    Computes the transpose cross-term ``al@ah`` directly as a single matmul instead of
+    transposing ``ah@al`` via 3-part bf16 split (saves 15 ops/call x 10 calls/bucket).
+    """
     import ttnn
 
     f32 = ttnn.float32
     p0 = ttnn.matmul(ah, ah, transpose_b=transpose_b, dtype=f32, compute_kernel_config=ckc_hi)
     p1 = ttnn.matmul(ah, al, transpose_b=transpose_b, dtype=f32, compute_kernel_config=ckc_lo)
-    p1t = transpose_exact_f32(p1)
+    p1t = ttnn.matmul(al, ah, transpose_b=transpose_b, dtype=f32, compute_kernel_config=ckc_lo)
     cross = ttnn.add(p1, p1t)
     ttnn.deallocate(p1)
     ttnn.deallocate(p1t)

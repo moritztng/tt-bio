@@ -436,8 +436,8 @@ def main():
         if (step + 1) in (1, 5, 10, 15, args.steps):
             print(
                 f"  step {step+1:2d}/{args.steps} ({bt_tup[0]}): loss={loss:.5f} win={win} "
-                f"muon_norm dev={st_dev['muon_norm']:.4f} f64={st_f64['muon_norm']:.4f} "
-                f"adam_norm dev={st_dev['adam_norm']:.4f} f64={st_f64['adam_norm']:.4f}",
+                f"muon_norm dev={st_dev['grad_norm_muon']:.4f} f64={st_f64['muon_norm']:.4f} "
+                f"adam_norm dev={st_dev['grad_norm']:.4f} f64={st_f64['adam_norm']:.4f}",
                 flush=True,
             )
 
@@ -446,9 +446,11 @@ def main():
     worst_adam_rel, worst_adam_name = 0.0, ""
     worst_ema_rel, worst_ema_name = 0.0, ""
     muon_set = set(opt_dev.muon_names)
+    hm_dev = opt_dev.host_master()
+    em_dev = opt_dev.ema.host_shadow()
 
     for nm in init_np:
-        w_d = opt_dev.host_master(nm).numpy()
+        w_d = hm_dev[nm]
         w_r = opt_f64_same.master[nm]
         rel = _rel_l2(w_d, w_r)
         if rel > worst_param_rel:
@@ -460,7 +462,7 @@ def main():
             if rel > worst_adam_rel:
                 worst_adam_rel, worst_adam_name = rel, nm
 
-        e_d = opt_dev.ema.host_shadow(nm).numpy()
+        e_d = em_dev[nm]
         e_r = opt_f64_same.ema[nm]
         erel = _rel_l2(e_d, e_r)
         if erel > worst_ema_rel:
@@ -585,9 +587,10 @@ def main():
             opt_brk.step(dev_g, free_grads=True)
         ttnn.synchronize_device(dev)
 
+        hm_brk = opt_brk.host_master()
         w_rel, w_nm = 0.0, ""
         for nm in init_np:
-            rel = _rel_l2(opt_brk.host_master(nm).numpy(), opt_f64_same.master[nm])
+            rel = _rel_l2(hm_brk[nm], opt_f64_same.master[nm])
             if rel > w_rel:
                 w_rel, w_nm = rel, nm
         opt_brk.deallocate()

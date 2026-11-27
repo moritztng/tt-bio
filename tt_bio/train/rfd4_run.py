@@ -467,14 +467,23 @@ def main(argv=None, on_step=None):
             winner by our own exploration loss, then the winner re-run with grad (host glue, taped trunk)."""
             bt, K = cur["bt"], cur["K"]
             mk = tmask(bt)
-            pc = pair_card()
+            use_res_pair = (res_pair is not None)
+            pc = None if use_res_pair else pair_card()
+            pair_cache = None
             with torch.no_grad():
                 ck = conds_for(bt)
-                s0, z0 = glue.initial_states(bt, pair_constant=glue.pair_split.constant(bt) if pc else None)
+                if use_res_pair:
+                    enc_p = res_pair.encode_step(bt)
+                    s0 = glue.init_repr_factory(bt) * bt["padding_mask"][..., None]
+                else:
+                    s0, z0 = glue.initial_states(bt, pair_constant=glue.pair_split.constant(bt) if pc else None)
             win = None
             if a.cand_levers == "serve":
                 with ag.suspended(), cand_scope():
-                    zk0 = pc(z0, 0) if pc else put(z0, trunk.pair_dtype(mk))
+                    if use_res_pair:
+                        zk0, pair_cache = res_pair.candidates(enc_p, trunk.pair_dtype(mk))
+                    else:
+                        zk0 = pc(z0, 0) if pc else put(z0, trunk.pair_dtype(mk))
                     sk, zk = trunk(put(s0), zk0, [put(c, trunk.dtype) for c in ck], mk)
                     if a.resident:
                         from tt_bio.train.rfd4_heads import device_candidate_scores
@@ -486,7 +495,10 @@ def main(argv=None, on_step=None):
             with T.lever_scope(levers), ag.tape():
                 if a.cand_levers != "serve":
                     with ag.no_grad(), cand_scope():
-                        zk0 = pc(z0, 0) if pc else put(z0, trunk.pair_dtype(mk))
+                        if use_res_pair:
+                            zk0, pair_cache = res_pair.candidates(enc_p, trunk.pair_dtype(mk))
+                        else:
+                            zk0 = pc(z0, 0) if pc else put(z0, trunk.pair_dtype(mk))
                         sk, zk = trunk(put(s0), zk0, [put(c, trunk.dtype) for c in ck], mk)
                         if a.resident:
                             from tt_bio.train.rfd4_heads import device_candidate_scores
@@ -505,12 +517,18 @@ def main(argv=None, on_step=None):
                 br = Bridge(dev, trunk.dtype)
                 m1 = tmask(bw)
                 if not taped:
+                    if pair_cache is not None:
+                        pair_cache.release()
                     with torch.no_grad(), ag.no_grad():
                         s_i, z_i = glue.initial_states(bw)
                         return winner(put(s_i), put(z_i, trunk.pair_dtype(m1)),
                                       [put(c, trunk.dtype) for c in conds_for(bw)], m1)
                 cs = conds_for(bw)
-                if pc and a.win_pair == "card":
+                if use_res_pair:
+                    s_i = glue.init_repr_factory(bw) * bw["padding_mask"][..., None]
+                    gamma_w, beta_w = res_pair.modulation(bw)
+                    z_in = res_pair.winner_taped(pair_cache, win, gamma_w, beta_w, br, trunk.pair_dtype(m1))
+                elif pc and a.win_pair == "card":
                     # r4t-perf P2: the winner's pair on the card from the candidate pass's constant, its backward too
                     from tt_bio.rfd4.pair import PairInputs
                     from tt_bio.train.rfd4_pair import pair_taped
@@ -548,6 +566,7 @@ def main(argv=None, on_step=None):
     ag.install()
     dfolds = None
     dheads = None
+    res_pair = None
     host_glue_params = {}
     refold_hook = None
     if a.resident:
@@ -600,13 +619,16 @@ def main(argv=None, on_step=None):
                                   muon=None, ema_decay=ema_d, ns_mode=a.ns_mode)
         else:
             opt = rfd4_device_optimizer(init_w, dev, lr=1e-4, ema_decay=ema_d, ns_mode=a.ns_mode)
+        if real and a.cand_pair == "card" and a.win_pair == "card":
+            from tt_bio.train.rfd4_pair import ResidentPairBuilder
+            res_pair = ResidentPairBuilder(glue.pair_repr_builder, dev)
         refold_hook = make_rfd4_refold_hook(
             trunk, glue if real else None,
             host_glue_params=host_glue_params,
-            pair_card_ref=(card_pair if (real and a.cand_pair == "card") else None),
+            pair_card_ref=(card_pair if (real and a.cand_pair == "card" and res_pair is None) else None),
             device=dev,
         )
-        if real and a.cand_pair == "card":
+        if real and a.cand_pair == "card" and res_pair is None:
             pair_card()
     else:
         build()
