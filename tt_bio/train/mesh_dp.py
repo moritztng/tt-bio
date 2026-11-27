@@ -152,15 +152,18 @@ def put_sharded(tensor, device, *, dtype=None, layout=None, memory_config=None):
 
     On a single-chip device (``world == 1``), falls back to plain ``ttnn.from_torch``.
     ``tensor.shape[0]`` must be divisible by ``mesh_world(device)``.
+    For large tile-aligned multi-chip uploads, uploads ROW_MAJOR and tilizes on card in parallel
+    across all ``world`` chips to avoid serial host software tilization (bit-identical).
     """
     import ttnn
 
     w = mesh_world(device)
     if w > 1 and int(tensor.shape[0]) % w != 0:
         raise ValueError(f"put_sharded: dim 0 ({tensor.shape[0]}) not divisible by mesh world {w}")
+    want_layout = ttnn.TILE_LAYOUT if layout is None else layout
     kw: dict[str, Any] = {
         "device": device,
-        "layout": ttnn.TILE_LAYOUT if layout is None else layout,
+        "layout": want_layout,
     }
     if dtype is not None:
         kw["dtype"] = dtype
@@ -168,6 +171,22 @@ def put_sharded(tensor, device, *, dtype=None, layout=None, memory_config=None):
         kw["memory_config"] = memory_config
     if w > 1:
         kw["mesh_mapper"] = ttnn.ShardTensorToMesh(device, dim=0)
+    card_tilize = (
+        w > 1
+        and want_layout == ttnn.TILE_LAYOUT
+        and hasattr(ttnn, "to_layout")
+        and (dtype is None or dtype in (ttnn.float32, ttnn.bfloat16))
+        and tensor.ndim >= 2
+        and int(tensor.shape[-1]) % 32 == 0
+        and int(tensor.shape[-2]) % 32 == 0
+        and int(tensor.numel()) >= 32768
+    )
+    if card_tilize:
+        kw["layout"] = ttnn.ROW_MAJOR_LAYOUT
+        rm = ttnn.from_torch(tensor.contiguous(), **kw)
+        out = ttnn.to_layout(rm, ttnn.TILE_LAYOUT)
+        ttnn.deallocate(rm)
+        return out
     return ttnn.from_torch(tensor.contiguous(), **kw)
 
 

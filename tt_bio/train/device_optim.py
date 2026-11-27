@@ -633,7 +633,7 @@ class DeviceOptimizer:
             _safe_dealloc(p, keep=orig)
         return g_b, flags
 
-    def _unpack_master(self, bk: _Bucket) -> None:
+    def _unpack_master(self, bk: _Bucket, *, in_place: bool = False) -> None:
         """Refresh ``self.master[name]`` individual slices from ``bk.master_b``."""
         import ttnn
 
@@ -646,8 +646,13 @@ class DeviceOptimizer:
             new_m = ttnn.reshape(sl, list(bk.shape))
             _safe_dealloc(sl, keep=new_m)
             old_m = self.master[nm]
-            self.master[nm] = new_m
-            _safe_dealloc(old_m, keep=new_m)
+            if in_place and old_m is not None:
+                if new_m is not old_m:
+                    ttnn.copy(new_m, old_m)
+                    _safe_dealloc(new_m, keep=old_m)
+            else:
+                self.master[nm] = new_m
+                _safe_dealloc(old_m, keep=new_m)
 
     def _mask_tensor(self, flags: list, s0: int):
         """Build ``[k*s0, 1, 1]`` float32 active and inactive masks on card (tiny, 4*k bytes)."""
@@ -730,7 +735,8 @@ class DeviceOptimizer:
             off += bk.k * s0
         return sq_muon, sq_adam, dead
 
-    def _step_muon_bucket(self, bk: _Bucket, g_b, flags: list, clip_muon: float, lr_muon: float) -> None:
+    def _step_muon_bucket(self, bk: _Bucket, g_b, flags: list, clip_muon: float, lr_muon: float,
+                          *, in_place_masters: bool = False) -> None:
         import ttnn
 
         if g_b is None:
@@ -819,10 +825,11 @@ class DeviceOptimizer:
             ttnn.deallocate(m_act)
             ttnn.deallocate(m_inact)
 
-        self._unpack_master(bk)
+        self._unpack_master(bk, in_place=in_place_masters)
 
     def _step_adam_bucket(self, bk: _Bucket, g_b, dis: set,
-                          clip_adam: float, lr: float, bc1: float, bc2: float) -> None:
+                          clip_adam: float, lr: float, bc1: float, bc2: float,
+                          *, in_place_masters: bool = False) -> None:
         import ttnn
 
         b1, b2 = self.beta1, self.beta2
@@ -935,7 +942,7 @@ class DeviceOptimizer:
             ttnn.deallocate(m_act)
             ttnn.deallocate(m_inact)
 
-        self._unpack_master(bk)
+        self._unpack_master(bk, in_place=in_place_masters)
 
     def step(
         self,
@@ -944,6 +951,8 @@ class DeviceOptimizer:
         reduce_fn: Optional[Callable[[Mapping[str, object]], Mapping[str, object]]] = None,
         disabled=(),
         free_grads: bool = False,
+        in_place_masters: bool = False,
+        free_skip: Optional[set] = None,
     ) -> dict:
         """Run one optimizer step wholly on card."""
         import ttnn
@@ -952,6 +961,7 @@ class DeviceOptimizer:
         if reduce_fn is not None:
             grads = reduce_fn(grads)
         dis = set(disabled)
+        skip = set(free_skip) if free_skip is not None else ()
 
         lr = self.lr if self.schedule is None else float(self.schedule(self.steps))
         lr_muon = (
@@ -968,12 +978,12 @@ class DeviceOptimizer:
         adam_packed = [(bk, *self._pack_grads(bk, grads, dis)) for bk in self._adam_buckets]
 
         if free_grads:
-            for g in grads.values():
-                if g is not None and g.is_allocated():
+            for nm, g in grads.items():
+                if g is not None and g.is_allocated() and not (orig_grads is grads and nm in skip):
                     ttnn.deallocate(g)
             if orig_grads is not grads:
-                for g in orig_grads.values():
-                    if g is not None and g.is_allocated():
+                for nm, g in orig_grads.items():
+                    if g is not None and g.is_allocated() and nm not in skip:
                         ttnn.deallocate(g)
 
         sq_muon, sq_adam, dead_grads = self._group_norms_and_dead(muon_packed, adam_packed)
@@ -993,12 +1003,12 @@ class DeviceOptimizer:
             self.last_grad_norm_muon = 0.0
 
         for bk, g_b, flags in muon_packed:
-            self._step_muon_bucket(bk, g_b, flags, clip_muon, lr_muon)
+            self._step_muon_bucket(bk, g_b, flags, clip_muon, lr_muon, in_place_masters=in_place_masters)
             if g_b is not None:
                 ttnn.deallocate(g_b)
 
         for bk, g_b, _flags in adam_packed:
-            self._step_adam_bucket(bk, g_b, dis, clip_adam, lr, bc1, bc2)
+            self._step_adam_bucket(bk, g_b, dis, clip_adam, lr, bc1, bc2, in_place_masters=in_place_masters)
             if g_b is not None:
                 ttnn.deallocate(g_b)
 

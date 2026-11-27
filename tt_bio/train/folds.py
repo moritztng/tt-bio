@@ -1020,16 +1020,22 @@ class DeviceFolds:
             return out
         raise NotImplementedError(f"DeviceFolds._eval_node: unknown op {op}")
 
-    def refold(self, dev_masters: Mapping[str, object], *, on_refold=None) -> None:
-        """Recompute every bound serving weight on card from ``dev_masters`` (0 PCIe bytes)."""
+    def refold(self, dev_masters: Mapping[str, object], *, on_refold=None, in_place: bool = False) -> None:
+        """Recompute every bound serving weight on card from ``dev_masters`` (0 PCIe bytes).
+
+        When ``in_place=True``, copies each recomputed weight directly into its existing
+        ``spec.handle`` buffer (preserving buffer addresses and registered ``ag.parameter``
+        leaves across steps so ``MeshTrace`` captures stay valid).
+        """
         import ttnn
         from .. import autograd as ag
 
         if not self._bound:
             raise RuntimeError("DeviceFolds.refold called before bind()")
 
-        ag.release_pins()
-        ag.forget_parameters()
+        if not in_place:
+            ag.release_pins()
+            ag.forget_parameters()
 
         needed: set[int] = set()
         stack = [s.nid for s in self.specs]
@@ -1082,30 +1088,36 @@ class DeviceFolds:
                             moved = ttnn.to_memory_config(new_h, spec.memory_config)
                             ttnn.deallocate(new_h)
                             new_h = moved
-                    old_h = spec.handle
-                    spec.handle = new_h
-                    for kind, owner, key in spec.sites:
-                        if kind == "attr":
-                            setattr(owner, key, new_h)
-                        elif kind in ("list", "dict"):
-                            owner[key] = new_h
-                        elif kind == "tuple_slot":
-                            owner["items"][key] = new_h
-                    ttnn.deallocate(old_h)
-                    ag.parameter(new_h)
+                    if in_place:
+                        if new_h is not spec.handle:
+                            ttnn.copy(new_h, spec.handle)
+                            ttnn.deallocate(new_h)
+                    else:
+                        old_h = spec.handle
+                        spec.handle = new_h
+                        for kind, owner, key in spec.sites:
+                            if kind == "attr":
+                                setattr(owner, key, new_h)
+                            elif kind in ("list", "dict"):
+                                owner[key] = new_h
+                            elif kind == "tuple_slot":
+                                owner["items"][key] = new_h
+                        ttnn.deallocate(old_h)
+                        ag.parameter(new_h)
                 if rem[nid] == 0 and nid in owned_val:
                     ttnn.deallocate(vals.pop(nid))
                     owned_val.discard(nid)
 
-        for tb in self._tuple_bindings:
-            new_tup = tuple(tb["items"])
-            p, k, pk = tb["parent"], tb["pkey"], tb["pkind"]
-            if pk == "attr":
-                setattr(p, k, new_tup)
-            else:
-                p[k] = new_tup
+        if not in_place:
+            for tb in self._tuple_bindings:
+                new_tup = tuple(tb["items"])
+                p, k, pk = tb["parent"], tb["pkey"], tb["pkind"]
+                if pk == "attr":
+                    setattr(p, k, new_tup)
+                else:
+                    p[k] = new_tup
 
-        self.sources = {id(s.handle): (s.handle, None) for s in self.specs}
+            self.sources = {id(s.handle): (s.handle, None) for s in self.specs}
 
         if on_refold is not None:
             on_refold(dev_masters)
@@ -1346,7 +1358,8 @@ class DeviceFolds:
 
 
 def make_rfd4_refold_hook(trunk, glue=None, *, host_glue_params: Mapping[str, torch.Tensor] | None = None,
-                          pair_card_ref: list | None = None, device=None):
+                          pair_card_ref: list | None = None, device=None,
+                          in_place: bool = False, sync_host: bool = True):
     """Build an ``on_refold(dev_masters)`` callback refreshing lazy serving caches on RFD4.
 
     Refreshes:
@@ -1390,14 +1403,20 @@ def make_rfd4_refold_hook(trunk, glue=None, *, host_glue_params: Mapping[str, to
                 for w8 in keys:
                     old_triple = t1_map.get(w8)
                     dt = ttnn.bfloat8_b if w8 else ttnn.bfloat16
-                    wp_new = ttnn.typecast(wp_f32, dt)
-                    wg_new = ttnn.typecast(wg_f32, dt)
-                    wgo_new = ttnn.typecast(wgo_f32, ttnn.bfloat8_b) if w8 else None
-                    t1_map[w8] = (wp_new, wg_new, wgo_new)
-                    if old_triple is not None:
-                        for old_t in old_triple:
-                            if old_t is not None:
-                                ttnn.deallocate(old_t)
+                    if in_place and old_triple is not None and old_triple[0] is not None and old_triple[1] is not None:
+                        ttnn.typecast(wp_f32, dt, output_tensor=old_triple[0])
+                        ttnn.typecast(wg_f32, dt, output_tensor=old_triple[1])
+                        if w8 and old_triple[2] is not None:
+                            ttnn.typecast(wgo_f32, ttnn.bfloat8_b, output_tensor=old_triple[2])
+                    else:
+                        wp_new = ttnn.typecast(wp_f32, dt)
+                        wg_new = ttnn.typecast(wg_f32, dt)
+                        wgo_new = ttnn.typecast(wgo_f32, ttnn.bfloat8_b) if w8 else None
+                        t1_map[w8] = (wp_new, wg_new, wgo_new)
+                        if old_triple is not None:
+                            for old_t in old_triple:
+                                if old_t is not None:
+                                    ttnn.deallocate(old_t)
                 ttnn.deallocate(wp_f32)
                 ttnn.deallocate(wg_f32)
                 ttnn.deallocate(wgo_f32)
@@ -1411,7 +1430,7 @@ def make_rfd4_refold_hook(trunk, glue=None, *, host_glue_params: Mapping[str, to
                 mha._bias_w = None
 
         # 3. Sync small host-only glue params (non-pair-sized) and refresh PairSplit/PairOnCard
-        if host_glue_params:
+        if sync_host and host_glue_params:
             from .mesh_dp import read_rep0
             with torch.no_grad():
                 for name, p in host_glue_params.items():

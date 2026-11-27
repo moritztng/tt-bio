@@ -362,16 +362,20 @@ class ResidentPairBuilder:
                     f = f.reshape(f.shape[0], 1, 1, -1).expand(-1, n, n, -1)
                 return f.float()
 
+            def _fast_onehot_idx(f: torch.Tensor, d: int):
+                mx, arg = f.max(dim=-1)
+                if bool((f.min() >= 0.0) and ((mx == 0.0) | (mx == 1.0)).all() and (f.sum(dim=-1) == mx).all()):
+                    return torch.where(mx > 0.5, arg, torch.tensor(d, dtype=torch.long))
+                return None
+
             idx_oh = []
             compact_ok = True
             raw_large = []
             for fc, cols, _boff, bw in self.large_oh:
                 f = _eval_fc(fc)
                 d = len(cols)
-                is_1h = bool(((f == 0) | (f == 1)).all() and (f.sum(-1) <= 1).all())
-                if is_1h:
-                    has = f.sum(-1) > 0.5
-                    idx = torch.where(has, f.argmax(-1), torch.tensor(d, dtype=torch.long))
+                idx = _fast_onehot_idx(f, d)
+                if idx is not None:
                     idx_oh.append(("large", idx.reshape(b_c, n * n).to(torch.int32).contiguous()))
                 else:
                     compact_ok = False
@@ -381,10 +385,8 @@ class ResidentPairBuilder:
             for fc, cols, moff in self.small_oh:
                 f = _eval_fc(fc)
                 d = len(cols)
-                is_1h = bool(((f == 0) | (f == 1)).all() and (f.sum(-1) <= 1).all())
-                if is_1h:
-                    has = f.sum(-1) > 0.5
-                    idx = torch.where(has, f.argmax(-1), torch.tensor(d, dtype=torch.long))
+                idx = _fast_onehot_idx(f, d)
+                if idx is not None:
                     idx_oh.append(("small", idx.reshape(b_c, n * n).to(torch.int32).contiguous()))
                 else:
                     compact_ok = False

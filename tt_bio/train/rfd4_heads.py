@@ -356,7 +356,7 @@ def device_candidate_scores_spmd(
 
     if world > 1:
         from concurrent.futures import ThreadPoolExecutor
-        with ThreadPoolExecutor(max_workers=min(16, world)) as pool:
+        with ThreadPoolExecutor(max_workers=min(32, world)) as pool:
             winners = list(pool.map(_score_cand, range(world)))
     else:
         winners = [_score_cand(0)]
@@ -372,20 +372,30 @@ def device_winner_loss_spmd(
     weights=None,
     ref_terms_list: list[dict] | None = None,
     win_indices: list[int] | None = None,
+    stacked_bw: dict | None = None,
+    stop_at_s: bool = False,
 ):
-    """Run taped ``FlowGlue.heads`` on a ``MeshDevice`` and backprop all ``world`` chips together."""
+    """Run taped ``FlowGlue.heads`` on a ``MeshDevice`` and backprop all ``world`` chips together.
+
+    When ``stop_at_s=True``, wraps ``s_taped``'s underlying device tensor in a fresh local
+    ``ag.Tensor(..., requires_grad=True)`` so ``ag.backward`` runs ONLY through ``DeviceHeads``
+    and returns ``(mean_total, per_rank_totals, per_rank_terms, per_rank_refs, ds_out)`` where
+    ``ds_out`` is the fp32 gradient seed on ``s`` (used by paired ``MeshTrace`` trunk backward).
+    """
     from .mesh_dp import put_sharded, read_sharded, stack_batches
 
     w = RO.WEIGHTS if weights is None else weights
     world = len(rank_bws)
     n_tok = int(rank_bws[0]["padding_mask"].shape[1])
-    stacked_bw = stack_batches(rank_bws)
+    if stacked_bw is None:
+        stacked_bw = stack_batches(rank_bws)
     s_raw = getattr(s_taped, "value", s_taped)
     n_pad = int(s_raw.shape[1])
     dev = s_raw.device()
 
+    s_local = ag.Tensor(s_raw, requires_grad=True) if stop_at_s else s_taped
     with ag.tape():
-        o = glue.heads(s_taped, stacked_bw, insertion=True)
+        o = glue.heads(s_local, stacked_bw, insertion=True)
     ca_t = next(iter(o["bb_ca"].values()))
     ll_t = next(iter(o["local_latents"].values()))
     seq_t = o["sequence"]["logits"] if "sequence" in o else None
@@ -424,7 +434,7 @@ def device_winner_loss_spmd(
 
     if world > 1:
         from concurrent.futures import ThreadPoolExecutor
-        with ThreadPoolExecutor(max_workers=min(16, world)) as pool:
+        with ThreadPoolExecutor(max_workers=min(32, world)) as pool:
             eval_results = list(pool.map(_eval_rank_win, range(world)))
     else:
         eval_results = [_eval_rank_win(0)]
@@ -471,6 +481,12 @@ def device_winner_loss_spmd(
     for sd in seeds_bwd:
         ttnn.deallocate(sd)
     del o, ca_t, ll_t, seq_t, ins_t, outs_bwd
+
+    if stop_at_s:
+        ds_out = s_local.grad
+        s_local.grad = None
+        mean_total = float(sum(per_rank_totals) / world)
+        return mean_total, per_rank_totals, per_rank_terms, per_rank_refs, ds_out
 
     if bridge is not None:
         bridge.backward_ups()
