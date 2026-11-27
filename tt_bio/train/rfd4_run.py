@@ -889,6 +889,8 @@ def main(argv=None, on_step=None):
             phase = {}
             want_penult = a.win_pre == "reuse" and step_depth > 1
             pool = _get_spmd_pool()
+            if a.phase_timing:
+                _te0 = time.time()
             if use_dev_prep:
                 with torch.no_grad():
                     encs = list(pool.map(res_pair.encode_step, rank_bts))
@@ -899,6 +901,8 @@ def main(argv=None, on_step=None):
                     ck = conds_for(stacked_bt, step_depth)
                     encs = list(pool.map(res_pair.encode_step, rank_bts))
                     s0 = glue.init_repr_factory(stacked_bt) * stacked_bt["padding_mask"][..., None]
+            if a.phase_timing:
+                phase["enc_s"] = round(time.time() - _te0, 5)
 
             penult_k = (None, None)
             cand_outside = a.cand_levers in ("serve", "serve_train")
@@ -908,6 +912,10 @@ def main(argv=None, on_step=None):
             if cand_outside:
                 with ag.suspended(), cand_scope():
                     zk0, pair_cache = res_pair.candidates_spmd(encs, trunk.pair_dtype(mk))
+                    if a.phase_timing:
+                        ttnn.synchronize_device(dev)
+                        phase["cand_pair_s"] = round(time.time() - _tc0, 5)
+                        _tp0 = time.time()
                     if use_dev_prep:
                         s0_tt, ck_tt = cand_conds_and_s0_device(
                             glue, rank_bts, mk[0], step_depth, trunk.dtype, dev,
@@ -916,6 +924,10 @@ def main(argv=None, on_step=None):
                     else:
                         s0_tt = put_sharded(s0, dev, dtype=ttnn.float32)
                         ck_tt = [put_sharded(c, dev, dtype=trunk.dtype) for c in ck]
+                    if a.phase_timing:
+                        ttnn.synchronize_device(dev)
+                        phase["cand_prep_s"] = round(time.time() - _tp0, 5)
+                        _tk0 = time.time()
                     if spmd_tracer is not None:
                         res_cand = spmd_tracer.run_untaped_trunk(
                             "cand", trunk, s0_tt, zk0, ck_tt, mk, return_penultimate=want_penult,
@@ -928,7 +940,13 @@ def main(argv=None, on_step=None):
                         sk, zk, penult_k = res_cand
                     else:
                         sk, zk = res_cand
-                    win_indices = device_candidate_scores_spmd(glue, sk, rank_bts, K)
+                    if a.phase_timing:
+                        ttnn.synchronize_device(dev)
+                        phase["cand_run_s"] = round(time.time() - _tk0, 5)
+                        _ts0 = time.time()
+                    win_indices = device_candidate_scores_spmd(glue, sk, rank_bts, K, pool=pool)
+                    if a.phase_timing:
+                        phase["cand_score_s"] = round(time.time() - _ts0, 5)
                 for t in (sk, zk, s0_tt, zk0):
                     if t is not None and t.is_allocated():
                         ttnn.deallocate(t)
@@ -948,7 +966,7 @@ def main(argv=None, on_step=None):
                         sk, zk, penult_k = trunk(s0_tt, zk0, ck_tt, mk, return_penultimate=True)
                     else:
                         sk, zk = trunk(s0_tt, zk0, ck_tt, mk)
-                    win_indices = device_candidate_scores_spmd(glue, getattr(sk, "value", sk), rank_bts, K)
+                    win_indices = device_candidate_scores_spmd(glue, getattr(sk, "value", sk), rank_bts, K, pool=pool)
                     for t in (sk, zk, s0_tt, zk0):
                         tv = getattr(t, "value", t)
                         if tv is not None and tv.is_allocated():
@@ -959,6 +977,8 @@ def main(argv=None, on_step=None):
                 ttnn.synchronize_device(dev)
                 phase["cand_trunk_s"] = round(time.time() - _tc0, 5)
 
+            if a.phase_timing:
+                _twp0 = time.time()
             rank_bws, stacked_bw = gather_winner_batches(rank_bts, win_indices)
             br = MeshBridge(dev, trunk.dtype)
             m1 = _trunk_masks_spmd(stacked_bw["padding_mask"])
@@ -973,9 +993,16 @@ def main(argv=None, on_step=None):
                 cs = conds_for(stacked_bw, step_depth)
             s_i = glue.init_repr_factory(stacked_bw) * stacked_bw["padding_mask"][..., None]
             gamma_w, beta_w = res_pair.modulation(stacked_bw)
+            if a.phase_timing:
+                ttnn.synchronize_device(dev)
+                phase["win_prep_s"] = round(time.time() - _twp0, 5)
+                _twz0 = time.time()
             with T.lever_scope(levers):
                 win_pair_dt = trunk.pair_dtype(m1)
             z_in_pre = res_pair.winner_taped_spmd(pair_cache, encs, win_indices, gamma_w, beta_w, br, win_pair_dt)
+            if a.phase_timing:
+                ttnn.synchronize_device(dev)
+                phase["win_pair_s"] = round(time.time() - _twz0, 5)
 
             prev = None
             keep = ()
@@ -1087,6 +1114,7 @@ def main(argv=None, on_step=None):
                 mean_total, per_rank_totals, per_rank_terms, per_rank_refs, ds_out = device_winner_loss_spmd(
                     glue, s, ctx["rank_bws"], bridge=ctx["br"], ref_terms_list=ctx["rank_refs"],
                     win_indices=ctx["win_indices"], stacked_bw=ctx["stacked_bw"], stop_at_s=True,
+                    pool=_get_spmd_pool(),
                 )
                 head_grads, _ = dfolds.tape_backward(opt.master)
                 ag.release_pins()
@@ -1113,6 +1141,7 @@ def main(argv=None, on_step=None):
                 mean_total, per_rank_totals, per_rank_terms, per_rank_refs, ds_out = device_winner_loss_spmd(
                     glue, s, ctx["rank_bws"], bridge=ctx["br"], ref_terms_list=ctx["rank_refs"],
                     win_indices=ctx["win_indices"], stacked_bw=ctx["stacked_bw"], stop_at_s=True,
+                    pool=_get_spmd_pool(),
                 )
                 head_grads, _ = dfolds.tape_backward(opt.master)
                 s_out_ref = ttnn.clone(s.value)
@@ -1176,6 +1205,7 @@ def main(argv=None, on_step=None):
                     ref_terms_list=ctx["rank_refs"],
                     win_indices=ctx["win_indices"],
                     stacked_bw=ctx["stacked_bw"],
+                    pool=_get_spmd_pool(),
                 )
                 _dealloc_unique([*ctx.get("keep", ()), *ctx.get("m1", ())])
             if a.phase_timing:

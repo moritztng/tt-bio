@@ -324,23 +324,56 @@ def device_candidate_scores_spmd(
     rank_batches: list[dict],
     K: int,
     weights=None,
+    pool=None,
 ) -> list[int]:
     """Select one exploration winner per chip on a ``MeshDevice`` via ``FlowGlue.heads``."""
-    from .mesh_dp import read_sharded, stack_batches
+    from tt_bio._vendor.rfd4_prep._cif.model_masks import compute_flow_emit_masks
+    from .mesh_dp import put_sharded, read_sharded
 
     w = RO.WEIGHTS if weights is None else weights
     world = len(rank_batches)
     n_tok = int(rank_batches[0]["padding_mask"].shape[1])
-    stacked = stack_batches(rank_batches)
     dh = getattr(glue, "_device_heads", None)
     if dh is None:
         raise RuntimeError("device_candidate_scores_spmd requires glue._device_heads")
-    raw_out = dh(sk_tt, stacked, insertion=False, sequence=False)
+    s_raw = getattr(sk_tt, "value", sk_tt)
+    n_pad = int(s_raw.shape[1])
+    dev = s_raw.device()
+
+    # Build only the tiny [world*K, n_pad, 1] emit masks (avoids stacking full 40-key rank_batches).
+    if pool is not None and world > 1:
+        emits = list(pool.map(compute_flow_emit_masks, rank_batches))
+    else:
+        emits = [compute_flow_emit_masks(rb) for rb in rank_batches]
+
+    def _up_emit(key: str):
+        arr = np.concatenate(
+            [(e[key].detach().cpu().numpy() if isinstance(e[key], torch.Tensor) else np.asarray(e[key])).astype(np.float32)
+             for e in emits],
+            axis=0,
+        )
+        if arr.shape[1] < n_pad:
+            pad = np.zeros((arr.shape[0], n_pad), dtype=np.float32)
+            pad[:, :arr.shape[1]] = arr
+            arr = pad
+        t_rm = put_sharded(
+            torch.from_numpy(arr[..., None].copy()), dev,
+            dtype=dh.dtype, layout=ttnn.ROW_MAJOR_LAYOUT,
+        )
+        t_tile = ttnn.to_layout(t_rm, ttnn.TILE_LAYOUT)
+        if t_tile is not t_rm:
+            ttnn.deallocate(t_rm)
+        return t_tile
+
+    emit_ca = _up_emit("bb_ca")
+    emit_ll = _up_emit("local_latents")
+    raw_out = dh(sk_tt, None, insertion=False, sequence=False, masks_dev=(emit_ca, emit_ll, None))
+    ttnn.deallocate(emit_ca)
+    ttnn.deallocate(emit_ll)
     ca_tt = next(iter(raw_out["bb_ca"].values()))
     ll_tt = next(iter(raw_out["local_latents"].values()))
     ca_raw = getattr(ca_tt, "value", ca_tt)
     ll_raw = getattr(ll_tt, "value", ll_tt)
-    dev = ca_raw.device()
     ca_all = read_sharded(ca_raw, dev).float().numpy()[:, :n_tok, :3].astype(np.float64)
     ll_all = read_sharded(ll_raw, dev).float().numpy()[:, :n_tok, :32].astype(np.float64)
     ttnn.deallocate(ca_raw)
@@ -355,9 +388,12 @@ def device_candidate_scores_spmd(
         return int(bd["winners"][0])
 
     if world > 1:
-        from concurrent.futures import ThreadPoolExecutor
-        with ThreadPoolExecutor(max_workers=min(32, world)) as pool:
+        if pool is not None:
             winners = list(pool.map(_score_cand, range(world)))
+        else:
+            from concurrent.futures import ThreadPoolExecutor
+            with ThreadPoolExecutor(max_workers=min(32, world)) as _p:
+                winners = list(_p.map(_score_cand, range(world)))
     else:
         winners = [_score_cand(0)]
     return winners
@@ -374,6 +410,7 @@ def device_winner_loss_spmd(
     win_indices: list[int] | None = None,
     stacked_bw: dict | None = None,
     stop_at_s: bool = False,
+    pool=None,
 ):
     """Run taped ``FlowGlue.heads`` on a ``MeshDevice`` and backprop all ``world`` chips together.
 
@@ -433,9 +470,12 @@ def device_winner_loss_spmd(
         return r, total_non_ins, bd_r, seeds_r
 
     if world > 1:
-        from concurrent.futures import ThreadPoolExecutor
-        with ThreadPoolExecutor(max_workers=min(32, world)) as pool:
+        if pool is not None:
             eval_results = list(pool.map(_eval_rank_win, range(world)))
+        else:
+            from concurrent.futures import ThreadPoolExecutor
+            with ThreadPoolExecutor(max_workers=min(32, world)) as _p:
+                eval_results = list(_p.map(_eval_rank_win, range(world)))
     else:
         eval_results = [_eval_rank_win(0)]
 

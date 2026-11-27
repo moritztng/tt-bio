@@ -282,9 +282,9 @@ class SPMDMeshTracer:
         device,
         *,
         enabled: bool = True,
-        hole_per_bank: int = 512 << 20,
-        trace_win_pair: bool = False,
-        trace_muon_ns: bool = False,
+        hole_per_bank: int = 1792 << 20,
+        trace_win_pair: bool = True,
+        trace_muon_ns: bool = True,
     ):
         self.device = device
         self.enabled = bool(enabled)
@@ -365,7 +365,96 @@ class SPMDMeshTracer:
         ttnn.execute_trace(self.device, self._refold_state, cq_id=0, blocking=False)
         self.stats["refold_replay"] += 1
 
-    # ---- T2 & T3: Untaped trunk forward (cand_trunk & win_pre) ----
+    # ---- T2 & T3: Untaped trunk forward (cand_trunk & win_pre), factored per recycle ----
+    def _run_untaped_pass(
+        self,
+        tag: str,
+        trunk,
+        s_init,
+        z_init,
+        c_one,
+        masks: Sequence[Any],
+        prev=None,
+    ):
+        """Run one recycle pass ``trunk(s_init, z_init, [c_one], masks, prev=prev)`` under MeshTrace."""
+        import ttnn
+
+        has_prev = prev is not None
+        key = (
+            tag,
+            "pN" if has_prev else "p0",
+            tuple(s_init.shape), str(s_init.dtype),
+            tuple(z_init.shape), str(z_init.dtype),
+            tuple(c_one.shape), str(c_one.dtype),
+            tuple(m is not None for m in masks),
+        )
+
+        def _call(si, zi, ci, mk_a, pr_a):
+            return trunk(si, zi, [ci], mk_a, prev=pr_a)
+
+        tr = self._untaped_traces.get(key)
+        if tr == "eager":
+            return _call(s_init, z_init, c_one, masks, prev)
+
+        if isinstance(tr, dict):
+            ttnn.copy(s_init, tr["s_in"])
+            ttnn.copy(z_init, tr["z_in"])
+            ttnn.copy(c_one, tr["c_in"])
+            if has_prev:
+                ttnn.copy(prev[0], tr["prev_s"])
+                ttnn.copy(prev[1], tr["prev_z"])
+            for m, slot in zip(masks, tr["mk_in"]):
+                if slot is not None:
+                    ttnn.copy(m, slot)
+            ttnn.execute_trace(self.device, tr["tid"], cq_id=0, blocking=False)
+            self.stats["untaped_replay"] += 1
+            return ttnn.clone(tr["s_out"]), ttnn.clone(tr["z_out"])
+
+        seen = self._untaped_seen.get(key, 0)
+        if seen == 0:
+            self._untaped_seen[key] = 1
+            return _call(s_init, z_init, c_one, masks, prev)
+
+        # Call 2: allocate fixed slots outside the hole, run once to size/populate outputs, capture.
+        s_in = ttnn.clone(s_init)
+        z_in = ttnn.clone(z_init)
+        c_in = ttnn.clone(c_one)
+        prev_s = ttnn.clone(prev[0]) if has_prev else None
+        prev_z = ttnn.clone(prev[1]) if has_prev else None
+        prev_in = (prev_s, prev_z) if has_prev else None
+        mk_in = [None if m is None else ttnn.clone(m) for m in masks]
+        s_w, z_w = _call(s_in, z_in, c_in, mk_in, prev_in)
+        s_out = ttnn.clone(s_w)
+        z_out = ttnn.clone(z_w)
+        # Warm ttnn.copy kernels eagerly for every output shape/dtype before entering trace capture.
+        ttnn.copy(s_w, s_out)
+        ttnn.copy(z_w, z_out)
+        ttnn.synchronize_device(self.device)
+
+        def _cap():
+            sc, zc = _call(s_in, z_in, c_in, mk_in, prev_in)
+            ttnn.copy(sc, s_out)
+            ttnn.copy(zc, z_out)
+            ttnn.deallocate(sc)
+            ttnn.deallocate(zc)
+
+        try:
+            tids = self._capture_runs([_cap])
+            self._track(s_in, z_in, c_in, prev_s, prev_z, *mk_in, s_out, z_out)
+            self._untaped_traces[key] = dict(
+                tid=tids[0], s_in=s_in, z_in=z_in, c_in=c_in,
+                prev_s=prev_s, prev_z=prev_z, mk_in=mk_in,
+                s_out=s_out, z_out=z_out,
+            )
+        except Exception as exc:
+            for t in (s_in, z_in, c_in, prev_s, prev_z, *mk_in, s_out, z_out):
+                _safe_dealloc(t)
+            self._untaped_traces[key] = "eager"
+            self.stats["refused"] += 1
+            self.refusal_reasons.append(f"untaped:{tag}:{key[1]}:{type(exc).__name__}:{exc}")
+
+        return s_w, z_w
+
     def run_untaped_trunk(
         self,
         tag: str,
@@ -379,108 +468,27 @@ class SPMDMeshTracer:
     ):
         import ttnn
 
-        def _call(s_a, z_a, cs_a, mk_a):
-            if return_penultimate:
-                return trunk(s_a, z_a, cs_a, mk_a, return_penultimate=True)
-            return trunk(s_a, z_a, cs_a, mk_a)
-
         if not self.enabled:
-            return _call(s, z, cs, masks)
-
-        key = (
-            tag,
-            tuple(s.shape), str(s.dtype),
-            tuple(z.shape), str(z.dtype),
-            len(cs),
-            tuple(m is not None for m in masks),
-            bool(return_penultimate),
-        )
-        tr = self._untaped_traces.get(key)
-        if tr == "eager":
-            return _call(s, z, cs, masks)
-
-        if isinstance(tr, dict):
-            ttnn.copy(s, tr["s_in"])
-            ttnn.copy(z, tr["z_in"])
-            for c, slot in zip(cs, tr["cs_in"]):
-                ttnn.copy(c, slot)
-            for m, slot in zip(masks, tr["mk_in"]):
-                if slot is not None:
-                    ttnn.copy(m, slot)
-            ttnn.execute_trace(self.device, tr["tid"], cq_id=0, blocking=False)
-            self.stats["untaped_replay"] += 1
-            s_out = ttnn.clone(tr["s_out"])
-            z_out = ttnn.clone(tr["z_out"])
             if return_penultimate:
-                p0 = None if tr["pen_s"] is None else ttnn.clone(tr["pen_s"])
-                p1 = None if tr["pen_z"] is None else ttnn.clone(tr["pen_z"])
-                return s_out, z_out, (p0, p1)
-            return s_out, z_out
+                return trunk(s, z, cs, masks, return_penultimate=True)
+            return trunk(s, z, cs, masks)
 
-        seen = self._untaped_seen.get(key, 0)
-        if seen == 0:
-            self._untaped_seen[key] = 1
-            return _call(s, z, cs, masks)
-
-        # Call 2: allocate fixed slots outside the hole, run once to size/populate outputs, capture.
-        s_in = ttnn.clone(s)
-        z_in = ttnn.clone(z)
-        cs_in = [ttnn.clone(c) for c in cs]
-        mk_in = [None if m is None else ttnn.clone(m) for m in masks]
-        res = _call(s_in, z_in, cs_in, mk_in)
-        if return_penultimate:
-            s_w, z_w, (ps_w, pz_w) = res
-        else:
-            s_w, z_w = res
-            ps_w = pz_w = None
-        s_out = ttnn.clone(s_w)
-        z_out = ttnn.clone(z_w)
-        pen_s = None if ps_w is None else ttnn.clone(ps_w)
-        pen_z = None if pz_w is None else ttnn.clone(pz_w)
-        # Warm ttnn.copy kernels eagerly for every output dtype before entering trace capture.
-        ttnn.copy(s_w, s_out)
-        ttnn.copy(z_w, z_out)
-        if ps_w is not None and pen_s is not None:
-            ttnn.copy(ps_w, pen_s)
-        if pz_w is not None and pen_z is not None:
-            ttnn.copy(pz_w, pen_z)
-        ttnn.synchronize_device(self.device)
-
-        def _cap():
-            r = _call(s_in, z_in, cs_in, mk_in)
-            if return_penultimate:
-                sc, zc, (psc, pzc) = r
-            else:
-                sc, zc = r
-                psc = pzc = None
-            ttnn.copy(sc, s_out)
-            ttnn.copy(zc, z_out)
-            ttnn.deallocate(sc)
-            ttnn.deallocate(zc)
-            if psc is not None and pen_s is not None:
-                ttnn.copy(psc, pen_s)
-                ttnn.deallocate(psc)
-            if pzc is not None and pen_z is not None:
-                ttnn.copy(pzc, pen_z)
-                ttnn.deallocate(pzc)
-
-        try:
-            tids = self._capture_runs([_cap])
-            self._track(s_in, z_in, *cs_in, *mk_in, s_out, z_out, pen_s, pen_z)
-            self._untaped_traces[key] = dict(
-                tid=tids[0], s_in=s_in, z_in=z_in, cs_in=cs_in, mk_in=mk_in,
-                s_out=s_out, z_out=z_out, pen_s=pen_s, pen_z=pen_z,
+        cur_s, cur_z = self._run_untaped_pass(tag, trunk, s, z, cs[0], masks, prev=None)
+        penult = (None, None)
+        last = len(cs) - 1
+        for i in range(1, len(cs)):
+            nxt_s, nxt_z = self._run_untaped_pass(
+                tag, trunk, s, z, cs[i], masks, prev=(cur_s, cur_z),
             )
-        except Exception as exc:
-            for t in (s_in, z_in, *cs_in, *mk_in, s_out, z_out, pen_s, pen_z):
-                _safe_dealloc(t)
-            self._untaped_traces[key] = "eager"
-            self.stats["refused"] += 1
-            self.refusal_reasons.append(f"untaped:{tag}:{type(exc).__name__}:{exc}")
-
+            if return_penultimate and i == last:
+                penult = (cur_s, cur_z)
+            else:
+                ttnn.deallocate(cur_s)
+                ttnn.deallocate(cur_z)
+            cur_s, cur_z = nxt_s, nxt_z
         if return_penultimate:
-            return s_w, z_w, (ps_w, pz_w)
-        return s_w, z_w
+            return cur_s, cur_z, penult
+        return cur_s, cur_z
 
     # ---- T4: Paired win_last forward + (tape_bwd + dfolds.tape_backward) ----
     def win_pair_key(self, s_i_val, z_in_val, c_vals: Sequence[Any], m1: Sequence[Any], prev) -> tuple:
@@ -575,29 +583,24 @@ class SPMDMeshTracer:
         d_c_slots = [ttnn.clone(dc) for dc in d_c_refs]
         grad_names = sorted(trunk_dev_grads_ref.keys())
         dev_grad_slots = {nm: ttnn.clone(trunk_dev_grads_ref[nm]) for nm in grad_names}
-        # Warm ttnn.copy kernels eagerly for every output dtype before trace capture.
+        # Warm ttnn.copy kernels eagerly for every output shape/dtype before trace capture.
         ttnn.copy(s_out_ref, s_out_slot)
         ttnn.copy(d_s_i_ref, d_s_i_slot)
         ttnn.copy(d_z_in_ref, d_z_in_slot)
         for dc, dcs in zip(d_c_refs, d_c_slots):
             ttnn.copy(dc, dcs)
-        if grad_names:
-            ttnn.copy(trunk_dev_grads_ref[grad_names[0]], dev_grad_slots[grad_names[0]])
+        for nm in grad_names:
+            ttnn.copy(trunk_dev_grads_ref[nm], dev_grad_slots[nm])
         ttnn.synchronize_device(self.device)
 
         held: dict[str, Any] = {}
 
         def _run_fwd():
-            lev_cm = T.lever_scope(levers)
-            tape_cm = ag.tape()
-            lev_cm.__enter__()
-            held["lev_cm"] = lev_cm
-            tape_cm.__enter__()
-            held["tape_cm"] = tape_cm
-            s_leaf = ag.Tensor(s_i_slot, requires_grad=True)
-            z_leaf = ag.Tensor(z_in_slot, requires_grad=True)
-            c_leaves = [ag.Tensor(cs, requires_grad=True) for cs in c_slots]
-            s_c, z_c = winner(s_leaf, z_leaf, c_leaves, m1_slots, prev=prev_slots)
+            with T.lever_scope(levers), ag.tape():
+                s_leaf = ag.Tensor(s_i_slot, requires_grad=True)
+                z_leaf = ag.Tensor(z_in_slot, requires_grad=True)
+                c_leaves = [ag.Tensor(cs, requires_grad=True) for cs in c_slots]
+                s_c, z_c = winner(s_leaf, z_leaf, c_leaves, m1_slots, prev=prev_slots)
             ttnn.copy(s_c.value, s_out_slot)
             held.update(
                 s_c=s_c, z_c=z_c,
@@ -721,8 +724,9 @@ class SPMDMeshTracer:
         u_in = [ttnn.clone(u) for u in u_list]
         o_warm = run_fn(u_in)
         o_out = [ttnn.clone(o) for o in o_warm]
-        if o_warm:
-            ttnn.copy(o_warm[0], o_out[0])
+        # Warm ttnn.copy kernels for every bucket shape/dtype before trace capture.
+        for ow, oo in zip(o_warm, o_out):
+            ttnn.copy(ow, oo)
         ttnn.synchronize_device(self.device)
 
         def _cap():
