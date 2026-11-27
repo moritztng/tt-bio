@@ -61,12 +61,20 @@ def pcc(a, b):
     return float(torch.corrcoef(torch.stack([a, b]))[0, 1])
 
 
+def tr_tor_slice(tor, d):
+    """Upstream's torsion head over the rotatable bonds the dump recorded."""
+    return tor.numpy()[:len(d["tor"])]
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--id", required=True)
     ap.add_argument("--npz", required=True, nargs="+")
     ap.add_argument("--out", required=True)
     ap.add_argument("--seed", type=int, default=42)
+    ap.add_argument("--golden-out", default=None,
+                    help="directory for <id>_<stem>.npz: the verified-identical inputs plus "
+                         "UPSTREAM's own tr/rot/tor, as a parity fixture")
     ap.add_argument("--tol", type=float, default=1e-4,
                     help="allowed maxdiff on rec_x: the two sides ran ESM-2 on different "
                          "hosts, so the embedding carries float noise. Every other tensor "
@@ -180,6 +188,23 @@ def main():
             "pcc": {k: pcc(v.numpy(), ours[k]) for k, v in
                     (("tr", tr), ("rot", rot), ("tor", tor))},
         })
+        if a.golden_out:
+            gd = Path(a.golden_out).expanduser()
+            gd.mkdir(parents=True, exist_ok=True)
+            # the inputs exactly as the port fed them, verified identical above, plus
+            # upstream's own answer on them -- so the fixture's golden is upstream's, not ours
+            keep = {k: d[k] for k in (
+                "lig_x", "lig_pos", "bond_index", "bond_attr", "edge_mask",
+                "rec_x", "rec_pos", "rec_edge_index",
+                "t_tr", "t_rot", "t_tor", "tr_sigma", "rot_sigma", "tor_sigma")}
+            out_npz = gd / f"{cid}_{Path(path).stem}.npz"
+            np.savez_compressed(
+                out_npz, **keep,
+                upstream_tr=tr.numpy()[0].astype(np.float64),
+                upstream_rot=rot.numpy()[0].astype(np.float64),
+                upstream_tor=tr_tor_slice(tor, d).astype(np.float64),
+                cropped_at=np.asarray(cropped_at, np.float64))
+            print(f"wrote {out_npz}", flush=True)
         print(Path(path).stem, json.dumps(row, indent=1), flush=True)
 
     Path(a.out).write_text(json.dumps({"complex": cid, "seed": a.seed, "rows": results},

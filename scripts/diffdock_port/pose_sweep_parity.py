@@ -158,6 +158,20 @@ def main() -> int:
 
             g = copy.deepcopy(graph)
             g["ligand"].pos = torch.from_numpy(pos).float()
+
+            # Upstream crops the receptor against the ligand it is about to score, every step,
+            # at 3 * tr_sigma + crop_beyond (utils/sampling.py:104-108; crop_beyond: 20 in the
+            # v1.1 model_parameters.yml). The port masks the same residues instead of removing
+            # them. Without this the sweep only ever grades the uncropped graph, which is not
+            # the regime the blow-up lives in: the dumped failures have 137-688 receptor nodes
+            # where the full graph has 1301.
+            cropped_at = None
+            if crop and getattr(sma, "crop_beyond", None) is not None:
+                cropped_at = float(tr_s) * 3 + sma.crop_beyond
+                crop_beyond(g, cropped_at, getattr(sma, "all_atoms", False))
+                g["receptor"].batch = torch.zeros(g["receptor"].x.shape[0], dtype=torch.long)
+                g["ligand"].batch = torch.zeros(g["ligand"].x.shape[0], dtype=torch.long)
+
             # upstream's own time-setting, so the port is graded against upstream's convention
             set_time(g, t, t, t, t, 1, sma.all_atoms, torch.device("cpu"))
             with torch.no_grad():
