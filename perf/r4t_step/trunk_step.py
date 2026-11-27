@@ -56,7 +56,17 @@ def main():
     ap.add_argument("--cover-steps", type=int, default=0,
                     help="steps the no-gradient guard intersects over (default: the guard's own minimum). A run cycling "
                          "logged batches sets it to the cycle length: a head no early batch drives is not dead")
+    ap.add_argument("--pcie-meter", action="store_true",
+                    help="count host<->device bytes and transfers per step phase (perf/r4t_perf/pcie_meter.py)")
     a = ap.parse_args()
+    if a.pcie_meter:
+        import sys
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "r4t_perf"))
+        import pcie_meter as PM
+        PM.install()
+    else:
+        PM = None
+    mark = (lambda name: PM.phase(name)) if PM else (lambda name: None)
     import faulthandler
     import signal
     faulthandler.register(signal.SIGUSR1)   # kill -USR1 <pid> prints every thread stack to the log
@@ -409,6 +419,7 @@ def main():
         base = used()
         c0 = len(clk)
         t0 = time.time()
+        mark("fwd")
         extra = {}
         if real:
             use(step)
@@ -416,6 +427,7 @@ def main():
             close_rec()
             ttnn.synchronize_device(dev)
             t1 = time.time()
+            mark("heads_bwd")
             retained = used() - base
             loss, terms, ref = real[1](s, ctx)
             ttnn.synchronize_device(dev)
@@ -428,6 +440,7 @@ def main():
             close_rec()
             ttnn.synchronize_device(dev)
             t1 = time.time()
+            mark("heads_bwd")
             retained = used() - base
             st = s if isinstance(s, ag.Tensor) else ag.Tensor(s)
             loss = float((ttnn.to_torch(st.value).float().reshape(Cs.shape) * Cs).sum() / numel)
@@ -435,6 +448,7 @@ def main():
         ttnn.synchronize_device(dev)
         t2 = time.time()
         after_bwd = used()
+        mark("fold_bwd")
         idle = folds.tape_backward()   # device-weight gradients through each fold's VJP into the upstream leaves
         grads = {nm: (None if p.grad is None else p.grad.float().numpy()) for nm, p in params.items()}
         dead = zero_or_missing(grads)
@@ -443,13 +457,16 @@ def main():
             _np.savez(os.environ["R4T_DUMP_G"], **{nm.replace(".", "__"): g for nm, g in grads.items()
                                                     if g is not None and "pair_update_layers" in nm})
         t2b = time.time()
+        mark("opt")
         opt.step()
         for p in params.values():
             p.grad = None
         t2c = time.time()
+        mark("rebuild")
         build(lazy=False)
         ttnn.synchronize_device(dev)
         t3 = time.time()
+        mark("digest")
         del s, z, st
         md = hashlib.sha256(b"".join(opt.master[k].tobytes() for k in sorted(opt.master))).hexdigest()[:16]
         sm = clk[c0:] or clk[-1:]
@@ -458,7 +475,7 @@ def main():
                               dead=len(dead), dead_names=sorted(dead)[:20], dev_base_B=base, dev_after_bwd_B=after_bwd, params=len(params), n_elems=int(sum(v.size for v in opt.master.values())),
                               master_digest=md, aiclk=[min(sm or [0]), max(sm or [0])], aiclk_med=sorted(sm)[len(sm) // 2] if sm else 0,
                               k=a.k, depth=a.depth, n=n, lnbw_reach=dict(lnbw.REACH), gate_bw=list(gate_bw.STATS), kernels={k: list(v) for k, v in __import__("tt_bio.taped_ttnn", fromlist=["x"]).KERNEL_STATS.items()}, **extra,
-                              host_maxrss_GiB=round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 2**20, 3))),
+                              **({"pcie": PM.take()} if PM else {}), host_maxrss_GiB=round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 2**20, 3))),
               flush=True)
         if a.save_at and step + 1 == a.save_at:   # before the guard, so a refusal still leaves the resume test its input
             print(json.dumps(dict(saved=str(ck.save(step + 1, opt, metrics={"loss": loss}, force=True)))), flush=True)
