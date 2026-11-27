@@ -185,6 +185,55 @@ def main():
     print("mask_rec_edges", out["mask_rec_edges"], flush=True)
     flush_json()
 
+    # --- the three towers' edge and node features ------------------------------------
+    from tt_bio.diffdock.features import timestep_embedding
+
+    def cut(x, n, w):
+        """back() clips at --edges; the cross tower has more edges than that."""
+        return ttnn.to_torch(x)[:n, :w]
+
+    t_tr = 0.73
+    sigma_emb = timestep_embedding(torch.tensor([t_tr]).double(), cfg.sigma_embed_dim,
+                                   cfg.embedding_scale)
+    sigma_row = dl.upload(dev, sigma_emb.float())
+    tf = dl.TowerFeatures(dev, model.float(), sg, nl, nc)
+    model.double()
+
+    # receptor: static over the rollout
+    rvec_cols = [dl.upload(dev, x) for x in
+                 (rp[rei[1]] - rp[rei[0]]).float().unbind(1)]
+    ref_rv = (rp.double()[rei[1]] - rp.double()[rei[0]])
+    ref_re = model.rec_edge_embedding(model.rec_distance_expansion(ref_rv.norm(dim=-1)))
+    got_re, got_rsh = tf.receptor_static(rvec_cols)
+    record("tower_rec_eattr", cut(got_re, ne, ref_re.shape[1]), ref_re)
+    ref_rsh = spherical_harmonics(ref_rv, tuple(model.sh_ls))
+    record("tower_rec_sh", cut(got_rsh, ne, ref_rsh.shape[1]), ref_rsh)
+
+    # ligand: bond block + broadcast sigma + distance expansion
+    lsig = sigma_emb.expand(sg.n_lig_padded, -1)
+    lvec = (lp.double()[sg.lig_edge_index[1]] - lp.double()[sg.lig_edge_index[0]])
+    bond_w = (model.lig_edge_embedding[0].in_features - sigma_emb.shape[1]
+              - model.lig_distance_expansion.offset.numel())
+    bond = torch.zeros(nl, bond_w, dtype=torch.float64)
+    bond[:sg.lig_n_bond_edges] = torch.rand(sg.lig_n_bond_edges, bond_w, generator=g).double()
+    ref_le = model.lig_edge_embedding(torch.cat(
+        [bond, lsig[sg.lig_edge_index[0]], model.lig_distance_expansion(lvec.norm(dim=-1))], 1))
+    got_le, got_lsh = tf.ligand(lgeo.vectors(lp_dev), dl.upload(dev, bond.float()), sigma_row)
+    record("tower_lig_eattr", cut(got_le, nl, ref_le.shape[1]), ref_le)
+    ref_lsh = spherical_harmonics(lvec, tuple(model.sh_ls))
+    record("tower_lig_sh", cut(got_lsh, nl, ref_lsh.shape[1]), ref_lsh)
+
+    # cross: edge attributes, harmonics and the reverse harmonics
+    cvec_h = (rp.double()[sg.cross_edge_index[1]] - lp.double()[sg.cross_edge_index[0]])
+    ref_ce = model.cross_edge_embedding(torch.cat(
+        [lsig[sg.cross_edge_index[0]], model.cross_distance_expansion(cvec_h.norm(dim=-1))], 1))
+    got_ce, got_csh, got_rev = tf.cross(cvec, sigma_row)
+    record("tower_cross_eattr", cut(got_ce, nc, ref_ce.shape[1]), ref_ce)
+    ref_csh = spherical_harmonics(cvec_h, tuple(model.sh_ls))
+    record("tower_cross_sh", cut(got_csh, nc, ref_csh.shape[1]), ref_csh)
+    ref_rev = spherical_harmonics(-cvec_h, tuple(model.sh_ls))
+    record("tower_cross_rev_sh", cut(got_rev, nc, ref_rev.shape[1]), ref_rev)
+
     # --- the receptor crop, as a reduction over the complete cross graph --------------
     # Last leg on purpose: it is the newest block and the json is flushed after each leg,
     # so if the ttnn reduction raises, every measurement above it is already on disk.

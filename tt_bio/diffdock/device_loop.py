@@ -308,3 +308,91 @@ def rec_keep(cross_near, n_poses: int, n_lig: int, n_rec: int, n_rec_padded: int
                          layout=ttnn.ROW_MAJOR_LAYOUT, device=cross_near.device())
         rows = ttnn.concat([rows, pad], dim=0)
     return ttnn.to_layout(rows, ttnn.TILE_LAYOUT)
+
+
+# ---------------------------------------------------------------------------
+# the three towers' edge and node features: the first half of `static_forward`
+# ---------------------------------------------------------------------------
+
+class TowerFeatures:
+    """Edge attributes, harmonics and node embeddings for the receptor, ligand and cross towers.
+
+    The port of :func:`tt_bio.diffdock.static_net.static_forward` down to its first
+    :func:`run_stack`. Two things make this cheaper on the card than the host expression
+    reads, and both are exact rather than approximations:
+
+    * **The sigma embedding is a broadcast, not a gather.** The host writes
+      ``lig_sig[lei[0]]`` and ``lig_sig[cei[0]]``, but ``lig_sig`` is one row expanded over
+      every ligand node, so every edge reads the same values. An ``[E, 1]`` column of ones
+      times the ``[1, D]`` row is that block, and no index tensor is touched.
+    * **The receptor's distance work is per complex, not per step.** The receptor does not
+      move, so ``rvec``, its expansion, its edge embedding and its harmonics are the same
+      on every one of the 19 steps. They are computed in :meth:`receptor_static` once and
+      held; only the crop mask changes, and that is :class:`StepMasks`' job.
+
+    The receptor's sigma term is the one per-step piece of the receptor tower, and the host
+    adds it *after* the embedding stack (``rec_h[:, :ns] += rec_sig``), so it is not here.
+    """
+
+    def __init__(self, device, model, sg, n_lig_edges: int, n_cross_edges: int):
+        self.device, self.sg = device, sg
+        self.sh_ls = tuple(model.sh_ls)
+        self.rec_smear = Smearing(device, model.rec_distance_expansion)
+        self.lig_smear = Smearing(device, model.lig_distance_expansion)
+        self.cross_smear = Smearing(device, model.cross_distance_expansion)
+        self.rec_edge_mlp = MLP(device, model.rec_edge_embedding)
+        self.lig_edge_mlp = MLP(device, model.lig_edge_embedding)
+        self.cross_edge_mlp = MLP(device, model.cross_edge_embedding)
+        self.rec_node_mlp = MLP(device, model.rec_node_embedding)
+        self.lig_node_mlp = MLP(device, model.lig_node_embedding)
+        self.ones_lig = upload(device, torch.ones(n_lig_edges))
+        self.ones_cross = upload(device, torch.ones(n_cross_edges))
+
+    @staticmethod
+    def _broadcast(ones, row):
+        """``[E, 1] x [1, D] -> [E, D]``: one row repeated down the edge axis."""
+        import ttnn
+        return ttnn.multiply(ones, row)
+
+    def receptor_static(self, rvec_cols):
+        """``(rec_eattr, rec_sh)`` for the receptor graph, which never moves.
+
+        Call once per complex and hold the result: nothing in it depends on the step.
+        """
+        dist = norm3(*rvec_cols)
+        return (self.rec_edge_mlp(self.rec_smear(dist)),
+                harmonics(*rvec_cols, self.sh_ls))
+
+    def ligand(self, lvec_cols, bond_block, sigma_row):
+        """``(lig_eattr, lig_sh)``. *bond_block* is the padded ``[E, bond_dim]`` bond table.
+
+        The host concatenates the bond attributes, the per-edge sigma embedding and the
+        distance expansion in that order, and the embedding MLP's input width fixes it.
+        """
+        import ttnn
+        dist = norm3(*lvec_cols)
+        sig = self._broadcast(self.ones_lig, sigma_row)
+        x = ttnn.concat([bond_block, sig, self.lig_smear(dist)], dim=1)
+        return self.lig_edge_mlp(x), harmonics(*lvec_cols, self.sh_ls)
+
+    def cross(self, cvec_cols, sigma_row):
+        """``(cross_eattr, cross_sh, rev_sh)``: the cross edges and their reverse harmonics."""
+        import ttnn
+        dist = norm3(*cvec_cols)
+        sig = self._broadcast(self.ones_cross, sigma_row)
+        eattr = self.cross_edge_mlp(ttnn.concat([sig, self.cross_smear(dist)], dim=1))
+        rev = [ttnn.multiply(c, -1.0) for c in cvec_cols]
+        return eattr, harmonics(*cvec_cols, self.sh_ls), harmonics(*rev, self.sh_ls)
+
+    def nodes(self, rec_x, lig_x, sigma_row):
+        """``(rec_h, lig_h)`` before the embedding stacks.
+
+        ``rec_h`` has no sigma term at this point and ``lig_h`` does, exactly as the host
+        writes them: ``rec_node_embedding(rec_x)`` and
+        ``lig_node_embedding(cat([lig_x, lig_sig], 1))``.
+        """
+        import ttnn
+        ones = upload(self.device, torch.ones(self.sg.n_lig_padded))
+        sig = self._broadcast(ones, sigma_row)
+        return (self.rec_node_mlp(rec_x),
+                self.lig_node_mlp(ttnn.concat([lig_x, sig], dim=1)))
