@@ -1,7 +1,13 @@
 #!/bin/bash
 # One device accuracy arm for dfd-eval's phase 2, on qb2, driven by its own booking.
 #
-#   eval_device_arm.sh <name> <edge-tp gemm|tile> <chip> <seconds> <ids.json>
+#   eval_device_arm.sh <name> <edge-tp list, e.g. gemm or gemm,tile> <chip> <seconds> <ids.json>
+#
+# Several forms in one invocation run back to back inside ONE window on ONE chip. That is not a
+# convenience: EVAL.md's phase-2 pre-registration fixes "one chip for both device arms", and the
+# campaign's hard rule is that output must not depend on which card ran it. Two arms on two chips
+# would leave a tile-vs-gemm difference indistinguishable from a chip-to-chip difference, which is
+# exactly the comparison bar 2 exists to make.
 #
 # Two things this does that a plain `nohup ... &` does not, both learned the hard way by this row:
 #
@@ -19,17 +25,17 @@
 # The dock is resumable (`docked()` parses rank1.sdf with RDKit), so a window that ends early
 # costs only the complex in flight: the next window continues the same pool.
 set -uo pipefail
-name=${1:?name} etp=${2:?gemm|tile} card=${3:?chip} dur=${4:?seconds} ids=${5:?ids.json}
+name=${1:?name} etps=${2:?gemm or gemm,tile} card=${3:?chip} dur=${4:?seconds} ids=${5:?ids.json}
 
 WT=/home/ttuser/.coworker/wt/dfd-eval
 OUT=/home/ttuser/scratch/dfd/eval
 PY=/home/ttuser/tt-bio-dev/env/bin/python
 B=/home/ttuser/spd/feed/book.py
 owner=fleet-dfd-eval-$name
-poses=$OUT/poses-$name
 log=$OUT/$name.log
 
-mkdir -p "$OUT" "$poses"
+mkdir -p "$OUT"
+for e in ${etps//,/ }; do mkdir -p "$OUT/poses-$e"; done
 say() { echo "$(date -u +%FT%TZ) $name: $*" >> "$log"; }
 exec 9>"$OUT/$name.armlock"; flock -n 9 || { say "another arm holds the lock, exiting"; exit 0; }
 
@@ -37,7 +43,7 @@ cd "$WT" || exit 1
 export PYTHONPATH=$WT
 
 # ---------------------------------------------------------------- preflight, CPU only, no device
-say "preflight, edge_tp=$etp chip=$card"
+say "preflight, edge_tp=$etps chip=$card"
 PB=/home/ttuser/scratch/dfd/pb/posebusters_benchmark_set IDS=$ids $PY - <<'EOF' >> "$log" 2>&1 || { say "PREFLIGHT FAILED, nothing booked"; exit 2; }
 import json, os, sys, pathlib
 pb = pathlib.Path(os.environ["PB"])
@@ -71,7 +77,7 @@ last=
 while :; do
   [ "$($PY $B active $card 2>/dev/null)" = "$owner" ] && free && break
   [ $(date +%s) -ge $giveup ] && { say "no window in 24 h, giving up"; $PY $B rm $owner; exit 0; }
-  w=$($PY $B add $owner $card $dur --note "dfd-eval phase 2 $etp accuracy arm, 85 complexes" 2>&1)
+  w=$($PY $B add $owner $card $dur --note "dfd-eval phase 2 $etps accuracy arms, 85 complexes, one chip" 2>&1)
   [ "$w" != "$last" ] && { say "booking $w"; last=$w; }
   sleep 60
 done
@@ -87,16 +93,27 @@ flock -w 900 8 || { say "gave up: chip $card lock"; $PY $B rm $owner; exit 0; }
 clockpid=$!
 
 export TT_VISIBLE_DEVICES=$card TT_BIO_LEASE_CARDS=$card TT_BIO_LEASE_HOLDER=worker:dfd-eval
-say "start chip $card, poses -> $poses"
-start=$(date +%s)
-timeout $(( dur - 300 )) $PY scripts/diffdock_port/pose_eval.py dock \
-  --ids "$ids" --out "$poses" --device tt --edge-tp "$etp" \
-  --workers 1 --chunk 1 --seed 42 >> "$log" 2>&1
-rc=$?
+deadline=$(( $(date +%s) + dur - 300 ))
+forms=(${etps//,/ })
+for idx in "${!forms[@]}"; do
+  etp=${forms[$idx]}
+  left=$(( deadline - $(date +%s) ))
+  [ $left -le 120 ] && { say "$etp: no time left in the window, resumes next window"; break; }
+  # Split what is left evenly over the forms still to run, so a slow first form cannot starve the
+  # second into having no poses at all. A partial arm is still usable: the comparison is paired by
+  # complex id, so it runs on the ids both arms reached.
+  share=$(( left / (${#forms[@]} - idx) ))
+  poses=$OUT/poses-$etp
+  say "start $etp on chip $card, budget ${share}s, poses -> $poses"
+  s=$(date +%s)
+  timeout $share $PY scripts/diffdock_port/pose_eval.py dock \
+    --ids "$ids" --out "$poses" --device tt --edge-tp "$etp" \
+    --workers 1 --chunk 1 --seed 42 >> "$log" 2>&1
+  rc=$?
+  say "$etp rc=$rc wall_s=$(( $(date +%s) - s )) docked_dirs=$(ls "$poses" 2>/dev/null | wc -l)"
+  [ $rc -eq 124 ] && { say "$etp timed out, resetting chip $card"; /home/ttuser/.local/bin/tt-smi -r $card >> "$log" 2>&1; }
+done
 kill $clockpid 2>/dev/null
-n=$(ls "$poses" 2>/dev/null | wc -l)
-say "rc=$rc wall_s=$(( $(date +%s) - start )) docked_dirs=$n"
 say "aiclk during: $(sort -n "$OUT/$name.aiclk" 2>/dev/null | uniq -c | tr '\n' ' ')"
-[ $rc -eq 124 ] && /home/ttuser/.local/bin/tt-smi -r $card >> "$log" 2>&1
 $PY $B rm $owner
 say "window released"
