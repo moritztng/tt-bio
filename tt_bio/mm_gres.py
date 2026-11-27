@@ -23,11 +23,23 @@ _CACHE: dict = {}
 _ZEROS: dict = {}
 
 
+def _dev_key(dev):
+    try:
+        if hasattr(dev, "get_device_ids"):
+            return ("mesh", tuple(dev.get_device_ids()))
+        if hasattr(dev, "id"):
+            return ("dev", int(dev.id()))
+    except Exception:
+        pass
+    return id(dev)
+
+
 def _zero_row(dev, n: int):
-    z = _ZEROS.get((id(dev), n))
-    if z is None:
-        z = _ZEROS[(id(dev), n)] = ttnn.from_torch(torch.zeros(1, n), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT,
-                                                  device=dev)
+    key = (_dev_key(dev), n)
+    z = _ZEROS.get(key)
+    if z is None or not z.is_allocated():
+        z = _ZEROS[key] = ttnn.from_torch(torch.zeros(1, n), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT,
+                                          device=dev)
     return z
 
 

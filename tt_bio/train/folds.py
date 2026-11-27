@@ -323,10 +323,28 @@ def _dev_concat_f32(xs: list, dim: int):
     return tl
 
 
+_DEV_ZEROS_CACHE: dict = {}
+
+
+def _dev_key(device):
+    try:
+        if hasattr(device, "get_device_ids"):
+            return ("mesh", tuple(device.get_device_ids()))
+        if hasattr(device, "id"):
+            return ("dev", int(device.id()))
+    except Exception:
+        pass
+    return id(device)
+
+
 def _dev_zeros_f32(shape: tuple[int, ...], device, layout=None):
     import ttnn
     lay = ttnn.TILE_LAYOUT if layout is None else layout
-    return ttnn.zeros(list(shape), dtype=ttnn.float32, layout=lay, device=device)
+    key = (_dev_key(device), tuple(int(s) for s in shape), str(lay))
+    hit = _DEV_ZEROS_CACHE.get(key)
+    if hit is None or not hit.is_allocated():
+        hit = _DEV_ZEROS_CACHE[key] = ttnn.zeros(list(shape), dtype=ttnn.float32, layout=lay, device=device)
+    return ttnn.clone(hit)
 
 
 def _dev_reshape_f32(x, target_shape: tuple[int, ...]):
@@ -422,7 +440,7 @@ def _dev_mul_f32(a, b, out_shape: tuple[int, ...]):
 def _ones_row_bf16(k: int, device):
     """Cached ``[1, k]`` bf16 TILE row of ones (cols ``k..k_pad-1`` are exact 0.0)."""
     import ttnn
-    key = (id(device), int(k))
+    key = (_dev_key(device), int(k))
     hit = _ONES_BF16_CACHE.get(key)
     if hit is not None and hit.is_allocated():
         return hit

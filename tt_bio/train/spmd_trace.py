@@ -277,9 +277,19 @@ class SPMDMeshTracer:
     ``win_bwd_fold``). Any capture refusal gracefully marks only that key eager.
     """
 
-    def __init__(self, device, *, enabled: bool = True, hole_per_bank: int = 512 << 20):
+    def __init__(
+        self,
+        device,
+        *,
+        enabled: bool = True,
+        hole_per_bank: int = 512 << 20,
+        trace_win_pair: bool = False,
+        trace_muon_ns: bool = False,
+    ):
         self.device = device
         self.enabled = bool(enabled)
+        self.trace_win_pair = bool(trace_win_pair)
+        self.trace_muon_ns = bool(trace_muon_ns)
         self.hole_per_bank = int(hole_per_bank)
         self._scratch = None
         self._tids: list[Any] = []
@@ -483,10 +493,10 @@ class SPMDMeshTracer:
         )
 
     def has_win_pair(self, key: tuple) -> bool:
-        return self.enabled and isinstance(self._win_traces.get(key), dict)
+        return self.enabled and self.trace_win_pair and isinstance(self._win_traces.get(key), dict)
 
     def win_pair_should_capture(self, key: tuple) -> bool:
-        if not self.enabled or self._win_traces.get(key) == "eager":
+        if not self.enabled or not self.trace_win_pair or self._win_traces.get(key) == "eager":
             return False
         if key in self._win_traces:
             return False
@@ -581,14 +591,16 @@ class SPMDMeshTracer:
             lev_cm = T.lever_scope(levers)
             tape_cm = ag.tape()
             lev_cm.__enter__()
+            held["lev_cm"] = lev_cm
             tape_cm.__enter__()
+            held["tape_cm"] = tape_cm
             s_leaf = ag.Tensor(s_i_slot, requires_grad=True)
             z_leaf = ag.Tensor(z_in_slot, requires_grad=True)
             c_leaves = [ag.Tensor(cs, requires_grad=True) for cs in c_slots]
             s_c, z_c = winner(s_leaf, z_leaf, c_leaves, m1_slots, prev=prev_slots)
             ttnn.copy(s_c.value, s_out_slot)
             held.update(
-                lev_cm=lev_cm, tape_cm=tape_cm, s_c=s_c, z_c=z_c,
+                s_c=s_c, z_c=z_c,
                 s_leaf=s_leaf, z_leaf=z_leaf, c_leaves=c_leaves,
             )
 
@@ -687,7 +699,7 @@ class SPMDMeshTracer:
     ) -> list[Any]:
         import ttnn
 
-        if not self.enabled:
+        if not self.enabled or not self.trace_muon_ns:
             return run_fn(u_list)
 
         tr = self._ns_traces.get(key)

@@ -159,12 +159,23 @@ def _split2_bf16(x):
     return hi, lo
 
 
+def _dev_key(device):
+    try:
+        if hasattr(device, "get_device_ids"):
+            return ("mesh", tuple(device.get_device_ids()))
+        if hasattr(device, "id"):
+            return ("dev", int(device.id()))
+    except Exception:
+        pass
+    return id(device)
+
+
 def _ones_col_bf16(n: int, device):
     """Cached ``[n, 1]`` bf16 TILE column of ones (padded rows ``n..n_pad-1`` are exact 0.0)."""
     import torch
     import ttnn
 
-    key = (id(device), int(n))
+    key = (_dev_key(device), int(n))
     hit = _ONES_COL_CACHE.get(key)
     if hit is not None and hit.is_allocated():
         return hit
@@ -181,7 +192,7 @@ def _ones_row_bf16(m: int, device):
     import torch
     import ttnn
 
-    key = (id(device), int(m))
+    key = (_dev_key(device), int(m))
     hit = _ONES_ROW_CACHE.get(key)
     if hit is not None and hit.is_allocated():
         return hit
