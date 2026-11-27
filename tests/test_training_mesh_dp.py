@@ -7,7 +7,14 @@ from tt_bio.train import mesh_dp
 
 
 def test_mesh_dp_import_does_not_import_ttnn():
-    assert "ttnn" not in sys.modules
+    import subprocess
+    from pathlib import Path
+    out = subprocess.run(
+        [sys.executable, "-c", "import sys, tt_bio.train.mesh_dp; assert 'ttnn' not in sys.modules"],
+        capture_output=True, text=True, check=False,
+        cwd=str(Path(__file__).resolve().parents[1]),
+    )
+    assert out.returncode == 0, out.stderr
 
 
 def test_mesh_world_and_is_multi_chip():

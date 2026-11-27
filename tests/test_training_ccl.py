@@ -41,7 +41,14 @@ RFD4_PARAM_SHAPE_COUNTS = [
 
 
 def test_ccl_import_does_not_import_ttnn():
-    assert "ttnn" not in sys.modules
+    import subprocess
+    from pathlib import Path
+    out = subprocess.run(
+        [sys.executable, "-c", "import sys, tt_bio.train.ccl; assert 'ttnn' not in sys.modules"],
+        capture_output=True, text=True, check=False,
+        cwd=str(Path(__file__).resolve().parents[1]),
+    )
+    assert out.returncode == 0, out.stderr
 
 
 def test_flat_2d_shape_rfd4_galaxy():

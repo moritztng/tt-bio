@@ -476,7 +476,7 @@ def widen_eligible(a, b) -> bool:
     """What `widen_add` serves. Everything else falls through to the caller's widened path."""
     if not WIDEN_ADD:
         return False
-    if not isinstance(a, ttnn.Tensor) or not isinstance(b, ttnn.Tensor):
+    if type(a).__module__ == "tt_bio.autograd" or type(b).__module__ == "tt_bio.autograd":
         # Refuse any taped `autograd.Tensor` carrier; raw device tensors inside `backward()`
         # are never taped even while `ag.install()` keeps `_ops.taping()` True.
         return _widen_decline("taped")
