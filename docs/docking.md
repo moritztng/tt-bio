@@ -15,6 +15,10 @@ job YAML, or a directory of YAMLs. Defaults are DiffDock-L's published recipe, s
 command reproduces the paper's inference settings: 10 poses, a 20-step schedule of which 19
 run, no noise on the final step.
 
+A receptor above 3000 residues is refused, as upstream refuses it, before any weights load.
+Below that the cost is time rather than memory: on one CPU box a 1712-residue receptor docks in
+639 s against 129 s for 87 residues, with peak memory 5.1 GB against 3.3 GB.
+
 Both networks run on host torch today, so a dock needs no card. The score network is graded
 against upstream's own at PCC 0.9999999999984 or better on every output, over three complexes
 at five points of the schedule. `--no_model` still runs upstream's randomized seed-conformer
