@@ -2,7 +2,10 @@
 # P2: winner pair on card. Block grade (normal, broken, 2nd batch) then trunk_step A/B host vs card, interleaved, qb2 card 2.
 C=2; OW=r4t-perf-p2; WT=$HOME/.coworker/wt/r4t-perf; O=$HOME/r4t/perf/p2; cd $WT
 PY=$HOME/scratch/shipflow/venv-c4f99e695d34/bin/python
-for w in $(seq 1 1080); do h=$(python3 ~/spd/feed/book.py active $C --except $OW 2>/dev/null | sed 's/ *fleet-r4t-perf//'); [ -z "$(echo $h | tr -d ' ')" ] && [ -z "$(sudo -n fuser /dev/tenstorrent/$C 2>/dev/null)" ] && break; [ $w = 1080 ] && { echo GAVE-UP >> $O/run.log; exit 1; }; [ $w = 1 ] && echo "WAIT $(date -u +%T) $h" >> $O/run.log; sleep 20; done
+# Runs only in card 2's free gap inside the fleet-r4t-perf booking: after the booking ahead of it (ends 11:32Z), done before
+# dfd-perf-wlt (13:32Z). ~45 min of work, so no start after 12:40Z.
+NB=$(date -u -d "2026-11-27 11:32" +%s); NA=$(date -u -d "2026-11-27 12:40" +%s)
+for w in $(seq 1 1080); do [ $(date +%s) -gt $NA ] && { echo "GAVE-UP $(date -u +%T) past 12:40Z" >> $O/run.log; exit 1; }; [ $(date +%s) -lt $NB ] && { sleep 20; continue; }; h=$(python3 ~/spd/feed/book.py active $C --except $OW 2>/dev/null | sed 's/ *fleet-r4t-perf//'); [ -z "$(echo $h | tr -d ' ')" ] && [ -z "$(sudo -n fuser /dev/tenstorrent/$C 2>/dev/null)" ] && break; [ $w = 1080 ] && { echo GAVE-UP >> $O/run.log; exit 1; }; [ $w = 1 ] && echo "WAIT $(date -u +%T) $h" >> $O/run.log; sleep 20; done
 echo "START $(date -u +%FT%TZ) sha $(git rev-parse --short HEAD) load $(cut -d' ' -f1 /proc/loadavg)" >> $O/run.log
 ( while :; do echo "$(date -u +%T) AICLK $(cat /sys/class/tenstorrent/tenstorrent!$C/tt_aiclk 2>/dev/null)"; sleep 5; done ) > $O/aiclk.log 2>&1 &
 CL=$!

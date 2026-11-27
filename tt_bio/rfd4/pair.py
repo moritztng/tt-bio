@@ -336,17 +336,17 @@ class PairOnCard:
             ttnn.deallocate(z32)
         fac = self.split.builder.init_repr_factory
         W, lnw = fac.linear_out.weight, fac.ln_out.weight
-        leaves = [bridge.up(t, ttnn.float32) for t in (W, lnw, p.gamma, p.beta)]
+        n, c = int(p.bins.shape[1]), int(W.shape[0])
+        # [1, c] views: their gradients reach the parameters through torch, and no 1-D tensor goes up as tiles
+        leaves = [bridge.up(t, ttnn.float32) for t in (W, lnw.view(1, c), p.gamma.reshape(1, c), p.beta.reshape(1, c))]
         if not any(t.requires_grad for t in leaves):
             return ag.Tensor(z)
-        n, c = int(p.bins.shape[1]), int(W.shape[0])
         e1, e2 = float(fac.ln_out.eps), float(self.split.builder.adaln.norm.eps)
         feats = self.split.features(batch).reshape(n * n, -1)
         k = int(feats.shape[-1])
-        exact = torch.equal(feats.bfloat16().float(), feats)
         kp = -(-k // 32) * 32
-        F = ttnn.from_torch(torch.nn.functional.pad(feats, [0, kp - k]).to(torch.bfloat16 if exact else torch.float32),
-                            dtype=ttnn.bfloat16 if exact else ttnn.float32, layout=ttnn.TILE_LAYOUT, device=self.device)
+        F = ttnn.from_torch(torch.nn.functional.pad(feats, [0, kp - k]).contiguous(), dtype=ttnn.float32,
+                            layout=ttnn.TILE_LAYOUT, device=self.device)
         const = self._const[2]
         bins = p.bins
         row = lambda v: ttnn.from_torch(v.detach().float().reshape(1, 1, 1, c), dtype=ttnn.float32,
@@ -357,7 +357,8 @@ class PairOnCard:
             def bw(g):
                 cfg = ag.precise_config()
                 mean = lambda v: ag._row_mean(v, cfg, c)
-                g = ttnn.typecast(g, ttnn.float32) if g.dtype != ttnn.float32 else g
+                if g.dtype != ttnn.float32:
+                    g = ttnn.typecast(g, ttnn.float32)
                 x = self._x(const, bins)
                 r1 = ttnn.rsqrt(ttnn.add(mean(ttnn.multiply(x, x)), e1))
                 n1 = ttnn.multiply(x, r1)
