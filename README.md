@@ -1137,6 +1137,8 @@ The flags the step does not honour are refused by name rather than ignored: `--l
 `--warmup-steps` (upstream's rule runs at 1e-4 with no warmup), the LoRA flags, `--objective`
 and `--seed`. Everything else works as above, resume included.
 
+Training runs attention in float32, the setting that follows upstream's loss curve over 2,000 steps; designs and inference are unaffected ([why](docs/training.md#training-runs-on-the-device-float64-is-a-diagnostic)).
+
 `--help` lists the next layer: `--steps`, `--chips`, `--global-batch`, `--lr`,
 `--warmup-steps`, `--checkpoint-every`, `--tokens`, `--seed`. `--help-all` adds the expert
 ones: precision (`--exact`), the objective, the recipe, and `--train` with the LoRA shape.

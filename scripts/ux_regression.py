@@ -1395,7 +1395,7 @@ def run_dock(model: str, base: Path) -> dict:
         if not f.exists():
             sys.exit(f"missing dock fixture {f}")
     cmd = [sys.executable, "-m", "tt_bio.main", "dock", str(DOCK_RECEPTOR),
-           "--ligand", str(DOCK_LIGAND), "--model", model, "--name", "ux",
+           "--ligand", str(DOCK_LIGAND), "--model", model, "--name", "ux", "--log", "INFO",
            "--diffusion_samples", str(DOCK_SAMPLES), "--out_dir", str(out_dir)]
     print(f"\n{'='*70}\n[{model}] dock {DOCK_RECEPTOR.name} + {DOCK_LIGAND.name}"
           f"\n{'='*70}", flush=True)

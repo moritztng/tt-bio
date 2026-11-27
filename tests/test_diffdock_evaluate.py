@@ -6,6 +6,7 @@ so the suite runs anywhere and a failure names the arithmetic, not the data.
 
 from __future__ import annotations
 
+import importlib.util
 import math
 from pathlib import Path
 
@@ -16,6 +17,9 @@ from tt_bio.diffdock import evaluate
 
 Chem = pytest.importorskip("rdkit.Chem")
 AllChem = pytest.importorskip("rdkit.Chem.AllChem")
+# spyrmsd ships in the `eval` extra, not the base install.
+needs_spyrmsd = pytest.mark.skipif(importlib.util.find_spec("spyrmsd") is None,
+                                   reason="spyrmsd not installed (tt-bio[eval])")
 
 
 def _mol(smiles="c1ccccc1C(=O)O", seed=7):
@@ -33,6 +37,7 @@ def _shift(mol, d):
     return out
 
 
+@needs_spyrmsd
 def test_symmetry_rmsd_matches_upstream():
     """A rigid translation moves the RMSD by exactly its length, and a symmetric ligand is
     scored on its shape: benzoic acid relabelled around the ring is the same pose, so the
@@ -55,6 +60,7 @@ def test_symmetry_rmsd_matches_upstream():
     assert float(np.sqrt(((x - y) ** 2).sum(axis=1).mean())) > 0.5
 
 
+@needs_spyrmsd
 def test_best_symmetry_rmsd_takes_the_minimum_over_crystal_copies():
     """PoseBusters ships every crystal copy and upstream's evaluator minimises over them."""
     m = _mol()
@@ -63,6 +69,7 @@ def test_best_symmetry_rmsd_takes_the_minimum_over_crystal_copies():
     assert not naive and best == pytest.approx(0.2, abs=1e-6)
 
 
+@needs_spyrmsd
 def test_metric_block_matches_upstream_csv():
     """success_rates reproduces upstream's performance_metrics on a hand-checked matrix.
 
@@ -109,6 +116,7 @@ def test_steric_metrics():
     assert evaluate.CLASH_CUTOFF_A == 0.4
 
 
+@needs_spyrmsd
 def test_benchmark_driver_small_set(tmp_path: Path):
     """grade_set reads a two-complex set off disk, and a complex that wrote no pose stays in
     the list as unscored rather than leaving the denominator."""

@@ -65,8 +65,6 @@ dependencies = [
     "pdbeccdutils",       # CCD component lookup
     "func_timeout",       # RDKit conformer-embedding timeout guard
     "networkx",           # CCD bond-graph connected components
-    "spyrmsd",            # symmetry-corrected RMSD, tt_bio/diffdock/evaluate.py
-    "posebusters",        # physical-validity rate, tt_bio/diffdock/evaluate.py
     "packaging",          # tt_bio/_vendor/openfold3/__init__.py version check
     # RF3 vendors AtomWorks (see NOTICE #7) for host featurization. typing_extensions
     # backs the 3.10 shim for typing.Never.
@@ -113,6 +111,9 @@ reference = ["ml_collections"]  # opendde.config.config -> ml_collections.config
 # Without it, `tt-bio --help` and --accelerator cpu/gpu still work; requesting a card
 # fails with a clear message naming this extra.
 tenstorrent = ["ttnn==0.68.0"]
+# Docking pose grading (tt_bio/diffdock/evaluate.py imports these lazily): symmetry-corrected
+# RMSD and the PoseBusters validity rate. `tt-bio dock` itself does not need them.
+eval = ["spyrmsd", "posebusters"]
 # Training: OpenFold3's vendored training featuriser imports these at module load.
 train = ["pytorch_lightning", "ml_collections"]
 
