@@ -627,5 +627,24 @@ class DeviceScoreNetwork:
 
         return score
 
+    def trace_body(self, graph, start: Tensor, cfg, bounds, noise):
+        """``(body, read_poses)`` for a whole rollout on the card: what a trace capture records.
+
+        ``body(t)`` issues step *t* -- score, guard, perturb and pose update -- into one pose
+        buffer on the card and reads nothing back; ``read_poses()`` is the single read after the
+        last step. *start* is the ``[n_poses, n_lig, 3]`` randomised start and *noise* the
+        sampler's generator, drawn here in `sampling.sample`'s order, so a replay and
+        ``sample(self.score_fn(graph), ...)`` take the same trajectory.
+        """
+        from tt_bio.diffdock.device_loop import DeviceRollout
+        from tt_bio.diffdock.static_net import StaticComplex
+
+        lig, rec = graph.ligand, graph.receptor
+        c = StaticComplex.build(lig, self.host._receptor_x(rec), rec["pos"].float(),
+                                rec["edge_index"], start.shape[0])
+        r = DeviceRollout(self.device, self.model, c, self.convs, start, lig["mask_rotate"],
+                          cfg, bounds, noise, self.config.crop_beyond)
+        return r.body, r.read_poses
+
     def confidence(self, graph, poses: Tensor):
         return self.host.confidence(graph, poses)

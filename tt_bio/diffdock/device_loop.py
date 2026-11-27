@@ -30,6 +30,23 @@ def upload(device, x: torch.Tensor):
     return ttnn.from_torch(x, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=device)
 
 
+_ZEROS: dict = {}
+
+
+def zeros(device, shape, layout=None):
+    """A cached fp32 zero tensor on *device*: padding is read, never written, so one per shape.
+
+    Allocating it per step puts a host-to-device write inside every step, which a trace
+    capture refuses and an untraced step pays for nothing.
+    """
+    import ttnn
+    layout = ttnn.TILE_LAYOUT if layout is None else layout
+    key = (id(device), tuple(shape), str(layout))
+    if key not in _ZEROS:
+        _ZEROS[key] = ttnn.zeros(list(shape), dtype=ttnn.float32, layout=layout, device=device)
+    return _ZEROS[key]
+
+
 def norm3(x, y, z):
     """``|(x, y, z)|`` per row."""
     import ttnn
@@ -317,8 +334,8 @@ def rec_keep(cross_near, n_poses: int, n_lig: int, n_rec: int, n_rec_padded: int
     kept = ttnn.max(block, dim=1)                      # [n_poses, 1, n_rec] or [n_poses, n_rec]
     rows = ttnn.reshape(ttnn.to_layout(kept, ttnn.ROW_MAJOR_LAYOUT), [n_poses * n_rec, 1])
     if n_rec_padded > n_poses * n_rec:
-        pad = ttnn.zeros([n_rec_padded - n_poses * n_rec, 1], dtype=ttnn.float32,
-                         layout=ttnn.ROW_MAJOR_LAYOUT, device=cross_near.device())
+        pad = zeros(cross_near.device(), [n_rec_padded - n_poses * n_rec, 1],
+                    ttnn.ROW_MAJOR_LAYOUT)
         rows = ttnn.concat([rows, pad], dim=0)
     return ttnn.to_layout(rows, ttnn.TILE_LAYOUT)
 
@@ -873,8 +890,7 @@ def assemble_rows(device, parts, blocks, width: int):
     for part, (lo, hi, extra) in zip(parts, blocks):
         out.append(part)
         if extra:
-            out.append(ttnn.zeros([extra, width], dtype=ttnn.float32,
-                                  layout=ttnn.TILE_LAYOUT, device=device))
+            out.append(zeros(device, [extra, width]))
     return ttnn.concat(out, dim=0) if len(out) > 1 else out[0]
 
 
@@ -983,8 +999,7 @@ def pad_rows(device, x, rows: int, width: int):
         return x
     if n > rows:
         raise ValueError(f"{n} rows into {rows}")
-    return ttnn.concat([x, ttnn.zeros([rows - n, width], dtype=ttnn.float32,
-                                      layout=ttnn.TILE_LAYOUT, device=device)], dim=0)
+    return ttnn.concat([x, zeros(device, [rows - n, width])], dim=0)
 
 
 def pad_width(device, x, width: int):
@@ -993,8 +1008,7 @@ def pad_width(device, x, width: int):
     w = x.shape[1]
     if w == width:
         return x
-    return ttnn.concat([x, ttnn.zeros([x.shape[0], width - w], dtype=ttnn.float32,
-                                      layout=ttnn.TILE_LAYOUT, device=device)], dim=1)
+    return ttnn.concat([x, zeros(device, [x.shape[0], width - w])], dim=1)
 
 
 class DeviceStep:
@@ -1176,3 +1190,81 @@ class DeviceStep:
                              self.tor_conv.assemble(dev, [tsh], tsh.shape[1]),
                              self.tor_conv.assemble(dev, [tmask], 1), self.ns)
         return tr, rot, self.torsion.score(conv, float(tor_sigma))
+
+
+# ---------------------------------------------------------------------------
+# the rollout: every step on the card, one persistent pose buffer
+# ---------------------------------------------------------------------------
+
+class DeviceRollout:
+    """`loop.run_loop` over :class:`DeviceStep` and :class:`PoseUpdate`, the body a trace records.
+
+    Everything that varies by step is fixed before the first one: the scalars come from
+    :func:`tt_bio.diffdock.loop.step_inputs` and :func:`~tt_bio.diffdock.loop.coefficient_table`,
+    the noise from :func:`~tt_bio.diffdock.loop.draw_noise` in the sampler's own RNG order, and
+    the per-step sigma embedding rows and noise draws are uploaded here, once. A step is then
+    ``guard -> perturb -> move`` on the card with no host value in it, and its result is copied
+    into the one pose buffer :meth:`read_poses` reads.
+
+    Step 0 reads the start poses from their own buffer rather than from the pose buffer, so
+    the body is the same program however often it ran before: the eager warm-up pass a capture
+    needs leaves the pose buffer one step on, and the captured step 0 starts from the start
+    poses regardless.
+    """
+
+    def __init__(self, device, model, c, convs, start, mask_rotate, cfg, bounds, noise,
+                 crop_beyond: float | None):
+        import ttnn
+        from .conv import pad_nodes
+        from .features import timestep_embedding
+        from .loop import coefficient_table, draw_noise, step_inputs
+        self.device, self.sg = device, c.sg
+        self.P, self.n_lig = start.shape[0], start.shape[1]
+        self.nb = c.sg.n_rot_bonds
+        self.step = DeviceStep(device, model, c, convs)
+        self.update = PoseUpdate(device, c.sg, c.rot_bonds, mask_rotate)
+        self.inputs = step_inputs(cfg, bounds, crop_beyond)
+        table = coefficient_table(cfg, bounds, dtype=torch.float64)
+        self.score_c, self.noise_c = table.score.tolist(), table.noise.tolist()
+        tr, rot, tor = draw_noise(noise, table, self.P, self.nb if self.step.torsion else 0)
+        mc = model.config
+        self.sigma_rows = [upload(device, timestep_embedding(
+            torch.tensor([s.t_tr]), mc.sigma_embed_dim, mc.embedding_scale).float())
+            for s in self.inputs]
+        self.z = [(upload(device, tr[t]), upload(device, rot[t]),
+                   None if tor is None else upload(device, tor[t].reshape(-1)))
+                  for t in range(table.steps)]
+        lp = pad_nodes(start.reshape(self.P * self.n_lig, 3).float(), c.sg.n_lig_padded)
+        self.start = upload(device, lp)
+        self.pos = upload(device, lp)
+
+    def _perturb(self, score, rows: int, width: int, t: int, head: int, z):
+        """``score_coeff * guard(score) + noise_coeff * z`` over the real ``[rows, width]`` block."""
+        import ttnn
+        cols = guard([ttnn.slice(score, [0, k], [rows, k + 1]) for k in range(width)])
+        out = ttnn.multiply(ttnn.concat(cols, dim=1) if width > 1 else cols[0],
+                            self.score_c[t][head])
+        if self.noise_c[t][head]:
+            out = ttnn.add(out, ttnn.multiply(z, self.noise_c[t][head]))
+        return out
+
+    def body(self, t: int):
+        """Step *t*: score, guard, perturb and move, written into the pose buffer."""
+        import ttnn
+        s = self.inputs[t]
+        pos = self.start if t == 0 else self.pos
+        tr, rot, tor = self.step(pos, self.sigma_rows[t], s.tr_sigma, s.rot_sigma, s.tor_sigma,
+                                 crop_cutoff=s.crop_cutoff)
+        ztr, zrot, ztor = self.z[t]
+        tr = self._perturb(tr, self.P, 3, t, 0, ztr)
+        rot = self._perturb(rot, self.P, 3, t, 1, zrot)
+        if tor is not None:
+            tor = self._perturb(tor, self.P * self.nb, 1, t, 2, ztor)
+        ttnn.copy(self.update(pos, tr, rot, tor), self.pos)
+        return self.pos
+
+    def read_poses(self):
+        """The pose buffer as ``[n_poses, n_lig, 3]`` host fp32, the one read of the rollout."""
+        import ttnn
+        flat = ttnn.to_torch(self.pos).float()[:self.P * self.n_lig, :3]
+        return flat.reshape(self.P, self.n_lig, 3)
