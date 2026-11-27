@@ -287,7 +287,7 @@ FANIN_MIXED = False
 # for the closure: 1,719 Typecast calls a BindCraft 2 round right after a widen_add, 0.249 s of
 # card. On, `add_grad` holds the last contribution back and the closure's read does that add with
 # a bf16 output, rounded once at pack (`rne_add.round_add`). Any other read flushes it as before.
-FANIN_CAST_FUSED = env_flag("TT_BIO_FANIN_CAST_FUSED", False)
+FANIN_CAST_FUSED = env_flag("TT_BIO_FANIN_CAST_FUSED", True)
 FANIN_CAST_STATS = {"served": 0, "flushed": 0}
 #: `Tensor.grad_slab` joins: whole (every slice written, no concat) or cut back out.
 SLAB_STATS = {"whole": 0, "cut": 0}
@@ -714,6 +714,11 @@ class Tensor:
         self._join_parts()
         if self._pend is not None:
             self._flush_pend()
+        if (self._grad is not None and self._grad.dtype == ttnn.bfloat16
+                and self.value.dtype == ttnn.float32):
+            old = self._grad
+            self._grad = ttnn.typecast(old, ttnn.float32)
+            ttnn.deallocate(old)
         return self._grad
 
     @grad.setter
@@ -1134,12 +1139,16 @@ def _matmul(a, b, **kw):
 
 
 # A 2-D ``a^T @ b`` whose output is at most this many tiles and whose contraction is at least
-# `SPLIT_K_MIN_KT` tiles runs as K chunks on separate cores (`_split_k`).
-SPLIT_K_OUT_TILES = 32
+# `SPLIT_K_MIN_KT` tiles runs as K chunks on separate cores (`_split_k`). Larger bf16->fp32 dW
+# shapes (`32 < Mt*Nt <= 1024`, `Kt >= 256`) are served by `mm_layout.DW_2D` instead, leaving
+# `_split_k` to the small/ragged outputs (e.g. 384x12, 384x24, 64x224) safely within L1 for both
+# bf16 and fp32 operands.
+SPLIT_K_OUT_TILES = int(os.environ.get("TT_BIO_SPLIT_K_OUT_TILES", "32"))
 SPLIT_K_MIN_KT = 64
 # At most this many chunks, a constant rather than the core count so that the grouping, and so
 # the bits, are the same on every card.
-SPLIT_K_CHUNKS = 64
+SPLIT_K_CHUNKS = int(os.environ.get("TT_BIO_SPLIT_K_CHUNKS", "64"))
+SPLIT_K_BROKEN = env_flag("TT_BIO_SPLIT_K_BROKEN", False)  # grader broken arm: drops upper K half
 SPLIT_K_STATS = {"served": 0}
 
 
@@ -1148,10 +1157,15 @@ SPLIT_K_STATS = {"served": 0}
 # whatever the fidelity (LoFi = HiFi4 time), while minimal_matmul on a pre-transposed operand is 1.1-2.9x faster
 # at the same or better rel vs float64 (perf/r4t_perf/mm/prog.json). Served only on what was measured:
 # bf16, 2-D, interleaved, tile-multiple, >= MMVJP_MIN_ROWS tokens. Anything else, or any error, falls back.
-MMVJP_MIN = env_flag("TT_BIO_MMVJP_MIN", False)
+MMVJP_MIN = env_flag("TT_BIO_MMVJP_MIN", True)
 MMVJP_BROKEN = env_flag("TT_BIO_MMVJP_BROKEN", False)  # grader's broken arm: dX against the UN-transposed W
+MMVJP_TUNE = env_flag("TT_BIO_MMVJP_TUNE", True)       # grid-filling MinimalMatmulConfig on dW/dX
+MMVJP_DW_SPLIT_K = env_flag("TT_BIO_MMVJP_DW_SPLIT_K", False)  # prefer zero-transpose _split_k on uncached small dW
 MMVJP_MIN_ROWS = 4096
 MMVJP_STATS = {"dx": 0, "dw": 0, "declined": 0}
+#: Optional per-(Mt, Kt, Nt) or (Mt, Nt) overrides: (M_block, K_block, N_block, subblock_h, subblock_w).
+MMVJP_DW_CFG: dict = {}
+MMVJP_DX_CFG: dict = {}
 
 
 def _mmvjp_ok(*ts):
@@ -1160,6 +1174,56 @@ def _mmvjp_ok(*ts):
                 or int(t.shape[0]) % ttnn.TILE_SIZE or int(t.shape[1]) % ttnn.TILE_SIZE):
             return False
     return True
+
+
+def _mmvjp_config(M: int, K: int, N: int, table: dict, device, *, fill_small: bool = False):
+    """Build a `MinimalMatmulConfig` for `[M, K] @ [K, N]` on `device`, or None for ttnn's default."""
+    if not MMVJP_TUNE:
+        return None
+    T = ttnn.TILE_SIZE
+    Mt, Kt, Nt = M // T, K // T, N // T
+    grid = device.compute_with_storage_grid_size()
+    spec = table.get((Mt, Kt, Nt)) or table.get((Mt, Nt))
+    if spec is None:
+        if not fill_small:
+            # Unified dX rule for long-M pair/token projections (screened on BH Galaxy 120c:
+            # m8_k4_n2_s2x2 for Nt<=12 and m8_k4_n4_s1x4 for wider Nt beat default minimal_matmul
+            # by 1.05-1.22x across all 5 RFD4 dX shapes at strictly tighter float64 rel_L2).
+            if Mt >= 128 and Kt % 4 == 0 and Nt >= 8:
+                if Nt <= 12 and Nt % 2 == 0:
+                    spec = (8, 4, 2, 2, 2)
+                elif Nt % 4 == 0:
+                    spec = (8, 4, 4, 1, 4)
+            if spec is None:
+                return None
+        else:
+            # Unified grid-filling rule for small-output long-K dW products: pick (Mb, Nb) dividing
+            # (Mt, Nt) so ceil(Mt/Mb)*ceil(Nt/Nb) fills the core grid instead of default 8x8 (2-8 cores).
+            ncores = int(grid.x) * int(grid.y)
+            kb = max(d for d in (8, 4, 2, 1) if Kt % d == 0)
+            best = None
+            for mb in (1, 2, 4):
+                if Mt % mb:
+                    continue
+                for nb in (1, 2, 4):
+                    if Nt % nb:
+                        continue
+                    blocks = (Mt // mb) * (Nt // nb)
+                    waves = -(-blocks // ncores)
+                    active = min(blocks, ncores)
+                    # Prefer 1 wave with maximum active cores, breaking ties toward larger blocks (more reuse).
+                    score = (waves == 1, active, mb * nb)
+                    if best is None or score > best[0]:
+                        sh = max(d for d in (2, 1) if mb % d == 0)
+                        sw = max(d for d in (4 // sh, 2, 1) if nb % d == 0 and sh * d <= 4)
+                        best = (score, (mb, kb, nb, sh, sw))
+            if best is None:
+                return None
+            spec = best[1]
+    mb, kb, nb, sh, sw = spec
+    return ttnn.MinimalMatmulConfig(
+        M_block_size=mb, K_block_size=kb, N_block_size=nb,
+        subblock_h=sh, subblock_w=sw, compute_with_storage_grid_size=grid)
 
 
 def _mmvjp_dx(v, w, cfg, pre=False):
@@ -1171,8 +1235,10 @@ def _mmvjp_dx(v, w, cfg, pre=False):
         MMVJP_STATS["declined"] += 1
         return None
     wt = w if (pre or (MMVJP_BROKEN and int(w.shape[0]) == int(w.shape[1]))) else ttnn.transpose(w, -2, -1)
+    mcfg = _mmvjp_config(int(v.shape[0]), int(v.shape[1]), int(wt.shape[1]), MMVJP_DX_CFG, v.device())
+    kw = {"config": mcfg} if mcfg is not None else {}
     try:
-        out = ttnn.experimental.minimal_matmul(v, wt, compute_kernel_config=cfg, dtype=v.dtype)
+        out = ttnn.experimental.minimal_matmul(v, wt, compute_kernel_config=cfg, dtype=v.dtype, **kw)
     except Exception:  # noqa: BLE001
         out = None
     if wt is not w:
@@ -1181,16 +1247,34 @@ def _mmvjp_dx(v, w, cfg, pre=False):
     return out
 
 
+def _mmvjp_xt_cached(x) -> bool:
+    key = (x.buffer_address(), tuple(int(d) for d in x.shape))
+    return any(k == key and xr.is_allocated() and xt.is_allocated() for k, xr, xt in _MMVJP_XT)
+
+
 def _mmvjp_dw(x, g, cfg):
-    """dW = x^T @ g (fp32 out) on minimal_matmul with x^T materialised, or None."""
+    """dW = x^T @ g (fp32 out) on minimal_matmul with x^T materialised, or None.
+
+    When `mm_layout.DW_2D` is armed and eligible, returns None so the caller routes straight to
+    `ttnn.matmul` with the 2D multicast program_config (zero transpose, zero extra DRAM, 42-62 TF/s,
+    equal or tighter float64 rel_L2)."""
     if not MMVJP_MIN:
+        return None
+    if _mm_layout.dw_2d_eligible(x, g, dtype=ttnn.float32):
         return None
     if not (_mmvjp_ok(x, g) and int(x.shape[0]) >= MMVJP_MIN_ROWS):
         MMVJP_STATS["declined"] += 1
         return None
+    K, M, N = int(x.shape[0]), int(x.shape[1]), int(g.shape[1])
+    T = ttnn.TILE_SIZE
+    if (MMVJP_DW_SPLIT_K and not _mmvjp_xt_cached(x)
+            and (M // T) * (N // T) <= SPLIT_K_OUT_TILES and (K // T) >= SPLIT_K_MIN_KT):
+        return None
     xt = _mmvjp_xt(x)
+    mcfg = _mmvjp_config(M, K, N, MMVJP_DW_CFG, x.device(), fill_small=True)
+    kw = {"config": mcfg} if mcfg is not None else {}
     try:
-        out = ttnn.experimental.minimal_matmul(xt, g, compute_kernel_config=cfg, dtype=ttnn.float32)
+        out = ttnn.experimental.minimal_matmul(xt, g, compute_kernel_config=cfg, dtype=ttnn.float32, **kw)
     except Exception:  # noqa: BLE001
         out = None
     MMVJP_STATS["dw" if out is not None else "declined"] += 1
@@ -1254,10 +1338,11 @@ def _split_k(a, b, kw):
             or b.layout != ttnn.TILE_LAYOUT or a.is_sharded() or b.is_sharded()):
         return None
     K, M, N = int(a.shape[0]), int(a.shape[1]), int(b.shape[1])
-    if K % ttnn.TILE_SIZE or M % ttnn.TILE_SIZE or N % ttnn.TILE_SIZE:
+    T = ttnn.TILE_SIZE
+    if K % T or M % T:
         return None
-    Kt = K // ttnn.TILE_SIZE
-    if (M // ttnn.TILE_SIZE) * (N // ttnn.TILE_SIZE) > SPLIT_K_OUT_TILES or Kt < SPLIT_K_MIN_KT:
+    Kt, Mt, Nt = K // T, M // T, -(-N // T)
+    if Mt * Nt > SPLIT_K_OUT_TILES or Kt < SPLIT_K_MIN_KT:
         return None
     P = 1
     while P * 2 <= min(Kt // 2, SPLIT_K_CHUNKS) and Kt % (P * 2) == 0:
@@ -1267,7 +1352,8 @@ def _split_k(a, b, kw):
     a3 = ttnn.reshape(a, [P, K // P, M])
     b3 = ttnn.reshape(b, [P, K // P, N])
     cfg = kw.get("compute_kernel_config")
-    plan = bmm_program_config(a3, b3, True, dtype=ttnn.float32, compute_kernel_config=cfg)
+    plan = bmm_program_config(a3, b3, True, dtype=ttnn.float32, compute_kernel_config=cfg,
+                              max_out_tiles=SPLIT_K_OUT_TILES)
     if plan is None:
         return None
     parts = ttnn.matmul(a3, b3, transpose_a=True, program_config=plan, dtype=ttnn.float32,
@@ -1280,9 +1366,13 @@ def _split_k(a, b, kw):
         lo = ttnn.slice(out, [0, 0, 0], [P, M, N])
         hi = ttnn.slice(out, [P, 0, 0], [2 * P, M, N])
         ttnn.deallocate(out)
-        out = ttnn.add(lo, hi, dtype=ttnn.float32)
-        ttnn.deallocate(lo)
-        ttnn.deallocate(hi)
+        if SPLIT_K_BROKEN and P == 1:
+            ttnn.deallocate(hi)
+            out = lo
+        else:
+            out = ttnn.add(lo, hi, dtype=ttnn.float32)
+            ttnn.deallocate(lo)
+            ttnn.deallocate(hi)
     out = ttnn.reshape(out, [M, N])
     dtype = kw.get("dtype") or a.dtype
     if dtype != ttnn.float32:
@@ -1290,7 +1380,7 @@ def _split_k(a, b, kw):
     mc = kw.get("memory_config")
     if mc is not None and mc != out.memory_config():
         out = ttnn.to_memory_config(out, mc)
-    SPLIT_K_STATS["served"] += 1
+    SPLIT_K_STATS["served"] = SPLIT_K_STATS.get("served", 0) + 1
     return out
 
 
@@ -1431,7 +1521,8 @@ def bmm_cb_bytes(Mt, Nt, in0_block_w, transpose_a, a_tile, b_tile, out_tile, fp3
 
 
 def bmm_program_config(a, b, transpose_a: bool = False, transpose_b: bool = False, *,
-                       dtype=None, compute_kernel_config=None, in0_block_w: int | None = None):
+                       dtype=None, compute_kernel_config=None, in0_block_w: int | None = None,
+                       max_out_tiles: int | None = None):
     """An explicit program config for a batched ``op(a) @ op(b)``, or None to keep ttnn's plan.
 
     With a real batch axis on both operands and no program config, ttnn's matmul plans a
@@ -1474,7 +1565,8 @@ def bmm_program_config(a, b, transpose_a: bool = False, transpose_b: bool = Fals
     M, K = (sa[-1], sa[-2]) if transpose_a else (sa[-2], sa[-1])
     N = sb[-2] if transpose_b else sb[-1]
     Mt, Nt, Kt = (-(-d // ttnn.TILE_SIZE) for d in (M, N, K))
-    if Mt * Nt > BMM_OUT_TILES:
+    cap = BMM_OUT_TILES if max_out_tiles is None else max_out_tiles
+    if Mt * Nt > cap:
         return None
 
     def largest_divisor(n, cap):
@@ -1759,6 +1851,13 @@ def _tree_sum(t, ax):
     return cur
 
 
+SUM_LEADING_SPLIT = env_flag("TT_BIO_SUM_LEADING_SPLIT", True)
+SUM_LEADING_BROKEN = env_flag("TT_BIO_SUM_LEADING_BROKEN", False)
+SUM_LEADING_MIN_ROWS = 4096
+SUM_LEADING_CHUNKS = int(os.environ.get("TT_BIO_SUM_LEADING_CHUNKS", "16"))
+SUM_LEADING_STATS = {"split": 0, "stock": 0}
+
+
 def _sum_leading(t, out_shape):
     """Sum ``t`` down to ``out_shape``, which must be its trailing dims. Used for bias/gamma.
 
@@ -1783,8 +1882,33 @@ def _sum_leading(t, out_shape):
         for x in (rows, rm, tiles):
             if x is not flat:
                 ttnn.deallocate(x)
+    elif (SUM_LEADING_SPLIT and flat.dtype == ttnn.bfloat16 and n >= SUM_LEADING_MIN_ROWS
+            and n % T == 0 and flat.layout == ttnn.TILE_LAYOUT and not flat.is_sharded()):
+        # Split long-row bf16 reductions into P chunks along dim 0 (zero-copy view) so `ttnn.sum`
+        # fans out across P * ceil(c/32) cores instead of ceil(c/32) (12-24 cores), then sum the
+        # P partials with an exact fp32 pairwise tree.
+        P = 1
+        while P * 2 <= SUM_LEADING_CHUNKS and n % (P * 2 * T) == 0 and n // (P * 2) >= 128:
+            P *= 2
+        if P >= 4:
+            part = ttnn.sum(ttnn.reshape(flat, [P, n // P, c]), dim=1, keepdim=True,
+                            compute_kernel_config=precise_config())
+            p32 = ttnn.typecast(part, ttnn.float32)
+            ttnn.deallocate(part)
+            if SUM_LEADING_BROKEN:
+                half = ttnn.slice(p32, [0, 0, 0], [P // 2, 1, c])
+                ttnn.deallocate(p32)
+                p32 = half
+            summed = _tree_sum(p32, 0)
+            if summed is not p32:
+                ttnn.deallocate(p32)
+            SUM_LEADING_STATS["split"] += 1
+        else:
+            summed = ttnn.sum(flat, dim=0, keepdim=True, compute_kernel_config=precise_config())
+            SUM_LEADING_STATS["stock"] += 1
     else:
         summed = ttnn.sum(flat, dim=0, keepdim=True, compute_kernel_config=precise_config())
+        SUM_LEADING_STATS["stock"] += 1
     return ttnn.reshape(summed, [int(d) for d in out_shape])
 
 
@@ -1945,24 +2069,25 @@ def _layer_norm_bw(x, gamma, beta, eps, bwcfg, center=True):
     """
     def bw(g):
         xv = x.value
-        # dx alone, which is all a sequence gradient asks for, in one kernel when it serves
-        # (`tt_bio.lnbw`). A weight gradient needs the composed path's `norm`.
-        if center and x.requires_grad and not any(p is not None and p.requires_grad
-                                                  for p in (gamma, beta)):
+        # dx alone, which is all a sequence gradient (or weight-free RMSNorm) asks for, in one
+        # kernel when it serves (`tt_bio.lnbw`).
+        if x.requires_grad and not any(p is not None and p.requires_grad for p in (gamma, beta)):
             from . import lnbw
             gv = None if gamma is None else gamma.value
-            if lnbw.eligible(xv, g, gv):
-                x.add_grad(lnbw.layer_norm_bw(xv, g, gv, eps))
+            if lnbw.eligible(xv, g, gv, center=center):
+                x.add_grad(lnbw.layer_norm_bw(xv, g, gv, eps, center=center))
                 return
-        # dx, dgamma and dbeta in one kernel when the training lever serves (`lnbw.WEIGHTS`).
-        if center and x.requires_grad and any(p is not None and p.requires_grad for p in (gamma, beta)):
+        # dx, dgamma (and dbeta when center/beta) in one kernel when the training lever serves.
+        if x.requires_grad and any(p is not None and p.requires_grad for p in (gamma, beta)):
             from . import lnbw
             gv = None if gamma is None else gamma.value
-            if lnbw.eligible(xv, g, gv, weights=True):
-                dx, dg, db = lnbw.layer_norm_bw_weights(xv, g, gv, eps, precise_config())
+            need_beta = beta is not None and beta.requires_grad
+            if lnbw.eligible(xv, g, gv, weights=True, center=center, do_beta=need_beta):
+                dx, dg, db = lnbw.layer_norm_bw_weights(xv, g, gv, eps, precise_config(),
+                                                        center=center, do_beta=need_beta)
                 if gamma is not None and gamma.requires_grad:
                     gamma.add_grad(ttnn.reshape(dg, list(gamma.value.shape)))
-                if beta is not None and beta.requires_grad:
+                if need_beta and db is not None:
                     beta.add_grad(ttnn.reshape(db, list(beta.value.shape)))
                 x.add_grad(dx)
                 return
@@ -4192,8 +4317,17 @@ def _checkpoint_segment(fn, *inputs):
     return checkpoint(fn, *inputs, params=_ALL_PARAMS)
 
 
+def _suspend_tape_cm():
+    from .taped_ttnn import suspend
+    return suspend()
+
+
+def _wrap_untaped(t):
+    return t if isinstance(t, Tensor) else Tensor(t, requires_grad=False)
+
+
 def _install_hooks():
-    """The four hooks, and nothing else. What `tape()` re-arms on every entry. Returns the four
+    """The autograd hooks, and nothing else. What `tape()` re-arms on every entry. Returns what
     it replaced, in `_restore_hooks` order."""
     from . import ops
     # A recycling model asks `ops.recycle_region` whether a non-final cycle is differentiated.
@@ -4203,18 +4337,22 @@ def _install_hooks():
             # The host float64 softmax a construction site may select. Injected rather than
             # imported, so `tt_bio/tenstorrent.py` can offer the lever without reaching the tape.
             ops.set_host_softmax_hook(host_f64_softmax),
-            ops.set_grad_hook(_hook))
+            ops.set_grad_hook(_hook),
+            ops.set_suspend_tape_hook(_suspend_tape_cm),
+            ops.set_wrap_untaped_hook(_wrap_untaped))
 
 
 def _restore_hooks(prev):
     """Put back what `_install_hooks` replaced. A checkpoint hook left behind sends a later
     inference forward through `checkpoint`, which hands raw ttnn verbs an `autograd.Tensor`."""
     from . import ops
-    recycle, ckpt, host_softmax, grad = prev
+    recycle, ckpt, host_softmax, grad, susp, wrap = prev
     ops.set_recycle_hook(recycle)
     ops.set_checkpoint_hook(ckpt)
     ops.set_host_softmax_hook(host_softmax)
     ops.set_grad_hook(grad)
+    ops.set_suspend_tape_hook(susp)
+    ops.set_wrap_untaped_hook(wrap)
 
 
 # What each open `install()` armed, innermost last, so `uninstall()` takes out exactly what its
@@ -4256,6 +4394,8 @@ def uninstall(*, exact_softmax: bool = False) -> None:
     ops.set_host_softmax_hook(None)
     if _INSTALL_EXACT:
         _uninstall_exact(_INSTALL_EXACT.pop())
+    ops.set_suspend_tape_hook(None)
+    ops.set_wrap_untaped_hook(None)
     ops.set_grad_hook(None)
 
 
@@ -4270,7 +4410,7 @@ def suspended():
 
     `install()` leaves `ops.taping() == True` for the whole process, which makes every shipped
     serving fused kernel decline even inside `no_grad()`. Entering `suspended()` outside `tape()`
-    clears the four hooks (and any installed exact-training overrides) for the block and restores
+    clears the hooks (and any installed exact-training overrides) for the block and restores
     them on exit, so a grad-off candidate or evaluation pass takes the exact serving path. Raises
     `RuntimeError` if entered while `tape()` is active.
     """
@@ -4281,7 +4421,9 @@ def suspended():
     prev = (ops.set_recycle_hook(None),
             ops.set_checkpoint_hook(None),
             ops.set_host_softmax_hook(None),
-            ops.set_grad_hook(None))
+            ops.set_grad_hook(None),
+            ops.set_suspend_tape_hook(None),
+            ops.set_wrap_untaped_hook(None))
     try:
         with without_exact():
             yield

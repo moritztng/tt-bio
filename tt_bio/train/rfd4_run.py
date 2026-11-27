@@ -93,12 +93,20 @@ def main(argv=None, on_step=None):
     ap.add_argument("--win-pair", choices=("host", "card"), default="card",
                     help="where the taped winner builds z_init and runs its backward: host (upstream's builder, torch "
                          "autograd, the pair and its gradient over PCIe) or the card (PairOnCard.taped; needs --cand-pair card)")
-    ap.add_argument("--cand-levers", choices=("training", "serving", "inference", "serve"), default="serve",
+    ap.add_argument("--cand-levers", choices=("training", "serving", "inference", "serve", "serve_train"), default="serve",
                     help="lever set of the grad-off K-candidate pass: the training set, or that set plus the dropped levers that "
                          "switch at run time (pair_bf16z, dit_sigf32, tok_recycle_mm; r4t-perf K2). The pass only picks the "
                          "winner, so the gradient is unchanged whenever the winner is; inference also lets the fused kernels without a tape entry "
                          "serve that pass (ops.NOGRAD_IS_INFERENCE, r4t-perf K4); serve (r4t-perf K14) runs it under ag.suspended() "
-                         "with the serving fused kernels")
+                         "with the serving fused kernels; serve_train keeps training levers under ag.suspended()")
+    ap.add_argument("--win-pre", choices=("tape", "suspend", "reuse"), default="suspend",
+                    help="how win_trunk runs pre-final recycle cycles 0..depth-2 (r4t-bwd B1): tape (inside ag.tape() no_grad, "
+                         "baseline), suspend (outside ag.tape() under ag.suspended() with serving fused kernels; passes D37 "
+                         "loss parity on all 9 batches), or reuse (slice cand_trunk's penultimate (s_{d-1}[win], z_{d-1}[win]))")
+    ap.add_argument("--break-win-pre", action="store_true",
+                    help="B1 broken arm: negate the pre-final cycle-0 state s_prev entering cycle d-1 (must FAIL loss parity)")
+    ap.add_argument("--phase-timing", action="store_true",
+                    help="record synced per-phase wall seconds (cand_trunk_s, win_trunk_s, tape_bwd_s, win_plus_bwd_s) in JSON")
     ap.add_argument("--lnbw-weights", choices=("on", "off"), default="on",
                     help="LayerNorm backward with trainable gamma/beta in one fused kernel (tt_bio.lnbw weights form, "
                          "r4t-perf L2) or the composed ttnn path")
@@ -133,6 +141,7 @@ def main(argv=None, on_step=None):
         a.gate_bw = "off"        # likewise the fused gate backward (r4t-perf G1)
         a.cand_levers = "training"   # and the serving levers in the candidate pass (r4t-perf K2/K14)
         a.win_pair = "host"      # and the card pair-builder backward (r4t-perf P2)
+        a.win_pre = "tape"       # exact control runs unmodified pre-final cycles
     if a.curve_dump and a.dp_cards:
         raise SystemExit("--curve-dump is a single-card leg: every rank would append to one CurveLog")
     if a.dp_cards and a.dp_rank < 0:
@@ -350,12 +359,12 @@ def main(argv=None, on_step=None):
         z0 = torch.randn(a.k, n, n, P, generator=gs) * 0.5
         return s0, z0
 
-    def winner(s_init, z_init, conds=None, masks=None):
+    def winner(s_init, z_init, conds=None, masks=None, *, prev=None):
         """The production `Trunk.__call__` at depth d: under a tape every cycle but the last runs no_grad
         (`ops.recycle_region`, upstream's `recycle_grad: last`), so only the last pass is differentiated."""
         conds = [cond1] * a.depth if conds is None else conds
         masks = masks1 if masks is None else masks
-        return trunk(s_init, z_init, conds, masks)
+        return trunk(s_init, z_init, conds, masks, prev=prev)
 
     def one_example(step, taped):
         s0, z0 = inputs(step)
@@ -423,8 +432,9 @@ def main(argv=None, on_step=None):
             --cand-levers serve (r4t-perf K14): also swaps `trunk._levers` (so `Trunk.__call__`'s `@under_lever_scope`
             does not overwrite the candidate lever set) and runs outside `ag.tape()` under `ag.suspended()`, unlocking
             the shipped serving fused kernels (`trimul_t1`, `pair_tail_cm`, `pair_relu`, `outer_residual`,
-            `rms_pair_bias`, `rne_add`) on the grad-off candidate pass."""
-            if a.cand_levers == "training":
+            `rms_pair_bias`, `rne_add`) on the grad-off candidate pass.
+            --cand-levers serve_train: runs outside `ag.tape()` under `ag.suspended()` with `levers` (fp32 pair stream)."""
+            if a.cand_levers in ("training", "serve_train"):
                 yield
                 return
             from tt_bio import ops as _ops
@@ -448,57 +458,133 @@ def main(argv=None, on_step=None):
                     setattr(m, "pair_residual_dtype" if m is trunk else "residual_dtype", d)
                 _ops.NOGRAD_IS_INFERENCE = nogi
 
+        def _slice_win(t, win):
+            sh = [int(d) for d in t.shape]
+            return ttnn.slice(t, [win] + [0] * (len(sh) - 1), [win + 1] + sh[1:])
+
         def real_example(taped):
             """Upstream's step on the dumped batch: k candidates grad-off through glue + trunk + heads, the
             winner by our own exploration loss, then the winner re-run with grad (host glue, taped trunk)."""
             bt, K = cur["bt"], cur["K"]
             mk = tmask(bt)
             pc = pair_card()
+            phase = {}
+            want_penult = a.win_pre == "reuse" and cur["depth"] > 1
             with torch.no_grad():
                 ck = conds_for(bt)
                 s0, z0 = glue.initial_states(bt, pair_constant=glue.pair_split.constant(bt) if pc else None)
-            if a.cand_levers == "serve":
+            penult_k = (None, None)
+            cand_outside = a.cand_levers in ("serve", "serve_train")
+            if cand_outside:
+                if a.phase_timing:
+                    ttnn.synchronize_device(dev)
+                    _tc0 = time.time()
                 with ag.suspended(), cand_scope():
                     zk0 = pc(z0, 0) if pc else put(z0, trunk.pair_dtype(mk))
-                    sk, zk = trunk(put(s0), zk0, [put(c, trunk.dtype) for c in ck], mk)
+                    if want_penult:
+                        sk, zk, penult_k = trunk(put(s0), zk0, [put(c, trunk.dtype) for c in ck], mk,
+                                                 return_penultimate=True)
+                    else:
+                        sk, zk = trunk(put(s0), zk0, [put(c, trunk.dtype) for c in ck], mk)
                     sh = ttnn.to_torch(sk).float().reshape(s0.shape)
                 for t in (sk, zk):
                     ttnn.deallocate(t)
-            with T.lever_scope(levers), ag.tape():
-                if a.cand_levers != "serve":
-                    with ag.no_grad(), cand_scope():
-                        zk0 = pc(z0, 0) if pc else put(z0, trunk.pair_dtype(mk))
+                if a.phase_timing:
+                    ttnn.synchronize_device(dev)
+                    phase["cand_trunk_s"] = round(time.time() - _tc0, 5)
+            else:
+                if a.phase_timing:
+                    ttnn.synchronize_device(dev)
+                    _tc0 = time.time()
+                with T.lever_scope(levers), ag.tape(), ag.no_grad(), cand_scope():
+                    zk0 = pc(z0, 0) if pc else put(z0, trunk.pair_dtype(mk))
+                    if want_penult:
+                        sk, zk, penult_k = trunk(put(s0), zk0, [put(c, trunk.dtype) for c in ck], mk,
+                                                 return_penultimate=True)
+                    else:
                         sk, zk = trunk(put(s0), zk0, [put(c, trunk.dtype) for c in ck], mk)
-                        sh = ttnn.to_torch(getattr(sk, "value", sk)).float().reshape(s0.shape)
+                    sh = ttnn.to_torch(getattr(sk, "value", sk)).float().reshape(s0.shape)
                     for t in (sk, zk):
                         ttnn.deallocate(getattr(t, "value", t))
+                penult_k = tuple(getattr(t, "value", t) if t is not None else None for t in penult_k)
+                if a.phase_timing:
+                    ttnn.synchronize_device(dev)
+                    phase["cand_trunk_s"] = round(time.time() - _tc0, 5)
+            with torch.no_grad():
+                ok = {k: v.double().numpy() for k, v in flat(glue.heads(sh, bt)).items()}
+            _t, bd, _s = RO.rfd4_loss({**npy(bt), "exploration_k": K}, ok, RO.WEIGHTS)
+            win = int(bd["winners"][0])
+            bw = take(bt, win)
+            br = Bridge(dev, trunk.dtype)
+            m1 = tmask(bw)
+            if not taped:
+                for t in penult_k:
+                    if t is not None:
+                        ttnn.deallocate(t)
+                with T.lever_scope(levers), ag.tape(), torch.no_grad(), ag.no_grad():
+                    walk_register()
+                    s_i, z_i = glue.initial_states(bw)
+                    return winner(put(s_i), put(z_i, trunk.pair_dtype(m1)),
+                                  [put(c, trunk.dtype) for c in conds_for(bw)], m1)
+            cs = conds_for(bw)
+            use_card_pair = bool(pc and a.win_pair == "card")
+            if use_card_pair:
+                from tt_bio.rfd4.pair import PairInputs
+                from tt_bio.train.rfd4_pair import pair_taped
+                s_i = glue.init_repr_factory(bw) * bw["padding_mask"][..., None]
+                gamma, beta = glue.pair_split.modulation(bw)
+                zw = PairInputs(z0.constant, z0.bins[win:win + 1], z0.scale[win:win + 1], gamma, beta)
+                z_i = None
+            else:
+                s_i, z_i = glue.initial_states(bw)
+                zw = None
+            prev = None
+            keep = ()
+            if a.phase_timing:
+                ttnn.synchronize_device(dev)
+                _tw0 = time.time()
+            if want_penult and penult_k[0] is not None:
+                s_prev = _slice_win(penult_k[0], win)
+                z_prev = _slice_win(penult_k[1], win)
+                ttnn.deallocate(penult_k[0])
+                ttnn.deallocate(penult_k[1])
+                if a.break_win_pre:
+                    bad = ttnn.multiply(s_prev, -1.0)
+                    ttnn.deallocate(s_prev)
+                    s_prev = bad
+                prev = (s_prev, z_prev)
+                keep = prev
+            elif a.win_pre == "suspend" and cur["depth"] > 1:
+                with ag.suspended(), cand_scope():
+                    sp_in = put(s_i.detach())
+                    if use_card_pair:
+                        zw_ng = PairInputs(z0.constant, z0.bins[win:win + 1], z0.scale[win:win + 1],
+                                           gamma.detach(), beta.detach())
+                        zp_in = pc(zw_ng, 0)
+                    else:
+                        zp_in = put(z_i.detach(), trunk.pair_dtype(m1))
+                    cp_in = [put(c.detach(), trunk.dtype) for c in cs[:-1]]
+                    s_prev, z_prev = trunk(sp_in, zp_in, cp_in, m1)
+                    for t in (sp_in, zp_in, *cp_in):
+                        ttnn.deallocate(t)
+                if a.break_win_pre:
+                    bad = ttnn.multiply(s_prev, -1.0)
+                    ttnn.deallocate(s_prev)
+                    s_prev = bad
+                prev = (s_prev, z_prev)
+                keep = prev
+            with T.lever_scope(levers), ag.tape():
                 walk_register()
-                with torch.no_grad():
-                    ok = {k: v.double().numpy() for k, v in flat(glue.heads(sh, bt)).items()}
-                _t, bd, _s = RO.rfd4_loss({**npy(bt), "exploration_k": K}, ok, RO.WEIGHTS)
-                win = int(bd["winners"][0])
-                bw = take(bt, win)
-                br = Bridge(dev, trunk.dtype)
-                m1 = tmask(bw)
-                if not taped:
-                    with torch.no_grad(), ag.no_grad():
-                        s_i, z_i = glue.initial_states(bw)
-                        return winner(put(s_i), put(z_i, trunk.pair_dtype(m1)),
-                                      [put(c, trunk.dtype) for c in conds_for(bw)], m1)
-                cs = conds_for(bw)
-                if pc and a.win_pair == "card":
-                    # r4t-perf P2: the winner's pair on the card from the candidate pass's constant, its backward too
-                    from tt_bio.rfd4.pair import PairInputs
-                    from tt_bio.train.rfd4_pair import pair_taped
-                    s_i = glue.init_repr_factory(bw) * bw["padding_mask"][..., None]
-                    gamma, beta = glue.pair_split.modulation(bw)
-                    zw = PairInputs(z0.constant, z0.bins[win:win + 1], z0.scale[win:win + 1], gamma, beta)
+                if use_card_pair:
                     z_in = pair_taped(pc, zw, br, bw, trunk.pair_dtype(m1))
                 else:
-                    s_i, z_i = glue.initial_states(bw)
                     z_in = br.up(z_i, trunk.pair_dtype(m1))
-                s, z = winner(br.up(s_i, ttnn.float32), z_in, [br.up(c) for c in cs], m1)
-            return s, z, dict(br=br, bw=bw, win=win, shape=s_i.shape)
+                c_arg = [br.up(cs[-1])] if prev is not None else [br.up(c) for c in cs]
+                s, z = winner(br.up(s_i, ttnn.float32), z_in, c_arg, m1, prev=prev)
+            if a.phase_timing:
+                ttnn.synchronize_device(dev)
+                phase["win_trunk_s"] = round(time.time() - _tw0, 5)
+            return s, z, dict(br=br, bw=bw, win=win, shape=s_i.shape, keep=keep, phase=phase)
 
         def real_loss(s, ctx):
             """rfd4_loss on our heads; its seeds are d total / d output, so <outputs, seeds> carries the
@@ -509,7 +595,32 @@ def main(argv=None, on_step=None):
             total, bd, seeds = RO.rfd4_loss({**npy(bw), "exploration_k": 1},
                                             {k: v.detach().double().numpy() for k, v in o.items()}, RO.WEIGHTS)
             sur = sum((o[k] * torch.from_numpy(np.asarray(g)).to(o[k].dtype)).sum() for k, g in seeds.items())
-            br.backward(sur)
+            if a.phase_timing:
+                _orig_bwd = ag.backward
+                _tape_t = [0.0]
+
+                def _timed_bwd(*ba, **bk):
+                    ttnn.synchronize_device(dev)
+                    _t0 = time.time()
+                    try:
+                        return _orig_bwd(*ba, **bk)
+                    finally:
+                        ttnn.synchronize_device(dev)
+                        _tape_t[0] += time.time() - _t0
+
+                ag.backward = _timed_bwd
+                try:
+                    br.backward(sur)
+                finally:
+                    ag.backward = _orig_bwd
+                tb = round(_tape_t[0], 5)
+                ctx["phase"]["tape_bwd_s"] = tb
+                ctx["phase"]["win_plus_bwd_s"] = round(ctx["phase"].get("win_trunk_s", 0.0) + tb, 5)
+            else:
+                br.backward(sur)
+            for t in ctx.get("keep", ()):
+                if t is not None and t.is_allocated():
+                    ttnn.deallocate(t)
             terms = {k: v.get("value") for k, v in bd.items() if isinstance(v, dict)}
             ref = {k: float(cur["ref"][k][ctx["win"]]) for k in terms if k in cur["ref"]
                    and ctx["win"] < len(cur["ref"][k])}
@@ -590,7 +701,7 @@ def main(argv=None, on_step=None):
             extra_mem = used()
             st = s
             extra = dict(dev_after_heads_B=extra_mem, batch=cur["name"], winner=ctx["win"], upstream_winner=(None if a.curve_dump else int(cur["meta"]["winners"][0])), depth_upstream=cur["depth"],
-                         terms=terms, upstream_terms=ref)
+                         terms=terms, upstream_terms=ref, **({"phase": ctx["phase"]} if a.phase_timing else {}))
         else:
             s, z = one_example(step * world + rank, True)
             close_rec()
@@ -658,7 +769,7 @@ def main(argv=None, on_step=None):
                    fold_bwd_s=round(t2b - t2, 4), opt_s=round(t2c - t2b, 4), rebuild_s=round(t3 - t2c, 4), rebuild_split=dict(RB), idle_dev_w=len(idle), step_s=round(t3 - t0, 4), retained_B=retained,
                    dead=len(dead), dead_names=sorted(dead)[:20], dev_base_B=base, dev_after_bwd_B=after_bwd, params=len(params), n_elems=int(sum(v.size for v in opt.master.values())),
                    master_digest=md, aiclk=[min(sm or [0]), max(sm or [0])], aiclk_med=sorted(sm)[len(sm) // 2] if sm else 0,
-                   k=a.k, depth=a.depth, n=n, lnbw_reach=dict(lnbw.REACH), gate_bw=list(gate_bw.STATS), kernels={k: list(v) for k, v in __import__("tt_bio.taped_ttnn", fromlist=["x"]).KERNEL_STATS.items()}, **extra,
+                   k=a.k, depth=a.depth, n=n, lnbw_reach=dict(lnbw.REACH), gate_bw=list(gate_bw.STATS), mmvjp=dict(ag.MMVJP_STATS), dw_2d=dict(ag._mm_layout.DW_2D_REACH), split_k=dict(ag.SPLIT_K_STATS), sum_leading=dict(ag.SUM_LEADING_STATS), widen_reach=dict(ag._rne_add.WIDEN_REACH), kernels={k: list(v) for k, v in __import__("tt_bio.taped_ttnn", fromlist=["x"]).KERNEL_STATS.items()}, **extra,
                    **({"pcie": PM.take()} if PM else {}), host_maxrss_GiB=round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 2**20, 3))
         print(json.dumps(row), flush=True)
         if on_step is not None:
