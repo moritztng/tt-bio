@@ -56,7 +56,7 @@ ALLOWED = {
     # brings the leaf gradients home. Through the shim the uploads would be taped twice.
     # `train/folds.py` patches the real `ttnn.from_torch` while the model is built (as `lineage.py`
     # does) and moves gradients only after the tape replay has finished (as `mesh.py` does).
-    "train/bridge.py", "train/folds.py",
+    "train/bridge.py", "train/folds.py", "train/device_optim.py",
     # `train/rfd4_run.py` is the RFD4 step driver, moved verbatim from perf/r4t_step/trunk_step.py
     # (D56) and pinned by an A/A on master digests. Its own uploads under a tape are the
     # trunk's inputs and seeds, which it wraps itself; the network's taped work runs in the
