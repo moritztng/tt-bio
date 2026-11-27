@@ -56,7 +56,7 @@ ALLOWED = {
     # brings the leaf gradients home. Through the shim the uploads would be taped twice.
     # `train/folds.py` patches the real `ttnn.from_torch` while the model is built (as `lineage.py`
     # does) and moves gradients only after the tape replay has finished (as `mesh.py` does).
-    "train/bridge.py", "train/folds.py",
+    "train/bridge.py", "train/folds.py", "train/device_optim.py",
     # `af2_structure.Card` uploads its leaves with the raw `from_torch` and tapes its own VJPs
     # (`sqrt`, `reciprocal` on `.value`, then `autograd._tape`), so the shim would tape them
     # twice. It defers the import for the same `pin_card()` reason as `bindcraft2.py`, which
