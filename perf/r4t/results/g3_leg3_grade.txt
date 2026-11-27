@@ -1,0 +1,4 @@
+CURVE: 2000 steps PASS tail200_gap=0.507 bar=0.9284 (ours 45.9106, gpu A 46.4177, gpu B 46.419) drift=0.0323@630 bar=0.1
+  ours: {'steps': 2000, 'first': 41.68932600919318, 'last': 53.832944022793185, 'mean_last_100': 45.3340522324686, 'finite': True} {"host": "DC16-BG-0203-u26-22", "sha": "dd6349964"}
+  gpu A: {'steps': 2000, 'first': 41.58943176269531, 'last': 51.65929412841797, 'mean_last_100': 45.62716932296753, 'finite': True} {"host": "ae509569c743", "sha": "src-c69ec3e94e30c194", "upstream_sha": "2db07bb444d91695f8c10e6acb7648e9297f9221"}
+  gpu B: {'steps': 2000, 'first': 51.037452697753906, 'last': 49.48902130126953, 'mean_last_100': 46.84911716461182, 'finite': True} {"host": "ae509569c743", "sha": "src-df1caadc3c064276", "upstream_sha": "2db07bb444d91695f8c10e6acb7648e9297f9221"}
