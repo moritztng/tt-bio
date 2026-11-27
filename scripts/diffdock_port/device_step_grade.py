@@ -18,7 +18,7 @@ from pathlib import Path
 
 import torch
 
-DATA = Path(__file__).resolve().parents[2] / "tests/data/diffdock_graph"
+DATA = Path(__file__).resolve().parents[2] / "tests/fixtures/diffdock"
 
 
 def stats(got: torch.Tensor, ref: torch.Tensor) -> dict:
@@ -38,17 +38,20 @@ def main():
     from tt_bio.main import ensure_p300_mesh_descriptor
     ensure_p300_mesh_descriptor()
     import ttnn
-    from tt_bio.diffdock import device_loop as dl, input as dfd_input, network, sampling
+    from tt_bio.diffdock import device_loop as dl, esm, input as dfd_input, network, sampling
     from tt_bio.diffdock.conv import pad_nodes
     from tt_bio.diffdock.job import DockOptions
     from tt_bio.diffdock.features import timestep_embedding
     from tt_bio.diffdock.static_net import StaticComplex, static_forward
 
     model = network.load(DockOptions(device="tt"))        # the shipped seam, gemm form
-    spec = dfd_input.ComplexSpec(name="8G43_ZU6", protein_path=str(DATA / "8G43_protein.pdb"),
-                                 ligand_description=str(DATA / "8G43_ligand.sdf"))
+    spec = dfd_input.ComplexSpec(name="6Z5Z_BDF", protein_path=str(DATA / "6Z5Z_BDF_protein.pdb"),
+                                 ligand_description=str(DATA / "6Z5Z_BDF_ligand.sdf"))
+    embeddings = esm.receptor_embeddings(
+        dfd_input.chain_sequences_for_embedding(Path(spec.protein_path)), on_device=False)
     graph = dfd_input.build_complex_graph(spec, seed=0, receptor_path=Path(spec.protein_path),
-                                          lm_embeddings=None, all_atoms=model.config.all_atoms)
+                                          lm_embeddings=embeddings,
+                                          all_atoms=model.config.all_atoms)
     lig, rec = graph.ligand, graph.receptor
     P, n_lig = args.poses, lig["pos"].shape[0]
     c = StaticComplex.build(lig, model.host._receptor_x(rec), rec["pos"].float(),

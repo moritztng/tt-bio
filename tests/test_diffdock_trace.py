@@ -194,10 +194,10 @@ def test_traced_rollout_matches_untraced():
     if not hasattr(model, "trace_body"):
         pytest.skip("the score network does not offer trace_body: nothing to capture yet")
 
-    graph, start, cfg, bounds = _device_complex(model)
+    graph, start, cfg, bounds, rot_edges = _device_complex(model)
 
     untraced = sampling.sample(model.score_fn(graph), start.clone(), cfg=cfg, bounds=bounds,
-                               noise=sampling.Noise(seed=0), edge_index=graph.ligand["edge_index"],
+                               noise=sampling.Noise(seed=0), edge_index=rot_edges,
                                mask_rotate=graph.ligand["mask_rotate"],
                                crop_beyond_a=model.config.crop_beyond).poses
 
@@ -227,20 +227,24 @@ def _device_complex(model):
     """A small real complex and its randomised start poses, through the shipped input path."""
     from pathlib import Path
 
-    from tt_bio.diffdock import input as dfd_input, sampling
+    from tt_bio.diffdock import esm, input as dfd_input, sampling
 
-    data = Path(__file__).parent / "data" / "diffdock_graph"
-    spec = dfd_input.ComplexSpec(name="8G43_ZU6", protein_path=str(data / "8G43_protein.pdb"),
-                                 ligand_description=str(data / "8G43_ligand.sdf"))
-    if not Path(spec.protein_path).is_file():
-        pytest.skip("the 8G43_ZU6 fixture structures are not in this checkout")
+    data = Path(__file__).parent / "fixtures" / "diffdock"
+    spec = dfd_input.ComplexSpec(name="6Z5Z_BDF", protein_path=str(data / "6Z5Z_BDF_protein.pdb"),
+                                 ligand_description=str(data / "6Z5Z_BDF_ligand.sdf"))
+    # Host ESM-2, so the test opens exactly one device context: the network's.
+    embeddings = esm.receptor_embeddings(
+        dfd_input.chain_sequences_for_embedding(Path(spec.protein_path)), on_device=False)
     graph = dfd_input.build_complex_graph(spec, seed=0, receptor_path=Path(spec.protein_path),
-                                          lm_embeddings=None, all_atoms=model.config.all_atoms)
+                                          lm_embeddings=embeddings,
+                                          all_atoms=model.config.all_atoms)
     cfg = sampling.SamplingConfig.from_recipe(actual_steps=N_STEPS)
     bounds = sampling.SigmaBounds.from_config(model.config)
+    # The rotatable bonds, as run.py passes them to the sampler.
+    rot_edges = graph.ligand["edge_index"].T[graph.ligand["edge_mask"]]
     start = sampling.randomize_position(graph.ligand["pos"], receptor_pos=graph.receptor["pos"],
                                         n_samples=N_POSES, cfg=cfg, bounds=bounds,
                                         noise=sampling.Noise(seed=0),
-                                        edge_index=graph.ligand["edge_index"],
+                                        edge_index=rot_edges,
                                         mask_rotate=graph.ligand["mask_rotate"])
-    return graph, start, cfg, bounds
+    return graph, start, cfg, bounds, rot_edges
