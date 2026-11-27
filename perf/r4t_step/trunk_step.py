@@ -56,14 +56,15 @@ def main():
     ap.add_argument("--cover-steps", type=int, default=0,
                     help="steps the no-gradient guard intersects over (default: the guard's own minimum). A run cycling "
                          "logged batches sets it to the cycle length: a head no early batch drives is not dead")
-    ap.add_argument("--pcie-meter", action="store_true",
-                    help="count host<->device bytes and transfers per step phase (perf/r4t_perf/pcie_meter.py)")
+    ap.add_argument("--pcie-meter", choices=("off", "on", "sites"), default="off",
+                    help="count host<->device bytes and transfers per step phase (perf/r4t_perf/pcie_meter.py); "
+                         "sites adds the top call sites by bytes")
     a = ap.parse_args()
-    if a.pcie_meter:
+    if a.pcie_meter != "off":
         import sys
         sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "r4t_perf"))
         import pcie_meter as PM
-        PM.install()
+        PM.install(sites=a.pcie_meter == "sites")
     else:
         PM = None
     mark = (lambda name: PM.phase(name)) if PM else (lambda name: None)
