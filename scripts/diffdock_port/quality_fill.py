@@ -111,6 +111,21 @@ def exclusions(per, failures: dict, attempted=()):
     }
 
 
+def load_evaluate():
+    """The shipped grading library, loaded BY FILE PATH.
+
+    Not `from tt_bio.diffdock import evaluate`: the package __init__ imports the input pipeline,
+    which imports torch, and the grading environment deliberately has no torch. evaluate.py itself
+    needs numpy, and rdkit/spyrmsd inside the functions.
+    """
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "dfd_evaluate", REPO / "tt_bio" / "diffdock" / "evaluate.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
 def library_crosscheck(poses: Path, ids):
     """Grade the same poses through the library a user gets, as an independent reading.
 
@@ -119,15 +134,7 @@ def library_crosscheck(poses: Path, ids):
     different code, so a disagreement on top-1 is a defect in one of them, and agreement is the
     cheapest check that the number is the metric it claims to be.
     """
-    # By file path, not `from tt_bio.diffdock import evaluate`: the package __init__ imports the
-    # input pipeline, which imports torch, and the grading environment deliberately has no torch.
-    # evaluate.py itself needs numpy, and rdkit/spyrmsd inside the functions.
-    import importlib.util
-    spec = importlib.util.spec_from_file_location(
-        "dfd_evaluate", REPO / "tt_bio" / "diffdock" / "evaluate.py")
-    evaluate = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(evaluate)
-    g = evaluate.grade_set(ids, poses, PB, max_rank=10)
+    g = load_evaluate().grade_set(ids, poses, PB, max_rank=10)
     m = g["metrics"]
     # success_rates' top-k family starts at k=5, so the rank-1 rate this campaign gates on comes
     # from the per-complex records: rmsd[0] is the confidence model's column-0 pose (dfd-ref).
@@ -143,6 +150,40 @@ def library_crosscheck(poses: Path, ids):
         "scale_note": "the library's top-k family is a percentage and starts at k=5; the rank-1 "
                       "rate above is counted from its per-complex rmsd[0] as a fraction",
     }
+
+
+def steric_cross(evaluate, poses: Path, ids):
+    """Closest ligand-receptor approach over the set's rank-1 poses, in Angstrom.
+
+    `evaluate.min_cross_distance` is shipped and documented but nothing called it: `grade_set`
+    never loads receptor coordinates, so the field sat null while the library had the function.
+    QUALITY.md asks for the steric pair, so it is measured here against the same receptor file
+    the docking read. Reported as the worst approach over the set plus the median, because one
+    number over 420 poses is a minimum and says nothing about the bulk.
+    """
+    from rdkit import Chem
+    vals = []
+    for cid in ids:
+        rank1 = poses / cid / "rank1.sdf"
+        pdb = PB / cid / f"{cid}_protein.pdb"
+        if not rank1.exists() or not pdb.exists():
+            continue
+        mol = Chem.MolFromMolFile(str(rank1), sanitize=False)
+        if mol is None or mol.GetNumConformers() == 0:
+            continue
+        lig = mol.GetConformer().GetPositions()
+        rec = [(float(l[30:38]), float(l[38:46]), float(l[46:54]))
+               for l in open(pdb)
+               if l.startswith("ATOM") and l[76:78].strip() not in ("H", "")]
+        if not rec:
+            continue
+        vals.append(evaluate.min_cross_distance(lig, rec))
+    if not vals:
+        return None
+    return {"min_over_set_a": round(min(vals), 3),
+            "median_a": round(statistics.median(vals), 3),
+            "n_poses": len(vals),
+            "note": "heavy atoms both sides, rank-1 pose vs the crystal receptor as docked"}
 
 
 def main():
@@ -199,7 +240,7 @@ def main():
         "percentiles": summary["percentiles_top1"],
         "posebusters_validity": summary["posebusters_validity_rate"],
         "posebusters_physics_validity": summary["posebusters_physics_validity_rate"],
-        "steric": {"min_cross_distance": None,
+        "steric": {"min_cross_distance": steric_cross(load_evaluate(), poses, ids),
                    "self_intersection_frac": (cross or {}).get("self_intersect_frac")},
         # written-pose NaNs the grader can see, PLUS the complexes that died non-finite before
         # any pose was written and so cannot appear in a coordinate scan
