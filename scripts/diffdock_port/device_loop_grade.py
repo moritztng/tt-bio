@@ -339,6 +339,38 @@ def main():
         record("tor_score", cut(tdev.score(dl.upload(dev, conv.float()), sigma), nb, 1), ref_tor)
     flush_json()
 
+    # --- the pose buffer: rigid update, unrolled torsions, Horn's Kabsch -------------
+    # Newest block, so last; the json is flushed after each leg.
+    from tt_bio.diffdock import loop as L
+
+    pairs = [(2, 3), (5, 6), (8, 9)]
+    sgp = StaticGraphs.build(n_lig, n_rec, bonds, n_rot_bonds=len(pairs), n_poses=n_poses)
+    from tt_bio.diffdock.graph import pad_edge_index as _pad, tile_disjoint as _tile
+    rbp = _pad(_tile(torch.tensor(pairs).T, n_poses, n_lig, n_lig), sgp.n_bond_padded,
+               sgp.lig_pad_node)
+    mask_rot = (torch.rand(len(pairs), n_lig, generator=g) > 0.5).float()
+    pu = dl.PoseUpdate(dev, sgp, rbp, mask_rot)
+
+    pos64 = lp.double()[:n_poses * n_lig].reshape(n_poses, n_lig, 3)
+    tr = (torch.rand(n_poses, 3, generator=g).double() * 2 - 1) * 2
+    rotu = (torch.rand(n_poses, 3, generator=g).double() * 2 - 1) * 1.5
+    toru = (torch.rand(n_poses, len(pairs), generator=g).double() * 2 - 1) * 2.0
+    buf = dl.upload(dev, lp[:sgp.n_lig_padded])
+    tr_d, rot_d = dl.upload(dev, tr.float()), dl.upload(dev, rotu.float())
+    tor_d = dl.upload(dev, toru.reshape(-1).float())
+    real = lambda t: ttnn.to_torch(t)[:n_poses * n_lig, :3].reshape(n_poses, n_lig, 3)
+
+    ref_rigid, _ = L.fixed_update(pos64, tr, rotu, None, [], None)
+    got_rigid = pu.rigid(buf, tr_d, rot_d)
+    record("pose_rigid", real(got_rigid), ref_rigid)
+
+    ref_flex = L.apply_torsions(ref_rigid, pairs, mask_rot.double(), toru)
+    record("pose_torsions", real(pu.torsions(got_rigid, tor_d)), ref_flex)
+
+    ref_full, _ = L.fixed_update(pos64, tr, rotu, toru, pairs, mask_rot.double())
+    record("pose_update", real(pu(buf, tr_d, rot_d, tor_d)), ref_full)
+    flush_json()
+
     print(json.dumps({k: v for k, v in out.items() if isinstance(v, (int, float))}), flush=True)
     Path(args.out).write_text(json.dumps(out, indent=1))
 

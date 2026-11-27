@@ -654,3 +654,202 @@ class FullTP:
         outer = ttnn.concat([ttnn.multiply(x1, ttnn.slice(x2, [0, j], [n, j + 1]))
                              for j in range(self.d2)], dim=1)
         return ttnn.matmul(outer, self.m, compute_kernel_config=self.ckc)
+# ---------------------------------------------------------------------------
+# the persistent pose buffer: `loop.fixed_update` and Horn's Kabsch on the card
+# ---------------------------------------------------------------------------
+
+def _pose_reduce(col, n_poses: int, n_lig: int, width: int, how: str):
+    """Reduce a per-atom ``[n, width]`` column over each pose's real atoms -> ``[n_poses, width]``.
+
+    The same view :func:`pose_centers` and :func:`rec_keep` take: the pose axis is the leading
+    one and every pose holds the same atom count, so this is a reshape and a reduction, with no
+    index tensor and no scatter.
+    """
+    import ttnn
+    real = n_poses * n_lig
+    flat = ttnn.to_layout(ttnn.slice(col, [0, 0], [real, width]), ttnn.ROW_MAJOR_LAYOUT)
+    block = ttnn.to_layout(ttnn.reshape(flat, [n_poses, n_lig, width]), ttnn.TILE_LAYOUT)
+    out = ttnn.sum(block, dim=1) if how == "sum" else ttnn.mean(block, dim=1)
+    return ttnn.reshape(out, [n_poses, width])
+
+
+def unit3(cols):
+    """:func:`tt_bio.diffdock.harmonics.unit` on three columns: divide by ``max(|v|, 1e-12)``."""
+    import ttnn
+    inv = ttnn.reciprocal(ttnn.clamp(norm3(*cols), min=_EPS))
+    return [ttnn.multiply(c, inv) for c in cols]
+
+
+def proper_rotation(k16, n_poses: int, squarings: int):
+    """:func:`tt_bio.diffdock.kabsch.proper_rotation` on the card, Davenport's K as 16 columns.
+
+    *k16* is K row-major: ``k16[4 a + b]`` is ``K[a, b]``, each a ``[n_poses, 1]`` column. The
+    squarings run as a batched ``[P, 1, 4, 4]`` matmul, which is ten ops for the whole rollout
+    step rather than the 640 column multiplies the unrolled form would dispatch.
+
+    The dominant eigenvector is read off ``A^(2^squarings) = lambda v v^T`` by picking the column
+    with the largest diagonal entry, as the host's ``argmax`` does. The pick here is the *first*
+    index attaining the maximum (``eq_j`` times the running product of ``1 - eq_k``), so a tie
+    resolves to one fixed column instead of a sum of two that could cancel, and the result never
+    depends on a reduction order.
+    """
+    import ttnn
+    shift = None                                   # Gershgorin: max_a sum_b |K[a, b]|
+    for a in range(4):
+        row = None
+        for b in range(4):
+            m = ttnn.abs(k16[4 * a + b])
+            row = m if row is None else ttnn.add(row, m)
+        shift = row if shift is None else ttnn.maximum(shift, row)
+    cols = [ttnn.add(k16[4 * a + b], shift) if a == b else k16[4 * a + b]
+            for a in range(4) for b in range(4)]
+    mat = ttnn.reshape(ttnn.concat(cols, dim=1), [n_poses, 1, 4, 4])
+    ckc = ttnn.types.BlackholeComputeKernelConfig(
+        math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,
+        fp32_dest_acc_en=True, packer_l1_acc=True)
+    tiny = 1.175494e-38                            # torch.finfo(float32).tiny, the host's clamp
+    for _ in range(squarings):
+        mat = ttnn.matmul(mat, mat, compute_kernel_config=ckc)
+        scale = ttnn.max(ttnn.max(ttnn.abs(mat), dim=-1, keepdim=True), dim=-2, keepdim=True)
+        mat = ttnn.multiply(mat, ttnn.reciprocal(ttnn.clamp(scale, min=tiny)))
+    flat = ttnn.reshape(mat, [n_poses, 16])
+    col = lambda a, b: ttnn.slice(flat, [0, 4 * a + b], [n_poses, 4 * a + b + 1])
+    diag = [col(a, a) for a in range(4)]
+    best = diag[0]
+    for d in diag[1:]:
+        best = ttnn.maximum(best, d)
+    q, taken = [None] * 4, None
+    for j in range(4):
+        hit = ttnn.typecast(ttnn.eq(diag[j], best), ttnn.float32)
+        pick = hit if taken is None else ttnn.multiply(hit, ttnn.add(ttnn.neg(taken), 1.0))
+        taken = pick if taken is None else ttnn.add(taken, pick)
+        for a in range(4):
+            term = ttnn.multiply(col(a, j), pick)
+            q[a] = term if q[a] is None else ttnn.add(q[a], term)
+    sq = None
+    for a in range(4):
+        m = ttnn.multiply(q[a], q[a])
+        sq = m if sq is None else ttnn.add(sq, m)
+    two = ttnn.multiply(ttnn.reciprocal(ttnn.clamp(sq, min=tiny)), 2.0)
+    r, i, j, k = q
+    mul = lambda a, b: ttnn.multiply(two, ttnn.multiply(a, b))
+    diag_entry = lambda a, b: ttnn.add(ttnn.neg(ttnn.add(mul(a, a), mul(b, b))), 1.0)
+    return (diag_entry(j, k), ttnn.subtract(mul(i, j), mul(k, r)), ttnn.add(mul(i, k), mul(j, r)),
+            ttnn.add(mul(i, j), mul(k, r)), diag_entry(i, k), ttnn.subtract(mul(j, k), mul(i, r)),
+            ttnn.subtract(mul(i, k), mul(j, r)), ttnn.add(mul(j, k), mul(i, r)), diag_entry(i, j))
+
+
+class PoseUpdate:
+    """:func:`tt_bio.diffdock.loop.fixed_update` over the card's own pose buffer.
+
+    The buffer is the ``[n_lig_padded, 3]`` fp32 tensor every other block already reads: pose
+    major, pad rows at the end. A step rotates and translates each pose about its own centre,
+    applies the rotatable-bond torsions one unrolled bond at a time, and re-superposes the
+    flexible pose onto the rigid one with Horn's quaternion Kabsch, exactly as the torch twin
+    does. Nothing here reads a value back to the host.
+
+    Every index is fixed for the rollout and uploaded once: the pose of each atom, the two atoms
+    of each bond (``StaticGraphs`` already tiles ``rot_bonds`` over poses, pose-major, so bond
+    ``i`` of pose ``p`` is row ``p * n_rot_bonds + i``), and each bond's rotating-atom mask,
+    tiled over poses into a ``[n_lig_padded, 1]`` 0/1 column. The mask chooses arithmetically
+    rather than through ``ttnn.where``: every lane here is finite, and `where` evaluates both
+    (`guard`).
+
+    A pad atom belongs to the clamped last pose and a pad bond has both ends on the pad atom, so
+    its axis is zero, :func:`unit3` sends it to zero and the rotation is the identity -- the same
+    way the torch twin keeps the shapes static.
+    """
+
+    def __init__(self, device, sg, rot_bonds, mask_rotate, squarings: int | None = None):
+        import ttnn
+        from .kabsch import SQUARINGS
+        self.device, self.sg = device, sg
+        self.n, self.P, self.n_lig = sg.n_lig_padded, sg.n_poses, sg.n_lig
+        self.nb = sg.n_rot_bonds
+        self.squarings = SQUARINGS if squarings is None else squarings
+        idx = lambda t: ttnn.from_torch(t.reshape(1, -1).to(torch.int32), dtype=ttnn.uint32,
+                                        layout=ttnn.ROW_MAJOR_LAYOUT, device=device)
+        pose_of = (torch.arange(self.n).div(self.n_lig, rounding_mode="floor")
+                   .clamp(max=self.P - 1))
+        self.pose_of = idx(pose_of)
+        self.u, self.v, self.rot_mask = [], [], []
+        for i in range(self.nb):
+            rows = torch.arange(self.P) * self.nb + i
+            self.u.append(idx(rot_bonds[0][rows]))
+            self.v.append(idx(rot_bonds[1][rows]))
+            col = torch.zeros(self.n)
+            m = mask_rotate[i].to(torch.float32)
+            col[:self.P * self.n_lig] = m.repeat(self.P)
+            self.rot_mask.append(upload(device, col))
+
+    def _per_atom(self, per_pose):
+        """A ``[n_poses, d]`` tensor spread over the atoms, through the exact fp32 gather."""
+        return gather(per_pose, self.pose_of, self.n)
+
+    def _move(self, pos, m, pivot):
+        """``(pos - pivot) @ R.T + pivot`` with R's nine entries *m* already per atom."""
+        import ttnn
+        d = ttnn.subtract(pos, pivot)
+        cols = rotate([ttnn.slice(d, [0, k], [self.n, k + 1]) for k in range(3)], m)
+        return ttnn.add(ttnn.concat(cols, dim=1), pivot)
+
+    def rigid(self, pos, tr, rot):
+        """The rigid half: rotate each pose about its centre by *rot*, then translate by *tr*."""
+        import ttnn
+        centre = self._per_atom(pose_centers(pos, self.P, self.n_lig))
+        rcols = [ttnn.slice(rot, [0, k], [self.P, k + 1]) for k in range(3)]
+        m = self._per_atom(ttnn.concat(list(axis_angle_matrix(*rcols)), dim=1))
+        m = [ttnn.slice(m, [0, k], [self.n, k + 1]) for k in range(9)]
+        return ttnn.add(self._move(pos, m, centre), self._per_atom(tr))
+
+    def torsions(self, pos, tor):
+        """The unrolled torsion updates. *tor* is ``[n_poses * n_rot_bonds, 1]``, pose-major."""
+        import ttnn
+        if not self.nb:
+            return pos
+        rows = ttnn.reshape(ttnn.slice(tor, [0, 0], [self.P * self.nb, 1]), [self.P, self.nb])
+        for i in range(self.nb):
+            a, b = gather(pos, self.u[i], self.P), gather(pos, self.v[i], self.P)
+            d = ttnn.subtract(a, b)
+            axis = unit3([ttnn.slice(d, [0, k], [self.P, k + 1]) for k in range(3)])
+            angle = ttnn.slice(rows, [0, i], [self.P, i + 1])
+            m = self._per_atom(ttnn.concat(
+                list(axis_angle_matrix(*[ttnn.multiply(c, angle) for c in axis])), dim=1))
+            m = [ttnn.slice(m, [0, k], [self.n, k + 1]) for k in range(9)]
+            moved = self._move(pos, m, self._per_atom(b))
+            keep = ttnn.add(ttnn.neg(self.rot_mask[i]), 1.0)
+            pos = ttnn.add(ttnn.multiply(moved, self.rot_mask[i]), ttnn.multiply(pos, keep))
+        return pos
+
+    def align(self, flexible, rigid):
+        """Horn's Kabsch, `b ~ a @ R.T + t.T`: superpose *flexible* back onto *rigid* per pose.
+
+        The correlation matrix is nine per-pose sums of products of centred columns, taken with
+        the same pose-axis reduction as the centres, so no ``[3, 3]`` batched transpose is built.
+        """
+        import ttnn
+        ca, cb = pose_centers(flexible, self.P, self.n_lig), pose_centers(rigid, self.P, self.n_lig)
+        da = ttnn.subtract(flexible, self._per_atom(ca))
+        db = ttnn.subtract(rigid, self._per_atom(cb))
+        acol = [ttnn.slice(da, [0, k], [self.n, k + 1]) for k in range(3)]
+        bcol = [ttnn.slice(db, [0, k], [self.n, k + 1]) for k in range(3)]
+        h = [_pose_reduce(ttnn.multiply(acol[a], bcol[b]), self.P, self.n_lig, 1, "sum")
+             for a in range(3) for b in range(3)]
+        xx, xy, xz, yx, yy, yz, zx, zy, zz = h
+        add, sub = ttnn.add, ttnn.subtract
+        k16 = [add(add(xx, yy), zz), sub(yz, zy), sub(zx, xz), sub(xy, yx),
+               sub(yz, zy), sub(sub(xx, yy), zz), add(xy, yx), add(zx, xz),
+               sub(zx, xz), add(xy, yx), sub(sub(yy, xx), zz), add(yz, zy),
+               sub(xy, yx), add(zx, xz), add(yz, zy), sub(sub(zz, xx), yy)]
+        r = proper_rotation(k16, self.P, self.squarings)
+        per_atom = [ttnn.slice(self._per_atom(ttnn.concat(list(r), dim=1)), [0, k], [self.n, k + 1])
+                    for k in range(9)]
+        rotated = ttnn.concat(rotate(acol, per_atom), dim=1)      # (a - ca) @ R.T
+        return ttnn.add(rotated, self._per_atom(cb))              # ... + cb, which is R(a-ca)+cb
+
+    def __call__(self, pos, tr, rot, tor):
+        """One pose update: rigid, torsions, re-superposition. Returns the new ``[n, 3]`` buffer."""
+        rigid = self.rigid(pos, tr, rot)
+        if not self.nb or tor is None:
+            return rigid
+        return self.align(self.torsions(rigid, tor), rigid)
