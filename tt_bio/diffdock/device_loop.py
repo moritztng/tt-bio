@@ -1079,7 +1079,6 @@ class DeviceStep:
         self.bond_block = upload(device, bond)
         # every constant column a step broadcasts over, uploaded once: a host-to-device copy
         # inside the body is work a captured trace would repeat for nothing
-        self.ones_rec_nodes = upload(device, torch.ones(sg.n_rec_padded))
         self.ones_rec_edges = upload(device, torch.ones(nr))
         self.lig_valid = upload(device, c.lig_valid.float())
         self.keep_all = upload(device, torch.cat([torch.ones(sg.n_rec_total),
@@ -1089,6 +1088,10 @@ class DeviceStep:
         self.rec_stack = ResidentStack(
             [convs[f"rec_emb_layers.{i}"] for i in range(len(model.rec_emb_layers))],
             rei, flat(nr) * len(model.rec_emb_layers), sg.n_rec_padded)
+        # the stack carries one padding node past the receptor's own rows, so the column the
+        # sigma term broadcasts over is the stack's node count, not `sg.n_rec_padded`
+        self.ones_rec_nodes = upload(device, torch.ones(self.rec_stack.n_p))
+
         self.lig_stack = ResidentStack(
             [convs[f"lig_emb_layers.{i}"] for i in range(len(model.lig_emb_layers))],
             sg.lig_edge_index, flat(nl) * len(model.lig_emb_layers), sg.n_lig_padded)
