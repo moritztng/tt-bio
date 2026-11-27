@@ -600,17 +600,22 @@ def _dev_batch_transpose_2d(xs: list, *, fast_dtype=None) -> list:
         return []
     m, n = int(xs[0].shape[0]), int(xs[0].shape[1])
     k = len(xs)
-    if k == 1:
-        if fast_dtype in (ttnn.bfloat16, ttnn.bfloat8_b):
-            x16 = ttnn.typecast(xs[0], ttnn.bfloat16)
-            xt = ttnn.transpose(x16, -2, -1)
-            ttnn.deallocate(x16)
-            if fast_dtype == ttnn.bfloat8_b:
-                x8 = ttnn.typecast(xt, ttnn.bfloat8_b)
-                ttnn.deallocate(xt)
-                return [x8]
-            return [xt]
-        return [_dev_transpose_2d(xs[0])]
+    if k == 1 or (m % 32 != 0) or (n % 32 != 0):
+        out_single = []
+        for x in xs:
+            if fast_dtype in (ttnn.bfloat16, ttnn.bfloat8_b):
+                x16 = ttnn.typecast(x, ttnn.bfloat16)
+                xt = ttnn.transpose(x16, -2, -1)
+                ttnn.deallocate(x16)
+                if fast_dtype == ttnn.bfloat8_b:
+                    x8 = ttnn.typecast(xt, ttnn.bfloat8_b)
+                    ttnn.deallocate(xt)
+                    out_single.append(x8)
+                else:
+                    out_single.append(xt)
+            else:
+                out_single.append(_dev_transpose_2d(x))
+        return out_single
 
     views = [ttnn.reshape(x, [1, m, n]) for x in xs]
     stacked = _concat_dim0_exact_f32(views)
