@@ -99,17 +99,43 @@ def proper_rotation(h: Tensor, squarings: int = SQUARINGS) -> Tensor:
     return quaternion_to_matrix(q)
 
 
-def kabsch_horn(a: Tensor, b: Tensor, squarings: int = SQUARINGS):
-    """Sampling's ``kabsch_batch`` contract -- `b ~ a @ R.T + t.T`, both ``[B, N, 3]`` -- plus ``det(H)``.
+def finite_correlation(h: Tensor) -> tuple[Tensor, Tensor]:
+    """``(h with its overflowed entries replaced, bad)``: the campaign's one overflow check.
 
-    ``det`` is returned as a diagnostic only: a negative entry is a step where upstream took
-    its reflection branch, which this matches without branching.
+    The correlation matrix is the step's first fp32 product of two coordinates, so it is
+    where a pose that the score heads have thrown to ~1e15 stops being representable: its
+    entries are sums of products of centred coordinates, and 1e15 squared is past fp32's
+    3.4e38. ``torch.linalg.svd`` *raises* on a non-finite input, and it is batched over the
+    samples, so one overflowing sample would take the other nine down with it
+    (D-dfd-sampling-10). Horn's device route does not raise but would hand back a nonsense
+    rotation.
+
+    So both routes sanitise here, identically: a row whose ``H`` is non-finite gets the
+    identity -- any finite matrix would do, the caller discards that sample's new pose --
+    and is returned in ``bad`` ``[...]`` for the rollout to freeze and record. The score
+    heads are not clamped: the overflow stays visible in the record, and upstream does not
+    clamp either (`state/dfd/note-dfd-parity-to-dfd-sampling.md`).
+
+    A row whose ``H`` is finite is returned value for value, so a rollout that never
+    overflows is bit-identical to one taken without this check.
+    """
+    bad = ~torch.isfinite(h.flatten(-2)).all(dim=-1)
+    eye = torch.eye(3, dtype=h.dtype, device=h.device)
+    return torch.where(bad[..., None, None], eye, h), bad
+
+
+def kabsch_horn(a: Tensor, b: Tensor, squarings: int = SQUARINGS):
+    """Sampling's ``kabsch_batch`` contract -- `b ~ a @ R.T + t.T`, both ``[B, N, 3]`` -- plus two diagnostics.
+
+    Returns ``(R, t, det, bad)``. ``det`` is the correlation determinant, a diagnostic only:
+    a negative entry is a step where upstream took its reflection branch, which this matches
+    without branching. ``bad`` ``[B]`` is :func:`finite_correlation`'s overflow mask.
     """
     centroid_a, centroid_b = a.mean(dim=1, keepdim=True), b.mean(dim=1, keepdim=True)
-    h = (a - centroid_a).transpose(1, 2) @ (b - centroid_b)
+    h, bad = finite_correlation((a - centroid_a).transpose(1, 2) @ (b - centroid_b))
     r = proper_rotation(h, squarings)
     t = (-r @ centroid_a.transpose(1, 2)) + centroid_b.transpose(1, 2)
-    return r, t, _inverse_transpose_and_det(h)[1]
+    return r, t, _inverse_transpose_and_det(h)[1], bad
 
 
 def quaternion_to_matrix(q: Tensor) -> Tensor:
