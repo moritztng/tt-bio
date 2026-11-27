@@ -125,8 +125,8 @@ def _device_trunk_masks(mask_cpu, dev, dtype, residual_dtype=None, elide=None):
     pair_3d = ttnn.multiply(tok, m_row)            # [b, n, n]
     ttnn.deallocate(m_row)
     pair_1nn = ttnn.reshape(pair_3d, (b, 1, n, n))
-    inv = ttnn.subtract(1.0, pair_1nn)
-    attn_bias = ttnn.multiply(inv, TR.NEG_INF)     # [b, 1, n, n]
+    inv = ttnn.subtract(pair_1nn, 1.0)
+    attn_bias = ttnn.multiply(inv, -TR.NEG_INF)    # [b, 1, n, n]: 0 where valid, NEG_INF where masked
     ttnn.deallocate(inv)
     if bool(m.all()):
         ttnn.deallocate(pair_3d)
@@ -281,7 +281,7 @@ def _device_cand_conds(glue, bt, depth: int, master: dict, mk, dev, out_dtype):
         return [u_devs[ui] for ui in cyc_to_u]
 
     U = len(raw_u)
-    x_stack = torch.stack(raw_u, dim=0).to(torch.float32).contiguous()  # [U, K, N, 256]
+    x_stack = torch.cat(raw_u, dim=0).to(torch.float32).contiguous()  # [U*K, N, 256]
     x_dev = ttnn.from_torch(
         x_stack, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT,
         device=dev, memory_config=ttnn.DRAM_MEMORY_CONFIG,
@@ -294,22 +294,32 @@ def _device_cand_conds(glue, bt, depth: int, master: dict, mk, dev, out_dtype):
         fp32_dest_acc_en=True,
         packer_l1_acc=True,
     )
-    m4 = ttnn.reshape(mk[4], (1, K, n, 1)) if mk[4] is not None else None
-    y1 = _device_transition_f32(x_dev, master[k_sw1], master[k_lo1], m4, ckc, cg)
+    m3_owned = False
+    if mk[4] is not None:
+        if U > 1:
+            m3 = ttnn.repeat(mk[4], (U, 1, 1))
+            m3_owned = True
+        else:
+            m3 = mk[4]
+    else:
+        m3 = None
+    y1 = _device_transition_f32(x_dev, master[k_sw1], master[k_lo1], m3, ckc, cg)
     ttnn.deallocate(x_dev)
-    y2 = _device_transition_f32(y1, master[k_sw2], master[k_lo2], m4, ckc, cg)
+    y2 = _device_transition_f32(y1, master[k_sw2], master[k_lo2], m3, ckc, cg)
     ttnn.deallocate(y1)
+    if m3_owned:
+        ttnn.deallocate(m3)
     if out_dtype != ttnn.float32:
         y_out = ttnn.typecast(y2, out_dtype)
         ttnn.deallocate(y2)
     else:
         y_out = y2
     d_c = int(y_out.shape[-1])
-    u_devs = []
-    for ui in range(U):
-        sl = ttnn.slice(y_out, [ui, 0, 0, 0], [ui + 1, K, n, d_c])
-        u_devs.append(ttnn.reshape(sl, (K, n, d_c)))
-    ttnn.deallocate(y_out)
+    if U == 1:
+        u_devs = [y_out]
+    else:
+        u_devs = [ttnn.slice(y_out, [ui * K, 0, 0], [(ui + 1) * K, n, d_c]) for ui in range(U)]
+        ttnn.deallocate(y_out)
     return [u_devs[ui] for ui in cyc_to_u]
 
 
