@@ -17,7 +17,7 @@ for h in $A $B; do
   ssh "${SSHO[@]}" ubuntu@172.16.102.$h "mkdir -p ~/$D && tar -C ~/$D -xf -" < "$OUT/src.tar"
 done
 quiet() {  # loadavg 1-min < 6 and no perf bench on the host
-  ssh "${SSHO[@]}" ubuntu@172.16.102.$1 'l=$(cut -d" " -f1 /proc/loadavg); b=$(pgrep -fc "perf/.*(bench|ab)\.py|pytest" || true); echo "$l $b"; awk -v l="$l" -v b="$b" "BEGIN{exit !(l<6 && b==0)}"'
+  ssh "${SSHO[@]}" ubuntu@172.16.102.$1 'l=$(cut -d" " -f1 /proc/loadavg); b=$(pgrep -fc "[p]erf/.*(bench|ab)\.py|[p]ytest" || true); echo "$l $b"; awk -v l="$l" -v b="$b" "BEGIN{exit !(l<6 && b==0)}"'
 }
 for h in $A $B; do
   if ! q=$(quiet $h); then echo "host .$h not quiet ($q): refusing, nothing run" | tee "$OUT/REFUSED"; exit 3; fi
