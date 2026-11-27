@@ -39,7 +39,7 @@ from .envflags import env_flag
 from . import pair_mm as _pair_mm
 
 __all__ = ["linear", "layer_norm", "set_grad_hook", "grad_hook",
-           "set_recycle_hook", "recycle_region", "set_suspend_tape_hook", "suspend_tape", "set_wrap_untaped_hook", "wrap_untaped", "taping", "recording",
+           "set_recycle_hook", "recycle_region", "taping", "recording",
            "set_checkpoint_hook", "checkpoint_segment",
            "set_host_softmax_hook", "host_softmax_hook",
            "set_kernel_entries", "kernel_entry", "declines_under_tape",
@@ -70,24 +70,6 @@ def set_recycle_hook(fn):
     """Install the region a non-differentiated recycling cycle runs in. Returns the old one."""
     global _RECYCLE
     prev, _RECYCLE = _RECYCLE, fn
-    return prev
-
-
-_SUSPEND_TAPE = None
-_WRAP_UNTAPED = None
-
-
-def set_suspend_tape_hook(fn):
-    """Install the context manager that suspends an active tape for a non-final recycle cycle."""
-    global _SUSPEND_TAPE
-    prev, _SUSPEND_TAPE = _SUSPEND_TAPE, fn
-    return prev
-
-
-def set_wrap_untaped_hook(fn):
-    """Install the wrapper turning a raw device tensor into an untaped autograd carrier."""
-    global _WRAP_UNTAPED
-    prev, _WRAP_UNTAPED = _WRAP_UNTAPED, fn
     return prev
 
 
@@ -290,18 +272,6 @@ def recycle_region(cyc, last):
     if _RECYCLE is None or cyc == last:
         return contextlib.nullcontext()
     return _RECYCLE()
-
-
-def suspend_tape():
-    """Temporarily suspend an active tape for a grad-off non-final recycle cycle (inert during inference)."""
-    if _SUSPEND_TAPE is None:
-        return contextlib.nullcontext()
-    return _SUSPEND_TAPE()
-
-
-def wrap_untaped(t):
-    """Wrap a raw device tensor produced under `suspend_tape()` as an untaped carrier when a tape is active."""
-    return t if _WRAP_UNTAPED is None else _WRAP_UNTAPED(t)
 
 
 # `_narrow_proj_linear` and `_l1_layer_norm` are tuning that belongs beside the program
