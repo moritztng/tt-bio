@@ -94,6 +94,31 @@ def run_stack(layers, node_attr, edge_index, edge_attr, edge_sh, mask, ns, plan=
     return node_attr
 
 
+def main_stack_plan(model, sg, rec_edge_index):
+    """The main convolution stack's edge index, per-layer plan and segment offsets.
+
+    The stack runs over four blocks in this order: the ligand edges, the cross edges, the
+    receptor edges shifted onto the receptor node block, and the cross edges reversed. The last
+    layer only needs the rows that reach a ligand node, so it is cut at the end of the cross
+    block; with ``differentiate_convolutions`` each layer splits its edges into FC groups at the
+    block boundaries.
+
+    Returns ``(ei, plan, (s1, s2, s3))``. Shared by :func:`static_forward`, which concatenates
+    host edge features into it, and by the card-resident loop, which builds them on the card --
+    one definition, so the two cannot disagree about which edges a layer sees.
+    """
+    rei, lei, cg = rec_edge_index, sg.lig_edge_index, sg.cross_edge_index_global()
+    ei = torch.cat([lei, cg, rei + sg.rec_offset, cg.flip(0)], 1)
+    s1 = lei.shape[1]
+    s2, s3 = s1 + cg.shape[1], s1 + cg.shape[1] + rei.shape[1]
+    plan = []
+    for i in range(len(model.conv_layers)):
+        last = i == len(model.conv_layers) - 1
+        groups = ([s1] if last else [s1, s2, s3]) if model.config.differentiate_convolutions else None
+        plan.append((s2 if last else ei.shape[1], groups))
+    return ei, plan, (s1, s2, s3)
+
+
 def static_forward(model, c: StaticComplex, lig_pos: Tensor, t_tr: float, tr_sigma, rot_sigma,
                    tor_sigma, crop_cutoff=None):
     """One step for every pose. *lig_pos* is ``[n_lig_padded, 3]`` (pose-major, pad rows 0).
@@ -150,17 +175,10 @@ def static_forward(model, c: StaticComplex, lig_pos: Tensor, t_tr: float, tr_sig
     off = sg.rec_offset
     cg = sg.cross_edge_index_global()
     node = torch.cat([pad_width(lig_h, rec_h.shape[1]), rec_h], 0)
-    ei = torch.cat([lei, cg, rei + off, cg.flip(0)], 1)
+    ei, plan, _ = main_stack_plan(model, sg, rei)
     ea = torch.cat([lig_eattr, cross_eattr, rec_eattr, cross_eattr], 0)
     esh = torch.cat([lig_sh, cross_sh, rec_sh, rev_sh], 0)
     em = torch.cat([lig_mask, cross_m, rec_mask, cross_m], 0)
-    s1 = lei.shape[1]
-    s2, s3 = s1 + cg.shape[1], s1 + cg.shape[1] + rei.shape[1]
-    plan = []
-    for i in range(len(model.conv_layers)):
-        last = i == len(model.conv_layers) - 1
-        groups = ([s1] if last else [s1, s2, s3]) if cfg.differentiate_convolutions else None
-        plan.append((s2 if last else ei.shape[1], groups))
     node = run_stack(model.conv_layers, node, ei, ea, esh, em, ns, plan)
     lig_h = node[:off]
 
