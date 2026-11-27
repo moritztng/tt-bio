@@ -1,5 +1,6 @@
 """Shared test helpers."""
 import glob
+import logging
 import os
 import subprocess
 import sys
@@ -267,6 +268,17 @@ def _autograd_flag_is_not_a_shared_global(request):
         f"CLI verbs call torch.set_grad_enabled(False) in their bodies), the fix belongs there: "
         f"a library must not mutate a caller's global autograd state.")
 
+
+# `tt-bio dock` sets the tt_bio logger's level, which is right for a process and wrong for a test
+# session: every file that runs it in-process (test_diffdock_cli, test_diffdock_distributed) left
+# it at WARNING, and a later file's caplog then read nothing (test_tfg_features' 1a14 pocket test,
+# gates rel-4eddd643f and rel-7a6bc8e27). Restored per test, here, so a new caller needs no copy.
+@pytest.fixture(autouse=True)
+def _restore_tt_bio_log_level():
+    log = logging.getLogger("tt_bio")
+    level = log.level
+    yield
+    log.setLevel(level)
 
 # -- DiffDock: one docking run on host torch, shared by the confidence and layout tests ----
 

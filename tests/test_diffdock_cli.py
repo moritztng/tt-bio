@@ -28,16 +28,6 @@ needs_receptor = pytest.mark.skipif(not RECEPTOR.exists(),
 
 
 
-@pytest.fixture(autouse=True)
-def _restore_tt_bio_log_level():
-    """`tt-bio dock` sets the tt_bio logger's level, which is right for a process and wrong for
-    a test session: left at WARNING it hides the INFO records a later file's caplog reads
-    (test_tfg_features::test_1a14_pocket_resolves_epitope_and_paratope, gate rel-4eddd643f)."""
-    log = logging.getLogger("tt_bio")
-    level = log.level
-    yield
-    log.setLevel(level)
-
 
 def run(*args):
     return CliRunner().invoke(cli, ["dock", *args], catch_exceptions=False)
