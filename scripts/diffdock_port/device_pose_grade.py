@@ -50,7 +50,7 @@ def rel_residual(got, want) -> float:
     return (got - want).abs().max().item() / scale if scale > 0 else 0.0
 
 
-def build(net: str, fixture: str):
+def build(net: str, fixture: str, gemm_modules=()):
     """(fixture dict, model, convs) with the convolutions where *net* says."""
     from tt_bio.diffdock import config as C
     from tt_bio.diffdock.score_model import load_released
@@ -66,7 +66,8 @@ def build(net: str, fixture: str):
     ensure_p300_mesh_descriptor()
     from tt_bio.diffdock import device as ddev
     from tt_bio.tenstorrent import get_device
-    return fx, model, ddev.convs_on_device(model, get_device(), edge_tp=net)
+    return fx, model, ddev.convs_on_device(model, get_device(), edge_tp=net,
+                                           gemm_modules=gemm_modules)
 
 
 def receptor_x(model, fx):
@@ -114,7 +115,7 @@ class Clock:
 def cmd_rollout(args):
     from tt_bio.diffdock import sampling
 
-    fx, model, convs = build(args.net, args.fixture)
+    fx, model, convs = build(args.net, args.fixture, args.gemm_modules)
     g = fx["graph"]
     cfg = sampling.SamplingConfig.from_recipe()
     bounds = sampling.SigmaBounds.from_config(model.config)
@@ -134,7 +135,8 @@ def cmd_rollout(args):
                           no_torsion=model.config.no_torsion,
                           crop_beyond_a=model.config.crop_beyond)
     secs = time.perf_counter() - t0
-    rec = {"complex": fx["complex"], "net": args.net, "seed": args.seed, "poses": args.poses,
+    rec = {"complex": fx["complex"], "net": args.net, "gemm_modules": args.gemm_modules,
+           "seed": args.seed, "poses": args.poses,
            "steps": cfg.steps, "seconds_per_complex": secs,
            "seconds_in_device_layers": sum(m.secs for m in convs.values()) or None,
            "poses_out": out.poses.tolist(), **clock.summary()}
@@ -156,7 +158,7 @@ def cmd_equiv(args):
     rotated input as on the original (gap_b ~ gap_a), while a broken symmetry makes the rotated
     leg wrong by O(1). All gaps are Frobenius-relative to the host's untransformed score.
     """
-    fx, model, convs = build(args.net, args.fixture)
+    fx, model, convs = build(args.net, args.fixture, args.gemm_modules)
     host = build("host", args.fixture)[1] if args.net != "host" else model
     g = fx["graph"]
     clock = Clock(args.net != "host")
@@ -196,7 +198,7 @@ def cmd_equiv(args):
                 f"{n} res {v['residual']:.2g} gap_a {v['gap_a']:.2g} gap_b {v['gap_b']:.2g} "
                 f"host {v['host_residual']:.2g}" for n, v in r.items()), flush=True)
         rows[k] = row
-    out = {"net": args.net, "complex": fx["complex"], "host_bar": 1e-5,
+    out = {"net": args.net, "gemm_modules": args.gemm_modules, "complex": fx["complex"], "host_bar": 1e-5,
            "rule": "gap_b <= 2*gap_a + 1e-6 on every step/seed/score; host_residual <= 1e-5",
            "pass": ok, "upstream_pinned_floor": {"tr": 1.57e-7, "rot": 1.25e-6, "tor": 9.29e-7},
            "steps": rows, **clock.summary()}
@@ -232,6 +234,8 @@ def main():
     r = sub.add_parser("rollout")
     r.add_argument("--fixture", required=True)
     r.add_argument("--net", default="tile", choices=["host", "gemm", "tile"])
+    r.add_argument("--gemm-modules", nargs="*", default=[],
+                    help="conv paths (suffix) kept on the fp32 GEMM form under --net tile")
     r.add_argument("--seed", type=int, default=0)
     r.add_argument("--poses", type=int, default=10)
     r.add_argument("--out", required=True)
@@ -239,6 +243,8 @@ def main():
     e = sub.add_parser("equiv")
     e.add_argument("--fixture", required=True)
     e.add_argument("--net", default="tile", choices=["host", "gemm", "tile"])
+    e.add_argument("--gemm-modules", nargs="*", default=[],
+                    help="conv paths (suffix) kept on the fp32 GEMM form under --net tile")
     e.add_argument("--seeds", type=int, default=4, help="transform seeds; 0 is the identity")
     e.add_argument("--steps", nargs="*", help="fixture steps to grade (default: all)")
     e.add_argument("--out", required=True)

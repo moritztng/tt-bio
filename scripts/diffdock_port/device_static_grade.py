@@ -40,6 +40,8 @@ def main():
     ap.add_argument("--bf16", action="store_true")
     ap.add_argument("--edge-tp", default="gemm", choices=["gemm", "tile"],
                     help="tile: the fused edge-tile kernel (tt_bio/diffdock/edge_tile.py)")
+    ap.add_argument("--gemm-modules", nargs="*", default=[],
+                    help="conv paths (suffix) kept on the fp32 GEMM form under --edge-tp tile")
     ap.add_argument("--time-only", action="store_true",
                     help="no host reference and no per-conv grading: a timing run")
     ap.add_argument("--resident", action="store_true",
@@ -80,7 +82,7 @@ def main():
     dev = get_device()
     convs = ddev.convs_on_device(card, dev, dtype=ttnn.bfloat16 if args.bf16 else None,
                                  grade=not (args.time_only or args.resident),
-                                 edge_tp=args.edge_tp)
+                                 edge_tp=args.edge_tp, gemm_modules=args.gemm_modules)
     if args.per_layer:
         for m in convs.values():
             m.resident = False
@@ -92,7 +94,7 @@ def main():
     in_fixture = int(fx["steps"][sorted(fx["steps"])[0]].lig_pos.shape[0])
     out = {"complex": fx["complex"], "convs_on_device": len(convs),
            "poses": args.poses or in_fixture, "poses_in_fixture": in_fixture,
-           "dtype": "bfloat16" if args.bf16 else "float32", "edge_tp": args.edge_tp,
+           "dtype": "bfloat16" if args.bf16 else "float32", "edge_tp": args.edge_tp, "gemm_modules": args.gemm_modules,
            "resident": (args.time_only or args.resident) and not args.per_layer,
            "steps": {}}
     for k, step in sorted(fx["steps"].items()):

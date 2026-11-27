@@ -543,10 +543,12 @@ class DeviceConvModule(torch.nn.Module):
 
 
 def convs_on_device(model, device, *, dtype=None, grade: bool = False,
-                    edge_tp: str = "gemm") -> dict:
+                    edge_tp: str = "gemm", gemm_modules=()) -> dict:
     """Swap every convolution in *model* for a :class:`DeviceConvModule`, in place.
 
-    Returns ``{module path: DeviceConvModule}`` so a caller can read each one's grade log.
+    *edge_tp* is the edge tensor-product form of every convolution except those whose path ends
+    in one of *gemm_modules*, which keep the fp32 GEMM form. Returns ``{module path:
+    DeviceConvModule}`` so a caller can read each one's grade log.
     """
     from tt_bio.diffdock.conv import TensorProductConvLayer
     swapped, graphs = {}, {}
@@ -555,8 +557,8 @@ def convs_on_device(model, device, *, dtype=None, grade: bool = False,
             if isinstance(child, TensorProductConvLayer):
                 full = f"{path}.{name}" if path else name
                 mod._modules[name] = swapped[full] = DeviceConvModule(
-                    device, child, dtype=dtype, grade=grade, name=full, edge_tp=edge_tp,
-                    graphs=graphs)
+                    device, child, dtype=dtype, grade=grade, name=full, graphs=graphs,
+                    edge_tp="gemm" if full.endswith(tuple(gemm_modules)) else edge_tp)
     return swapped
 
 
