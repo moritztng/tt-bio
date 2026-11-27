@@ -137,7 +137,7 @@ def ref_sums(x):
 
 def quick_probe(mesh, rm, cm):
     N = rm * cm
-    R, C = 256, 1024
+    R, C = 1024, 1024
     x = chunk_data(0, N, rows=R, cols=C, pad_p=None)
     ser, floor = ref_sums(x)
     tx = ttnn.from_torch(x, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=mesh,
