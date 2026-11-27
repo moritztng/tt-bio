@@ -27,6 +27,7 @@ from __future__ import annotations
 import math
 from typing import Callable, Dict, Mapping, Optional, Tuple
 
+from .mesh_dp import read_rep0
 from .optim import Muon
 
 __all__ = [
@@ -61,16 +62,6 @@ def _core_grid(device):
 def _mm_cg(cg) -> dict:
     """Return ``{"core_grid": cg}`` on real TT devices or ``{}`` under CPU mock tests."""
     return {} if cg is None else {"core_grid": cg}
-
-
-def _read_rep0(t):
-    """Read a single-device or SPMD-replicated MeshDevice tensor to host torch (rank 0 shard)."""
-    import ttnn
-
-    dev = t.device()
-    if hasattr(dev, "get_num_devices") and dev.get_num_devices() > 1:
-        return ttnn.to_torch(ttnn.get_device_tensors(t)[0])
-    return ttnn.to_torch(t)
 
 
 def _assign_shards(
@@ -581,13 +572,13 @@ class DeviceEMA:
             for bk in self._buckets:
                 if bk.ema_b is None:
                     continue
-                arr = _read_rep0(bk.ema_b).float().numpy()
+                arr = read_rep0(bk.ema_b).float().numpy()
                 s0, m, n = bk.canon
                 for i, name in enumerate(bk.names):
                     sl = arr[i * s0:(i + 1) * s0, :m, :n]
                     out[name] = np.ascontiguousarray(sl.reshape(bk.shape), dtype=np.float32)
             return out
-        return {n: _read_rep0(v).float().numpy().astype(np.float32, copy=False)
+        return {n: read_rep0(v).float().numpy().astype(np.float32, copy=False)
                 for n, v in self.shadow.items()}
 
     def deallocate(self) -> None:
@@ -828,7 +819,7 @@ class DeviceOptimizer:
             for p in parts:
                 ttnn.deallocate(p)
 
-        vals = _read_rep0(all_sq).float().numpy().reshape(-1)
+        vals = read_rep0(all_sq).float().numpy().reshape(-1)
         ttnn.deallocate(all_sq)
         if vals.size != total_slices:
             raise RuntimeError(
@@ -1135,7 +1126,7 @@ class DeviceOptimizer:
 
         if dev_t is None:
             return {nm: np.zeros(bk.shape, dtype=np.float32) for nm in bk.names}
-        arr = _read_rep0(dev_t).float().numpy()
+        arr = read_rep0(dev_t).float().numpy()
         s0, m, n = bk.canon
         out: Dict[str, np.ndarray] = {}
         for i, name in enumerate(bk.names):
@@ -1172,7 +1163,7 @@ class DeviceOptimizer:
         if self.shard_world > 1:
             for nm, t in self.master.items():
                 if nm not in out:
-                    out[nm] = np.ascontiguousarray(_read_rep0(t).float().numpy(), dtype=np.float32)
+                    out[nm] = np.ascontiguousarray(read_rep0(t).float().numpy(), dtype=np.float32)
         return out
 
     def state_families(self) -> Dict[str, Dict[str, "np.ndarray"]]:

@@ -84,3 +84,20 @@ def test_zero1_broken_unsharded_detects_missing_rank():
     for r in range(4):
         assert any(owner[n] == r for n in muon_names)
         assert any(owner[n] == r for n in shapes if n not in muon_names)
+
+
+def test_load_depths_matches_b200_final_mat_nocg():
+    from pathlib import Path
+    from tt_bio.train.rfd4_run import _load_depths
+
+    assert _load_depths("2", "") == [2]
+    assert _load_depths("6,1,1,1,5", "") == [6, 1, 1, 1, 5]
+    p = Path(__file__).resolve().parent.parent / (
+        "perf/kitcmp/results/r4t-train-b200/rfd4/r4t/final-mat-nocg/steps.jsonl"
+    )
+    if p.exists():
+        ds = _load_depths("", str(p))
+        assert len(ds) == 45
+        assert ds[:5] == [6, 1, 1, 1, 5]
+        assert abs(sum(ds[5:]) / len(ds[5:]) - 2.75) < 1e-9
+

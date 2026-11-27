@@ -1727,23 +1727,15 @@ def make_rfd4_refold_hook(trunk, glue=None, *, host_glue_params: Mapping[str, to
                     continue
                 wp_f32 = _dev_concat_f32([pa, pb], 0)
                 wg_f32 = _dev_concat_f32([ga, gb], 0)
-<<<<<<< HEAD
                 go16 = ttnn.typecast(go, ttnn.bfloat16)
                 wgo16 = ttnn.transpose(go16, -2, -1)
                 ttnn.deallocate(go16)
-=======
-                wgo_f32 = _dev_transpose_2d(go)
->>>>>>> origin/main
                 for w8 in keys:
                     old_triple = t1_map.get(w8)
                     dt = ttnn.bfloat8_b if w8 else ttnn.bfloat16
                     wp_new = ttnn.typecast(wp_f32, dt)
                     wg_new = ttnn.typecast(wg_f32, dt)
-<<<<<<< HEAD
                     wgo_new = ttnn.typecast(wgo16, ttnn.bfloat8_b) if w8 else None
-=======
-                    wgo_new = ttnn.typecast(wgo_f32, ttnn.bfloat8_b) if w8 else None
->>>>>>> origin/main
                     t1_map[w8] = (wp_new, wg_new, wgo_new)
                     if old_triple is not None:
                         for old_t in old_triple:
@@ -1763,13 +1755,13 @@ def make_rfd4_refold_hook(trunk, glue=None, *, host_glue_params: Mapping[str, to
 
         # 3. Sync small host-only glue params (non-pair-sized) and refresh PairSplit/PairOnCard
         if host_glue_params:
-            from .device_optim import _read_rep0
+            from .mesh_dp import read_rep0
             with torch.no_grad():
                 for name, p in host_glue_params.items():
                     dm = dev_masters.get(name)
                     if dm is None:
                         continue
-                    arr = _read_rep0(dm).float().reshape(p.shape).to(p.dtype)
+                    arr = read_rep0(dm).float().reshape(p.shape).to(p.dtype)
                     p.copy_(arr)
             if glue is not None and pair_card_ref is not None:
                 from ..rfd4.pair import PairOnCard, PairSplit
