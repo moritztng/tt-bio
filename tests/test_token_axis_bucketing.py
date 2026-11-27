@@ -196,8 +196,7 @@ def check_one_multiple_for_the_whole_fleet():
 # primitive that masks its own tail; the fused SDPA is off by default and nothing turns it on).
 # `cmp-af2ig-bucket` owes the mask, the pad and the A/A control on a card. Nothing else may be
 # added -- an allow-list that grows is the convention this file exists to replace.
-ALLOWED_UNBUCKETED = {"rf3": "rf3-4x-with-accuracy-land", "af2ig": "cmp-af2ig-bucket",
-                      "diffdock": "dfd-perf"}
+ALLOWED_UNBUCKETED = {"rf3": "rf3-4x-with-accuracy-land", "af2ig": "cmp-af2ig-bucket"}
 
 
 def _unbucketed():
