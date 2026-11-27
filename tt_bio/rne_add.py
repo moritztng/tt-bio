@@ -27,7 +27,6 @@ from pathlib import Path
 import ttnn
 
 from . import core_split
-from .envflags import env_flag
 from . import genq
 from . import ops as _ops
 from .envflags import env_flag
