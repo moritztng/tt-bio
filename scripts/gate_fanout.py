@@ -1823,8 +1823,15 @@ def run_in_pool(host: Host, card, leg: Leg, rdir: str, f) -> int:
     # The boot id goes too: a leg re-queued after a reboot reuses rdir, and the last run's boot
     # file read as "started under another boot" at once (rel-5e250928a, 10-16 11:01Z: nine WH legs
     # FAILed in seconds and left their jobs queued for the pool to run with nobody waiting).
-    r = host.ssh(f"mkdir -p {q(rdir)} && rm -f {q(rdir)}/rc {q(rdir)}/boot && cat > {q(job)}.tmp && mv {q(job)}.tmp {q(job)}",
-                 input=pool_job(host, leg, rdir, name), capture_output=True, timeout=120)
+    # The job lands only whole: an ssh killed at its timeout hands `cat` an early EOF (and a retried attempt's
+    # stale remote half can run after the retry wrote the job), and the short file it moved into the queue read as queued (rel-7f1c4334f, 11-27: WH ladder:mol1@1408-1536 sat 4 h as a
+    # 0-byte job that pool.sh priced at 14400 s and so never started on a lent box). A short write is refused.
+    body = pool_job(host, leg, rdir, name)
+    tmp = q(f"{job}.tmp")
+    r = host.ssh(f"mkdir -p {q(rdir)} && rm -f {q(rdir)}/rc {q(rdir)}/boot && cat > {tmp} && "
+                 f"{{ [ \"$(stat -c%s {tmp})\" = {len(body.encode())} ] || {{ rm -f {tmp}; echo 'short job write' >&2; exit 1; }}; }} && "
+                 f"mv {tmp} {q(job)}",
+                 input=body, capture_output=True, timeout=120)
     if r.returncode:
         # ssh's own message on its own line, so a lost connection reads as one and is retried.
         f.write(f"cannot queue {job}:\n{r.stderr.strip()}\n")
