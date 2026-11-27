@@ -41,6 +41,18 @@ def pad32(n: int) -> int:
     return ((n + TILE - 1) // TILE) * TILE
 
 
+def exact01_dtype(device, working):
+    """The dtype of a 0/1 matrix that multiplies a *working*-dtype operand on *device*.
+
+    0/1 is exact in bf16, and Blackhole keeps the other operand of an fp32 x bf16 matmul at full
+    width, so bf16 is free there. Wormhole runs that operand at bf16 width: the tensor product's
+    error went from Blackhole's 4e-3 to 1.1e-2 (state/dfd/WH.md), so there the matrix carries the
+    working dtype.
+    """
+    import ttnn
+    return ttnn.bfloat16 if device.arch() == ttnn.Arch.BLACKHOLE else working
+
+
 class _Path:
     """The host-side float64 constants of one tensor-product path."""
 
@@ -150,9 +162,10 @@ class DeviceEdgeTP:
         self.w1 = up(_pad2(fc[0].weight.detach().T, fp, hp))
         self.b1 = up(_pad2(fc[0].bias.detach().reshape(1, -1), 1, hp))
         # The 0/1 placement matrices are exact in bf16; the 3j values and the FC weights are not.
+        pdt = exact01_dtype(device, self.dtype)
         self.paths = [
-            dict(G=up(p.G), E=up(p.E, ttnn.bfloat16), Q=up(p.Q, ttnn.bfloat16),
-                 S=up(p.S, ttnn.bfloat16), W2d=up(_pad2(p.W2d, hp, p.W2d.shape[1])),
+            dict(G=up(p.G), E=up(p.E, pdt), Q=up(p.Q, pdt),
+                 S=up(p.S, pdt), W2d=up(_pad2(p.W2d, hp, p.W2d.shape[1])),
                  b2d=up(p.b2d))
             for p in path_constants(tp, fc)
         ]
@@ -262,8 +275,9 @@ class DeviceConvLayer:
         S[src, torch.arange(E)] = 1.0
         idx = ttnn.from_torch(dst.to(torch.int32).reshape(1, E), dtype=ttnn.uint32,
                               layout=ttnn.ROW_MAJOR_LAYOUT, device=self.device)
-        # 0/1 is exact in bf16, and the scatter is a sum of exact products.
-        S = ttnn.from_torch(S, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=self.device)
+        # 0/1, and the scatter is a sum of exact products.
+        S = ttnn.from_torch(S, dtype=exact01_dtype(self.device, self.dtype),
+                            layout=ttnn.TILE_LAYOUT, device=self.device)
         return dict(idx=idx, S=S, E=E, n_out=n_out)
 
     def __call__(self, node_attr, g, edge_attr_groups, edge_sh, edge_mask):
