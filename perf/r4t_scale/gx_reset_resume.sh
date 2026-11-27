@@ -20,8 +20,12 @@ rm -rf "$O/A" "$O/B" "$O/Bres" "$O/C" "$O/Cck" "$O/verdict.json"
 OMP=16 "$R/gx_trunk.sh" "$C" "$O/A" 8 --shard --save-at 4; log "A $(tail -1 "$O/A/run.log")"
 setsid "$R/gx_trunk.sh" "$C" "$O/B" 8 --shard --save-at 4 & P=$!
 until grep -q '"step": 5' "$O/B/rank0.log" 2>/dev/null || ! kill -0 $P 2>/dev/null; do sleep 0.5; done
-kill -9 -- -$P; sleep 3; rm -rf /dev/shm/r4t-trunk-dp-*
-H=$(holders); [ -n "$H" ] && { log "ABORT: /dev/tenstorrent still held by pids $H"; exit 1; }
+# timeout(1) puts itself in its own process group, so killing the session group missed the ranks (01:44Z):
+# collect every descendant first, then SIGKILL them all at once.
+desc() { local c; for c in $(ps -o pid= --ppid "$1"); do echo "$c"; desc "$c"; done; }
+K="$P $(desc $P)"; log "B kill: $(echo $K | wc -w) pids"; kill -9 $K 2>/dev/null
+for i in $(seq 60); do H=$(holders); [ -z "$H" ] && break; sleep 1; done; rm -rf /dev/shm/r4t-trunk-dp-*
+[ -n "$H" ] && { log "ABORT: /dev/tenstorrent still held by pids $H"; exit 1; }
 log "B killed after step 5 (session $P), rendezvous wiped, no device holders"
 timeout 900 tt-smi -glx_reset > "$O/reset.log" 2>&1; log "glx_reset rc=$?"
 CK=$(grep -ho '"saved": "[^"]*"' "$O/B/rank0.log" | head -1 | cut -d'"' -f4); log "resume from $CK"
