@@ -71,6 +71,31 @@ def main():
         ref = seq(x.double())
         out[name] = stats(back(dl.MLP(dev, seq.float())(dl.upload(dev, x)), ref.shape[1]), ref)
         seq.double()
+    # --- the pose update ------------------------------------------------------------
+    from tt_bio.diffdock.sampling import axis_angle_to_matrix, guard_scores
+
+    B = 320
+    aa = torch.randn(B, 3, generator=g).float() * 1.5
+    aa[:32] = 0                       # the small-angle series, and the exact-zero axis
+    aa[32:64] *= 1e-7
+    cols = [dl.upload(dev, aa[:, k]) for k in range(3)]
+    ref_m = axis_angle_to_matrix(aa.double())
+    got_m = dl.axis_angle_matrix(*cols)
+    out["axis_angle_matrix"] = stats(
+        torch.cat([ttnn.to_torch(c)[:B, :1] for c in got_m], 1), ref_m.reshape(B, 9))
+
+    pts = torch.randn(B, 3, generator=g).float() * 12
+    pcols = [dl.upload(dev, pts[:, k]) for k in range(3)]
+    ref_r = torch.bmm(pts.double()[:, None, :], ref_m.transpose(1, 2))[:, 0]
+    out["rotate"] = stats(
+        torch.cat([ttnn.to_torch(c)[:B, :1] for c in dl.rotate(pcols, got_m)], 1), ref_r)
+
+    score = torch.randn(B, 3, generator=g).float()
+    score[3, 1], score[7, 0], score[11, 2] = float("nan"), float("inf"), float("-inf")
+    ref_g = guard_scores(score.double())[0]
+    got_g = dl.guard([dl.upload(dev, score[:, k]) for k in range(3)])
+    out["guard"] = stats(torch.cat([ttnn.to_torch(c)[:B, :1] for c in got_g], 1), ref_g)
+
     for k, v in out.items():
         print(k, v, flush=True)
     Path(args.out).write_text(json.dumps(out, indent=1))
