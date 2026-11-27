@@ -63,10 +63,11 @@ ALLOWED = {
     # trunk's modules, and the host glue crosses through `train/bridge.py`.
     "train/rfd4_run.py",
     # `train/ccl.py` all-reduces gradients on device after the backward has closed (same as
-    # `train/mesh.py`), and `train/mesh_dp.py` shards/reads batches and wraps leaves at the
-    # host-mesh boundary (same as `train/bridge.py`). Both defer `import ttnn` so CPU callers
-    # and unit tests import them without loading the wheel.
-    "train/ccl.py", "train/mesh_dp.py",
+    # `train/mesh.py`), `train/mesh_dp.py` shards/reads batches and wraps leaves at the
+    # host-mesh boundary (same as `train/bridge.py`), and `train/spmd_rfd4.py` runs the post-
+    # backward SPMD ZeRO-1 Muon optimizer sandwich. All three defer `import ttnn` so CPU
+    # callers and unit tests import them without loading the wheel.
+    "train/ccl.py", "train/mesh_dp.py", "train/spmd_rfd4.py",
     # `af2_structure.Card` uploads its leaves with the raw `from_torch` and tapes its own VJPs
     # (`sqrt`, `reciprocal` on `.value`, then `autograd._tape`), so the shim would tape them
     # twice. It defers the import for the same `pin_card()` reason as `bindcraft2.py`, which
