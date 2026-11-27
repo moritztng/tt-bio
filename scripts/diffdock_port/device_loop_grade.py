@@ -327,6 +327,9 @@ def main():
         out["tor_mask"] = {"mismatches": int((cut(g_m, ne, 1)[:, 0].double() - ref_m).abs()
                                              .round().sum()), "on": int(ref_m.sum()), "edges": ne}
         print("tor_mask", out["tor_mask"], flush=True)
+        ftp = dl.FullTP(dev, th.final_tp_tor)
+        ref_ftp = th.final_tp_tor(spherical_harmonics(ev, tuple(th.sh_ls)), ref_bsh)
+        record("tor_final_tp", cut(ftp(g_sh, g_bsh), ne, ref_ftp.shape[1]), ref_ftp)
         width = th.tor_final_layer[0].in_features
         conv = torch.randn(nb, width, generator=g).double()
         sigma = 0.37

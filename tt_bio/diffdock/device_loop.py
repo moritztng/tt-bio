@@ -621,3 +621,36 @@ class TorsionHead:
         from .schedules import torus_score_norm
         s = float(torus_score_norm(torch.tensor([tor_sigma], dtype=torch.float64))[0]) ** 0.5
         return ttnn.multiply(tor, s)
+
+
+class FullTP:
+    """:class:`tt_bio.diffdock.full_tensor_product.FullTensorProduct` on the card.
+
+    The product has no weights, so it is one fixed bilinear map: ``out = (x2 (x) x1) @ M`` with
+    ``M[(j, i), k] = d out_k / d(x1_i x2_j)``. ``M`` is read off the host module itself in
+    float64 by feeding it every pair of basis vectors, so it is the host's own arithmetic and
+    not a re-derivation of the Wigner and sort conventions. On the card the outer product is
+    ``d2`` broadcast multiplies (fp32, vector engine, exact) and the contraction is one
+    ``[E, d1 d2] @ [d1 d2, d_out]`` GEMM at HiFi4 with fp32 accumulation.
+    """
+
+    def __init__(self, device, module):
+        import ttnn
+        d1, d2 = module.in1_irreps.dim, module.in2_irreps.dim
+        eye1 = torch.eye(d1, dtype=torch.float64)
+        with torch.no_grad():
+            rows = [module(eye1, torch.eye(d2, dtype=torch.float64)[j].expand(d1, d2))
+                    for j in range(d2)]
+        self.d1, self.d2 = d1, d2
+        self.m = upload(device, torch.cat(rows, 0))          # row j * d1 + i
+        self.ckc = ttnn.types.BlackholeComputeKernelConfig(
+            math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,
+            fp32_dest_acc_en=True, packer_l1_acc=True)
+
+    def __call__(self, x1, x2):
+        """``[E, d1]`` and ``[E, d2]`` fp32 TILE tensors -> ``[E, d_out]``."""
+        import ttnn
+        n = x1.shape[0]
+        outer = ttnn.concat([ttnn.multiply(x1, ttnn.slice(x2, [0, j], [n, j + 1]))
+                             for j in range(self.d2)], dim=1)
+        return ttnn.matmul(outer, self.m, compute_kernel_config=self.ckc)
