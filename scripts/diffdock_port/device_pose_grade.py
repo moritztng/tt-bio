@@ -75,21 +75,26 @@ def receptor_x(model, fx):
     return HostScoreNetwork(model, lm_embeddings=fx["emb"])._receptor_x(fx["graph"].receptor)
 
 
-def static_complex(model, fx, n_poses: int):
+def static_complex(model, fx, n_poses: int, dt=torch.float32, rec_pos=None):
+    """The fixed-shape layout in *dt*; *rec_pos* overrides the fixture's (a moved receptor)."""
     from tt_bio.diffdock.static_net import StaticComplex
     g = fx["graph"]
-    return StaticComplex.build(g.ligand, receptor_x(model, fx), g.receptor["pos"].float(),
-                               g.receptor["edge_index"], n_poses)
+    lig = {**g.ligand, "edge_attr": g.ligand["edge_attr"].to(dt)}
+    pos = g.receptor["pos"] if rec_pos is None else rec_pos
+    c = StaticComplex.build(lig, receptor_x(model, fx).to(dt), pos.to(dt),
+                            g.receptor["edge_index"], n_poses)
+    c.lig_valid = c.lig_valid.to(dt)
+    return c
 
 
-def score_fn(model, c, n_lig: int):
-    """What `sampling.sample` calls, over the fixed-shape forward."""
+def score_fn(model, c, n_lig: int, dt=torch.float32):
+    """What `sampling.sample` calls, over the fixed-shape forward, positions in *dt*."""
     from tt_bio.diffdock.conv import pad_nodes
     from tt_bio.diffdock.static_net import static_forward
 
     def score(step):
         P = step.lig_pos.shape[0]
-        lp = pad_nodes(step.lig_pos.reshape(P * n_lig, 3).float(), c.sg.n_lig_padded)
+        lp = pad_nodes(step.lig_pos.reshape(P * n_lig, 3).to(dt), c.sg.n_lig_padded)
         with torch.no_grad():
             return static_forward(model, c, lp, step.t_tr, step.tr_sigma, step.rot_sigma,
                                   step.tor_sigma, crop_cutoff=step.crop_cutoff)
@@ -153,13 +158,18 @@ def cmd_equiv(args):
     """Rotate the complex, check tr/rot rotate and tor does not, on the card and on the host.
 
     A bf16 lever cannot meet the host's 1e-5 bar, so the card's residual alone does not say
-    whether a symmetry broke. Beside it, each leg's card-vs-host gap (fp32 host network, the
-    same static forward): rounding is direction-blind, so a sound kernel is as accurate on the
+    whether a symmetry broke. Beside it, each leg's card-vs-host gap (float64 host network and
+    a float64 transform, same static forward; D-dfd-orch-70 -- the fp32 host's own 1.4e-5 was
+    round-off, not a symmetry break, and a device net graded against it is graded against another
+    approximation): rounding is direction-blind, so a sound kernel is as accurate on the
     rotated input as on the original (gap_b ~ gap_a), while a broken symmetry makes the rotated
     leg wrong by O(1). All gaps are Frobenius-relative to the host's untransformed score.
     """
     fx, model, convs = build(args.net, args.fixture, args.gemm_modules)
-    host = build("host", args.fixture)[1] if args.net != "host" else model
+    host = (build("host", args.fixture)[1] if args.net != "host" else model).double()
+    f64 = torch.float64
+    # `--net host` grades the host against itself, and `host` is `model` doubled in place.
+    mdt = f64 if args.net == "host" else torch.float32
     g = fx["graph"]
     clock = Clock(args.net != "host")
     rows, ok = {}, True
@@ -167,18 +177,20 @@ def cmd_equiv(args):
         if args.steps and str(k) not in args.steps:
             continue
         P, n_lig = step.lig_pos.shape[0], g.ligand["pos"].shape[0]
-        base = score_fn(model, static_complex(model, fx, P), n_lig)(step)
-        hbase = score_fn(host, static_complex(host, fx, P), n_lig)(step)
+        mstep = type(step)(**{**step.__dict__, "lig_pos": step.lig_pos.to(mdt)})
+        base = score_fn(model, static_complex(model, fx, P, mdt), n_lig, mdt)(mstep)
+        hstep = type(step)(**{**step.__dict__, "lig_pos": step.lig_pos.double()})
+        hbase = score_fn(host, static_complex(host, fx, P, f64), n_lig, f64)(hstep)
         row = {}
         for seed in range(args.seeds):
             R, t = rigid_transform(seed)
             moved = fx["graph"].receptor["pos"].double() @ R.T + t
-            fx2 = dict(fx)
-            fx2["graph"] = type(g)(**{**g.__dict__, "receptor": {**g.receptor, "pos": moved.float()}})
-            step2 = type(step)(**{**step.__dict__,
-                                  "lig_pos": (step.lig_pos.double() @ R.T + t).float()})
-            got = score_fn(model, static_complex(model, fx2, P), n_lig)(step2)
-            hgot = score_fn(host, static_complex(host, fx2, P), n_lig)(step2)
+            mstep2 = type(step)(**{**step.__dict__,
+                                   "lig_pos": (step.lig_pos.double() @ R.T + t).to(mdt)})
+            got = score_fn(model, static_complex(model, fx, P, mdt, moved), n_lig, mdt)(mstep2)
+            hstep2 = type(step)(**{**step.__dict__,
+                                   "lig_pos": step.lig_pos.double() @ R.T + t})
+            hgot = score_fn(host, static_complex(host, fx, P, f64, moved), n_lig, f64)(hstep2)
             r = {}
             for i, n in enumerate(("tr", "rot", "tor")):
                 def moved_ref(x, i=i):
@@ -198,7 +210,7 @@ def cmd_equiv(args):
                 f"{n} res {v['residual']:.2g} gap_a {v['gap_a']:.2g} gap_b {v['gap_b']:.2g} "
                 f"host {v['host_residual']:.2g}" for n, v in r.items()), flush=True)
         rows[k] = row
-    out = {"net": args.net, "gemm_modules": args.gemm_modules, "complex": fx["complex"], "host_bar": 1e-5,
+    out = {"net": args.net, "gemm_modules": args.gemm_modules, "complex": fx["complex"], "host_bar": 1e-5, "host_reference": "float64",
            "rule": "gap_b <= 2*gap_a + 1e-6 on every step/seed/score; host_residual <= 1e-5",
            "pass": ok, "upstream_pinned_floor": {"tr": 1.57e-7, "rot": 1.25e-6, "tor": 9.29e-7},
            "steps": rows, **clock.summary()}
