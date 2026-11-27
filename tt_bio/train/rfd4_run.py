@@ -33,6 +33,8 @@ import resource
 import threading
 import time
 
+from tt_bio.envflags import env_flag
+
 
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="trunk_step")
@@ -200,13 +202,13 @@ def main(argv=None):
     # and each lazy upload of a leaf-fed tensor is declared a parameter the moment it is made, before the taped
     # winner reads it. The first build and a resume build still run the forward: the unreached/orphan checks
     # after them need every weight to exist.
-    inline = os.environ.get("R4T_REBUILD_INLINE", "1") == "1"   # default ON since ca9fa7ac4: digest-identical to the lazy-forward rebuild (rb/I4.jsonl)
-    pack = os.environ.get("R4T_DEVICE_PACK", "0") == "1"   # r4t-perf R2: bfp8 weights packed on the card in the rebuild (Folds.recording device_pack)
+    inline = env_flag("R4T_REBUILD_INLINE", True)   # default ON since ca9fa7ac4: digest-identical to the lazy-forward rebuild (rb/I4.jsonl)
+    pack = env_flag("R4T_DEVICE_PACK", False)   # r4t-perf R2: bfp8 weights packed on the card in the rebuild (Folds.recording device_pack)
     # The trimul in-projection is cached per chunk width on first use, and caches filled in the grad-off
     # candidate pass reach the taped winner as untracked constants (R1 first form: step-2 digest moved, every
     # linear_{a,b}_{p,g} grad dead). `train_in_proj` holds the two sources as registered device tensors and
     # cuts chunks per call, so nothing is cached. Implied by R4T_REBUILD_INLINE.
-    in_proj = os.environ.get("R4T_TRAIN_IN_PROJ") == "1"   # train_in_proj rounds dW to bf16 (gcmp.txt); not implied
+    in_proj = env_flag("R4T_TRAIN_IN_PROJ", False)   # train_in_proj rounds dW to bf16 (gcmp.txt); not implied
 
     def trimuls(root):
         seen, out, todo = set(), [], [root]
@@ -544,6 +546,7 @@ def main(argv=None):
         mark("fold_bwd")
         idle = folds.tape_backward()   # device-weight gradients through each fold's VJP into the upstream leaves
         grads = {nm: (None if p.grad is None else p.grad.float().numpy()) for nm, p in params.items()}
+        ag.release_pins()   # the backward is done; build() released them too, one rebuild later
         dead = zero_or_missing(grads)
         if ax:
             # G2 judges the gradient the optimizer steps on, the rank sum: a leaf that only another
