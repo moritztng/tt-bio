@@ -37,6 +37,9 @@ STEPS_PER_COMPLEX = 19
 # --------------------------------------------------------------------------- worker
 
 def worker(args):
+    # One fixed thread count at every K, so the curve measures chips and not a thread setting
+    # that changes with K (8 torch threads cost 8x the CPU of one for a slower step, SCALING.md).
+    torch.set_num_threads(args.threads)
     import tt_bio
     wt = os.environ.get("PYTHONPATH", "").split(":")[0]
     if wt and not tt_bio.__file__.startswith(wt):
@@ -62,7 +65,7 @@ def worker(args):
         graph.receptor)
 
     dev = get_device()
-    convs = ddev.convs_on_device(card, dev, grade=False)
+    convs = ddev.convs_on_device(card, dev, grade=False, edge_tp=args.edge_tp)
 
     # One shape for every pose and every step, so one build and one warm-up covers the loop.
     keys = sorted(fx["steps"])
@@ -104,7 +107,7 @@ def worker(args):
         ru1 = resource.getrusage(resource.RUSAGE_SELF)
 
     (rundir / f"worker.{chip}.json").write_text(json.dumps({
-        "chip": chip, "pid": os.getpid(), "poses": P,
+        "chip": chip, "pid": os.getpid(), "poses": P, "edge_tp": args.edge_tp,
         "torch_threads": torch.get_num_threads(),
         "convs_on_device": len(convs),
         "cpu_s": (ru1.ru_utime - ru0.ru_utime) + (ru1.ru_stime - ru0.ru_stime),
@@ -165,12 +168,14 @@ def launch(args):
     procs = []
     for chip in chips:
         env = dict(os.environ)
-        env.update(TT_VISIBLE_DEVICES=chip, TT_BIO_LEASE_CARDS=",".join(chips),
+        env.update(OMP_NUM_THREADS=str(args.threads), MKL_NUM_THREADS=str(args.threads),
+                   TT_VISIBLE_DEVICES=chip, TT_BIO_LEASE_CARDS=",".join(chips),
                    TT_BIO_LEASE_HOLDER="worker:dfd-scaling")
         log = open(rundir / f"worker.{chip}.log", "w")
         procs.append((chip, subprocess.Popen(
             [sys.executable, __file__, "--worker", "--chips", chip, "--fixture", args.fixture,
-             "--steps", str(args.steps), "--poses", str(args.poses), "--rundir", str(rundir)],
+             "--steps", str(args.steps), "--poses", str(args.poses), "--rundir", str(rundir),
+             "--edge-tp", args.edge_tp, "--threads", str(args.threads)],
             env=env, stdout=log, stderr=subprocess.STDOUT)))
 
     t_launch = time.time()
@@ -251,7 +256,8 @@ def summarise(chips, rundir, clocks, cpu, args):
             "own_cpu_cores": sum(w["cpu_s"] for w in ws) / window if window > 0 else None,
             "external_cpu_cores": external,
             "contended": external is not None and external > 1.0,
-            "nproc": nproc, "poses": args.poses,
+            "nproc": nproc, "poses": args.poses, "edge_tp": args.edge_tp,
+            "torch_threads": args.threads,
             "steps_per_complex": STEPS_PER_COMPLEX,
             "t_start": lo, "t_end": hi, "workers": ws}
 
@@ -263,6 +269,9 @@ def main():
     ap.add_argument("--fixture", required=True)
     ap.add_argument("--steps", type=int, default=20, help="timed steps per worker")
     ap.add_argument("--poses", type=int, default=10, help="PROTOCOL.md samples_per_complex")
+    ap.add_argument("--edge-tp", default="gemm", choices=["gemm", "tile"],
+                    help="per-edge tensor product form (device.convs_on_device)")
+    ap.add_argument("--threads", type=int, default=1, help="torch threads per worker, same at every K")
     ap.add_argument("--rundir", default="/tmp/dfd_scaling_run")
     ap.add_argument("--warm-timeout", type=float, default=1800)
     ap.add_argument("--out")
