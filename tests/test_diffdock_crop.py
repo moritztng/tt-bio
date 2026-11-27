@@ -300,3 +300,36 @@ def test_a_float64_reference_gets_the_float32_crop(real, step):
     got = s.rec_keep(lig_p.double(), rec_p.double(), cutoff)
     assert got.dtype == torch.float64
     assert torch.equal(got.float(), want)
+
+
+def test_rec_keep_is_a_reduction_over_the_complete_cross_graph():
+    """The receptor crop needs no scatter: it is a max over the cross graph's ligand axis.
+
+    `rec_keep` runs a `cdist` per pose and `rec_keep_from_cross` an `index_add` over the cross
+    edges. Both are general, and the cross graph is not: `complete_pairs` lays every pose's
+    ligand x receptor pair set out source-major and `tile_disjoint` tiles it, so cross edge
+    `((p * n_lig) + l) * n_rec + r` is exactly the pair `(p, l, r)`. That makes "some ligand
+    atom of this pose is within the radius of this residue" a reduction over the ligand axis
+    of an `[n_poses, n_lig, n_rec]` view, which is what the card form does
+    (`tt_bio.diffdock.device_loop.rec_keep`). The reduction is exact whatever the dtype,
+    because the column being reduced is 0/1.
+    """
+    import torch
+
+    from tt_bio.diffdock.graph import StaticGraphs
+
+    g = torch.Generator().manual_seed(3)
+    no_bonds = torch.zeros((2, 0), dtype=torch.long)
+    for n_lig, n_rec, n_poses in [(24, 48, 4), (11, 37, 3), (40, 120, 10), (7, 32, 1)]:
+        s = StaticGraphs.build(n_lig, n_rec, no_bonds, n_poses=n_poses)
+        real = n_lig * n_rec * n_poses
+        near = torch.zeros(s.cross_edge_index.shape[1], dtype=torch.float64)
+        near[:real] = (torch.rand(real, generator=g) > 0.8).double()
+
+        reference = s.rec_keep_from_cross(near)
+        reduced = near[:real].reshape(n_poses, n_lig, n_rec).amax(dim=1).reshape(-1)
+        structural = torch.zeros_like(reference)
+        structural[:n_poses * n_rec] = reduced
+
+        assert torch.equal(structural, reference), (n_lig, n_rec, n_poses)
+        assert reference[n_poses * n_rec:].sum() == 0      # pad rows stay off
