@@ -89,12 +89,16 @@ def main(argv=None, on_step=None):
     ap.add_argument("--dp-run", default="", help=argparse.SUPPRESS)
     ap.add_argument("--cand-pair", choices=("host", "card"), default="card",
                     help="where the grad-off K-candidate pass builds z_init: host (upstream's builder) or the serving "
-                         "card path (rfd4.pair.PairOnCard: host constant + bins, card assembly). The taped winner is always host.")
-    ap.add_argument("--cand-levers", choices=("training", "serving", "inference"), default="serving",
+                         "card path (rfd4.pair.PairOnCard: host constant + bins, card assembly).")
+    ap.add_argument("--win-pair", choices=("host", "card"), default="card",
+                    help="where the taped winner builds z_init and runs its backward: host (upstream's builder, torch "
+                         "autograd, the pair and its gradient over PCIe) or the card (PairOnCard.taped; needs --cand-pair card)")
+    ap.add_argument("--cand-levers", choices=("training", "serving", "inference", "serve"), default="serve",
                     help="lever set of the grad-off K-candidate pass: the training set, or that set plus the dropped levers that "
                          "switch at run time (pair_bf16z, dit_sigf32, tok_recycle_mm; r4t-perf K2). The pass only picks the "
                          "winner, so the gradient is unchanged whenever the winner is; inference also lets the fused kernels without a tape entry "
-                         "serve that pass (ops.NOGRAD_IS_INFERENCE, r4t-perf K4)")
+                         "serve that pass (ops.NOGRAD_IS_INFERENCE, r4t-perf K4); serve (r4t-perf K14) runs it under ag.suspended() "
+                         "with the serving fused kernels")
     ap.add_argument("--lnbw-weights", choices=("on", "off"), default="on",
                     help="LayerNorm backward with trainable gamma/beta in one fused kernel (tt_bio.lnbw weights form, "
                          "r4t-perf L2) or the composed ttnn path")
@@ -127,7 +131,8 @@ def main(argv=None, on_step=None):
         os.environ["TT_BIO_LEVERS"] = "none"   # Trunk builds on mode_levers(), which reads this, not lever_scope
         a.lnbw_weights = "off"   # the fused LN-backward kernel is a perf lever; the control arm verified by r4t-tape has none
         a.gate_bw = "off"        # likewise the fused gate backward (r4t-perf G1)
-        a.cand_levers = "training"   # and the serving levers in the candidate pass (r4t-perf K2)
+        a.cand_levers = "training"   # and the serving levers in the candidate pass (r4t-perf K2/K14)
+        a.win_pair = "host"      # and the card pair-builder backward (r4t-perf P2)
     if a.curve_dump and a.dp_cards:
         raise SystemExit("--curve-dump is a single-card leg: every rank would append to one CurveLog")
     if a.dp_cards and a.dp_rank < 0:
@@ -414,7 +419,11 @@ def main(argv=None, on_step=None):
         @contextlib.contextmanager
         def cand_scope():
             """--cand-levers serving: the candidate pass adds the run-time levers training drops; pair_bf16z also
-            carries the pair stream in bf16, a dtype the trunk and its pair updates read from attributes."""
+            carries the pair stream in bf16, a dtype the trunk and its pair updates read from attributes.
+            --cand-levers serve (r4t-perf K14): also swaps `trunk._levers` (so `Trunk.__call__`'s `@under_lever_scope`
+            does not overwrite the candidate lever set) and runs outside `ag.tape()` under `ag.suspended()`, unlocking
+            the shipped serving fused kernels (`trimul_t1`, `pair_tail_cm`, `pair_relu`, `outer_residual`,
+            `rms_pair_bias`, `rne_add`) on the grad-off candidate pass."""
             if a.cand_levers == "training":
                 yield
                 return
@@ -423,13 +432,18 @@ def main(argv=None, on_step=None):
             _ops.NOGRAD_IS_INFERENCE = a.cand_levers == "inference" or nogi
             mods = [trunk] + list(trunk.pair_updates.values())
             saved = [(m, m.pair_residual_dtype if m is trunk else m.residual_dtype) for m in mods]
+            saved_levers = trunk._levers
+            cand_levs = levers | {"pair_bf16z", "dit_sigf32", "tok_recycle_mm"}
             trunk.pair_residual_dtype = ttnn.bfloat16
             for m in mods[1:]:
                 m.residual_dtype = ttnn.bfloat16
+            if a.cand_levers == "serve":
+                trunk._levers = cand_levs
             try:
-                with T.lever_scope(levers | {"pair_bf16z", "dit_sigf32", "tok_recycle_mm"}):
+                with T.lever_scope(cand_levs):
                     yield
             finally:
+                trunk._levers = saved_levers
                 for m, d in saved:
                     setattr(m, "pair_residual_dtype" if m is trunk else "residual_dtype", d)
                 _ops.NOGRAD_IS_INFERENCE = nogi
@@ -443,14 +457,22 @@ def main(argv=None, on_step=None):
             with torch.no_grad():
                 ck = conds_for(bt)
                 s0, z0 = glue.initial_states(bt, pair_constant=glue.pair_split.constant(bt) if pc else None)
-            with T.lever_scope(levers), ag.tape():
-                with ag.no_grad(), cand_scope():
+            if a.cand_levers == "serve":
+                with ag.suspended(), cand_scope():
                     zk0 = pc(z0, 0) if pc else put(z0, trunk.pair_dtype(mk))
                     sk, zk = trunk(put(s0), zk0, [put(c, trunk.dtype) for c in ck], mk)
-                    sh = ttnn.to_torch(getattr(sk, "value", sk)).float().reshape(s0.shape)
-                walk_register()
+                    sh = ttnn.to_torch(sk).float().reshape(s0.shape)
                 for t in (sk, zk):
-                    ttnn.deallocate(getattr(t, "value", t))
+                    ttnn.deallocate(t)
+            with T.lever_scope(levers), ag.tape():
+                if a.cand_levers != "serve":
+                    with ag.no_grad(), cand_scope():
+                        zk0 = pc(z0, 0) if pc else put(z0, trunk.pair_dtype(mk))
+                        sk, zk = trunk(put(s0), zk0, [put(c, trunk.dtype) for c in ck], mk)
+                        sh = ttnn.to_torch(getattr(sk, "value", sk)).float().reshape(s0.shape)
+                    for t in (sk, zk):
+                        ttnn.deallocate(getattr(t, "value", t))
+                walk_register()
                 with torch.no_grad():
                     ok = {k: v.double().numpy() for k, v in flat(glue.heads(sh, bt)).items()}
                 _t, bd, _s = RO.rfd4_loss({**npy(bt), "exploration_k": K}, ok, RO.WEIGHTS)
@@ -464,9 +486,18 @@ def main(argv=None, on_step=None):
                         return winner(put(s_i), put(z_i, trunk.pair_dtype(m1)),
                                       [put(c, trunk.dtype) for c in conds_for(bw)], m1)
                 cs = conds_for(bw)
-                s_i, z_i = glue.initial_states(bw)
-                s, z = winner(br.up(s_i, ttnn.float32), br.up(z_i, trunk.pair_dtype(m1)),
-                              [br.up(c) for c in cs], m1)
+                if pc and a.win_pair == "card":
+                    # r4t-perf P2: the winner's pair on the card from the candidate pass's constant, its backward too
+                    from tt_bio.rfd4.pair import PairInputs
+                    from tt_bio.train.rfd4_pair import pair_taped
+                    s_i = glue.init_repr_factory(bw) * bw["padding_mask"][..., None]
+                    gamma, beta = glue.pair_split.modulation(bw)
+                    zw = PairInputs(z0.constant, z0.bins[win:win + 1], z0.scale[win:win + 1], gamma, beta)
+                    z_in = pair_taped(pc, zw, br, bw, trunk.pair_dtype(m1))
+                else:
+                    s_i, z_i = glue.initial_states(bw)
+                    z_in = br.up(z_i, trunk.pair_dtype(m1))
+                s, z = winner(br.up(s_i, ttnn.float32), z_in, [br.up(c) for c in cs], m1)
             return s, z, dict(br=br, bw=bw, win=win, shape=s_i.shape)
 
         def real_loss(s, ctx):

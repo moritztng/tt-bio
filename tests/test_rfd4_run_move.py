@@ -18,11 +18,15 @@ def test_the_perf_caller_runs_the_package_step():
     out = subprocess.run([sys.executable, str(ROOT / "perf/r4t_step/trunk_step.py"), "--help"],
                          capture_output=True, text=True, timeout=120, cwd="/")
     assert out.returncode == 0, out.stderr
-    for flag in ("--batch", "--curve-dump", "--dp-cards", "--cand-levers", "--attn-fp32",
-                 "--optimizer"):
+    for flag in ("--batch", "--curve-dump", "--dp-cards", "--cand-levers", "--win-pair",
+                 "--attn-fp32", "--optimizer", "--keep", "--pin-spike"):
         assert flag in out.stdout
+    assert "serve" in out.stdout
     src = (ROOT / "perf/r4t_step/trunk_step.py").read_text()
     assert "from tt_bio.train.rfd4_run import main" in src and "argparse" not in src
+    run_src = (ROOT / "tt_bio/train/rfd4_run.py").read_text()
+    assert "ax.sum_scalars" in run_src, "DP G2 rank-sum guard dropped during merge"
+    assert "ag.suspended()" in run_src and "pair_taped(" in run_src, "P2+K14 dropped during merge"
 
 
 def test_step_loop_calls_opt_step_once():
