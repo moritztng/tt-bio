@@ -174,3 +174,51 @@ def guard(cols, big: float = 1e30):
         repair = ttnn.multiply(ttnn.multiply(sg, eps), ttnn.add(ttnn.neg(m), 1.0))
         out.append(ttnn.add(ttnn.multiply(c, m), repair))
     return out
+
+
+# ---------------------------------------------------------------------------
+# one tower's edge features, built on the card from the positions it already holds
+# ---------------------------------------------------------------------------
+
+def gather(table, idx, n: int):
+    """``table[idx]`` for a TILE ``[N, d]`` fp32 table, exactly.
+
+    :func:`tt_bio.diffdock.device.gather_rows` splits an fp32 table into three bf16 slices so
+    the copy loses nothing; positions are fp32 and a one-hot in bf16 would not be exact
+    (`WH.md`), so every gather in the loop goes through it.
+    """
+    from .device import gather_rows
+    return gather_rows(table, idx, n)
+
+
+class EdgeGeometry:
+    """Per-edge vector, distance, harmonics and radius mask for one fixed edge set.
+
+    The edge index never moves (the static graphs carry the step's changes in their masks), so
+    the two row-index tensors are uploaded once and only the positions change per step.
+    """
+
+    def __init__(self, device, src_idx, dst_idx, n_edges: int):
+        import ttnn
+        self.device, self.n = device, n_edges
+        self.src = ttnn.from_torch(src_idx.reshape(1, -1).to(torch.int32), dtype=ttnn.uint32,
+                                   layout=ttnn.ROW_MAJOR_LAYOUT, device=device)
+        self.dst = ttnn.from_torch(dst_idx.reshape(1, -1).to(torch.int32), dtype=ttnn.uint32,
+                                   layout=ttnn.ROW_MAJOR_LAYOUT, device=device)
+
+    def vectors(self, src_pos, dst_pos=None):
+        """``dst_pos[dst] - src_pos[src]`` as three ``[E, 1]`` columns.
+
+        *src_pos* and *dst_pos* are ``[N, 3]`` TILE tensors (one table when the edge set is
+        within a tower, two across the cross edges).
+        """
+        import ttnn
+        a = gather(src_pos, self.src, self.n)
+        b = gather(dst_pos if dst_pos is not None else src_pos, self.dst, self.n)
+        d = ttnn.subtract(b, a)
+        return [ttnn.slice(d, [0, k], [self.n, k + 1]) for k in range(3)]
+
+    def within(self, dist, cutoff):
+        """``(dist <= cutoff)`` as an fp32 ``[E, 1]`` mask, the host's ``<=``."""
+        import ttnn
+        return ttnn.typecast(ttnn.le(dist, cutoff), ttnn.float32)
