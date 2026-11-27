@@ -395,6 +395,33 @@ class DeviceConvLayer:
         return out
 
 
+def stack_layout(edge_index: Tensor, n_p: int, plan):
+    """The padded edge layout a stack of convolutions runs over: ``(ei, pos)``.
+
+    A layer sees edges ``[:cut]`` split into FC groups at *splits*, and every block a layer
+    reads has to start on a multiple of 32, so the blocks between consecutive cut/split
+    boundaries are each padded out with dead ``pad -> pad`` edges. *pos* maps an unpadded
+    boundary to its row in the padded layout; *ei* is the padded edge index.
+
+    Shared by :meth:`DeviceConvModule.run_stack`, which uploads host edge features into this
+    layout, and :class:`tt_bio.diffdock.device_loop.ResidentStack`, which keeps them on the
+    card -- the two cannot drift apart because the layout is computed in one place.
+    """
+    E = edge_index.shape[1]
+    bounds = sorted({0, E} | {c for c, _ in plan} | {x for _, sp in plan for x in sp or ()})
+    pos, cols, blocks, at = {}, [], [], 0
+    for lo, hi in zip(bounds, bounds[1:]):
+        pos[lo] = at
+        n = hi - lo
+        extra = pad32(n) - n
+        cols.append(torch.cat([edge_index[:, lo:hi],
+                               torch.tensor([[n_p - 1], [n_p - 1]]).expand(2, extra)], 1))
+        blocks.append((lo, hi, extra))
+        at += n + extra
+    pos[E] = at
+    return torch.cat(cols, 1), pos, blocks
+
+
 class DeviceConvModule(torch.nn.Module):
     """A host :class:`~tt_bio.diffdock.conv.TensorProductConvLayer` whose arithmetic runs on
     the card: same call signature, so it drops into :class:`~tt_bio.diffdock.score_model.ScoreModel`
@@ -452,21 +479,13 @@ class DeviceConvModule(torch.nn.Module):
         t0 = time.perf_counter()
         E, N = edge_index.shape[1], node_attr.shape[0]
         n_p = pad_count(N)
-        bounds = sorted({0, E} | {c for c, _ in plan} | {x for _, sp in plan for x in sp or ()})
-        pos, cols, attrs, shs, masks, at = {}, [], [], [], [], 0
         mask = edge_mask.reshape(E).float()
-        for lo, hi in zip(bounds, bounds[1:]):
-            pos[lo] = at
-            n = hi - lo
-            extra = pad32(n) - n
-            cols.append(torch.cat([edge_index[:, lo:hi],
-                                   torch.tensor([[n_p - 1], [n_p - 1]]).expand(2, extra)], 1))
+        ei, pos, blocks = stack_layout(edge_index, n_p, plan)
+        attrs, shs, masks = [], [], []
+        for lo, hi, extra in blocks:
             attrs.append(torch.nn.functional.pad(edge_attr[lo:hi].float(), (0, 0, 0, extra)))
             shs.append(torch.nn.functional.pad(edge_sh[lo:hi].float(), (0, 0, 0, extra)))
             masks.append(torch.nn.functional.pad(mask[lo:hi], (0, extra)))
-            at += n + extra
-        pos[E] = at
-        ei = torch.cat(cols, 1)
         d = mods[0].dev.device
         ea, sh = to_device(d, torch.cat(attrs)), to_device(d, torch.cat(shs))
         m = ttnn.from_torch(torch.cat(masks).reshape(-1, 1), dtype=ttnn.float32,
