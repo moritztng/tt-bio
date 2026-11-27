@@ -142,34 +142,61 @@ def cmd_rollout(args):
     Path(args.out).write_text(json.dumps(rec, indent=1))
 
 
+def frob(got, want, scale) -> float:
+    """||got - want||_F / scale: rotation-invariant, so both legs share one yardstick."""
+    return (got.double() - want.double()).norm().item() / scale if scale > 0 else 0.0
+
+
 def cmd_equiv(args):
+    """Rotate the complex, check tr/rot rotate and tor does not, on the card and on the host.
+
+    A bf16 lever cannot meet the host's 1e-5 bar, so the card's residual alone does not say
+    whether a symmetry broke. Beside it, each leg's card-vs-host gap (fp32 host network, the
+    same static forward): rounding is direction-blind, so a sound kernel is as accurate on the
+    rotated input as on the original (gap_b ~ gap_a), while a broken symmetry makes the rotated
+    leg wrong by O(1). All gaps are Frobenius-relative to the host's untransformed score.
+    """
     fx, model, convs = build(args.net, args.fixture)
+    host = build("host", args.fixture)[1] if args.net != "host" else model
     g = fx["graph"]
     clock = Clock(args.net != "host")
-    rows = {}
+    rows, ok = {}, True
     for k, step in sorted(fx["steps"].items()):
         P, n_lig = step.lig_pos.shape[0], g.ligand["pos"].shape[0]
-        c = static_complex(model, fx, P)
-        base = score_fn(model, c, n_lig)(step)
+        base = score_fn(model, static_complex(model, fx, P), n_lig)(step)
+        hbase = score_fn(host, static_complex(host, fx, P), n_lig)(step)
         row = {}
         for seed in (0, 1, 2, 3):
             R, t = rigid_transform(seed)
             moved = fx["graph"].receptor["pos"].double() @ R.T + t
             fx2 = dict(fx)
-            g2 = type(g)(**{**g.__dict__, "receptor": {**g.receptor, "pos": moved.float()}})
-            fx2["graph"] = g2
-            c2 = static_complex(model, fx2, P)
+            fx2["graph"] = type(g)(**{**g.__dict__, "receptor": {**g.receptor, "pos": moved.float()}})
             step2 = type(step)(**{**step.__dict__,
                                   "lig_pos": (step.lig_pos.double() @ R.T + t).float()})
-            tr, rot, tor = score_fn(model, c2, n_lig)(step2)
-            row[seed] = {"tr": rel_residual(tr, base[0].double() @ R.T),
-                         "rot": rel_residual(rot, base[1].double() @ R.T),
-                         "tor": rel_residual(tor, base[2])}
-            print(f"step {k} seed {seed}: " + " ".join(
-                f"{n} {row[seed][n]:.3g}" for n in ("tr", "rot", "tor")), flush=True)
+            got = score_fn(model, static_complex(model, fx2, P), n_lig)(step2)
+            hgot = score_fn(host, static_complex(host, fx2, P), n_lig)(step2)
+            r = {}
+            for i, n in enumerate(("tr", "rot", "tor")):
+                def moved_ref(x, i=i):
+                    return x.double() @ R.T if i < 2 else x.double()
+                scale = hbase[i].double().norm().item()
+                r[n] = {"max_rel": rel_residual(got[i], moved_ref(base[i])),
+                        "residual": frob(got[i], moved_ref(base[i]), scale),
+                        "gap_a": frob(base[i], hbase[i], scale),
+                        "gap_b": frob(got[i], hgot[i], scale),
+                        "host_residual": frob(hgot[i], moved_ref(hbase[i]), scale)}
+                if args.net != "host" and r[n]["gap_b"] > 2 * r[n]["gap_a"] + 1e-6:
+                    ok = False
+                if r[n]["host_residual"] > 1e-5:
+                    ok = False
+            row[seed] = r
+            print(f"step {k} seed {seed}: " + "  ".join(
+                f"{n} res {v['residual']:.2g} gap_a {v['gap_a']:.2g} gap_b {v['gap_b']:.2g} "
+                f"host {v['host_residual']:.2g}" for n, v in r.items()), flush=True)
         rows[k] = row
-    out = {"net": args.net, "complex": fx["complex"], "bar": 1e-5,
-           "upstream_pinned_floor": {"tr": 1.57e-7, "rot": 1.25e-6, "tor": 9.29e-7},
+    out = {"net": args.net, "complex": fx["complex"], "host_bar": 1e-5,
+           "rule": "gap_b <= 2*gap_a + 1e-6 on every step/seed/score; host_residual <= 1e-5",
+           "pass": ok, "upstream_pinned_floor": {"tr": 1.57e-7, "rot": 1.25e-6, "tor": 9.29e-7},
            "steps": rows, **clock.summary()}
     print(json.dumps({k: v for k, v in out.items() if k != "steps"}), flush=True)
     Path(args.out).write_text(json.dumps(out, indent=1))
