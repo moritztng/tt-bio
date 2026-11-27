@@ -119,15 +119,17 @@ def cmd_rollout(args):
     cfg = sampling.SamplingConfig.from_recipe()
     bounds = sampling.SigmaBounds.from_config(model.config)
     noise = sampling.Noise(seed=args.seed)
+    # The rotatable bonds, as run.py hands them to the sampler: [T, 2], one row per mask_rotate.
+    rot_edges = g.ligand["edge_index"].T[g.ligand["edge_mask"]]
     start = sampling.randomize_position(
         g.ligand["pos"], receptor_pos=g.receptor["pos"], n_samples=args.poses, cfg=cfg,
-        bounds=bounds, noise=noise, edge_index=g.ligand["edge_index"],
+        bounds=bounds, noise=noise, edge_index=rot_edges,
         mask_rotate=g.ligand["mask_rotate"], no_torsion=model.config.no_torsion)
     c = static_complex(model, fx, args.poses)
     clock = Clock(args.net != "host")
     t0 = time.perf_counter()
     out = sampling.sample(score_fn(model, c, g.ligand["pos"].shape[0]), start.clone(), cfg=cfg,
-                          bounds=bounds, noise=noise, edge_index=g.ligand["edge_index"],
+                          bounds=bounds, noise=noise, edge_index=rot_edges,
                           mask_rotate=g.ligand["mask_rotate"],
                           no_torsion=model.config.no_torsion,
                           crop_beyond_a=model.config.crop_beyond)
