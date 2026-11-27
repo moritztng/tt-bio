@@ -114,7 +114,8 @@ def axis_angle_matrix(ax, ay, az):
     import ttnn
     angles = norm3(ax, ay, az)
     half = ttnn.multiply(angles, 0.5)
-    series = ttnn.subtract(0.5, ttnn.multiply(ttnn.multiply(angles, angles), 1.0 / 48))
+    # ttnn.subtract has no (scalar, tensor) overload: negate and add.
+    series = ttnn.add(ttnn.neg(ttnn.multiply(ttnn.multiply(angles, angles), 1.0 / 48)), 0.5)
     ratio = ttnn.where(ttnn.lt(ttnn.abs(angles), 1e-6), series,
                        ttnn.multiply(ttnn.sin(half),
                                      ttnn.reciprocal(ttnn.clamp(angles, min=1e-30))))
@@ -124,7 +125,7 @@ def axis_angle_matrix(ax, ay, az):
                   ttnn.add(ttnn.multiply(j, j), ttnn.multiply(k, k)))
     two = ttnn.multiply(ttnn.reciprocal(sq), 2.0)
     mul = lambda a, b: ttnn.multiply(two, ttnn.multiply(a, b))
-    diag = lambda a, b: ttnn.subtract(1.0, ttnn.add(mul(a, a), mul(b, b)))
+    diag = lambda a, b: ttnn.add(ttnn.neg(ttnn.add(mul(a, a), mul(b, b))), 1.0)
     return (diag(j, k), ttnn.subtract(mul(i, j), mul(k, r)), ttnn.add(mul(i, k), mul(j, r)),
             ttnn.add(mul(i, j), mul(k, r)), diag(i, k), ttnn.subtract(mul(j, k), mul(i, r)),
             ttnn.subtract(mul(i, k), mul(j, r)), ttnn.add(mul(j, k), mul(i, r)), diag(i, j))

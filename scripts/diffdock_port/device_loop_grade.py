@@ -19,7 +19,7 @@ CKPT = Path(os.environ.get("DFD_CKPT", str(Path.home() / "scratch/dfd/ckpt/extra
 
 
 def stats(got: torch.Tensor, ref: torch.Tensor) -> dict:
-    g, r = got.double().flatten(), ref.double().flatten()
+    g, r = got.detach().double().flatten(), ref.detach().double().flatten()
     return {"max_abs": float((g - r).abs().max()),
             "rel_frobenius": float((g - r).norm() / r.norm().clamp_min(1e-30)),
             "pcc": float(torch.corrcoef(torch.stack([g, r]))[0, 1])}
@@ -54,22 +54,28 @@ def main():
     back = lambda t, w: ttnn.to_torch(t)[:args.edges, :w]
     out = {"edges": args.edges}
 
+    def record(name, got, ref):
+        """Measure one leg and print it at once: a later failure keeps the earlier numbers."""
+        out[name] = stats(got, ref)
+        print(name, out[name], flush=True)
+        return out[name]
+
     dist = vec.double().norm(dim=-1)
-    out["norm3"] = stats(back(dl.norm3(*xyz), 1)[:, 0], dist)
+    record("norm3", back(dl.norm3(*xyz), 1)[:, 0], dist)
     for ls in ((0, 1, 2), (2,)):
         ref = spherical_harmonics(vec.double(), ls)
-        out[f"harmonics_{''.join(map(str, ls))}"] = stats(back(dl.harmonics(*xyz, ls), ref.shape[1]), ref)
+        record(f"harmonics_{''.join(map(str, ls))}", back(dl.harmonics(*xyz, ls), ref.shape[1]), ref)
     d_dev = dl.upload(dev, dist.float())
     for name in ("lig", "rec", "cross"):
         mod = getattr(model, f"{name}_distance_expansion")
         ref = gaussian_smearing_reference(dist.float(), mod)
-        out[f"smear_{name}"] = stats(back(dl.Smearing(dev, mod)(d_dev), ref.shape[1]), ref)
+        record(f"smear_{name}", back(dl.Smearing(dev, mod)(d_dev), ref.shape[1]), ref)
     for name in ("rec_edge_embedding", "cross_edge_embedding", "lig_edge_embedding",
                  "rec_sigma_embedding"):
         seq = getattr(model, name)
         x = torch.randn(args.edges, seq[0].in_features, generator=g).float()
         ref = seq(x.double())
-        out[name] = stats(back(dl.MLP(dev, seq.float())(dl.upload(dev, x)), ref.shape[1]), ref)
+        record(name, back(dl.MLP(dev, seq.float())(dl.upload(dev, x)), ref.shape[1]), ref)
         seq.double()
     # --- the pose update ------------------------------------------------------------
     from tt_bio.diffdock.sampling import axis_angle_to_matrix, guard_scores
@@ -81,20 +87,20 @@ def main():
     cols = [dl.upload(dev, aa[:, k]) for k in range(3)]
     ref_m = axis_angle_to_matrix(aa.double())
     got_m = dl.axis_angle_matrix(*cols)
-    out["axis_angle_matrix"] = stats(
+    record("axis_angle_matrix", 
         torch.cat([ttnn.to_torch(c)[:B, :1] for c in got_m], 1), ref_m.reshape(B, 9))
 
     pts = torch.randn(B, 3, generator=g).float() * 12
     pcols = [dl.upload(dev, pts[:, k]) for k in range(3)]
     ref_r = torch.bmm(pts.double()[:, None, :], ref_m.transpose(1, 2))[:, 0]
-    out["rotate"] = stats(
+    record("rotate", 
         torch.cat([ttnn.to_torch(c)[:B, :1] for c in dl.rotate(pcols, got_m)], 1), ref_r)
 
     score = torch.randn(B, 3, generator=g).float()
     score[3, 1], score[7, 0], score[11, 2] = float("nan"), float("inf"), float("-inf")
     ref_g = guard_scores(score.double())[0]
     got_g = dl.guard([dl.upload(dev, score[:, k]) for k in range(3)])
-    out["guard"] = stats(torch.cat([ttnn.to_torch(c)[:B, :1] for c in got_g], 1), ref_g)
+    record("guard", torch.cat([ttnn.to_torch(c)[:B, :1] for c in got_g], 1), ref_g)
 
     # --- gathered edge geometry -----------------------------------------------------
     n_nodes, E = 512, args.edges
@@ -106,18 +112,18 @@ def main():
     pos_dev = dl.upload(dev, pos)
     vcols = geo.vectors(pos_dev)
     ref_v = pos.double()[dst] - pos.double()[src]
-    out["gathered_edge_vectors"] = stats(
+    record("gathered_edge_vectors", 
         torch.cat([ttnn.to_torch(c)[:E, :1] for c in vcols], 1), ref_v)
     ref_sh = spherical_harmonics(ref_v, (0, 1, 2))
-    out["gathered_harmonics"] = stats(back(dl.harmonics(*vcols), ref_sh.shape[1]), ref_sh)
+    record("gathered_harmonics", back(dl.harmonics(*vcols), ref_sh.shape[1]), ref_sh)
     d_gath = dl.norm3(*vcols)
     ref_m = (ref_v.norm(dim=-1) <= 5.0).double()
     got_m = ttnn.to_torch(geo.within(d_gath, 5.0))[:E, 0]
     out["within"] = {"mismatches": int((got_m.double() - ref_m).abs().sum()),
                      "kept": int(ref_m.sum())}
+    print("within", out["within"], flush=True)
 
-    for k, v in out.items():
-        print(k, v, flush=True)
+    print(json.dumps({k: v for k, v in out.items() if isinstance(v, (int, float))}), flush=True)
     Path(args.out).write_text(json.dumps(out, indent=1))
 
 
