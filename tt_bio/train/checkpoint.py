@@ -132,6 +132,7 @@ class Checkpointer:
     lower_is_better: bool = True
     prefix: str = "adapter"
     written: list = field(default_factory=list)
+    pinned: list = field(default_factory=list)
 
     def __post_init__(self):
         self.dir = Path(self.dir)
@@ -162,6 +163,22 @@ class Checkpointer:
         self.written.append({"path": path, "step": step, "score": score})
         self._prune()
         return path
+
+    def pin(self, step: int) -> Optional[Path]:
+        """Exempt the newest checkpoint at or before ``step`` from pruning, for good.
+
+        A long run keeps a small ring to resume from, but a step it may later need to replay
+        (a loss spike) is gone from that ring 30 steps on. Pinning the checkpoint the step
+        started from keeps exactly what the replay needs and nothing else. Returns the pinned
+        path, or ``None`` when no checkpoint precedes ``step``.
+        """
+        before = [w for w in self.written if w["step"] <= step]
+        if not before:
+            return None
+        w = before[-1]
+        self.written.remove(w)
+        self.pinned.append(w)
+        return Path(w["path"])
 
     @property
     def weights(self) -> Path:

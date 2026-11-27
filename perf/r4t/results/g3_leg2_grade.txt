@@ -1,0 +1,6 @@
+CURVE: 2000 steps FAIL tail200_gap=0.4241 bar=0.9284 (ours 45.9936, gpu A 46.4177, gpu B 46.419) drift=4.28@904 bar=0.1
+  running mean left upstream's by 4.28 > 0.1 at step 904 (100 steps over)
+  ours: {'steps': 2000, 'first': 41.71663859214623, 'last': 54.02893917575502, 'mean_last_100': 45.28940442417673, 'finite': True} {"host": "tt-quietbox2", "sha": "46eed4c44e9ff69d365aa7fac22f0b0fc246842c"}
+  gpu A: {'steps': 2000, 'first': 41.58943176269531, 'last': 51.65929412841797, 'mean_last_100': 45.62716932296753, 'finite': True} {"host": "ae509569c743", "sha": "src-c69ec3e94e30c194", "upstream_sha": "2db07bb444d91695f8c10e6acb7648e9297f9221"}
+  gpu B: {'steps': 2000, 'first': 51.037452697753906, 'last': 49.48902130126953, 'mean_last_100': 46.84911716461182, 'finite': True} {"host": "ae509569c743", "sha": "src-df1caadc3c064276", "upstream_sha": "2db07bb444d91695f8c10e6acb7648e9297f9221"}
+exit=1
