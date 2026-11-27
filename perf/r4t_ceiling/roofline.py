@@ -9,7 +9,7 @@ phases). Activations priced at 2 B/element (bf16).
     roofline.py count.json [--fidelity 4]
 """
 import json, sys, collections
-CORES, CLK, BW = 120, 1.35e9, 512e9
+CORES, CLK, BW = 110, 1.35e9, 512e9   # 110 = the worker grid ttnn uses on p300c (census ops.csv CORE COUNT), 120 physical
 LOFI = CORES * 2048 * 2 * CLK            # 663.6 TFLOP/s
 def peak(fid): return LOFI / fid
 

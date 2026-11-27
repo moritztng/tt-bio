@@ -88,7 +88,8 @@ def main():
         loss = sum((v.float() ** 2).mean() for v in tree_flatten(out)[0] if torch.is_tensor(v) and v.requires_grad)
         m.phase = "win_bwd"
         loss.backward()
-    shapes = [[list(p.shape), n] for n, p in model.named_parameters()]
+    shapes = [[list(p.shape), n] for n, p in model.named_parameters() if p.grad is not None]
+    print("trained params (grad not None)", sum(p.numel() for p in model.parameters() if p.grad is not None))
     rows = [{"phase": k[0], "class": k[1], "size": k[2], "flops": v[0], "elems": v[1], "calls": v[2]} for k, v in sorted(m.t.items())]
     json.dump({"batch": path, "depth": depth, "K": K, "params": nparam, "rows": rows,
                "param_shapes": shapes, "top_ops": [[a, b, c] for (a, b), c in m.ops.most_common(80)]},
