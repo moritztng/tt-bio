@@ -22,6 +22,11 @@ ALWI void sigmoid_bf16_tile(uint32_t idst) {
 }
 
 #include "sigmoid_poly.hpp"
+// GINSPLIT (lever trimul_gin_split): even channel tiles q go to c_21 for reader.cpp's gather, odd ones to c_2 for the
+// writer's, so both data-movement cores issue the channel move's face-row reads (trimul_in_t1's T1SPLIT).
+#ifndef GINSPLIT
+#define GINSPLIT 0
+#endif
 #if defined(GIN_PSIG) && defined(TRISC_PACK)
 #include "llk_math_eltwise_unary_sfpu_silu.h"   // the packer-side SFPU init, as trimul_in_t1's T1_PSIG
 #endif
@@ -41,6 +46,7 @@ void kernel_main() {
     // p and g never round-trip through L1 as bf16, which also frees their two 32-tile buffers.
     constexpr uint32_t FUSE = get_compile_time_arg_val(7);
     static_assert(!(FUSE && MASK), "the fused gate has no mask path");
+    static_assert(!(FUSE && GINSPLIT), "the split runs on the unfused gate only");
     const uint32_t nunits = get_arg_val<uint32_t>(0);
 
     constexpr uint32_t w_cb = tt::CBIndex::c_0;
@@ -49,6 +55,7 @@ void kernel_main() {
     constexpr uint32_t p_cb = tt::CBIndex::c_4;
     constexpr uint32_t g_cb = tt::CBIndex::c_5;
     constexpr uint32_t m_cb = tt::CBIndex::c_6;
+    constexpr uint32_t out_rd_cb = tt::CBIndex::c_21;   // GINSPLIT: the even channel tiles, to the reader
 
     sigmoid_tile_init();
     mm_init(w_cb, x_cb, FUSE ? out_cb : p_cb, 1);
@@ -141,11 +148,12 @@ void kernel_main() {
                 }
                 cb_push_back(pass_cb, 32);
             }
+            const uint32_t ocb = GINSPLIT && !(q & 1) ? out_rd_cb : out_cb;
             cb_wait_front(p_cb, 32);
             cb_wait_front(g_cb, 32);
-            cb_reserve_back(out_cb, 32);
+            cb_reserve_back(ocb, 32);
             reconfig_data_format(p_cb, g_cb);
-            pack_reconfig_data_format(out_cb);
+            pack_reconfig_data_format(ocb);
             for (uint32_t t0 = 0; t0 < 32; t0 += 4) {
                 tile_regs_acquire();
                 if constexpr (ABL & 2) {
@@ -166,10 +174,10 @@ void kernel_main() {
                 }
                 tile_regs_commit();
                 tile_regs_wait();
-                for (uint32_t i = 0; i < 4; ++i) pack_tile(i, out_cb);
+                for (uint32_t i = 0; i < 4; ++i) pack_tile(i, ocb);
                 tile_regs_release();
             }
-            cb_push_back(out_cb, 32);
+            cb_push_back(ocb, 32);
             cb_pop_front(p_cb, 32);
             cb_pop_front(g_cb, 32);
         }

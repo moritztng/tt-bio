@@ -9,7 +9,15 @@
 // Both transposed weights [Wp^T | Wg^T] (each 2*CT row tiles x Kt) are loaded into c_0 once.
 // With MASK each unit also gets 32 row-broadcast mask tiles in c_6: tile il carries
 // m[b, xt*32 + il, yt*32 + 0..31] in its row 0, cut out of the one mask tile (b, xt, yt).
+// GINSPLIT (lever trimul_gin_split): this kernel also gathers and writes the even channel tiles, which compute
+// hands it in c_21 (writer.cpp's gather, on this core's other NOC). It loads the next unit once it has gathered the
+// unit's last even tile: compute frees x_cb right after the odd tile that follows.
 #include "api/dataflow/dataflow_api.h"
+#include "../trimul_in_t1/gather.hpp"
+
+#ifndef GINSPLIT
+#define GINSPLIT 0
+#endif
 
 void kernel_main() {
     constexpr uint32_t Kt = get_compile_time_arg_val(0);
@@ -21,6 +29,13 @@ void kernel_main() {
     constexpr auto wp_args = TensorAccessorArgs<x_args.next_compile_time_args_offset()>();
     constexpr auto wg_args = TensorAccessorArgs<wp_args.next_compile_time_args_offset()>();
     constexpr auto m_args = TensorAccessorArgs<wg_args.next_compile_time_args_offset()>();
+    // GINSPLIT's gather: writer.cpp's NB, CTO, CTT and output accessors.
+    constexpr uint32_t o_ = m_args.next_compile_time_args_offset();
+    [[maybe_unused]] constexpr uint32_t NB = get_compile_time_arg_val(o_);
+    [[maybe_unused]] constexpr uint32_t CTO = get_compile_time_arg_val(o_ + 1);
+    [[maybe_unused]] constexpr uint32_t CTT = get_compile_time_arg_val(o_ + 2);
+    [[maybe_unused]] constexpr auto a_args = TensorAccessorArgs<o_ + 3>();
+    [[maybe_unused]] constexpr auto b_args = TensorAccessorArgs<a_args.next_compile_time_args_offset()>();
 
     const auto x = TensorAccessor(x_args, get_common_arg_val<uint32_t>(0));
     const auto wp = TensorAccessor(wp_args, get_common_arg_val<uint32_t>(1));
@@ -44,7 +59,7 @@ void kernel_main() {
     noc_async_read_barrier();
     cb_push_back(w_cb, 2 * CT2 * Kt);
 
-    for (uint32_t u = u0; u < u0 + nunits; ++u) {
+    auto load = [&](uint32_t u) {
         const uint32_t b = u / (St * St);
         const uint32_t xt = (u / St) % St;
         const uint32_t yt = u % St;
@@ -77,5 +92,28 @@ void kernel_main() {
             }
             cb_push_back(m_cb, 32);
         }
+    };
+
+#if GINSPLIT
+    constexpr uint32_t CT = CT2 / 2;
+    constexpr uint32_t SS = St * St;
+    const auto oa = TensorAccessor(a_args, get_common_arg_val<uint32_t>(4));
+    const auto ob = TensorAccessor(b_args, get_common_arg_val<uint32_t>(5));
+    t1_gather::Gather<NB, 32, (ABL & 4) ? 96 : 0, false> gather;
+    gather.init(tt::CBIndex::c_25);
+    if (nunits) load(u0);
+    for (uint32_t u = u0; u < u0 + nunits; ++u) {
+        const uint32_t b = u / SS;
+        const uint32_t cube = u % SS;
+        for (uint32_t q = 0; q < CT2; q += 2) {
+            const uint32_t page = (b * CTT + CTO + (q < CT ? q : q - CT)) * 32 * SS + cube;
+            if (q < CT) gather.tile(tt::CBIndex::c_21, oa, page, 0, SS);
+            else gather.tile(tt::CBIndex::c_21, ob, page, 0, SS);
+        }
+        if (u + 1 < u0 + nunits) load(u + 1);
     }
+    noc_async_write_barrier();
+#else
+    for (uint32_t u = u0; u < u0 + nunits; ++u) load(u);
+#endif
 }

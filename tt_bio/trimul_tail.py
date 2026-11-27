@@ -579,6 +579,13 @@ def _gin_psig(masked):
     return bool(_lever("trimul_gin_psig") and _sigpoly() and not RNE & 2 and not _gin_fuse(masked))
 
 
+def _gin_split(masked):
+    """Both data-movement cores gather gin_moved's channel move (lever trimul_gin_split, T1_SPLIT's pattern): compute
+    sends the even channel tiles to the reader and the odd ones to the writer. The same bytes land in the same place.
+    Unfused gate only, whose two 32-tile halves of the output buffer become one per core."""
+    return bool(_lever("trimul_gin_split") and not _gin_fuse(masked))
+
+
 def _gin_out_tiles(kt, ct2, masked):
     """The output buffer: two channel tiles' worth (compute runs one ahead of the writer's gather), or one when
     the fused gate gets the call into a single launch only that way (ESMFold2's c_z 256 on Wormhole)."""
@@ -592,7 +599,8 @@ def _gin_out_tiles(kt, ct2, masked):
 def _gin_move_tiles(kt, ct2, mask):
     if _gin_fuse(mask):
         return 2 * ct2 * kt + 32 * kt + _gin_out_tiles(kt, ct2, False) + 2 * GIN_MOVE_NB
-    return 2 * ct2 * kt + 32 * kt + 64 + 2 * 32 + 2 * GIN_MOVE_NB + (33 if mask else 0)
+    return (2 * ct2 * kt + 32 * kt + 64 + 2 * 32 + 2 * GIN_MOVE_NB * (1 + _gin_split(mask))
+            + (33 if mask else 0))
 
 
 def _gin_move_bytes(kt, ct2, mask, wdt=ttnn.bfloat16):
@@ -666,16 +674,18 @@ def _build_gin_move(x, wpT, wgT, outs, grid, ckc, mask, cto=0, ctt=None):
     acc = lambda t: list(ttnn.TensorAccessorArgs(t).get_compile_time_args())
     src = ttnn.KernelDescriptor.SourceType.FILE_PATH
     d = KERNEL_DIR.parent / "trimul_gin_moved"
+    ctt_ = ct2 // 2 if ctt is None else ctt
+    split = _gin_split(mask is not None)
+    defs = [("GINSPLIT", "1")] if split else []
     reader = ttnn.KernelDescriptor(
         kernel_source=str(d / "reader.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[kt, ct2, St, int(mask is not None), GIN_MOVE_ABL] + acc(x) + acc(wpT) + acc(wgT)
-        + acc(mask if mask is not None else x),
-        runtime_args=rd, common_runtime_args=[0] * 4, config=ttnn.ReaderConfigDescriptor())
+        + acc(mask if mask is not None else x) + [GIN_MOVE_NB, cto, ctt_] + acc(outs[0]) + acc(outs[1]),
+        runtime_args=rd, common_runtime_args=[0] * 6, defines=defs, config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(
         kernel_source=str(d / "writer.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[ct2, St, GIN_MOVE_ABL, GIN_MOVE_NB, cto, ct2 // 2 if ctt is None else ctt]
-        + acc(outs[0]) + acc(outs[1]),
-        runtime_args=wr, common_runtime_args=[0, 0], config=ttnn.WriterConfigDescriptor())
+        compile_time_args=[ct2, St, GIN_MOVE_ABL, GIN_MOVE_NB, cto, ctt_] + acc(outs[0]) + acc(outs[1]),
+        runtime_args=wr, common_runtime_args=[0, 0], defines=defs, config=ttnn.WriterConfigDescriptor())
     fid, approx, fp32, full = ckc
     # The fused gate holds a subblock's p and g in DST at once: half of DST each.
     fuse = _gin_fuse(mask is not None)
@@ -683,7 +693,7 @@ def _build_gin_move(x, wpT, wgT, outs, grid, ckc, mask, cto=0, ctt=None):
     compute = ttnn.KernelDescriptor(
         kernel_source=str(d / "compute.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[kt, ct2, sbw, int(mask is not None), GIN_MOVE_ABL, _sigpoly(), RNE, int(fuse)],
-        runtime_args=cp, defines=[("GIN_PSIG", "1")] if _gin_psig(mask is not None) else [],
+        runtime_args=cp, defines=defs + ([("GIN_PSIG", "1")] if _gin_psig(mask is not None) else []),
         config=ttnn.ComputeConfigDescriptor(
             math_fidelity=fid, math_approx_mode=approx, fp32_dest_acc_en=fp32,
             dst_full_sync_en=full))
@@ -691,8 +701,11 @@ def _build_gin_move(x, wpT, wgT, outs, grid, ckc, mask, cto=0, ctt=None):
         cbs = [_cb_fmt(0, core_grid, 2 * ct2 * kt, wpT.dtype), _cb(1, core_grid, 32 * kt),
                _cb(2, core_grid, _gin_out_tiles(kt, ct2, False)), _cb(24, core_grid, 2 * GIN_MOVE_NB)]
         return {"kernels": [reader, writer, compute], "cbs": cbs}
-    cbs = [_cb_fmt(0, core_grid, 2 * ct2 * kt, wpT.dtype), _cb(1, core_grid, 32 * kt), _cb(2, core_grid, 64),
-           _cb(4, core_grid, 32), _cb(5, core_grid, 32), _cb(24, core_grid, 2 * GIN_MOVE_NB)]
+    cbs = [_cb_fmt(0, core_grid, 2 * ct2 * kt, wpT.dtype), _cb(1, core_grid, 32 * kt),
+           _cb(2, core_grid, 32 if split else 64), _cb(4, core_grid, 32), _cb(5, core_grid, 32),
+           _cb(24, core_grid, 2 * GIN_MOVE_NB)]
+    if split:
+        cbs += [_cb(21, core_grid, 32), _cb(25, core_grid, 2 * GIN_MOVE_NB)]
     if mask is not None:
         cbs += [_cb(3, core_grid, 1), _cb(6, core_grid, 32)]
     return {"kernels": [reader, writer, compute], "cbs": cbs}
@@ -723,14 +736,15 @@ def gin_moved(x, wpT, wgT, ckc, grid, mask=None):
     for s_, (wp, wg) in enumerate(zip(wps, wgs)):
         key = ("gin_move", str(x.padded_shape), str(wp.padded_shape), str(wp.dtype), tuple(grid),
                tuple(str(c) for c in ckc), mask is not None, GIN_MOVE_ABL, GIN_MOVE_NB, _sigpoly(), RNE,
-               s_, n, _gin_fuse(mask is not None), _gin_psig(mask is not None))
+               s_, n, _gin_fuse(mask is not None), _gin_psig(mask is not None), _gin_split(mask is not None))
         entry = _CACHE.get(key)
         if entry is None:
             entry = _CACHE[key] = _build_gin_move(x, wp, wg, outs, grid, ckc, mask,
                                                   cto=s_ * Cs // TILE, ctt=n * Cs // TILE)
         reader, writer, _ = entry["kernels"]
         reader.common_runtime_args = [x.buffer_address(), wp.buffer_address(), wg.buffer_address(),
-                                      (mask if mask is not None else x).buffer_address()]
+                                      (mask if mask is not None else x).buffer_address(),
+                                      outs[0].buffer_address(), outs[1].buffer_address()]
         writer.common_runtime_args = [outs[0].buffer_address(), outs[1].buffer_address()]
         pd = ttnn.ProgramDescriptor(kernels=entry["kernels"], semaphores=[], cbs=entry["cbs"])
         ttnn.generic_op([x, wp, wg, *outs] + ([mask] if mask is not None else []), pd)

@@ -22,6 +22,8 @@ ap.add_argument("--nb", default="", help="time only, moved route: writer tiles p
 ap.add_argument("--sigpoly", action="store_true", help="add 'moved_poly' and 'today_poly' routes: the polynomial sigmoid")
 ap.add_argument("--var", action="append", default=[],
                 help="NAME:SIGPOLY:RNE, both routes under those kernel options (float64 error, ms); repeatable")
+ap.add_argument("--levers", action="append", default=[],
+                help="moved route under this lever set (parse_levers spec): ms, and bytes against the first set; repeatable")
 ap.add_argument("--only-timing", action="store_true", help="skip the two-route check, run only --abl/--nb")
 A = ap.parse_args()
 
@@ -97,6 +99,17 @@ for nb in [int(v) for v in A.nb.split(",") if v]:
         ttnn.deallocate(t)
     print(json.dumps({"nb": nb, "ms": timed(moved), "rel_rms_f64": [round(rel(h, r), 6) for h, r in zip(host, ref)]}),
           flush=True)
+base = None
+for spec in A.levers:
+    with T.levers(spec):
+        res = moved()
+        host = [ttnn.to_torch(t) for t in res]
+        for t in res:
+            ttnn.deallocate(t)
+        ms = timed(moved)
+    base = base or host
+    print(json.dumps({"levers": spec, "ms": ms, "same_bytes": all(torch.equal(h, b) for h, b in zip(host, base)),
+                      "rel_rms_f64": [round(rel(h, r), 6) for h, r in zip(host, ref)]}), flush=True)
 NB0 = TT.GIN_MOVE_NB = int(__import__("os").environ.get("TT_BIO_TRIMUL_GIN_MOVE_NB", "2"))
 for abl in [int(v) for v in A.abl.split(",") if v]:
     TT.GIN_MOVE_ABL = abl
