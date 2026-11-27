@@ -24,6 +24,7 @@ per-complex failure that returns rc=0 must not quietly leave the denominator.
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import json
 import math
 import os
@@ -124,8 +125,14 @@ def smiles_of(i):
     return None if m is None else Chem.MolToSmiles(Chem.RemoveHs(m))
 
 
-def dock_chunk(ids, out_dir: Path, seed: int):
-    """Dock `ids` in THIS process with the default recipe. Used by the worker subprocess."""
+def dock_chunk(ids, out_dir: Path, seed: int, device: str = "cpu", edge_tp: str = "gemm"):
+    """Dock `ids` in THIS process with the default recipe. Used by the worker subprocess.
+
+    *device* and *edge_tp* select the arm: ``cpu``/``gemm`` is the host-torch network that the
+    428-complex set grade uses, ``tt``/``gemm`` the card's default form, ``tt``/``tile`` the
+    fused edge-tile form. The recipe is identical in all three, which is the point: the arms
+    differ in the network, not in the sampling.
+    """
     sys.path.insert(0, str(REPO))
     from tt_bio.diffdock.job import DockJob, DockOptions
     from tt_bio.diffdock import run
@@ -137,15 +144,31 @@ def dock_chunk(ids, out_dir: Path, seed: int):
             print(f"skip {i}: unreadable ligand", flush=True)
             continue
         jobs.append(DockJob(name=i, receptor_path=Path(f"{PB}/{i}/{i}_protein.pdb"), ligand=smi))
-    options = DockOptions(seed=seed)
-    summary = run.dock(jobs, options, out_dir, isolate=True)
+    kw = {}
+    if device != "cpu":
+        kw["device"] = device
+        if "edge_tp" in {f.name for f in dataclasses.fields(DockOptions)}:
+            kw["edge_tp"] = edge_tp
+        elif edge_tp != "gemm":
+            raise SystemExit("this checkout has no DockOptions.edge_tp: merge wk/dfd-perf-tile "
+                             "before running the tile arm, do not grade a form you did not run")
+    options = DockOptions(seed=seed, **kw)
+    # isolate=False on a card: run.dock opens the device and loads the 30 M-parameter network
+    # once for the whole list, and a per-complex subprocess would re-open the card per complex.
+    summary = run.dock(jobs, options, out_dir, isolate=(device == "cpu"))
     for name, why in summary["failed"]:
         print(f"FAILED {name}: {why}", flush=True)
     return summary
 
 
-def dock(ids, out_dir: Path, workers: int, chunk: int, seed: int, threads: int):
+def dock(ids, out_dir: Path, workers: int, chunk: int, seed: int, threads: int,
+         device: str = "cpu", edge_tp: str = "gemm"):
     out_dir.mkdir(parents=True, exist_ok=True)
+    if device != "cpu":
+        # One chip, one process: the card is the serial resource, so the pool is a pool of one
+        # and the whole list is one chunk. A clock sample runs for the length of the arm, because
+        # a device timing without the AICLK it ran at is not a measurement.
+        workers, chunk = 1, max(1, len(ids))
     todo = [i for i in ids if not docked(out_dir, i)]
     print(f"{len(ids)} complexes, {len(ids) - len(todo)} already docked, {len(todo)} to go",
           flush=True)
@@ -155,6 +178,16 @@ def dock(ids, out_dir: Path, workers: int, chunk: int, seed: int, threads: int):
     env = dict(os.environ, OMP_NUM_THREADS=str(threads), MKL_NUM_THREADS=str(threads),
                PYTHONHASHSEED="0", PYTHONUNBUFFERED="1")
     running = []
+    clk_samples, clk_stop, clk_thread = [], None, None
+    if device != "cpu":
+        import threading
+        sys.path.insert(0, str(REPO))
+        from tt_bio.diffdock.capture import sample_aiclk
+        clk_stop = threading.Event()
+        clk_thread = threading.Thread(
+            target=sample_aiclk, daemon=True,
+            args=(clk_stop, clk_samples, os.environ.get("TT_VISIBLE_DEVICES", "0")))
+        clk_thread.start()
     t0 = time.time()
     while chunks or running:
         while chunks and len(running) < workers:
@@ -162,7 +195,8 @@ def dock(ids, out_dir: Path, workers: int, chunk: int, seed: int, threads: int):
             log = open(logs / f"dock-{part[0]}.log", "w")
             p = subprocess.Popen(
                 [sys.executable, __file__, "worker", "--out", str(out_dir),
-                 "--seed", str(seed), "--complexes", ",".join(part)],
+                 "--seed", str(seed), "--device", device, "--edge-tp", edge_tp,
+                 "--complexes", ",".join(part)],
                 stdout=log, stderr=subprocess.STDOUT, env=env)
             running.append((p, part, log))
         time.sleep(5)
@@ -180,6 +214,15 @@ def dock(ids, out_dir: Path, workers: int, chunk: int, seed: int, threads: int):
     # "DOCK_DONE 108/214" after 10 s, because 108 poses were sitting in the output directory
     # from the rsync that seeded it. A marker counted off the directory cannot tell a finished
     # run from a run that did nothing, which is the whole question the grade gate asks it.
+    if clk_stop is not None:
+        clk_stop.set()
+        clk_thread.join(timeout=30)
+        from tt_bio.diffdock.capture import clock_summary
+        clk = dict(clock_summary(clk_samples), device=device, edge_tp=edge_tp,
+                   chip=os.environ.get("TT_VISIBLE_DEVICES"), seconds=round(time.time() - t0, 1),
+                   n_requested=len(ids))
+        json.dump(clk, open(out_dir / "clock.json", "w"), indent=1)
+        print("CLOCK " + json.dumps(clk), flush=True)
     n = sum(1 for i in ids if docked(out_dir, i))
     refused = set()
     for lg in sorted(logs.glob("dock-*.log")):
@@ -432,11 +475,18 @@ def main():
     d.add_argument("--chunk", type=int, default=4)
     d.add_argument("--threads", type=int, default=2)
     d.add_argument("--seed", type=int, default=42)
+    d.add_argument("--device", default="cpu",
+                   help="DockOptions.device: cpu (host torch, the set grade) or tt (the card). "
+                        "On a card the pool is one process on one chip.")
+    d.add_argument("--edge-tp", default="gemm", choices=("gemm", "tile"),
+                   help="device only: the edge tensor-product form of the score network.")
 
     w = sub.add_parser("worker")
     w.add_argument("--out", required=True)
     w.add_argument("--complexes", required=True)
     w.add_argument("--seed", type=int, default=42)
+    w.add_argument("--device", default="cpu")
+    w.add_argument("--edge-tp", default="gemm", choices=("gemm", "tile"))
 
     g = sub.add_parser("grade")
     g.add_argument("--ids", default="all")
@@ -451,7 +501,8 @@ def main():
 
     args = ap.parse_args()
     if args.cmd == "worker":
-        dock_chunk(args.complexes.split(","), Path(args.out), args.seed)
+        dock_chunk(args.complexes.split(","), Path(args.out), args.seed,
+                   args.device, args.edge_tp)
         return 0
     if args.cmd == "compare":
         compare(args.tt, args.ref, args.out)
@@ -462,7 +513,8 @@ def main():
         if n > 1:
             ids = [c for k, c in enumerate(ids) if k % n == i]
             print(f"shard {i}/{n}: {len(ids)} complexes", flush=True)
-        dock(ids, Path(args.out), args.workers, args.chunk, args.seed, args.threads)
+        dock(ids, Path(args.out), args.workers, args.chunk, args.seed, args.threads,
+             args.device, args.edge_tp)
     else:
         grade(ids, Path(args.out), Path(args.acc), args.label)
     return 0
