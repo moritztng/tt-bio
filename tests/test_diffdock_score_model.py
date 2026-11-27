@@ -156,3 +156,46 @@ def test_radius_edges_is_invariant_to_atom_order():
 
     as_set = lambda e: {(int(a), int(b)) for a, b in zip(*e.tolist())}
     assert as_set(remapped) == as_set(base)
+
+
+def test_atom_encoder_categorical_sum_hoists_out_of_the_step():
+    """The encoder's categorical half is a per-complex constant, and hoisting it is exact.
+
+    `AtomEncoder` sums one embedding table per categorical atom feature and then runs one
+    linear over `cat([sum, continuous block])`. Atom types do not change over a diffusion
+    rollout, so the whole sum can be evaluated once per complex and only the linear re-run
+    per step -- which is what `device_loop.NodeEncoder` does, and why a step needs no gather
+    on the card. Hoisting a loop invariant is not skipping the model's work: every step still
+    evaluates the same linear over the same values.
+
+    Checked bit-exact here rather than to a tolerance, because an embedding lookup is a copy
+    and the concatenation order is the only thing that could differ.
+    """
+    import torch
+
+    from tt_bio.diffdock.score_model import AtomEncoder
+
+    torch.manual_seed(0)
+    n_nodes = 37
+    for feature_dims, sigma_dim, lm_dim in (([[5, 3, 9, 2], 0], 64, 0),
+                                            ([[7], 1280], 0, 0),
+                                            ([[4, 6], 3], 16, 0)):
+        enc = AtomEncoder(48, feature_dims, sigma_dim, lm_embedding_dim=lm_dim).double()
+        n_cat = enc.n_categorical
+        cat_cols = torch.cat([torch.randint(0, emb.num_embeddings, (n_nodes, 1)).double()
+                              for emb in enc.atom_embedding_list], 1)
+        static_extra = enc.extra_dim - sigma_dim
+        node_x = torch.cat([cat_cols, torch.randn(n_nodes, static_extra).double()], 1)
+        sigma = torch.randn(1, sigma_dim).double().expand(n_nodes, -1) if sigma_dim else None
+
+        reference = enc(node_x if sigma is None else torch.cat([node_x, sigma], 1))
+
+        total = None
+        for i, emb in enumerate(enc.atom_embedding_list):
+            term = emb(node_x[:, i].long())
+            total = term if total is None else total + term
+        base = torch.cat([total, node_x[:, n_cat:]], 1)
+        hoisted = enc.additional_features_embedder(
+            base if sigma is None else torch.cat([base, sigma], 1))
+
+        assert torch.equal(reference, hoisted), feature_dims

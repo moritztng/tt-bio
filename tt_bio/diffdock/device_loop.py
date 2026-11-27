@@ -481,3 +481,53 @@ class CenterHead:
             tr = ttnn.multiply(tr, 1.0 / tr_sigma)
             rot = ttnn.multiply(rot, so3_norm)
         return tr, rot
+
+
+class NodeEncoder:
+    """:class:`score_model.AtomEncoder` on the card, with its static half hoisted out.
+
+    The encoder sums one embedding table per categorical atom feature and then runs one
+    linear over ``cat([sum, continuous block])``. Atom types do not change over a rollout, so
+    **the entire categorical sum is a per-complex constant**: it is evaluated once on the host
+    in fp32 (an embedding lookup is a copy, so this is exact) and uploaded with the static
+    continuous columns beside it. Only the sigma block changes per step, and that is one row
+    broadcast down the node axis, so a step costs one concat and one GEMM -- no gathers on the
+    card at all.
+
+    This is hoisting a loop invariant, not skipping the model's work: every step still
+    evaluates the same linear over the same values the host would have built.
+
+    *node_x* is the host feature table **without** the sigma columns, categorical first, in
+    the encoder's own column order. ``sigma_width=0`` means the features already carry
+    everything the encoder takes, which is the receptor's case: `static_forward` passes
+    ``rec_x`` straight in and adds the receptor's sigma term after the embedding stack
+    instead, so the whole receptor node embedding is constant over the 19 steps.
+    """
+
+    def __init__(self, device, encoder, node_x: torch.Tensor, sigma_width: int = 0):
+        n_cat = encoder.n_categorical
+        expected = encoder.n_categorical + encoder.extra_dim - sigma_width
+        if node_x.shape[1] != expected:
+            raise ValueError(f"encoder takes {expected} static columns, got {node_x.shape[1]}")
+        with torch.no_grad():
+            total = None
+            for i, emb in enumerate(encoder.atom_embedding_list):
+                term = emb(node_x[:, i].long())
+                total = term if total is None else total + term
+            base = torch.cat([total, node_x[:, n_cat:]], dim=1)
+        self.base = upload(device, base.float())
+        self.sigma_width = sigma_width
+        self.ones = upload(device, torch.ones(node_x.shape[0]))
+        self.linear = MLP(device, torch.nn.Sequential(
+            encoder.additional_features_embedder)) if encoder.extra_dim > 0 else None
+
+    def __call__(self, sigma_row=None):
+        """``[N, emb_dim]`` node features for this step."""
+        import ttnn
+        if self.linear is None:
+            return self.base
+        if self.sigma_width == 0:
+            return self.linear(self.base)
+        if sigma_row is None:
+            raise ValueError("this encoder takes a sigma row per step")
+        return self.linear(ttnn.concat([self.base, ttnn.multiply(self.ones, sigma_row)], dim=1))
