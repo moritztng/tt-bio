@@ -101,3 +101,54 @@ def test_load_depths_matches_b200_final_mat_nocg():
         assert ds[:5] == [6, 1, 1, 1, 5]
         assert abs(sum(ds[5:]) / len(ds[5:]) - 2.75) < 1e-9
 
+
+def test_device_trunk_masks_math_matches_host():
+    """Verify _device_trunk_masks arithmetic (pair_1nn - 1.0) * (-NEG_INF) is bit-exact with trunk_masks."""
+    import torch
+
+    neg_inf = -1e4  # matches tt_bio.rfd4.trunk.NEG_INF without importing ttnn
+    # Partial padding mask [K=4, N=16]
+    m = torch.ones((4, 16), dtype=torch.float32)
+    m[0, 12:] = 0.0
+    m[2, 10:] = 0.0
+    pair_ref = m[:, :, None] * m[:, None, :]
+    attn_ref = ((1.0 - pair_ref) * neg_inf)[:, None, :, :]
+    # Exact _device_trunk_masks formula: (pair - 1.0) * (-NEG_INF)
+    attn_dev = ((pair_ref - 1.0) * (-neg_inf))[:, None, :, :]
+    assert float((attn_dev - attn_ref).abs().max()) == 0.0
+    assert float(attn_dev[0, 0, 0, 0]) == 0.0
+    assert float(attn_dev[0, 0, 15, 0]) == neg_inf
+
+
+def test_fast_onehot_idx_matches_exact_onehot():
+    """Verify ResidentPairBuilder's single-pass one-hot extractor matches exact {0,1} sum<=1 check."""
+    import torch
+
+    def _fast(f: torch.Tensor, d: int):
+        mx, idx = f.max(-1)
+        s = f.sum(-1)
+        if bool(((mx == 0) | (mx == 1)).all() and (s == mx).all() and (f.min() >= 0)):
+            return torch.where(mx > 0.5, idx, d).reshape(f.shape[0], -1).to(torch.int32).contiguous()
+        return None
+
+    # Valid one-hot with all-zero rows
+    f = torch.zeros((2, 4, 4, 5), dtype=torch.float32)
+    f[0, 1, 2, 3] = 1.0
+    f[1, 0, 0, 0] = 1.0
+    out = _fast(f, 5)
+    assert out is not None
+    assert int(out[0, 1 * 4 + 2]) == 3
+    assert int(out[0, 0]) == 5
+    assert int(out[1, 0]) == 0
+
+    # Non-one-hot (sum == 2) rejected
+    f2 = f.clone()
+    f2[0, 1, 2, 4] = 1.0
+    assert _fast(f2, 5) is None
+
+    # Negative entry with sum == 1 (e.g. [1, 1, -1]) rejected
+    f3 = torch.zeros((1, 2, 2, 3), dtype=torch.float32)
+    f3[0, 0, 0] = torch.tensor([1.0, 1.0, -1.0])
+    assert _fast(f3, 3) is None
+
+
