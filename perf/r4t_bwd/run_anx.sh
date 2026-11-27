@@ -74,6 +74,10 @@ P2=$!
   echo "L0 RC_dw2d_gc $? $(date -u +%T)" >> "$O/run.log"
   BREAK=1 timeout 240 "$PY" "$WT/perf/r4t_bwd/dw2d_grade.py" --out "$O/dw2d_brk.json" --reps 2 > "$O/dw2d_brk.log" 2>&1
   echo "L0 RC_dw2d_brk $? $(date -u +%T)" >> "$O/run.log"
+  TT_BIO_DW_2D=0 timeout 240 "$PY" "$WT/perf/r4t_perf/l4grade.py" --out "$O/l4_mmvjp_gc.json" > "$O/l4_mmvjp_gc.log" 2>&1
+  echo "L0 RC_l4_mmvjp_gc $? $(date -u +%T)" >> "$O/run.log"
+  TT_BIO_DW_2D=0 TT_BIO_MMVJP_BROKEN=1 timeout 240 "$PY" "$WT/perf/r4t_perf/l4grade.py" --out "$O/l4_mmvjp_brk.json" > "$O/l4_mmvjp_brk.log" 2>&1
+  echo "L0 RC_l4_mmvjp_brk $? $(date -u +%T)" >> "$O/run.log"
   timeout 240 "$PY" "$WT/perf/r4t_perf/l4grade.py" --out "$O/l4_dw2d_gc.json" > "$O/l4_dw2d_gc.log" 2>&1
   echo "L0 RC_l4_dw2d_gc $? $(date -u +%T)" >> "$O/run.log"
   TT_BIO_MMVJP_BROKEN=1 timeout 240 "$PY" "$WT/perf/r4t_perf/l4grade.py" --out "$O/l4_dw2d_brk.json" > "$O/l4_dw2d_brk.log" 2>&1
@@ -82,10 +86,18 @@ P2=$!
   echo "L0 RC_rms_gc $? $(date -u +%T)" >> "$O/run.log"
   timeout 240 "$PY" "$WT/perf/r4t_tape/gradcheck_rms.py" --break --out "$O/rms_brk.json" > "$O/rms_brk.log" 2>&1
   echo "L0 RC_rms_brk $? $(date -u +%T)" >> "$O/run.log"
+  if [ -d "${MAIN_WT:-/home/ttuser/r4t/bwd/main_wt}" ]; then
+    MAIN_ROOT="${MAIN_WT:-/home/ttuser/r4t/bwd/main_wt}"
+    B2="$BATCH_DIR/batch00.npz,$BATCH_DIR/batch01.npz"
+    TT_BIO_IMPORT_ROOT="$WT" timeout 180 "$PY" "$WT/perf/r4t_bwd/grade_b1.py" --inf-only --batches "$B2" --out "$O/inf_branch.json" > "$O/inf_branch.log" 2>&1
+    echo "L0 RC_inf_branch $? $(date -u +%T)" >> "$O/run.log"
+    TT_BIO_IMPORT_ROOT="$MAIN_ROOT" PYTHONPATH="$MAIN_ROOT" timeout 180 "$PY" "$WT/perf/r4t_bwd/grade_b1.py" --inf-only --batches "$B2" --out "$O/inf_main.json" > "$O/inf_main.log" 2>&1
+    echo "L0 RC_inf_main $? $(date -u +%T)" >> "$O/run.log"
+  fi
 ) &
 P0=$!
 
-# Lane 1 (chip C1, +18s stagger): TrunkBlock (default-on + broken), PairUpdate (fp32 + default-on + off + broken)
+# Lane 1 (chip C1, +18s stagger): TrunkBlock (default-on + broken), PairUpdate (fp32 exact + default-on + off + broken)
 (
   sleep 18
   export TT_VISIBLE_DEVICES="$C1" TT_BIO_LEASE_CARDS="$C1" TT_BIO_LEASE_HOLDER="worker:r4t-bwd"
@@ -95,7 +107,7 @@ P0=$!
   timeout 240 "$PY" "$WT/perf/r4t_tape/block_gradcheck.py" --module trunk_block --n 64 --real 48 --probe 1 --seed 7 --arm bf16 --attn-fp32 --break \
     --out "$O/tb_brk.json" > "$O/tb_brk.log" 2>&1
   echo "L1 RC_tb_brk $? $(date -u +%T)" >> "$O/run.log"
-  timeout 300 "$PY" "$WT/perf/r4t_tape/block_gradcheck.py" --module pair_update --n 64 --real 48 --probe 1 --seed 7 --arm fp32 \
+  timeout 300 "$PY" "$WT/perf/r4t_tape/block_gradcheck.py" --module pair_update --n 64 --real 48 --probe 1 --seed 7 --arm fp32 --exact \
     --out "$O/pu_fp32.json" > "$O/pu_fp32.log" 2>&1
   echo "L1 RC_pu_fp32 $? $(date -u +%T)" >> "$O/run.log"
   timeout 300 "$PY" "$WT/perf/r4t_tape/block_gradcheck.py" --module pair_update --n 64 --real 48 --probe 1 --seed 7 --arm bf16 \

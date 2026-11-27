@@ -20,7 +20,8 @@ import time
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-sys.path[:0] = [str(REPO), str(REPO / "perf" / "r4t")]
+_ROOT = Path(os.environ.get("TT_BIO_IMPORT_ROOT", str(REPO)))
+sys.path[:0] = [str(_ROOT), str(_ROOT / "perf" / "r4t")]
 
 
 def sample_aiclk(card: int, stop: threading.Event, out: list):
@@ -38,6 +39,8 @@ def main():
     ap.add_argument("--batches", required=True, help="comma-separated batch00..08.npz paths")
     ap.add_argument("--floor", type=Path, default=REPO / "perf/r4t/floor/up_bf16.json")
     ap.add_argument("--out", type=Path, required=True)
+    ap.add_argument("--inf-only", action="store_true",
+                    help="run grad-off serving inference on batch[0] (unpadded) + batch[1] (padded) and exit")
     a = ap.parse_args()
 
     from tt_bio.main import ensure_p300_mesh_descriptor
@@ -53,7 +56,7 @@ def main():
 
     dev = T.get_device()
     card = int(os.environ["TT_VISIBLE_DEVICES"].split(",")[0])
-    sha = subprocess.run(["git", "rev-parse", "--short=9", "HEAD"], capture_output=True, text=True).stdout.strip()
+    sha = subprocess.run(["git", "rev-parse", "--short=9", "HEAD"], cwd=str(_ROOT), capture_output=True, text=True).stdout.strip()
     clk, stop = [], threading.Event()
     thr = threading.Thread(target=sample_aiclk, args=(card, stop, clk), daemon=True)
     thr.start()
@@ -91,27 +94,60 @@ def main():
             cs.append(glue.conditioning(b, depth - cyc - 1) if glue.condition_on_recycle_remaining else cs[0])
         return cs
 
-    # ---- Inference grad-off A/A byte-identical check ----
+    def _run_inf_batch(bt, meta, **kw):
+        bw = take(bt, 0, int(bt["padding_mask"].shape[0]))
+        with torch.no_grad():
+            s0_i, z0_i = glue.initial_states(bw)
+            cs0_i = conds_for(bw, max(1, int(meta["depth"])))
+        mk = TR.trunk_masks(bw["padding_mask"].float(), dev, dtype=trunk_inf.dtype, residual_dtype=trunk_inf.residual_dtype)
+        si, zi = put(s0_i), put(z0_i, trunk_inf.pair_dtype(mk))
+        cs_tt = [put(c, trunk_inf.dtype) for c in cs0_i]
+        so, zo = trunk_inf(si, zi, cs_tt, mk, **kw)
+        arr = ttnn.to_torch(so).float().numpy()
+        for t in (si, zi, *cs_tt, so, zo):
+            ttnn.deallocate(t)
+        return arr, str(trunk_inf.pair_dtype(mk))
+
+    # ---- Inference grad-off A/A byte-identical check (fresh inputs per call, warm vs warm) ----
     trunk_inf = E.load_trunk(glue, state, cfg, training=False)
     nm0, _, bt0, m0, _, _ = batches[0]
-    bw0 = take(bt0, 0, int(bt0["padding_mask"].shape[0]))
-    with torch.no_grad():
-        s0_i, z0_i = glue.initial_states(bw0)
-        cs0_i = conds_for(bw0, max(1, int(m0["depth"])))
-    mk0 = TR.trunk_masks(bw0["padding_mask"].float(), dev, dtype=trunk_inf.dtype, residual_dtype=trunk_inf.residual_dtype)
-    si0, zi0 = put(s0_i), put(z0_i, trunk_inf.pair_dtype(mk0))
-    cs0_tt = [put(c, trunk_inf.dtype) for c in cs0_i]
-    s_aa1, z_aa1 = trunk_inf(si0, zi0, cs0_tt, mk0)
-    s_aa2, z_aa2 = trunk_inf(si0, zi0, cs0_tt, mk0, prev=None, return_penultimate=False)
-    t1 = ttnn.to_torch(s_aa1).float().numpy()
-    t2 = ttnn.to_torch(s_aa2).float().numpy()
+    t1, pd0 = _run_inf_batch(bt0, m0)
+    t2, _ = _run_inf_batch(bt0, m0, prev=None, return_penultimate=False) if not a.inf_only else _run_inf_batch(bt0, m0)
+    t3, _ = _run_inf_batch(bt0, m0)
     inf_aa = {
-        "bit_exact": bool(np.array_equal(t1, t2)),
+        "batch": nm0,
+        "pair_dtype": pd0,
+        "bit_exact_12": bool(np.array_equal(t1, t2)),
+        "bit_exact_23": bool(np.array_equal(t2, t3)),
+        "max_abs_12": float(np.max(np.abs(t1 - t2))),
+        "max_abs_23": float(np.max(np.abs(t2 - t3))),
+        "rel_l2_12": float(np.linalg.norm(t1 - t2) / max(np.linalg.norm(t1), 1e-12)),
         "digest1": hashlib.sha256(t1.tobytes()).hexdigest()[:16],
         "digest2": hashlib.sha256(t2.tobytes()).hexdigest()[:16],
+        "digest3": hashlib.sha256(t3.tobytes()).hexdigest()[:16],
     }
-    for t in (si0, zi0, *cs0_tt, s_aa1, z_aa1, s_aa2, z_aa2):
-        ttnn.deallocate(t)
+    if a.inf_only:
+        import tt_bio
+        inf_out = {"sha": sha, "tt_bio_file": tt_bio.__file__, "host": os.uname().nodename, "chip": card, "unpadded": inf_aa}
+        if len(batches) > 1:
+            nm1, _, bt1, m1, _, _ = batches[1]
+            p1, pd1 = _run_inf_batch(bt1, m1)
+            p2, _ = _run_inf_batch(bt1, m1)
+            inf_out["padded"] = {
+                "batch": nm1, "pair_dtype": pd1,
+                "bit_exact": bool(np.array_equal(p1, p2)),
+                "max_abs": float(np.max(np.abs(p1 - p2))),
+                "digest1": hashlib.sha256(p1.tobytes()).hexdigest()[:16],
+                "digest2": hashlib.sha256(p2.tobytes()).hexdigest()[:16],
+            }
+        del trunk_inf
+        stop.set()
+        thr.join(timeout=2)
+        inf_out["aiclk"] = [min(clk or [0]), max(clk or [0])]
+        a.out.parent.mkdir(parents=True, exist_ok=True)
+        a.out.write_text(json.dumps(inf_out, indent=1))
+        print("INFERENCE_ONLY:", json.dumps(inf_out), flush=True)
+        return
     del trunk_inf
     print("INFERENCE A/A:", inf_aa, flush=True)
 

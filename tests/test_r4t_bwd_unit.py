@@ -208,3 +208,27 @@ def test_recycle_bfp8_typecast_only_when_taping(monkeypatch):
     t._recycle(init_bfp8, prev_bfp8, None, None, ttnn.float32)
     assert casts == [ttnn.bfloat16], f"taped training must upcast bfp8 prev, got {casts}"
 
+
+def test_tensor_grad_deallocates_old_bf16_on_fp32_widen(monkeypatch):
+    """Reading Tensor.grad on an fp32 tensor with a bf16 _grad must deallocate the old bf16 tensor."""
+    import ttnn
+    from tt_bio import autograd as ag
+
+    freed = []
+
+    class FakeT:
+        def __init__(self, dtype):
+            self.dtype = dtype
+
+    monkeypatch.setattr(ttnn, "typecast", lambda t, dt: FakeT(dt))
+    monkeypatch.setattr(ttnn, "deallocate", lambda t: freed.append(t))
+
+    val = FakeT(ttnn.float32)
+    old_g = FakeT(ttnn.bfloat16)
+    t = ag.Tensor(val, requires_grad=True)
+    t._grad = old_g
+    g = t.grad
+    assert g.dtype == ttnn.float32
+    assert freed == [old_g]
+
+

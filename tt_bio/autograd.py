@@ -716,7 +716,9 @@ class Tensor:
             self._flush_pend()
         if (self._grad is not None and self._grad.dtype == ttnn.bfloat16
                 and self.value.dtype == ttnn.float32):
-            self._grad = ttnn.typecast(self._grad, ttnn.float32)
+            old = self._grad
+            self._grad = ttnn.typecast(old, ttnn.float32)
+            ttnn.deallocate(old)
         return self._grad
 
     @grad.setter
@@ -1137,10 +1139,11 @@ def _matmul(a, b, **kw):
 
 
 # A 2-D ``a^T @ b`` whose output is at most this many tiles and whose contraction is at least
-# `SPLIT_K_MIN_KT` tiles runs as K chunks on separate cores (`_split_k`). Raised from 32 to 144
-# so pair-width dW products (384x12, 384x24, 384x128 fp32, 256x384, 384x384) split K across
-# cores while `bmm_cb_bytes <= _l1_bank` guards the L1 budget to the byte.
-SPLIT_K_OUT_TILES = int(os.environ.get("TT_BIO_SPLIT_K_OUT_TILES", "144"))
+# `SPLIT_K_MIN_KT` tiles runs as K chunks on separate cores (`_split_k`). Larger bf16->fp32 dW
+# shapes (`32 < Mt*Nt <= 1024`, `Kt >= 256`) are served by `mm_layout.DW_2D` instead, leaving
+# `_split_k` to the small/ragged outputs (e.g. 384x12, 384x24, 64x224) safely within L1 for both
+# bf16 and fp32 operands.
+SPLIT_K_OUT_TILES = int(os.environ.get("TT_BIO_SPLIT_K_OUT_TILES", "32"))
 SPLIT_K_MIN_KT = 64
 # At most this many chunks, a constant rather than the core count so that the grouping, and so
 # the bits, are the same on every card.

@@ -127,7 +127,7 @@ def main():
         r_stk, c_stk = metrics(o_stk, ref64)
         ttnn.deallocate(o_stk)
 
-        ag.SPLIT_K_OUT_TILES = 144
+        ag.SPLIT_K_OUT_TILES = 32
         ag.SPLIT_K_BROKEN = brk
         t_sk, o_sk = timed(lambda: ag._matmul(A, B, transpose_a=True, dtype=ttnn.float32, compute_kernel_config=cfg))
         r_sk, c_sk = metrics(o_sk, ref64)
