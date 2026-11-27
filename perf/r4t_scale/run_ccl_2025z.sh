@@ -25,8 +25,8 @@ do_reset() {
     echo "[$(ts)] glx_reset rc=$? fuser=$(fuser_count)"
 }
 
-echo "[$(ts)] ARM run_ccl_2025z repo=$REPO out=$OUT start=$START_EPOCH deadline=$DEADLINE_EPOCH hard_stop=$HARD_STOP_EPOCH"
-echo "[$(ts)] git_sha=$(git -C "$REPO" rev-parse --short=9 HEAD 2>/dev/null || echo unknown)"
+SHA=$(git -C "$REPO" rev-parse --short=9 HEAD 2>/dev/null || cat "$REPO/.ccl_sha" 2>/dev/null || echo unknown)
+echo "[$(ts)] ARM run_ccl_2025z repo=$REPO out=$OUT start=$START_EPOCH deadline=$DEADLINE_EPOCH hard_stop=$HARD_STOP_EPOCH sha=$SHA"
 
 # 1. Wait for START_EPOCH and zero device holders
 while true; do
@@ -51,7 +51,6 @@ done
 
 export PYTHONPATH="$REPO:${PYTHONPATH:-}"
 export TORCH_THREADS=32
-SHA=$(git -C "$REPO" rev-parse --short=9 HEAD 2>/dev/null || echo unknown)
 SCRIPT="$REPO/perf/r4t_scale/ccl_allreduce_2d.py"
 
 # 2. Fast probe ladder on 8x4 (tries best config first, falls back with clean glx_reset if needed)
