@@ -308,10 +308,16 @@ class DeviceConvModule(torch.nn.Module):
     :attr:`log`, so a full forward reports every convolution against its own golden.
     """
 
-    def __init__(self, device, layer, *, dtype=None, grade: bool = False, name: str = ""):
+    def __init__(self, device, layer, *, dtype=None, grade: bool = False, name: str = "",
+                 graphs: dict | None = None):
         super().__init__()
         import copy
         self.name, self.log = name, []
+        #: uploaded static graphs (gather index + dense scatter), keyed by shape and checked by
+        #: content. The static network reuses one edge index across layers and steps (masks
+        #: carry what moves), so modules built together share this and each graph crosses to
+        #: the card once instead of once per call.
+        self.graphs = {} if graphs is None else graphs
         #: wall seconds spent inside :meth:, summed over calls. Upload, the device ops
         #: and the read-back: everything this module owns. The rest of a step is host glue, so
         #: 1 - sum(secs) / step is the card's idle fraction in the untraced form.
@@ -352,7 +358,11 @@ class DeviceConvModule(torch.nn.Module):
         table = torch.nn.functional.pad(node_attr.float(),
                                         (0, pad32(node_attr.shape[1]) - node_attr.shape[1],
                                          0, n_in_p - N))
-        g = self.dev.graph(ei, n_out_p, n_in_p)
+        key = (tuple(ei.shape), n_out_p, n_in_p)
+        hit = self.graphs.get(key)
+        if hit is None or not torch.equal(hit[0], ei):
+            hit = self.graphs[key] = (ei, self.dev.graph(ei, n_out_p, n_in_p))
+        g = hit[1]
         out = self.dev(ttnn.from_torch(table, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT,
                                        device=d),
                        g, [to_device(d, a) for a in attrs], to_device(d, sh),
@@ -381,11 +391,12 @@ def convs_on_device(model, device, *, dtype=None, grade: bool = False) -> dict:
     Returns ``{module path: DeviceConvModule}`` so a caller can read each one's grade log.
     """
     from tt_bio.diffdock.conv import TensorProductConvLayer
-    swapped = {}
+    swapped, graphs = {}, {}
     for path, mod in list(model.named_modules()):
         for name, child in list(mod._modules.items()):
             if isinstance(child, TensorProductConvLayer):
                 full = f"{path}.{name}" if path else name
                 mod._modules[name] = swapped[full] = DeviceConvModule(
-                    device, child, dtype=dtype, grade=grade, name=full)
+                    device, child, dtype=dtype, grade=grade, name=full,
+                    graphs=graphs)
     return swapped
