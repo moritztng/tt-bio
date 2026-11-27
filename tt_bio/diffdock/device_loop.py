@@ -857,6 +857,26 @@ class PoseUpdate:
 # a stack of convolutions over edge features that never leave the card
 # ---------------------------------------------------------------------------
 
+def assemble_rows(device, parts, blocks, width: int):
+    """Per-block ``[hi - lo, width]`` device columns -> one tensor in the padded edge layout.
+
+    *parts* is one tensor per entry of *blocks*, in order, each holding that block's real rows;
+    the dead rows between blocks are zeros, which is what their mask row means anyway. Owning
+    the padding here is what lets a caller build its edge features per edge set and stay out of
+    where the 32-row boundaries fall.
+    """
+    import ttnn
+    if len(parts) != len(blocks):
+        raise ValueError(f"{len(parts)} parts for {len(blocks)} blocks")
+    out = []
+    for part, (lo, hi, extra) in zip(parts, blocks):
+        out.append(part)
+        if extra:
+            out.append(ttnn.zeros([extra, width], dtype=ttnn.float32,
+                                  layout=ttnn.TILE_LAYOUT, device=device))
+    return ttnn.concat(out, dim=0) if len(out) > 1 else out[0]
+
+
 class ResidentStack:
     """:meth:`tt_bio.diffdock.device.DeviceConvModule.run_stack` with its inputs already on card.
 
@@ -896,22 +916,8 @@ class ResidentStack:
             self.groups.append((c, list(zip(edges, edges[1:]))))
 
     def assemble(self, device, parts, width: int):
-        """Per-block ``[n_lo:n_hi, width]`` device columns -> one ``[n_rows, width]`` tensor.
-
-        *parts* is one tensor per entry of :attr:`blocks`, in order, each already holding that
-        block's real rows; the dead rows between blocks are zeros, which is what the mask on
-        them means anyway.
-        """
-        import ttnn
-        if len(parts) != len(self.blocks):
-            raise ValueError(f"{len(parts)} parts for {len(self.blocks)} blocks")
-        out = []
-        for part, (lo, hi, extra) in zip(parts, self.blocks):
-            out.append(part)
-            if extra:
-                out.append(ttnn.zeros([extra, width], dtype=ttnn.float32,
-                                      layout=ttnn.TILE_LAYOUT, device=device))
-        return ttnn.concat(out, dim=0) if len(out) > 1 else out[0]
+        """Per-block device columns into this stack's padded layout; see :func:`assemble_rows`."""
+        return assemble_rows(device, parts, self.blocks, width)
 
     def __call__(self, x, edge_attr, edge_sh, edge_mask, ns: int):
         """*x* ``[n_p, d]`` and the three ``[n_rows, *]`` edge tensors, all on the card.
@@ -924,3 +930,41 @@ class ResidentStack:
             x = mod.dev(x, graph, [rows(edge_attr, a, b) for a, b in edges],
                         rows(edge_sh, 0, cut), rows(edge_mask, 0, cut), ns=ns)
         return x
+
+
+class ResidentConv:
+    """One convolution whose destination node set is not its source, over card-side features.
+
+    The two head convolutions are shaped this way: the centre head scatters every ligand atom
+    into its own pose (``out_nodes = n_poses``) and the torsion head scatters bond-centre edges
+    into bonds (``out_nodes = n_bonds``). :class:`ResidentStack` cannot carry them -- it assumes
+    out nodes = in nodes, because that is what a stack does -- so they get this, which is the
+    same contract with the two node counts separated and no read-back.
+    """
+
+    def __init__(self, mod, edge_index, n_out: int, n_in: int, groups=None):
+        from .device import stack_layout
+        from .graph import pad_count
+        self.mod = mod
+        self.n_out, self.n_out_p, self.n_in_p = n_out, pad_count(n_out), pad_count(n_in)
+        plan = [(edge_index.shape[1], groups)]
+        self.ei, self.pos, self.blocks = stack_layout(edge_index, self.n_out_p, plan,
+                                                      self.n_in_p)
+        self.n_rows = self.ei.shape[1]
+        edges = [0, *(self.pos[x] for x in groups or ()), self.pos[edge_index.shape[1]]]
+        if len(edges) - 1 != len(mod.dev.tps):
+            raise ValueError(f"{mod.name}: {len(edges) - 1} edge groups for "
+                             f"{len(mod.dev.tps)} FC blocks")
+        self.groups = list(zip(edges, edges[1:]))
+        self.graph = mod._graph(self.ei, self.n_out_p, self.n_in_p)
+
+    def assemble(self, device, parts, width: int):
+        """Per-block device columns into this layout; see :func:`assemble_rows`."""
+        return assemble_rows(device, parts, self.blocks, width)
+
+    def __call__(self, x, edge_attr, edge_sh, edge_mask, ns: int):
+        """*x* ``[n_in_p, d]`` and the ``[n_rows, *]`` edge tensors on the card -> ``[n_out_p, d']``."""
+        import ttnn
+        rows = lambda t, a, b: ttnn.slice(t, [a, 0], [b, t.shape[1]])
+        return self.mod.dev(x, self.graph, [rows(edge_attr, a, b) for a, b in self.groups],
+                            edge_sh, edge_mask, ns=ns)

@@ -395,7 +395,7 @@ class DeviceConvLayer:
         return out
 
 
-def stack_layout(edge_index: Tensor, n_p: int, plan):
+def stack_layout(edge_index: Tensor, n_p: int, plan, n_in_p: int | None = None):
     """The padded edge layout a stack of convolutions runs over: ``(ei, pos)``.
 
     A layer sees edges ``[:cut]`` split into FC groups at *splits*, and every block a layer
@@ -403,10 +403,15 @@ def stack_layout(edge_index: Tensor, n_p: int, plan):
     boundaries are each padded out with dead ``pad -> pad`` edges. *pos* maps an unpadded
     boundary to its row in the padded layout; *ei* is the padded edge index.
 
+    A dead row points at the pad node of each side: *n_p* out, *n_in_p* in, which differ only
+    for a convolution whose destination node set is not its source (the centre head scatters
+    into poses, the torsion head into bonds). *n_in_p* defaults to *n_p*.
+
     Shared by :meth:`DeviceConvModule.run_stack`, which uploads host edge features into this
     layout, and :class:`tt_bio.diffdock.device_loop.ResidentStack`, which keeps them on the
     card -- the two cannot drift apart because the layout is computed in one place.
     """
+    n_in_p = n_p if n_in_p is None else n_in_p
     E = edge_index.shape[1]
     bounds = sorted({0, E} | {c for c, _ in plan} | {x for _, sp in plan for x in sp or ()})
     pos, cols, blocks, at = {}, [], [], 0
@@ -415,7 +420,7 @@ def stack_layout(edge_index: Tensor, n_p: int, plan):
         n = hi - lo
         extra = pad32(n) - n
         cols.append(torch.cat([edge_index[:, lo:hi],
-                               torch.tensor([[n_p - 1], [n_p - 1]]).expand(2, extra)], 1))
+                               torch.tensor([[n_p - 1], [n_in_p - 1]]).expand(2, extra)], 1))
         blocks.append((lo, hi, extra))
         at += n + extra
     pos[E] = at

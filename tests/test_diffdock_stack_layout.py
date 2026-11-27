@@ -47,3 +47,22 @@ def test_every_cut_and_split_lands_on_a_block_boundary():
 def test_an_unsplit_stack_is_one_padded_block():
     ei, pos, blocks = stack_layout(_ei(100), N_P, [(100, None)])
     assert len(blocks) == 1 and ei.shape[1] == pad32(100) == 128
+
+
+def test_dead_rows_point_at_each_sides_own_pad_node():
+    """A head convolution scatters into a different node set than it reads, so its dead rows
+    need the out pad on row 0 and the in pad on row 1."""
+    n_out_p, n_in_p = 32, 256
+    ei = torch.stack([torch.arange(100) % (n_out_p - 1), torch.arange(100) % (n_in_p - 1)])
+    padded, pos, blocks = stack_layout(ei, n_out_p, [(100, None)], n_in_p)
+    lo, hi, extra = blocks[0]
+    dead = padded[:, hi:hi + extra]
+    assert extra == 28
+    assert (dead[0] == n_out_p - 1).all() and (dead[1] == n_in_p - 1).all()
+
+
+def test_one_sided_layout_is_unchanged_when_n_in_is_omitted():
+    ei = torch.stack([torch.arange(100) % 255, torch.arange(100) % 255])
+    a = stack_layout(ei, 256, [(100, None)])
+    b = stack_layout(ei, 256, [(100, None)], 256)
+    assert torch.equal(a[0], b[0]) and a[1] == b[1] and a[2] == b[2]
