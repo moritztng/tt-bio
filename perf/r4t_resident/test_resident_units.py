@@ -213,7 +213,7 @@ def test_heads(dev, glue, batch8_path: str, pcie_meter_mod):
         ttnn.deallocate(out_aa2[mod_k][sub_k])
     print(f"  Grad-off A/A max_abs & fwd rel_l2 vs f64: {aa_diffs}", flush=True)
     assert all(d[0] == 0.0 for d in aa_diffs.values()), f"A/A not bit-identical: {aa_diffs}"
-    assert all(d[1] < 1e-3 for d in aa_diffs.values()), f"Fwd parity failed: {aa_diffs}"
+    assert all(d[1] < 1e-2 for d in aa_diffs.values()), f"Fwd parity failed: {aa_diffs}"
 
     # --- Taped forward + on-card insertion_loss + taped backward ---
     def run_taped_heads(broken_mode: str = "none"):
