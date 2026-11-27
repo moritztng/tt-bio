@@ -3,19 +3,25 @@
 Delegates all collective logic to ``tt_bio.train.ccl`` so the benchmark exercises the exact
 shipped implementation. Runs on an 8x4 Blackhole Galaxy mesh (FABRIC_1D_RING, max_payload=8192 B)
 and its submeshes (8x4, 4x4, 2x4, 1x4). Samples AICLK from sysfs during timed warm reps.
+
+IMPORTANT (tt-metal v0.68.0 mesh_device.cpp:861): only ONE MeshDevice (either full 8x4 OR one
+child submesh) may ever touch CQ 0 per process. When multiple ``--widths`` are given, this script
+spawns a clean subprocess per width so parent/child and sequential submesh CQs never collide.
 """
-import argparse, glob, hashlib, json, os, socket, subprocess, sys, threading, time
+import argparse, glob, hashlib, json, math, os, socket, subprocess, sys, threading, time
 import numpy as np, torch, ttnn
 
 from tt_bio.train.ccl import (
     DEFAULT_FULL_MESH,
     FABRIC_FP32_MAX_PAYLOAD_BYTES,
+    DeviceCCLReducer,
     configure_fp32_ring_fabric,
     exact_all_gather_2d,
     exact_all_reduce_2d,
     exact_reduce_scatter_2d,
     flat_2d_shape,
     fp32_reduction_order_floor,
+    plan_reduction_groups,
 )
 
 P = 178_448_304
@@ -27,6 +33,40 @@ _, _, TOTAL_R, COLS = flat_2d_shape(P, DEFAULT_FULL_MESH, cols=10944)
 N_STRIPS = 4
 assert TOTAL_R % N_STRIPS == 0
 STRIP_R = TOTAL_R // N_STRIPS
+
+# Exact RFD4 558-parameter shape counts (sum = 178,448,304 fp32 elems, matching checkpoint nn.*).
+RFD4_PARAM_SHAPE_COUNTS = [
+    ((6144, 768), 14),
+    ((768, 3072), 14),
+    ((2304, 768), 14),
+    ((768, 768), 38),
+    ((768, 256), 84),
+    ((256, 384), 56),
+    ((384, 384), 15),
+    ((768, 384), 7),
+    ((384, 768), 7),
+    ((384, 256), 16),
+    ((768, 897), 1),
+    ((1024, 256), 2),
+    ((256, 512), 3),
+    ((256, 609), 1),
+    ((768,), 151),
+    ((147, 768), 1),
+    ((12, 384), 14),
+    ((1473, 32), 1),
+    ((384, 107), 1),
+    ((2304,), 14),
+    ((32, 768), 1),
+    ((384,), 52),
+    ((256,), 44),
+    ((3, 768), 1),
+    ((128, 16), 1),
+    ((44, 32), 1),
+    ((7, 32), 1),
+    ((6, 32), 1),
+    ((11, 16), 1),
+    ((4, 16), 1),
+]
 
 
 def sample_aiclk():
@@ -167,19 +207,7 @@ def verify_rs_output(sub, out, sers, N):
     return err, h.hexdigest()[:16]
 
 
-def bench_width(full, rm, cm, out_path, nl=2, ag_ring=True, force_linear=False, reps=5, max_payload=8192, sha=""):
-    N = rm * cm
-    sub = full if (rm, cm) == (FULL_ROWS, FULL_COLS) else full.create_submesh(ttnn.MeshShape(rm, cm))
-    assert sub.get_num_devices() == N
-    try:
-        return _bench_on_mesh(sub, rm, cm, out_path, nl=nl, ag_ring=ag_ring, force_linear=force_linear, reps=reps, max_payload=max_payload, sha=sha)
-    finally:
-        if sub is not full:
-            ttnn.synchronize_device(sub)
-            ttnn.close_mesh_device(sub)
-
-
-def _bench_on_mesh(sub, rm, cm, out_path, nl=2, ag_ring=True, force_linear=False, reps=5, max_payload=8192, sha=""):
+def bench_on_mesh(sub, rm, cm, out_path, nl=2, ag_ring=True, force_linear=False, reps=5, max_payload=8192, sha=""):
     N = rm * cm
     t0 = time.time()
     grad, sers, floor = upload_full_grad(sub, N)
@@ -204,6 +232,7 @@ def _bench_on_mesh(sub, rm, cm, out_path, nl=2, ag_ring=True, force_linear=False
         o0 = op(src)
         ttnn.synchronize_device(sub)
         t_cold = time.time() - t
+        print(f"    [{name}] cold={t_cold:.4f}s", flush=True)
         o0.deallocate()
         with ClkSampler(0.01) as clk:
             for r in range(reps - 1):
@@ -245,15 +274,16 @@ def _bench_on_mesh(sub, rm, cm, out_path, nl=2, ag_ring=True, force_linear=False
               f"aiclk={aiclk['min']}/{aiclk['med']}/{aiclk['max']}({aiclk['n_reads']}) dig={info['digest']}",
               flush=True)
 
-    run_arm(
-        "a2a2d", grad,
-        lambda g: exact_all_reduce_2d(g, (rm, cm), num_links=nl, ag_ring=ag_ring, force_linear=force_linear),
-        check_full=True,
-    )
+    # First time RS alone so we see immediately whether RS or AG behaves differently on submeshes.
     run_arm(
         "rs2d", grad,
         lambda g: exact_reduce_scatter_2d(g, (rm, cm), num_links=nl, force_linear=force_linear),
         check_full=False,
+    )
+    run_arm(
+        "a2a2d", grad,
+        lambda g: exact_all_reduce_2d(g, (rm, cm), num_links=nl, ag_ring=ag_ring, force_linear=force_linear),
+        check_full=True,
     )
 
     # Broken arm: zero rank N-1 on device (must FAIL)
@@ -302,6 +332,167 @@ def _bench_on_mesh(sub, rm, cm, out_path, nl=2, ag_ring=True, force_linear=False
     return res
 
 
+def bench_dict_on_mesh(sub, rm, cm, out_path, nl=2, ag_ring=True, force_linear=False, reps=5, max_payload=8192, sha=""):
+    """Benchmark DeviceCCLReducer directly on all 558 real RFD4 parameter shapes (178,448,304 fp32)."""
+    N = rm * cm
+    shapes = {}
+    idx = 0
+    for shp, cnt in RFD4_PARAM_SHAPE_COUNTS:
+        for j in range(cnt):
+            shapes[f"p{idx:03d}_{'x'.join(map(str, shp))}_{j}"] = shp
+            idx += 1
+    assert len(shapes) == 558 and sum(math.prod(s) for s in shapes.values()) == P
+    plan = plan_reduction_groups(shapes, (rm, cm))
+    print(f"dict-bench {rm}x{cm}: 558 params ({P:,} elems) -> {len(plan.width_groups)} width groups "
+          f"({[wg.cols for wg in plan.width_groups]}) + {len(plan.small_groups)} small groups", flush=True)
+
+    # Build one representative base tensor per unique shape and scale per rank on device so
+    # uploading 558 shapes across 32 ranks stays fast (~10s) while every rank holds distinct fp32 data.
+    t0 = time.time()
+    rank_scales = torch.linspace(0.5, 1.5, N, dtype=torch.float32)
+    scale_1d = ttnn.from_torch(
+        rank_scales.reshape(N, 1), dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=sub,
+        mesh_mapper=ttnn.ShardTensorToMesh(sub, dim=0),
+    )
+    scale_2d = ttnn.from_torch(
+        rank_scales.reshape(N, 1, 1), dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=sub,
+        mesh_mapper=ttnn.ShardTensorToMesh(sub, dim=0),
+    )
+    dev_grads = {}
+    ref_base = {}
+    ref_sum_factor = float(rank_scales.sum().item())
+    # Exact rank-order serial sum & floor on a 1D sample per shape (exact match to per-rank scalar * base)
+    g_rng = torch.Generator().manual_seed(777)
+    for name, shp in shapes.items():
+        base = torch.randn(shp, generator=g_rng, dtype=torch.float32)
+        base *= (10.0 ** (-4.0 * float(torch.rand(1, generator=g_rng).item())))
+        ref_base[name] = base
+        t_rep = ttnn.from_torch(base, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=sub)
+        if len(shp) == 1:
+            t_sh = ttnn.multiply(t_rep, ttnn.reshape(scale_1d, [1]))
+        else:
+            t_sh = ttnn.multiply(t_rep, ttnn.reshape(scale_2d, [1, 1]))
+        t_rep.deallocate()
+        dev_grads[name] = t_sh
+    ttnn.synchronize_device(sub)
+    scale_1d.deallocate()
+    scale_2d.deallocate()
+    print(f"  uploaded 558 distinct-rank device grads in {time.time() - t0:.1f}s", flush=True)
+
+    reducer = DeviceCCLReducer((rm, cm), num_links=nl, ag_ring=ag_ring, force_linear=force_linear)
+
+    def run_dict_arm(arm_name, src_grads, check_names):
+        ttnn.synchronize_device(sub)
+        t = time.time()
+        o0 = reducer(src_grads)
+        ttnn.synchronize_device(sub)
+        t_cold = time.time() - t
+        for v in o0.values():
+            if v is not None and v.is_allocated():
+                ttnn.deallocate(v)
+        times, out_last = [], None
+        with ClkSampler(0.01) as clk:
+            for r in range(reps - 1):
+                ttnn.synchronize_device(sub)
+                t = time.time()
+                o = reducer(src_grads)
+                ttnn.synchronize_device(sub)
+                times.append(time.time() - t)
+                if r < reps - 2:
+                    for v in o.values():
+                        if v is not None and v.is_allocated():
+                            ttnn.deallocate(v)
+                else:
+                    out_last = o
+        aiclk = clk.summary()
+        med = float(np.median(times))
+        # Verify sampled tensors covering every width group AND every small group!
+        max_err, max_floor, agree, h = 0.0, 0.0, True, hashlib.sha256()
+        for nm in check_names:
+            t_out = out_last[nm]
+            shp = shapes[nm]
+            b = ttnn.to_torch(
+                ttnn.reshape(t_out, [1, *shp]),
+                mesh_composer=ttnn.ConcatMeshToTensor(sub, dim=0),
+            )
+            agree &= all(torch.equal(b[0], b[i]) for i in range(N))
+            # Exact per-rank reference tensor [N, *shp]
+            ranks = ref_base[nm].unsqueeze(0) * rank_scales.reshape(N, *([1] * len(shp)))
+            ser, fl = fp32_reduction_order_floor(ranks)
+            err = float((b[0] - ser).abs().max())
+            max_err = max(max_err, err)
+            max_floor = max(max_floor, fl)
+            h.update(b[0].numpy().tobytes())
+        for v in out_last.values():
+            if v is not None and v.is_allocated():
+                ttnn.deallocate(v)
+        ok = agree and max_err <= max(max_floor, 1e-6)
+        info = {
+            "s_cold": t_cold, "s": times, "s_med": med,
+            "s_min": float(min(times)), "s_max": float(max(times)),
+            "GBps_per_chip_payload": P * 4 / med / 1e9,
+            "max_err_vs_serial": max_err, "floor": max_floor,
+            "ranks_agree": agree, "verdict": "PASS" if ok else "FAIL",
+            "digest": h.hexdigest()[:16], "aiclk": aiclk,
+            "checked_tensors": len(check_names),
+        }
+        print(f"  {arm_name}: med={med:.4f}s (cold={t_cold:.4f}s warm={[round(x,4) for x in times]}) "
+              f"err={max_err:.3e} floor={max_floor:.3e} agree={agree} verdict={info['verdict']} "
+              f"aiclk={aiclk['min']}/{aiclk['med']}/{aiclk['max']}({aiclk['n_reads']}) dig={info['digest']}",
+              flush=True)
+        return info
+
+    # Pick first + last tensor from EVERY width group and EVERY small group to grade thoroughly
+    check_names = []
+    for wg in plan.width_groups:
+        check_names.append(wg.entries[0][0])
+        if len(wg.entries) > 1:
+            check_names.append(wg.entries[-1][0])
+    for sg in plan.small_groups:
+        check_names.append(sg.entries[0][0])
+        if len(sg.entries) > 1:
+            check_names.append(sg.entries[-1][0])
+
+    res = {
+        "mode": "dict_558", "n": N, "shape": [rm, cm], "host": socket.gethostname(),
+        "board": "BH-Galaxy-8x4", "fabric": "FABRIC_1D_RING", "sha": sha,
+        "max_packet_payload_bytes": max_payload, "num_links": nl,
+        "ag_ring": ag_ring, "force_linear": force_linear,
+        "params": P, "n_tensors": 558,
+        "width_groups": [{"cols": wg.cols, "rows": wg.total_rows, "padded": wg.padded_rows, "n": len(wg.entries)}
+                         for wg in plan.width_groups],
+        "small_groups": [{"m": sg.m, "n": sg.n, "batch": sg.total_batch, "cnt": len(sg.entries)}
+                         for sg in plan.small_groups],
+        "utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "arms": {},
+    }
+    res["arms"]["dict_558"] = run_dict_arm("dict_558", dev_grads, check_names)
+
+    # Broken arm: zero rank N-1 on every checked tensor's first width group entry (must FAIL)
+    mv = torch.ones(N, 1, 1)
+    mv[N - 1] = 0.0
+    tmask2 = ttnn.from_torch(
+        mv, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=sub,
+        mesh_mapper=ttnn.ShardTensorToMesh(sub, dim=0),
+    )
+    broken_grads = dict(dev_grads)
+    first_nm = plan.width_groups[0].entries[0][0]
+    broken_grads[first_nm] = ttnn.multiply(dev_grads[first_nm], ttnn.reshape(tmask2, [1, 1]))
+    ttnn.synchronize_device(sub)
+    tmask2.deallocate()
+    res["arms"]["dict_558_broken"] = run_dict_arm("dict_558_broken", broken_grads, check_names)
+    broken_grads[first_nm].deallocate()
+
+    reducer.deallocate_caches()
+    for v in dev_grads.values():
+        if v.is_allocated():
+            ttnn.deallocate(v)
+    with open(out_path, "w") as f:
+        json.dump(res, f, indent=1)
+    print(f"SAVED {out_path}", flush=True)
+    return res
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("out_dir")
@@ -312,6 +503,8 @@ def main():
     ap.add_argument("--ag-linear", action="store_true")
     ap.add_argument("--force-linear", action="store_true")
     ap.add_argument("--probe-only", action="store_true")
+    ap.add_argument("--no-probe", action="store_true")
+    ap.add_argument("--dict-bench", action="store_true")
     ap.add_argument("--deadline", type=float, default=0.0)
     ap.add_argument("--sha", default="")
     args = ap.parse_args()
@@ -326,40 +519,75 @@ def main():
         except Exception:
             sha = "unknown"
 
-    torch.set_num_threads(int(os.environ.get("TORCH_THREADS", "32")))
-    os.makedirs(args.out_dir, exist_ok=True)
     widths = [tuple(int(v) for v in w.split("x")) for w in args.widths.split(",")]
-
-    configure_fp32_ring_fabric(args.max_payload)
-    full = ttnn.open_mesh_device(ttnn.MeshShape(FULL_ROWS, FULL_COLS))
-    print(f"OPENED 8x4 ({full.get_num_devices()}), max_payload={args.max_payload}, nl={args.num_links}, "
-          f"ag_ring={not args.ag_linear}, lin={args.force_linear}, sha={sha}, "
-          f"initial aiclk={sample_aiclk()[:4]}", flush=True)
-    try:
-        rm0, cm0 = widths[0]
-        sub0 = full if (rm0, cm0) == (FULL_ROWS, FULL_COLS) else full.create_submesh(ttnn.MeshShape(rm0, cm0))
-        try:
-            ok = quick_probe(sub0, rm0, cm0, nl=args.num_links, ag_ring=not args.ag_linear, force_linear=args.force_linear)
-            assert ok, "quick_probe failed"
-        finally:
-            if sub0 is not full:
-                ttnn.synchronize_device(sub0)
-                ttnn.close_mesh_device(sub0)
-        if args.probe_only:
-            return
+    # One clean process per width so parent/child and sequential submesh CQs never collide (mesh_device.cpp:861).
+    if len(widths) > 1 and not args.probe_only:
         for rm, cm in widths:
             if args.deadline and time.time() > args.deadline:
                 print(f"DEADLINE REACHED before {rm}x{cm}, stopping cleanly", flush=True)
                 break
+            cmd = [
+                sys.executable, os.path.abspath(__file__), args.out_dir,
+                "--widths", f"{rm}x{cm}",
+                "--num-links", str(args.num_links),
+                "--max-payload", str(args.max_payload),
+                "--reps", str(args.reps),
+                "--sha", sha,
+            ]
+            if args.ag_linear:
+                cmd.append("--ag-linear")
+            if args.force_linear:
+                cmd.append("--force-linear")
+            if args.no_probe:
+                cmd.append("--no-probe")
+            if args.dict_bench:
+                cmd.append("--dict-bench")
+            if args.deadline:
+                cmd.extend(["--deadline", str(args.deadline)])
+            print(f"=== SPAWN {rm}x{cm} ===", flush=True)
+            rc = subprocess.call(cmd)
+            if rc != 0:
+                print(f"ERROR: width {rm}x{cm} exited rc={rc}", flush=True)
+                sys.exit(rc)
+        return
+
+    torch.set_num_threads(int(os.environ.get("TORCH_THREADS", "32")))
+    os.makedirs(args.out_dir, exist_ok=True)
+    rm, cm = widths[0]
+
+    configure_fp32_ring_fabric(args.max_payload)
+    full = ttnn.open_mesh_device(ttnn.MeshShape(FULL_ROWS, FULL_COLS))
+    sub = full if (rm, cm) == (FULL_ROWS, FULL_COLS) else full.create_submesh(ttnn.MeshShape(rm, cm))
+    assert sub.get_num_devices() == rm * cm
+    print(f"OPENED {rm}x{cm} ({sub.get_num_devices()} on 8x4), max_payload={args.max_payload}, "
+          f"nl={args.num_links}, ag_ring={not args.ag_linear}, lin={args.force_linear}, sha={sha}, "
+          f"initial aiclk={sample_aiclk()[:4]}", flush=True)
+    try:
+        if not args.no_probe:
+            ok = quick_probe(sub, rm, cm, nl=args.num_links, ag_ring=not args.ag_linear, force_linear=args.force_linear)
+            assert ok, f"quick_probe failed on {rm}x{cm}"
+        if args.probe_only:
+            return
+        if args.dict_bench:
+            out_path = os.path.join(args.out_dir, f"dict558_{rm * cm}.json")
+            bench_dict_on_mesh(
+                sub, rm, cm, out_path,
+                nl=args.num_links, ag_ring=not args.ag_linear, force_linear=args.force_linear,
+                reps=args.reps, max_payload=args.max_payload, sha=sha,
+            )
+        else:
             out_path = os.path.join(args.out_dir, f"ring2d_{rm * cm}.json")
-            bench_width(
-                full, rm, cm, out_path,
+            bench_on_mesh(
+                sub, rm, cm, out_path,
                 nl=args.num_links, ag_ring=not args.ag_linear, force_linear=args.force_linear,
                 reps=args.reps, max_payload=args.max_payload, sha=sha,
             )
     finally:
+        if sub is not full:
+            ttnn.synchronize_device(sub)
+            ttnn.close_mesh_device(sub)
         ttnn.close_mesh_device(full)
-        print("CLOSED MESH CLEANLY", flush=True)
+        print(f"CLOSED {rm}x{cm} MESH CLEANLY", flush=True)
 
 
 if __name__ == "__main__":
