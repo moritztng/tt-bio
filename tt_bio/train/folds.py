@@ -451,6 +451,21 @@ def _ones_row_bf16(k: int, device):
     return t
 
 
+def _ones_batch_row_bf16(b: int, k: int, device):
+    """Cached ``[b, 1, k]`` bf16 TILE batched row of ones for rank-3 batched matmul."""
+    import ttnn
+    key = (id(device), int(b), int(k))
+    hit = _ONES_BF16_CACHE.get(key)
+    if hit is not None and hit.is_allocated():
+        return hit
+    t = ttnn.from_torch(
+        torch.ones(int(b), 1, int(k), dtype=torch.bfloat16),
+        dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=device,
+    )
+    _ONES_BF16_CACHE[key] = t
+    return t
+
+
 def _sum_dim0_exact_f32(x2d):
     """Exact IEEE float32 sum along dim 0 of a 2-D ``[K, M]`` TILE tensor -> ``[1, M]`` TILE.
 
@@ -683,7 +698,7 @@ def _sum_dim1_batch3d_exact_f32(x3d):
     dev = cur.device()
     cg_kw = _mm_cg(_core_grid(dev))
     ckc = _ckc(ttnn.MathFidelity.HiFi4)
-    ones = _ones_row_bf16(m, dev)
+    ones = _ones_batch_row_bf16(k, m, dev)
     hi, lo = _split2_bf16(cur)
     if owned:
         ttnn.deallocate(cur)
