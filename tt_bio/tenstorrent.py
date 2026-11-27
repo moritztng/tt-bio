@@ -11438,10 +11438,18 @@ class TriangleMultiplication(Module):
         if (large_seq and _TRIMUL_BACK_INTO and not _TRIMUL_RAW_CHANNEL_MOVES
                 and not _host_concat(x) and Hr == H):
             from tt_bio.size_limits import is_alloc_refusal
+            # Reserve it in the dtype the move will write. Under `pair_x8t` that is bfp8, and a bf16 reservation was
+            # freed at the first chunk for a bfp8 x_out allocated after the chunks: a hole per call that the
+            # tensors made later in the fold settled into, so a second 1024 aa fold in the process found 225 MiB
+            # free in 42.7 MiB pieces and refused its 512 MiB pair (flow-release-2026112701). A wrong guess
+            # only costs that reallocation, as before.
+            pre_dt = (ttnn.bfloat8_b if batch == 1 and fused_residual is None and not lever("trimul_t2cm")
+                      and not lever("pair_tail_cm") and self._x8t_out()
+                      and _reblock.back_x8_ok(memory_config, 1) else _dtype())
             while x_out_pre is None and not keep_chunks:
                 try:
                     x_out_pre = ttnn.allocate_tensor_on_device(
-                        ttnn.Shape([1, H, H, self._hidden]), _dtype(), ttnn.TILE_LAYOUT,
+                        ttnn.Shape([1, H, H, self._hidden]), pre_dt, ttnn.TILE_LAYOUT,
                         self.device, memory_config)
                 except RuntimeError as exc:
                     if not is_alloc_refusal(exc):
@@ -12004,8 +12012,7 @@ class TriangleMultiplication(Module):
                         # form reads the output projection's key. Nothing else reads a bfp8 x: Protenix-v2's template
                         # trimul (c 64, key 2x2) took the unfused tail on it and clashed in L1 (spd-fix-bhpair).
                         out_dt = x_chunk.dtype
-                        if x_chunk.dtype == ttnn.bfloat8_b and not (lever("pair_x8t") and _trimul_tail.t2_key(
-                                *(_trimul_tail._tiles(int(self.out_p_weight.shape[i])) for i in (-2, -1)), True)):
+                        if x_chunk.dtype == ttnn.bfloat8_b and not self._x8t_out():
                             out_dt = ttnn.bfloat16
                         if x_out is None and x_out_pre is not None:
                             if x_out_pre.dtype == out_dt:
@@ -12466,6 +12473,12 @@ class TriangleMultiplication(Module):
             k = ("t2:g_not_f1", "x".join(str(int(d)) for d in x.padded_shape))
             _trimul_tail.REJECTS[k] = _trimul_tail.REJECTS.get(k, 0) + 1
         return ok
+
+    def _x8t_out(self):
+        """Whether a bfp8 moved x lands in a bfp8 output (`pair_x8t`): only where a T2 form reads the output
+        projection's key."""
+        return lever("pair_x8t") and _trimul_tail.t2_key(
+            *(_trimul_tail._tiles(int(self.out_p_weight.shape[i])) for i in (-2, -1)), True)
 
     def _t2_serves(self, g_out_fused, x_norm_in, H, add_to_input):
         """Whether the output tail goes to T2 (`trimul_t2` with a fused g_out, else the GATE form
