@@ -44,9 +44,11 @@ def test_rfd4_refuses_a_flag_its_step_does_not_honour():
 
 
 def test_rfd4_batch_directory_refuses_by_name(tmp_path):
-    """An empty DATA directory says what an RFD4 batch is, not "no such file"."""
+    """No DATA, and an empty DATA directory, say what an RFD4 batch is and where it comes from."""
     from tt_bio.train.rfd4_tier0 import batches
 
+    with pytest.raises(Exception, match="needs DATA"):
+        batches(None)
     (tmp_path / "notes.txt").write_text("x")
     with pytest.raises(Exception, match="loss_parity_reference"):
         batches(tmp_path)
@@ -81,8 +83,9 @@ def test_rfd4_tier0_hands_the_step_loop_its_argv(tmp_path, monkeypatch):
         def step(self, row):
             Status.rows.append(row)
 
-    rfd4_tier0.train_rfd4(data=data, out_dir=out, steps=None, chip_ids=(0,),
-                          checkpoint_every=100, tokens=None, typed=set(), status=Status())
+    files = rfd4_tier0.batches(data)
+    rfd4_tier0.train_rfd4(files=files, out_dir=out, steps=None, chip_ids=(0,),
+                          checkpoint_every=100, tokens=None, status=Status())
     argv = seen["argv"]
     assert argv[argv.index("--steps") + 1] == "3", "no --steps means one pass over DATA"
     assert argv[argv.index("--save-every") + 1] == "100"
@@ -92,14 +95,14 @@ def test_rfd4_tier0_hands_the_step_loop_its_argv(tmp_path, monkeypatch):
     # A checkpoint in the run directory is resumed from, and multiple chips go data-parallel.
     # A DP run checkpoints under rank0/, so that is where its resume comes from.
     (out / "adapter-00000001.safetensors").write_bytes(b"")
-    rfd4_tier0.train_rfd4(data=data, out_dir=out, steps=5, chip_ids=(0,),
-                          checkpoint_every=0, tokens=None, typed=set(), status=Status())
+    rfd4_tier0.train_rfd4(files=files, out_dir=out, steps=5, chip_ids=(0,),
+                          checkpoint_every=0, tokens=None, status=Status())
     assert seen["argv"][seen["argv"].index("--resume") + 1].endswith(
         "adapter-00000001.safetensors")
     (out / "rank0").mkdir()
     (out / "rank0" / "adapter-00000009.safetensors").write_bytes(b"")
-    rfd4_tier0.train_rfd4(data=data, out_dir=out, steps=10, chip_ids=(0, 2),
-                          checkpoint_every=0, tokens=None, typed=set(), status=Status())
+    rfd4_tier0.train_rfd4(files=files, out_dir=out, steps=10, chip_ids=(0, 2),
+                          checkpoint_every=0, tokens=None, status=Status())
     argv = seen["argv"]
     assert argv[argv.index("--resume") + 1].endswith("rank0/adapter-00000009.safetensors")
     assert argv[argv.index("--dp-cards") + 1] == "0,2"

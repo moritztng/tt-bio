@@ -1086,7 +1086,7 @@ model tt-bio does not ship, and what it took for the ones it does: [`docs/portin
 
 ## Training
 
-Train OpenFold3 with the same forward the inference path uses:
+Train OpenFold3 or RFD4-Proteina with the same forward the inference path uses:
 
 ```bash
 pip install 'tt-bio[tenstorrent,train]'
@@ -1118,6 +1118,24 @@ tt-bio predict target.yaml --model openfold3 --checkpoint runs/openfold3/weights
 ```
 
 Without `--checkpoint`, `predict` folds with the shipped weights exactly as before.
+
+### RFD4-Proteina
+
+```bash
+tt-bio train batches/ --model rfd4 --steps 2000
+tt-bio train batches/ --model rfd4 --steps 2000 --chips 4
+```
+
+RFD4 trains the release trunk's own weights on upstream's flow-matching objective. Each step
+runs `k` noise candidates through the production trunk with gradients off, picks a winner the
+way upstream does, and trains that candidate's last recycle, so one step costs a fold plus one
+backward. DATA is required and it is a directory of training batches dumped by
+`perf/r4t/loss_parity_reference.py`, one `.npz` per example: the features, `x_1`/`x_t`/`t`, the
+candidate noise and upstream's own winners beside them.
+
+The flags the step does not honour are refused by name rather than ignored: `--lr` and
+`--warmup-steps` (upstream's rule runs at 1e-4 with no warmup), the LoRA flags, `--objective`
+and `--seed`. Everything else works as above, resume included.
 
 `--help` lists the next layer: `--steps`, `--chips`, `--global-batch`, `--lr`,
 `--warmup-steps`, `--checkpoint-every`, `--tokens`, `--seed`. `--help-all` adds the expert

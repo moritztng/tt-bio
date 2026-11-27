@@ -286,21 +286,21 @@ def train(ctx, data, model, out_dir, steps, chip_ids, dry_run, global_batch, lr,
         return
 
     if model in OWN_STEP:
-        from .rfd4_tier0 import refuse_unhonoured, train_rfd4
-        # Before anything is written: a refused flag must not leave a claimed run directory
-        # behind, or the next command refuses in turn with a settings conflict.
-        typed = {n for n in ctx.params
-                 if (src := ctx.get_parameter_source(n)) is not None and src.name != "DEFAULT"}
-        refuse_unhonoured(typed)
+        from .rfd4_tier0 import batches, refuse_unhonoured, train_rfd4
+        # Before anything is written: a refusal must not leave a claimed run directory behind,
+        # or the next command refuses in turn with a settings conflict.
+        refuse_unhonoured({n for n in ctx.params
+                           if (src := ctx.get_parameter_source(n)) is not None
+                           and src.name != "DEFAULT"})
+        files = batches(data)
         out_dir.mkdir(parents=True, exist_ok=True)
         status = _Status(out_dir)
-        config = {"model": model, "data": str(Path(data).resolve()) if data else "fixture",
+        config = {"model": model, "data": str(Path(data).resolve()),
                   "train": train_mode, "global_batch": global_batch, "tokens": crop}
         status.claim(config, chips=list(chip_ids))
         try:
-            train_rfd4(data=data, out_dir=out_dir, steps=steps, chip_ids=chip_ids,
-                       checkpoint_every=checkpoint_every, tokens=tokens, typed=typed,
-                       status=status)
+            train_rfd4(files=files, out_dir=out_dir, steps=steps, chip_ids=chip_ids,
+                       checkpoint_every=checkpoint_every, tokens=tokens, status=status)
         except Exception as exc:                                       # noqa: BLE001
             status.fail(exc)
             raise

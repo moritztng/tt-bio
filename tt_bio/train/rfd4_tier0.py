@@ -8,7 +8,7 @@ around it is the shared stack: the same `Folds`, `AdamW`, `Checkpointer`, `Proce
 
 What this module owns is the Tier-0 contract over that body: flag legality decided before a
 device opens, the shipped batch fixture when no DATA is given, ``status.json`` /
-``progress.jsonl`` in ``--out``, and resume from the newest checkpoint in the run directory
+``progress.jsonl`` in ``--out``, DATA refused by name when it is missing or empty, and resume from the newest checkpoint in the run directory
 when the same command is run again.
 
 A flag the RFD4 step does not honour is REFUSED rather than ignored. `--lr` is the example that
@@ -24,7 +24,7 @@ from pathlib import Path
 import click
 
 __all__ = ["train_rfd4", "refuse_unhonoured", "latest_checkpoint", "batches",
-           "last_row", "NOT_HONOURED", "DATA_SUFFIX"]
+           "last_row", "NOT_HONOURED", "DATA_SUFFIX", "NO_DATA"]
 
 #: Tier-0 flags the RFD4 step does not honour, and what to do instead. Checked against the
 #: parameter SOURCE, so a default never trips one: only a flag the user actually typed.
@@ -47,9 +47,20 @@ NOT_HONOURED = {
 #: The batch files a DATA directory holds, as `perf/r4t/loss_parity_reference.py` dumps them.
 DATA_SUFFIX = ".npz"
 
+#: DATA is required for rfd4. The shipped `rfd4_train_16.npz` fixture is a different thing --
+#: upstream's collated features, which the objective and the parity tests read -- and it carries
+#: none of what a step replays (the candidate noise, the recycle depth, upstream's winners), so
+#: offering it as a default would hand back a KeyError instead of a run.
+NO_DATA = ("--model rfd4 needs DATA: a directory of training batches, one .npz per example. "
+           "Dump them from upstream's pipeline with perf/r4t/loss_parity_reference.py, which "
+           "writes the features, x_1/x_t/t, the candidate noise and upstream's own winners "
+           "and losses. docs/training.md has the recipe.")
+
 
 def batches(data: Path) -> list:
     """The batch files in ``data``, sorted. Refuses a directory holding none, by name."""
+    if data is None:
+        raise click.UsageError(NO_DATA)
     found = sorted(p for p in Path(data).iterdir() if p.suffix == DATA_SUFFIX) \
         if Path(data).is_dir() else [Path(data)]
     if not found:
@@ -60,12 +71,6 @@ def batches(data: Path) -> list:
     return found
 
 
-def sample_data() -> Path:
-    """The shipped 16-example fixture, used when the command is run without DATA."""
-    from .rfd4_data import FIXTURE
-    return FIXTURE
-
-
 def refuse_unhonoured(typed) -> None:
     """Refuse a flag the RFD4 step does not honour. ``typed`` names the flags the user actually
     passed, so an untouched default never trips one."""
@@ -73,11 +78,9 @@ def refuse_unhonoured(typed) -> None:
         raise click.UsageError(NOT_HONOURED[name])
 
 
-def train_rfd4(*, data, out_dir: Path, steps, chip_ids, checkpoint_every, tokens,
-               typed, status) -> None:
-    """Run the RFD4 step loop under the Tier-0 contract."""
-    refuse_unhonoured(typed)
-    files = batches(data) if data is not None else [sample_data()]
+def train_rfd4(*, files, out_dir: Path, steps, chip_ids, checkpoint_every, tokens,
+               status) -> None:
+    """Run the RFD4 step loop on ``files`` under the Tier-0 contract."""
     argv = ["--batch", ",".join(str(f) for f in files), "--out", str(out_dir),
             "--steps", str(steps or len(files))]
     if checkpoint_every:
