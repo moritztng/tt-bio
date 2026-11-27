@@ -781,6 +781,8 @@ class PoseUpdate:
     def __init__(self, device, sg, rot_bonds, mask_rotate, squarings: int | None = None):
         import ttnn
         from .kabsch import SQUARINGS
+        from .sampling import _as_mask
+        mask_rotate = _as_mask(mask_rotate)       # the graph builder hands it over as numpy
         self.device, self.sg = device, sg
         self.n, self.P, self.n_lig = sg.n_lig_padded, sg.n_poses, sg.n_lig
         self.nb = sg.n_rot_bonds
