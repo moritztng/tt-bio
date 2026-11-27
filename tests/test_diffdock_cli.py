@@ -8,6 +8,7 @@ test is "it parses" is a CLI nobody ran.
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 
 import pytest
@@ -24,6 +25,18 @@ ASPIRIN = "CC(=O)Oc1ccccc1C(=O)O"
 
 needs_receptor = pytest.mark.skipif(not RECEPTOR.exists(),
                                     reason="no local receptor structure to dock into")
+
+
+
+@pytest.fixture(autouse=True)
+def _restore_tt_bio_log_level():
+    """`tt-bio dock` sets the tt_bio logger's level, which is right for a process and wrong for
+    a test session: left at WARNING it hides the INFO records a later file's caplog reads
+    (test_tfg_features::test_1a14_pocket_resolves_epitope_and_paratope, gate rel-4eddd643f)."""
+    log = logging.getLogger("tt_bio")
+    level = log.level
+    yield
+    log.setLevel(level)
 
 
 def run(*args):
@@ -226,8 +239,11 @@ def test_a_ligand_on_both_sides_is_refused(tmp_path):
 
 
 def test_a_receptor_without_a_ligand_is_refused(tmp_path):
-    r = run(str(RECEPTOR if RECEPTOR.exists() else tmp_path), "--no_model",
-            "--out_dir", str(tmp_path / "x"))
+    # Any .pdb path reaches the refusal: it is raised before the receptor is read. A directory
+    # does not, it is read as a folder of YAML jobs, so the test must not depend on RECEPTOR.
+    receptor = tmp_path / "receptor.pdb"
+    receptor.write_text("END\n")
+    r = run(str(receptor), "--no_model", "--out_dir", str(tmp_path / "x"))
     assert r.exit_code != 0 and "--ligand is required" in r.output
 
 

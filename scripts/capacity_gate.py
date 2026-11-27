@@ -231,6 +231,10 @@ EXEMPT = {
                 "residency leg still gets no valid input, so no size was tested at any bar. Needs "
                 "a ligand-bearing cell, which is a fixture change. p1 recorded NO_WEIGHTS here "
                 "and blamed the checkpoint; that was the gate's own depth cut, not the artifact.",
+    "diffdock": "docking, not a fold: its input is a receptor STRUCTURE plus a ligand, and the "
+                "network is a radius graph over residues and ligand atoms, not a token trunk, so "
+                "the polymer-sequence fixture is not a valid input and a token bar does not "
+                "describe its memory. Needs a receptor-plus-ligand cell walked up in residues.",
     "saprot-1.3b": "structure-aware embeddings, and the checkpoint is not in the local weights "
                    "cache on this host. saprot-35m and saprot-650m carry the same code path at "
                    "the bar; this one is a weights gap, not a code gap.",

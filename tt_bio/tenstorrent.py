@@ -9185,6 +9185,10 @@ TRACE_REGIONS = {
     "rfd4": {"wormhole_b0": 192 << 20, "blackhole": 192 << 20},
     "esmfold2": {"wormhole_b0": 32 << 20, "blackhole": 48 << 20},     # ESMFold2 / -Fast diffusion step, PROVISIONAL
     "saprot": {"wormhole_b0": 64 << 20, "blackhole": 64 << 20},       # one live SaProt batch forward, PROVISIONAL
+    # DiffDock-L's 19-step score loop (diffdock/capture.capture_loop). PROVISIONAL, not measured:
+    # only the port's grading scripts capture today, `tt-bio dock` runs eager. Too small shows up
+    # as a refused capture, never as a wrong pose.
+    "diffdock": {"wormhole_b0": 64 << 20, "blackhole": 64 << 20},
 }
 
 

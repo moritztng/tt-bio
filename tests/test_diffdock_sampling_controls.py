@@ -441,3 +441,52 @@ def test_real_rollout_matches_upstream_trajectory(real_grade):
     moved = real_grade.grade_moves(recorded, graph["edge_index"].T[graph["edge_mask"]],
                                    graph["mask_rotate"], n_poses)
     assert moved == 0.0, moved
+
+
+def test_no_model_returns_seed_pose(tmp_path, monkeypatch):
+    """``--no_model`` is upstream's null baseline: the randomised seed conformer, and no
+    network at all.
+
+    Two things make it the null. The pose must be a RIGID copy of RDKit's own conformer, so
+    for a ligand with no rotatable bond every interatomic distance survives the randomisation;
+    and the score network must never be built, which is asserted by making its loader explode.
+    """
+    from tt_bio.diffdock import network, run
+    from tt_bio.diffdock.job import DockJob, DockOptions
+
+    receptor = tmp_path / "rec.pdb"
+    receptor.write_text("".join(
+        f"ATOM  {i:5d}  CA  ALA A{i:4d}    {i * 3.8:8.3f}{0.0:8.3f}{0.0:8.3f}"
+        f"  1.00  0.00           C\n" for i in range(1, 9)))
+
+    def explode(*a, **k):                      # pragma: no cover - the point is not calling it
+        raise AssertionError("--no_model loaded the score network")
+
+    monkeypatch.setattr(network, "load", explode)
+
+    out = tmp_path / "out"
+    summary = run.dock([DockJob(name="null", receptor_path=receptor, ligand="c1ccccc1")],
+                       DockOptions(no_model=True, diffusion_samples=3, seed=11), out)
+    assert summary["failed"] == []
+    assert sorted(p.name for p in (out / "null").iterdir()) == [
+        "confidence.json", "rank1.sdf", "rank2.sdf", "rank3.sdf"]
+
+    from rdkit import Chem
+
+    from tt_bio.diffdock import seed_pose
+
+    ref = seed_pose.load_ligand("c1ccccc1").GetConformer().GetPositions()
+    ref_d = np.linalg.norm(ref[:, None] - ref[None], axis=-1)
+    centres = []
+    for rank in (1, 2, 3):
+        m = next(Chem.SDMolSupplier(str(out / "null" / f"rank{rank}.sdf"), sanitize=True,
+                                    removeHs=True))
+        xyz = m.GetConformer().GetPositions()
+        assert xyz.shape == ref.shape
+        d = np.linalg.norm(xyz[:, None] - xyz[None], axis=-1)
+        assert np.abs(d - ref_d).max() < 1e-3, f"rank{rank} is not a rigid copy of the seed"
+        centres.append(xyz.mean(axis=0))
+    # Three samples, three different placements, all drawn about the receptor's CA centroid.
+    assert np.linalg.norm(centres[0] - centres[1]) > 1e-3
+    spread = seed_pose.TR_SIGMA_MAX * DockOptions().initial_noise_std
+    assert max(np.linalg.norm(c - seed_pose.receptor_centre(receptor)) for c in centres) < 6 * spread
