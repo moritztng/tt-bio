@@ -712,6 +712,9 @@ SIZE_LADDER_EXEMPT = {
                      "and opendde-abag differs only in load_opendde_checkpoint's abag flag. "
                      "Its independent perf coverage is perf_regression.py's own SPECS cell, "
                      "added after a 60x regression shipped behind that same reasoning.",
+    "diffdock":      "Docks a ligand into a receptor structure, so the arm's cdk2x2 chain "
+                     "list is not a valid input at any rung: it needs a receptor PDB and a "
+                     "ligand. Its size axis is residues in the radius graph, a fixture of its own.",
     "af2ig":         "Re-predicts a complex you already designed, so its input is a target "
                      "structure plus the binder's backbone and sequence, and the arm's cdk2x2 "
                      "chain list is refused by its reader at every rung. Its perf cell is "

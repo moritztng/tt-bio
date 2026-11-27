@@ -280,6 +280,15 @@ TOKEN_AXIS = {
         "ttnn.softmax",
         "cmp-af2ig-bucket",
     ),
+    # DiffDock-L has no token trunk: its reduces are scatter-sums over the edges of a radius graph
+    # of residues and ligand atoms, so "the token axis" is the graph's node count. Nobody has
+    # censused whether a ragged node count reaches a tile-tail reduce on the card.
+    "diffdock": (
+        UNCENSUSED, None,
+        "nowhere censused: the reduces are the edge scatter-sums in tt_bio/diffdock/conv.py "
+        "and tt_bio/diffdock/device.py, one per tensor-product conv layer",
+        "dfd-perf",
+    ),
     "nesso1": (
         BUCKETED, TOKEN_BUCKET,
         "nesso1.py routes both trunk stacks through tenstorrent.PairformerModule / "

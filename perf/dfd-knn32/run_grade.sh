@@ -5,7 +5,7 @@
 # Steps are 0,5,10,15,18: sampling calls forward 19 times, so index 18 is the last one.
 set -u
 cd /home/moritz/.coworker/wt/dfd-knn32
-G=artifacts/dfd-knn32/grade
+G=perf/dfd-knn32/grade
 PORT=/home/moritz/tt-bio/env/bin/python3.10
 
 echo "=== control re-grade $(date -Is)"
@@ -15,5 +15,5 @@ TT_VISIBLE_DEVICES= PYTHONPATH="$PWD" nice -n 5 "$PORT" \
 echo "  rc=$?"; grep -E "^step" "$G/7BJ6_TVK.grade.log" || tail -3 "$G/7BJ6_TVK.grade.log"
 
 echo "=== 7F8T_FAD $(date -Is)"
-STEPS=0,5,10,15,18 OUT="$PWD/$G" ./artifacts/dfd-knn32/grade_knn32.sh 7F8T_FAD
+STEPS=0,5,10,15,18 OUT="$PWD/$G" ./perf/dfd-knn32/grade_knn32.sh 7F8T_FAD
 echo "=== GRADE CHAIN DONE $(date -Is)"

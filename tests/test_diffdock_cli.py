@@ -226,8 +226,11 @@ def test_a_ligand_on_both_sides_is_refused(tmp_path):
 
 
 def test_a_receptor_without_a_ligand_is_refused(tmp_path):
-    r = run(str(RECEPTOR if RECEPTOR.exists() else tmp_path), "--no_model",
-            "--out_dir", str(tmp_path / "x"))
+    # Any .pdb path reaches the refusal: it is raised before the receptor is read. A directory
+    # does not, it is read as a folder of YAML jobs, so the test must not depend on RECEPTOR.
+    receptor = tmp_path / "receptor.pdb"
+    receptor.write_text("END\n")
+    r = run(str(receptor), "--no_model", "--out_dir", str(tmp_path / "x"))
     assert r.exit_code != 0 and "--ligand is required" in r.output
 
 
