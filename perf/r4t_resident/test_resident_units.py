@@ -570,6 +570,8 @@ def test_device_optim(dev, state, glue, pcie_meter_mod):
     }
     omitted_adam = next(nm for nm, t in params.items() if t.ndim < 2)
     omitted_muon = next(nm for nm, t in params.items() if t.ndim == 2 and nm.startswith("nn."))
+    zero_adam = next(nm for nm, t in params.items() if t.ndim < 2 and nm != omitted_adam)
+    zero_muon = next(nm for nm, t in params.items() if t.ndim == 2 and nm.startswith("nn.") and nm != omitted_muon)
 
     timings = {}
     for ns_mode in ("split2", "split2_hifi4", "fp32"):
@@ -583,11 +585,12 @@ def test_device_optim(dev, state, glue, pcie_meter_mod):
         step_ms = []
         pcie_step = None
         for it in range(4):
-            dev_grads = {
-                nm: ttnn.from_torch(g, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev)
-                for nm, g in host_grads.items()
-                if nm not in (omitted_adam, omitted_muon)
-            }
+            dev_grads = {}
+            for nm, g in host_grads.items():
+                if nm in (omitted_adam, omitted_muon):
+                    continue
+                src = torch.zeros_like(g) if nm in (zero_adam, zero_muon) else g
+                dev_grads[nm] = ttnn.from_torch(src, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev)
             ttnn.synchronize_device(dev)
             if it == 3 and pcie_meter_mod is not None:
                 pcie_meter_mod.take()
@@ -609,12 +612,34 @@ def test_device_optim(dev, state, glue, pcie_meter_mod):
         }
         if ns_mode == "split2":
             assert reduced_count[0] == 1, f"expected reduce_fn called once, got {reduced_count[0]}"
+            assert st["dead_grads"] == {omitted_adam, omitted_muon, zero_adam, zero_muon}, (
+                f"dead_grads mismatch: got {sorted(st['dead_grads'])}, "
+                f"want {sorted((omitted_adam, omitted_muon, zero_adam, zero_muon))}"
+            )
             hm = opt.host_master()
             om_a_diff = float(np.max(np.abs(hm[omitted_adam] - params[omitted_adam].numpy())))
             om_m_diff = float(np.max(np.abs(hm[omitted_muon] - params[omitted_muon].numpy())))
             assert om_a_diff == 0.0, f"Omitted Adam param moved: {om_a_diff}"
             assert om_m_diff == 0.0, f"Omitted Muon param moved: {om_m_diff}"
             assert opt.ema is not None and opt.ema.n_averaged == 4 and len(opt.ema.host_shadow()) == len(params)
+            # Verify save_adapter + load_adapter bit-exact round-trip on DeviceOptimizer.
+            import tempfile
+            from tt_bio.train.checkpoint import load_adapter, save_adapter
+            with tempfile.TemporaryDirectory() as td:
+                ck = os.path.join(td, "dev_opt.safetensors")
+                save_adapter(ck, opt, meta={"step": opt.steps})
+                opt2 = rfd4_device_optimizer(params, dev, lr=1e-4, ema_decay=0.999, ns_mode=ns_mode)
+                md = load_adapter(ck, dict(params), dev, opt=opt2)
+                assert md["step"] == 4 and opt2.steps == 4 and opt2.ema.n_averaged == 4
+                hm2 = opt2.host_master()
+                assert all(np.array_equal(hm[k], hm2[k]) for k in hm), "master round-trip mismatch"
+                sh1, sh2 = opt.ema.host_shadow(), opt2.ema.host_shadow()
+                assert all(np.array_equal(sh1[k], sh2[k]) for k in sh1), "EMA round-trip mismatch"
+                f1, f2 = opt.state_families(), opt2.state_families()
+                assert set(f1) == set(f2)
+                for fam in f1:
+                    assert all(np.array_equal(f1[fam][k], f2[fam][k]) for k in f1[fam]), f"{fam} mismatch"
+                opt2.deallocate()
         print(
             f"  {ns_mode:14s}: cold={timings[ns_mode]['cold_ms']} ms, warm={timings[ns_mode]['warm_ms']} ms "
             f"(muon={len(opt.muon_names)} in {len(opt._muon_buckets)} bkts, "

@@ -606,6 +606,13 @@ def main(argv=None, on_step=None):
         init_w = {nm: dfolds.leaves[nm].detach() for nm in folded_names}
         init_w.update({nm: p.detach() for nm, p in host_glue_params.items()})
         params = init_w
+        if a.freeze:
+            fz = next(nm for nm in sorted(params) if a.freeze in nm)
+            if fz in dfolds.leaves:
+                dfolds.leaves[fz].requires_grad_(False)
+            if fz in host_glue_params:
+                host_glue_params[fz].requires_grad_(False)
+            print(json.dumps(dict(frozen=fz)), flush=True)
         names = list(params)
         cyc = {nm: "depth-1 draws feed a zero state into the cycle projection; trains at depth >= 2"
                for nm in names if "cycle" in nm and a.depth < 2}
@@ -660,7 +667,10 @@ def main(argv=None, on_step=None):
     start = 0
     if a.resume:
         start = int(load_adapter(a.resume, dict(params), dev, opt=opt)["step"])
-        build()
+        if a.resident:
+            dfolds.refold(opt.master, on_refold=refold_hook)
+        else:
+            build()
     ck = Checkpointer(a.out, every=a.save_every or 10**9, keep=a.keep or (2 if a.save_every else 10))
     seen = []   # losses this process logged, for --pin-spike
     if a.exempt == "default":
@@ -735,11 +745,15 @@ def main(argv=None, on_step=None):
                         dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev,
                     )
                     gp.grad = None
-            dead = {nm for nm in names if dev_grads.get(nm) is None}
             ttnn.synchronize_device(dev)
             t2b = time.time()
             mark("opt")
             opt_info = opt.step(dev_grads, free_grads=True)
+            dead = set(opt_info["dead_grads"]) | {nm for nm in names if nm not in opt.master}
+            if ax:
+                order = sorted(names)
+                hits = ax.sum_scalars([float(nm not in dead) for nm in order])
+                dead = {nm for nm, h in zip(order, hits) if h == 0.0}
             ttnn.synchronize_device(dev)
             t2c = time.time()
             mark("rebuild")

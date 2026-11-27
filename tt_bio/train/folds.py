@@ -1336,8 +1336,12 @@ class DeviceFolds:
         out_grads: dict[str, object] = {}
         for name, lid in self.leaf_nid.items():
             g = grads.pop(lid, None)
-            if g is not None:
-                out_grads[name] = g
+            if g is None:
+                continue
+            if not self.leaves[name].requires_grad:
+                ttnn.deallocate(g)
+                continue
+            out_grads[name] = g
         return out_grads, idle
 
 

@@ -192,7 +192,7 @@ class DeviceHeads:
                 ttnn.deallocate(emit_ll)
                 if pad_m is not None:
                     ttnn.deallocate(pad_m)
-                if s32 is not s:
-                    ttnn.deallocate(s32)
+            if s32 is not s:
+                ttnn.deallocate(s32)
 
         return out
