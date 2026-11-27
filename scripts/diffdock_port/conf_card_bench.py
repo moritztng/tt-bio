@@ -11,8 +11,9 @@ Three parts, all against the host port in the same process:
    and the full ranking against upstream's rebuild and its rollout capture.
 3. Time on dfd-perf's ``dock_stages`` recipe (5S8I_2LY, 10 poses, ``DockOptions(device="tt")``):
    one card rollout for the poses, then ``network.confidence(graph, poses)`` for the host network
-   and for the device network, *n* times each after one warm call. AICLK is sampled every ~2 s
-   during the whole run and attributed to each timed window.
+   and for the device network (:class:`~tt_bio.diffdock.device.DeviceConfidence`), *n* times
+   each after one warm call. AICLK and load per core are sampled every 0.5 s during each timed
+   block (``perf/clocksample.py``).
 """
 
 from __future__ import annotations
@@ -20,8 +21,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import subprocess
-import threading
 import time
 from pathlib import Path
 
@@ -29,32 +28,6 @@ import numpy as np
 import torch
 
 GOLDEN_IDS = ("8G43_ZU6", "8AEU_M0L", "7A9E_R4W")
-TT_SMI = Path.home() / ".local/bin/tt-smi"
-
-
-class Clock(threading.Thread):
-    """``(epoch, aiclk MHz)`` for *chip*, every ~2 s, until :meth:`stop`."""
-
-    def __init__(self, chip: int):
-        super().__init__(daemon=True)
-        self.chip, self.samples, self._halt = chip, [], threading.Event()
-
-    def run(self):
-        while not self._halt.is_set():
-            try:
-                out = subprocess.run([str(TT_SMI), "-s"], capture_output=True, text=True,
-                                     timeout=30).stdout
-                clk = json.loads(out)["device_info"][self.chip]["telemetry"].get("aiclk")
-                self.samples.append((time.time(), int(str(clk).split()[0])))
-            except Exception:                    # a missed sample is a gap, not a crash
-                pass
-            self._halt.wait(2.0)
-
-    def stop(self):
-        self._halt.set()
-
-    def during(self, t0: float, t1: float) -> list[int]:
-        return [c for t, c in self.samples if t0 <= t <= t1]
 
 
 def _order(a) -> list[int]:
@@ -95,6 +68,9 @@ def main():
     import copy
     import sys
 
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    from perf.clocksample import during
+
     sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tests"))
     from test_diffdock_confidence_device import score_golden
 
@@ -104,8 +80,6 @@ def main():
     from tt_bio.diffdock.device import convs_on_device
     from tt_bio.diffdock.job import DockJob, DockOptions
 
-    clock = Clock(args.chip)
-    clock.start()
     res = dict(chip=args.chip, torch_threads=torch.get_num_threads(), cpu_count=os.cpu_count(),
                loadavg_start=os.getloadavg())
 
@@ -133,7 +107,7 @@ def main():
     res["goldens"] = {}
     for cid in GOLDEN_IDS:
         d = gold / f"{cid}__s0"
-        got = score_golden(dev.host.confidence_model, d)
+        got = score_golden(dev.host.confidence_model, d, convolve=dev._confidence)
         ref_host = score_golden(host.confidence_model, d)
         rebuild = np.load(d / "confidence.npz")["confidence_raw"]
         rollout = np.load(d / "poses.npz")["confidence_raw"]
@@ -181,16 +155,16 @@ def main():
     timing = {}
     for name, net in (("host", host), ("device", dev)):
         net.confidence(graph, poses)                        # warm: kernels, graph uploads
-        runs, clk, scores = [], [], None
-        for _ in range(args.n):
-            t0 = time.time()
-            scores = net.confidence(graph, poses)
-            t1 = time.time()
-            runs.append(t1 - t0)
-            clk += clock.during(t0, t1)
-        timing[name] = dict(s=runs, median_s=float(np.median(runs)), aiclk_samples=clk,
+        runs, scores = [], None
+        with during(period=0.5) as clk:
+            for _ in range(args.n):
+                t0 = time.perf_counter()
+                scores = net.confidence(graph, poses)
+                runs.append(time.perf_counter() - t0)
+        timing[name] = dict(s=runs, median_s=float(np.median(runs)), clock=clk.summary().get(0),
+                            load_per_core=clk.load,
                             scores=torch.as_tensor(scores).tolist())
-        print(name, runs, clk, flush=True)
+        print(name, runs, clk.line(), flush=True)
     h, d = np.array(timing["host"]["scores"]), np.array(timing["device"]["scores"])
     res["timing"] = timing
     res["dock_recipe_rank"] = dict(
@@ -198,8 +172,6 @@ def main():
         order_same=_order(h[:, None]) == _order(d[:, None]), spearman=_spearman(h, d),
         max_abs=float(np.max(np.abs(h - d))))
     res["loadavg_end"] = os.getloadavg()
-    clock.stop()
-    res["aiclk_all"] = sorted({c for _, c in clock.samples})
     Path(args.out).write_text(json.dumps(res, indent=1))
     print("wrote", args.out, flush=True)
 

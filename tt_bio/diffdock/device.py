@@ -337,13 +337,16 @@ class DeviceConvLayer:
             g[key] = idx
         return g[key]
 
-    def __call__(self, node_attr, g, edge_attr_groups, edge_sh, edge_mask, ns=None):
+    def __call__(self, node_attr, g, edge_attr_groups, edge_sh, edge_mask, ns=None,
+                 out_attr=None):
         """*node_attr* is ``[N, pad32(in_dim)]`` TILE.
 
         *edge_attr_groups* are TILE ``[E_g, pad32(F)]`` blocks partitioning the edges in order,
         *edge_sh* ``[E, pad32(sh)]`` TILE and *edge_mask* ``[E, 1]`` TILE. With *ns* set they
         are the bare edge attributes instead, and the node halves of the edge input are built
         here from *node_attr* (:meth:`fc1_split`), so a stack of layers never leaves the card.
+        *out_attr* is the table the messages land in when it is not *node_attr* (a cross group
+        of the confidence model): the ``x[src]`` half of the edge input is read from it.
         """
         ttnn = self.ttnn
         ckc = self.tps[0].ckc
@@ -360,7 +363,8 @@ class DeviceConvLayer:
                 w1a, w1s, w1d, b1 = self.fc1_split(ns)[gi]
                 src, dst = index[gi]
                 h = ttnn.linear(ea, w1a, bias=b1, compute_kernel_config=ckc, dtype=self.dtype)
-                h = ttnn.add(h, gather_rows(mm(node_attr, w1s), src, n))
+                out_t = node_attr if out_attr is None else out_attr
+                h = ttnn.add(h, gather_rows(mm(out_t, w1s), src, n))
                 h = ttnn.relu(ttnn.add(h, gather_rows(mm(node_attr, w1d), dst, n)))
             msgs.append(tp(ea, x1[lo:lo + n, :], edge_sh[lo:lo + n, :], h=h))
             lo += n
@@ -565,13 +569,15 @@ class DeviceConvModule(torch.nn.Module):
         return out
 
 
-def convs_on_device(model, device, *, dtype=None, grade: bool = False) -> dict:
+def convs_on_device(model, device, *, dtype=None, grade: bool = False,
+                    graphs: int = 8) -> dict:
     """Swap every convolution in *model* for a :class:`DeviceConvModule`, in place.
 
     Returns ``{module path: DeviceConvModule}`` so a caller can read each one's grade log.
+    *graphs* sizes the shared :class:`GraphCache`.
     """
     from tt_bio.diffdock.conv import TensorProductConvLayer
-    swapped, graphs = {}, GraphCache()
+    swapped, graphs = {}, GraphCache(graphs)
     for path, mod in list(model.named_modules()):
         for name, child in list(mod._modules.items()):
             if isinstance(child, TensorProductConvLayer):
@@ -600,7 +606,10 @@ class DeviceScoreNetwork:
         self.model, self.config = host.model, host.config
         self.convs = convs_on_device(host.model, device)
         self.confidence_convs = ({} if host.confidence_model is None
-                                 else convs_on_device(host.confidence_model, device))
+                                 else convs_on_device(host.confidence_model, device,
+                                                      graphs=CONFIDENCE_GRAPHS))
+        self._confidence = (None if host.confidence_model is None
+                            else DeviceConfidence(host.confidence_model, self.confidence_convs))
 
     def score_fn(self, graph):
         from tt_bio.diffdock.conv import pad_nodes
@@ -626,5 +635,97 @@ class DeviceScoreNetwork:
         return score
 
     def confidence(self, graph, poses: Tensor):
-        """The host ranking pass, whose model now carries the device convolutions."""
-        return self.host.confidence(graph, poses)
+        """The host ranking pass with its interaction layers in :class:`DeviceConfidence`."""
+        return self.host.confidence(graph, poses, convolve=self._confidence)
+
+
+#: A confidence pose touches nine graphs per layer, four of them the receptor's; an LRU of 8
+#: would evict each one just before it is needed again.
+CONFIDENCE_GRAPHS = 16
+
+
+class DeviceConfidence:
+    """The confidence model's interaction layers with every node table on the card.
+
+    :meth:`ConfidenceModel.convolve <tt_bio.diffdock.confidence_model.ConfidenceModel.convolve>`
+    walks the wiring; this object is its executor. Per pose the ligand's node table and its
+    three edge sets cross to the card once, the receptor's two node tables and three edge sets
+    once per pose set (they are the same host tensors for every pose), and one read-back of the
+    ligand features ends the pass. The 41 convolutions are the :class:`DeviceConvModule`
+    layers :func:`convs_on_device` put on the model, so nothing here is a second implementation.
+
+    A group with no edges contributes zeros, as the host layer does (D-dfd-orch-10).
+    """
+
+    def __init__(self, model, convs: dict):
+        from tt_bio.diffdock.confidence_model import WIRING
+        self.model = model
+        self.mods = [convs[f"conv_layers.{i}"] for i in range(len(model.conv_layers))]
+        self.device = self.mods[0].dev.device
+        #: edge set -> (out set, source set) in its stored direction
+        self.ends = {es: (out, src) for out, src, es, flip in WIRING if not flip}
+        self._held = {}
+
+    def _keep(self, key, src: Tensor, build):
+        """*build()*'s upload for *key*, rebuilt only when *src* is a different host tensor."""
+        hit = self._held.get(key)
+        if hit is None or hit[0] is not src:
+            if hit is not None and hit[1] is not None:
+                _free(hit[1] if isinstance(hit[1], dict) else {"t": hit[1]})
+            hit = self._held[key] = (src, build())
+        return hit[1]
+
+    def _edges(self, es, edges, rows):
+        import ttnn
+        ei, attr, sh = edges
+        E = ei.shape[1]
+        if E == 0:
+            return None
+        a, b = self.ends[es]
+        extra = pad32(E) - E
+        pad = lambda t: torch.nn.functional.pad(t.float(), (0, 0, 0, extra))
+        return dict(
+            ei=torch.cat([ei, torch.tensor([[rows[a] - 1], [rows[b] - 1]]).expand(2, extra)], 1),
+            attr=to_device(self.device, pad(attr)), sh=to_device(self.device, pad(sh)),
+            mask=ttnn.from_torch(pad(torch.ones(E, 1)), dtype=ttnn.float32,
+                                 layout=ttnn.TILE_LAYOUT, device=self.device))
+
+    def _conv(self, i, out, src, e, flip):
+        import ttnn
+        mod = self.mods[i]
+        if e is None:
+            return ttnn.zeros((int(out.shape[0]), mod.dev.out_pad), dtype=ttnn.float32,
+                              layout=ttnn.TILE_LAYOUT, device=self.device)
+        ei = torch.flip(e["ei"], dims=[0]) if flip else e["ei"]
+        g = mod._graph(ei, int(out.shape[0]), int(src.shape[0]))
+        return mod.dev(src, g, [e["attr"]], e["sh"], e["mask"], ns=self.model.ns, out_attr=out)
+
+    @staticmethod
+    def _combine(x, updates):
+        import ttnn
+        width = int(updates[0].shape[-1])
+        if int(x.shape[-1]) < width:
+            x = ttnn.pad(x, [(0, 0), (0, width - int(x.shape[-1]))], value=0.0)
+        for u in updates:
+            x = ttnn.add(x, u)
+        return x
+
+    def __call__(self, g: dict) -> Tensor:
+        """Final ligand features ``[n_lig, width]`` on the host for one pose's graph *g*
+        (:meth:`ConfidenceModel.ligand_side`)."""
+        import time
+        import ttnn
+        from tt_bio.diffdock.graph import pad_count
+        t0 = time.perf_counter()
+        rows = {s: pad_count(x.shape[0]) for s, x in g["nodes"].items()}
+        nodes = {s: self._keep(("node", s), x, lambda x=x, s=s: to_device(
+                     self.device, torch.nn.functional.pad(x, (0, 0, 0, rows[s] - x.shape[0]))))
+                 for s, x in g["nodes"].items()}
+        edges = {es: self._keep(("edge", es), e[1], lambda es=es, e=e: self._edges(es, e, rows))
+                 for es, e in g["edges"].items()}
+        lig = self.model.convolve(nodes, edges, conv=self._conv, combine=self._combine)
+        n_lig = g["nodes"]["lig"].shape[0]
+        width = self.mods[-1].layer.out_irreps.dim
+        out = ttnn.to_torch(lig)[:n_lig, :width].to(g["nodes"]["lig"].dtype)
+        self.mods[0].secs += time.perf_counter() - t0
+        return out

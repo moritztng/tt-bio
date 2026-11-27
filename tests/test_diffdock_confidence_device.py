@@ -50,18 +50,24 @@ def _order(a) -> list[int]:
     return np.argsort(-np.asarray(a, np.float64)[:, 0], kind="stable").tolist()
 
 
-def score_golden(model, d: Path) -> np.ndarray:
-    """``[N, 2]`` for every pose of one captured set, on upstream's own graph tensors."""
+def score_golden(model, d: Path, convolve=None) -> np.ndarray:
+    """``[N, 2]`` for every pose of one captured set, on upstream's own graph tensors.
+
+    *convolve* is the executor :meth:`ConfidenceModel.convolve` runs under (host by default).
+    """
     inp = {k: torch.from_numpy(v) for k, v in np.load(d / "confidence_inputs.npz").items()}
     poses = np.load(d / "poses.npz")
     lig_pos = torch.from_numpy(poses["pos"] - poses["center"]).float()
+    convolve = convolve or (lambda g: model.convolve(g["nodes"], g["edges"]))
     with torch.no_grad():
+        rec = model.receptor_side(inp["rec_x"].float(), inp["rec_pos"].float(),
+                                  inp["rec_edge_index"].long(), inp["atom_x"].float(),
+                                  inp["atom_pos"].float(), inp["atom_edge_index"].long(),
+                                  inp["atom_rec_edge_index"].long())
         return torch.cat([
-            model(inp["lig_x"].float(), pose, inp["bond_index"].long(),
-                  inp["bond_attr"].float(), inp["rec_x"].float(), inp["rec_pos"].float(),
-                  inp["rec_edge_index"].long(), inp["atom_x"].float(),
-                  inp["atom_pos"].float(), inp["atom_edge_index"].long(),
-                  inp["atom_rec_edge_index"].long())
+            model.head(convolve(model.ligand_side(rec, inp["lig_x"].float(), pose,
+                                                  inp["bond_index"].long(),
+                                                  inp["bond_attr"].float())))
             for pose in lig_pos]).double().numpy()
 
 
@@ -86,18 +92,29 @@ def test_convs_on_device_swaps_all_45_confidence_convolutions(monkeypatch):
 
 
 def test_device_score_network_puts_the_confidence_convolutions_on_the_card(monkeypatch):
-    """`tt-bio dock --device tt` reaches the card confidence path through `DeviceScoreNetwork`."""
+    """`tt-bio dock --device tt` reaches the card confidence path through `DeviceScoreNetwork`:
+    the convolutions are swapped and the ranking pass hands `DeviceConfidence` to the host
+    pass as its executor."""
     from tt_bio.diffdock import device
 
-    calls = []
+    calls, passed = [], []
     monkeypatch.setattr(device, "convs_on_device",
                         lambda model, dev, **k: calls.append((model, dev)) or {})
-    host = type("Host", (), dict(model="score", config="cfg", confidence_model="conf"))()
-    net = device.DeviceScoreNetwork(host, "a-card")
+    monkeypatch.setattr(device, "DeviceConfidence", lambda model, convs: ("card", model))
+
+    class Host:
+        model, config, confidence_model = "score", "cfg", "conf"
+
+        def confidence(self, graph, poses, *, convolve=None):
+            passed.append(convolve)
+
+    net = device.DeviceScoreNetwork(Host(), "a-card")
     assert calls == [("score", "a-card"), ("conf", "a-card")]
-    assert net.confidence.__func__ is device.DeviceScoreNetwork.confidence
+    net.confidence("graph", "poses")
+    assert passed == [("card", "conf")]
 
     calls.clear()
+    host = Host()
     host.confidence_model = None                       # --no_confidence
     device.DeviceScoreNetwork(host, "a-card")
     assert calls == [("score", "a-card")]
@@ -107,16 +124,16 @@ def test_device_score_network_puts_the_confidence_convolutions_on_the_card(monke
 
 @pytest.mark.device
 def test_device_confidence_ranks_every_golden_pose_set_like_upstream():
-    from tt_bio.diffdock.device import convs_on_device
+    from tt_bio.diffdock.device import CONFIDENCE_GRAPHS, DeviceConfidence, convs_on_device
     from tt_bio.main import ensure_p300_mesh_descriptor
     from tt_bio.tenstorrent import get_device
 
     sets = _golden_sets()
     model = _released()
     ensure_p300_mesh_descriptor()
-    convs_on_device(model, get_device())
+    card = DeviceConfidence(model, convs_on_device(model, get_device(), graphs=CONFIDENCE_GRAPHS))
     for d in sets:
-        got = score_golden(model, d)
+        got = score_golden(model, d, convolve=card)
         rebuild = np.load(d / "confidence.npz")["confidence_raw"]
         rollout = np.load(d / "poses.npz")["confidence_raw"]
         assert _order(got) == _order(rebuild), f"{d.name}: ranking differs from upstream"
