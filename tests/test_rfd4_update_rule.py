@@ -13,8 +13,7 @@ import pytest
 from tt_bio.train.optim import Muon
 from tt_bio.train.rfd4_objective import MUON_EXCLUDE, UPDATE_RULE, update_rule
 
-FX = json.loads((Path(__file__).parents[1] / "tt_bio/train/fixtures/"
-                 "rfd4_upstream_optimizer_split.json").read_text())
+FX = json.loads((Path(__file__).parent / "fixtures/rfd4_upstream_optimizer_split.json").read_text())
 
 
 def upstream_name(n):
