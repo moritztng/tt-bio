@@ -2355,8 +2355,10 @@ def dock(data, ligand, name, out_dir, model, config, loglevel, cache, device_ids
         cards = _local_cards(device_ids, len(jobs))
         if len(cards) > 1:
             controller = click.get_current_context().with_resource(_local_controller(cards))
-        elif device_ids and cards:
+            options = _dock_on_card(options, model)
+        elif cards:
             _pin_one_card(str(cards[0]), model)
+            options = _dock_on_card(options, model)
     if owner and not controller:
         raise click.UsageError("--owner is a fairness key for --controller; pass both.")
 
@@ -2374,6 +2376,23 @@ def dock(data, ligand, name, out_dir, model, config, loglevel, cache, device_ids
     click.echo(json.dumps({"docked": [d["name"] for d in summary["docked"]],
                            "failed": [f[0] for f in summary["failed"]],
                            "out_dir": summary["out_dir"]}, indent=2))
+
+
+def _dock_on_card(options, model: str):
+    """``options`` with the score network on the card this run already picked.
+
+    `dock` detects the host's cards and pins one, but the options it built still said ``cpu``,
+    so `tt-bio dock` ran on the CPU on a machine full of chips while only the grade harnesses
+    reached a card (D-dfd-orch-73). The card path is the same network through the same two
+    members (`tt_bio.diffdock.network`), so this is the one line that chooses it, not a second
+    code path. A host-only model keeps ``cpu``; so does a run with no card, which never gets
+    here. The choice rides in ``options`` and therefore reaches a controller's workers too.
+    """
+    from dataclasses import replace
+
+    if model != "diffdock":
+        return options
+    return replace(options, device="tt")
 
 
 def _echo_note(msg: str) -> None:
