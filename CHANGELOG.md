@@ -5,6 +5,8 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+## [0.46.0] - 2026-11-27
+
 ### Added
 - **`tt-bio dock --model diffdock` places a ligand in a receptor and ranks the poses.** DiffDock-L, end to end:
   upstream's four-column CSV or a tt-bio job YAML in, upstream's `rank1.sdf` / `rank1_confidence-0.42.sdf` layout
