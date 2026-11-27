@@ -19,7 +19,7 @@ for c in "$C0" "$C1" "$C2" "$C3"; do
   fi
 done
 
-export PYTHONPATH="$WT" OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 R4T_REBUILD_INLINE=1 TT_BIO_SDPA_OWN_FORWARD=1 TT_METAL_WATCHER=0
+export PYTHONPATH="$WT" PYTHONUNBUFFERED=1 OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 R4T_REBUILD_INLINE=1 TT_BIO_SDPA_OWN_FORWARD=1 TT_METAL_WATCHER=0
 export TT_BIO_SHA="$(git rev-parse --short=9 HEAD)"
 unset TT_BIO_LEVERS TT_BIO_TAPED_KERNELS
 echo "START $(date -u +%FT%TZ) host=$(hostname) sha=$TT_BIO_SHA chips=$C0,$C1,$C2,$C3 load=$(cut -d' ' -f1 /proc/loadavg)" > "$O/run.log"
@@ -50,9 +50,9 @@ BASE_ENV="TT_BIO_DW_2D=0 TT_BIO_MMVJP_MIN=0 TT_BIO_SPLIT_K_OUT_TILES=32 TT_BIO_S
 ) &
 P3=$!
 
-# Lane 2 (chip C2, +25s stagger): B1 9-batch D37 loss-parity + inference A/A + broken arm + trunk_step --break-win-pre
+# Lane 2 (chip C2, +6s stagger): B1 9-batch D37 loss-parity + inference A/A + broken arm + trunk_step --break-win-pre
 (
-  sleep 25
+  sleep 6
   export TT_VISIBLE_DEVICES="$C2" TT_BIO_LEASE_CARDS="$C2" TT_BIO_LEASE_HOLDER="worker:r4t-bwd"
   B9=$(ls "$BATCH_DIR"/batch0?.npz | paste -sd,)
   timeout 480 "$PY" "$WT/perf/r4t_bwd/grade_b1.py" --batches "$B9" --out "$O/grade_b1.json" > "$O/grade_b1.log" 2>&1
@@ -66,9 +66,9 @@ P3=$!
 ) &
 P2=$!
 
-# Lane 0 (chip C0, +50s stagger): B2 DW_2D + split-K grade, L4+DW_2D grade, RMSNorm gradcheck (+ broken arms)
+# Lane 0 (chip C0, +12s stagger): B2 DW_2D + split-K grade, L4+DW_2D grade, RMSNorm gradcheck (+ broken arms)
 (
-  sleep 50
+  sleep 12
   export TT_VISIBLE_DEVICES="$C0" TT_BIO_LEASE_CARDS="$C0" TT_BIO_LEASE_HOLDER="worker:r4t-bwd"
   timeout 240 "$PY" "$WT/perf/r4t_bwd/dw2d_grade.py" --out "$O/dw2d_gc.json" --reps 6 > "$O/dw2d_gc.log" 2>&1
   echo "L0 RC_dw2d_gc $? $(date -u +%T)" >> "$O/run.log"
@@ -85,9 +85,9 @@ P2=$!
 ) &
 P0=$!
 
-# Lane 1 (chip C1, +75s stagger): TrunkBlock (default-on + broken), PairUpdate (fp32 + default-on + off + broken)
+# Lane 1 (chip C1, +18s stagger): TrunkBlock (default-on + broken), PairUpdate (fp32 + default-on + off + broken)
 (
-  sleep 75
+  sleep 18
   export TT_VISIBLE_DEVICES="$C1" TT_BIO_LEASE_CARDS="$C1" TT_BIO_LEASE_HOLDER="worker:r4t-bwd"
   timeout 240 "$PY" "$WT/perf/r4t_tape/block_gradcheck.py" --module trunk_block --n 64 --real 48 --probe 2 --seed 7 --arm bf16 --attn-fp32 \
     --out "$O/tb_on.json" > "$O/tb_on.log" 2>&1

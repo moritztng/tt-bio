@@ -171,3 +171,40 @@ def test_dw_2d_config_fills_grid_on_p300c_and_galaxy():
             delattr(ttnn, "MatmulMultiCoreReuseMultiCastProgramConfig")
         else:
             ttnn.MatmulMultiCoreReuseMultiCastProgramConfig = saved
+
+
+def test_recycle_bfp8_typecast_only_when_taping(monkeypatch):
+    """Grad-off serving inference must not insert an extra typecast on pair_bfp8z recycle."""
+    import ttnn
+    from tt_bio import ops
+    from tt_bio.rfd4 import trunk as TR
+
+    casts = []
+
+    class FakeT:
+        def __init__(self, dtype):
+            self.dtype = dtype
+
+    monkeypatch.setattr(ttnn, "typecast", lambda t, dt: (casts.append(dt), FakeT(dt))[1])
+    monkeypatch.setattr(ttnn, "deallocate", lambda _t: None)
+    monkeypatch.setattr(ttnn, "add", lambda a, b, **kw: FakeT(kw.get("dtype", a.dtype)))
+    monkeypatch.setattr(TR, "_rms", lambda x, w, ckc: FakeT(ttnn.bfloat16))
+    monkeypatch.setattr(TR, "_as", lambda x, dt: FakeT(dt))
+    monkeypatch.setattr(TR, "lever", lambda _name: False)
+
+    t = object.__new__(TR.Trunk)
+    t.dtype = ttnn.bfloat16
+    t.compute_kernel_config = None
+    t._lin = lambda x, w, dtype=None: FakeT(dtype or ttnn.bfloat16)
+
+    prev_bfp8 = FakeT(ttnn.bfloat8_b)
+    init_bfp8 = FakeT(ttnn.bfloat8_b)
+
+    monkeypatch.setattr(ops, "taping", lambda: False)
+    t._recycle(init_bfp8, prev_bfp8, None, None, ttnn.bfloat8_b)
+    assert casts == [], f"grad-off serving must not typecast bfp8 prev, got {casts}"
+
+    monkeypatch.setattr(ops, "taping", lambda: True)
+    t._recycle(init_bfp8, prev_bfp8, None, None, ttnn.float32)
+    assert casts == [ttnn.bfloat16], f"taped training must upcast bfp8 prev, got {casts}"
+

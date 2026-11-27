@@ -1377,7 +1377,7 @@ def _split_k(a, b, kw):
     mc = kw.get("memory_config")
     if mc is not None and mc != out.memory_config():
         out = ttnn.to_memory_config(out, mc)
-    SPLIT_K_STATS["served"] += 1
+    SPLIT_K_STATS["served"] = SPLIT_K_STATS.get("served", 0) + 1
     return out
 
 

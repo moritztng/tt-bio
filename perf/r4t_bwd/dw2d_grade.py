@@ -112,7 +112,7 @@ def main():
                          speedup=round(t_stk / t_2d, 2), rel_stk=r_stk, rel_fast=r_2d,
                          omc_stk=c_stk, omc_fast=c_2d, ok=ok))
 
-    ag.SPLIT_K_STATS.clear()
+    ag.SPLIT_K_STATS["served"] = 0
     ragged_rows = []
     for M, N in RAGGED_SHAPES:
         g = torch.Generator().manual_seed(201 + M + N)

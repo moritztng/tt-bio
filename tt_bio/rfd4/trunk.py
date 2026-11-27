@@ -942,7 +942,7 @@ class Trunk(Module):
     def _recycle(self, init, prev, norm_w, proj_w, res_dtype, low=None):
         """init + proj(norm(prev)) in `res_dtype`. With `low` (a float32 stream) it returns `(out, out in low)`
         from one residual write, the copy the next pass's pair bias reads, instead of an add and a cast."""
-        pv = ttnn.typecast(prev, self.dtype) if prev.dtype == ttnn.bfloat8_b else prev
+        pv = ttnn.typecast(prev, self.dtype) if (ops.taping() and prev.dtype == ttnn.bfloat8_b) else prev
         h = _rms(pv, norm_w, self.compute_kernel_config)
         if pv is not prev:
             ttnn.deallocate(pv)
