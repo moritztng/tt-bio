@@ -183,3 +183,41 @@ def test_an_infinity_is_repaired_and_does_not_poison_the_repair_value():
     assert torch.isfinite(S._repair_nans(score, score, score)[0]).all()
     # 1 % of the mean magnitude over the finite entries, the infinity left out of it.
     assert abs(clean[1, 0].item() - 0.01 * (1 + 2 + 3 + 1 + 1) / 5) < 1e-6
+
+
+def test_step_inputs_and_drawn_noise_are_the_samplers_own():
+    """A device rollout uploads the step scalars and every z before the loop: same values.
+
+    The spy records what `sampling.sample` passes the network and draws per step; the tables
+    are built from a fresh RNG with the same seed, so equality means same generator, same order.
+    """
+    from tt_bio.diffdock.loop import draw_noise, step_inputs
+
+    cfg = S.SamplingConfig.from_recipe()
+    pos, bonds, mask, _ = chain_ligand()
+    n_poses, n_bonds = pos.shape[0], len(bonds)
+    scores = scripted_scores(cfg.steps, n_poses, n_bonds)
+    seen = []
+
+    def spy(step):
+        seen.append(step)
+        return scores[step.step]
+
+    noise = RecordingNoise(seed=11)
+    S.sample(spy, pos, cfg=cfg, bounds=BOUNDS, noise=noise, edge_index=torch.tensor(bonds),
+             mask_rotate=mask, crop_beyond_a=20.0)
+    table = coefficient_table(cfg, BOUNDS)
+    tr, rot, tor = draw_noise(S.Noise(seed=11), table, n_poses, n_bonds)
+    drawn = iter(noise.draws)
+    for t_idx, want in enumerate(step_inputs(cfg, BOUNDS, crop_beyond_a=20.0)):
+        got = seen[t_idx]
+        assert (got.step, got.t_tr, got.t_rot, got.t_tor, got.tr_sigma, got.rot_sigma,
+                got.tor_sigma, got.crop_cutoff) == (want.step, want.t_tr, want.t_rot, want.t_tor,
+                                                    want.tr_sigma, want.rot_sigma, want.tor_sigma,
+                                                    want.crop_cutoff)
+        if table.drawn[t_idx]:
+            assert torch.equal(tr[t_idx], next(drawn)) and torch.equal(rot[t_idx], next(drawn))
+            assert torch.equal(tor[t_idx], next(drawn).reshape(n_poses, n_bonds))
+        else:
+            assert not tr[t_idx].any() and not rot[t_idx].any() and not tor[t_idx].any()
+    assert len(seen) == cfg.steps and next(drawn, None) is None

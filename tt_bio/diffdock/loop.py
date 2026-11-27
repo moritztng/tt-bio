@@ -97,6 +97,47 @@ def coefficient_table(cfg: SamplingConfig, bounds: SigmaBounds,
                             torch.as_tensor(noise, dtype=dtype), tuple(drawn))
 
 
+def step_inputs(cfg: SamplingConfig, bounds: SigmaBounds, crop_beyond_a: float | None = None):
+    """The :class:`~tt_bio.diffdock.sampling.StepInput` of every step, poses left ``None``.
+
+    Exactly what `sampling.sample` hands the score network at each step -- the three t values,
+    the three sigmas and the crop radius -- evaluated before the loop, so a device rollout can
+    upload them once as tables and index them by the step number it was captured with.
+    """
+    from .sampling import StepInput
+    out = []
+    for t_idx, ts in enumerate(zip(*(s[:cfg.steps] for s in cfg.schedules(bounds)))):
+        t_tr, t_rot, t_tor = (float(t) for t in ts)
+        tr_sigma, rot_sigma, tor_sigma = bounds.sigmas(t_tr, t_rot, t_tor)
+        out.append(StepInput(
+            lig_pos=None, step=t_idx, t_tr=t_tr, t_rot=t_rot, t_tor=t_tor, tr_sigma=tr_sigma,
+            rot_sigma=rot_sigma, tor_sigma=tor_sigma,
+            crop_cutoff=None if crop_beyond_a is None else tr_sigma * 3 + crop_beyond_a))
+    return out
+
+
+def draw_noise(noise, table: CoefficientTable, n_poses: int, n_bonds: int):
+    """Every per-step draw `sampling.sample` makes, taken up front: ``(tr, rot, tor)``.
+
+    ``[steps, B, 3]``, ``[steps, B, 3]``, ``[steps, B, n_bonds]`` (``None`` without rotatable
+    bonds). Same generator, same order (tr, rot, then tor, per drawn step), so the values are
+    the sampler's own; a quiet step draws nothing and gets zeros, as it does there.
+    """
+    tr, rot, tor = [], [], []
+    for t_idx in range(table.steps):
+        if table.drawn[t_idx]:
+            tr.append(noise.normal(size=(n_poses, 3)))
+            rot.append(noise.normal(size=(n_poses, 3)))
+            if n_bonds:
+                tor.append(noise.normal(size=(n_poses * n_bonds,)).reshape(n_poses, n_bonds))
+        else:
+            tr.append(torch.zeros(n_poses, 3))
+            rot.append(torch.zeros(n_poses, 3))
+            if n_bonds:
+                tor.append(torch.zeros(n_poses, n_bonds))
+    return torch.stack(tr), torch.stack(rot), torch.stack(tor) if n_bonds else None
+
+
 def apply_torsions(pos: Tensor, bonds, mask_rotate: Tensor, updates: Tensor) -> Tensor:
     """Sampling's `torsion_update_batch` with a select in place of the masked write.
 
