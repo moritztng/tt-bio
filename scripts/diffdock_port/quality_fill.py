@@ -25,6 +25,72 @@ ROW = CO / "state/dfd/rows/dfd-eval.json"
 PB = Path(os.environ.get("DFD_PB", Path.home() / "scratch/dfd/pb/posebusters_benchmark_set"))
 
 
+RESCOUNT = CO / "state/dfd/evidence/residue-counts.json"
+CAP = 3000
+
+
+def exclusions(per, failures: dict):
+    """Every complex that produced no pose, named with its reason and its receptor size.
+
+    Condition 4 of QUALITY.md wants `n_attempted` separate from `n_scored`; a denominator
+    that shrinks silently is the failure shape this row exists to catch. So the gap between
+    the two is itself enumerated: who, how big, and why, with the upstream side's answer for
+    the same complex beside it.
+    """
+    counts = {}
+    if RESCOUNT.exists():
+        counts = json.load(open(RESCOUNT)).get("per_complex", {})
+    ref = {r["id"]: r for r in json.load(open(REF))}
+    out = {}
+    for r in per:
+        i = r["id"]
+        if r.get("rmsd") and r["rmsd"] and r["rmsd"][0] is not None:
+            continue
+        n = counts.get(i)
+        over = isinstance(n, int) and n > CAP
+        up = ref.get(i, {})
+        reason = failures.get(i) or (
+            f"receptor over the {CAP}-residue cap ({n}), refused by upstream "
+            f"(process_mols.py:169) and by the port (receptor.py:205)" if over else None)
+        out[i] = {
+            "residues": n,
+            "over_residue_cap": over,
+            "reason": reason,
+            # A complex the port REFUSED, with the refusal on record, is an envelope result.
+            # A complex with no pose and no reason is an unexplained hole: it was never
+            # attempted, or it died somewhere that printed nothing. The two must not be
+            # summed, because only the first is a property of the model.
+            "status": "refused" if reason else "no_pose_no_reason",
+            "upstream_also_ungraded": not (up.get("rmsd") and up["rmsd"]
+                                           and up["rmsd"][0] is not None),
+        }
+    unexplained = sorted(k for k, v in out.items() if v["status"] == "no_pose_no_reason")
+    same = all(v["upstream_also_ungraded"] for v in out.values())
+    note = "These are counted, never dropped: n_attempted stays at the full set. "
+    if unexplained:
+        note += (f"WARNING: {len(unexplained)} complexes have no pose and no recorded reason. "
+                 "That is an unexplained denominator gap, not an envelope result: pass "
+                 "--failures (dock_failures.sh) so the refusals are on record, and check the "
+                 "pool is complete before reading any rate. ")
+    note += ("The same complexes are ungraded upstream, so both halves share one denominator "
+             "and the comparison is paired over the same set."
+             if same else
+             "WARNING: the two sides do NOT exclude the same complexes. Every id with "
+             "upstream_also_ungraded false is scored on one side only and the paired "
+             "comparison drops it; say so in EVAL.md before reading the verdict.")
+    return {
+        "n": len(out),
+        "n_refused_with_reason": len(out) - len(unexplained),
+        "n_no_pose_no_reason": len(unexplained),
+        "unexplained": unexplained[:20],
+        "cap": CAP,
+        "complexes": out,
+        "identical_to_upstream": same,
+        "note": note,
+        "evidence": str(RESCOUNT),
+    }
+
+
 def library_crosscheck(poses: Path, ids):
     """Grade the same poses through the library a user gets, as an independent reading.
 
@@ -64,6 +130,9 @@ def main():
     ap.add_argument("--acc", required=True)
     ap.add_argument("--poses", required=True)
     ap.add_argument("--no-crosscheck", action="store_true")
+    ap.add_argument("--failures", default=None,
+                    help="json map id -> reason, from dock_failures.sh; the per-complex refusal "
+                         "reasons live in the dock hosts' chunk logs, which are not pooled")
     ap.add_argument("--dry-run", action="store_true",
                     help="print the verdict block without writing QUALITY.json or the row")
     ap.add_argument("--min-attempted", type=int, default=428,
@@ -93,6 +162,8 @@ def main():
 
     pbs["n_attempted"] = len(ids)
     pbs["n_scored"] = summary["n_graded"]
+    fails = json.load(open(a.failures)) if a.failures and Path(a.failures).exists() else {}
+    pbs["exclusions"] = exclusions(per, fails)
     pbs["tt"] = {
         "top1_rmsd_lt2": summary["top1_success_lt2A"],
         "top1_ci95_wilson": summary["top1_success_ci95"],
