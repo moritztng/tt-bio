@@ -758,6 +758,7 @@ def main():
     state, config = N.load_checkpoint(E._resolve_weights(E.DEFAULT_WEIGHTS))
     cfg = config["nn"]
     glue = N.FlowGlue(state, config)
+    glue.requires_grad_(True)
 
     from tt_bio import autograd as ag
     ag.install()

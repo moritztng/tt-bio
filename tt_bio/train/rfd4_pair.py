@@ -513,6 +513,8 @@ class ResidentPairBuilder:
 
     def candidates(self, enc: EncodedPair, dtype=None) -> tuple[object, _PairStepCache]:
         """Build grad-off candidate ``z_init`` [K, n, n, c] on card and cache const state for winner."""
+        from .device_optim import _safe_dealloc
+
         with ag.no_grad():
             cfg = ag.precise_config()
             k, n, c = enc.k, enc.n, self.c
@@ -525,8 +527,7 @@ class ResidentPairBuilder:
             ttnn.deallocate(wc_h)
             ttnn.deallocate(wc_l)
             C = ttnn.reshape(C_flat, (b_c, n, n, c))
-            if C is not C_flat and C_flat.is_allocated():
-                ttnn.deallocate(C_flat)
+            _safe_dealloc(C_flat, keep=C)
 
             bins_tt = ttnn.from_torch(
                 enc.bins_step.reshape(1, k * nn2).contiguous(),
@@ -539,8 +540,7 @@ class ResidentPairBuilder:
 
             rows_flat = self._mm_f_wt(F_step_k, ws_h, ws_l, cfg)  # [1, k * nn2, c] fp32
             rows = ttnn.reshape(rows_flat, (k, n, n, c))
-            if rows is not rows_flat and rows_flat.is_allocated():
-                ttnn.deallocate(rows_flat)
+            _safe_dealloc(rows_flat, keep=rows)
 
             x = ttnn.add(rows, C)  # broadcasts C [1, n, n, c] over [k, n, n, c]
             ttnn.deallocate(rows)
@@ -569,7 +569,7 @@ class ResidentPairBuilder:
 
         Consumes and releases ``cache`` (reusing ``C``, ``F_const``, and ``F_step_k[win_idx]``).
         """
-        from .device_optim import _split2_bf16
+        from .device_optim import _safe_dealloc, _split2_bf16
 
         cfg = ag.precise_config()
         n, c = cache.n, self.c
@@ -581,7 +581,7 @@ class ResidentPairBuilder:
         with ag.no_grad():
             # Slice winner's F_step [1, nn2, step_w] and F_const [1, nn2, const_w] on card (tile-aligned: 65536 % 32 == 0).
             F_step_w = ttnn.slice(cache.F_step_k, [0, w * nn2, 0], [1, (w + 1) * nn2, self.step_w])
-            ttnn.deallocate(cache.F_step_k)
+            _safe_dealloc(cache.F_step_k, keep=F_step_w)
             cache.F_step_k = None
 
             if cache.dedup:
@@ -591,10 +591,10 @@ class ResidentPairBuilder:
                 cache.C = None
             else:
                 F_const_w = ttnn.slice(cache.F_const, [0, w * nn2, 0], [1, (w + 1) * nn2, self.const_w])
-                ttnn.deallocate(cache.F_const)
+                _safe_dealloc(cache.F_const, keep=F_const_w)
                 cache.F_const = None
                 C_w = ttnn.slice(cache.C, [w, 0, 0, 0], [w + 1, n, n, c])
-                ttnn.deallocate(cache.C)
+                _safe_dealloc(cache.C, keep=C_w)
                 cache.C = None
 
             rows_flat = self._mm_f_wt(F_step_w, cache.ws_h, cache.ws_l, cfg)
@@ -603,8 +603,7 @@ class ResidentPairBuilder:
             cache.ws_h = cache.ws_l = None
 
             rows_w = ttnn.reshape(rows_flat, (1, n, n, c))
-            if rows_w is not rows_flat and rows_flat.is_allocated():
-                ttnn.deallocate(rows_flat)
+            _safe_dealloc(rows_flat, keep=rows_w)
             x_w = ttnn.add(rows_w, C_w)
             ttnn.deallocate(rows_w)
             ttnn.deallocate(C_w)
@@ -695,16 +694,14 @@ class ResidentPairBuilder:
                     F_2d = ttnn.reshape(F_all, [nn2, k_pack])
                     dx_2d = ttnn.reshape(dx, [nn2, c])
                     dx_hi, dx_lo = _split2_bf16(dx_2d)
-                    if dx_2d is not dx and dx_2d.is_allocated():
-                        ttnn.deallocate(dx_2d)
+                    _safe_dealloc(dx_2d, keep=dx)
                     ttnn.deallocate(dx)
 
                     dw0 = ttnn.matmul(dx_hi, F_2d, transpose_a=True, dtype=ttnn.float32, compute_kernel_config=cfg)
                     dw1 = ttnn.matmul(dx_lo, F_2d, transpose_a=True, dtype=ttnn.float32, compute_kernel_config=cfg)
                     ttnn.deallocate(dx_hi)
                     ttnn.deallocate(dx_lo)
-                    if F_2d is not F_all and F_2d.is_allocated():
-                        ttnn.deallocate(F_2d)
+                    _safe_dealloc(F_2d, keep=F_all)
                     ttnn.deallocate(F_all)
                     dW_pack = ttnn.add(dw0, dw1)
                     ttnn.deallocate(dw0)
@@ -722,7 +719,7 @@ class ResidentPairBuilder:
                     ttnn.deallocate(u1)
                     if k_orig_pad != k_orig:
                         dW = ttnn.slice(dW_pad, [0, 0], [c, k_orig])
-                        ttnn.deallocate(dW_pad)
+                        _safe_dealloc(dW_pad, keep=dW)
                     else:
                         dW = dW_pad
                     Wl.add_grad(dW)
