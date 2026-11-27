@@ -1106,6 +1106,10 @@ class DeviceStep:
         ce = torch.stack([pose_of, torch.arange(sg.n_lig_padded)])
         self.center_conv = ResidentConv(convs["center_head.final_conv"], ce, self.P,
                                         sg.n_lig_padded)
+        # set to a dict by a grade to collect this step's intermediates; None in every
+        # production path, and a captured trace never sees it because capture runs the
+        # body with it unset
+        self.capture = None
         self.center_src = ttnn.from_torch(
             (ce[1] if head.fixed_center_conv else ce[0]).reshape(1, -1).to(torch.int32),
             dtype=ttnn.uint32, layout=ttnn.ROW_MAJOR_LAYOUT, device=device)
@@ -1178,7 +1182,12 @@ class DeviceStep:
             keep = rec_keep(self.masks.cross(*cvec, float(crop_cutoff)), self.P, sg.n_lig,
                             sg.n_rec, sg.n_rec_padded)
         rec_h, rec_eattr, rec_mask = self._receptor(sigma_row, keep)
+        tap = self.capture if self.capture is not None else None
+        if tap is not None:
+            tap['rec_h'], tap['rec_eattr'] = rec_h, rec_eattr
         lig_h, lig_eattr, lig_sh, lig_mask = self._ligand(lig_pos, sigma_row)
+        if tap is not None:
+            tap['lig_h_tower'], tap['lig_eattr'] = lig_h, lig_eattr
 
         cross_eattr, cross_sh, rev_sh = self.towers.cross(cvec, sigma_row)
         cross_m = ttnn.multiply(self.masks.cross(*cvec, float(cutoff)),
@@ -1192,12 +1201,16 @@ class DeviceStep:
         em = self.main.assemble(dev, [lig_mask, cross_m, rec_mask, cross_m], 1)
         node = self.main(node, ea, esh, em, self.ns)
         lig_h = ttnn.slice(node, [0, 0], [sg.n_lig_padded, node.shape[1]])
+        if tap is not None:
+            tap['node_main'], tap['lig_h_main'] = node, lig_h
 
         head = self.model.center_head
         valid = self.lig_valid
         head_vec = self.center.vectors(lig_pos, valid)
         cattr = self.center.attributes(head_vec, lig_h, self.ns, sigma_row, self.center_src)
         hsh = harmonics(*head_vec, ls=tuple(head.sh_ls))
+        if tap is not None:
+            tap['cattr'], tap['head_vec0'] = cattr, head_vec[0]
         # both heads hand the convolution a COMPLETE edge input: `CenterHead.attributes` has
         # already concatenated `lig_h[src, :ns]` and the torsion head its node and bond blocks,
         # exactly as `static_net` builds them for `final_conv`. So no `ns` here: the split first
