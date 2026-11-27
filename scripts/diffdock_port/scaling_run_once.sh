@@ -62,6 +62,10 @@ print(round(os.cpu_count()*(1-(b[1]-a[1])/(b[0]-a[0])),2))'
 unbook() { [ -f $BOOK ] && python3 $BOOK rm $OWNER >/dev/null 2>&1; }
 trap unbook EXIT
 
+# A loaded box cannot give a point (below), so do not take three chips from other work to find out.
+ext=$(busy_cores)
+python3 -c "import sys; sys.exit(not $ext > $MAXEXT)" && { echo "$(date -u +%FT%TZ) box busy ($ext cores), not taking chips" >> $OUT/run.log; exit 0; }
+
 # Take the per-chip flock FIRST -- it is what stops SPD's feeder starting a new cell there -- then
 # let whatever runs now drain. Checking free() before the lock loses every race (19:12Z).
 exec 6>/home/ttuser/spd_qb2_chip0.lock; flock -w ${DFD_W0:-600} 6 || exec 6>&-
