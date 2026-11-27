@@ -7,7 +7,7 @@
 # one torch thread per worker at every K (D-dfd-orch-64/66). Results go to $OUT/gemm, apart from
 # the composite-form runs of 11-26.
 #
-# Chips 0 (this row's grant), then 1 and 2 when free. Chip 3 is clock-guarded and never taken.
+# Chips $DFD_CHIPS (default 1 2; chip 0 is dfd-perf's booking), each when free. Chip 3 is clock-guarded and never taken.
 # A chip counts as free only with no cardblock, no live lease holder, no open fd AND no booking
 # on the box arbiter (~/spd/feed/book.py) other than this row's own: r4t-perf's chip-1 window was
 # booked there and nowhere else (note-r4t-perf-to-dfd-scaling, 19:17Z). At least two chips or
@@ -49,7 +49,7 @@ sys.exit(0)
 P
   ! fuser -s /dev/tenstorrent/$1 2>/dev/null
 }
-MAXEXT=${DFD_MAX_EXT:-2}           # external busy cores above which a point is an artifact
+CHIPS=${DFD_CHIPS:-"1 2"}          # chip 0 is dfd-perf's booking (note-dfd-perf-to-dfd-scaling)
 busy_cores() {   # box-wide busy cores over 10 s, from /proc/stat
   python3 -c '
 import os,time
@@ -62,19 +62,16 @@ print(round(os.cpu_count()*(1-(b[1]-a[1])/(b[0]-a[0])),2))'
 unbook() { [ -f $BOOK ] && python3 $BOOK rm $OWNER >/dev/null 2>&1; }
 trap unbook EXIT
 
-# A loaded box cannot give a point (below), so do not take three chips from other work to find out.
-ext=$(busy_cores)
-python3 -c "import sys; sys.exit(not $ext > $MAXEXT)" && { echo "$(date -u +%FT%TZ) box busy ($ext cores), not taking chips" >> $OUT/run.log; exit 0; }
-
+# Box load is recorded, not gated (D-dfd-orch-78): the device step is card-bound (card busy 96-97 %,
+# AICLK 1350 under 14 external cores), so a neighbour cannot make it faster. Every point carries
+# external_cpu_cores; the host tail H is taken from dfd-perf's shipped-command run, never from here.
 # Take the per-chip flock FIRST -- it is what stops SPD's feeder starting a new cell there -- then
 # let whatever runs now drain. Checking free() before the lock loses every race (19:12Z).
-exec 6>/home/ttuser/spd_qb2_chip0.lock; flock -w ${DFD_W0:-600} 6 || exec 6>&-
-exec 7>/home/ttuser/spd_qb2_chip1.lock; flock -w ${DFD_W1:-300} 7 || exec 7>&-
-exec 8>/home/ttuser/spd_qb2_chip2.lock; flock -w ${DFD_W2:-120} 8 || exec 8>&-
 held=""
-for pair in "0 6" "1 7" "2 8"; do
-  set -- $pair
-  flock -n $2 2>/dev/null && held="$held $1"
+for c in $CHIPS; do
+  fd=$((6+c))
+  eval "exec $fd>/home/ttuser/spd_qb2_chip$c.lock"
+  if flock -w ${DFD_LOCKWAIT:-300} $fd; then held="$held $c"; else eval "exec $fd>&-"; fi
 done
 echo "=== $(date -u +%FT%TZ) locks held:$held" >> $OUT/run.log
 
@@ -106,12 +103,7 @@ for name in smoke k1_r1 k2_r1 k3_r1 k1_r2 k2_r2 k3_r2 k1_r3 k2_r3 k3_r3; do
   [ $(date +%s) -ge $stop ] && break
   free_now=1; for c in $avail; do free $c || free_now=0; done
   [ $free_now -eq 1 ] || { echo "a held chip went busy, stopping" >> $OUT/run.log; break; }
-  # A host-bound run on a loaded box measures the other load (11-27 05:08Z: 14.3 of 16 cores
-  # external, 4.9 CPU-s/step against 1.89). Nothing of ours runs yet, so all of it is external.
-  ext=$(busy_cores)
-  if [ "$name" != smoke ] && python3 -c "import sys; sys.exit(not $ext > $MAXEXT)"; then
-    echo "box busy ($ext cores > $MAXEXT), stopping before $name" >> $OUT/run.log; break
-  fi
+  echo "box load before $name: $(busy_cores) busy cores (annotation only)" >> $OUT/run.log
   sub=$(echo $avail | tr " " "\n" | head -$k | paste -sd,)
   steps=$STEPS; [ "$name" = smoke ] && steps=3
   echo "-- $name chips $sub steps $steps $(date -u +%FT%TZ)" >> $OUT/run.log
@@ -124,17 +116,7 @@ for name in smoke k1_r1 k2_r1 k3_r1 k1_r2 k2_r2 k3_r2 k1_r3 k2_r3 k3_r3; do
     for c in $(echo $sub | tr , " "); do /home/ttuser/.local/bin/tt-smi -r $c >> $OUT/run.log 2>&1; done
     break
   fi
-  # Never bank a contended point: the loop skips any JSON that exists, so it would stand for good.
-  if [ "$name" != smoke ] && [ -s $OUT/$name.json ] && python3 - $OUT/$name.json $MAXEXT <<'P'
-import json,sys
-e=json.load(open(sys.argv[1])).get("external_cpu_cores")
-sys.exit(not (e is None or e > float(sys.argv[2])))
-P
-  then
-    mv $OUT/$name.json $OUT/$name.contended-$(date -u +%H%MZ).json
-    echo "-- $name contended, moved aside, stopping" >> $OUT/run.log; break
-  fi
   ran=$((ran+1))
 done
-[ -s $OUT/k1_r3.json ] && [ -s $OUT/k2_r3.json ] && touch $OUT/DONE
+[ -s $OUT/k1_r3.json ] && [ -s $OUT/k2_r3.json ] && touch $OUT/DONE   # K=3: DFD_CHIPS="0 1 2"
 echo "invocation done, ran $ran $(date -u +%FT%TZ)" >> $OUT/run.log
