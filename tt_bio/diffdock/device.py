@@ -182,6 +182,32 @@ def _pad2(t: Tensor, rows: int, cols: int) -> Tensor:
     return torch.nn.functional.pad(t, (0, cols - t.shape[1], 0, rows - t.shape[0]))
 
 
+def fc1_blocks(fc, ns: int, in_pad: int, plan=None):
+    """``(W1a, W1s, W1d, b1)`` in float64 with ``cat([ea, x[src, :ns], x[dst, :ns]]) @ W1 + b =
+    ea @ W1a + x[src] @ W1s + x[dst] @ W1d + b1`` for zero-padded ``ea`` and node rows ``x`` of
+    width *in_pad*. With an edge-tile *plan*, the hidden width and bias are the kernel's (its
+    folded-bias lane included); otherwise ``pad32(hidden)`` and the FC bias.
+    """
+    f64 = torch.float64
+    W = fc[0].weight.detach().to(f64).T                 # [F, hidden]
+    F, hidden = W.shape
+    a = F - 2 * ns
+    if a <= 0:
+        raise ValueError(f"edge features {F} cannot hold two node blocks of {ns}")
+    hp = plan.hidden_pad if plan is not None else pad32(hidden)
+    b1 = torch.zeros(hp, dtype=f64)
+    if plan is not None:
+        b1[:] = plan.b1
+    else:
+        b1[:hidden] = fc[0].bias.detach().to(f64)
+    blocks = []
+    for rows, lo, hi in ((pad32(a), 0, a), (in_pad, a, a + ns), (in_pad, a + ns, F)):
+        w = torch.zeros(rows, hp, dtype=f64)
+        w[:hi - lo, :hidden] = W[lo:hi]
+        blocks.append(w)
+    return (*blocks, b1.reshape(1, -1))
+
+
 def to_device(device, x: Tensor, dtype=None):
     """``[E, n]`` host block -> ``[E, pad32(n)]`` TILE tensor on *device*."""
     import ttnn
@@ -279,34 +305,14 @@ class DeviceConvLayer:
         ``W1s``/``W1d`` take the whole padded node row and are zero past ``ns``. The bias is the
         edge TP's own.
         """
-        if ns in self._split:
-            return self._split[ns]
-        ttnn, f64 = self.ttnn, torch.float64
-        in_pad = pad32(self.in_dim)
-        up = lambda t: ttnn.from_torch(t.float(), dtype=self.dtype, layout=ttnn.TILE_LAYOUT,
-                                       device=self.device)
-        out = []
-        for fc, tp in zip(self.fcs, self.tps):
-            W = fc[0].weight.detach().to(f64).T                 # [F, hidden]
-            F, hidden = W.shape
-            a = F - 2 * ns
-            if a <= 0:
-                raise ValueError(f"edge features {F} cannot hold two node blocks of {ns}")
-            plan = getattr(tp, "plan", None)
-            hp = plan.hidden_pad if plan is not None else pad32(hidden)
-            b1 = torch.zeros(hp, dtype=f64)
-            if plan is not None:
-                b1[:] = plan.b1
-            else:
-                b1[:hidden] = fc[0].bias.detach().to(f64)
-            blocks = []
-            for rows, lo, hi in ((pad32(a), 0, a), (in_pad, a, a + ns), (in_pad, a + ns, F)):
-                w = torch.zeros(rows, hp, dtype=f64)
-                w[:hi - lo, :hidden] = W[lo:hi]
-                blocks.append(up(w))
-            out.append((*blocks, up(b1.reshape(1, -1))))
-        self._split[ns] = out
-        return out
+        if ns not in self._split:
+            up = lambda t: self.ttnn.from_torch(t.float(), dtype=self.dtype,
+                                                layout=self.ttnn.TILE_LAYOUT, device=self.device)
+            self._split[ns] = [
+                tuple(up(t) for t in fc1_blocks(fc, ns, pad32(self.in_dim),
+                                                getattr(tp, "plan", None)))
+                for fc, tp in zip(self.fcs, self.tps)]
+        return self._split[ns]
 
     def _group_index(self, g, sizes):
         """Per edge group ``(src, dst)`` uint32 gather indices, uploaded once per graph."""
