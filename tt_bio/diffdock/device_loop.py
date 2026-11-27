@@ -144,76 +144,33 @@ def rotate(cols, m):
     return row(m[0], m[1], m[2]), row(m[3], m[4], m[5]), row(m[6], m[7], m[8])
 
 
-def guard(cols):
+def guard(cols, big: float = 1e30):
     """:func:`tt_bio.diffdock.sampling.guard_scores`'s repair, over a head's ``[B, 1]`` columns.
 
-    A non-finite entry becomes ``0.01 * mean|finite entries| * sign``, and the whole repair is a
-    ``where``, so nothing branches on a device value. The head's columns share one eps, as the
-    host's whole-tensor reduction does.
+    A non-finite entry becomes ``0.01 * mean|finite entries| * sign``, the head's columns sharing
+    one eps as the host's whole-tensor reduction does.
+
+    **Not built on `ttnn.where`.** Measured on a card (`scripts/diffdock_port/nan_probe.py`):
+    `where` evaluates both lanes, so a NaN -- or an inf, through ``inf * 0`` -- in the lane not
+    taken still reaches the output, and the whole repair came back NaN. Two ops do the job:
+    `ttnn.clamp` maps NaN to its max and each infinity to the matching bound, and `ttnn.sign`
+    already returns +1 for NaN and +-1 for +-inf, which is exactly the host's
+    ``nan_to_num(nan=1, posinf=1, neginf=-1)``. After the clamp every value is finite, so the
+    select is arithmetic (``m * x + (1 - m) * repair``) and multiplying by zero is safe.
     """
     import ttnn
-    finite = [ttnn.isfinite(c) for c in cols]
-    zero = ttnn.multiply(cols[0], 0.0)
-    total = None
-    count = None
-    for c, f in zip(cols, finite):
-        mag = ttnn.where(f, ttnn.abs(c), zero)
+    finite = [ttnn.typecast(ttnn.isfinite(c), ttnn.float32) for c in cols]
+    safe = [ttnn.clamp(c, min=-big, max=big) for c in cols]
+    signs = [ttnn.sign(c) for c in cols]
+    total, count = None, None
+    for c, m in zip(safe, finite):
+        mag = ttnn.multiply(ttnn.abs(c), m)
         total = mag if total is None else ttnn.add(total, mag)
-        got = ttnn.where(f, ttnn.add(zero, 1.0), zero)
-        count = got if count is None else ttnn.add(count, got)
+        count = m if count is None else ttnn.add(count, m)
     eps = ttnn.multiply(ttnn.multiply(ttnn.sum(total), 0.01),
                         ttnn.reciprocal(ttnn.clamp(ttnn.sum(count), min=1.0)))
     out = []
-    for c, f in zip(cols, finite):
-        # host: sign(nan_to_num(c, nan=1, posinf=1, neginf=-1)) -- a -inf keeps its sign
-        sign = ttnn.sign(ttnn.where(ttnn.isnan(c), ttnn.add(zero, 1.0), c))
-        out.append(ttnn.where(f, c, ttnn.multiply(sign, eps)))
+    for c, m, sg in zip(safe, finite, signs):
+        repair = ttnn.multiply(ttnn.multiply(sg, eps), ttnn.add(ttnn.neg(m), 1.0))
+        out.append(ttnn.add(ttnn.multiply(c, m), repair))
     return out
-
-
-# ---------------------------------------------------------------------------
-# one tower's edge features, built on the card from the positions it already holds
-# ---------------------------------------------------------------------------
-
-def gather(table, idx, n: int):
-    """``table[idx]`` for a TILE ``[N, d]`` fp32 table, exactly.
-
-    :func:`tt_bio.diffdock.device.gather_rows` splits an fp32 table into three bf16 slices so
-    the copy loses nothing; positions are fp32 and a one-hot in bf16 would not be exact
-    (`WH.md`), so every gather in the loop goes through it.
-    """
-    from .device import gather_rows
-    return gather_rows(table, idx, n)
-
-
-class EdgeGeometry:
-    """Per-edge vector, distance, harmonics and radius mask for one fixed edge set.
-
-    The edge index never moves (the static graphs carry the step's changes in their masks), so
-    the two row-index tensors are uploaded once and only the positions change per step.
-    """
-
-    def __init__(self, device, src_idx, dst_idx, n_edges: int):
-        import ttnn
-        self.device, self.n = device, n_edges
-        self.src = ttnn.from_torch(src_idx.reshape(1, -1).to(torch.int32), dtype=ttnn.uint32,
-                                   layout=ttnn.ROW_MAJOR_LAYOUT, device=device)
-        self.dst = ttnn.from_torch(dst_idx.reshape(1, -1).to(torch.int32), dtype=ttnn.uint32,
-                                   layout=ttnn.ROW_MAJOR_LAYOUT, device=device)
-
-    def vectors(self, src_pos, dst_pos=None):
-        """``dst_pos[dst] - src_pos[src]`` as three ``[E, 1]`` columns.
-
-        *src_pos* and *dst_pos* are ``[N, 3]`` TILE tensors (one table when the edge set is
-        within a tower, two across the cross edges).
-        """
-        import ttnn
-        a = gather(src_pos, self.src, self.n)
-        b = gather(dst_pos if dst_pos is not None else src_pos, self.dst, self.n)
-        d = ttnn.subtract(b, a)
-        return [ttnn.slice(d, [0, k], [self.n, k + 1]) for k in range(3)]
-
-    def within(self, dist, cutoff):
-        """``(dist <= cutoff)`` as an fp32 ``[E, 1]`` mask, the host's ``<=``."""
-        import ttnn
-        return ttnn.typecast(ttnn.le(dist, cutoff), ttnn.float32)
