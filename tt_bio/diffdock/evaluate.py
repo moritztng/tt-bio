@@ -52,8 +52,11 @@ def symmetry_rmsd(ref, pred) -> tuple[float, bool]:
     prints "Using non corrected RMSD" and carries on, and the count is the honest version
     of that print.
     """
-    from spyrmsd import rmsd as sprmsd
-    from spyrmsd.molecule import Molecule
+    try:
+        from spyrmsd import rmsd as sprmsd
+        from spyrmsd.molecule import Molecule
+    except ImportError as e:
+        raise ImportError("pose grading needs spyrmsd: pip install 'tt-bio[eval]'") from e
 
     a, b = _heavy(ref), _heavy(pred)
     try:
@@ -199,7 +202,10 @@ def posebusters_validity(rows, config="redock", table_path=None) -> dict:
     counted twice.
     """
     import pandas as pd
-    from posebusters import PoseBusters
+    try:
+        from posebusters import PoseBusters
+    except ImportError as e:
+        raise ImportError("pose grading needs posebusters: pip install 'tt-bio[eval]'") from e
 
     df = PoseBusters(config=config).bust_table(pd.DataFrame(list(rows)))
     cols = [c for c in df.columns if df[c].dtype == bool]
