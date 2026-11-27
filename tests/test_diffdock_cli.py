@@ -398,7 +398,8 @@ def test_the_tile_form_keeps_the_torsion_head_on_gemm(monkeypatch):
 
     for edge_tp, want in (("gemm", ["gemm"] * 3), ("tile", ["tile", "tile", "gemm"])):
         made.clear()
-        host = type("H", (), {"model": model(), "config": None})()
+        host = type("H", (), {"model": model(), "config": None,
+                              "confidence_model": None})()
         device.DeviceScoreNetwork(host, "a-card", edge_tp=edge_tp)
         assert [made[k] for k in ("conv_layers.0", "conv_layers.1", "tor_bond_conv")] == want
 
