@@ -1,0 +1,7 @@
+== off vs on
+fails 0
+== off vs off2
+fails 0
+== off vs brk
+pu.tri_mult_out.linear_g.weight               off 2.135e-02 on 1.002e-01 ratio 4.692 cos 0.9997730 0.9997771 FAIL
+fails 1

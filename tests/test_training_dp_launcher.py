@@ -347,3 +347,116 @@ def test_the_optimizer_still_refuses_an_unreduced_wide_step(as_rank):
     opt.accum = {}
     with pytest.raises(UnreducedGradients, match="no per-chip gradients"):
         opt._reduce(None)
+
+
+def test_reduce_scatter_on_tensor_edges_matches_the_full_sum_and_all_gather_returns_any_slice(tmp_path):
+    """Tensor-aligned slices (a rank owns whole parameters) reduce to the same bits as the
+    full exchange, and all_gather hands every rank the same assembled vector of whatever each
+    rank put in its slice: the sharded optimizer's two halves."""
+    sizes = [5, 300, 7, 1000, 64, 3]
+    edges = L.shard_edges(sizes, 3)
+    assert edges[0] == 0 and edges[-1] == sum(sizes)
+    assert set(edges.tolist()) <= set(np.concatenate([[0], np.cumsum(sizes)]).tolist())
+    rng = np.random.default_rng(1)
+    grads = {r: rng.normal(0, 1, sum(sizes)).astype(np.float32) for r in range(3)}
+    full = np.zeros(sum(sizes), np.float32)
+    for r in range(3):
+        full += grads[r]
+    parts, gathered = {}, {}
+
+    def run(r):
+        ax = _axis(r, 3, tmp_path)
+        parts[r] = ax.reduce_scatter(grads[r], edges)
+        gathered[r] = ax.all_gather(parts[r] * 2)
+
+    ts = [threading.Thread(target=run, args=(r,)) for r in range(3)]
+    [t.start() for t in ts]
+    [t.join(timeout=60) for t in ts]
+    for r in range(3):
+        assert np.array_equal(parts[r], full[edges[r]:edges[r + 1]])
+        assert np.array_equal(gathered[r], full * 2)
+
+
+def test_a_blocked_reduce_scatter_adds_in_rank_order_across_block_edges(tmp_path, monkeypatch):
+    """Slices longer than one accumulation block, with ragged edges and a ragged last block,
+    still sum to the bits of the rank-order full sum. The values span eight decades so any
+    other add order shows up in the low bits."""
+    monkeypatch.setattr(L, "_RS_BLOCK", 64)
+    w, n = 4, 4 * 3 * 64 + 17
+    rng = np.random.default_rng(7)
+    grads = {r: (rng.normal(0, 1, n) * 10.0 ** rng.uniform(-4, 4, n)).astype(np.float32)
+             for r in range(w)}
+    full = np.zeros(n, np.float32)
+    for r in range(w):
+        full += grads[r]
+    got = {}
+
+    def run(r):
+        ax = _axis(r, w, tmp_path)
+        got[r] = ax.all_gather(ax.reduce_scatter(grads[r]))
+
+    ts = [threading.Thread(target=run, args=(r,)) for r in range(w)]
+    [t.start() for t in ts]
+    [t.join(timeout=60) for t in ts]
+    for r in range(w):
+        assert np.array_equal(got[r], full), f"rank {r} differs from the rank-order sum"
+
+
+def test_shard_edges_with_fewer_tensors_than_ranks_leaves_ranks_empty_not_negative():
+    e = L.shard_edges([10], 4)
+    assert e[0] == 0 and e[-1] == 10 and (np.diff(e) >= 0).all()
+    assert sorted(np.diff(e).tolist()) == [0, 0, 0, 10]
+
+
+def _slot_rounds(tmp_path, monkeypatch, held):
+    """Three ranks, rank 2 slow to read, through every exchange shape the trainer uses:
+    reduce_scatter + all_gather, a nested small exchange between them (the sharded optimizer's
+    clip norm), and back-to-back gathers of one shape (its checkpoint). Returns mismatches."""
+    Path(tmp_path).mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr(L.ProcessAxis, "_SLOTS_HELD", held)
+    real = L.ProcessAxis._await
+
+    def slow(self, d, step, kind):
+        want = real(self, d, step, kind)
+        if self.dp_rank == 2:
+            import time
+            time.sleep(0.05)
+        return want
+    monkeypatch.setattr(L.ProcessAxis, "_await", slow)
+    n, w, bad = 4096, 3, []
+    edges = L.shard_edges([1000, 96, 3000], w)
+
+    def g(r, k):
+        return np.full(n, 100.0 * k + r, np.float32)
+
+    def run(r):
+        ax = _axis(r, w, tmp_path)
+        try:
+            for k in range(4):
+                part = ax.reduce_scatter(g(r, k), edges)
+                tot = ax._exchange(np.full(8, float(r + k), np.float64))
+                full = ax.all_gather(part)
+                if not (np.array_equal(full, sum(g(q, k) for q in range(w)))
+                        and np.array_equal(tot, np.full(8, sum(q + k for q in range(w)), np.float64))):
+                    bad.append((r, k, "sum"))
+                for m in range(3):
+                    got = ax.all_gather(full[edges[r]:edges[r + 1]] + m, edges)
+                    if not np.array_equal(got, full + m):
+                        bad.append((r, k, f"gather{m}"))
+        except Exception as e:  # a torn read can also break a header
+            bad.append((r, -1, repr(e)))
+
+    ts = [threading.Thread(target=run, args=(r,)) for r in range(w)]
+    [t.start() for t in ts]
+    [t.join(timeout=120) for t in ts]
+    return bad, sorted(p.name for p in Path(tmp_path).glob("slot*"))
+
+
+def test_exchange_slots_are_reused_only_after_every_peer_read_them(tmp_path, monkeypatch):
+    """Slots are rewritten in place for speed; a slot freed one phase early is overwritten while
+    a slow peer still reads it, and that arm must come out wrong, so this test can fail."""
+    bad, slots = _slot_rounds(tmp_path / "ok", monkeypatch, held=1)
+    assert bad == [], bad
+    assert len(slots) <= 3 * 6, f"slots are not being reused: {len(slots)}"
+    bad, _ = _slot_rounds(tmp_path / "early", monkeypatch, held=0)
+    assert bad, "freeing the slot peers are still reading went unnoticed"

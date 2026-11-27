@@ -40,9 +40,10 @@ for _ in $(seq $NMAX); do
   echo "$S" > $OUT/ssh; echo "$I $O" > $OUT/instance
   R(){ rsync -a -e "${S% root@*}" "$@"; }; H=root@$HOST
   $S 'mkdir -p /root/kc' &&
-    R $P/rfd4_gpu.py $P/rfd4_arms.py $P/box_rfd4.sh $P/$BOX $H:/root/kc/ &&
+    R $P/rfd4_gpu.py $P/rfd4_arms.py $P/box_rfd4.sh $P/$BOX $(for f in ${EXTRA_PUSH:-}; do echo $P/$f; done) $H:/root/kc/ &&
     R $S4/inputs/ $H:/root/kc/inputs/ && echo "$I $O" | timeout 30 $S 'cat > /root/kc/instance' ||
     { destroy $I "push failed"; continue; }
+  # EXTRA_PUSH: more files from this directory the box script needs (r4t: the train command and its timer).
   # BOXENV carries the box script's knobs across ssh (CELLS, FINAL_WARM, CUDA_VISIBLE_DEVICES). An env var
   # set around this script never reaches the remote shell, so without it a CELLS list silently ran the default.
   timeout 60 $S -f "cd /root/kc && setsid nohup env ${BOXENV:-} bash $BOX $CAP_H > box_rfd4.log 2>&1 < /dev/null &" ||

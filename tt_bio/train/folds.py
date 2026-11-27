@@ -29,6 +29,52 @@ from .bridge import HostParam
 __all__ = ["Folds"]
 
 
+def _plain_transpose(s) -> bool:
+    """`s` is a 2-D transpose of a leaf, or of slices of one: its VJP is pure layout, no reduction."""
+    f = s.grad_fn
+    if s.dim() != 2 or type(f).__name__ != "TBackward0":
+        return False
+    f = f.next_functions[0][0]
+    while type(f).__name__ == "SliceBackward0":
+        f = f.next_functions[0][0]
+    return type(f).__name__ == "AccumulateGrad"
+
+
+def _read_back(g, s):
+    """A device gradient as a host tensor for source `s`. Most of the fold VJP is transposing gradients back
+    (`W.t()` uploads); torch would do that as a strided copy on the host. For a plain transpose the card
+    transposes instead and autograd gets a transposed view, so the host only accumulates contiguously. The
+    bits go through as uint32: a float32 tile transpose rounds to ~TF32, a uint32 one moves data only. A
+    transpose under a product (an AdaLN `norm_cond` fold) keeps the host path: its broadcast sum reduces in
+    memory order, so a contiguous grad would round differently."""
+    import ttnn
+    if g.dtype != ttnn.float32:
+        return ttnn.to_torch(g)
+    u = ttnn.bitcast(g, ttnn.uint32)
+    if _plain_transpose(s) and all(d == 1 for d in tuple(g.shape)[:-2]):
+        t = ttnn.transpose(u, -2, -1)
+        out = _untilized(t).reshape(s.shape[1], s.shape[0]).t()
+        ttnn.deallocate(t)
+        return out
+    return _untilized(u)
+
+
+#: Untilize float32 gradients on the card before reading them back (_untilized); off = host untilize.
+CARD_UNTILIZE = True
+
+
+def _untilized(u):
+    """A uint32 TILE tensor's bits as host float32, untilized on the card: the host untilize is 2-3.5x slower
+    on large gradients (`perf/r4t_perf/fold/rbrm.py`), and a uint32 untilize only moves data."""
+    import ttnn
+    if not CARD_UNTILIZE or u.layout != ttnn.TILE_LAYOUT:
+        return ttnn.to_torch(u).view(torch.float32)
+    r = ttnn.to_layout(u, ttnn.ROW_MAJOR_LAYOUT)
+    out = ttnn.to_torch(r).view(torch.float32)
+    ttnn.deallocate(r)
+    return out
+
+
 class Folds:
     def __init__(self, state: Mapping[str, torch.Tensor]):
         self.leaves = {k: v.detach().to(torch.float32).clone().requires_grad_(True)
@@ -37,20 +83,43 @@ class Folds:
         self.consts = {}   # id(device handle) -> handle uploaded from a tensor no leaf feeds
 
     @contextmanager
-    def recording(self):
+    def recording(self, device_pack: bool = False):
         """Yields the leaf state dict to build from; every `ttnn.from_torch` of a tensor that wants a
         gradient is recorded until exit. The weight is uploaded from the detached source, so the build is
-        the serving build bit for bit."""
+        the serving build bit for bit.
+
+        ``device_pack`` packs bfloat8_b weights on the card (float32 upload, then typecast) instead of on
+        the host, which is most of a per-step rebuild: host packing runs at ~110 Melem/s and does not
+        thread. Not bit-identical: the card rounds a tie half away from zero where the host rounds it to
+        even, so ~4e-6 of elements differ by one ulp and none lands further from the float32 source."""
         import ttnn
         from .. import tenstorrent as tt
         if getattr(tt, "_weight_cache", None) is not None:
             raise RuntimeError("Folds.recording under the shared weight cache: a cached tile has no torch source")
         real = ttnn.from_torch
 
+        def upload(x, *a, **k):
+            if (not a and k.get("dtype") == ttnn.bfloat16 and k.get("layout") == ttnn.TILE_LAYOUT
+                    and k.get("device") is not None and x.dim() >= 2 and x.shape[-1] % 32 == 0 and x.shape[-2] % 32 == 0):
+                # Tilize on the card: the host tilize in from_torch is most of a rebuild (~10 ms vs ~1 ms per
+                # 2.4 M elements at 2 CPUs). The bf16 rounding stays torch's, and tilize only moves data, so the
+                # weight is the same bits (perf/r4t_perf/fold/tilt.py).
+                r = real(x.to(torch.bfloat16), **{**k, "layout": ttnn.ROW_MAJOR_LAYOUT})
+                t = ttnn.to_layout(r, ttnn.TILE_LAYOUT, memory_config=k.get("memory_config"))
+                ttnn.deallocate(r)
+                return t
+            if not (device_pack and not a and k.get("dtype") == ttnn.bfloat8_b
+                    and k.get("device") is not None and k.get("layout") == ttnn.TILE_LAYOUT):
+                return real(x, *a, **k)
+            t32 = real(x.to(torch.float32), **{**k, "dtype": ttnn.float32})
+            t = ttnn.typecast(t32, ttnn.bfloat8_b)
+            ttnn.deallocate(t32)
+            return t
+
         def rec(x, *a, **k):
             if not torch.is_tensor(x):
                 return real(x, *a, **k)
-            t = real(x.detach(), *a, **k)
+            t = upload(x.detach(), *a, **k)
             if x.requires_grad:
                 self.sources[id(t)] = (t, x)
             else:
@@ -95,7 +164,7 @@ class Folds:
             if s is None:
                 raise KeyError(f"no fold source for a device weight of shape {tuple(h.shape)}")
             if not torch.is_tensor(g):
-                g = ttnn.to_torch(g)
+                g = _read_back(g, s)
             srcs.append(s)
             gs.append(g.to(s.dtype).reshape(s.shape))
         if srcs:

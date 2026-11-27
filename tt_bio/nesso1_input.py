@@ -204,35 +204,16 @@ def run_esm(
     return len(missing)
 
 
-_DEVICE_ESM: dict = {}
-
-
 def device_esm(model_name: str = ESM2_MODEL, cache_dir: Path | None = None):
-    """``seq -> [1, L+2, 1280]`` float32 on the Tenstorrent card, loaded once per process.
+    """``seq -> [1, L+2, 1280]`` final-layer ESM-2 on the card, loaded once per process.
 
-    The 650M on a host CPU is most of a warm prediction's host time (1.4 s of 2.0 s on a
-    12-core desktop, more on a loaded Galaxy host); on the card it is one encoder forward.
+    Lives in :mod:`tt_bio.saprot` beside the encoder it loads, because Nesso-1 is not the
+    only model that conditions on this embedding: DiffDock embeds its receptor residues with
+    the same 650M checkpoint. One implementation, one process-level cache.
     """
-    if model_name not in _DEVICE_ESM:
-        from transformers import AutoTokenizer
+    from tt_bio.saprot import esm2_encoder
 
-        from tt_bio.saprot import load_esm2
-
-        from tt_bio.weights import hf_revision
-
-        # At the commit preflight fetched: a pinned snapshot writes no refs/main, so an
-        # offline host asking for `main` finds nothing.
-        tok = AutoTokenizer.from_pretrained(model_name, revision=hf_revision(model_name),
-                                            cache_dir=None if cache_dir is None else str(cache_dir))
-        model = load_esm2(model_name, cache_dir)
-
-        def encode(seq: str) -> torch.Tensor:
-            with torch.no_grad():
-                _, emb = model(tok(seq, return_tensors="pt")["input_ids"], want_logits=False)
-            return emb.float().contiguous()
-
-        _DEVICE_ESM[model_name] = encode
-    return _DEVICE_ESM[model_name]
+    return esm2_encoder(model_name, cache_dir)
 
 
 def standard_mols(ccd: CcdMols) -> dict:

@@ -30,7 +30,7 @@ _SPLIT = "|"
 
 
 def save_adapter(path, opt: AdamW, *, meta: Optional[dict] = None) -> None:
-    """Write the fp32 masters plus the Adam moments to one safetensors file.
+    """Write the fp32 masters plus the optimizer state (Adam moments, Muon momentum) to one safetensors file.
 
     The MASTER is what gets saved, not the bf16 weight the device holds: the master is the
     authoritative value and the device copy is a rounded view of it. Saving the rounded
@@ -38,20 +38,30 @@ def save_adapter(path, opt: AdamW, *, meta: Optional[dict] = None) -> None:
     would quietly decay the adapter.
     """
     from safetensors.numpy import save_file
-    tensors = {}
-    for name, arr in opt.master.items():
-        tensors[f"master{_SPLIT}{name}"] = arr
-        tensors[f"exp_avg{_SPLIT}{name}"] = opt.exp_avg[name]
-        tensors[f"exp_avg_sq{_SPLIT}{name}"] = opt.exp_avg_sq[name]
-    # Muon's state is its momentum buffer, not the Adam moments: without it a resumed run
-    # restarts Muon's momentum at zero and quietly takes a different step than an unbroken one.
-    for name in getattr(opt, "muon_names", ()):
-        tensors[f"momentum_buffer{_SPLIT}{name}"] = opt.momentum_buffer[name]
+    # A sharded optimizer gathers its state here (a collective: every rank saves at the
+    # same step), so every rank writes the same complete file and it resumes at any width.
+    # Adam parameters carry exp_avg/exp_avg_sq, Muon ones their momentum_buffer.
+    tensors = {f"master{_SPLIT}{name}": arr for name, arr in opt.master.items()}
+    for fam, arrs in opt.state_families().items():
+        tensors.update({f"{fam}{_SPLIT}{name}": arr for name, arr in arrs.items()})
     header = {"optimizer": json.dumps(opt.state_dict()),
               "tt_bio_adapter": "1"}
     if meta:
         header["meta"] = json.dumps(meta)
-    save_file(tensors, str(path), metadata=header)
+    # Written beside, fsynced and renamed into place: a host reset in the middle of a save
+    # otherwise leaves a truncated newest file, and ``Checkpointer.latest`` resumes from it.
+    import os
+    path = Path(path)
+    tmp = path.with_name(path.name + ".tmp")
+    save_file(tensors, str(tmp), metadata=header)
+    with open(tmp, "rb") as fh:
+        os.fsync(fh.fileno())
+    os.replace(tmp, path)
+    fd = os.open(path.parent, os.O_RDONLY)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
 
 
 def load_adapter(path, params: Dict[str, ag.Tensor], device, *, opt: Optional[AdamW] = None):
@@ -77,21 +87,24 @@ def load_adapter(path, params: Dict[str, ag.Tensor], device, *, opt: Optional[Ad
             t.value = to_device(arr, device, dtype=t.value.dtype)
         if opt is not None:
             opt.master[name] = arr.copy()
-            opt.exp_avg[name] = blob[f"exp_avg{_SPLIT}{name}"].astype(np.float32).copy()
-            opt.exp_avg_sq[name] = blob[f"exp_avg_sq{_SPLIT}{name}"].astype(np.float32).copy()
+            for fam in ("exp_avg", "exp_avg_sq", "momentum_buffer"):
+                if f"{fam}{_SPLIT}{name}" in blob:
+                    getattr(opt, fam)[name] = blob[f"{fam}{_SPLIT}{name}"].astype(np.float32).copy()
     if opt is not None:
+        # A Muon resume from a file without momentum would restart Muon at zero and quietly
+        # take a different step than the unbroken run.
         lost = [n for n in getattr(opt, "muon_names", ()) if f"momentum_buffer{_SPLIT}{n}" not in blob]
         if lost:
             raise ValueError(f"{path}: no Muon momentum for {len(lost)} parameter(s) (e.g. {lost[0]}); "
                              f"it was saved by a run without Muon, and resuming would zero it")
-        for name in getattr(opt, "muon_names", ()):
-            opt.momentum_buffer[name] = blob[f"momentum_buffer{_SPLIT}{name}"].astype(np.float32).copy()
     with open(path, "rb") as fh:
         n = int.from_bytes(fh.read(8), "little")
         header = json.loads(fh.read(n))
     md = header.get("__metadata__", {})
     if opt is not None and "optimizer" in md:
         opt.load_state_dict(json.loads(md["optimizer"]))
+    if opt is not None:
+        opt.drop_unowned()
     return json.loads(md["meta"]) if "meta" in md else {}
 
 

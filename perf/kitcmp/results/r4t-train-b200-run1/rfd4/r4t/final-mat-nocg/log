@@ -1,0 +1,50 @@
+Environment variable CCD_MIRROR_PATH not set. Will not be able to use function requiring this variable. To set it you may:
+  (1) add the line 'export VAR_NAME=path/to/variable' to your .bashrc or .zshrc file
+  (2) set it in your current shell with 'export VAR_NAME=path/to/variable'
+  (3) write it to a .env file in the root of the atomworks.io repository
+Environment variable PDB_MIRROR_PATH not set. Will not be able to use function requiring this variable. To set it you may:
+  (1) add the line 'export VAR_NAME=path/to/variable' to your .bashrc or .zshrc file
+  (2) set it in your current shell with 'export VAR_NAME=path/to/variable'
+  (3) write it to a .env file in the root of the atomworks.io repository
+Traceback (most recent call last):
+  File "/root/rfd4/src/rfproteina/train.py", line 46, in <module>
+    from rfproteina.proteina import Proteina
+  File "/root/rfd4/src/rfproteina/proteina.py", line 64, in <module>
+    from rfproteina.utils.lora import add_lora_adapter
+  File "/root/rfd4/src/rfproteina/utils/lora.py", line 6, in <module>
+    from peft import LoraConfig, get_peft_model_state_dict, inject_adapter_in_model, set_peft_model_state_dict
+  File "/opt/rfd4-venv/lib/python3.12/site-packages/peft/__init__.py", line 17, in <module>
+    from .auto import (
+  File "/opt/rfd4-venv/lib/python3.12/site-packages/peft/auto.py", line 32, in <module>
+    from .peft_model import (
+  File "/opt/rfd4-venv/lib/python3.12/site-packages/peft/peft_model.py", line 43, in <module>
+    from peft.tuners.lora.variants import get_alora_offsets_for_forward, get_alora_offsets_for_generate
+  File "/opt/rfd4-venv/lib/python3.12/site-packages/peft/tuners/__init__.py", line 15, in <module>
+    from .adalora import AdaLoraConfig, AdaLoraModel
+  File "/opt/rfd4-venv/lib/python3.12/site-packages/peft/tuners/adalora/__init__.py", line 18, in <module>
+    from .config import AdaLoraConfig
+  File "/opt/rfd4-venv/lib/python3.12/site-packages/peft/tuners/adalora/config.py", line 19, in <module>
+    from peft.tuners.lora import LoraConfig
+  File "/opt/rfd4-venv/lib/python3.12/site-packages/peft/tuners/lora/__init__.py", line 35, in <module>
+    from .loraga import preprocess_loraga
+  File "/opt/rfd4-venv/lib/python3.12/site-packages/peft/tuners/lora/loraga.py", line 27, in <module>
+    from peft.tuners.lora.model import LoraModel
+  File "/opt/rfd4-venv/lib/python3.12/site-packages/peft/tuners/lora/model.py", line 67, in <module>
+    from .te import dispatch_transformer_engine
+  File "/opt/rfd4-venv/lib/python3.12/site-packages/peft/tuners/lora/te.py", line 27, in <module>
+    if is_te_pytorch_available():
+       ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/rfd4-venv/lib/python3.12/site-packages/peft/import_utils.py", line 216, in is_te_pytorch_available
+    import transformer_engine
+  File "/opt/rfd4-venv/lib/python3.12/site-packages/transformer_engine/__init__.py", line 16, in <module>
+    import transformer_engine.common
+  File "/opt/rfd4-venv/lib/python3.12/site-packages/transformer_engine/common/__init__.py", line 512, in <module>
+    _TE_LIB_CTYPES = _load_core_library()
+                     ^^^^^^^^^^^^^^^^^^^^
+  File "/opt/rfd4-venv/lib/python3.12/site-packages/transformer_engine/common/__init__.py", line 485, in _load_core_library
+    return ctypes.CDLL(_get_shared_object_file("core"), mode=ctypes.RTLD_GLOBAL | os.RTLD_LAZY)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/ctypes/__init__.py", line 379, in __init__
+    self._handle = _dlopen(self._name, mode)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^
+OSError: /opt/rfd4-venv/lib/python3.12/site-packages/transformer_engine/wheel_lib/libtransformer_engine.so: undefined symbol: cublasLtGroupedMatrixLayoutInit_internal, version libcublasLt.so.13

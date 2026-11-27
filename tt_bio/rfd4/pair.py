@@ -123,6 +123,9 @@ class PairSplit:
         self._sq = torch.stack([torch.ones_like(w2), w2], 1)  # [pair, 2]
         self._wsq = torch.stack([(w * w).sum(-1), (w * w * w2).sum(-1)])  # [2, nbins]
 
+    #: Project and scale a batch of identical constant rows once (`constant`).
+    DEDUP = True
+
     def _weight_versions(self) -> tuple:
         return tuple(p._version for p in self.builder.parameters())
 
@@ -143,6 +146,12 @@ class PairSplit:
             if f.ndim == 2:  # per-example features broadcast over the pair, as FeatureFactory does
                 f = f.reshape(f.shape[0], 1, 1, -1).expand(-1, n, n, -1)
             parts.append(f.float())
+        b = parts[0].shape[0]
+        # Every constant feature is structural, so a batch of one design's samples (the K training
+        # candidates, serving's samples) repeats one row b times: project and scale it once.
+        if self.DEDUP and b > 1 and all(torch.equal(f, f[:1].expand_as(f)) for f in parts):
+            proj = torch.cat([f[:1] for f in parts], dim=-1) @ self.w_const.t()
+            return PairConstant(proj.expand(b, -1, -1, -1), self.scales(proj).expand(b, -1, -1, -1))
         proj = torch.cat(parts, dim=-1) @ self.w_const.t()
         return PairConstant(proj, self.scales(proj))
 

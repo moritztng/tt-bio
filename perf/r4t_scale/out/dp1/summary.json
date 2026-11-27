@@ -1,0 +1,24 @@
+{
+ "host": "tt-quietbox2",
+ "cards": [
+  0
+ ],
+ "world": 1,
+ "shard": false,
+ "n": 256,
+ "blocks": 7,
+ "rcs": [
+  0
+ ],
+ "digests_agree": true,
+ "median_step_s": 0.9120597839355469,
+ "median_fwd_s": 0.13541841506958008,
+ "median_bwd_s": 0.611713171005249,
+ "median_readback_s": 1.6689300537109375e-06,
+ "median_opt_s": 0.17291712760925293,
+ "aiclk": [
+  1312,
+  1350
+ ],
+ "samples_per_s": 1.0964193549736292
+}

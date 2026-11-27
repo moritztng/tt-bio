@@ -15,6 +15,7 @@ is as good as this precision gets, whatever the absolute number looks like. The 
 
 from __future__ import annotations
 
+import contextlib
 import math
 
 import torch
@@ -295,20 +296,24 @@ def pair_update_weights(dim=1024, dim_pair=384, tri_c=256, expansion=2, tri_bias
 
 # --- the stack and its recycles (LocalLatentsTransformer._run_trunk) ---
 
-def trunk(w, s_init, z_init, conds, mask, nlayers, every_n=2, n_heads=16, rnd=ident):
+def trunk(w, s_init, z_init, conds, mask, nlayers, every_n=2, n_heads=16, rnd=ident, grad_last=False, state=None):
     """`_run_trunk` with recycling on, in inference: `len(conds)` cycles, cycle k reading `conds[k]`
     (the caller's per-cycle conditioning, which carries `recycle_remaining`). Each cycle starts
     from the initial states plus a projection of the previous cycle's (RMSNorm + bias-free linear;
-    zero on the first cycle because the previous state is zero)."""
-    s, z = torch.zeros_like(s_init), torch.zeros_like(z_init)
-    for c in conds:
-        z_in = getattr(rnd, "z", _res(rnd))(z_init + rnd(rnd(rms_norm(z, w["z_cycle_norm.weight"])) @ w["z_cycle_proj.weight"].T))
-        s_in = _res(rnd)(s_init + rnd(rnd(rms_norm(s, w["s_cycle_norm.weight"])) @ w["s_cycle_proj.weight"].T))
-        s, z = s_in, z_in
-        for i in range(nlayers):
-            s = trunk_block(w, s, z, c, mask, n_heads, p=f"transformer_layers.{i}", rnd=rnd)
-            if i < nlayers - 1 and i % every_n == 0:
-                z = pair_update(w, f"pair_update_layers.{i}", s, z, mask, rnd)
+    zero on the first cycle because the previous state is zero). `grad_last` is upstream's training
+    setting (`recycle grad: last`): every cycle but the last runs under no_grad. `state` = the (s, z)
+    a previous call left, to resume there: a finite difference of the last cycle alone needs the earlier
+    cycles frozen at the base point, which `grad_last` cannot give (it detaches, a perturbation still moves them)."""
+    s, z = state if state is not None else (torch.zeros_like(s_init), torch.zeros_like(z_init))
+    for k, c in enumerate(conds):
+        with torch.no_grad() if grad_last and k < len(conds) - 1 else contextlib.nullcontext():
+            z_in = getattr(rnd, "z", _res(rnd))(z_init + rnd(rnd(rms_norm(z, w["z_cycle_norm.weight"])) @ w["z_cycle_proj.weight"].T))
+            s_in = _res(rnd)(s_init + rnd(rnd(rms_norm(s, w["s_cycle_norm.weight"])) @ w["s_cycle_proj.weight"].T))
+            s, z = s_in, z_in
+            for i in range(nlayers):
+                s = trunk_block(w, s, z, c, mask, n_heads, p=f"transformer_layers.{i}", rnd=rnd)
+                if i < nlayers - 1 and i % every_n == 0:
+                    z = pair_update(w, f"pair_update_layers.{i}", s, z, mask, rnd)
     return s, z
 
 

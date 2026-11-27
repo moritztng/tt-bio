@@ -348,7 +348,7 @@ MUON_EXCLUDE = (r"_factory\.",
 UPDATE_RULE = {"optimizers": ["GroupedMuon", "Adam"], "clip": 1.0}
 
 
-def update_rule(params, *, lr: float = 1e-4):
+def update_rule(params, *, lr: float = 1e-4, **opt_kw):
     """Upstream's RFD4 step on our parameters: Muon on 2-D weights outside `MUON_EXCLUDE`
     (match_rms_adamw, torch's defaults: momentum 0.95, Nesterov, weight decay 0.1), Adam on the
     rest (weight decay 0), each group clipped to norm 1.0 on its own, no warmup
@@ -360,4 +360,4 @@ def update_rule(params, *, lr: float = 1e-4):
     from .optim import AdamW, Muon
     return AdamW(params, lr=lr, betas=(0.9, 0.999), eps=1e-8, weight_decay=0.0,
                  clip_norm=UPDATE_RULE["clip"],
-                 muon=Muon(exclude=MUON_EXCLUDE, adjust_lr_fn="match_rms_adamw"))
+                 muon=Muon(exclude=MUON_EXCLUDE, adjust_lr_fn="match_rms_adamw"), **opt_kw)
