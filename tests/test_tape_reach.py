@@ -50,6 +50,13 @@ ALLOWED = {
     # one in `ag.Tensor` itself, so they enter the tape as constants. A module-scope import
     # would hand it the shim and change what the gradient-parity result was measured on.
     "train/openfold3.py",
+    # `train/bridge.py` is the same boundary for RFD4's host glue: `up` uploads with the raw
+    # `from_torch` and wraps the handle in `ag.Tensor` itself, `down` reads a trunk output's raw
+    # `.value` back to torch, and `backward` uploads the host cotangents for `ag.backward` and
+    # brings the leaf gradients home. Through the shim the uploads would be taped twice.
+    # `train/folds.py` patches the real `ttnn.from_torch` while the model is built (as `lineage.py`
+    # does) and moves gradients only after the tape replay has finished (as `mesh.py` does).
+    "train/bridge.py", "train/folds.py",
     # `af2_structure.Card` uploads its leaves with the raw `from_torch` and tapes its own VJPs
     # (`sqrt`, `reciprocal` on `.value`, then `autograd._tape`), so the shim would tape them
     # twice. It defers the import for the same `pin_card()` reason as `bindcraft2.py`, which
@@ -60,6 +67,9 @@ ALLOWED = {
     # host-side `PairSplit` that the ttnn-free `network.py` imports beside the card's
     # `PairOnCard`, so it defers for the same reason.
     "rfd4/engine.py", "rfd4/pair.py",
+    # DiffDock-L is inference only and nothing tapes it either. `device.py` and `capture.py`
+    # defer the import so `tt-bio dock` and the CPU reference path import without the wheel.
+    "diffdock/device.py", "diffdock/capture.py",
     # A kernel-source patcher, not a model path.
     "kernels/trimul_tail/patch_trimul_tail.py",
     # `bindcraft2.py` defers the import because `pin_card()` has to set TT_VISIBLE_DEVICES

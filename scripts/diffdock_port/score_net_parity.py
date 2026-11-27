@@ -139,6 +139,10 @@ def main():
              temp_psi=[inf["temp_psi_tr"], inf["temp_psi_rot"], inf["temp_psi_tor"]],
              temp_sigma_data=[inf["temp_sigma_data_tr"], inf["temp_sigma_data_rot"],
                               inf["temp_sigma_data_tor"]])
+    # `sampling` calls forward `actual_steps` times, so indices run 0..actual_steps-1 and a
+    # `--steps` entry at or past that count captures nothing. Stop rather than write an
+    # archive that is quietly short: a grade over fewer cells than were asked for reads as a
+    # pass.
     got = sorted({int(k[1:].split("_")[0]) for k in flat if k.startswith("s") and k[1].isdigit()})
     missing = sorted(set(want) - set(got))
     if missing:

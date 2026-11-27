@@ -1352,6 +1352,81 @@ def run_scalar_affinity(model: str, base: Path) -> dict:
     return row
 
 
+# ── diffdock (`tt-bio dock`) ───────────────────────────────────────────────
+
+DOCK_MODELS = list(tt_bio_main.DOCK_MODELS)
+DOCK_RECEPTOR = REPO_ROOT / "tests" / "fixtures" / "diffdock" / "6Z5Z_BDF_protein.pdb"
+DOCK_LIGAND = REPO_ROOT / "tests" / "fixtures" / "diffdock" / "6Z5Z_BDF_ligand.sdf"
+DOCK_SAMPLES = 2       # poses are independent; two are enough to see a ranking
+DOCK_TIMEOUT_S = 1800
+
+
+def _check_dock_results(write_dir: Path, samples: int) -> list[str]:
+    """What a user opens after a dock: rank1.sdf (RDKit must read a molecule with atoms) and
+    confidence.json, one row per pose, best first."""
+    problems = []
+    sdf = write_dir / "rank1.sdf"
+    if not sdf.exists():
+        problems.append(f"dock wrote no rank1.sdf under {write_dir}")
+    else:
+        from rdkit import Chem
+        mol = next(iter(Chem.SDMolSupplier(str(sdf), removeHs=False)), None)
+        if mol is None or mol.GetNumAtoms() == 0:
+            problems.append("rank1.sdf: RDKit read no molecule")
+    conf = write_dir / "confidence.json"
+    if not conf.exists():
+        return problems + [f"dock wrote no confidence.json under {write_dir}"]
+    try:
+        rows = json.loads(conf.read_text())
+    except Exception as e:
+        return problems + [f"confidence.json: load failed: {type(e).__name__}: {e}"]
+    if not isinstance(rows, list) or len(rows) != samples:
+        problems.append(f"confidence.json: expected {samples} ranked rows, got "
+                        f"{len(rows) if isinstance(rows, list) else type(rows).__name__}")
+    return problems
+
+
+def run_dock(model: str, base: Path) -> dict:
+    """Dock the committed 6Z5Z ligand into its receptor with `tt-bio dock` and gate the UX:
+    exit 0, the ranking line in the log, and both files a user reads parse."""
+    out_dir = base / f"out_{model}"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    for f in (DOCK_RECEPTOR, DOCK_LIGAND):
+        if not f.exists():
+            sys.exit(f"missing dock fixture {f}")
+    cmd = [sys.executable, "-m", "tt_bio.main", "dock", str(DOCK_RECEPTOR),
+           "--ligand", str(DOCK_LIGAND), "--model", model, "--name", "ux", "--log", "INFO",
+           "--diffusion_samples", str(DOCK_SAMPLES), "--out_dir", str(out_dir)]
+    print(f"\n{'='*70}\n[{model}] dock {DOCK_RECEPTOR.name} + {DOCK_LIGAND.name}"
+          f"\n{'='*70}", flush=True)
+    row = {"model": model, "seconds": None, "progress": False, "results": False,
+           "gate": False, "error": None, "checks": []}
+    t0 = time.monotonic()
+    try:
+        proc = _run(cmd, env=_subprocess_env(), timeout=DOCK_TIMEOUT_S)
+    except subprocess.TimeoutExpired:
+        row["error"] = f"dock timed out after {DOCK_TIMEOUT_S}s"
+        return row
+    row["seconds"] = time.monotonic() - t0
+    if proc.returncode != 0:
+        tail = (proc.stderr or proc.stdout or "").strip().splitlines()
+        row["error"] = f"dock exited {proc.returncode}: {tail[-1] if tail else ''}"
+        return row
+    log = (proc.stdout or "") + (proc.stderr or "")
+    prog = [] if re.search(rf"ux: ranked {DOCK_SAMPLES} poses", log) else [
+        f"no 'ux: ranked {DOCK_SAMPLES} poses' line in the dock log"]
+    res = _check_dock_results(out_dir / "ux", DOCK_SAMPLES)
+    row["checks"].append(f"progress(log): {'OK' if not prog else 'FAIL'}")
+    row["checks"].extend(f"  • {x}" for x in prog)
+    row["checks"].append(f"rank1.sdf + confidence.json: {'OK' if not res else 'FAIL'}")
+    row["checks"].extend(f"  • {x}" for x in res)
+    row["progress"], row["results"] = not prog, not res
+    row["gate"] = row["progress"] and row["results"]
+    if not row["gate"]:
+        row["error"] = "; ".join(prog + res)
+    return row
+
+
 def _ckpt_gate(model: str) -> tuple[str, str] | None:
     """``(action, message)`` when *model*'s checkpoint is missing, else None. Action
     is CKPT_POLICY's: "require" (refuse to start) or "skip" (skip the leg loudly)."""
@@ -1373,6 +1448,7 @@ RUNNERS: tuple[tuple, ...] = (
     (run_affinity, [AFFINITY_MODEL]),
     (run_scalar_affinity, SCALAR_AFFINITY_MODELS),
     (run_design, list(DESIGN_LEGS)),
+    (run_dock, DOCK_MODELS),
 )
 ALL_LEGS = [m for _, group in RUNNERS for m in group]
 

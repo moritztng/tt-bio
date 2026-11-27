@@ -36,9 +36,9 @@ network does not implement it and is run step by step;
 agree, and it skips until a device network offers this member.
 
 `load` returns the host implementation, `score_model.HostScoreNetwork`, around the released
-v1.1 weights. A card implementation replaces that return value and nothing else: the dock
-path above it (graph, ESM-2 embeddings, randomised start, rollout, ranking, upstream's output
-layout) runs against any object with these members.
+v1.1 weights, or with ``DockOptions(device="tt")`` `device.DeviceScoreNetwork`, the same
+weights with every convolution on the card. The dock path above it (graph, ESM-2 embeddings,
+randomised start, rollout, ranking, upstream's output layout) runs against either.
 """
 
 from __future__ import annotations
@@ -72,6 +72,14 @@ def load(options, *, cache=None, download: bool = False) -> ScoreNetwork:
 
     The confidence checkpoint is loaded here too, once per screen rather than once per
     complex, unless ``--no_confidence`` says the poses keep their sampling order.
+
+    ``--weights`` carries upstream's two architecture booleans (D-dfd-confidence-3). The
+    confidence side is the old architecture and always has been: upstream's own recipe sets
+    ``old_filtering_model: true`` and the released 19 MB checkpoint is that network. The
+    score side is DiffDock-L, and ``--weights diffdock`` asks for the pre-DiffDock-L score
+    architecture, which this port does not implement and has no released weights for -- the
+    v1.1 asset carries DiffDock-L only. It is refused here by name rather than silently
+    running DiffDock-L under a flag that says otherwise.
     """
     import torch
 
@@ -80,9 +88,15 @@ def load(options, *, cache=None, download: bool = False) -> ScoreNetwork:
     from tt_bio.diffdock import confidence_model as cm
     from tt_bio.diffdock import score_model
 
+    if options.old_score_model:
+        raise ScoreNetworkUnavailable(
+            "--weights diffdock asks for the original DiffDock score architecture "
+            "(upstream --old_score_model). This port implements DiffDock-L's score network, "
+            "and the released v1.1 asset carries no original-DiffDock score weights. Use "
+            "--weights diffdock-l, which is the default.")
     ckpt, params = checkpoints.resolve("score", options.checkpoint, cache,
                                        download=download)
-    cfg = dfd_config.load(params.parent, old_model=False, name="diffdock")
+    cfg = dfd_config.load(params.parent, old_model=options.old_score_model, name="diffdock")
     state = torch.load(ckpt, map_location="cpu", weights_only=False)
     model = score_model.load_released(state, cfg)
 
@@ -90,5 +104,17 @@ def load(options, *, cache=None, download: bool = False) -> ScoreNetwork:
     if not options.no_confidence:
         c_ckpt, c_params = checkpoints.resolve("confidence", options.confidence_checkpoint,
                                                cache, download=download)
-        confidence = cm.load_checkpoint(c_ckpt, c_params.parent)
-    return score_model.HostScoreNetwork(model, confidence_model=confidence)
+        confidence = cm.load_checkpoint(c_ckpt, c_params.parent,
+                                        old_model=options.old_filtering_model)
+    host = score_model.HostScoreNetwork(model, confidence_model=confidence)
+    if options.device == "cpu":
+        return host
+    from tt_bio.diffdock.device import DeviceScoreNetwork
+    from tt_bio.main import ensure_p300_mesh_descriptor
+    from tt_bio.tenstorrent import get_device
+
+    ensure_p300_mesh_descriptor()
+    # The fp32 GEMM form is the approved default: the fused edge-tile kernel is 3.9x faster
+    # whole-step but its pose and SE(3) re-grade is not finished, and a measured win is not
+    # made the default before the accuracy bar clears it.
+    return DeviceScoreNetwork(host, get_device())

@@ -1,0 +1,1782 @@
+{
+ "n": 256,
+ "card": 2,
+ "host": "tt-quietbox2",
+ "sha": "c681a0e93",
+ "board": "p300c",
+ "roofs": {
+  "compute_tflops": 115.685,
+  "dram_gbs": 440,
+  "src": "state/of3t/BACKWARD.md"
+ },
+ "arms": {
+  "wall": [
+   {
+    "fwd_s": 0.01996,
+    "bwd_s": 0.0767,
+    "aiclk_fwd": [
+     1350,
+     1350,
+     1
+    ],
+    "aiclk_bwd": [
+     1318,
+     1350,
+     2
+    ],
+    "grad_digest": "930ecc50a65a9f7d",
+    "nonzero": "24/24"
+   },
+   {
+    "fwd_s": 0.01984,
+    "bwd_s": 0.07681,
+    "aiclk_fwd": [
+     1318,
+     1318,
+     1
+    ],
+    "aiclk_bwd": [
+     1281,
+     1318,
+     2
+    ],
+    "grad_digest": "930ecc50a65a9f7d",
+    "nonzero": "24/24"
+   },
+   {
+    "fwd_s": 0.01972,
+    "bwd_s": 0.07651,
+    "aiclk_fwd": [
+     1281,
+     1281,
+     1
+    ],
+    "aiclk_bwd": [
+     1281,
+     1343,
+     2
+    ],
+    "grad_digest": "930ecc50a65a9f7d",
+    "nonzero": "24/24"
+   }
+  ],
+  "untaped": [
+   {
+    "fwd_s": 0.01919,
+    "aiclk": [
+     1350,
+     1350,
+     2
+    ],
+    "out_digest": "1010f25ee212da6c"
+   },
+   {
+    "fwd_s": 0.01922,
+    "aiclk": [
+     1350,
+     1350,
+     2
+    ],
+    "out_digest": "1010f25ee212da6c"
+   },
+   {
+    "fwd_s": 0.01914,
+    "aiclk": [
+     1350,
+     1350,
+     2
+    ],
+    "out_digest": "1010f25ee212da6c"
+   }
+  ],
+  "drain": {
+   "step": {
+    "fwd_s": 0.02538,
+    "bwd_s": 0.08941,
+    "aiclk_fwd": [
+     1350,
+     1350,
+     2
+    ],
+    "aiclk_bwd": [
+     1325,
+     1350,
+     3
+    ],
+    "grad_digest": "930ecc50a65a9f7d",
+    "nonzero": "24/24"
+   },
+   "fwd": {
+    "mm": [
+     {
+      "verb": "minimal_matmul",
+      "ins": [
+       [
+        [
+         1,
+         256,
+         256,
+         384
+        ],
+        [
+         "B",
+         "F",
+         "L",
+         "O",
+         "A",
+         "T",
+         "1",
+         "6"
+        ]
+       ],
+       [
+        [
+         384,
+         1024
+        ],
+        [
+         "B",
+         "F",
+         "L",
+         "O",
+         "A",
+         "T",
+         "1",
+         "6"
+        ]
+       ]
+      ],
+      "out": [
+       [
+        1,
+        256,
+        256,
+        1024
+       ],
+       "BFLOAT16"
+      ],
+      "kw": {
+       "dtype": "DataType.BFLOAT16"
+      },
+      "n": 2,
+      "ms": 1.894
+     },
+     {
+      "verb": "linear",
+      "ins": [
+       [
+        [
+         1,
+         256,
+         256,
+         768
+        ],
+        [
+         "B",
+         "F",
+         "L",
+         "O",
+         "A",
+         "T",
+         "1",
+         "6"
+        ]
+       ],
+       [
+        [
+         768,
+         384
+        ],
+        [
+         "B",
+         "F",
+         "L",
+         "O",
+         "A",
+         "T",
+         "1",
+         "6"
+        ]
+       ]
+      ],
+      "out": [
+       [
+        1,
+        256,
+        256,
+        384
+       ],
+       "BFLOAT16"
+      ],
+      "kw": {
+       "dtype": "DataType.BFLOAT16"
+      },
+      "n": 1,
+      "ms": 1.77
+     },
+     {
+      "verb": "linear",
+      "ins": [
+       [
+        [
+         1,
+         256,
+         256,
+         384
+        ],
+        [
+         "B",
+         "F",
+         "L",
+         "O",
+         "A",
+         "T",
+         "1",
+         "6"
+        ]
+       ],
+       [
+        [
+         384,
+         768
+        ],
+        [
+         "B",
+         "F",
+         "L",
+         "O",
+         "A",
+         "T",
+         "1",
+         "6"
+        ]
+       ]
+      ],
+      "out": [
+       [
+        1,
+        256,
+        256,
+        768
+       ],
+       "BFLOAT16"
+      ],
+      "kw": {
+       "dtype": "DataType.BFLOAT16"
+      },
+      "n": 1,
+      "ms": 1.322
+     },
+     {
+      "verb": "linear",
+      "ins": [
+       [
+        [
+         1,
+         256,
+         256,
+         256
+        ],
+        [
+         "B",
+         "F",
+         "L",
+         "O",
+         "A",
+         "T",
+         "1",
+         "6"
+        ]
+       ],
+       [
+        [
+         256,
+         384
+        ],
+        [
+         "B",
+         "F",
+         "L",
+         "O",
+         "A",
+         "T",
+         "1",
+         "6"
+        ]
+       ]
+      ],
+      "out": [
+       [
+        1,
+        256,
+        256,
+        384
+       ],
+       "BFLOAT16"
+      ],
+      "kw": {
+       "dtype": "DataType.BFLOAT16"
+      },
+      "n": 2,
+      "ms": 0.845
+     },
+     {
+      "verb": "minimal_matmul",
+      "ins": [],
+      "out": [
+       [
+        1,
+        256,
+        256,
+        384
+       ],
+       "BFLOAT16"
+      ],
+      "kw": {
+       "dtype": "DataType.BFLOAT16"
+      },
+      "n": 2,
+      "ms": 0.832
+     },
+     {
+      "verb": "matmul",
+      "ins": [
+       [
+        [
+         1,
+         256,
+         256,
+         256
+        ],
+        [
+         "B",
+         "F",
+         "L",
+         "O",
+         "A",
+         "T",
+         "1",
+         "6"
+        ]
+       ],
+       [
+        [
+         1,
+         256,
+         256,
+         256
+        ],
+        [
+         "B",
+         "F",
+         "L",
+         "O",
+         "A",
+         "T",
+         "1",
+         "6"
+        ]
+       ]
+      ],
+      "out": [
+       [
+        1,
+        256,
+        256,
+        256
+       ],
+       "BFLOAT16"
+      ],
+      "kw": {
+       "dtype": "DataType.BFLOAT16",
+       "transpose_a": "False",
+       "transpose_b": "True"
+      },
+      "n": 1,
+      "ms": 0.345
+     },
+     {
+      "verb": "matmul",
+      "ins": [
+       [
+        [
+         1,
+         256,
+         256,
+         256
+        ],
+        [
+         "B",
+         "F",
+         "L",
+         "O",
+         "A",
+         "T",
+         "1",
+         "6"
+        ]
+       ],
+       [
+        [
+         1,
+         256,
+         256,
+         256
+        ],
+        [
+         "B",
+         "F",
+         "L",
+         "O",
+         "A",
+         "T",
+         "1",
+         "6"
+        ]
+       ]
+      ],
+      "out": [
+       [
+        1,
+        256,
+        256,
+        256
+       ],
+       "BFLOAT16"
+      ],
+      "kw": {
+       "dtype": "DataType.BFLOAT16",
+       "transpose_a": "True",
+       "transpose_b": "False"
+      },
+      "n": 1,
+      "ms": 0.329
+     },
+     {
+      "verb": "linear",
+      "ins": [
+       [
+        [
+         1,
+         256,
+         768
+        ],
+        [
+         "B",
+         "F",
+         "L",
+         "O",
+         "A",
+         "T",
+         "1",
+         "6"
+        ]
+       ],
+       [
+        [
+         768,
+         384
+        ],
+        [
+         "B",
+         "F",
+         "L",
+         "O",
+         "A",
+         "T",
+         "1",
+         "6"
+        ]
+       ]
+      ],
+      "out": [
+       [
+        1,
+        256,
+        384
+       ],
+       "BFLOAT16"
+      ],
+      "kw": {
+       "dtype": "DataType.BFLOAT16"
+      },
+      "n": 2,
+      "ms": 0.134
+     }
+    ],
+    "verb_sum_s": 0.02225,
+    "roof_sum_s": 0.0192,
+    "host_verb_s": 0,
+    "host_verb_calls": 0,
+    "by_verb": [
+     {
+      "verb": "linear",
+      "n": 6,
+      "self_s": 0.00407,
+      "share": 0.2064,
+      "us_per_call": 678.4,
+      "gb": 0.474,
+      "tflop": 0.103,
+      "roof_s": 0.00108,
+      "pct_of_roof": 26.4,
+      "bound": "dram",
+      "shapes": 3
+     },
+     {
+      "verb": "permute",
+      "n": 4,
+      "self_s": 0.00342,
+      "share": 0.1737,
+      "us_per_call": 856.1,
+      "gb": 0.268,
+      "tflop": 0.0,
+      "roof_s": 0.00061,
+      "pct_of_roof": 17.8,
+      "bound": "dram",
+      "shapes": 1
+     },
+     {
+      "verb": "minimal_matmul",
+      "n": 4,
+      "self_s": 0.00273,
+      "share": 0.1382,
+      "us_per_call": 681.5,
+      "gb": 0.471,
+      "tflop": 0.103,
+      "roof_s": 0.00107,
+      "pct_of_roof": 39.3,
+      "bound": "dram",
+      "shapes": 2
+     },
+     {
+      "verb": "transpose",
+      "n": 4,
+      "self_s": 0.00239,
+      "share": 0.1213,
+      "us_per_call": 598.0,
+      "gb": 0.268,
+      "tflop": 0.0,
+      "roof_s": 0.00061,
+      "pct_of_roof": 25.5,
+      "bound": "dram",
+      "shapes": 1
+     },
+     {
+      "verb": "multiply_",
+      "n": 6,
+      "self_s": 0.00214,
+      "share": 0.1087,
+      "us_per_call": 357.3,
+      "gb": 0.705,
+      "tflop": 0.0,
+      "roof_s": 0.0016,
+      "pct_of_roof": 74.7,
+      "bound": "dram",
+      "shapes": 2
+     },
+     {
+      "verb": "layer_norm",
+      "n": 6,
+      "self_s": 0.0019,
+      "share": 0.0964,
+      "us_per_call": 316.9,
+      "gb": 0.437,
+      "tflop": 0.0,
+      "roof_s": 0.00099,
+      "pct_of_roof": 52.2,
+      "bound": "dram",
+      "shapes": 3
+     },
+     {
+      "verb": "add",
+      "n": 4,
+      "self_s": 0.0017,
+      "share": 0.086,
+      "us_per_call": 423.8,
+      "gb": 0.604,
+      "tflop": 0.0,
+      "roof_s": 0.00137,
+      "pct_of_roof": 81.0,
+      "bound": "dram",
+      "shapes": 1
+     },
+     {
+      "verb": "chunk",
+      "n": 2,
+      "self_s": 0.00154,
+      "share": 0.0781,
+      "us_per_call": 770.5,
+      "gb": 0.537,
+      "tflop": 0.0,
+      "roof_s": 0.00122,
+      "pct_of_roof": 79.2,
+      "bound": "dram",
+      "shapes": 1
+     },
+     {
+      "verb": "matmul",
+      "n": 2,
+      "self_s": 0.00067,
+      "share": 0.0342,
+      "us_per_call": 337.0,
+      "gb": 0.201,
+      "tflop": 0.017,
+      "roof_s": 0.00046,
+      "pct_of_roof": 67.9,
+      "bound": "dram",
+      "shapes": 1
+     },
+     {
+      "verb": "relu",
+      "n": 1,
+      "self_s": 0.00057,
+      "share": 0.0289,
+      "us_per_call": 570.7,
+      "gb": 0.201,
+      "tflop": 0.0,
+      "roof_s": 0.00046,
+      "pct_of_roof": 80.2,
+      "bound": "dram",
+      "shapes": 1
+     },
+     {
+      "verb": "deallocate",
+      "n": 48,
+      "self_s": 0.00052,
+      "share": 0.0261,
+      "us_per_call": 10.7,
+      "gb": 4.162,
+      "tflop": 0.0,
+      "roof_s": 0.00946,
+      "pct_of_roof": 1835.2,
+      "bound": "dram",
+      "shapes": 5
+     },
+     {
+      "verb": "multiply",
+      "n": 1,
+      "self_s": 0.00043,
+      "share": 0.0216,
+      "us_per_call": 425.4,
+      "gb": 0.051,
+      "tflop": 0.0,
+      "roof_s": 0.00012,
+      "pct_of_roof": 27.1,
+      "bound": "dram",
+      "shapes": 1
+     },
+     {
+      "verb": "reshape",
+      "n": 2,
+      "self_s": 0.00014,
+      "share": 0.0071,
+      "us_per_call": 70.4,
+      "gb": 0.001,
+      "tflop": 0.0,
+      "roof_s": 0.0,
+      "pct_of_roof": 1.3,
+      "bound": "dram",
+      "shapes": 2
+     },
+     {
+      "verb": "allocate_tensor_on_device",
+      "n": 2,
+      "self_s": 3e-05,
+      "share": 0.0016,
+      "us_per_call": 15.9,
+      "gb": 0.067,
+      "tflop": 0.0,
+      "roof_s": 0.00015,
+      "pct_of_roof": 481.0,
+      "bound": "dram",
+      "shapes": 1
+     }
+    ],
+    "by_closure": []
+   },
+   "bwd": {
+    "mm": [
+     {
+      "verb": "matmul",
+      "ins": [
+       [
+        [
+         65536,
+         256
+        ],
+        [
+         "B",
+         "F",
+         "L",
+         "O",
+         "A",
+         "T",
+         "1",
+         "6"
+        ]
+       ],
+       [
+        [
+         65536,
+         384
+        ],
+        [
+         "B",
+         "F",
+         "L",
+         "O",
+         "A",
+         "T",
+         "1",
+         "6"
+        ]
+       ]
+      ],
+      "out": [
+       [
+        256,
+        384
+       ],
+       "FLOAT32"
+      ],
+      "kw": {
+       "dtype": "DataType.FLOAT32",
+       "transpose_a": "True"
+      },
+      "n": 2,
+      "ms": 3.834
+     },
+     {
+      "verb": "matmul",
+      "ins": [
+       [
+        [
+         65536,
+         1024
+        ],
+        [
+         "B",
+         "F",
+         "L",
+         "O",
+         "A",
+         "T",
+         "1",
+         "6"
+        ]
+       ],
+       [
+        [
+         384,
+         1024
+        ],
+        [
+         "B",
+         "F",
+         "L",
+         "O",
+         "A",
+         "T",
+         "1",
+         "6"
+        ]
+       ]
+      ],
+      "out": [
+       [
+        65536,
+        384
+       ],
+       "BFLOAT16"
+      ],
+      "kw": {
+       "transpose_a": "False",
+       "transpose_b": "True"
+      },
+      "n": 2,
+      "ms": 3.656
+     },
+     {
+      "verb": "matmul",
+      "ins": [
+       [
+        [
+         65536,
+         384
+        ],
+        [
+         "B",
+         "F",
+         "L",
+         "O",
+         "A",
+         "T",
+         "1",
+         "6"
+        ]
+       ],
+       [
+        [
+         65536,
+         1024
+        ],
+        [
+         "B",
+         "F",
+         "L",
+         "O",
+         "A",
+         "T",
+         "1",
+         "6"
+        ]
+       ]
+      ],
+      "out": [
+       [
+        384,
+        1024
+       ],
+       "FLOAT32"
+      ],
+      "kw": {
+       "dtype": "DataType.FLOAT32",
+       "transpose_a": "True"
+      },
+      "n": 2,
+      "ms": 3.327
+     },
+     {
+      "verb": "matmul",
+      "ins": [
+       [
+        [
+         65536,
+         384
+        ],
+        [
+         "B",
+         "F",
+         "L",
+         "O",
+         "A",
+         "T",
+         "1",
+         "6"
+        ]
+       ],
+       [
+        [
+         65536,
+         384
+        ],
+        [
+         "B",
+         "F",
+         "L",
+         "O",
+         "A",
+         "T",
+         "1",
+         "6"
+        ]
+       ]
+      ],
+      "out": [
+       [
+        384,
+        384
+       ],
+       "FLOAT32"
+      ],
+      "kw": {
+       "dtype": "DataType.FLOAT32",
+       "transpose_a": "True"
+      },
+      "n": 2,
+      "ms": 3.217
+     },
+     {
+      "verb": "matmul",
+      "ins": [
+       [
+        [
+         65536,
+         768
+        ],
+        [
+         "B",
+         "F",
+         "L",
+         "O",
+         "A",
+         "T",
+         "1",
+         "6"
+        ]
+       ],
+       [
+        [
+         65536,
+         384
+        ],
+        [
+         "B",
+         "F",
+         "L",
+         "O",
+         "A",
+         "T",
+         "1",
+         "6"
+        ]
+       ]
+      ],
+      "out": [
+       [
+        768,
+        384
+       ],
+       "FLOAT32"
+      ],
+      "kw": {
+       "dtype": "DataType.FLOAT32",
+       "transpose_a": "True"
+      },
+      "n": 1,
+      "ms": 1.777
+     },
+     {
+      "verb": "matmul",
+      "ins": [
+       [
+        [
+         65536,
+         384
+        ],
+        [
+         "B",
+         "F",
+         "L",
+         "O",
+         "A",
+         "T",
+         "1",
+         "6"
+        ]
+       ],
+       [
+        [
+         65536,
+         768
+        ],
+        [
+         "B",
+         "F",
+         "L",
+         "O",
+         "A",
+         "T",
+         "1",
+         "6"
+        ]
+       ]
+      ],
+      "out": [
+       [
+        384,
+        768
+       ],
+       "FLOAT32"
+      ],
+      "kw": {
+       "dtype": "DataType.FLOAT32",
+       "transpose_a": "True"
+      },
+      "n": 1,
+      "ms": 1.65
+     },
+     {
+      "verb": "matmul",
+      "ins": [
+       [
+        [
+         65536,
+         768
+        ],
+        [
+         "B",
+         "F",
+         "L",
+         "O",
+         "A",
+         "T",
+         "1",
+         "6"
+        ]
+       ],
+       [
+        [
+         384,
+         768
+        ],
+        [
+         "B",
+         "F",
+         "L",
+         "O",
+         "A",
+         "T",
+         "1",
+         "6"
+        ]
+       ]
+      ],
+      "out": [
+       [
+        65536,
+        384
+       ],
+       "BFLOAT16"
+      ],
+      "kw": {
+       "transpose_b": "True"
+      },
+      "n": 1,
+      "ms": 1.38
+     },
+     {
+      "verb": "matmul",
+      "ins": [
+       [
+        [
+         65536,
+         384
+        ],
+        [
+         "B",
+         "F",
+         "L",
+         "O",
+         "A",
+         "T",
+         "1",
+         "6"
+        ]
+       ],
+       [
+        [
+         384,
+         384
+        ],
+        [
+         "B",
+         "F",
+         "L",
+         "O",
+         "A",
+         "T",
+         "1",
+         "6"
+        ]
+       ]
+      ],
+      "out": [
+       [
+        65536,
+        384
+       ],
+       "BFLOAT16"
+      ],
+      "kw": {
+       "transpose_a": "False",
+       "transpose_b": "True"
+      },
+      "n": 2,
+      "ms": 1.37
+     },
+     {
+      "verb": "matmul",
+      "ins": [
+       [
+        [
+         65536,
+         384
+        ],
+        [
+         "B",
+         "F",
+         "L",
+         "O",
+         "A",
+         "T",
+         "1",
+         "6"
+        ]
+       ],
+       [
+        [
+         768,
+         384
+        ],
+        [
+         "B",
+         "F",
+         "L",
+         "O",
+         "A",
+         "T",
+         "1",
+         "6"
+        ]
+       ]
+      ],
+      "out": [
+       [
+        65536,
+        768
+       ],
+       "BFLOAT16"
+      ],
+      "kw": {
+       "transpose_b": "True"
+      },
+      "n": 1,
+      "ms": 1.183
+     },
+     {
+      "verb": "matmul",
+      "ins": [
+       [
+        [
+         65536,
+         384
+        ],
+        [
+         "B",
+         "F",
+         "L",
+         "O",
+         "A",
+         "T",
+         "1",
+         "6"
+        ]
+       ],
+       [
+        [
+         256,
+         384
+        ],
+        [
+         "B",
+         "F",
+         "L",
+         "O",
+         "A",
+         "T",
+         "1",
+         "6"
+        ]
+       ]
+      ],
+      "out": [
+       [
+        65536,
+        256
+       ],
+       "BFLOAT16"
+      ],
+      "kw": {
+       "transpose_b": "True"
+      },
+      "n": 2,
+      "ms": 0.85
+     },
+     {
+      "verb": "matmul",
+      "ins": [
+       [
+        [
+         1,
+         256,
+         256,
+         256
+        ],
+        [
+         "B",
+         "F",
+         "L",
+         "O",
+         "A",
+         "T",
+         "1",
+         "6"
+        ]
+       ],
+       [
+        [
+         1,
+         256,
+         256,
+         256
+        ],
+        [
+         "B",
+         "F",
+         "L",
+         "O",
+         "A",
+         "T",
+         "1",
+         "6"
+        ]
+       ]
+      ],
+      "out": [
+       [
+        1,
+        256,
+        256,
+        256
+       ],
+       "BFLOAT16"
+      ],
+      "kw": {
+       "transpose_a": "False",
+       "transpose_b": "False"
+      },
+      "n": 2,
+      "ms": 0.604
+     },
+     {
+      "verb": "matmul",
+      "ins": [
+       [
+        [
+         1,
+         256,
+         256,
+         256
+        ],
+        [
+         "B",
+         "F",
+         "L",
+         "O",
+         "A",
+         "T",
+         "1",
+         "6"
+        ]
+       ],
+       [
+        [
+         1,
+         256,
+         256,
+         256
+        ],
+        [
+         "B",
+         "F",
+         "L",
+         "O",
+         "A",
+         "T",
+         "1",
+         "6"
+        ]
+       ]
+      ],
+      "out": [
+       [
+        1,
+        256,
+        256,
+        256
+       ],
+       "BFLOAT16"
+      ],
+      "kw": {
+       "transpose_a": "False",
+       "transpose_b": "True"
+      },
+      "n": 1,
+      "ms": 0.324
+     },
+     {
+      "verb": "matmul",
+      "ins": [
+       [
+        [
+         1,
+         256,
+         256,
+         256
+        ],
+        [
+         "B",
+         "F",
+         "L",
+         "O",
+         "A",
+         "T",
+         "1",
+         "6"
+        ]
+       ],
+       [
+        [
+         1,
+         256,
+         256,
+         256
+        ],
+        [
+         "B",
+         "F",
+         "L",
+         "O",
+         "A",
+         "T",
+         "1",
+         "6"
+        ]
+       ]
+      ],
+      "out": [
+       [
+        1,
+        256,
+        256,
+        256
+       ],
+       "BFLOAT16"
+      ],
+      "kw": {
+       "transpose_a": "True",
+       "transpose_b": "False"
+      },
+      "n": 1,
+      "ms": 0.316
+     },
+     {
+      "verb": "matmul",
+      "ins": [
+       [
+        [
+         256,
+         768
+        ],
+        [
+         "B",
+         "F",
+         "L",
+         "O",
+         "A",
+         "T",
+         "1",
+         "6"
+        ]
+       ],
+       [
+        [
+         256,
+         384
+        ],
+        [
+         "B",
+         "F",
+         "L",
+         "O",
+         "A",
+         "T",
+         "1",
+         "6"
+        ]
+       ]
+      ],
+      "out": [
+       [
+        768,
+        384
+       ],
+       "FLOAT32"
+      ],
+      "kw": {
+       "dtype": "DataType.FLOAT32",
+       "transpose_a": "True"
+      },
+      "n": 2,
+      "ms": 0.095
+     },
+     {
+      "verb": "matmul",
+      "ins": [
+       [
+        [
+         256,
+         384
+        ],
+        [
+         "B",
+         "F",
+         "L",
+         "O",
+         "A",
+         "T",
+         "1",
+         "6"
+        ]
+       ],
+       [
+        [
+         768,
+         384
+        ],
+        [
+         "B",
+         "F",
+         "L",
+         "O",
+         "A",
+         "T",
+         "1",
+         "6"
+        ]
+       ]
+      ],
+      "out": [
+       [
+        256,
+        768
+       ],
+       "BFLOAT16"
+      ],
+      "kw": {
+       "transpose_b": "True"
+      },
+      "n": 2,
+      "ms": 0.087
+     }
+    ],
+    "verb_sum_s": 0.08444,
+    "roof_sum_s": 0.05311,
+    "host_verb_s": 0,
+    "host_verb_calls": 0,
+    "by_verb": [
+     {
+      "verb": "matmul",
+      "n": 24,
+      "self_s": 0.02367,
+      "share": 0.3093,
+      "us_per_call": 986.1,
+      "gb": 2.495,
+      "tflop": 0.282,
+      "roof_s": 0.00567,
+      "pct_of_roof": 24.0,
+      "bound": "dram",
+      "shapes": 10
+     },
+     {
+      "verb": "multiply",
+      "n": 53,
+      "self_s": 0.01738,
+      "share": 0.2271,
+      "us_per_call": 327.9,
+      "gb": 5.626,
+      "tflop": 0.0,
+      "roof_s": 0.01279,
+      "pct_of_roof": 73.6,
+      "bound": "dram",
+      "shapes": 4
+     },
+     {
+      "verb": "sum",
+      "n": 38,
+      "self_s": 0.01458,
+      "share": 0.1906,
+      "us_per_call": 383.7,
+      "gb": 1.565,
+      "tflop": 0.0,
+      "roof_s": 0.00356,
+      "pct_of_roof": 24.4,
+      "bound": "dram",
+      "shapes": 7
+     },
+     {
+      "verb": "typecast",
+      "n": 18,
+      "self_s": 0.00646,
+      "share": 0.0845,
+      "us_per_call": 359.1,
+      "gb": 1.512,
+      "tflop": 0.0,
+      "roof_s": 0.00344,
+      "pct_of_roof": 53.2,
+      "bound": "dram",
+      "shapes": 2
+     },
+     {
+      "verb": "sigmoid_bw",
+      "n": 6,
+      "self_s": 0.00637,
+      "share": 0.0833,
+      "us_per_call": 1061.9,
+      "gb": 0.705,
+      "tflop": 0.0,
+      "roof_s": 0.0016,
+      "pct_of_roof": 25.1,
+      "bound": "dram",
+      "shapes": 2
+     },
+     {
+      "verb": "subtract",
+      "n": 16,
+      "self_s": 0.00422,
+      "share": 0.0552,
+      "us_per_call": 263.8,
+      "gb": 1.529,
+      "tflop": 0.0,
+      "roof_s": 0.00347,
+      "pct_of_roof": 82.3,
+      "bound": "dram",
+      "shapes": 3
+     },
+     {
+      "verb": "add",
+      "n": 12,
+      "self_s": 0.00418,
+      "share": 0.0546,
+      "us_per_call": 348.0,
+      "gb": 0.757,
+      "tflop": 0.0,
+      "roof_s": 0.00172,
+      "pct_of_roof": 41.2,
+      "bound": "dram",
+      "shapes": 4
+     },
+     {
+      "verb": "transpose",
+      "n": 4,
+      "self_s": 0.00245,
+      "share": 0.032,
+      "us_per_call": 612.8,
+      "gb": 0.268,
+      "tflop": 0.0,
+      "roof_s": 0.00061,
+      "pct_of_roof": 24.9,
+      "bound": "dram",
+      "shapes": 1
+     },
+     {
+      "verb": "concat",
+      "n": 2,
+      "self_s": 0.00149,
+      "share": 0.0194,
+      "us_per_call": 743.9,
+      "gb": 0.268,
+      "tflop": 0.0,
+      "roof_s": 0.00061,
+      "pct_of_roof": 41.0,
+      "bound": "dram",
+      "shapes": 1
+     },
+     {
+      "verb": "divide",
+      "n": 22,
+      "self_s": 0.00118,
+      "share": 0.0155,
+      "us_per_call": 53.7,
+      "gb": 0.005,
+      "tflop": 0.0,
+      "roof_s": 1e-05,
+      "pct_of_roof": 1.0,
+      "bound": "dram",
+      "shapes": 2
+     },
+     {
+      "verb": "generic_op",
+      "n": 4,
+      "self_s": 0.00095,
+      "share": 0.0124,
+      "us_per_call": 236.7,
+      "gb": 0.134,
+      "tflop": 0.0,
+      "roof_s": 0.00031,
+      "pct_of_roof": 32.2,
+      "bound": "dram",
+      "shapes": 1
+     },
+     {
+      "verb": "reshape",
+      "n": 72,
+      "self_s": 0.00082,
+      "share": 0.0107,
+      "us_per_call": 11.4,
+      "gb": 5.343,
+      "tflop": 0.0,
+      "roof_s": 0.01214,
+      "pct_of_roof": 1481.2,
+      "bound": "dram",
+      "shapes": 16
+     },
+     {
+      "verb": "rsqrt",
+      "n": 6,
+      "self_s": 0.00036,
+      "share": 0.0048,
+      "us_per_call": 60.7,
+      "gb": 0.001,
+      "tflop": 0.0,
+      "roof_s": 0.0,
+      "pct_of_roof": 0.8,
+      "bound": "dram",
+      "shapes": 2
+     },
+     {
+      "verb": "deallocate",
+      "n": 33,
+      "self_s": 0.00029,
+      "share": 0.0038,
+      "us_per_call": 8.9,
+      "gb": 3.021,
+      "tflop": 0.0,
+      "roof_s": 0.00687,
+      "pct_of_roof": 2349.5,
+      "bound": "dram",
+      "shapes": 7
+     },
+     {
+      "verb": "allocate_tensor_on_device",
+      "n": 4,
+      "self_s": 4e-05,
+      "share": 0.0005,
+      "us_per_call": 10.0,
+      "gb": 0.134,
+      "tflop": 0.0,
+      "roof_s": 0.00031,
+      "pct_of_roof": 761.7,
+      "bound": "dram",
+      "shapes": 1
+     }
+    ],
+    "by_closure": [
+     {
+      "closure": "_layer_norm_bw.<locals>.bw",
+      "fired": 6,
+      "s": 0.03598
+     },
+     {
+      "closure": "_v_matmul.<locals>.make.<locals>.bw",
+      "fired": 6,
+      "s": 0.01696
+     },
+     {
+      "closure": "_taped_linear.<locals>.make.<locals>.bw",
+      "fired": 6,
+      "s": 0.01412
+     },
+     {
+      "closure": "_binary.<locals>.impl.<locals>.make.<locals>.bw",
+      "fired": 11,
+      "s": 0.01312
+     },
+     {
+      "closure": "_v_transpose.<locals>.make.<locals>.bw",
+      "fired": 4,
+      "s": 0.0025
+     },
+     {
+      "closure": "_v_permute.<locals>.make.<locals>.bw",
+      "fired": 4,
+      "s": 0.00155
+     },
+     {
+      "closure": "relu.<locals>.make.<locals>.bw",
+      "fired": 1,
+      "s": 0.00077
+     },
+     {
+      "closure": "_v_reshape.<locals>.make.<locals>.bw",
+      "fired": 2,
+      "s": 8e-05
+     },
+     {
+      "closure": "_sliced.<locals>.make.<locals>.bw",
+      "fired": 8,
+      "s": 3e-05
+     }
+    ]
+   }
+  },
+  "wall_aa": [
+   {
+    "fwd_s": 0.01975,
+    "bwd_s": 0.07673,
+    "aiclk_fwd": [
+     1325,
+     1325,
+     1
+    ],
+    "aiclk_bwd": [
+     1325,
+     1350,
+     2
+    ],
+    "grad_digest": "930ecc50a65a9f7d",
+    "nonzero": "24/24"
+   },
+   {
+    "fwd_s": 0.02011,
+    "bwd_s": 0.07678,
+    "aiclk_fwd": [
+     1350,
+     1350,
+     1
+    ],
+    "aiclk_bwd": [
+     1337,
+     1350,
+     2
+    ],
+    "grad_digest": "930ecc50a65a9f7d",
+    "nonzero": "24/24"
+   },
+   {
+    "fwd_s": 0.02005,
+    "bwd_s": 0.07698,
+    "aiclk_fwd": [
+     1337,
+     1337,
+     1
+    ],
+    "aiclk_bwd": [
+     1318,
+     1337,
+     2
+    ],
+    "grad_digest": "930ecc50a65a9f7d",
+    "nonzero": "24/24"
+   }
+  ]
+ },
+ "exact_ops": [],
+ "lnbw": {
+  "weights": false,
+  "reach": {},
+  "calls": {
+   "[1, 256, 256, 384] x=DataType.BFLOAT16 g=DataType.BFLOAT16 gamma=True weights=True -> False": 27,
+   "[1, 256, 256, 256] x=DataType.BFLOAT16 g=DataType.BFLOAT16 gamma=True weights=True -> False": 18
+  }
+ },
+ "mmvjp": {
+  "on": false,
+  "stats": {
+   "dx": 0,
+   "dw": 0,
+   "declined": 0
+  }
+ }
+}

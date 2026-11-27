@@ -1,0 +1,16 @@
+{
+ "PASS": true,
+ "params": 24,
+ "global_rel_L2": 0.0,
+ "global_cos": 1.0,
+ "worst": {
+  "param": "ln_b",
+  "rel_L2": 0.0,
+  "cos": 1.0000000000000002
+ },
+ "bar": {
+  "rel_L2": 0.01,
+  "cos": 0.9999
+ },
+ "acc_digest": "da730f211f2227d7"
+}

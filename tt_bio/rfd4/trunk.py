@@ -100,10 +100,14 @@ def _masked_copy(x, mask, dtype, alias=False):
         if x.dtype == dtype:
             return x if alias else ttnn.clone(x)
         return ttnn.typecast(x, dtype)
-    xd = _as(x, dtype)
-    out = ttnn.multiply(xd, mask)
-    if xd is not x:
-        ttnn.deallocate(xd)
+    # Operand and mask in one dtype. A float32 trunk keeps a bfloat16 pair stream under `pair_bf16z`, and
+    # ttnn.multiply of a bf16 [b, n, n, c] by an fp32 [b, n, n, 1] mask wrote wrong values into ~0.4 % of the
+    # real entries, different ones each call (r4t net6, `perf/r4t_tape/mask_dtype.py`). Served calls match.
+    xd, md = _as(x, dtype), _as(mask, dtype)
+    out = ttnn.multiply(xd, md)
+    for t, given in ((xd, x), (md, mask)):
+        if t is not given:
+            ttnn.deallocate(t)
     return out
 
 
@@ -809,11 +813,23 @@ WH_FAST_LEVERS = NORMAL_LEVERS | {"mask_at_mix_z8"}
 WH_NORMAL_LEVERS = NORMAL_LEVERS | {"trimul_t1_stats", "pair_bias_fuse"}
 
 
-def mode_levers() -> frozenset:
-    """This process's RFD4 trunk lever set: the mode's set for this card's arch, or TT_BIO_LEVERS."""
+#: Levers training leaves out (D43, state/r4t/rows/perf.md): every lever that serves at crop 256. With all on, the
+#: no-update loss-parity arm put bb_ca over its D37 allowance on batches 00 and 07. Over 9 batches, every single
+#: serving lever off and every pair with `transition_b8` still misses bb_ca or sequence_prediction somewhere; only
+#: all five off passes both terms on all 9. The other 28 are digest-neutral at crop 256 and stay. Inference keeps
+#: the full set: its grade is the design RMSD above.
+TRAIN_DROPS = frozenset({"dit_sigf32", "pair_bf16z", "tok_recycle_mm", "tok_w8", "transition_b8"})
+
+
+def mode_levers(training: bool = False) -> frozenset:
+    """This process's RFD4 trunk lever set: the mode's set for this card's arch (less TRAIN_DROPS when
+    `training`), or TT_BIO_LEVERS."""
     from ..tenstorrent import is_wormhole
     wh = is_wormhole()
-    return model_levers(normal=WH_NORMAL_LEVERS if wh else NORMAL_LEVERS, fast=WH_FAST_LEVERS if wh else FAST_LEVERS)
+    normal, fast = (WH_NORMAL_LEVERS, WH_FAST_LEVERS) if wh else (NORMAL_LEVERS, FAST_LEVERS)
+    if training:
+        normal, fast = normal - TRAIN_DROPS, fast - TRAIN_DROPS
+    return model_levers(normal=normal, fast=fast)
 
 
 class Trunk(Module):
@@ -839,12 +855,12 @@ class Trunk(Module):
     _ran = (0, 0)
 
     def __init__(self, state_dict, ckc, nlayers: int = 24, n_heads: int = 16, every_n: int = 2,
-                 dtype=None, residual_dtype=None, pair_residual_dtype=None):
+                 dtype=None, residual_dtype=None, pair_residual_dtype=None, training: bool = False):
         super().__init__(state_dict, ckc)
         self.dtype = dtype or ttnn.bfloat16
         self.residual_dtype = residual_dtype or self.dtype
         self.nlayers = nlayers
-        self._levers = mode_levers()
+        self._levers = mode_levers(training)
         self.pair_residual_dtype = pair_residual_dtype or (
             (ttnn.bfloat8_b if "pair_bfp8z" in self._levers else ttnn.bfloat16) if "pair_bf16z" in self._levers
             else self.residual_dtype)
@@ -1005,18 +1021,21 @@ class Trunk(Module):
         low = self.dtype if zd == ttnn.float32 and self.dtype == ttnn.bfloat16 else None
         s = z = None
         self._ran = (0, 0)
-        for c in conds:
-            zb = None
-            if s is None:
-                s_in, z_in = ttnn.clone(s_init), ttnn.clone(z_init)
-            else:
-                s_in = self._recycle(s_init, s, self.s_norm, self.s_proj, self.residual_dtype)
-                z_in = self._recycle(z_init, z, self.z_norm, self.z_proj, zd, low=low)
-                if low is not None:
-                    z_in, zb = z_in
-                ttnn.deallocate(s)
-                ttnn.deallocate(z)
-            s, z = self.run_pass(s_in, z_in, c, masks, zb=zb)
+        # Under a tape every cycle but the last runs under no_grad, as upstream trains it (only the last
+        # pass is differentiated); all cycles still run. With no tape `recycle_region` is a null context.
+        for cyc, c in enumerate(conds):
+            with ops.recycle_region(cyc, len(conds) - 1):
+                zb = None
+                if s is None:
+                    s_in, z_in = ttnn.clone(s_init), ttnn.clone(z_init)
+                else:
+                    s_in = self._recycle(s_init, s, self.s_norm, self.s_proj, self.residual_dtype)
+                    z_in = self._recycle(z_init, z, self.z_norm, self.z_proj, zd, low=low)
+                    if low is not None:
+                        z_in, zb = z_in
+                    ttnn.deallocate(s)
+                    ttnn.deallocate(z)
+                s, z = self.run_pass(s_in, z_in, c, masks, zb=zb)
         if res_mask is not None and lever("mask_at_mix"):
             # the passes left the padded tokens unmasked; the call hands them back as zeros, as upstream does
             ms, mz = _masked_copy(s, res_mask, self.residual_dtype), _masked_copy(z, res_pair_mask_c, zd)
@@ -1122,7 +1141,9 @@ class Trunk(Module):
         and a run that reserved none simply stays eager."""
         # A trunk a caller built without `__init__` (a stand-in in the work-counting tests, a subclass
         # that never resolved a lever set) has no `_levers` and simply does not replay.
-        return "trunk_trace" in getattr(self, "_levers", ()) and trace_region_size() > 0
+        # Never under a tape: a replay hands back raw outputs of a program the tape never saw, so the
+        # graph would end at the trunk with no error, and a capture would record the tape's own verbs.
+        return "trunk_trace" in getattr(self, "_levers", ()) and trace_region_size() > 0 and not ops.taping()
 
     @staticmethod
     def trace_key(s, z, cs):

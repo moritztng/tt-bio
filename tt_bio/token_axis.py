@@ -280,6 +280,24 @@ TOKEN_AXIS = {
         "ttnn.softmax",
         "cmp-af2ig-bucket",
     ),
+    # DiffDock-L has no token trunk. Its axes are the nodes and the edges of a radius graph over
+    # residues and ligand atoms, and both are padded to 32 by the graph builder, so it takes the
+    # fleet multiple like everyone else rather than an exemption.
+    "diffdock": (
+        BUCKETED, TOKEN_BUCKET,
+        "tt_bio/diffdock/graph.py::pad_count and the pad_edge_index calls beside it pad the node "
+        "and edge axes; tt_bio/diffdock/conv.py::pad_edges points every dead edge at the pad node; "
+        "tt_bio/diffdock/device.py::DeviceConvLayer masks the edges before the scatter matmul",
+        "the census is a complete one by construction, not a sample: the package contains no "
+        "softmax and no SDPA at all, so the ragged-reduce counters have nothing to count. The "
+        "only reduce is the scatter, a one-hot [N, E] matmul on the card or an index_add on "
+        "the host, and both are multiplied by an explicit edge mask first with the mean's "
+        "divisor clamped, so a padded lane contributes an exact zero to the sum AND to the "
+        "divisor. pad_edges makes every dead edge pad_node -> pad_node and pad_count reserves "
+        "that spare row, so no real row can be reached by a pad edge: "
+        "tests/test_diffdock_conv.py::test_padding_does_not_change_a_real_row grades the real rows "
+        "bit-identical against the unpadded layer",
+    ),
     "nesso1": (
         BUCKETED, TOKEN_BUCKET,
         "nesso1.py routes both trunk stacks through tenstorrent.PairformerModule / "

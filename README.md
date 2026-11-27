@@ -44,6 +44,7 @@ Each runs as `tt-bio <command> --model <name>`:
 | [RFdiffusion3](https://www.biorxiv.org/content/10.1101/2025.09.18.676967) | All-atom design: binders, motif scaffolding, nucleic-acid binders | [`design`](#design) | `rfd3` |
 | [RFD4-Proteina](https://huggingface.co/nvidia/RFD4-Proteina) | Binder and motif design through a latent flow, with a thinking budget | [`design`](#design) | `rfd4` |
 | [PXDesign](https://github.com/bytedance/PXDesign) | Binder backbones against a target structure | [`design`](#design) | `pxdesign` |
+| [DiffDock-L](https://github.com/gcorso/DiffDock) | Places a small molecule in a receptor and ranks the poses | [`dock`](#docking) | `diffdock` |
 | ESMC | Protein language model embeddings | [`embed`](#protein-embeddings-esmc) | `esmc-300m`, `esmc-600m`, `esmc-6b` |
 | SaProt | Structure-aware embeddings, variant-effect scoring | [`saprot`](#structure-aware-protein-embeddings-saprot) | `saprot-35m`, `saprot-650m`, `saprot-1.3b` |
 | Nesso-1 | Protein-ligand binding affinity without a structure | [`affinity`](#binding-affinity-without-a-structure-nesso-1) | `nesso1` |
@@ -423,8 +424,8 @@ tt-bio dock ligands.csv --model diffdock --out_dir screen/
 Poses are written in upstream DiffDock's layout (`rank1.sdf`,
 `rank1_confidence-0.42.sdf`, ...) plus a `confidence.json` listing the ranking, so an
 existing pipeline reads them unchanged. Defaults are DiffDock-L's published recipe, and
-the weights are fetched on first use with `tt-bio weights --download diffdock`. Docking
-runs on CPU today; the card path is in progress. See [`docs/docking.md`](docs/docking.md) for the input forms, pocket docking and the
+the weights are fetched on first use with `tt-bio weights --download diffdock`. On a host
+with a Tenstorrent card the score network runs on the card, otherwise on CPU. See [`docs/docking.md`](docs/docking.md) for the input forms, pocket docking and the
 full flag map.
 
 ## Design

@@ -200,6 +200,18 @@ details.disclose > div{ padding-top:var(--s-4); }
   </div>
 
   <div class="mgroup">
+    <h3>Docking</h3>
+    <div class="tablewrap"><table class="mtable">
+      <thead><tr><th>--model</th><th>Model</th><th>Places</th><th>Input</th></tr></thead>
+      <tbody>
+        <tr><td>diffdock</td><td>DiffDock-L</td><td>one small molecule in a receptor, ranked poses</td><td>receptor structure plus a SMILES or molecule file</td></tr>
+      </tbody>
+    </table></div>
+    <p class="mnote">DiffDock-L runs under <code>tt-bio dock</code>. It runs on the CPU today, so it is
+    not in the performance figures below.</p>
+  </div>
+
+  <div class="mgroup">
     <h3>Protein design</h3>
     <div class="tablewrap"><table class="mtable">
       <thead><tr><th>--model</th><th>Model</th><th>Designs</th><th>Input</th></tr></thead>

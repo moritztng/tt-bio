@@ -73,7 +73,13 @@ class Receptor:
 def _read_gemmi(path: Path):
     import gemmi
 
-    st = gemmi.read_structure(str(path))
+    # `merge_chain_parts=False` is not a detail: gemmi's default gathers every
+    # block that carries the same chain name into one chain, so a residue of
+    # chain C written near the end of the file is re-ordered next to the rest of
+    # chain C. ProDy numbers residues as they are written, and the receptor node
+    # order IS that numbering. Keeping the parts separate gives file order back.
+    # See the 7FT9_4MB note in state/dfd/INPUT.md.
+    st = gemmi.read_structure(str(path), merge_chain_parts=False)
     if len(st) == 0:
         raise ValueError(f"{path} contains no model")
     # ProDy reads one model. gemmi exposes mmCIF auth_* names as the default,

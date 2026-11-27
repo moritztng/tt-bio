@@ -1,0 +1,10 @@
+batch00 up 46.504228 |card-up| 1.121e-03 |host-up| 1.121e-03 ratio 1.00 PASS digest card 4e0f88d11bbfbe80 host 4e0f88d11bbfbe80
+batch01 up 34.908563 |card-up| 1.164e-02 |host-up| 1.164e-02 ratio 1.00 PASS digest card 51c98673d2a1cfa1 host 51c98673d2a1cfa1
+batch02 up 32.587535 |card-up| 2.039e-03 |host-up| 2.039e-03 ratio 1.00 PASS digest card e923c9b1adc42e58 host e923c9b1adc42e58
+batch03 up 25.496023 |card-up| 3.969e-03 |host-up| 3.969e-03 ratio 1.00 PASS digest card 58e149d2e30e41a0 host 58e149d2e30e41a0
+batch04 up 43.924318 |card-up| 1.124e-02 |host-up| 1.124e-02 ratio 1.00 PASS digest card a2e7cfdd5ef12bb3 host a2e7cfdd5ef12bb3
+batch05 up 167.032712 |card-up| 1.214e-01 |host-up| 1.214e-01 ratio 1.00 PASS digest card 7edc5246f3b95c86 host 7edc5246f3b95c86
+batch06 up 49.774454 |card-up| 3.815e-03 |host-up| 3.815e-03 ratio 1.00 PASS digest card 74685d0939640b71 host 74685d0939640b71
+batch07 up 46.272214 |card-up| 1.973e-02 |host-up| 1.973e-02 ratio 1.00 PASS digest card 280c9d47c0ca8b1e host 280c9d47c0ca8b1e
+batch08 up 56.941564 |card-up| 3.423e-02 |host-up| 3.423e-02 ratio 1.00 PASS digest card a8351b5a30c0f0ce host a8351b5a30c0f0ce
+R2-DRIFT: PASS

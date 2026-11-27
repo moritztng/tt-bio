@@ -113,11 +113,21 @@ class PairSplit:
         self.ln_weight = factory.ln_out.weight.detach().float()
         self.eps = factory.ln_out.eps
         self.builder = builder
+        # Every table below is a copy of the builder's weights as they are now. An optimizer step writes
+        # them in place, which bumps their torch versions; `constant` refuses a stale split rather than
+        # build z_init from weights the model no longer has.
+        self._versions = self._weight_versions()
         w = self.w_step.double()
         w2 = self.ln_weight.double() ** 2
         self._cross = torch.cat([w, w * w2]).t().contiguous()  # [pair, 2 nbins]
         self._sq = torch.stack([torch.ones_like(w2), w2], 1)  # [pair, 2]
         self._wsq = torch.stack([(w * w).sum(-1), (w * w * w2).sum(-1)])  # [2, nbins]
+
+    #: Project and scale a batch of identical constant rows once (`constant`).
+    DEDUP = True
+
+    def _weight_versions(self) -> tuple:
+        return tuple(p._version for p in self.builder.parameters())
 
     @property
     def nbins(self) -> int:
@@ -125,6 +135,10 @@ class PairSplit:
 
     def constant(self, batch: dict) -> PairConstant:
         """The projection of every feature but the step's, and its norm scales."""
+        if self._weight_versions() != self._versions:
+            raise RuntimeError("the pair builder's weights changed since this PairSplit copied them (an optimizer "
+                               "step?): build a new PairSplit. Training builds z_init on the host through the "
+                               "builder itself and `train.bridge.Bridge.up`, never through a split.")
         n = batch["padding_mask"].shape[-1]
         parts = []
         for creator in self.const_creators:
@@ -132,6 +146,12 @@ class PairSplit:
             if f.ndim == 2:  # per-example features broadcast over the pair, as FeatureFactory does
                 f = f.reshape(f.shape[0], 1, 1, -1).expand(-1, n, n, -1)
             parts.append(f.float())
+        b = parts[0].shape[0]
+        # Every constant feature is structural, so a batch of one design's samples (the K training
+        # candidates, serving's samples) repeats one row b times: project and scale it once.
+        if self.DEDUP and b > 1 and all(torch.equal(f, f[:1].expand_as(f)) for f in parts):
+            proj = torch.cat([f[:1] for f in parts], dim=-1) @ self.w_const.t()
+            return PairConstant(proj.expand(b, -1, -1, -1), self.scales(proj).expand(b, -1, -1, -1))
         proj = torch.cat(parts, dim=-1) @ self.w_const.t()
         return PairConstant(proj, self.scales(proj))
 

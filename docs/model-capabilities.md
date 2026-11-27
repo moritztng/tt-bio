@@ -43,6 +43,12 @@ it cannot read (`msa:`, `modifications:`, `cyclic:`, `templates:`, `constraints:
 refusing, so a Boltz-2 affinity yaml stays reusable. See
 [`docs/nesso1.md`](nesso1.md).
 
+`tt-bio dock --model diffdock` is not in the matrix either: it places one small molecule in a
+receptor it holds rigid, so it takes exactly one protein receptor and one ligand. A second
+ligand, an RNA or DNA chain, a receptor-free input and a template are refused by name, and a
+ligand file is read. A `pocket:` constraint between chains is refused and names the form
+docking does take, a centre: `docking: {pocket: [x, y, z]}` or `--pocket x,y,z`. See [`docs/docking.md`](docking.md).
+
 ## The input language
 
 ```yaml

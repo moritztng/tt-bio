@@ -15,6 +15,7 @@ of a fitted set alone is meaningless) and are reachable through ``--config``.
 from __future__ import annotations
 
 import csv
+import logging
 import re
 from dataclasses import dataclass, field, fields, replace
 from pathlib import Path
@@ -22,6 +23,8 @@ from pathlib import Path
 import yaml
 
 from tt_bio.data.yaml_input import load_mapping
+
+log = logging.getLogger(__name__)
 
 RECIPE_PATH = Path(__file__).with_name("recipe.yaml")
 
@@ -75,6 +78,9 @@ class DockOptions:
     checkpoint: Path | None = None
     confidence_checkpoint: Path | None = None
     no_confidence: bool = False
+    #: Where the score network runs: "cpu" (host torch) or "tt" (the card this run
+    #: pinned). `tt_bio.main._dock_on_card` sets it; `network.load` reads it.
+    device: str = "cpu"
     pocket: tuple[float, float, float] | None = None
     pocket_radius: float = 5.0              # evaluate.py --pocket_cutoff
     save_trajectory: bool = False
@@ -123,7 +129,7 @@ class DockOptions:
         if data.get("old_score_model"):
             changes["weights"] = "diffdock"
         recipe = {**self.recipe, **data}
-        return replace(self, recipe=recipe, **changes)
+        return override(replace(self, recipe=recipe), changes)
 
     def as_dict(self) -> dict:
         out = {}
@@ -131,6 +137,18 @@ class DockOptions:
             v = getattr(self, f.name)
             out[f.name] = str(v) if isinstance(v, Path) else v
         return out
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "DockOptions":
+        """The inverse of :meth:`as_dict`, for options that travelled to a worker as JSON."""
+        names = {f.name for f in fields(cls)}
+        kw = {k: v for k, v in data.items() if k in names}
+        for name in ("checkpoint", "confidence_checkpoint"):
+            if kw.get(name) is not None:
+                kw[name] = Path(kw[name])
+        if kw.get("pocket") is not None:
+            kw["pocket"] = tuple(float(x) for x in kw["pocket"])
+        return cls(**kw)
 
 
 @dataclass(frozen=True)
@@ -230,7 +248,26 @@ def _apply_docking_block(options: DockOptions, block: dict, where: str) -> DockO
         raise ValueError(f"{where}: sampler must be sde or ode")
     if changes.get("weights") not in (None, *WEIGHTS):
         raise ValueError(f"{where}: weights must be one of {', '.join(WEIGHTS)}")
-    return replace(options, **changes)
+    return override(options, changes)
+
+
+def override(options: DockOptions, changes: dict) -> DockOptions:
+    """Apply the fields a user set, keeping the two step counts consistent.
+
+    `actual_steps` truncates the schedule `sampling_steps` builds: the recipe runs 19 of
+    20. A shorter run that names only `sampling_steps` keeps that shape and stops one step
+    early; one that asks for more steps than the schedule holds runs all of it. Without
+    this, `--sampling_steps 4` left the loop running 19 steps of a 4-entry schedule and
+    died on an index error partway through the dock.
+    """
+    opts = replace(options, **changes)
+    if "sampling_steps" in changes and "actual_steps" not in changes:
+        opts = replace(opts, actual_steps=max(1, opts.sampling_steps - 1))
+    if opts.actual_steps is not None and opts.actual_steps > opts.sampling_steps:
+        log.warning("actual_steps %d is more than the %d scheduled steps; running all %d",
+                    opts.actual_steps, opts.sampling_steps, opts.sampling_steps)
+        opts = replace(opts, actual_steps=opts.sampling_steps)
+    return opts
 
 
 def parse_pocket(value) -> tuple[float, float, float]:

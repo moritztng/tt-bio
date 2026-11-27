@@ -188,3 +188,19 @@ def test_one_program_is_the_float32_ops_with_an_exact_gather(b, n, cb):
     print(f"b {b} n {n}: bit-equal {exact:.6f}, max rel err {err:.3e}")
     # the gather moves bits; the four ops are float32 on the SFPU, within an ulp of IEEE's
     assert err < 1e-6
+
+
+@needs_bundle
+def test_a_split_refuses_weights_an_optimizer_has_moved(case):
+    """The split's tables are copies; after an in-place write (what `train.bridge.HostParam.write` does)
+    it must refuse, and a fresh split must not. The copy_ of a weight onto itself bumps its version
+    without changing a value, so the shared fixture is untouched."""
+    glue, batch = case
+    split = PairSplit(glue.pair_repr_builder)
+    split.constant(batch)
+    w = glue.pair_repr_builder.init_repr_factory.linear_out.weight
+    with torch.no_grad():
+        w.copy_(w.clone())
+    with pytest.raises(RuntimeError, match="changed since this PairSplit"):
+        split.constant(batch)
+    PairSplit(glue.pair_repr_builder).constant(batch)
