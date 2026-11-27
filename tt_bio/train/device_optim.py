@@ -1072,6 +1072,7 @@ class DeviceOptimizer:
         """Run one optimizer step wholly on card."""
         import ttnn
 
+        orig_grads = grads
         if reduce_fn is not None:
             grads = reduce_fn(grads)
         dis = set(disabled)
@@ -1091,9 +1092,12 @@ class DeviceOptimizer:
         adam_packed = [(bk, *self._pack_grads(bk, grads, dis)) for bk in self._adam_buckets]
 
         if free_grads:
-            for g in grads.values():
-                if g is not None and g.is_allocated():
-                    ttnn.deallocate(g)
+            freed_ids: set[int] = set()
+            for mapping in (grads, orig_grads):
+                for g in mapping.values():
+                    if g is not None and id(g) not in freed_ids and g.is_allocated():
+                        freed_ids.add(id(g))
+                        ttnn.deallocate(g)
 
         sq_muon, sq_adam, dead_grads = self._group_norms_and_dead(muon_packed, adam_packed)
         if norm_reduce_fn is not None:

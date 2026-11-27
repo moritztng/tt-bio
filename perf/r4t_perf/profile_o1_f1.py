@@ -93,9 +93,14 @@ class Float64MuonAdamEMA:
             o = self._ns(u)
             w[:] = w * (1.0 - self.lr * self.mu.weight_decay) - self.lr * self.mu.ratio(w.shape) * o
 
-        n_thr = min(16, max(1, os.cpu_count() or 8))
-        with ThreadPoolExecutor(max_workers=n_thr) as pool:
-            list(pool.map(_do_muon, self.muon_names))
+        blas_thr = int(os.environ.get("OPENBLAS_NUM_THREADS") or os.environ.get("OMP_NUM_THREADS") or "1")
+        n_thr = 1 if blas_thr > 1 else min(16, max(1, os.cpu_count() or 8))
+        if n_thr > 1:
+            with ThreadPoolExecutor(max_workers=n_thr) as pool:
+                list(pool.map(_do_muon, self.muon_names))
+        else:
+            for k in self.muon_names:
+                _do_muon(k)
 
         for k, w in self.master.items():
             if k in self.muon_names:

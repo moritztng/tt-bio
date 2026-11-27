@@ -169,4 +169,69 @@ def test_norm_adaln_on_card_signature_compat():
     assert isinstance(fn.args.kw_defaults[0], ast.Constant) and fn.args.kw_defaults[0].value is False
 
 
+def test_pow2_chunks_partition_and_bounds():
+    """Verify _pow2_chunks partitions any active-set size into powers of two <= 32 in order."""
+    from tt_bio.train.folds import _pow2_chunks
+
+    for k in (0, 1, 2, 3, 14, 15, 35, 36, 37, 38, 56, 84):
+        seq = list(range(k))
+        chunks = _pow2_chunks(seq)
+        flat = [x for ch in chunks for x in ch]
+        assert flat == seq
+        for ch in chunks:
+            n = len(ch)
+            assert 1 <= n <= 32 and (n & (n - 1)) == 0
+    # 35..38 share {32, 4, 2, 1} so d=1 / batch08 combinations never compile a new batch size
+    assert [len(c) for c in _pow2_chunks(list(range(36)))] == [32, 4]
+    assert [len(c) for c in _pow2_chunks(list(range(35)))] == [32, 2, 1]
+    assert [len(c) for c in _pow2_chunks(list(range(37)))] == [32, 4, 1]
+    assert [len(c) for c in _pow2_chunks(list(range(38)))] == [32, 4, 2]
+
+
+def test_device_optimizer_free_grads_frees_orig_and_reduced(monkeypatch):
+    """When reduce_fn returns a new dict, free_grads=True must deallocate BOTH orig and reduced."""
+    import sys
+    import types
+    from tt_bio.train.device_optim import DeviceOptimizer
+
+    class _FakeT:
+        def __init__(self, tag):
+            self.tag = tag
+            self.alive = True
+        def is_allocated(self):
+            return self.alive
+
+    freed = []
+    fake_ttnn = types.SimpleNamespace(
+        deallocate=lambda t: (setattr(t, "alive", False), freed.append(t.tag)),
+    )
+    monkeypatch.setitem(sys.modules, "ttnn", fake_ttnn)
+
+    opt = object.__new__(DeviceOptimizer)
+    opt.lr = 1e-4
+    opt.schedule = None
+    opt.muon = None
+    opt.muon_names = frozenset()
+    opt.steps = 0
+    opt.beta1 = 0.9
+    opt.beta2 = 0.999
+    opt.beta1_pow = 1.0
+    opt.beta2_pow = 1.0
+    opt._muon_buckets = []
+    opt._adam_buckets = []
+    opt.ema = None
+    opt.master = {}
+    opt.owned_names = frozenset()
+    opt.clip_norm = 1.0
+    opt._group_norms_and_dead = lambda m, a: (0.0, 0.0, set())
+
+    g_orig = _FakeT("orig")
+    g_red = _FakeT("reduced")
+    opt.step({"w": g_orig}, reduce_fn=lambda d: {"w": g_red}, free_grads=True)
+    assert set(freed) == {"orig", "reduced"}
+    assert not g_orig.alive and not g_red.alive
+
+
+
+
 

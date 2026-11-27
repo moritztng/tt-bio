@@ -601,7 +601,21 @@ def _dev_reduce_to_f32(g, target_shape: tuple[int, ...]):
     return cur
 
 
-def _dev_batch_transpose_2d(xs: list, *, fast_dtype=None) -> list:
+def _pow2_chunks(seq: list) -> list[list]:
+    """Partition ``seq`` into power-of-two slices (32, 16, 8, 4, 2, 1) so dynamic active sets
+    in ``tape_backward`` never JIT-compile a new batch size mid-run (e.g. d=1 vs batch08)."""
+    out: list[list] = []
+    off = 0
+    n = len(seq)
+    while off < n:
+        rem = n - off
+        c = 1 << min(5, rem.bit_length() - 1)
+        out.append(seq[off:off + c])
+        off += c
+    return out
+
+
+def _dev_batch_transpose_2d(xs: list, *, fast_dtype=None, pow2: bool = False) -> list:
     """Batch-transpose same-shape 2-D float32 TILE tensors ``[(M, N), ...] -> [(N, M), ...]``.
 
     When ``fast_dtype`` is ``bfloat16`` or ``bfloat8_b``, casts to ``bfloat16`` before a single
@@ -613,6 +627,11 @@ def _dev_batch_transpose_2d(xs: list, *, fast_dtype=None) -> list:
 
     if not xs:
         return []
+    if pow2 and len(xs) > 1:
+        out_p: list = []
+        for chunk in _pow2_chunks(xs):
+            out_p.extend(_dev_batch_transpose_2d(chunk, fast_dtype=fast_dtype, pow2=False))
+        return out_p
     m, n = int(xs[0].shape[0]), int(xs[0].shape[1])
     k = len(xs)
     if k == 1 or (m % 32 != 0) or (n % 32 != 0):
@@ -1439,7 +1458,7 @@ class DeviceFolds:
                         o_nids.append(nid)
                 for _shp, nids in t_grp.items():
                     xs = [fvals[self.nodes[nid].inputs[0]] for nid in nids]
-                    for nid, out_t in zip(nids, _dev_batch_transpose_2d(xs)):
+                    for nid, out_t in zip(nids, _dev_batch_transpose_2d(xs, pow2=True)):
                         fvals[nid] = out_t
                         owned_fval.add(nid)
                 if m_nids:
@@ -1523,10 +1542,10 @@ class DeviceFolds:
                 else:
                     others.append((nid, g))
 
-            # 1. Batched exact 2-D transposes at this reverse level.
+            # 1. Batched exact 2-D transposes at this reverse level (pow2 chunks avoid mid-run JIT spikes).
             for _shp, items in t_batch.items():
                 gs = [g for _, g in items]
-                dts = _dev_batch_transpose_2d(gs)
+                dts = _dev_batch_transpose_2d(gs, pow2=True)
                 for (nid, g), dt in zip(items, dts):
                     ttnn.deallocate(g)
                     add_grad(self.nodes[nid].inputs[0], dt)
