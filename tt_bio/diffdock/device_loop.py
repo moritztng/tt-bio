@@ -81,23 +81,36 @@ class Smearing:
 
 
 class MLP:
-    """An ``nn.Sequential`` of Linear / ReLU / Identity on the card, fp32 weights."""
+    """An ``nn.Sequential`` of Linear / ReLU / Tanh / Identity on the card, fp32 weights.
+
+    A ``Linear`` with ``bias=False`` is carried as such rather than as a zero bias row: the
+    torsion head's final layer is biasless on both linears and its activation is ``Tanh``,
+    not ``ReLU``, unlike every other MLP in the model.
+    """
+
+    _ACTS = {torch.nn.ReLU: "relu", torch.nn.Tanh: "tanh"}
 
     def __init__(self, device, seq: torch.nn.Sequential):
         self.ops = []
         for m in seq:
             if isinstance(m, torch.nn.Linear):
-                self.ops.append((upload(device, m.weight.detach().t().contiguous()),
-                                 upload(device, m.bias.detach().reshape(1, -1))))
-            elif isinstance(m, torch.nn.ReLU):
-                self.ops.append("relu")
+                bias = (None if m.bias is None else
+                        upload(device, m.bias.detach().reshape(1, -1)))
+                self.ops.append((upload(device, m.weight.detach().t().contiguous()), bias))
+            elif type(m) in self._ACTS:
+                self.ops.append(self._ACTS[type(m)])
             elif not isinstance(m, (torch.nn.Identity, torch.nn.Dropout)):
                 raise NotImplementedError(f"no card form for {type(m).__name__}")
 
     def __call__(self, x):
         import ttnn
         for op in self.ops:
-            x = ttnn.relu(x) if op == "relu" else ttnn.linear(x, op[0], bias=op[1])
+            if op == "relu":
+                x = ttnn.relu(x)
+            elif op == "tanh":
+                x = ttnn.tanh(x)
+            else:
+                x = ttnn.linear(x, op[0], bias=op[1])
         return x
 
 
