@@ -12,7 +12,8 @@ PY=~/fleet/env/bin/python
 run(){ # n sub arms
   [ $(date -u +%H%M) -ge 1940 ] && { log "skip n=$1 (window end)"; return; }
   FABRIC=FABRIC_1D_RING SUB=$2 timeout 600 $PY ccl_allreduce.py $1 8x4 ring$1.json $3 3 > ring$1.log 2>&1
-  log "ring n=$1 sub=$2 rc=$? $(grep -E '^(a2a|a2abroken|builtin|agadd|broken) ' ring$1.log | awk '{print $1}' | tr '\n' ' ')"; }
+  rc=$?; log "ring n=$1 sub=$2 rc=$rc $(grep -E '^(a2a|a2abroken|builtin|agadd|broken) ' ring$1.log | awk '{print $1}' | tr '\n' ' ')"
+  [ $rc != 0 ] && { timeout 900 tt-smi -glx_reset >> reset.log 2>&1; log "reset after failed n=$1 rc=$?"; }; }
 run 4 1x4 a2a,a2abroken,builtin
 run 32 8x4 a2a,a2abroken,builtin,agadd
 run 8 2x4 a2a,a2abroken,builtin
