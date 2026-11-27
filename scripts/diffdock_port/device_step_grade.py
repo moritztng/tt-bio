@@ -33,6 +33,9 @@ def main():
     ap.add_argument("--poses", type=int, default=4)
     ap.add_argument("--step", type=float, default=0.73, help="t_tr of the graded step")
     ap.add_argument("--out", required=True)
+    ap.add_argument("--no-crop", action="store_true",
+                    help="grade with the receptor crop off on BOTH sides: isolates "
+                         "rec_keep and the cross mask from the rest of the step")
     args = ap.parse_args()
 
     from tt_bio.main import ensure_p300_mesh_descriptor
@@ -65,9 +68,10 @@ def main():
     bounds = sampling.SigmaBounds.from_config(cfg)
     t = args.step
     tr_sigma, rot_sigma, tor_sigma = (float(x) for x in bounds.sigmas(t, t, t))
-    crop = None if cfg.crop_beyond is None else 3 * tr_sigma + cfg.crop_beyond
+    crop = None if (args.no_crop or cfg.crop_beyond is None) else 3 * tr_sigma + cfg.crop_beyond
 
-    out = {"poses": P, "t_tr": t, "tr_sigma": tr_sigma, "crop_cutoff": crop}
+    out = {"poses": P, "t_tr": t, "tr_sigma": tr_sigma, "crop_cutoff": crop,
+           "crop_off": bool(args.no_crop)}
     flush = lambda: Path(args.out).write_text(json.dumps(out, indent=1))
 
     with torch.no_grad():
