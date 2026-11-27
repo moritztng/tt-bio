@@ -192,18 +192,57 @@ def _ones_row_bf16(m: int, device):
     return t
 
 
+def _assign_shards(
+    shapes: Mapping[str, Tuple[int, ...]],
+    muon_names: frozenset,
+    shard_world: int,
+) -> Dict[str, int]:
+    """Deterministic LPT (Longest Processing Time) ZeRO-1 parameter assignment across ranks.
+
+    Balances Muon Newton-Schulz FLOPs independently from Adam element counts so every rank
+    gets nearly identical optimizer compute and state memory.
+    """
+    if shard_world <= 1:
+        return {name: 0 for name in shapes}
+
+    owner: Dict[str, int] = {}
+    muon_load = [0.0] * shard_world
+    muon_items = []
+    for name in sorted(muon_names):
+        shp = shapes[name]
+        m, n = min(shp), max(shp)
+        flops = float(10 * m * m * n + 4 * m * m * m)
+        muon_items.append((-flops, name))
+    for neg_f, name in sorted(muon_items):
+        r = min(range(shard_world), key=lambda i: (muon_load[i], i))
+        owner[name] = r
+        muon_load[r] += -neg_f
+
+    adam_load = [0] * shard_world
+    adam_items = []
+    for name, shp in shapes.items():
+        if name not in muon_names:
+            adam_items.append((-int(math.prod(shp)), name))
+    for neg_el, name in sorted(adam_items):
+        r = min(range(shard_world), key=lambda i: (adam_load[i], i))
+        owner[name] = r
+        adam_load[r] += -neg_el
+
+    return owner
+
+
 def _sum_sq_last2_exact_f32(x):
     """Exact per-slice sum of squares over the last two dims of ``[k, m, n]`` -> ``[k, 1, 1]`` fp32.
 
     Uses 2-part bf16 matmuls against exact ``ones`` vectors (0.0 in padded tile tails) with
-    HiFi4 + fp32_dest_acc: eliminates ``ttnn.sum``'s ~2.7e-4 TF32 unpack truncation AND masks
-    out padded rows/cols on non-32-aligned shapes such as ``(12, 384)`` or ``(147, 768)``.
+    HiFi2 + fp32_dest_acc (bit-exact for bf16 x bf16): eliminates ``ttnn.sum``'s ~2.7e-4 TF32
+    unpack truncation AND masks out padded rows/cols on non-32-aligned shapes.
     """
     import ttnn
 
     dev = x.device()
     m, n = int(x.shape[-2]), int(x.shape[-1])
-    ckc = _ckc(ttnn.MathFidelity.HiFi4)
+    ckc = _ckc(ttnn.MathFidelity.HiFi2)
     f32 = ttnn.float32
 
     x2 = ttnn.multiply(x, x)
@@ -235,15 +274,10 @@ def _sum_sq_last2_exact_f32(x):
     return out
 
 
-def _sum_sq_scalar_exact_f32(x3d):
-    """Exact scalar ``[1]`` fp32 tensor holding ``sum(x3d^2)`` over all dims of ``[k, m, n]``.
-
-    Reduces the leading dim ``k`` via a tile-aligned binary tree of ``uint32`` slices + fp32 adds
-    so no ``(k, 1)`` width-1 reshape or TF32 ``ttnn.sum`` ever runs.
-    """
+def _reduce_dim0_sum_exact_f32(cur):
+    """Reduce ``[k, 1, 1]`` fp32 TILE tensor along dim 0 to ``[1]`` via tile-aligned binary tree."""
     import ttnn
 
-    cur = _sum_sq_last2_exact_f32(x3d)       # [k, 1, 1]
     k = int(cur.shape[0])
     while k > 1:
         half = k // 2
@@ -267,15 +301,29 @@ def _sum_sq_scalar_exact_f32(x3d):
     return out
 
 
-def _mm_sym_split2(ah, al, *, transpose_b: bool, ckc_hi, ckc_lo):
-    """Symmetric product ``A @ A^T`` (``transpose_b=True``) or ``G @ G`` (``transpose_b=False``)
-    using 2-part bf16 split: ``ah@ah + (ah@al) + (ah@al)^T`` (2 matmuls instead of 3)."""
+def _sum_sq_scalar_exact_f32(x3d):
+    """Exact scalar ``[1]`` fp32 tensor holding ``sum(x3d^2)`` over all dims of ``[k, m, n]``."""
+    cur = _sum_sq_last2_exact_f32(x3d)       # [k, 1, 1]
+    return _reduce_dim0_sum_exact_f32(cur)
+
+
+def _mm_sym_split2(ah, al, *, transpose_a: bool = False, transpose_b: bool = False,
+                   ckc_hi, ckc_lo, exact_p1_t: bool = True):
+    """Symmetric product ``A @ A^T`` (``transpose_b=True``), ``A^T @ A`` (``transpose_a=True``),
+    or ``G @ G`` using 2-part bf16 split: ``ah@ah + (ah@al) + (ah@al)^T`` (2 matmuls instead of 3).
+
+    When ``exact_p1_t=False``, transposes the ``O(2^-8)`` cross-term ``p1`` via single-op
+    ``ttnn.transpose(p1, -2, -1)`` (TF32 10-bit on ``2^-8`` = ``2^-19`` relative to ``p0``,
+    8x below ``split2``'s ``2^-16`` truncation floor) instead of 16-op ``transpose_exact_f32``.
+    """
     import ttnn
 
     f32 = ttnn.float32
-    p0 = ttnn.matmul(ah, ah, transpose_b=transpose_b, dtype=f32, compute_kernel_config=ckc_hi)
-    p1 = ttnn.matmul(ah, al, transpose_b=transpose_b, dtype=f32, compute_kernel_config=ckc_lo)
-    p1t = transpose_exact_f32(p1)
+    p0 = ttnn.matmul(ah, ah, transpose_a=transpose_a, transpose_b=transpose_b,
+                     dtype=f32, compute_kernel_config=ckc_hi)
+    p1 = ttnn.matmul(ah, al, transpose_a=transpose_a, transpose_b=transpose_b,
+                     dtype=f32, compute_kernel_config=ckc_lo)
+    p1t = transpose_exact_f32(p1) if exact_p1_t else ttnn.transpose(p1, -2, -1)
     cross = ttnn.add(p1, p1t)
     ttnn.deallocate(p1)
     ttnn.deallocate(p1t)
@@ -303,17 +351,23 @@ def _mm_split2(ah, al, bh, bl, *, ckc_hi, ckc_lo):
 
 
 def newton_schulz_device(x, *, steps: int = 5, coeffs: Tuple[float, float, float] = (3.4445, -4.775, 2.0315),
-                         eps: float = 1e-7, mode: str = "split2"):
+                         eps: float = 1e-7, mode: str = "split2", tall: bool = False):
     """Batched Newton-Schulz orthogonalization on card.
 
     Args:
-        x: device float32 TILE tensor of shape ``(k, m, n)`` with ``m <= n``. Not deallocated by caller;
-           returns a new device float32 tensor and frees its own intermediates.
+        x: device float32 TILE tensor of shape ``(k, m, n)``. When ``tall=False`` expects ``m <= n``
+           and iterates ``G = X@X^T``, ``X <- aX + PX``; when ``tall=True`` expects ``m > n`` and
+           iterates ``G = X^T@X``, ``X <- aX + XP`` without transposing ``X`` before/after NS.
         steps: number of quintic Newton-Schulz iterations (default 5).
         coeffs: polynomial coefficients ``(a, b, c)``.
         eps: Frobenius norm clamp floor.
-        mode: ``"split2"`` (2-part bf16 split matmul, HiFi4 main + HiFi2 cross-terms, default),
-              ``"split2_hifi4"`` (HiFi4 on all 3 terms), or ``"fp32"`` (direct fp32 matmul).
+        mode:
+            - ``"split2"``: baseline 2-part bf16 split (HiFi4 main + HiFi2 cross, exact p1 transpose),
+            - ``"split2_sym"``: same fidelities, fast 1-op cross-term transpose,
+            - ``"split2_hifi2"``: HiFi2 on all bf16xbf16 terms + fast 1-op cross-term transpose,
+            - ``"split2_fast"``: ``split2_hifi2`` + tall-native NS (caller passes ``tall=flipped``),
+            - ``"split2_hifi4"``: HiFi4 on all 3 terms,
+            - ``"fp32"``: direct fp32 matmul.
     """
     import ttnn
 
@@ -321,8 +375,13 @@ def newton_schulz_device(x, *, steps: int = 5, coeffs: Tuple[float, float, float
         raise ValueError("Muon ns_steps must be below 100")
     a, b, c = (float(v) for v in coeffs)
     f32 = ttnn.float32
-    ckc_hi = _ckc(ttnn.MathFidelity.HiFi4)
-    ckc_lo = ckc_hi if mode == "split2_hifi4" else _ckc(ttnn.MathFidelity.HiFi2)
+    if mode in ("split2_hifi2", "split2_fast"):
+        ckc_hi = _ckc(ttnn.MathFidelity.HiFi2)
+        ckc_lo = ckc_hi
+    else:
+        ckc_hi = _ckc(ttnn.MathFidelity.HiFi4)
+        ckc_lo = ckc_hi if mode == "split2_hifi4" else _ckc(ttnn.MathFidelity.HiFi2)
+    exact_p1_t = mode in ("split2", "split2_hifi4")
 
     ss = _sum_sq_last2_exact_f32(x)
     nrm = ttnn.sqrt(ss)
@@ -336,7 +395,8 @@ def newton_schulz_device(x, *, steps: int = 5, coeffs: Tuple[float, float, float
 
     for _ in range(steps):
         if mode == "fp32":
-            g = ttnn.matmul(cur, cur, transpose_b=True, dtype=f32, compute_kernel_config=ckc_hi)
+            g = ttnn.matmul(cur, cur, transpose_a=tall, transpose_b=not tall,
+                            dtype=f32, compute_kernel_config=ckc_hi)
             gg = ttnn.matmul(g, g, dtype=f32, compute_kernel_config=ckc_hi)
             bg = ttnn.multiply(g, b)
             cgg = ttnn.multiply(gg, c)
@@ -345,13 +405,15 @@ def newton_schulz_device(x, *, steps: int = 5, coeffs: Tuple[float, float, float
             p = ttnn.add(bg, cgg)
             ttnn.deallocate(bg)
             ttnn.deallocate(cgg)
-            px = ttnn.matmul(p, cur, dtype=f32, compute_kernel_config=ckc_hi)
+            px = (ttnn.matmul(cur, p, dtype=f32, compute_kernel_config=ckc_hi)
+                  if tall else ttnn.matmul(p, cur, dtype=f32, compute_kernel_config=ckc_hi))
             ttnn.deallocate(p)
-        elif mode in ("split2", "split2_hifi4"):
+        elif mode in ("split2", "split2_sym", "split2_hifi2", "split2_fast", "split2_hifi4"):
             xh, xl = _split2_bf16(cur)
-            g = _mm_sym_split2(xh, xl, transpose_b=True, ckc_hi=ckc_hi, ckc_lo=ckc_lo)
+            g = _mm_sym_split2(xh, xl, transpose_a=tall, transpose_b=not tall,
+                               ckc_hi=ckc_hi, ckc_lo=ckc_lo, exact_p1_t=exact_p1_t)
             gh, gl = _split2_bf16(g)
-            gg = _mm_sym_split2(gh, gl, transpose_b=False, ckc_hi=ckc_hi, ckc_lo=ckc_lo)
+            gg = _mm_sym_split2(gh, gl, ckc_hi=ckc_hi, ckc_lo=ckc_lo, exact_p1_t=exact_p1_t)
             ttnn.deallocate(gh)
             ttnn.deallocate(gl)
             bg = ttnn.multiply(g, b)
@@ -363,7 +425,8 @@ def newton_schulz_device(x, *, steps: int = 5, coeffs: Tuple[float, float, float
             ttnn.deallocate(cgg)
             ph, pl = _split2_bf16(p)
             ttnn.deallocate(p)
-            px = _mm_split2(ph, pl, xh, xl, ckc_hi=ckc_hi, ckc_lo=ckc_lo)
+            px = (_mm_split2(xh, xl, ph, pl, ckc_hi=ckc_hi, ckc_lo=ckc_lo)
+                  if tall else _mm_split2(ph, pl, xh, xl, ckc_hi=ckc_hi, ckc_lo=ckc_lo))
             ttnn.deallocate(ph)
             ttnn.deallocate(pl)
             ttnn.deallocate(xh)
@@ -544,9 +607,13 @@ class DeviceOptimizer:
         muon: Optional[Muon] = None,
         ema_decay: Optional[float] = 0.999,
         ns_mode: str = "split2",
+        shard_rank: int = 0,
+        shard_world: int = 1,
     ):
         import ttnn
 
+        if shard_world < 1 or not (0 <= shard_rank < shard_world):
+            raise ValueError(f"invalid shard_rank={shard_rank}, shard_world={shard_world}")
         self.device = device
         self.lr = float(lr)
         self.beta1, self.beta2 = float(betas[0]), float(betas[1])
@@ -556,6 +623,8 @@ class DeviceOptimizer:
         self.schedule = schedule
         self.muon = muon
         self.ns_mode = str(ns_mode)
+        self.shard_rank = int(shard_rank)
+        self.shard_world = int(shard_world)
         self.steps = 0
         self.beta1_pow = 1.0
         self.beta2_pow = 1.0
@@ -575,14 +644,20 @@ class DeviceOptimizer:
         )
         self.adam_names = tuple(n for n in self.master if n not in self.muon_names)
 
-        # Build exact-shape buckets for both Muon and Adam.
+        # ZeRO-1 sharding: every rank holds full self.master (for refold/fwd) but allocates
+        # optimizer buckets, moments, and EMA shadows only for its owned parameter slice.
+        self.owner_of: Dict[str, int] = _assign_shards(self.shapes, self.muon_names, self.shard_world)
+        self.owned_names = frozenset(n for n, r in self.owner_of.items() if r == self.shard_rank)
+
+        # Build exact-shape buckets only for parameters owned by this rank.
         muon_by_shp: Dict[Tuple[int, ...], list] = {}
         for n in self.master:
-            if n in self.muon_names:
+            if n in self.muon_names and n in self.owned_names:
                 muon_by_shp.setdefault(self.shapes[n], []).append(n)
         adam_by_shp: Dict[Tuple[int, ...], list] = {}
         for n in self.adam_names:
-            adam_by_shp.setdefault(self.shapes[n], []).append(n)
+            if n in self.owned_names:
+                adam_by_shp.setdefault(self.shapes[n], []).append(n)
 
         self._muon_buckets: list[_Bucket] = []
         self._adam_buckets: list[_Bucket] = []
@@ -696,20 +771,16 @@ class DeviceOptimizer:
     def _sum_group_norm_sq(self, packed_list: list) -> float:
         import ttnn
 
-        acc = None
-        for _, g_b, _ in packed_list:
-            if g_b is None:
-                continue
-            s = _sum_sq_scalar_exact_f32(g_b)
-            if acc is None:
-                acc = s
-            else:
-                nxt = ttnn.add(acc, s)
-                ttnn.deallocate(acc)
-                ttnn.deallocate(s)
-                acc = nxt
-        if acc is None:
+        per_slice = [_sum_sq_last2_exact_f32(g_b) for _, g_b, _ in packed_list if g_b is not None]
+        if not per_slice:
             return 0.0
+        if len(per_slice) == 1:
+            joined = per_slice[0]
+        else:
+            joined = _concat_dim0_exact_f32(per_slice)
+            for s in per_slice:
+                ttnn.deallocate(s)
+        acc = _reduce_dim0_sum_exact_f32(joined)
         val = float(ttnn.to_torch(acc).float().reshape(-1)[0].item())
         ttnn.deallocate(acc)
         return val
@@ -762,18 +833,20 @@ class DeviceOptimizer:
             ttnn.deallocate(g_eff)
 
         flipped = bk.shape[0] > bk.shape[1]
-        if flipped:
+        tall_native = flipped and self.ns_mode == "split2_fast"
+        if flipped and not tall_native:
             u_ns = transpose_exact_f32(u_b)
             ttnn.deallocate(u_b)
         else:
             u_ns = u_b
 
         o_ns = newton_schulz_device(
-            u_ns, steps=mu.ns_steps, coeffs=mu.ns_coefficients, eps=mu.eps, mode=self.ns_mode
+            u_ns, steps=mu.ns_steps, coeffs=mu.ns_coefficients, eps=mu.eps,
+            mode=self.ns_mode, tall=tall_native,
         )
         ttnn.deallocate(u_ns)
 
-        if flipped:
+        if flipped and not tall_native:
             o_b = transpose_exact_f32(o_ns)
             ttnn.deallocate(o_ns)
         else:
@@ -781,12 +854,16 @@ class DeviceOptimizer:
 
         decay_scale = float(1.0 - lr_muon * mu.weight_decay)
         step_scale = float(-lr_muon * mu.ratio(bk.shape))
-        t1 = ttnn.multiply(bk.master_b, decay_scale)
         t2 = ttnn.multiply(o_b, step_scale)
         ttnn.deallocate(o_b)
-        cand = ttnn.add(t1, t2)
-        ttnn.deallocate(t1)
-        ttnn.deallocate(t2)
+        if decay_scale == 1.0:
+            cand = ttnn.add(bk.master_b, t2)
+            ttnn.deallocate(t2)
+        else:
+            t1 = ttnn.multiply(bk.master_b, decay_scale)
+            cand = ttnn.add(t1, t2)
+            ttnn.deallocate(t1)
+            ttnn.deallocate(t2)
 
         if all_active:
             ttnn.deallocate(bk.master_b)
@@ -926,10 +1003,12 @@ class DeviceOptimizer:
         grads: Mapping[str, object],
         *,
         reduce_fn: Optional[Callable[[Mapping[str, object]], Mapping[str, object]]] = None,
+        norm_reduce_fn: Optional[Callable[[float], float]] = None,
+        gather_fn: Optional[Callable[[Dict[str, object], Mapping[str, int], frozenset], None]] = None,
         disabled=(),
         free_grads: bool = False,
     ) -> dict:
-        """Run one optimizer step wholly on card."""
+        """Run one optimizer step wholly on card (supports ZeRO-1 when ``shard_world > 1``)."""
         import ttnn
 
         if reduce_fn is not None:
@@ -955,9 +1034,12 @@ class DeviceOptimizer:
                 if g is not None and g.is_allocated():
                     ttnn.deallocate(g)
 
-        if self._muon_buckets:
+        if self.muon_names:
             sq_muon = self._sum_group_norm_sq(muon_packed)
             sq_adam = self._sum_group_norm_sq(adam_packed)
+            if norm_reduce_fn is not None:
+                sq_muon = float(norm_reduce_fn(sq_muon))
+                sq_adam = float(norm_reduce_fn(sq_adam))
             gnorm_muon = math.sqrt(max(sq_muon, 0.0))
             gnorm_adam = math.sqrt(max(sq_adam, 0.0))
             clip_muon = self.clip_coef(gnorm_muon)
@@ -966,6 +1048,8 @@ class DeviceOptimizer:
             self.last_grad_norm = gnorm_adam
         else:
             sq_all = self._sum_group_norm_sq(adam_packed)
+            if norm_reduce_fn is not None:
+                sq_all = float(norm_reduce_fn(sq_all))
             gnorm_adam = math.sqrt(max(sq_all, 0.0))
             gnorm_muon = 0.0
             clip_adam = clip_muon = self.clip_coef(gnorm_adam)
@@ -985,6 +1069,9 @@ class DeviceOptimizer:
         if self.ema is not None:
             self.ema.update()
 
+        if gather_fn is not None:
+            gather_fn(self.master, self.owner_of, self.owned_names)
+
         return {
             "step": self.steps,
             "lr": lr,
@@ -995,8 +1082,8 @@ class DeviceOptimizer:
             "clip_muon": clip_muon,
         }
 
-    def host_master(self) -> Dict[str, "np.ndarray"]:
-        """Read all fp32 masters back to host numpy (checkpointing / parity grading, never per step)."""
+    def host_master(self, *, owned_only: bool = False) -> Dict[str, "np.ndarray"]:
+        """Read fp32 masters back to host numpy (checkpointing / parity grading, never per step)."""
         import numpy as np
         import ttnn
 
@@ -1007,6 +1094,11 @@ class DeviceOptimizer:
             for i, name in enumerate(bk.names):
                 sl = arr[i * s0:(i + 1) * s0, :m, :n]
                 out[name] = np.ascontiguousarray(sl.reshape(bk.shape), dtype=np.float32)
+        if not owned_only and self.shard_world > 1:
+            for name, t in self.master.items():
+                if name not in out:
+                    arr = ttnn.to_torch(t).float().numpy()
+                    out[name] = np.ascontiguousarray(arr.reshape(self.shapes[name]), dtype=np.float32)
         return out
 
     def master_digest(self) -> str:
@@ -1046,6 +1138,8 @@ def rfd4_device_optimizer(
     ns_mode: str = "split2",
     ns_steps: int = 5,
     betas: Tuple[float, float] = (0.9, 0.999),
+    shard_rank: int = 0,
+    shard_world: int = 1,
 ) -> DeviceOptimizer:
     """Construct :class:`DeviceOptimizer` matching :func:`tt_bio.train.rfd4_objective.update_rule`."""
     from .rfd4_objective import MUON_EXCLUDE, UPDATE_RULE
@@ -1061,4 +1155,6 @@ def rfd4_device_optimizer(
         muon=Muon(exclude=MUON_EXCLUDE, adjust_lr_fn="match_rms_adamw", ns_steps=ns_steps),
         ema_decay=ema_decay,
         ns_mode=ns_mode,
+        shard_rank=shard_rank,
+        shard_world=shard_world,
     )

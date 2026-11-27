@@ -90,9 +90,10 @@ def main(argv=None, on_step=None):
     ap.add_argument("--cand-pair", choices=("host", "card"), default="card",
                     help="where the grad-off K-candidate pass builds z_init: host (upstream's builder) or the serving "
                          "card path (rfd4.pair.PairOnCard: host constant + bins, card assembly).")
-    ap.add_argument("--win-pair", choices=("host", "card"), default="card",
+    ap.add_argument("--win-pair", choices=("host", "card", "resident"), default="card",
                     help="where the taped winner builds z_init and runs its backward: host (upstream's builder, torch "
-                         "autograd, the pair and its gradient over PCIe) or the card (PairOnCard.taped; needs --cand-pair card)")
+                         "autograd), card (PairOnCard.taped, r4t-perf P2), or resident (DeviceTrainPair, r4t-perf P3: "
+                         "proj + norms + dW wholly on card, 0 pair-sized PCIe)")
     ap.add_argument("--cand-levers", choices=("training", "serving", "inference", "serve"), default="serve",
                     help="lever set of the grad-off K-candidate pass: the training set, or that set plus the dropped levers that "
                          "switch at run time (pair_bf16z, dit_sigf32, tok_recycle_mm; r4t-perf K2). The pass only picks the "
@@ -129,7 +130,8 @@ def main(argv=None, on_step=None):
     ap.add_argument("--resident", action="store_true",
                     help="device-resident training (D89): DeviceOptimizer (Muon+Adam+clip+EMA), "
                          "DeviceFolds (on-card fold_bwd+refold), and DeviceHeads + on-card insertion loss")
-    ap.add_argument("--ns-mode", choices=("split2", "split2_hifi4", "fp32"), default="split2",
+    ap.add_argument("--ns-mode", choices=("split2", "split2_sym", "split2_hifi2", "split2_fast", "split2_hifi4", "fp32"),
+                    default="split2",
                     help="Newton-Schulz precision mode for DeviceOptimizer under --resident")
     ap.add_argument("--ema-decay", type=float, default=0.999,
                     help="EMA decay for DeviceOptimizer under --resident (<0 disables EMA)")
@@ -462,19 +464,30 @@ def main(argv=None, on_step=None):
                     setattr(m, "pair_residual_dtype" if m is trunk else "residual_dtype", d)
                 _ops.NOGRAD_IS_INFERENCE = nogi
 
+        dev_pair_ref = []
         def real_example(taped):
             """Upstream's step on the dumped batch: k candidates grad-off through glue + trunk + heads, the
             winner by our own exploration loss, then the winner re-run with grad (host glue, taped trunk)."""
             bt, K = cur["bt"], cur["K"]
             mk = tmask(bt)
-            pc = pair_card()
+            dp = dev_pair_ref[0] if dev_pair_ref else None
+            pc = None if dp is not None else pair_card()
             with torch.no_grad():
                 ck = conds_for(bt)
-                s0, z0 = glue.initial_states(bt, pair_constant=glue.pair_split.constant(bt) if pc else None)
+                if dp is not None:
+                    dp.prepare_batch(bt, opt.master)
+                    s0 = glue.init_repr_factory(bt) * bt["padding_mask"][..., None]
+                    gk, bk = dp.modulation(bt)
+                    z0 = None
+                else:
+                    s0, z0 = glue.initial_states(bt, pair_constant=glue.pair_split.constant(bt) if pc else None)
             win = None
             if a.cand_levers == "serve":
                 with ag.suspended(), cand_scope():
-                    zk0 = pc(z0, 0) if pc else put(z0, trunk.pair_dtype(mk))
+                    if dp is not None:
+                        zk0 = dp.forward_candidates(gk, bk, trunk.pair_dtype(mk))
+                    else:
+                        zk0 = pc(z0, 0) if pc else put(z0, trunk.pair_dtype(mk))
                     sk, zk = trunk(put(s0), zk0, [put(c, trunk.dtype) for c in ck], mk)
                     if a.resident:
                         from tt_bio.train.rfd4_heads import device_candidate_scores
@@ -486,7 +499,10 @@ def main(argv=None, on_step=None):
             with T.lever_scope(levers), ag.tape():
                 if a.cand_levers != "serve":
                     with ag.no_grad(), cand_scope():
-                        zk0 = pc(z0, 0) if pc else put(z0, trunk.pair_dtype(mk))
+                        if dp is not None:
+                            zk0 = dp.forward_candidates(gk, bk, trunk.pair_dtype(mk))
+                        else:
+                            zk0 = pc(z0, 0) if pc else put(z0, trunk.pair_dtype(mk))
                         sk, zk = trunk(put(s0), zk0, [put(c, trunk.dtype) for c in ck], mk)
                         if a.resident:
                             from tt_bio.train.rfd4_heads import device_candidate_scores
@@ -510,7 +526,12 @@ def main(argv=None, on_step=None):
                         return winner(put(s_i), put(z_i, trunk.pair_dtype(m1)),
                                       [put(c, trunk.dtype) for c in conds_for(bw)], m1)
                 cs = conds_for(bw)
-                if pc and a.win_pair == "card":
+                if dp is not None:
+                    # r4t-perf P3: proj, norms, and dW wholly on card (0 pair-sized PCIe)
+                    s_i = glue.init_repr_factory(bw) * bw["padding_mask"][..., None]
+                    gw, bw_m = dp.modulation(bw)
+                    z_in = dp.forward_winner_taped(win, gw, bw_m, br, trunk.pair_dtype(m1))
+                elif pc and a.win_pair == "card":
                     # r4t-perf P2: the winner's pair on the card from the candidate pass's constant, its backward too
                     from tt_bio.rfd4.pair import PairInputs
                     from tt_bio.train.rfd4_pair import pair_taped
@@ -579,13 +600,27 @@ def main(argv=None, on_step=None):
         unreached = set(dfolds.unreached())
         folded_names = [nm for nm in dfolds.leaves if nm not in unreached]
         folded_set = set(folded_names)
+        use_dev_pair = bool(real and a.win_pair == "resident")
+        dev_pair = None
+        if use_dev_pair:
+            from tt_bio.train.rfd4_pair import DeviceTrainPair
+            dev_pair = DeviceTrainPair(glue.pair_repr_builder, dev)
+            dev_pair_ref.append(dev_pair)
+            pair_on_card_keys = {DeviceTrainPair.W_KEY, DeviceTrainPair.LNW_KEY}
+        else:
+            pair_on_card_keys = set()
         if real:
             host_glue_params = {
                 f"glue.{gn}": gp for gn, gp in glue.named_parameters()
-                if gp.requires_grad and f"glue.{gn}" not in folded_set
+                if gp.requires_grad and f"glue.{gn}" not in folded_set and f"glue.{gn}" not in pair_on_card_keys
             }
         init_w = {nm: dfolds.leaves[nm].detach() for nm in folded_names}
         init_w.update({nm: p.detach() for nm, p in host_glue_params.items()})
+        if use_dev_pair:
+            for gn, gp in glue.named_parameters():
+                fn = f"glue.{gn}"
+                if fn in pair_on_card_keys:
+                    init_w[fn] = gp.detach()
         params = init_w
         names = list(params)
         cyc = {nm: "depth-1 draws feed a zero state into the cycle projection; trains at depth >= 2"
@@ -603,10 +638,10 @@ def main(argv=None, on_step=None):
         refold_hook = make_rfd4_refold_hook(
             trunk, glue if real else None,
             host_glue_params=host_glue_params,
-            pair_card_ref=(card_pair if (real and a.cand_pair == "card") else None),
+            pair_card_ref=(card_pair if (real and a.cand_pair == "card" and not use_dev_pair) else None),
             device=dev,
         )
-        if real and a.cand_pair == "card":
+        if real and a.cand_pair == "card" and not use_dev_pair:
             pair_card()
     else:
         build()
@@ -704,6 +739,8 @@ def main(argv=None, on_step=None):
         if a.resident:
             mark("fold_bwd")
             dev_grads, idle = dfolds.tape_backward(opt.master)
+            if dev_pair is not None:
+                dev_grads.update(dev_pair.pop_grads())
             ag.release_pins()
             # Upload only the tiny non-pair host-glue grads (~1.87 M elems = 7.5 MB).
             for gn, gp in host_glue_params.items():

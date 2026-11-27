@@ -1014,6 +1014,62 @@ class DeviceFolds:
 
         for nid in sorted(needed):
             node = self.nodes[nid]
+            sp_list = specs_by_nid.get(nid)
+            # Fast path (F1): a 2-D transpose consumed solely by bf16/bfp8 output specs does not
+            # need 16-op transpose_exact_f32 only to discard the low 16 bits on the next line.
+            # bf16 rounding commutes bit-exactly with transpose; TF32 transpose keeps 10 mantissa
+            # bits vs bfp8's 7.
+            if (node.op == "t" and sp_list and rem[nid] == len(sp_list)
+                    and all(s.dtype in (ttnn.bfloat16, ttnn.bfloat8_b) for s in sp_list)):
+                inp = node.inputs[0]
+                src = vals[inp]
+                n_bf16 = sum(1 for s in sp_list if s.dtype == ttnn.bfloat16)
+                t_bf16 = None
+                t_tf32 = None
+                for spec in sp_list:
+                    rem[nid] -= 1
+                    if spec.dtype == ttnn.bfloat16:
+                        if t_bf16 is None:
+                            s16 = ttnn.typecast(src, ttnn.bfloat16)
+                            t_bf16 = ttnn.transpose(s16, -2, -1)
+                            ttnn.deallocate(s16)
+                        n_bf16 -= 1
+                        if n_bf16 == 0:
+                            new_h = t_bf16
+                            t_bf16 = None
+                        else:
+                            new_h = ttnn.clone(t_bf16)
+                    else:
+                        if t_tf32 is None:
+                            t_tf32 = ttnn.transpose(src, -2, -1)
+                        new_h = ttnn.typecast(t_tf32, spec.dtype)
+                    if spec.memory_config is not None:
+                        cur_mc = new_h.memory_config()
+                        if cur_mc != spec.memory_config:
+                            moved = ttnn.to_memory_config(new_h, spec.memory_config)
+                            ttnn.deallocate(new_h)
+                            new_h = moved
+                    old_h = spec.handle
+                    spec.handle = new_h
+                    for kind, owner, key in spec.sites:
+                        if kind == "attr":
+                            setattr(owner, key, new_h)
+                        elif kind in ("list", "dict"):
+                            owner[key] = new_h
+                        elif kind == "tuple_slot":
+                            owner["items"][key] = new_h
+                    ttnn.deallocate(old_h)
+                    ag.parameter(new_h)
+                if t_bf16 is not None:
+                    ttnn.deallocate(t_bf16)
+                if t_tf32 is not None:
+                    ttnn.deallocate(t_tf32)
+                rem[inp] -= 1
+                if rem[inp] == 0 and inp in owned_val:
+                    ttnn.deallocate(vals.pop(inp))
+                    owned_val.discard(inp)
+                continue
+
             v = self._eval_node(node, vals, dev_masters)
             vals[nid] = v
             if node.op != "leaf":
@@ -1024,8 +1080,7 @@ class DeviceFolds:
                     ttnn.deallocate(vals.pop(inp))
                     owned_val.discard(inp)
 
-            if nid in specs_by_nid:
-                sp_list = specs_by_nid[nid]
+            if sp_list:
                 for spec in sp_list:
                     rem[nid] -= 1
                     # Transfer ownership directly if this is the final consumer of an owned fp32 intermediate.
@@ -1331,21 +1386,35 @@ def make_rfd4_refold_hook(trunk, glue=None, *, host_glue_params: Mapping[str, to
                 go = dev_masters.get(pfx + "linear_g.weight")
                 if any(t is None for t in (pa, pb, ga, gb, go)):
                     continue
-                wp_f32 = _dev_concat_f32([pa, pb], 0)
-                wg_f32 = _dev_concat_f32([ga, gb], 0)
-                wgo_f32 = _dev_transpose_2d(go)
-                for w8, old_triple in list(tri._t1_w.items()):
-                    dt = ttnn.bfloat8_b if w8 else ttnn.bfloat16
-                    wp_new = ttnn.typecast(wp_f32, dt)
-                    wg_new = ttnn.typecast(wg_f32, dt)
-                    wgo_new = ttnn.typecast(wgo_f32, ttnn.bfloat8_b) if w8 else None
+                items = list(tri._t1_w.items())
+                need_w8 = any(w8 for w8, _ in items)
+                need_bf16 = any(not w8 for w8, _ in items)
+                wp_f32 = _dev_concat_f32([pa, pb], 0) if need_w8 else None
+                wg_f32 = _dev_concat_f32([ga, gb], 0) if need_w8 else None
+                wgo_t = ttnn.transpose(go, -2, -1) if need_w8 else None
+                wp_bf16 = wg_bf16 = None
+                if need_bf16:
+                    pa16, pb16 = ttnn.typecast(pa, ttnn.bfloat16), ttnn.typecast(pb, ttnn.bfloat16)
+                    wp_bf16 = ttnn.concat([pa16, pb16], dim=0)
+                    ttnn.deallocate(pa16); ttnn.deallocate(pb16)
+                    ga16, gb16 = ttnn.typecast(ga, ttnn.bfloat16), ttnn.typecast(gb, ttnn.bfloat16)
+                    wg_bf16 = ttnn.concat([ga16, gb16], dim=0)
+                    ttnn.deallocate(ga16); ttnn.deallocate(gb16)
+                for w8, old_triple in items:
+                    if w8:
+                        wp_new = ttnn.typecast(wp_f32, ttnn.bfloat8_b)
+                        wg_new = ttnn.typecast(wg_f32, ttnn.bfloat8_b)
+                        wgo_new = ttnn.typecast(wgo_t, ttnn.bfloat8_b)
+                    else:
+                        wp_new, wg_new, wgo_new = wp_bf16, wg_bf16, None
+                        wp_bf16 = wg_bf16 = None
                     tri._t1_w[w8] = (wp_new, wg_new, wgo_new)
                     for old_t in old_triple:
                         if old_t is not None:
                             ttnn.deallocate(old_t)
-                ttnn.deallocate(wp_f32)
-                ttnn.deallocate(wg_f32)
-                ttnn.deallocate(wgo_f32)
+                for tmp in (wp_f32, wg_f32, wgo_t, wp_bf16, wg_bf16):
+                    if tmp is not None:
+                        ttnn.deallocate(tmp)
 
         # 2. Clear lazy TokenAttention._bias_w fallback if ever created
         for blk in getattr(trunk, "blocks", ()):
