@@ -29,7 +29,22 @@ RESCOUNT = CO / "state/dfd/evidence/residue-counts.json"
 CAP = 3000
 
 
-def exclusions(per, failures: dict):
+NAN_MARK = ("non-finite", "nan", "linalg.svd", "inf")
+
+
+def nan_failures(failures: dict) -> dict:
+    """The subset of refusals that are a NUMERICAL failure, not an envelope refusal.
+
+    A complex that goes non-finite mid-rollout writes no pose, so the grader's own
+    `nonfinite_or_collapse` (which reads written coordinates) cannot see it: it would read 0
+    while three complexes died of NaN. Condition 4 counts those, so they are read back off the
+    refusal reasons the dock logged.
+    """
+    return {i: why for i, why in failures.items()
+            if any(m in (why or "").lower() for m in NAN_MARK)}
+
+
+def exclusions(per, failures: dict, attempted=()):
     """Every complex that produced no pose, named with its reason and its receptor size.
 
     Condition 4 of QUALITY.md wants `n_attempted` separate from `n_scored`; a denominator
@@ -42,7 +57,12 @@ def exclusions(per, failures: dict):
         counts = json.load(open(RESCOUNT)).get("per_complex", {})
     ref = {r["id"]: r for r in json.load(open(REF))}
     out = {}
-    for r in per:
+    # A complex that never reached the grader is not in `per` at all: it has no pose directory
+    # to grade. Iterating only over graded rows would drop it from the exclusion table AND from
+    # the denominator at once, which is the exact silent-denominator shape condition 4 forbids.
+    graded = {r["id"] for r in per}
+    rows = list(per) + [{"id": i} for i in sorted(set(attempted) - graded)]
+    for r in rows:
         i = r["id"]
         if r.get("rmsd") and r["rmsd"] and r["rmsd"][0] is not None:
             continue
@@ -151,19 +171,26 @@ def main():
     comp = json.load(open(cmp_path))
 
     ids = sorted(r["id"] for r in per)
-    if len(ids) < a.min_attempted and not a.dry_run:
-        sys.exit(f"refusing to write: {len(ids)} complexes graded, --min-attempted "
-                 f"{a.min_attempted}. A partial set is not a verdict.")
+    fails = json.load(open(a.failures)) if a.failures and Path(a.failures).exists() else {}
+    # ATTEMPTED is graded + refused-with-a-reason, not graded alone. On 2026-11-27 three
+    # complexes went non-finite mid-rollout and wrote no pose, so the graded set is 421 of the
+    # 428 the run started: reading n_attempted off the graded rows would have both hidden the
+    # three failures and let a 421-complex set pass a 428-complex guard by redefining the set.
+    attempted = sorted(set(ids) | set(fails))
+    if len(attempted) < a.min_attempted and not a.dry_run:
+        sys.exit(f"refusing to write: {len(attempted)} complexes attempted ({len(ids)} graded, "
+                 f"{len(fails)} refused with a reason), --min-attempted {a.min_attempted}. "
+                 "A partial set is not a verdict.")
     cross = None if a.no_crosscheck else library_crosscheck(poses, ids)
 
     q = json.load(open(QJ))
     pbs = q["sets"]["posebusters"]
     ref_summary = json.load(open(CO / "state/dfd/evidence/gpu-accuracy.json"))
 
-    pbs["n_attempted"] = len(ids)
+    pbs["n_attempted"] = len(attempted)
     pbs["n_scored"] = summary["n_graded"]
-    fails = json.load(open(a.failures)) if a.failures and Path(a.failures).exists() else {}
-    pbs["exclusions"] = exclusions(per, fails)
+    pbs["exclusions"] = exclusions(per, fails, attempted)
+    nans = nan_failures(fails)
     pbs["tt"] = {
         "top1_rmsd_lt2": summary["top1_success_lt2A"],
         "top1_ci95_wilson": summary["top1_success_ci95"],
@@ -174,7 +201,11 @@ def main():
         "posebusters_physics_validity": summary["posebusters_physics_validity_rate"],
         "steric": {"min_cross_distance": None,
                    "self_intersection_frac": (cross or {}).get("self_intersect_frac")},
-        "nan_or_collapse": summary["nonfinite_or_collapse"],
+        # written-pose NaNs the grader can see, PLUS the complexes that died non-finite before
+        # any pose was written and so cannot appear in a coordinate scan
+        "nan_or_collapse": summary["nonfinite_or_collapse"] + len(nans),
+        "nan_in_written_poses": summary["nonfinite_or_collapse"],
+        "nan_failed_before_writing": nans,
         "network": "host torch HostScoreNetwork, released v1.1 checkpoints",
     }
     pbs["upstream"] = ref_summary
