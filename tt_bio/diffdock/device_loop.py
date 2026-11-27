@@ -396,3 +396,96 @@ class TowerFeatures:
         sig = self._broadcast(ones, sigma_row)
         return (self.rec_node_mlp(rec_x),
                 self.lig_node_mlp(ttnn.concat([lig_x, sig], dim=1)))
+
+
+def pose_centers(lig_pos, n_poses: int, n_lig: int):
+    """Each pose's ligand centre of mass, ``[n_poses, 3]``.
+
+    The host writes ``lig_pos[:n_lig * P].reshape(P, n_lig, 3).mean(1)``. The pose axis is
+    the leading one and every pose holds the same atom count, so this is the same kind of
+    reduction as :func:`rec_keep`: a view and a mean, no scatter and no index tensor.
+    """
+    import ttnn
+    real = n_poses * n_lig
+    flat = ttnn.to_layout(ttnn.slice(lig_pos, [0, 0], [real, 3]), ttnn.ROW_MAJOR_LAYOUT)
+    block = ttnn.to_layout(ttnn.reshape(flat, [n_poses, n_lig, 3]), ttnn.TILE_LAYOUT)
+    return ttnn.reshape(ttnn.mean(block, dim=1), [n_poses, 3])
+
+
+class CenterHead:
+    """The centre head's geometry and its final scaling, around the existing tensor product.
+
+    `static_forward`'s centre head is one conv from every ligand atom into its own pose's
+    centre, then a norm-and-rescale of the two output vectors. The convolution itself is the
+    stack machinery that `dfd-perf` already runs on the card, so it is not re-ported here;
+    what is here is everything around it, which was all host torch.
+
+    ``center[pose_of]`` is a gather with a fixed index, and the index never changes over the
+    rollout, so it is uploaded once and goes through the exact fp32 three-way gather rather
+    than a bf16 one-hot (`WH.md`).
+    """
+
+    def __init__(self, device, head, sg, sigma_embed_dim: int):
+        self.device, self.sg = device, sg
+        self.sh_ls = tuple(head.sh_ls)
+        self.smear = Smearing(device, head.center_distance_expansion)
+        self.edge_mlp = MLP(device, head.center_edge_embedding)
+        self.tr_final = MLP(device, head.tr_final_layer)
+        self.rot_final = MLP(device, head.rot_final_layer)
+        self.odd_parity = bool(head.odd_parity)
+        self.scale_by_sigma = bool(head.scale_by_sigma)
+        pose_of = (torch.arange(sg.n_lig_padded).div(sg.n_lig, rounding_mode="floor")
+                   .clamp(max=sg.n_poses - 1))
+        import ttnn
+        self.pose_of = ttnn.from_torch(pose_of.reshape(1, -1).to(torch.int32),
+                                       dtype=ttnn.uint32, layout=ttnn.ROW_MAJOR_LAYOUT,
+                                       device=device)
+        self.ones_atoms = upload(device, torch.ones(sg.n_lig_padded))
+
+    def vectors(self, lig_pos, valid):
+        """``head_vec = (lig_pos - center[pose_of]) * lig_valid``, as three columns."""
+        import ttnn
+        centers = pose_centers(lig_pos, self.sg.n_poses, self.sg.n_lig)
+        per_atom = gather(centers, self.pose_of, self.sg.n_lig_padded)
+        d = ttnn.multiply(ttnn.subtract(lig_pos, per_atom), valid)
+        return [ttnn.slice(d, [0, k], [self.sg.n_lig_padded, k + 1]) for k in range(3)]
+
+    def attributes(self, head_vec, lig_h, ns: int, sigma_row, src_idx):
+        """``cattr``: the distance expansion and sigma through the MLP, then ``lig_h[src, :ns]``.
+
+        *src_idx* is ``ce[1]`` when the head is ``fixed_center_conv`` and ``ce[0]`` otherwise,
+        which the caller decides once, exactly as the host does.
+        """
+        import ttnn
+        sig = ttnn.multiply(self.ones_atoms, sigma_row)
+        x = ttnn.concat([self.smear(norm3(*head_vec)), sig], dim=1)
+        return ttnn.concat([self.edge_mlp(x),
+                            ttnn.slice(gather(lig_h, src_idx, self.sg.n_lig_padded),
+                                       [0, 0], [self.sg.n_lig_padded, ns])], dim=1)
+
+    def scale(self, out, sigma_row, tr_sigma: float, so3_norm: float, n_poses: int):
+        """The host's norm-and-rescale of the conv output into ``(tr, rot)``.
+
+        ``out`` is the ``[P, 12]`` (or ``[P, 6]`` when ``odd_parity``) convolution result.
+        Returns two ``[P, 3]`` tensors. The division by the norm is the host's own: a zero
+        vector would divide by zero there too, and the guard that handles it is
+        :func:`guard`, which runs later on the sampler's side.
+        """
+        import ttnn
+        col = lambda a, b: ttnn.slice(out, [0, a], [n_poses, b])
+        if self.odd_parity:
+            tr, rot = col(0, 3), col(3, 6)
+        else:
+            tr = ttnn.add(col(0, 3), col(6, 9))
+            rot = ttnn.add(col(3, 6), col(9, 12))
+        sig = ttnn.multiply(upload(self.device, torch.ones(n_poses)), sigma_row)
+        out_pair = []
+        for vec, final in ((tr, self.tr_final), (rot, self.rot_final)):
+            n = norm3(*[ttnn.slice(vec, [0, k], [n_poses, k + 1]) for k in range(3)])
+            scale = final(ttnn.concat([n, sig], dim=1))
+            out_pair.append(ttnn.multiply(ttnn.multiply(vec, ttnn.reciprocal(n)), scale))
+        tr, rot = out_pair
+        if self.scale_by_sigma:
+            tr = ttnn.multiply(tr, 1.0 / tr_sigma)
+            rot = ttnn.multiply(rot, so3_norm)
+        return tr, rot
