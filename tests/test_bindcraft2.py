@@ -307,6 +307,28 @@ def test_validation_can_be_put_on_card_explicitly(monkeypatch):
     assert _campaign_factory_trunks(monkeypatch, validation="device") == ["device"] * 3
 
 
+def test_validation_gpu_pins_the_host_jax_trunk_to_one_cuda_device(monkeypatch):
+    """The host JAX trunk brings up CUDA device 0 by default, so on a multi-GPU host the
+    validation ensemble silently holds GPU 0. `validation_gpu` pins it before jax is imported."""
+    monkeypatch.delenv("CUDA_VISIBLE_DEVICES", raising=False)
+    _campaign_factory_trunks(monkeypatch, validation_gpu=1)
+    assert os.environ["CUDA_VISIBLE_DEVICES"] == "1"
+
+
+def test_validation_gpu_is_a_no_op_when_validation_is_on_card(monkeypatch):
+    """`validation="device"` builds no host JAX trunk, so there is nothing to pin."""
+    monkeypatch.delenv("CUDA_VISIBLE_DEVICES", raising=False)
+    _campaign_factory_trunks(monkeypatch, validation="device", validation_gpu=1)
+    assert "CUDA_VISIBLE_DEVICES" not in os.environ
+
+
+def test_leaving_validation_gpu_unset_does_not_touch_the_cuda_pin(monkeypatch):
+    """The default is unchanged: JAX keeps whatever device default the environment gave it."""
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "3")
+    _campaign_factory_trunks(monkeypatch)
+    assert os.environ["CUDA_VISIBLE_DEVICES"] == "3"
+
+
 def test_the_extra_msa_stack_runs_on_card_by_default():
     """Both AF2 swaps default ON, because leaving them in JAX is what costs the round.
 
