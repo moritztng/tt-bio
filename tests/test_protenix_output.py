@@ -156,3 +156,22 @@ def test_engine_heads_hand_the_writer_its_logits():
                                                       "distogram_head.linear.bias": b}), z)
     ref = z @ w.T + b
     assert torch.allclose(d.double(), ref + ref.transpose(0, 1), atol=1e-4)
+
+
+def test_token_frames_requires_all_polymer_frame_atoms():
+    """Multi-atom polymer tokens need all three frame atoms (N/CA/C or C1'/C3'/C4'), and unknown mol_types have none."""
+    import torch.nn.functional as F
+
+    names = ["N", "CA", "C", "N", "CB", "C1'", "C3'", "C4'", "C1'", "O4'", "C1", "C2"]
+    rows = [[ord(c) - 32 for c in name.ljust(4)[:4]] for name in names]
+    a2t = torch.tensor([0, 0, 0, 1, 1, 2, 2, 2, 3, 3, 4, 4])
+    feats = {
+        "atom_to_token_idx": a2t,
+        "restype": torch.zeros(5, 32),
+        "ref_atom_name_chars": F.one_hot(torch.tensor(rows), 64).float(),
+        "ref_pos": torch.zeros(len(names), 3),
+        "ref_mask": torch.ones(len(names)),
+        "ref_space_uid": a2t,
+        "mol_type": torch.tensor([0, 0, 2, 2, 3]),
+    }
+    assert po.token_frames(feats).tolist() == [1, 0, 1, 0, 0]

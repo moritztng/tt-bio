@@ -206,7 +206,8 @@ def token_frames(feats) -> torch.Tensor:
         atoms[t].append(i)
     for t, idx in enumerate(atoms):
         if len(idx) > 1:
-            out[t] = int(all(n in {names[i] for i in idx} for n in _FRAME_ATOMS.get(mol_type[t], ())[:1]))
+            req = _FRAME_ATOMS.get(mol_type[t])
+            out[t] = int(bool(req) and all(n in {names[i] for i in idx} for n in req))
             continue
         b = idx[0]
         same = np.where(uid == uid[b])[0]
