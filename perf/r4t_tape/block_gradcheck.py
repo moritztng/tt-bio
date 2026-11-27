@@ -50,6 +50,8 @@ def main():
     ap.add_argument("--fwd-only", action="store_true", help="stop after the forward-vs-reference line")
     ap.add_argument("--exact", action="store_true",
                     help="fp32 arm: matmul/linear/sum/mean/norms/transposes exact fp32 (tt_bio.train.exact_fp32, D49(2))")
+    ap.add_argument("--attn-fp32", action="store_true",
+                    help="D59 remedy arm: q/k/v, q/k norms and attention in float32 (Trunk attn_fp32)")
     ap.add_argument("--out", type=Path)
     ap.add_argument("--floor-only", type=Path, metavar="JSON",
                     help="host only: write the bf16-emulated floor column (D39) for this config and stop")
@@ -92,7 +94,8 @@ def main():
     ckc = TR.compute_kernel_config()
     if a.module == "trunk_block":
         w64 = REF.block_weights(DIM, DP, DC, H, seed=0)
-        build = lambda sd: TR.TrunkBlock(tt.WeightScope(sd), ckc, H, dtype=dt)  # noqa: E731
+        build = lambda sd: TR.TrunkBlock(tt.WeightScope(sd), ckc, H, dtype=dt,  # noqa: E731
+                                         attn_dtype=ttnn.float32 if a.attn_fp32 else None)
         keys, ins, out_t, cut = ("x", "z", "cond", "mask", "bias"), ("x", "z", "cond"), x, "q_w"
         ref_fn = lambda w, I, r=REF.ident: REF.trunk_block(w, I["x"], I["z"], I["cond"], mask, n_heads=H, rnd=r)  # noqa: E731
         out_mask = mask[..., None]
@@ -104,7 +107,8 @@ def main():
         early = [bf(torch.randn(1, a.n, DC, generator=gc, dtype=torch.float64)) for _ in range(a.cycles - 1)]
         cond = bf(torch.randn(1, a.n, DC, generator=gc, dtype=torch.float64))
         build = lambda sd: TR.Trunk(tt.WeightScope(sd), ckc, a.layers, H, dtype=dt,  # noqa: E731
-                                    pair_residual_dtype=ttnn.float32 if a.arm == "fp32" else None)
+                                    pair_residual_dtype=ttnn.float32 if a.arm == "fp32" else None,
+                                    attn_fp32=a.attn_fp32)
         keys, ins, out_t, cut = ("x", "z", "cond"), ("x", "z", "cond"), x, "q_w"
         # The early cycles run once at the base point and are frozen: that is what `grad: last`
         # differentiates, and a central difference sees exactly it (through `grad_last` alone it would
@@ -244,7 +248,8 @@ def main():
     rep = CK.gradcheck(f"{a.module}/{a.arm}" + ("/own" if a.sdpa_own else "") + ("/broken" if a.brk else "") + (f"/x1.10:{a.scale_grad}" if a.scale_grad else ""),
                        ref_loss=lambda: (ref_fn(wref, ref) * seed).sum(),
                        ref_params=[ref[k] for k in names], tt_grads={k: got[k] for k in names},
-                       op_class="reduction", dtype=dname, n_probe=a.probe, seed=a.seed)
+                       op_class="reduction", dtype=dname, n_probe=a.probe, seed=a.seed,
+                       kinked=a.module != "trunk_block")  # a TrunkBlock has no ReLU (fd_check kinked=)
     print(rep, flush=True)
     fresh = bf16_floor() if committed is not None else {}
     if any(abs(f["rel"] - committed.get(k, {"rel": -1.0})["rel"]) > 1e-9 * max(f["rel"], 1e-12) for k, f in fresh.items()):

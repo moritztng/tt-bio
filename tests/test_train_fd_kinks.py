@@ -105,3 +105,36 @@ def test_one_draw_per_probe_leaves_the_same_tensor_unverified():
     flat, scale = w.detach().reshape(-1), w.grad.abs().max().item()
     hits = sum(CK._smooth_central(loss, flat, i, 1e-2, CK.FD_AGREE * CK.FD_BAR * scale) is None for i in range(16))
     assert hits == 12
+
+
+def _smooth_net(wrong=False):
+    g = torch.Generator().manual_seed(3)
+    w = torch.randn(8, generator=g, dtype=torch.float64).requires_grad_(True)
+    x = torch.randn(64, 8, generator=g, dtype=torch.float64)
+
+    class Sig(torch.autograd.Function):
+        @staticmethod
+        def forward(ctx, a):
+            ctx.save_for_backward(a)
+            return torch.sigmoid(a)
+
+        @staticmethod
+        def backward(ctx, gy):
+            (a,) = ctx.saved_tensors
+            s = torch.sigmoid(a)
+            return gy * s * (1 - s) * (1.01 if wrong else 1.0)
+
+    return (lambda: Sig.apply(x @ w).sum()), [w]
+
+
+def test_a_declared_smooth_reference_takes_the_plain_difference():
+    loss, ps = _smooth_net()
+    kinks = []
+    worst, probed, _ = CK.fd_check(loss, ps, n_probe=8, kinks=kinks, kinked=False)
+    assert probed == 8 and not kinks and worst < CK.FD_BAR
+
+
+def test_a_declared_smooth_reference_still_fails_a_wrong_gradient():
+    loss, ps = _smooth_net(wrong=True)
+    worst, probed, _ = CK.fd_check(loss, ps, n_probe=8, kinked=False)
+    assert probed == 8 and worst > 10 * CK.FD_BAR

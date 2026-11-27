@@ -73,6 +73,8 @@ def main():
                          "under tt_bio.train.exact_fp32 (host float64, rounded once)")
     ap.add_argument("--break", dest="brk", action="store_true",
                     help="with --grad-dump: the gross broken arm, block 0's Q slice dropped from its fold VJP")
+    ap.add_argument("--attn-fp32", choices=("on", "off"), default="off",
+                    help="D59 remedy arm: q/k/v projections, q/k norms and attention in float32 (load_trunk attn_fp32)")
     ap.add_argument("--gate-bw", choices=("on", "off"), default="on",
                     help="backward of every o * sigmoid(g) gate as one kernel (tt_bio.gate_bw, r4t-perf G1) or the "
                          "seven-op composed path")
@@ -168,7 +170,7 @@ def main():
         glue.pair_split = PairSplit(glue.pair_repr_builder)
         card_pair.append(PairOnCard(glue.pair_split, dev))
         return card_pair[0]
-    trunk = E.load_trunk(glue, state, cfg, training=True, dtype=TD)   # an unrecorded build for the lever set and dtypes; build() replaces it
+    trunk = E.load_trunk(glue, state, cfg, training=True, dtype=TD, attn_fp32=a.attn_fp32 == "on")   # an unrecorded build for the lever set and dtypes; build() replaces it
 
     RB = {}
 
@@ -232,7 +234,7 @@ def main():
         close_rec()
         if lazy or not inline:
             with folds.recording(device_pack=pack) as sd:
-                trunk = E.load_trunk(glue, sd, cfg, training=True, dtype=TD)
+                trunk = E.load_trunk(glue, sd, cfg, training=True, dtype=TD, attn_fp32=a.attn_fp32 == "on")
                 if in_proj:
                     RB["trimuls"] = len([m.train_in_proj() for m in trimuls(trunk)])
                 ttnn.synchronize_device(dev); _rb2 = time.time()
@@ -241,7 +243,7 @@ def main():
         else:
             rec = folds.recording(device_pack=pack)
             sd = rec.__enter__()
-            trunk = E.load_trunk(glue, sd, cfg, training=True, dtype=TD)
+            trunk = E.load_trunk(glue, sd, cfg, training=True, dtype=TD, attn_fp32=a.attn_fp32 == "on")
             if in_proj:
                 RB["trimuls"] = len([m.train_in_proj() for m in trimuls(trunk)])
             # The trimul chunk width depends on the batch: the K-candidate pass fills its own width, and the
@@ -522,7 +524,7 @@ def main():
             import numpy as _np
             sm = clk[c0:] or clk[-1:]
             _np.savez(a.grad_dump + ".npz", **{nm: g for nm, g in grads.items() if g is not None})
-            meta = dict(extra, loss=loss, arm=a.arm, levers=sorted(levers) if not isinstance(levers, str) else levers,
+            meta = dict(extra, loss=loss, arm=a.arm, attn_fp32=a.attn_fp32, levers=sorted(levers) if not isinstance(levers, str) else levers,
                         dtype=str(trunk.dtype), n=n, card=card, aiclk=[min(sm or [0]), max(sm or [0])],
                         exact={"%s/%s" % k: v for k, v in sorted(EX.EXACT_STATS.items())},
                         no_grad=sorted(nm for nm, g in grads.items() if g is None), sha=os.environ.get("TT_BIO_SHA", ""))
