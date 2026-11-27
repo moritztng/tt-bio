@@ -33,6 +33,7 @@ echo "--- [Gate 3/3] End-to-end --resident timing (18 steps) + HOST-BYTES (--pci
 BATCHES="$(ls "$BDIR"/batch0[0-8].npz | paste -sd, -)"
 timeout 900 "$PY" "$REPO/perf/r4t_step/trunk_step.py" \
     --resident --optimizer muon --cand-levers serve --cand-pair card --win-pair card \
+    --exempt default --cover-steps 9 \
     --batch "$BATCHES" --steps 18 --pcie-meter sites --out "$OUT/e2e_run" \
     2>&1 | tee "$OUT/e2e_resident.jsonl"
 

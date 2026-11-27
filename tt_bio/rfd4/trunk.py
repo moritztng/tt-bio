@@ -828,6 +828,9 @@ WH_NORMAL_LEVERS = NORMAL_LEVERS | {"trimul_t1_stats", "pair_bias_fuse"}
 #: serving lever off and every pair with `transition_b8` still misses bb_ca or sequence_prediction somewhere; only
 #: all five off passes both terms on all 9. The other 28 are digest-neutral at crop 256 and stay. Inference keeps
 #: the full set: its grade is the design RMSD above.
+#: B1 (r4t-bwd, default off): run non-final recycle cycles under `ops.suspend_tape()` ("fp32" or "bf16").
+RECYCLE_SERVE = ""
+
 TRAIN_DROPS = frozenset({"dit_sigf32", "pair_bf16z", "tok_recycle_mm", "tok_w8", "transition_b8"})
 
 
@@ -939,7 +942,10 @@ class Trunk(Module):
     def _recycle(self, init, prev, norm_w, proj_w, res_dtype, low=None):
         """init + proj(norm(prev)) in `res_dtype`. With `low` (a float32 stream) it returns `(out, out in low)`
         from one residual write, the copy the next pass's pair bias reads, instead of an add and a cast."""
-        h = _rms(prev, norm_w, self.compute_kernel_config)
+        pv = ttnn.typecast(prev, self.dtype) if (ops.taping() and prev.dtype == ttnn.bfloat8_b) else prev
+        h = _rms(pv, norm_w, self.compute_kernel_config)
+        if pv is not prev:
+            ttnn.deallocate(pv)
         hb = _as(h, self.dtype)
         if hb is not h:
             ttnn.deallocate(h)
@@ -1021,10 +1027,14 @@ class Trunk(Module):
         return ttnn.bfloat16 if zd == ttnn.bfloat8_b and masks[0] is not None and not padded_ok else zd
 
     @under_lever_scope
-    def __call__(self, s_init, z_init, conds, masks):
+    def __call__(self, s_init, z_init, conds, masks, *, prev=None, return_penultimate=False):
         """`conds[k]` is cycle k's conditioning ([b, n, dim_cond]); upstream recomputes it each cycle
         because it carries the remaining-pass count. `masks` is `trunk_masks(...)` built with this
-        trunk's residual dtype. Returns the final (s, z) in the residual dtype; the inputs survive."""
+        trunk's residual dtype. Returns the final (s, z) in the residual dtype; the inputs survive.
+
+        `prev=(s_prev, z_prev)`: detached state entering `conds[0]` (caller retains ownership).
+        `return_penultimate=True`: returns `(s, z, (s_prev, z_prev))` with the state entering the
+        final cycle (`(None, None)` when `len(conds) == 1`). Both default off so inference is untouched."""
         res_mask = masks[4]
         zd = self.pair_dtype(masks)
         res_pair_mask_c = masks[5] if zd == self.residual_dtype else masks[3]
@@ -1035,12 +1045,64 @@ class Trunk(Module):
         z_init = _masked_copy(z_init, res_pair_mask_c, zd, alias=True)
         # a float32 pair stream takes its recycle as one dual write, which also gives the next pass its bf16 copy
         low = self.dtype if zd == ttnn.float32 and self.dtype == ttnn.bfloat16 else None
-        s = z = None
+        borrowed = prev if prev is not None else (None, None)
+        s, z = borrowed
+        penult = (None, None)
         self._ran = (0, 0)
         # Under a tape every cycle but the last runs under no_grad, as upstream trains it (only the last
         # pass is differentiated); all cycles still run. With no tape `recycle_region` is a null context.
+        # B1 (`RECYCLE_SERVE` = "fp32" or "bf16"): suspend the tape on non-final cycles so shipped serving
+        # fused kernels (trimul_t1, pair_tail_cm, outer_residual, pair_relu, rms_pair_bias) serve cycle 0..d-2.
+        last = len(conds) - 1
         for cyc, c in enumerate(conds):
-            with ops.recycle_region(cyc, len(conds) - 1):
+            if cyc < last and RECYCLE_SERVE and ops.taping():
+                raw = lambda t: getattr(t, "value", t)  # noqa: E731
+                rmasks = tuple(None if m is None else raw(m) for m in masks)
+                rc = raw(c)
+                rs_init, rz_init = raw(s_init), raw(z_init)
+                bf16_cyc = RECYCLE_SERVE == "bf16"
+                mods = [self] + list(self.pair_updates.values()) if bf16_cyc else ()
+                saved_d = [(m, m.pair_residual_dtype if m is self else m.residual_dtype) for m in mods]
+                saved_levs = self._levers
+                zd_c = ttnn.bfloat16 if bf16_cyc else zd
+                low_c = self.dtype if zd_c == ttnn.float32 and self.dtype == ttnn.bfloat16 else None
+                try:
+                    if bf16_cyc:
+                        self.pair_residual_dtype = ttnn.bfloat16
+                        for m in mods[1:]:
+                            m.residual_dtype = ttnn.bfloat16
+                        self._levers = saved_levs | {"pair_bf16z", "dit_sigf32", "tok_recycle_mm"}
+                    with ops.suspend_tape(), lever_scope(self._levers):
+                        zb = None
+                        if s is None:
+                            s_in = ttnn.clone(rs_init)
+                            z_in = ttnn.typecast(rz_init, zd_c) if rz_init.dtype != zd_c else ttnn.clone(rz_init)
+                        else:
+                            rs, rz = raw(s), raw(z)
+                            s_in = self._recycle(rs_init, rs, self.s_norm, self.s_proj, self.residual_dtype)
+                            rz_init_c = ttnn.typecast(rz_init, zd_c) if rz_init.dtype != zd_c else rz_init
+                            z_in = self._recycle(rz_init_c, rz, self.z_norm, self.z_proj, zd_c, low=low_c)
+                            if rz_init_c is not rz_init:
+                                ttnn.deallocate(rz_init_c)
+                            if low_c is not None:
+                                z_in, zb = z_in
+                            if s is not borrowed[0]:
+                                ttnn.deallocate(rs)
+                            if z is not borrowed[1]:
+                                ttnn.deallocate(rz)
+                        s_raw, z_raw = self.run_pass(s_in, z_in, rc, rmasks, zb=zb)
+                        if bf16_cyc and cyc + 1 == last and z_raw.dtype != zd:
+                            z_up = ttnn.typecast(z_raw, zd)
+                            ttnn.deallocate(z_raw)
+                            z_raw = z_up
+                finally:
+                    self._levers = saved_levs
+                    for m, d in saved_d:
+                        setattr(m, "pair_residual_dtype" if m is self else "residual_dtype", d)
+                s = ops.wrap_untaped(s_raw) if cyc + 1 == last else s_raw
+                z = ops.wrap_untaped(z_raw) if cyc + 1 == last else z_raw
+                continue
+            with ops.recycle_region(cyc, last):
                 zb = None
                 if s is None:
                     s_in, z_in = ttnn.clone(s_init), ttnn.clone(z_init)
@@ -1049,8 +1111,13 @@ class Trunk(Module):
                     z_in = self._recycle(z_init, z, self.z_norm, self.z_proj, zd, low=low)
                     if low is not None:
                         z_in, zb = z_in
-                    ttnn.deallocate(s)
-                    ttnn.deallocate(z)
+                    if return_penultimate and cyc == last:
+                        penult = (s, z)
+                    else:
+                        if s is not borrowed[0]:
+                            ttnn.deallocate(s)
+                        if z is not borrowed[1]:
+                            ttnn.deallocate(z)
                 s, z = self.run_pass(s_in, z_in, c, masks, zb=zb)
         if res_mask is not None and lever("mask_at_mix"):
             # the passes left the padded tokens unmasked; the call hands them back as zeros, as upstream does
@@ -1058,10 +1125,19 @@ class Trunk(Module):
             ttnn.deallocate(s)
             ttnn.deallocate(z)
             s, z = ms, mz
+            if penult[0] is not None:
+                pm = masks[5] if penult[1].dtype == self.residual_dtype else masks[3]
+                ps = _masked_copy(penult[0], res_mask, penult[0].dtype)
+                pz = _masked_copy(penult[1], pm, penult[1].dtype)
+                if penult[0] is not borrowed[0]:
+                    ttnn.deallocate(penult[0])
+                if penult[1] is not borrowed[1]:
+                    ttnn.deallocate(penult[1])
+                penult = (ps, pz)
         for t, given in zip((s_init, z_init), inputs):
             if t is not given:
                 ttnn.deallocate(t)
-        return s, z
+        return (s, z, penult) if return_penultimate else (s, z)
 
     def masks_for(self, mask, device):
         """`trunk_masks` for a padded host [b, n] mask, kept on the device while the mask stays the

@@ -1,14 +1,17 @@
-"""Training-side taped wrapper for RFD4 PairOnCard (r4t-perf P2).
+"""Training-side taped wrapper for RFD4 PairOnCard (r4t-perf P2) and zero-pair-PCIe
+ResidentPairBuilder (r4t-resident D89).
 
 Lives under `tt_bio/train/` so inference module `tt_bio/rfd4/pair.py` never imports `autograd`.
 """
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 import torch
 import ttnn
 
 from .. import autograd as ag
-from ..rfd4.pair import PairInputs, PairOnCard
+from ..rfd4.pair import STEP_FEATURE, PairInputs, PairOnCard
 
 
 def pair_taped(pc: PairOnCard, p: PairInputs, bridge, batch: dict, dtype=None):
@@ -84,492 +87,654 @@ def pair_taped(pc: PairOnCard, p: PairInputs, bridge, batch: dict, dtype=None):
     return ag._tape(z, leaves, make, reads=())
 
 
-def _ckc_hifi4():
-    return ttnn.types.BlackholeComputeKernelConfig(
-        math_fidelity=ttnn.MathFidelity.HiFi4,
-        math_approx_mode=False,
-        fp32_dest_acc_en=True,
-        packer_l1_acc=True,
-    )
+@dataclass
+class EncodedPair:
+    """Compact batch-only integer indices for on-card pair construction (zero [N,N,C] floats)."""
+
+    k: int
+    n: int
+    bins_step: torch.Tensor        # [k, n*n] int32 (0..step_dim)
+    idx_onehot: list               # list[(name, [b_c, n*n] int32)]
+    idx_scalar: torch.Tensor       # [b_c, n*n] int32 (packed binary/ternary)
+    dedup: bool
+    gamma: torch.Tensor            # [k, c] fp32
+    beta: torch.Tensor             # [k, c] fp32
+    fallback_const: torch.Tensor | None = None  # optional [b_c, n*n, const_w] bf16 if non-compact
 
 
-def _ckc_hifi2():
-    return ttnn.types.BlackholeComputeKernelConfig(
-        math_fidelity=ttnn.MathFidelity.HiFi2,
-        math_approx_mode=False,
-        fp32_dest_acc_en=True,
-        packer_l1_acc=True,
-    )
+class _PairStepCache:
+    """Device-resident pair tensors shared between the candidate pass and winner taped pass."""
+
+    __slots__ = ("k", "n", "dedup", "C", "F_const", "F_step_k", "ws_h", "ws_l")
+
+    def __init__(self, k: int, n: int, dedup: bool, C, F_const, F_step_k, ws_h, ws_l):
+        self.k = k
+        self.n = n
+        self.dedup = dedup
+        self.C = C
+        self.F_const = F_const
+        self.F_step_k = F_step_k
+        self.ws_h = ws_h
+        self.ws_l = ws_l
+
+    def release(self) -> None:
+        for attr in ("C", "F_const", "F_step_k", "ws_h", "ws_l"):
+            t = getattr(self, attr, None)
+            if t is not None and t.is_allocated():
+                ttnn.deallocate(t)
+            setattr(self, attr, None)
 
 
-def _split2_bf16(x):
-    hi = ttnn.typecast(x, ttnn.bfloat16)
-    hi_f = ttnn.typecast(hi, ttnn.float32)
-    rem = ttnn.subtract(x, hi_f)
-    ttnn.deallocate(hi_f)
-    lo = ttnn.typecast(rem, ttnn.bfloat16)
-    ttnn.deallocate(rem)
-    return hi, lo
-
-
-def _split3_bf16(x):
-    bf16, f32 = ttnn.bfloat16, ttnn.float32
-    hi = ttnn.typecast(x, bf16)
-    hi_f = ttnn.typecast(hi, f32)
-    r1 = ttnn.subtract(x, hi_f)
-    ttnn.deallocate(hi_f)
-    mid = ttnn.typecast(r1, bf16)
-    mid_f = ttnn.typecast(mid, f32)
-    r2 = ttnn.subtract(r1, mid_f)
+def _norm_adaln_on_card(x, lnw_tt, gamma_tt, beta_tt, e1: float, e2: float, c: int, cfg):
+    """Run PairReprBuilder's RMSNorm -> ln_out -> AdaLN RMSNorm -> gamma/beta strictly on card."""
+    mean = lambda v: ag._row_mean(v, cfg, c)
+    x2 = ttnn.multiply(x, x)
+    mx2 = mean(x2)
+    ttnn.deallocate(x2)
+    r1 = ttnn.rsqrt(ttnn.add(mx2, e1))
+    ttnn.deallocate(mx2)
+    n1 = ttnn.multiply(x, r1)
     ttnn.deallocate(r1)
-    ttnn.deallocate(mid_f)
-    lo = ttnn.typecast(r2, bf16)
+    a = ttnn.multiply(n1, lnw_tt)
+    ttnn.deallocate(n1)
+    a2 = ttnn.multiply(a, a)
+    ma2 = mean(a2)
+    ttnn.deallocate(a2)
+    r2 = ttnn.rsqrt(ttnn.add(ma2, e2))
+    ttnn.deallocate(ma2)
+    bb = ttnn.multiply(a, r2)
+    ttnn.deallocate(a)
     ttnn.deallocate(r2)
-    return hi, mid, lo
+    z1 = ttnn.multiply(bb, gamma_tt)
+    ttnn.deallocate(bb)
+    z = ttnn.add(z1, beta_tt)
+    ttnn.deallocate(z1)
+    return z
 
 
-class DeviceTrainPair:
-    """Device-resident training pair builder (r4t-perf P3): zero pair-sized PCIe in fwd + bwd.
+class ResidentPairBuilder:
+    """Device-resident RFD4 pair builder (fwd + taped bwd) with zero pair-sized PCIe transfers.
 
-    Lives purely under ``tt_bio/train/`` so inference ``tt_bio/rfd4/pair.py`` stays byte-identical.
-    Each step:
-      1. Uploads compact ``F_const`` (``[n*n, 96]`` bf16 = 12.6 MB; all 9 constant pair features
-         are exact in ``{-1, 0, +1}``) and ``bins`` (``[K*n, n]`` uint32 = 1.05 MB) ONCE.
-      2. Reads ``W`` (``[384, 107]``) and ``ln_out.weight`` (``[384]``) directly from
-         ``opt.master`` on card (0 host sync, 0 PairSplit/PairOnCard rebuild).
-      3. Computes ``proj = F_const @ W_const^T`` via 3-part exact bf16 matmul on card (~1-2 ms,
-         ~1e-7 rel_l2 vs float64), gathers ``x = proj + W_step[bins]`` via ``tt_bio.pair_build``
-         (``unit=True``, exact fp32), and runs both RMSNorms on card using split2 dot products
-         (immune to ``ttnn.sum``'s 2.7e-4 TF32 unpack bug).
-      4. In winner backward, computes ``dW_const = dx^T @ F_const`` and
-         ``dW_step = dx^T @ onehot(bins_win)`` directly on card (0 MB ``F`` upload) and writes
-         ``dW`` and ``d_lnw`` directly into ``self.grads`` on card for ``DeviceOptimizer``.
+    Replaces the 100.66 MB ``PairOnCard._constant`` upload, the 33.55 MB ``pair_taped`` ``F``
+    upload, the per-step host ``PairSplit``/``PairOnCard`` rebuild, and CPU ``constant``/``scales``
+    compute with ~1.83 MB of integer feature indices per step (batch input only):
+      - ``bins_step`` ([K, N, N] uint32, 1.05 MB for K=4)
+      - one-hot const indices (e.g. TokenBondPathLength 0..64, BondOrder 0..5: 0.26 MB each)
+      - bit-packed scalar const index (7 binary + 1 ternary feature: 0.26 MB)
+
+    Reconstructs exact ``{-1, 0, 1}`` features in bf16 TILE layout via ``ttnn.embedding``,
+    computes ``C = F_const @ W_const^T`` and ``rows = F_step @ W_step^T`` on card in split-bf16
+    -> fp32, runs both RMSNorms + AdaLN on card, and reuses the resident ``F_const`` + ``F_step``
+    for the winner's taped backward ``dW = dx^T @ F`` (0 extra PCIe bytes).
     """
 
-    W_KEY = "glue.pair_repr_builder.init_repr_factory.linear_out.weight"
-    LNW_KEY = "glue.pair_repr_builder.init_repr_factory.ln_out.weight"
-
     def __init__(self, builder, device):
-        from ..rfd4.pair import STEP_FEATURE
-
+        fac = builder.init_repr_factory
+        if builder.cond_factory is None or fac.ret_zero:
+            raise ValueError("ResidentPairBuilder requires AdaLN and active pair features")
         self.builder = builder
         self.device = device
-        factory = builder.init_repr_factory
-        self.c = int(factory.linear_out.weight.shape[0])
-        self.total_dim = int(factory.linear_out.weight.shape[1])
-        self.e1 = float(factory.ln_out.eps)
+        self.c = int(fac.linear_out.weight.shape[0])
+        self.k_orig = int(fac.linear_out.weight.shape[1])
+        self.e1 = float(fac.ln_out.eps)
         self.e2 = float(builder.adaln.norm.eps)
 
-        self.const_creators = []
-        const_cols = []
-        step_info = []
-        start = 0
-        for cr in factory.feat_creators:
-            stop = start + cr.get_dim()
-            if type(cr).__name__ == STEP_FEATURE:
-                step_info.append((cr, start, stop))
+        # Classify upstream feature creators without hardcoding column offsets.
+        self.step_creator = None
+        self.step_orig_cols: list[int] = []
+        self.onehot_creators: list[tuple[object, list[int]]] = []
+        self.scalar_creators: list[tuple[object, list[int], bool]] = []
+        off = 0
+        for fc in fac.feat_creators:
+            d = int(fc.get_dim())
+            cols = list(range(off, off + d))
+            name = type(fc).__name__
+            if name == STEP_FEATURE:
+                self.step_creator = fc
+                self.step_orig_cols = cols
+            elif d >= 4:
+                self.onehot_creators.append((fc, cols))
             else:
-                self.const_creators.append(cr)
-                const_cols.extend(range(start, stop))
-            start = stop
-        if len(step_info) != 1:
-            raise ValueError(f"expected one {STEP_FEATURE}, found {len(step_info)}")
-        self.step_creator, self.step_a, self.step_b = step_info[0]
-        self.nbins = self.step_b - self.step_a
-        self.const_dim = len(const_cols)
-        assert const_cols == list(range(self.step_b, self.total_dim)) or const_cols == list(range(0, self.step_a)), (
-            "DeviceTrainPair expects contiguous const feature columns"
+                is_ternary = ("CanonicalPolymerOrdering" in name)
+                self.scalar_creators.append((fc, cols, is_ternary))
+            off += d
+        if self.step_creator is None or off != self.k_orig:
+            raise ValueError(f"Unexpected pair feature layout: step={self.step_creator}, off={off}, k={self.k_orig}")
+
+        # Pack columns into 32-aligned blocks:
+        #   [0 : step_w]             step one-hot (dim 30 -> 32)
+        #   [step_w : step_w+cw]     const blocks: large 1-hot (>=32) get own 32-aligned block;
+        #                            small 1-hot (<32) + scalars share one 32-aligned misc block.
+        self.step_dim = len(self.step_orig_cols)
+        self.step_w = -(-self.step_dim // 32) * 32
+
+        self.large_oh: list[tuple[object, list[int], int, int]] = []   # (fc, orig_cols, blk_off, blk_w)
+        self.small_oh: list[tuple[object, list[int], int]] = []        # (fc, orig_cols, misc_col_off)
+        self.scalar_meta: list[tuple[object, list[int], bool, int]] = []  # (fc, orig_cols, is_tern, misc_col_off)
+
+        pack_to_orig: dict[int, int] = {}
+        for i, oc in enumerate(self.step_orig_cols):
+            pack_to_orig[i] = oc
+
+        cur_const = 0
+        for fc, cols in self.onehot_creators:
+            d = len(cols)
+            if d >= 32:
+                bw = -(-d // 32) * 32
+                for i, oc in enumerate(cols):
+                    pack_to_orig[self.step_w + cur_const + i] = oc
+                self.large_oh.append((fc, cols, cur_const, bw))
+                cur_const += bw
+
+        misc_off = cur_const
+        misc_cursor = 0
+        for fc, cols in self.onehot_creators:
+            d = len(cols)
+            if d < 32:
+                for i, oc in enumerate(cols):
+                    pack_to_orig[self.step_w + misc_off + misc_cursor + i] = oc
+                self.small_oh.append((fc, cols, misc_cursor))
+                misc_cursor += d
+
+        self._scalar_bin_slots: list[int] = []
+        self._scalar_tern_slot: int | None = None
+        for fc, cols, is_tern in self.scalar_creators:
+            for j, oc in enumerate(cols):
+                slot = misc_cursor + j
+                pack_to_orig[self.step_w + misc_off + slot] = oc
+                if is_tern and self._scalar_tern_slot is None:
+                    self._scalar_tern_slot = slot
+                else:
+                    self._scalar_bin_slots.append(slot)
+            self.scalar_meta.append((fc, cols, is_tern, misc_cursor))
+            misc_cursor += len(cols)
+
+        self.misc_w = -(-misc_cursor // 32) * 32 if misc_cursor > 0 else 0
+        self.const_w = cur_const + self.misc_w
+        self.k_pack = self.step_w + self.const_w
+        assert self.k_pack % 32 == 0 and self.const_w % 32 == 0 and self.step_w % 32 == 0
+
+        # Host permutation indices (pack_col -> orig_col) and device inverse permutation [k_pack, k_orig_pad]
+        self._pack_cols = sorted(pack_to_orig.keys())
+        self._orig_cols = [pack_to_orig[p] for p in self._pack_cols]
+
+        k_orig_pad = -(-self.k_orig // 32) * 32
+        self._k_orig_pad = k_orig_pad
+        p_inv = torch.zeros(self.k_pack, k_orig_pad, dtype=torch.bfloat16)
+        for pc, oc in pack_to_orig.items():
+            p_inv[pc, oc] = 1.0
+        self._P_pack_to_orig = ttnn.from_torch(
+            p_inv, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=device,
         )
-        self.const_a = const_cols[0]
-        self.const_b = const_cols[-1] + 1
-        self.const_kpad = -(-self.const_dim // 32) * 32
-        self.nbins_pad = -(-self.nbins // 32) * 32
 
-        self._ones_c = ttnn.from_torch(
-            torch.ones(self.c, 1, dtype=torch.bfloat16),
-            dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=device,
+        # Static ROW_MAJOR bf16 embedding tables for ttnn.embedding(..., layout=TILE_LAYOUT)
+        def _up_tbl(t: torch.Tensor):
+            return ttnn.from_torch(t.bfloat16().contiguous(), dtype=ttnn.bfloat16,
+                                   layout=ttnn.ROW_MAJOR_LAYOUT, device=device)
+
+        tbl_step = torch.zeros(self.step_dim + 1, self.step_w, dtype=torch.bfloat16)
+        tbl_step[torch.arange(self.step_dim), torch.arange(self.step_dim)] = 1.0
+        self._tbl_step = _up_tbl(tbl_step)
+
+        self._tbl_large_oh = []
+        for _fc, cols, _boff, bw in self.large_oh:
+            d = len(cols)
+            t = torch.zeros(d + 1, bw, dtype=torch.bfloat16)
+            t[torch.arange(d), torch.arange(d)] = 1.0
+            self._tbl_large_oh.append(_up_tbl(t))
+
+        self._tbl_small_oh = []
+        for _fc, cols, moff in self.small_oh:
+            d = len(cols)
+            t = torch.zeros(d + 1, self.misc_w, dtype=torch.bfloat16)
+            t[torch.arange(d), moff + torch.arange(d)] = 1.0
+            self._tbl_small_oh.append(_up_tbl(t))
+
+        n_bin = len(self._scalar_bin_slots)
+        n_tern = 3 if self._scalar_tern_slot is not None else 1
+        n_states = (1 << n_bin) * n_tern
+        assert n_states <= 4096, f"Too many packed scalar states: {n_states}"
+        tbl_s = torch.zeros(n_states, self.misc_w, dtype=torch.bfloat16)
+        tern_vals = (0.0, 1.0, -1.0)
+        for st in range(n_states):
+            bmask = st & ((1 << n_bin) - 1)
+            for bi, slot in enumerate(self._scalar_bin_slots):
+                if (bmask >> bi) & 1:
+                    tbl_s[st, slot] = 1.0
+            if self._scalar_tern_slot is not None:
+                tv = st >> n_bin
+                tbl_s[st, self._scalar_tern_slot] = tern_vals[tv]
+        self._tbl_scalar = _up_tbl(tbl_s)
+        self._n_bin = n_bin
+        self._bins_grid = torch.linspace(
+            self.step_creator.min_dist, self.step_creator.max_dist, self.step_dim - 1
         )
-        eye = torch.zeros(self.nbins, self.nbins_pad, dtype=torch.bfloat16)
-        eye[torch.arange(self.nbins), torch.arange(self.nbins)] = 1.0
-        self._eye_nb = ttnn.from_torch(
-            eye, dtype=ttnn.bfloat16, layout=ttnn.ROW_MAJOR_LAYOUT, device=device,
-        )
-        self._unit_cache: dict[tuple[int, int], tuple] = {}
-        self._step_state = None
-        self.grads: dict[str, object] = {}
-
-    def _unit_tensors(self, b: int, n: int):
-        key = (b, n)
-        hit = self._unit_cache.get(key)
-        if hit is not None and all(t.is_allocated() for t in hit):
-            return hit
-        ones_s = ttnn.ones([b * n, n], dtype=ttnn.float32, layout=ttnn.ROW_MAJOR_LAYOUT, device=self.device)
-        ones_wg = ttnn.ones([b, 32, self.c], dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=self.device)
-        zeros_b = ttnn.zeros([b, 32, self.c], dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=self.device)
-        hit = (ones_s, ones_wg, zeros_b)
-        self._unit_cache[key] = hit
-        return hit
-
-    def _exact_row_mean(self, v):
-        """Exact fp32 row mean over last dim ``c`` via 2-D split2 bf16 matmul (immune to TF32 sum)."""
-        ckc = _ckc_hifi2()
-        shp = [int(d) for d in v.shape]
-        rows = 1
-        for d in shp[:-1]:
-            rows *= d
-        v2d = ttnn.reshape(v, [rows, shp[-1]]) if len(shp) > 2 else v
-        hi, lo = _split2_bf16(v2d)
-        if v2d is not v and v2d.buffer_address() != v.buffer_address():
-            ttnn.deallocate(v2d)
-        s0 = ttnn.matmul(hi, self._ones_c, dtype=ttnn.float32, compute_kernel_config=ckc)
-        s1 = ttnn.matmul(lo, self._ones_c, dtype=ttnn.float32, compute_kernel_config=ckc)
-        ttnn.deallocate(hi)
-        ttnn.deallocate(lo)
-        s = ttnn.add(s0, s1)
-        ttnn.deallocate(s0)
-        ttnn.deallocate(s1)
-        m2d = ttnn.multiply(s, 1.0 / float(self.c))
-        ttnn.deallocate(s)
-        if len(shp) > 2:
-            out_shp = shp[:-1] + [1]
-            out = ttnn.reshape(m2d, out_shp)
-            if out.buffer_address() != m2d.buffer_address():
-                ttnn.deallocate(m2d)
-            return out
-        return m2d
-
-    @staticmethod
-    def _exact_rsqrt(v):
-        """Exact fp32 rsqrt (avoids ttnn.rsqrt's ~2.5e-3 default fast-approx LUT error)."""
-        sq = ttnn.sqrt(v)
-        out = ttnn.reciprocal(sq)
-        ttnn.deallocate(sq)
-        return out
-
-    def _fast_row_mean(self, v):
-        """All-core fp32 row mean over last dim ``c`` (~0.5 ms vs 8 ms 1-col matmul)."""
-        s = ttnn.sum(v, dim=-1, keepdim=True, compute_kernel_config=_ckc_hifi4())
-        out = ttnn.multiply(s, 1.0 / float(self.c))
-        ttnn.deallocate(s)
-        return out
-
-    def _fast_row_mean_sq(self, x):
-        x2 = ttnn.multiply(x, x)
-        out = self._fast_row_mean(x2)
-        ttnn.deallocate(x2)
-        return out
-
-    def _fast_row_mean_prod(self, a, b):
-        ab = ttnn.multiply(a, b)
-        out = self._fast_row_mean(ab)
-        ttnn.deallocate(ab)
-        return out
-
-    def _bins(self, batch: dict) -> torch.Tensor:
-        c = self.step_creator
-        x = batch["x_t"]["bb_ca"]
-        d = torch.norm(x[:, :, None, :] - x[:, None, :, :], dim=-1)
-        return torch.bucketize(d, torch.linspace(c.min_dist, c.max_dist, c.dim - 1, device=x.device))
 
     def modulation(self, batch: dict) -> tuple[torch.Tensor, torch.Tensor]:
+        """Per-design AdaLN `(gamma, beta)` [b, c] fp32 (with autograd when enabled)."""
         ada = self.builder.adaln
         nc = ada.norm_cond(self.builder.cond_factory(batch))
         return ada.to_gamma(nc).float(), ada.to_beta(nc).float()
 
-    def release_step(self) -> None:
-        if self._step_state is None:
-            return
-        st = self._step_state
-        self._step_state = None
-        for k in ("proj", "table", "f_const_hi", "f_const_lo", "bins_tt"):
-            t = st.get(k)
-            if t is not None and t.is_allocated():
-                ttnn.deallocate(t)
+    def _bins_step(self, batch: dict) -> torch.Tensor:
+        x = batch["x_t"]["bb_ca"]
+        d = torch.norm(x[:, :, None, :] - x[:, None, :, :], dim=-1)
+        grid = self._bins_grid.to(device=x.device, dtype=d.dtype)
+        return torch.bucketize(d, grid).to(torch.int32)
 
-    def release(self) -> None:
-        self.release_step()
-        for t in (self._ones_c, self._eye_nb):
-            if t is not None and t.is_allocated():
-                ttnn.deallocate(t)
-        for tup in self._unit_cache.values():
-            for t in tup:
-                if t is not None and t.is_allocated():
-                    ttnn.deallocate(t)
-        self._unit_cache.clear()
-
-    def pop_grads(self) -> dict[str, object]:
-        out = dict(self.grads)
-        self.grads.clear()
+    @staticmethod
+    def _slice_b1(batch: dict) -> dict:
+        out = {}
+        for k, v in batch.items():
+            if torch.is_tensor(v):
+                out[k] = v[:1]
+            elif isinstance(v, dict):
+                out[k] = {sk: (sv[:1] if torch.is_tensor(sv) else sv) for sk, sv in v.items()}
+            else:
+                out[k] = v
         return out
 
-    def prepare_batch(self, batch: dict, dev_masters: dict) -> None:
-        """Upload compact F_const + bins ONCE and build exact fp32 ``proj`` and ``table`` on card."""
-        from .device_optim import transpose_exact_f32
+    @staticmethod
+    def _is_const_dedup(batch: dict, k: int) -> bool:
+        if k <= 1:
+            return True
+        for key in ("padding_mask", "bond_mask", "token_bond_path_length", "canonical_polymer_ordering"):
+            v = batch.get(key)
+            if torch.is_tensor(v) and v.shape[0] == k and not torch.equal(v, v[:1].expand_as(v)):
+                return False
+        return True
 
-        self.release_step()
+    def encode_step(self, batch: dict) -> EncodedPair:
+        """Encode one training step's batch into compact integer indices (no [N, N, C] floats)."""
         n = int(batch["padding_mask"].shape[-1])
-        parts = []
-        for cr in self.const_creators:
-            f = cr(batch)
-            if f.ndim == 2:
-                f = f.reshape(f.shape[0], 1, 1, -1).expand(-1, n, n, -1)
-            parts.append(f.float())
-        b = int(parts[0].shape[0])
-        dedup = b == 1 or all(torch.equal(f, f[:1].expand_as(f)) for f in parts)
-        if not dedup:
-            raise ValueError("DeviceTrainPair requires identical constant pair features across batch candidates")
-        f_const = torch.cat([p[:1] for p in parts], dim=-1).reshape(n * n, self.const_dim)
-        f_bf16 = f_const.bfloat16()
-        exact_bf16 = bool(torch.equal(f_const, f_bf16.float()))
-        pad_cols = self.const_kpad - self.const_dim
-        if pad_cols:
-            f_hi_t = torch.nn.functional.pad(f_bf16, [0, pad_cols]).contiguous()
+        k = int(batch["padding_mask"].shape[0])
+        with torch.no_grad():
+            bins_step = self._bins_step(batch).reshape(k, n * n).contiguous()
+            gamma, beta = self.modulation(batch)
+
+            dedup = self._is_const_dedup(batch, k)
+            cb = self._slice_b1(batch) if dedup else batch
+            b_c = 1 if dedup else k
+
+            def _eval_fc(fc):
+                f = fc(cb)
+                if f.ndim == 2:
+                    f = f.reshape(f.shape[0], 1, 1, -1).expand(-1, n, n, -1)
+                return f.float()
+
+            idx_oh = []
+            compact_ok = True
+            raw_large = []
+            for fc, cols, _boff, bw in self.large_oh:
+                f = _eval_fc(fc)
+                d = len(cols)
+                is_1h = bool(((f == 0) | (f == 1)).all() and (f.sum(-1) <= 1).all())
+                if is_1h:
+                    has = f.sum(-1) > 0.5
+                    idx = torch.where(has, f.argmax(-1), torch.tensor(d, dtype=torch.long))
+                    idx_oh.append(("large", idx.reshape(b_c, n * n).to(torch.int32).contiguous()))
+                else:
+                    compact_ok = False
+                raw_large.append((f, bw))
+
+            raw_small = []
+            for fc, cols, moff in self.small_oh:
+                f = _eval_fc(fc)
+                d = len(cols)
+                is_1h = bool(((f == 0) | (f == 1)).all() and (f.sum(-1) <= 1).all())
+                if is_1h:
+                    has = f.sum(-1) > 0.5
+                    idx = torch.where(has, f.argmax(-1), torch.tensor(d, dtype=torch.long))
+                    idx_oh.append(("small", idx.reshape(b_c, n * n).to(torch.int32).contiguous()))
+                else:
+                    compact_ok = False
+                raw_small.append((f, moff))
+
+            idx_s = torch.zeros(b_c, n, n, dtype=torch.int32)
+            bit_i = 0
+            raw_scalar = []
+            for fc, cols, is_tern, moff in self.scalar_meta:
+                f = _eval_fc(fc)
+                raw_scalar.append((f, moff))
+                for j in range(len(cols)):
+                    ch = f[..., j]
+                    if is_tern:
+                        if not bool(((ch == 0) | (ch == 1) | (ch == -1)).all()):
+                            compact_ok = False
+                        else:
+                            tv = torch.where(ch > 0.5, 1, torch.where(ch < -0.5, 2, 0)).to(torch.int32)
+                            idx_s = idx_s + (tv << self._n_bin)
+                    else:
+                        if not bool(((ch == 0) | (ch == 1)).all()):
+                            compact_ok = False
+                        else:
+                            idx_s = idx_s + ((ch > 0.5).to(torch.int32) << bit_i)
+                        bit_i += 1
+
+            fallback_const = None
+            if not compact_ok:
+                fb = torch.zeros(b_c, n, n, self.const_w, dtype=torch.float32)
+                off_c = 0
+                for f, bw in raw_large:
+                    fb[..., off_c:off_c + f.shape[-1]] = f
+                    off_c += bw
+                for f, moff in raw_small:
+                    fb[..., off_c + moff:off_c + moff + f.shape[-1]] = f
+                for f, moff in raw_scalar:
+                    fb[..., off_c + moff:off_c + moff + f.shape[-1]] = f
+                fallback_const = fb.reshape(b_c, n * n, self.const_w).bfloat16().contiguous()
+
+            return EncodedPair(
+                k=k, n=n, bins_step=bins_step, idx_onehot=idx_oh,
+                idx_scalar=idx_s.reshape(b_c, n * n).contiguous(),
+                dedup=dedup, gamma=gamma, beta=beta, fallback_const=fallback_const,
+            )
+
+    def _pack_weights_on_card(self):
+        """Pack current ``linear_out.weight`` [c, k_orig] into split-bf16 step & const weights on card."""
+        from .device_optim import _split2_bf16
+
+        w_host = self.builder.init_repr_factory.linear_out.weight.detach().float()
+        w_pack = torch.zeros(self.c, self.k_pack, dtype=torch.float32)
+        w_pack[:, self._pack_cols] = w_host[:, self._orig_cols]
+
+        ws = ttnn.from_torch(w_pack[:, :self.step_w].contiguous(), dtype=ttnn.float32,
+                             layout=ttnn.TILE_LAYOUT, device=self.device)
+        wc = ttnn.from_torch(w_pack[:, self.step_w:].contiguous(), dtype=ttnn.float32,
+                             layout=ttnn.TILE_LAYOUT, device=self.device)
+        ws_h, ws_l = _split2_bf16(ws)
+        wc_h, wc_l = _split2_bf16(wc)
+        ttnn.deallocate(ws)
+        ttnn.deallocate(wc)
+        return ws_h, ws_l, wc_h, wc_l
+
+    def _mm_f_wt(self, F_bf16, w_hi, w_lo, cfg):
+        """Compute ``F_bf16 @ (w_hi + w_lo)^T`` in fp32 (HiFi4 + fp32_dest_acc)."""
+        p0 = ttnn.matmul(F_bf16, w_hi, transpose_b=True, dtype=ttnn.float32, compute_kernel_config=cfg)
+        p1 = ttnn.matmul(F_bf16, w_lo, transpose_b=True, dtype=ttnn.float32, compute_kernel_config=cfg)
+        out = ttnn.add(p0, p1)
+        ttnn.deallocate(p0)
+        ttnn.deallocate(p1)
+        return out
+
+    def _build_f_const(self, enc: EncodedPair):
+        """Reconstruct exact ``[b_c, n*n, const_w]`` bf16 TILE const features strictly on card."""
+        b_c = 1 if enc.dedup else enc.k
+        nn2 = enc.n * enc.n
+        if enc.fallback_const is not None:
+            return ttnn.from_torch(enc.fallback_const, dtype=ttnn.bfloat16,
+                                   layout=ttnn.TILE_LAYOUT, device=self.device)
+
+        def _embed(idx_t: torch.Tensor, tbl):
+            idx_tt = ttnn.from_torch(
+                idx_t.reshape(1, b_c * nn2).contiguous(),
+                dtype=ttnn.uint32, layout=ttnn.ROW_MAJOR_LAYOUT, device=self.device,
+            )
+            e = ttnn.embedding(idx_tt, tbl, layout=ttnn.TILE_LAYOUT, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+            ttnn.deallocate(idx_tt)
+            return e
+
+        blocks = []
+        li, si = 0, 0
+        misc_acc = None
+        for kind, idx_t in enc.idx_onehot:
+            if kind == "large":
+                blocks.append(_embed(idx_t, self._tbl_large_oh[li]))
+                li += 1
+            else:
+                e = _embed(idx_t, self._tbl_small_oh[si])
+                si += 1
+                if misc_acc is None:
+                    misc_acc = e
+                else:
+                    nxt = ttnn.add(misc_acc, e)
+                    ttnn.deallocate(misc_acc)
+                    ttnn.deallocate(e)
+                    misc_acc = nxt
+
+        if self.misc_w > 0:
+            es = _embed(enc.idx_scalar, self._tbl_scalar)
+            if misc_acc is None:
+                misc_acc = es
+            else:
+                nxt = ttnn.add(misc_acc, es)
+                ttnn.deallocate(misc_acc)
+                ttnn.deallocate(es)
+                misc_acc = nxt
+            blocks.append(misc_acc)
+
+        if len(blocks) == 1:
+            f_c = blocks[0]
         else:
-            f_hi_t = f_bf16.contiguous()
-        f_const_hi = ttnn.from_torch(f_hi_t, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=self.device)
-        f_const_lo = None
-        if not exact_bf16:
-            f_rem = (f_const - f_bf16.float()).bfloat16()
-            f_lo_t = (torch.nn.functional.pad(f_rem, [0, pad_cols]).contiguous()
-                      if pad_cols else f_rem.contiguous())
-            f_const_lo = ttnn.from_torch(f_lo_t, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=self.device)
+            f_c = ttnn.concat(blocks, dim=-1)
+            for bl in blocks:
+                ttnn.deallocate(bl)
+        return f_c  # [1, b_c * n*n, const_w] bf16 TILE
 
-        # Slice W_full directly from dev_masters on card (0 PCIe bytes)
-        w_full = dev_masters[self.W_KEY]
-        w_rm = ttnn.to_layout(w_full, ttnn.ROW_MAJOR_LAYOUT)
-        w_step_rm = ttnn.slice(w_rm, [0, self.step_a], [self.c, self.step_b])
-        w_const_rm = ttnn.slice(w_rm, [0, self.const_a], [self.c, self.const_b])
-        ttnn.deallocate(w_rm)
+    def candidates(self, enc: EncodedPair, dtype=None) -> tuple[object, _PairStepCache]:
+        """Build grad-off candidate ``z_init`` [K, n, n, c] on card and cache const state for winner."""
+        from .device_optim import _safe_dealloc
 
-        # table [nbins, c] fp32 ROW_MAJOR for pair_build exact gather
-        w_step_tl = ttnn.to_layout(w_step_rm, ttnn.TILE_LAYOUT)
-        ttnn.deallocate(w_step_rm)
-        table_tl = transpose_exact_f32(w_step_tl)
-        ttnn.deallocate(w_step_tl)
-        table = ttnn.to_layout(table_tl, ttnn.ROW_MAJOR_LAYOUT)
-        ttnn.deallocate(table_tl)
+        with ag.no_grad():
+            cfg = ag.precise_config()
+            k, n, c = enc.k, enc.n, self.c
+            b_c = 1 if enc.dedup else k
+            nn2 = n * n
 
-        # proj = F_const @ W_const^T via 3-part exact bf16 split on W_const (118 KB!)
-        if pad_cols:
-            w_const_pad = ttnn.pad(w_const_rm, [(0, 0), (0, pad_cols)], 0.0)
-            ttnn.deallocate(w_const_rm)
-        else:
-            w_const_pad = w_const_rm
-        w_const_tl = ttnn.to_layout(w_const_pad, ttnn.TILE_LAYOUT)
-        ttnn.deallocate(w_const_pad)
-        w0, w1, w2 = _split3_bf16(w_const_tl)
-        ttnn.deallocate(w_const_tl)
-        ckc4 = _ckc_hifi4()
-        ckc2 = _ckc_hifi2()
-        wt0 = ttnn.transpose(w0, -2, -1); ttnn.deallocate(w0)
-        wt1 = ttnn.transpose(w1, -2, -1); ttnn.deallocate(w1)
-        wt2 = ttnn.transpose(w2, -2, -1); ttnn.deallocate(w2)
+            ws_h, ws_l, wc_h, wc_l = self._pack_weights_on_card()
+            F_const = self._build_f_const(enc)  # [1, b_c * nn2, const_w] bf16 TILE
+            C_flat = self._mm_f_wt(F_const, wc_h, wc_l, cfg)  # [1, b_c * nn2, c] fp32
+            ttnn.deallocate(wc_h)
+            ttnn.deallocate(wc_l)
+            C = ttnn.reshape(C_flat, (b_c, n, n, c))
+            _safe_dealloc(C_flat, keep=C)
 
-        p0 = ttnn.matmul(f_const_hi, wt0, dtype=ttnn.float32, compute_kernel_config=ckc4)
-        p1 = ttnn.matmul(f_const_hi, wt1, dtype=ttnn.float32, compute_kernel_config=ckc2)
-        s01 = ttnn.add(p0, p1); ttnn.deallocate(p0); ttnn.deallocate(p1)
-        p2 = ttnn.matmul(f_const_hi, wt2, dtype=ttnn.float32, compute_kernel_config=ckc2)
-        proj_2d = ttnn.add(s01, p2); ttnn.deallocate(s01); ttnn.deallocate(p2)
-        if f_const_lo is not None:
-            q0 = ttnn.matmul(f_const_lo, wt0, dtype=ttnn.float32, compute_kernel_config=ckc2)
-            q1 = ttnn.matmul(f_const_lo, wt1, dtype=ttnn.float32, compute_kernel_config=ckc2)
-            qs = ttnn.add(q0, q1); ttnn.deallocate(q0); ttnn.deallocate(q1)
-            nxt = ttnn.add(proj_2d, qs); ttnn.deallocate(proj_2d); ttnn.deallocate(qs)
-            proj_2d = nxt
-        for wt in (wt0, wt1, wt2):
-            ttnn.deallocate(wt)
+            bins_tt = ttnn.from_torch(
+                enc.bins_step.reshape(1, k * nn2).contiguous(),
+                dtype=ttnn.uint32, layout=ttnn.ROW_MAJOR_LAYOUT, device=self.device,
+            )
+            F_step_k = ttnn.embedding(
+                bins_tt, self._tbl_step, layout=ttnn.TILE_LAYOUT, memory_config=ttnn.DRAM_MEMORY_CONFIG,
+            )  # [1, k * nn2, step_w] bf16 TILE
+            ttnn.deallocate(bins_tt)
 
-        proj = ttnn.reshape(proj_2d, [1, n, n, self.c])
-        if proj.buffer_address() != proj_2d.buffer_address():
-            ttnn.deallocate(proj_2d)
+            rows_flat = self._mm_f_wt(F_step_k, ws_h, ws_l, cfg)  # [1, k * nn2, c] fp32
+            rows = ttnn.reshape(rows_flat, (k, n, n, c))
+            _safe_dealloc(rows_flat, keep=rows)
 
-        bins_host = self._bins(batch)  # [K, n, n] int64
-        k_cand = int(bins_host.shape[0])
-        bins_tt = ttnn.from_torch(
-            bins_host.reshape(k_cand * n, n).to(torch.int32).contiguous(),
-            dtype=ttnn.uint32, layout=ttnn.ROW_MAJOR_LAYOUT, device=self.device,
-        )
-        self._step_state = dict(
-            n=n, k=k_cand, proj=proj, table=table,
-            f_const_hi=f_const_hi, f_const_lo=f_const_lo,
-            bins_tt=bins_tt, ln_w=dev_masters[self.LNW_KEY],
-        )
+            x = ttnn.add(rows, C)  # broadcasts C [1, n, n, c] over [k, n, n, c]
+            ttnn.deallocate(rows)
 
-    def _gather_x(self, proj, table, bins_tt, b: int, n: int):
-        from ..pair_build import pair_build
+            lnw = self.builder.init_repr_factory.ln_out.weight.detach().float()
+            lnw_tt = ttnn.from_torch(lnw.reshape(1, 1, 1, c).contiguous(), dtype=ttnn.float32,
+                                     layout=ttnn.TILE_LAYOUT, device=self.device)
+            gam_tt = ttnn.from_torch(enc.gamma.detach().float().reshape(k, 1, 1, c).contiguous(),
+                                     dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=self.device)
+            bet_tt = ttnn.from_torch(enc.beta.detach().float().reshape(k, 1, 1, c).contiguous(),
+                                     dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=self.device)
 
-        ones_s, ones_wg, zeros_b = self._unit_tensors(b, n)
-        x = pair_build(proj, table, bins_tt, ones_s, ones_wg, zeros_b)
-        if x is None:
-            raise RuntimeError(f"pair_build declined DeviceTrainPair inputs: b={b}, n={n}, c={self.c}")
-        return x
+            z = _norm_adaln_on_card(x, lnw_tt, gam_tt, bet_tt, self.e1, self.e2, c, cfg)
+            for t in (x, lnw_tt, gam_tt, bet_tt):
+                ttnn.deallocate(t)
+            if dtype is not None and z.dtype != dtype:
+                z32, z = z, ttnn.typecast(z, dtype)
+                ttnn.deallocate(z32)
 
-    def forward_candidates(self, gamma: torch.Tensor, beta: torch.Tensor, dtype=None):
-        """Grad-off candidate z_init ``[K, n, n, c]`` built wholly on card from prepared state."""
-        st = self._step_state
-        assert st is not None, "call prepare_batch() first"
-        b, n, c = st["k"], st["n"], self.c
-        ckc4 = _ckc_hifi4()
-        x = self._gather_x(st["proj"], st["table"], st["bins_tt"], b, n)
-        g_tt = ttnn.from_torch(gamma.detach().float().reshape(b, 1, 1, c).contiguous(),
-                               dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=self.device)
-        b_tt = ttnn.from_torch(beta.detach().float().reshape(b, 1, 1, c).contiguous(),
-                               dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=self.device)
-        a = ttnn.rms_norm(x, weight=st["ln_w"], epsilon=self.e1, compute_kernel_config=ckc4)
-        ttnn.deallocate(x)
-        bb = ttnn.rms_norm(a, epsilon=self.e2, compute_kernel_config=ckc4)
-        ttnn.deallocate(a)
-        scaled = ttnn.multiply(bb, g_tt)
-        ttnn.deallocate(bb); ttnn.deallocate(g_tt)
-        z = ttnn.add(scaled, b_tt)
-        ttnn.deallocate(scaled); ttnn.deallocate(b_tt)
-        if dtype is not None and z.dtype != dtype:
-            z32, z = z, ttnn.typecast(z, dtype)
-            ttnn.deallocate(z32)
-        return z
+        cache = _PairStepCache(k, n, enc.dedup, C, F_const, F_step_k, ws_h, ws_l)
+        return z, cache
 
-    def forward_winner_taped(self, win_idx: int, gamma: torch.Tensor, beta: torch.Tensor,
-                             bridge, dtype=None):
-        """Taped winner z_init ``[1, n, n, c]``; backward computes dW + d_lnw wholly on card."""
-        st = self._step_state
-        assert st is not None, "call prepare_batch() first"
-        n, c = st["n"], self.c
-        ckc4 = _ckc_hifi4()
-        bins_win = ttnn.slice(st["bins_tt"], [win_idx * n, 0], [(win_idx + 1) * n, n])
-        x = self._gather_x(st["proj"], st["table"], bins_win, 1, n)
-        ln_w_master = st["ln_w"]
-        g_tt = ttnn.from_torch(gamma.detach().float().reshape(1, 1, 1, c).contiguous(),
-                               dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=self.device)
-        b_tt = ttnn.from_torch(beta.detach().float().reshape(1, 1, 1, c).contiguous(),
-                               dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=self.device)
-        a = ttnn.rms_norm(x, weight=ln_w_master, epsilon=self.e1, compute_kernel_config=ckc4)
-        ttnn.deallocate(x)
-        bb = ttnn.rms_norm(a, epsilon=self.e2, compute_kernel_config=ckc4)
-        ttnn.deallocate(a)
-        scaled = ttnn.multiply(bb, g_tt)
-        ttnn.deallocate(bb)
-        z = ttnn.add(scaled, b_tt)
-        ttnn.deallocate(scaled); ttnn.deallocate(b_tt)
-        if dtype is not None and z.dtype != dtype:
-            z32, z = z, ttnn.typecast(z, dtype)
-            ttnn.deallocate(z32)
+    def winner_taped(self, cache: _PairStepCache, win_idx: int, gamma_w: torch.Tensor,
+                     beta_w: torch.Tensor, bridge, dtype=None):
+        """Taped winner ``z_init`` [1, n, n, c] and backward strictly on card (0 pair PCIe bytes).
 
-        Gl = bridge.up(gamma.reshape(1, c), ttnn.float32)
-        Bl = bridge.up(beta.reshape(1, c), ttnn.float32)
-        # Keep a requires_grad leaf so ag._tape attaches bw even if gamma/beta are detached in unit tests.
-        leaves = [Gl, Bl, ag.Tensor(ln_w_master, requires_grad=True)]
-        proj = st["proj"]
-        table = st["table"]
-        f_hi = st["f_const_hi"]
-        f_lo = st["f_const_lo"]
+        Consumes and releases ``cache`` (reusing ``C``, ``F_const``, and ``F_step_k[win_idx]``).
+        """
+        from .device_optim import _safe_dealloc, _split2_bf16
+
+        cfg = ag.precise_config()
+        n, c = cache.n, self.c
+        nn2 = n * n
+        w = int(win_idx)
+        fac = self.builder.init_repr_factory
+        W, lnw = fac.linear_out.weight, fac.ln_out.weight
+
+        with ag.no_grad():
+            # Slice winner's F_step [1, nn2, step_w] and F_const [1, nn2, const_w] on card (tile-aligned: 65536 % 32 == 0).
+            F_step_w = ttnn.slice(cache.F_step_k, [0, w * nn2, 0], [1, (w + 1) * nn2, self.step_w])
+            _safe_dealloc(cache.F_step_k, keep=F_step_w)
+            cache.F_step_k = None
+
+            if cache.dedup:
+                F_const_w = cache.F_const
+                C_w = cache.C
+                cache.F_const = None
+                cache.C = None
+            else:
+                F_const_w = ttnn.slice(cache.F_const, [0, w * nn2, 0], [1, (w + 1) * nn2, self.const_w])
+                _safe_dealloc(cache.F_const, keep=F_const_w)
+                cache.F_const = None
+                C_w = ttnn.slice(cache.C, [w, 0, 0, 0], [w + 1, n, n, c])
+                _safe_dealloc(cache.C, keep=C_w)
+                cache.C = None
+
+            rows_flat = self._mm_f_wt(F_step_w, cache.ws_h, cache.ws_l, cfg)
+            ttnn.deallocate(cache.ws_h)
+            ttnn.deallocate(cache.ws_l)
+            cache.ws_h = cache.ws_l = None
+
+            rows_w = ttnn.reshape(rows_flat, (1, n, n, c))
+            _safe_dealloc(rows_flat, keep=rows_w)
+            x_w = ttnn.add(rows_w, C_w)
+            ttnn.deallocate(rows_w)
+            ttnn.deallocate(C_w)
+
+            row_t = lambda v: ttnn.from_torch(v.detach().float().reshape(1, 1, 1, c).contiguous(),
+                                              dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=self.device)
+            w_tt, g_tt, b_tt = row_t(lnw), row_t(gamma_w), row_t(beta_w)
+            z = _norm_adaln_on_card(x_w, w_tt, g_tt, b_tt, self.e1, self.e2, c, cfg)
+            ttnn.deallocate(b_tt)
+            if dtype is not None and z.dtype != dtype:
+                z32, z = z, ttnn.typecast(z, dtype)
+                ttnn.deallocate(z32)
+
+        leaves = [bridge.up(t, ttnn.float32) for t in (W, lnw.view(1, c), gamma_w.reshape(1, c), beta_w.reshape(1, c))]
+        if not any(t.requires_grad for t in leaves):
+            for t in (x_w, F_step_w, F_const_w, w_tt, g_tt):
+                ttnn.deallocate(t)
+            return ag.Tensor(z)
+
+        e1, e2 = self.e1, self.e2
+        k_orig, k_orig_pad, k_pack = self.k_orig, self._k_orig_pad, self.k_pack
+        p_inv = self._P_pack_to_orig
 
         def make():
             def bw(g):
-                ckc4_b = _ckc_hifi4()
-                ckc2_b = _ckc_hifi2()
+                mean = lambda v: ag._row_mean(v, cfg, c)
+                g_owned = False
                 if g.dtype != ttnn.float32:
-                    g32 = ttnn.typecast(g, ttnn.float32)
-                else:
-                    g32 = g
-                x_b = self._gather_x(proj, table, bins_win, 1, n)
-                w_row = ttnn.reshape(ln_w_master, [1, 1, 1, c])
-                m1_b = self._fast_row_mean_sq(x_b)
-                v1_b = ttnn.add(m1_b, self.e1); ttnn.deallocate(m1_b)
-                r1_b = self._exact_rsqrt(v1_b); ttnn.deallocate(v1_b)
-                n1_b = ttnn.multiply(x_b, r1_b)
-                ttnn.deallocate(x_b)
-                a_b = ttnn.multiply(n1_b, w_row)
-                m2_b = self._fast_row_mean_sq(a_b)
-                v2_b = ttnn.add(m2_b, self.e2); ttnn.deallocate(m2_b)
-                r2_b = self._exact_rsqrt(v2_b); ttnn.deallocate(v2_b)
-                bb_b = ttnn.multiply(a_b, r2_b)
-                ttnn.deallocate(a_b)
+                    g = ttnn.typecast(g, ttnn.float32)
+                    g_owned = True
+                x2 = ttnn.multiply(x_w, x_w)
+                mx2 = mean(x2)
+                ttnn.deallocate(x2)
+                r1 = ttnn.rsqrt(ttnn.add(mx2, e1))
+                ttnn.deallocate(mx2)
+                n1 = ttnn.multiply(x_w, r1)
+                ttnn.deallocate(x_w)
+                a = ttnn.multiply(n1, w_tt)
+                a2 = ttnn.multiply(a, a)
+                ma2 = mean(a2)
+                ttnn.deallocate(a2)
+                r2 = ttnn.rsqrt(ttnn.add(ma2, e2))
+                ttnn.deallocate(ma2)
+                bb = ttnn.multiply(a, r2)
+                ttnn.deallocate(a)
 
+                Wl, Ll, Gl, Bl = leaves
                 if Bl.requires_grad:
-                    Bl.add_grad(ag._sum_leading(g32, Bl.value.shape))
+                    Bl.add_grad(ag._sum_leading(g, Bl.value.shape))
                 if Gl.requires_grad:
-                    gb = ttnn.multiply(g32, bb_b)
+                    gb = ttnn.multiply(g, bb)
                     Gl.add_grad(ag._sum_leading(gb, Gl.value.shape))
                     ttnn.deallocate(gb)
+                db = ttnn.multiply(g, g_tt)
+                if g_owned:
+                    ttnn.deallocate(g)
+                dbb = ttnn.multiply(db, bb)
+                mdbb = mean(dbb)
+                ttnn.deallocate(dbb)
+                b_proj = ttnn.multiply(bb, mdbb)
+                ttnn.deallocate(mdbb)
+                db_sub = ttnn.subtract(db, b_proj)
+                ttnn.deallocate(b_proj)
+                da = ttnn.multiply(db_sub, r2)
+                for t in (db, db_sub, bb, r2):
+                    ttnn.deallocate(t)
 
-                db = ttnn.multiply(g32, g_tt)
-                if g32 is not g:
-                    ttnn.deallocate(g32)
-                m_db = self._fast_row_mean_prod(db, bb_b)
-                bb_m = ttnn.multiply(bb_b, m_db)
-                ttnn.deallocate(m_db)
-                sub_db = ttnn.subtract(db, bb_m)
-                ttnn.deallocate(db); ttnn.deallocate(bb_m); ttnn.deallocate(bb_b)
-                da = ttnn.multiply(sub_db, r2_b)
-                ttnn.deallocate(sub_db); ttnn.deallocate(r2_b)
+                if Ll.requires_grad:
+                    dan1 = ttnn.multiply(da, n1)
+                    Ll.add_grad(ag._sum_leading(dan1, Ll.value.shape))
+                    ttnn.deallocate(dan1)
+                if Wl.requires_grad:
+                    dn1 = ttnn.multiply(da, w_tt)
+                    dn1n1 = ttnn.multiply(dn1, n1)
+                    mdn = mean(dn1n1)
+                    ttnn.deallocate(dn1n1)
+                    n1_proj = ttnn.multiply(n1, mdn)
+                    ttnn.deallocate(mdn)
+                    dn1_sub = ttnn.subtract(dn1, n1_proj)
+                    ttnn.deallocate(n1_proj)
+                    dx = ttnn.multiply(dn1_sub, r1)
+                    ttnn.deallocate(dn1)
+                    ttnn.deallocate(dn1_sub)
 
-                # d_lnw stays on card in self.grads[LNW_KEY]
-                dan1 = ttnn.multiply(da, n1_b)
-                d_lnw = ag._sum_leading(dan1, [c])
-                ttnn.deallocate(dan1)
-                self.grads[self.LNW_KEY] = d_lnw
+                    F_all = ttnn.concat([F_step_w, F_const_w], dim=-1)  # [1, nn2, k_pack] bf16 TILE
+                    ttnn.deallocate(F_step_w)
+                    ttnn.deallocate(F_const_w)
+                    F_2d = ttnn.reshape(F_all, [nn2, k_pack])
+                    dx_2d = ttnn.reshape(dx, [nn2, c])
+                    dx_hi, dx_lo = _split2_bf16(dx_2d)
+                    _safe_dealloc(dx_2d, keep=dx)
+                    ttnn.deallocate(dx)
 
-                # dx -> dW_const + dW_step wholly on card in self.grads[W_KEY]
-                dn1 = ttnn.multiply(da, w_row)
-                ttnn.deallocate(da)
-                if w_row.buffer_address() != ln_w_master.buffer_address():
-                    ttnn.deallocate(w_row)
-                m_dn = self._fast_row_mean_prod(dn1, n1_b)
-                n1_m = ttnn.multiply(n1_b, m_dn)
-                ttnn.deallocate(m_dn); ttnn.deallocate(n1_b)
-                sub_dn = ttnn.subtract(dn1, n1_m)
-                ttnn.deallocate(dn1); ttnn.deallocate(n1_m)
-                dx = ttnn.multiply(sub_dn, r1_b)
-                ttnn.deallocate(sub_dn); ttnn.deallocate(r1_b)
+                    dw0 = ttnn.matmul(dx_hi, F_2d, transpose_a=True, dtype=ttnn.float32, compute_kernel_config=cfg)
+                    dw1 = ttnn.matmul(dx_lo, F_2d, transpose_a=True, dtype=ttnn.float32, compute_kernel_config=cfg)
+                    ttnn.deallocate(dx_hi)
+                    ttnn.deallocate(dx_lo)
+                    _safe_dealloc(F_2d, keep=F_all)
+                    ttnn.deallocate(F_all)
+                    dW_pack = ttnn.add(dw0, dw1)
+                    ttnn.deallocate(dw0)
+                    ttnn.deallocate(dw1)
 
-                dx_2d = ttnn.reshape(dx, [n * n, c])
-                dx_hi, dx_lo = _split2_bf16(dx_2d)
-                if dx_2d.buffer_address() != dx.buffer_address():
-                    ttnn.deallocate(dx_2d)
-                ttnn.deallocate(dx)
+                    # Exact inverse column permutation on card: [c, k_pack] @ [k_pack, k_orig_pad] -> [c, k_orig]
+                    dp_hi, dp_lo = _split2_bf16(dW_pack)
+                    ttnn.deallocate(dW_pack)
+                    u0 = ttnn.matmul(dp_hi, p_inv, dtype=ttnn.float32, compute_kernel_config=cfg)
+                    u1 = ttnn.matmul(dp_lo, p_inv, dtype=ttnn.float32, compute_kernel_config=cfg)
+                    ttnn.deallocate(dp_hi)
+                    ttnn.deallocate(dp_lo)
+                    dW_pad = ttnn.add(u0, u1)
+                    ttnn.deallocate(u0)
+                    ttnn.deallocate(u1)
+                    if k_orig_pad != k_orig:
+                        dW = ttnn.slice(dW_pad, [0, 0], [c, k_orig])
+                        _safe_dealloc(dW_pad, keep=dW)
+                    else:
+                        dW = dW_pad
+                    Wl.add_grad(dW)
+                else:
+                    ttnn.deallocate(F_step_w)
+                    ttnn.deallocate(F_const_w)
 
-                # dW_const = dx^T @ F_const [c, const_kpad] -> slice [c, const_dim]
-                c0 = ttnn.matmul(dx_hi, f_hi, transpose_a=True, dtype=ttnn.float32, compute_kernel_config=ckc4_b)
-                c1 = ttnn.matmul(dx_lo, f_hi, transpose_a=True, dtype=ttnn.float32, compute_kernel_config=ckc2_b)
-                dc_pad = ttnn.add(c0, c1); ttnn.deallocate(c0); ttnn.deallocate(c1)
-                if f_lo is not None:
-                    c2 = ttnn.matmul(dx_hi, f_lo, transpose_a=True, dtype=ttnn.float32, compute_kernel_config=ckc2_b)
-                    nxt = ttnn.add(dc_pad, c2); ttnn.deallocate(dc_pad); ttnn.deallocate(c2)
-                    dc_pad = nxt
-                dc_rm = ttnn.to_layout(dc_pad, ttnn.ROW_MAJOR_LAYOUT)
-                ttnn.deallocate(dc_pad)
-                dw_const_rm = ttnn.slice(dc_rm, [0, 0], [c, self.const_dim])
-                ttnn.deallocate(dc_rm)
-
-                # dW_step = dx^T @ onehot(bins_win) [c, nbins_pad] -> slice [c, nbins]
-                bins_flat = ttnn.reshape(bins_win, [1, n * n])
-                oh_3d = ttnn.embedding(bins_flat, self._eye_nb, layout=ttnn.TILE_LAYOUT,
-                                       memory_config=ttnn.DRAM_MEMORY_CONFIG)
-                if bins_flat.buffer_address() != bins_win.buffer_address():
-                    ttnn.deallocate(bins_flat)
-                oh_2d = ttnn.reshape(oh_3d, [n * n, self.nbins_pad])
-                s0 = ttnn.matmul(dx_hi, oh_2d, transpose_a=True, dtype=ttnn.float32, compute_kernel_config=ckc4_b)
-                s1 = ttnn.matmul(dx_lo, oh_2d, transpose_a=True, dtype=ttnn.float32, compute_kernel_config=ckc2_b)
-                if oh_2d.buffer_address() != oh_3d.buffer_address():
-                    ttnn.deallocate(oh_2d)
-                ttnn.deallocate(oh_3d)
-                ttnn.deallocate(dx_hi); ttnn.deallocate(dx_lo)
-                ds_pad = ttnn.add(s0, s1); ttnn.deallocate(s0); ttnn.deallocate(s1)
-                ds_rm = ttnn.to_layout(ds_pad, ttnn.ROW_MAJOR_LAYOUT)
-                ttnn.deallocate(ds_pad)
-                dw_step_rm = ttnn.slice(ds_rm, [0, 0], [c, self.nbins])
-                ttnn.deallocate(ds_rm)
-
-                pieces = [dw_step_rm, dw_const_rm] if self.step_a < self.const_a else [dw_const_rm, dw_step_rm]
-                dw_rm = ttnn.concat(pieces, dim=1)
-                ttnn.deallocate(dw_step_rm); ttnn.deallocate(dw_const_rm)
-                dw_tl = ttnn.to_layout(dw_rm, ttnn.TILE_LAYOUT)
-                ttnn.deallocate(dw_rm)
-                self.grads[self.W_KEY] = dw_tl
-
-                ttnn.deallocate(g_tt)
-                ttnn.deallocate(bins_win)
-                self.release_step()
+                for t in (da, n1, r1, w_tt, g_tt):
+                    ttnn.deallocate(t)
             return bw
 
         return ag._tape(z, leaves, make, reads=())
+
+    def deallocate(self) -> None:
+        for t in [self._P_pack_to_orig, self._tbl_step, self._tbl_scalar,
+                  *self._tbl_large_oh, *self._tbl_small_oh]:
+            if t is not None and t.is_allocated():
+                ttnn.deallocate(t)

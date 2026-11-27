@@ -108,8 +108,8 @@ def grade_moves(recorded, edge_index, mask_rotate, n_poses):
     worst = 0.0
     for step in recorded:
         pos_in = step["pos_in"].reshape(n_poses, -1, 3)
-        out = S.modify_conformer(pos_in, step["tr"], step["rot"], step["tor"],
-                                 edge_index=edge_index, mask_rotate=mask_rotate)
+        out, _ = S.modify_conformer(pos_in, step["tr"], step["rot"], step["tor"],
+                                    edge_index=edge_index, mask_rotate=mask_rotate)
         worst = max(worst, float((out.reshape(-1, 3) - step["pos_out"]).abs().max()))
     return worst
 

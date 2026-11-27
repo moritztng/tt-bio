@@ -226,47 +226,6 @@ def _dev_transpose_2d(x):
     return transpose_exact_f32(x)
 
 
-def _dev_batch_transpose_2d(xs: list):
-    """Bit-exact batched 2-D float32 transpose for same-shape 32-aligned TILE tensors."""
-    import ttnn
-    from .device_optim import transpose_exact_f32
-
-    if len(xs) == 1:
-        return [_dev_transpose_2d(xs[0])]
-    m, n = int(xs[0].shape[0]), int(xs[0].shape[1])
-    out = []
-    for off in range(0, len(xs), 24):
-        chunk = xs[off:off + 24]
-        if len(chunk) == 1:
-            out.append(_dev_transpose_2d(chunk[0]))
-            continue
-        k = len(chunk)
-        uns = [ttnn.reshape(t, (1, m, n)) for t in chunk]
-        cat = ttnn.concat(uns, dim=0)
-        for t, u in zip(chunk, uns):
-            if u.buffer_address() != t.buffer_address():
-                ttnn.deallocate(u)
-        ct = transpose_exact_f32(cat)
-        ttnn.deallocate(cat)
-        for i in range(k):
-            sl = ttnn.slice(ct, [i, 0, 0], [i + 1, n, m])
-            r = ttnn.reshape(sl, (n, m))
-            if r.buffer_address() != sl.buffer_address():
-                ttnn.deallocate(sl)
-            out.append(r)
-        ttnn.deallocate(ct)
-    return out
-
-
-def _read_rep0(t):
-    """MeshDevice-safe host readback: reads chip 0's shard on multi-chip SPMD MeshDevice."""
-    import ttnn
-    dev = t.device()
-    n_dev = getattr(dev, "get_num_devices", lambda: 1)()
-    src = ttnn.get_device_tensors(t)[0] if n_dev > 1 else t
-    return ttnn.to_torch(src)
-
-
 def _to_row_major_f32(x):
     import ttnn
     if x.layout == ttnn.ROW_MAJOR_LAYOUT:
@@ -476,44 +435,84 @@ def _ones_row_bf16(k: int, device):
 
 
 def _sum_dim0_exact_f32(x2d):
-    """Exact fp32 sum along dim 0 of a 2-D ``[K, M]`` TILE tensor -> ``[1, M]``.
+    """Exact IEEE float32 sum along dim 0 of a 2-D ``[K, M]`` TILE tensor -> ``[1, M]`` TILE.
 
-    Uses 3-part bf16 split ``ones([1, K]) @ (hi + mid + lo)`` in bf16->fp32 HiFi4+fp32_dest_acc so:
-    (1) padded tile rows ``K..K_pad-1`` are multiplied by exact 0.0 (zero tail leakage), and
-    (2) full 24-bit IEEE fp32 mantissa is preserved (~1e-7 accuracy instead of TF32 ~2.7e-4).
+    Uses a binary tree of float32 ``ttnn.add`` (SFPU IEEE fp32, ~1e-7 accuracy, zero TF32
+    truncation and zero padded-tail leakage):
+      - While ``K >= 64``: halves tile-aligned chunks directly in TILE layout.
+      - Once ``K < 64``: slices contiguous rows in ROW_MAJOR (``M`` is 32-aligned) and
+        accumulates pairwise in TILE layout until ``K == 1``.
     """
     import ttnn
-    from .device_optim import _ckc
 
-    k = int(x2d.shape[0])
-    ones = _ones_row_bf16(k, x2d.device())
-    ckc = _ckc(ttnn.MathFidelity.HiFi4)
-    bf16, f32 = ttnn.bfloat16, ttnn.float32
-    hi = ttnn.typecast(x2d, bf16)
-    hi_f = ttnn.typecast(hi, f32)
-    r1 = ttnn.subtract(x2d, hi_f)
-    ttnn.deallocate(hi_f)
-    mid = ttnn.typecast(r1, bf16)
-    mid_f = ttnn.typecast(mid, f32)
-    r2 = ttnn.subtract(r1, mid_f)
-    ttnn.deallocate(r1)
-    ttnn.deallocate(mid_f)
-    lo = ttnn.typecast(r2, bf16)
-    ttnn.deallocate(r2)
+    k, m = int(x2d.shape[0]), int(x2d.shape[1])
+    if k == 1:
+        return _dev_clone_f32(x2d)
 
-    s_hi = ttnn.matmul(ones, hi, dtype=f32, compute_kernel_config=ckc)
-    s_mid = ttnn.matmul(ones, mid, dtype=f32, compute_kernel_config=ckc)
-    s_lo = ttnn.matmul(ones, lo, dtype=f32, compute_kernel_config=ckc)
-    ttnn.deallocate(hi)
-    ttnn.deallocate(mid)
-    ttnn.deallocate(lo)
-    s1 = ttnn.add(s_hi, s_mid)
-    ttnn.deallocate(s_hi)
-    ttnn.deallocate(s_mid)
-    out = ttnn.add(s1, s_lo)
-    ttnn.deallocate(s1)
-    ttnn.deallocate(s_lo)
-    return out
+    cur = x2d
+    cur_owned = False
+    while k >= 64:
+        half = ((k // 32) // 2) * 32
+        left = ttnn.slice(cur, [0, 0], [half, m])
+        right = ttnn.slice(cur, [half, 0], [2 * half, m])
+        s = ttnn.add(left, right)
+        ttnn.deallocate(left)
+        ttnn.deallocate(right)
+        if 2 * half < k:
+            tail = _dev_slice_f32(cur, 0, 2 * half, k)
+            nxt = _dev_concat_f32([s, tail], 0)
+            ttnn.deallocate(s)
+            ttnn.deallocate(tail)
+        else:
+            nxt = s
+        if cur_owned:
+            ttnn.deallocate(cur)
+        cur = nxt
+        cur_owned = True
+        k = int(cur.shape[0])
+
+    while k > 1:
+        rm, rm_owner = _to_row_major_f32(cur)
+        half = k // 2
+        l_rm = ttnn.slice(rm, [0, 0], [half, m])
+        r_rm = ttnn.slice(rm, [half, 0], [2 * half, m])
+        l_tl, _ = _to_tile_f32(l_rm)
+        r_tl, _ = _to_tile_f32(r_rm)
+        s = ttnn.add(l_tl, r_tl)
+        ttnn.deallocate(l_tl)
+        ttnn.deallocate(r_tl)
+        if l_rm is not rm:
+            ttnn.deallocate(l_rm)
+        if r_rm is not rm:
+            ttnn.deallocate(r_rm)
+        if k % 2 == 1:
+            t_rm = ttnn.slice(rm, [2 * half, 0], [k, m])
+            if half == 1:
+                t_tl, _ = _to_tile_f32(t_rm)
+                nxt = ttnn.add(s, t_tl)
+                ttnn.deallocate(s)
+                ttnn.deallocate(t_tl)
+            else:
+                s_rm, s_rm_own = _to_row_major_f32(s)
+                ttnn.deallocate(s)
+                c_rm = ttnn.concat([s_rm, t_rm], dim=0)
+                if s_rm_own is not False:
+                    ttnn.deallocate(s_rm_own)
+                nxt, _ = _to_tile_f32(c_rm)
+                ttnn.deallocate(c_rm)
+            if t_rm is not rm:
+                ttnn.deallocate(t_rm)
+        else:
+            nxt = s
+        if rm_owner is not False:
+            ttnn.deallocate(rm_owner)
+        if cur_owned:
+            ttnn.deallocate(cur)
+        cur = nxt
+        cur_owned = True
+        k = int(cur.shape[0])
+
+    return cur
 
 
 def _dev_reduce_to_f32(g, target_shape: tuple[int, ...]):
@@ -1053,145 +1052,50 @@ class DeviceFolds:
         vals: dict[int, object] = {}
         owned_val: set[int] = set()
 
-        # Forward topological levels so same-shape fp32 2-D transposes batch into one 3-D op.
-        fdepth: dict[int, int] = {nid: 0 for nid in needed}
         for nid in sorted(needed):
-            d = fdepth[nid]
-            for inp in self.nodes[nid].inputs:
-                if inp in fdepth and fdepth[inp] + 1 > d:
-                    d = fdepth[inp] + 1
-            fdepth[nid] = d
-        fwd_levels: dict[int, list[int]] = {}
-        for nid in sorted(needed):
-            fwd_levels.setdefault(fdepth[nid], []).append(nid)
+            node = self.nodes[nid]
+            v = self._eval_node(node, vals, dev_masters)
+            vals[nid] = v
+            if node.op != "leaf":
+                owned_val.add(nid)
+            for inp in node.inputs:
+                rem[inp] -= 1
+                if rem[inp] == 0 and inp in owned_val:
+                    ttnn.deallocate(vals.pop(inp))
+                    owned_val.discard(inp)
 
-        for lv in sorted(fwd_levels):
-            lvl_nids = fwd_levels[lv]
-            # Batch eligible 32-aligned fp32 2-D `t` nodes at this level (0.0 diff bit-exact).
-            t_buckets: dict[tuple[int, int], list[int]] = {}
-            for nid in lvl_nids:
-                node = self.nodes[nid]
-                if node.op != "t":
-                    continue
-                sp_list = specs_by_nid.get(nid)
-                if (sp_list and rem[nid] == len(sp_list)
-                        and len(vals[node.inputs[0]].shape) >= 2
-                        and all(s.dtype in (ttnn.bfloat16, ttnn.bfloat8_b) for s in sp_list)):
-                    continue
-                src = vals[node.inputs[0]]
-                shp = tuple(int(s) for s in src.shape)
-                if len(shp) == 2 and shp[0] % 32 == 0 and shp[1] % 32 == 0:
-                    t_buckets.setdefault(shp, []).append(nid)
-
-            batched_t_res: dict[int, object] = {}
-            for _shp, nids_b in t_buckets.items():
-                if len(nids_b) < 2:
-                    continue
-                srcs_b = [vals[self.nodes[nid].inputs[0]] for nid in nids_b]
-                outs_b = _dev_batch_transpose_2d(srcs_b)
-                for nid, out_t in zip(nids_b, outs_b):
-                    batched_t_res[nid] = out_t
-
-            for nid in lvl_nids:
-                node = self.nodes[nid]
-                sp_list = specs_by_nid.get(nid)
-                # Fast path (F1): a 2-D transpose consumed solely by bf16/bfp8 output specs does not
-                # need 16-op transpose_exact_f32 only to discard the low 16 bits on the next line.
-                # bf16 rounding commutes bit-exactly with transpose; TF32 transpose keeps 10 mantissa
-                # bits vs bfp8's 7.
-                if (node.op == "t" and nid not in batched_t_res and sp_list and rem[nid] == len(sp_list)
-                        and len(vals[node.inputs[0]].shape) >= 2
-                        and all(s.dtype in (ttnn.bfloat16, ttnn.bfloat8_b) for s in sp_list)):
-                    inp = node.inputs[0]
-                    src = vals[inp]
-                    n_bf16 = sum(1 for s in sp_list if s.dtype == ttnn.bfloat16)
-                    t_bf16 = None
-                    t_tf32 = None
-                    for spec in sp_list:
-                        rem[nid] -= 1
-                        if spec.dtype == ttnn.bfloat16:
-                            if t_bf16 is None:
-                                s16 = ttnn.typecast(src, ttnn.bfloat16)
-                                t_bf16 = ttnn.transpose(s16, -2, -1)
-                                ttnn.deallocate(s16)
-                            n_bf16 -= 1
-                            if n_bf16 == 0:
-                                new_h = t_bf16
-                                t_bf16 = None
-                            else:
-                                new_h = ttnn.clone(t_bf16)
-                        else:
-                            if t_tf32 is None:
-                                t_tf32 = ttnn.transpose(src, -2, -1)
-                            new_h = ttnn.typecast(t_tf32, spec.dtype)
-                        if spec.memory_config is not None:
-                            cur_mc = new_h.memory_config()
-                            if cur_mc != spec.memory_config:
-                                moved = ttnn.to_memory_config(new_h, spec.memory_config)
-                                ttnn.deallocate(new_h)
-                                new_h = moved
-                        old_h = spec.handle
-                        spec.handle = new_h
-                        for kind, owner, key in spec.sites:
-                            if kind == "attr":
-                                setattr(owner, key, new_h)
-                            elif kind in ("list", "dict"):
-                                owner[key] = new_h
-                            elif kind == "tuple_slot":
-                                owner["items"][key] = new_h
-                        ttnn.deallocate(old_h)
-                        ag.parameter(new_h)
-                    if t_bf16 is not None:
-                        ttnn.deallocate(t_bf16)
-                    if t_tf32 is not None:
-                        ttnn.deallocate(t_tf32)
-                    rem[inp] -= 1
-                    if rem[inp] == 0 and inp in owned_val:
-                        ttnn.deallocate(vals.pop(inp))
-                        owned_val.discard(inp)
-                    continue
-
-                v = batched_t_res.pop(nid) if nid in batched_t_res else self._eval_node(node, vals, dev_masters)
-                vals[nid] = v
-                if node.op != "leaf":
-                    owned_val.add(nid)
-                for inp in node.inputs:
-                    rem[inp] -= 1
-                    if rem[inp] == 0 and inp in owned_val:
-                        ttnn.deallocate(vals.pop(inp))
-                        owned_val.discard(inp)
-
-                if sp_list:
-                    for spec in sp_list:
-                        rem[nid] -= 1
-                        # Transfer ownership directly if this is the final consumer of an owned fp32 intermediate.
-                        if spec.dtype == ttnn.float32 and rem[nid] == 0 and nid in owned_val:
-                            new_h = vals.pop(nid)
-                            owned_val.discard(nid)
-                        elif spec.dtype == ttnn.float32:
-                            new_h = _dev_clone_f32(v)
-                        else:
-                            new_h = ttnn.typecast(v, spec.dtype)
-                        if spec.memory_config is not None:
-                            cur_mc = new_h.memory_config()
-                            if cur_mc != spec.memory_config:
-                                moved = ttnn.to_memory_config(new_h, spec.memory_config)
-                                ttnn.deallocate(new_h)
-                                new_h = moved
-                        old_h = spec.handle
-                        spec.handle = new_h
-                        for kind, owner, key in spec.sites:
-                            if kind == "attr":
-                                setattr(owner, key, new_h)
-                            elif kind in ("list", "dict"):
-                                owner[key] = new_h
-                            elif kind == "tuple_slot":
-                                owner["items"][key] = new_h
-                        ttnn.deallocate(old_h)
-                        ag.parameter(new_h)
-                    if rem[nid] == 0 and nid in owned_val:
-                        ttnn.deallocate(vals.pop(nid))
+            if nid in specs_by_nid:
+                sp_list = specs_by_nid[nid]
+                for spec in sp_list:
+                    rem[nid] -= 1
+                    # Transfer ownership directly if this is the final consumer of an owned fp32 intermediate.
+                    if spec.dtype == ttnn.float32 and rem[nid] == 0 and nid in owned_val:
+                        new_h = vals.pop(nid)
                         owned_val.discard(nid)
+                    elif spec.dtype == ttnn.float32:
+                        new_h = _dev_clone_f32(v)
+                    else:
+                        new_h = ttnn.typecast(v, spec.dtype)
+                    if spec.memory_config is not None:
+                        cur_mc = new_h.memory_config()
+                        if cur_mc != spec.memory_config:
+                            moved = ttnn.to_memory_config(new_h, spec.memory_config)
+                            ttnn.deallocate(new_h)
+                            new_h = moved
+                    old_h = spec.handle
+                    spec.handle = new_h
+                    for kind, owner, key in spec.sites:
+                        if kind == "attr":
+                            setattr(owner, key, new_h)
+                        elif kind in ("list", "dict"):
+                            owner[key] = new_h
+                        elif kind == "tuple_slot":
+                            owner["items"][key] = new_h
+                    ttnn.deallocate(old_h)
+                    ag.parameter(new_h)
+                if rem[nid] == 0 and nid in owned_val:
+                    ttnn.deallocate(vals.pop(nid))
+                    owned_val.discard(nid)
 
         for tb in self._tuple_bindings:
             new_tup = tuple(tb["items"])
@@ -1302,144 +1206,112 @@ class DeviceFolds:
 
         pending_slices: dict[int, dict[int, object]] = {pid: {} for pid in fused_slice_parents}
 
-        # Reverse topological levels so same-shape 32-aligned 2-D `t` ops batch into one 3-D transpose.
-        rdepth: dict[int, int] = {nid: 0 for nid in active}
         for nid in sorted(active, reverse=True):
-            d_next = rdepth[nid] + 1
-            for inp in self.nodes[nid].inputs:
-                if inp in rdepth and d_next > rdepth[inp]:
-                    rdepth[inp] = d_next
-        bwd_levels: dict[int, list[int]] = {}
-        for nid in sorted(active, reverse=True):
-            bwd_levels.setdefault(rdepth[nid], []).append(nid)
+            g = grads.pop(nid, None)
+            if g is None:
+                continue
+            node = self.nodes[nid]
+            op = node.op
 
-        for lv in sorted(bwd_levels):
-            lvl_nids = bwd_levels[lv]
-            t_buckets: dict[tuple[int, int], list[tuple[int, object]]] = {}
-            rem_nids: list[int] = []
-            for nid in lvl_nids:
-                node = self.nodes[nid]
-                if node.op == "t" and nid in grads:
-                    g = grads[nid]
-                    shp = tuple(int(s) for s in g.shape)
-                    if len(shp) == 2 and shp[0] % 32 == 0 and shp[1] % 32 == 0:
-                        t_buckets.setdefault(shp, []).append((nid, grads.pop(nid)))
-                        continue
-                rem_nids.append(nid)
+            if op == "leaf":
+                grads[nid] = g
+                continue
 
-            for _shp, items in t_buckets.items():
-                gs = [g for _, g in items]
-                dts = _dev_batch_transpose_2d(gs) if len(items) >= 2 else [_dev_transpose_2d(gs[0])]
-                for (nid, g), dt in zip(items, dts):
-                    ttnn.deallocate(g)
-                    add_grad(self.nodes[nid].inputs[0], dt)
+            if op == "clone":
+                add_grad(node.inputs[0], g)
+                continue
 
-            for nid in rem_nids:
-                g = grads.pop(nid, None)
-                if g is None:
-                    continue
-                node = self.nodes[nid]
-                op = node.op
+            if op == "t":
+                dt = _dev_transpose_2d(g)
+                ttnn.deallocate(g)
+                add_grad(node.inputs[0], dt)
+                continue
 
-                if op == "leaf":
-                    grads[nid] = g
-                    continue
+            if op == "view":
+                dv = _dev_reshape_f32(g, self.nodes[node.inputs[0]].shape)
+                ttnn.deallocate(g)
+                add_grad(node.inputs[0], dv)
+                continue
 
-                if op == "clone":
-                    add_grad(node.inputs[0], g)
-                    continue
+            if op == "expand":
+                de = _dev_reduce_to_f32(g, self.nodes[node.inputs[0]].shape)
+                ttnn.deallocate(g)
+                add_grad(node.inputs[0], de)
+                continue
 
-                if op == "t":
-                    dt = _dev_transpose_2d(g)
-                    ttnn.deallocate(g)
-                    add_grad(node.inputs[0], dt)
-                    continue
+            if op == "mul_scalar":
+                ds = ttnn.multiply(g, float(node.attrs["scalar"]))
+                ttnn.deallocate(g)
+                add_grad(node.inputs[0], ds)
+                continue
 
-                if op == "view":
-                    dv = _dev_reshape_f32(g, self.nodes[node.inputs[0]].shape)
-                    ttnn.deallocate(g)
-                    add_grad(node.inputs[0], dv)
-                    continue
+            if op == "mul":
+                aid, bid = node.inputs
+                av, bv = fvals[aid], fvals[bid]
+                ga_full = _dev_mul_f32(g, bv, node.shape)
+                gb_full = _dev_mul_f32(g, av, node.shape)
+                ttnn.deallocate(g)
+                da = _dev_reduce_to_f32(ga_full, self.nodes[aid].shape)
+                ttnn.deallocate(ga_full)
+                db = _dev_reduce_to_f32(gb_full, self.nodes[bid].shape)
+                ttnn.deallocate(gb_full)
+                add_grad(aid, da)
+                add_grad(bid, db)
+                continue
 
-                if op == "expand":
-                    de = _dev_reduce_to_f32(g, self.nodes[node.inputs[0]].shape)
-                    ttnn.deallocate(g)
-                    add_grad(node.inputs[0], de)
-                    continue
+            if op == "cat":
+                dim = node.attrs["dim"]
+                off = 0
+                for inp in node.inputs:
+                    w = self.nodes[inp].shape[dim]
+                    gi = _dev_slice_f32(g, dim, off, off + w)
+                    add_grad(inp, gi)
+                    off += w
+                ttnn.deallocate(g)
+                continue
 
-                if op == "mul_scalar":
-                    ds = ttnn.multiply(g, float(node.attrs["scalar"]))
-                    ttnn.deallocate(g)
-                    add_grad(node.inputs[0], ds)
-                    continue
-
-                if op == "mul":
-                    aid, bid = node.inputs
-                    av, bv = fvals[aid], fvals[bid]
-                    ga_full = _dev_mul_f32(g, bv, node.shape)
-                    gb_full = _dev_mul_f32(g, av, node.shape)
-                    ttnn.deallocate(g)
-                    da = _dev_reduce_to_f32(ga_full, self.nodes[aid].shape)
-                    ttnn.deallocate(ga_full)
-                    db = _dev_reduce_to_f32(gb_full, self.nodes[bid].shape)
-                    ttnn.deallocate(gb_full)
-                    add_grad(aid, da)
-                    add_grad(bid, db)
-                    continue
-
-                if op == "cat":
+            if op == "slice":
+                pid = node.inputs[0]
+                if nid in fused_slice_nids:
+                    bucket = pending_slices[pid]
+                    bucket[nid] = g
+                    dim, ordered = fused_slice_parents[pid]
+                    if len(bucket) == len(ordered):
+                        pieces = [bucket.pop(sn.nid) for sn in ordered]
+                        joined = _dev_concat_f32(pieces, dim)
+                        for p in pieces:
+                            ttnn.deallocate(p)
+                        add_grad(pid, joined)
+                else:
                     dim = node.attrs["dim"]
-                    off = 0
-                    for inp in node.inputs:
-                        w = self.nodes[inp].shape[dim]
-                        gi = _dev_slice_f32(g, dim, off, off + w)
-                        add_grad(inp, gi)
-                        off += w
+                    start, end = node.attrs["start"], node.attrs["end"]
+                    pshape = self.nodes[pid].shape
+                    parts = []
+                    owned_z = []
+                    if start > 0:
+                        zs = list(pshape); zs[dim] = start
+                        z = _dev_zeros_f32(tuple(zs), self.device)
+                        parts.append(z); owned_z.append(z)
+                    parts.append(g)
+                    if end < pshape[dim]:
+                        zs = list(pshape); zs[dim] = pshape[dim] - end
+                        z = _dev_zeros_f32(tuple(zs), self.device)
+                        parts.append(z); owned_z.append(z)
+                    padded = _dev_concat_f32(parts, dim)
                     ttnn.deallocate(g)
-                    continue
+                    for z in owned_z:
+                        ttnn.deallocate(z)
+                    add_grad(pid, padded)
+                continue
 
-                if op == "slice":
-                    pid = node.inputs[0]
-                    if nid in fused_slice_nids:
-                        bucket = pending_slices[pid]
-                        bucket[nid] = g
-                        dim, ordered = fused_slice_parents[pid]
-                        if len(bucket) == len(ordered):
-                            pieces = [bucket.pop(sn.nid) for sn in ordered]
-                            joined = _dev_concat_f32(pieces, dim)
-                            for p in pieces:
-                                ttnn.deallocate(p)
-                            add_grad(pid, joined)
-                    else:
-                        dim = node.attrs["dim"]
-                        start, end = node.attrs["start"], node.attrs["end"]
-                        pshape = self.nodes[pid].shape
-                        parts = []
-                        owned_z = []
-                        if start > 0:
-                            zs = list(pshape); zs[dim] = start
-                            z = _dev_zeros_f32(tuple(zs), self.device)
-                            parts.append(z); owned_z.append(z)
-                        parts.append(g)
-                        if end < pshape[dim]:
-                            zs = list(pshape); zs[dim] = pshape[dim] - end
-                            z = _dev_zeros_f32(tuple(zs), self.device)
-                            parts.append(z); owned_z.append(z)
-                        padded = _dev_concat_f32(parts, dim)
-                        ttnn.deallocate(g)
-                        for z in owned_z:
-                            ttnn.deallocate(z)
-                        add_grad(pid, padded)
-                    continue
+            if op == "scatter_slices":
+                for dim, start, end, src_nid in node.attrs["writes"]:
+                    gi = _dev_slice_f32(g, dim, start, end)
+                    add_grad(src_nid, gi)
+                ttnn.deallocate(g)
+                continue
 
-                if op == "scatter_slices":
-                    for dim, start, end, src_nid in node.attrs["writes"]:
-                        gi = _dev_slice_f32(g, dim, start, end)
-                        add_grad(src_nid, gi)
-                    ttnn.deallocate(g)
-                    continue
-
-                raise NotImplementedError(f"DeviceFolds.tape_backward: unknown op {op}")
+            raise NotImplementedError(f"DeviceFolds.tape_backward: unknown op {op}")
 
         for pid, bucket in pending_slices.items():
             if not bucket:
@@ -1464,8 +1336,12 @@ class DeviceFolds:
         out_grads: dict[str, object] = {}
         for name, lid in self.leaf_nid.items():
             g = grads.pop(lid, None)
-            if g is not None:
-                out_grads[name] = g
+            if g is None:
+                continue
+            if not self.leaves[name].requires_grad:
+                ttnn.deallocate(g)
+                continue
+            out_grads[name] = g
         return out_grads, idle
 
 
@@ -1499,35 +1375,21 @@ def make_rfd4_refold_hook(trunk, glue=None, *, host_glue_params: Mapping[str, to
                 go = dev_masters.get(pfx + "linear_g.weight")
                 if any(t is None for t in (pa, pb, ga, gb, go)):
                     continue
-                items = list(tri._t1_w.items())
-                need_w8 = any(w8 for w8, _ in items)
-                need_bf16 = any(not w8 for w8, _ in items)
-                wp_f32 = _dev_concat_f32([pa, pb], 0) if need_w8 else None
-                wg_f32 = _dev_concat_f32([ga, gb], 0) if need_w8 else None
-                wgo_t = ttnn.transpose(go, -2, -1) if need_w8 else None
-                wp_bf16 = wg_bf16 = None
-                if need_bf16:
-                    pa16, pb16 = ttnn.typecast(pa, ttnn.bfloat16), ttnn.typecast(pb, ttnn.bfloat16)
-                    wp_bf16 = ttnn.concat([pa16, pb16], dim=0)
-                    ttnn.deallocate(pa16); ttnn.deallocate(pb16)
-                    ga16, gb16 = ttnn.typecast(ga, ttnn.bfloat16), ttnn.typecast(gb, ttnn.bfloat16)
-                    wg_bf16 = ttnn.concat([ga16, gb16], dim=0)
-                    ttnn.deallocate(ga16); ttnn.deallocate(gb16)
-                for w8, old_triple in items:
-                    if w8:
-                        wp_new = ttnn.typecast(wp_f32, ttnn.bfloat8_b)
-                        wg_new = ttnn.typecast(wg_f32, ttnn.bfloat8_b)
-                        wgo_new = ttnn.typecast(wgo_t, ttnn.bfloat8_b)
-                    else:
-                        wp_new, wg_new, wgo_new = wp_bf16, wg_bf16, None
-                        wp_bf16 = wg_bf16 = None
+                wp_f32 = _dev_concat_f32([pa, pb], 0)
+                wg_f32 = _dev_concat_f32([ga, gb], 0)
+                wgo_f32 = _dev_transpose_2d(go)
+                for w8, old_triple in list(tri._t1_w.items()):
+                    dt = ttnn.bfloat8_b if w8 else ttnn.bfloat16
+                    wp_new = ttnn.typecast(wp_f32, dt)
+                    wg_new = ttnn.typecast(wg_f32, dt)
+                    wgo_new = ttnn.typecast(wgo_f32, ttnn.bfloat8_b) if w8 else None
                     tri._t1_w[w8] = (wp_new, wg_new, wgo_new)
                     for old_t in old_triple:
                         if old_t is not None:
                             ttnn.deallocate(old_t)
-                for tmp in (wp_f32, wg_f32, wgo_t, wp_bf16, wg_bf16):
-                    if tmp is not None:
-                        ttnn.deallocate(tmp)
+                ttnn.deallocate(wp_f32)
+                ttnn.deallocate(wg_f32)
+                ttnn.deallocate(wgo_f32)
 
         # 2. Clear lazy TokenAttention._bias_w fallback if ever created
         for blk in getattr(trunk, "blocks", ()):
@@ -1544,7 +1406,7 @@ def make_rfd4_refold_hook(trunk, glue=None, *, host_glue_params: Mapping[str, to
                     dm = dev_masters.get(name)
                     if dm is None:
                         continue
-                    arr = _read_rep0(dm).float().reshape(p.shape).to(p.dtype)
+                    arr = ttnn.to_torch(dm).float().reshape(p.shape).to(p.dtype)
                     p.copy_(arr)
             if glue is not None and pair_card_ref is not None:
                 from ..rfd4.pair import PairOnCard, PairSplit

@@ -41,7 +41,8 @@ def save_adapter(path, opt: AdamW, *, meta: Optional[dict] = None) -> None:
     # A sharded optimizer gathers its state here (a collective: every rank saves at the
     # same step), so every rank writes the same complete file and it resumes at any width.
     # Adam parameters carry exp_avg/exp_avg_sq, Muon ones their momentum_buffer.
-    tensors = {f"master{_SPLIT}{name}": arr for name, arr in opt.master.items()}
+    host_master = opt.host_master() if hasattr(opt, "host_master") else opt.master
+    tensors = {f"master{_SPLIT}{name}": arr for name, arr in host_master.items()}
     for fam, arrs in opt.state_families().items():
         tensors.update({f"{fam}{_SPLIT}{name}": arr for name, arr in arrs.items()})
     header = {"optimizer": json.dumps(opt.state_dict()),
@@ -79,24 +80,39 @@ def load_adapter(path, params: Dict[str, ag.Tensor], device, *, opt: Optional[Ad
     if have != want:
         raise ValueError(f"adapter/parameter mismatch: missing {sorted(want - have)}, "
                          f"unexpected {sorted(have - want)}")
-    for name, t in params.items():
-        arr = blob[f"master{_SPLIT}{name}"].astype(np.float32)
-        if hasattr(t, "write"):   # a `bridge.HostParam`: the host tensor the forward reads, updated in place
-            t.write(arr)
-        else:
-            t.value = to_device(arr, device, dtype=t.value.dtype)
-        if opt is not None:
-            opt.master[name] = arr.copy()
-            for fam in ("exp_avg", "exp_avg_sq", "momentum_buffer"):
-                if f"{fam}{_SPLIT}{name}" in blob:
-                    getattr(opt, fam)[name] = blob[f"{fam}{_SPLIT}{name}"].astype(np.float32).copy()
-    if opt is not None:
-        # A Muon resume from a file without momentum would restart Muon at zero and quietly
-        # take a different step than the unbroken run.
+    if opt is not None and hasattr(opt, "load_host_state"):
+        # Device-resident optimizer (DeviceOptimizer): reload masters, moments and EMA onto card.
         lost = [n for n in getattr(opt, "muon_names", ()) if f"momentum_buffer{_SPLIT}{n}" not in blob]
         if lost:
             raise ValueError(f"{path}: no Muon momentum for {len(lost)} parameter(s) (e.g. {lost[0]}); "
                              f"it was saved by a run without Muon, and resuming would zero it")
+        masters = {name: blob[f"master{_SPLIT}{name}"].astype(np.float32) for name in params}
+        fams = {}
+        for fam in ("exp_avg", "exp_avg_sq", "momentum_buffer", "ema_shadow"):
+            found = {name: blob[f"{fam}{_SPLIT}{name}"].astype(np.float32)
+                     for name in params if f"{fam}{_SPLIT}{name}" in blob}
+            if found:
+                fams[fam] = found
+        opt.load_host_state(masters, fams)
+    else:
+        for name, t in params.items():
+            arr = blob[f"master{_SPLIT}{name}"].astype(np.float32)
+            if hasattr(t, "write"):   # a `bridge.HostParam`: the host tensor the forward reads, updated in place
+                t.write(arr)
+            else:
+                t.value = to_device(arr, device, dtype=t.value.dtype)
+            if opt is not None:
+                opt.master[name] = arr.copy()
+                for fam in ("exp_avg", "exp_avg_sq", "momentum_buffer"):
+                    if f"{fam}{_SPLIT}{name}" in blob:
+                        getattr(opt, fam)[name] = blob[f"{fam}{_SPLIT}{name}"].astype(np.float32).copy()
+        if opt is not None:
+            # A Muon resume from a file without momentum would restart Muon at zero and quietly
+            # take a different step than the unbroken run.
+            lost = [n for n in getattr(opt, "muon_names", ()) if f"momentum_buffer{_SPLIT}{n}" not in blob]
+            if lost:
+                raise ValueError(f"{path}: no Muon momentum for {len(lost)} parameter(s) (e.g. {lost[0]}); "
+                                 f"it was saved by a run without Muon, and resuming would zero it")
     with open(path, "rb") as fh:
         n = int.from_bytes(fh.read(8), "little")
         header = json.loads(fh.read(n))

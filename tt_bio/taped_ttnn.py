@@ -1920,6 +1920,31 @@ def recompute_scope():
 
 
 @contextlib.contextmanager
+def suspend():
+    """Temporarily unshim ttnn and clear autograd hooks inside an active `tape()` for a grad-off
+    non-final recycle cycle, restoring the exact shimmed tape and hooks on exit while preserving
+    registered parameters and live taped tensors."""
+    if not _SHIMMED:
+        with ag.suspended():
+            yield
+        return
+    from . import ops
+    _swap(False)
+    prev = (ops.set_recycle_hook(None),
+            ops.set_checkpoint_hook(None),
+            ops.set_host_softmax_hook(None),
+            ops.set_grad_hook(None),
+            ops.set_suspend_tape_hook(None),
+            ops.set_wrap_untaped_hook(None))
+    try:
+        with ag.without_exact():
+            yield
+    finally:
+        ag._restore_hooks(prev)
+        _swap(True)
+
+
+@contextlib.contextmanager
 def tape():
     """Make the shipped forward differentiable for the duration of the block.
 
@@ -1998,7 +2023,14 @@ def _v_typecast(shipped, args, kwargs):
 
     def make():
         def bw(g):
-            x.add_grad(g if g.dtype == src else ttnn.typecast(g, src))
+            # When WIDEN_ADD is armed, let a bf16 cotangent reach an fp32 parent's `add_grad`
+            # directly so fan-in widens in the unpacker (`widen_add`, bit-identical to
+            # `typecast(g, f32) + acc`, saving one full-tensor DRAM pass per residual branch).
+            if (src == ttnn.float32 and g.dtype == ttnn.bfloat16
+                    and ag._rne_add.WIDEN_ADD and g.layout == ttnn.TILE_LAYOUT):
+                x.add_grad(g)
+            else:
+                x.add_grad(g if g.dtype == src else ttnn.typecast(g, src))
         return bw
 
     # `reads=()`: neither the input nor the output is read by the backward, only its dtype,
