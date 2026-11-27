@@ -1359,11 +1359,20 @@ def make_rfd4_refold_hook(trunk, glue=None, *, host_glue_params: Mapping[str, to
     def _hook(dev_masters: Mapping[str, object]) -> None:
         import ttnn
 
-        # 1. Refresh lazy TriangleMultiplication._t1_w on card (0 PCIe bytes)
+        # 1. Refresh lazy TriangleMultiplication._t1_w on card (0 PCIe bytes).
+        # If `_t1_w` is still empty (e.g. right after `--resume` before any forward pass),
+        # populate the active `trimul_t1w8` key from `dev_masters` now so `_t1_in` never
+        # lazily materialises stale step-0 host weights (`_g_in_t`/`_p_in_t`/`weights`).
+        levers = getattr(trunk, "_levers", ())
+        default_t1_keys = (("trimul_t1w8" in levers),) if "trimul_t1" in levers else ()
         for idx, pu in trunk.pair_updates.items():
             for attr, tag in (("tri_out", "tri_mult_out"), ("tri_in", "tri_mult_in")):
                 tri = getattr(pu, attr, None)
-                if tri is None or not getattr(tri, "_t1_w", None):
+                t1_map = None if tri is None else getattr(tri, "_t1_w", None)
+                if t1_map is None:
+                    continue
+                keys = list(t1_map.keys()) if t1_map else list(default_t1_keys)
+                if not keys:
                     continue
                 pfx = (f"nn.pair_update_layers.{idx}.{tag}."
                        if f"nn.pair_update_layers.{idx}.{tag}.linear_a_p.weight" in dev_masters
@@ -1378,15 +1387,17 @@ def make_rfd4_refold_hook(trunk, glue=None, *, host_glue_params: Mapping[str, to
                 wp_f32 = _dev_concat_f32([pa, pb], 0)
                 wg_f32 = _dev_concat_f32([ga, gb], 0)
                 wgo_f32 = _dev_transpose_2d(go)
-                for w8, old_triple in list(tri._t1_w.items()):
+                for w8 in keys:
+                    old_triple = t1_map.get(w8)
                     dt = ttnn.bfloat8_b if w8 else ttnn.bfloat16
                     wp_new = ttnn.typecast(wp_f32, dt)
                     wg_new = ttnn.typecast(wg_f32, dt)
                     wgo_new = ttnn.typecast(wgo_f32, ttnn.bfloat8_b) if w8 else None
-                    tri._t1_w[w8] = (wp_new, wg_new, wgo_new)
-                    for old_t in old_triple:
-                        if old_t is not None:
-                            ttnn.deallocate(old_t)
+                    t1_map[w8] = (wp_new, wg_new, wgo_new)
+                    if old_triple is not None:
+                        for old_t in old_triple:
+                            if old_t is not None:
+                                ttnn.deallocate(old_t)
                 ttnn.deallocate(wp_f32)
                 ttnn.deallocate(wg_f32)
                 ttnn.deallocate(wgo_f32)
