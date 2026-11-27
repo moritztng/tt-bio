@@ -164,3 +164,37 @@ def test_fixture_ligands_all_read():
         generate_conformer(mol, seed=42)
         graph = build_ligand_graph(mol, remove_hs=True)
         assert graph["x"].shape[0] == entry["lig_heavy_atoms"], entry["id"]
+
+
+def test_conformer_timeout_isolates_a_runaway_ligand():
+    """A conformer budget turns a hang into a catchable failure.
+
+    ETKDG has no wall-clock bound of its own and really does run away: capturing
+    the PoseBusters goldens, 7QTA_URI's ligand sat inside one EmbedMolecule call
+    for over 46 minutes. A hang is not an exception, so build_batch's per-complex
+    isolation cannot see it; the budget is what makes it a failure like any other
+    (D-dfd-input-7). An unreachable budget stands in for the runaway ligand here.
+    """
+    import pytest
+
+    from tt_bio.diffdock.ligand import ConformerTimeout, read_ligand
+
+    with pytest.raises(ConformerTimeout):
+        read_ligand("CC(=O)Oc1ccccc1C(=O)O", seed=42, conformer_timeout_s=1e-6)
+
+
+def test_conformer_timeout_gives_the_same_conformer_when_it_is_met():
+    """A budget that is met changes nothing: same atoms, same coordinates."""
+    import numpy as np
+
+    from tt_bio.diffdock.ligand import read_ligand
+
+    smiles = "CC(=O)Oc1ccccc1C(=O)O"
+    plain = read_ligand(smiles, seed=42)
+    bounded = read_ligand(smiles, seed=42, conformer_timeout_s=120)
+    assert plain.GetNumAtoms() == bounded.GetNumAtoms()
+    assert [a.GetSymbol() for a in plain.GetAtoms()] == \
+        [a.GetSymbol() for a in bounded.GetAtoms()]
+    np.testing.assert_allclose(
+        plain.GetConformer().GetPositions(),
+        bounded.GetConformer().GetPositions(), atol=1e-6)

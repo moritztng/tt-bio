@@ -1,0 +1,16 @@
+linear_a_p.weight                n=14 rel max 1.706e-03 med 1.683e-03 cos min 0.999999 |g0|/|g1| 5.022e+00/5.022e+00
+linear_a_g.weight                n=14 rel max 1.700e-03 med 1.682e-03 cos min 0.999999 |g0|/|g1| 1.787e+00/1.787e+00
+linear_b_p.weight                n=14 rel max 1.699e-03 med 1.686e-03 cos min 0.999999 |g0|/|g1| 6.221e+00/6.221e+00
+linear_b_g.weight                n=14 rel max 1.699e-03 med 1.684e-03 cos min 0.999999 |g0|/|g1| 2.010e+00/2.010e+00
+layer_norm_in.bias               n=7 rel max 0.000e+00 med 0.000e+00 cos min 1.000000 |g0|/|g1| 4.058e-01/4.058e-01
+layer_norm_in.weight             n=21 rel max 0.000e+00 med 0.000e+00 cos min 1.000000 |g0|/|g1| 1.942e-01/1.942e-01
+linear_x.weight                  n=7 rel max 0.000e+00 med 0.000e+00 cos min 1.000000 |g0|/|g1| 7.527e+00/7.527e+00
+layer_norm.bias                  n=7 rel max 0.000e+00 med 0.000e+00 cos min 1.000000 |g0|/|g1| 3.062e-01/3.062e-01
+layer_norm.weight                n=7 rel max 0.000e+00 med 0.000e+00 cos min 1.000000 |g0|/|g1| 3.082e-01/3.082e-01
+linear_1.bias                    n=7 rel max 0.000e+00 med 0.000e+00 cos min 1.000000 |g0|/|g1| 6.546e-01/6.546e-01
+linear_1.weight                  n=7 rel max 0.000e+00 med 0.000e+00 cos min 1.000000 |g0|/|g1| 1.067e+01/1.067e+01
+linear_2.bias                    n=7 rel max 0.000e+00 med 0.000e+00 cos min 1.000000 |g0|/|g1| 2.327e+00/2.327e+00
+linear_2.weight                  n=7 rel max 0.000e+00 med 0.000e+00 cos min 1.000000 |g0|/|g1| 8.857e+00/8.857e+00
+layer_norm_out.weight            n=14 rel max 0.000e+00 med 0.000e+00 cos min 1.000000 |g0|/|g1| 3.081e-01/3.081e-01
+linear_g.weight                  n=14 rel max 0.000e+00 med 0.000e+00 cos min 1.000000 |g0|/|g1| 3.616e+00/3.616e+00
+linear_z.weight                  n=14 rel max 0.000e+00 med 0.000e+00 cos min 1.000000 |g0|/|g1| 9.602e+00/9.602e+00

@@ -95,6 +95,7 @@ from .cotenancy import CotenantSampler
 from .hostreduce import HostReduce, master_hash
 from .prefetch import host_stream
 from .mesh import Mesh
+from .parity import GradientCoverage
 from .sharding import batches, steps_per_epoch
 
 __all__ = ["RunConfig", "ReducedRAdam", "CosineRestartsByStep", "run",
@@ -423,7 +424,7 @@ def run(step, dataset, cfg: RunConfig, *, resume: bool = True, on_step=None) -> 
                                           for i in range(0, len(b.per_chip[cfg.rank]),
                                                          cfg.micro_batch)],
                          dataset, cfg.prefetch)
-    coverage_left, never_moved = GRADIENT_COVERAGE_STEPS, None
+    coverage = None
     with provenance.during(seed=cfg.seed, config=cfg.as_dict()) as prov:
         while True:
             # `t_data` is stamped BEFORE the stream is pulled, so with a prefetch depth the wait
@@ -441,12 +442,10 @@ def run(step, dataset, cfg: RunConfig, *, resume: bool = True, on_step=None) -> 
             t0 = time.perf_counter()
             parts, timing = step.step(micros)
             wall = time.perf_counter() - t0
-            if coverage_left:
-                dead = set(step.ungradiented)
-                never_moved = dead if never_moved is None else (never_moved & dead)
-                coverage_left -= 1
-                if not coverage_left:
-                    _assert_every_parameter_trains(never_moved, len(step.params), gs, cfg.rank)
+            if coverage is None:
+                coverage = GradientCoverage(range(len(step.params)), GRADIENT_COVERAGE_STEPS,
+                                            where=f"[rank {cfg.rank}] ")
+            coverage.observe(step.ungradiented)
             terms = {k: round(v - prev_terms.get(k, 0.0), 4)
                      for k, v in step.loss_terms.items()}
             prev_terms = dict(step.loss_terms)
@@ -499,51 +498,6 @@ def run(step, dataset, cfg: RunConfig, *, resume: bool = True, on_step=None) -> 
     print(f"[rank {cfg.rank}] {tenants.summary()}", flush=True)
     return {"history": history, "provenance": prov, "comm": comm, "cotenancy": co,
             "steps_done": history[-1]["step"] if history else start}
-
-
-def _assert_every_parameter_trains(never_moved: set, total: int, gs: int, rank: int) -> None:
-    """Refuse to keep running if a parameter got no gradient on ANY of this launch's first steps.
-
-    Checked once per launch rather than once per run, so a resume re-establishes it, and the
-    cost is one comparison per parameter over `GRADIENT_COVERAGE_STEPS` 12-second steps.
-
-    **One step is not the test, and finding that out is what the gate is worth.** Upstream
-    initialises every residual branch's output projection to zero -- `init="final"` on the IPA's
-    `linear_out`, the transition's `linear_3`, the angle resnet's `linear_3` and the backbone
-    update -- so at step 1 those branches contribute nothing and the weights BEHIND them have an
-    exactly zero gradient. That is upstream's behaviour and not a defect: the `final` weights
-    themselves have a nonzero gradient (`x^T g`, no factor of the weight), so one update switches
-    the branches on and everything upstream of them starts moving at step 2. A first-step check
-    reported 218 of 500 here and was reading that transient. What separates the transient from a
-    dead parameter is time, so the set is intersected across several steps and a parameter has to
-    be zero on all of them to count.
-
-    **This is the check the first `base-loss` leg did not have.** It ran 1,388 steps in which
-    356 of 436 parameters had an identically zero gradient, because `initial_state_dict`
-    returned an all-zero model and a zero weight matrix passes no gradient back through itself.
-    Nothing noticed: the loss was flat at 5.22 but flat is not obviously wrong at 0.7 % of a
-    schedule, `grad_norm` was a plausible 0.18 because it is the norm over ALL parameters and
-    the 80 live ones carried it, and the master digest changed every step because those 80 moved.
-    Three healthy-looking signals over one dead run. The property that separates them is per
-    parameter, so it has to be asserted per parameter.
-
-    Zero is the right test and not an approximation of one. At a correct init every parameter in
-    this model is downstream of the loss along a path with no zero factor, including the ones
-    whose WEIGHT starts at zero -- upstream's `final` init -- because their gradient is
-    `x^T g`, not a product with the weight. A genuinely zero gradient here means a broken tape
-    or a broken init, both of which stop the run.
-    """
-    if not never_moved:
-        return
-    dead = sorted(never_moved)
-    names = ", ".join(str(i) for i in dead[:8])
-    raise RuntimeError(
-        f"[rank {rank}] step {gs}: {len(dead)} of {total} parameters received no gradient on "
-        f"any of the last {GRADIENT_COVERAGE_STEPS} steps (indices {names}"
-        f"{'...' if len(dead) > 8 else ''}). Refusing to continue: a run in "
-        f"this state produces a plausible loss curve and trains nothing. Check the starting "
-        f"weights first -- `tt_bio.train.abb3_init.initialise_` draws them, and a model built "
-        f"without it is all zeros.")
 
 
 def _prune(written: list, keep: int, protect: set) -> None:

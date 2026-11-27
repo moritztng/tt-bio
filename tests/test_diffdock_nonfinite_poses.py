@@ -209,3 +209,32 @@ def test_a_complex_whose_every_sample_overflows_is_one_failed_result():
                           mask_rotate=mask_rotate)
     assert bool(out.failed.all())
     assert torch.isfinite(out.poses).all()
+
+
+def test_a_rigid_ligand_rolls_out():
+    """A ligand with no rotatable bond has an empty torsion head, and the guard reshaped it.
+
+    `7OP9_06K` (dichloropurine, 0 rotatable bonds) died at step 0 of `tt-bio dock` with
+    "cannot reshape tensor of 0 elements into shape [0, -1]". Nothing downstream touches the
+    head -- `torsion` is already False when `mask_rotate` is empty -- so the guard was the
+    only thing standing between a rigid ligand and a docked pose.
+    """
+    pos = torch.tensor([[0.0, 0.0, 0.0], [1.4, 0.0, 0.0], [2.1, 1.2, 0.0]])
+    lig_pos = pos.unsqueeze(0).repeat(2, 1, 1)
+    edge_index = torch.zeros(0, 2, dtype=torch.long)
+    mask_rotate = torch.zeros(0, 3, dtype=torch.bool)
+
+    def score_fn(step):
+        return (torch.zeros(2, 3), torch.zeros(2, 3), torch.zeros(0))
+
+    out = sampling.sample(score_fn, lig_pos, cfg=config(), bounds=BOUNDS,
+                          noise=sampling.Noise(seed=5), edge_index=edge_index,
+                          mask_rotate=mask_rotate)
+    assert torch.isfinite(out.poses).all()
+    assert not bool(out.failed.any())
+
+
+def test_the_guard_counts_nothing_bad_in_an_empty_head():
+    score = torch.zeros(0)
+    repaired, n_bad = sampling.guard_scores(score)
+    assert repaired.shape == score.shape and int(n_bad) == 0

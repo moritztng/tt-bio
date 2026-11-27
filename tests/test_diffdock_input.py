@@ -89,6 +89,27 @@ def test_receptor_graph_matches_upstream(cid, kind, all_atoms):
         assert _edge_set(atom["edge_index"]) == _edge_set(g["atom_edge_index"])
 
 
+def test_residue_order_is_file_order_not_chain_grouped():
+    """A chain part written after other chains stays where the file puts it.
+
+    ProDy numbers residues as they are written, and the receptor node order IS
+    that numbering, so it propagates into every node feature, the k-NN graph and
+    the per-chain ESM-2 embedding split. gemmi's reader gathers same-named chain
+    parts together by default, which silently reorders exactly this case: in
+    7FT9_4MB three single-residue parts of chains C and D are written after all
+    four main chains, and merging moved one of them 191 residues earlier. The
+    three other fixtures are all written chain-contiguously and cannot see it.
+    """
+    rec = parse_receptor(_receptor_path("7FT9_4MB"))
+    keys = list(rec.chain_keys)
+    # The three single-residue parts are last in the file and must be last here.
+    assert keys[-3:] == ["LC", "RD", "TD"], keys[-5:]
+    # The four main chains stay contiguous and in file order ahead of them.
+    main = keys[:-3]
+    assert [k for i, k in enumerate(main) if i == 0 or k != main[i - 1]] == \
+        ["AA", "BB", "CC", "DD"]
+
+
 def test_receptor_above_3000_residues_is_refused():
     """Upstream raises above 3000 residues; so do we, with the same message."""
     from tt_bio.diffdock.receptor import MAX_RECEPTOR_RESIDUES

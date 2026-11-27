@@ -1,0 +1,1 @@
+{"card": 0, "aiclk_after_each_bwd": [1350, 1350], "params": 24, "with_grad": 24, "role": "acc", "examples": [0, 1], "n": 128, "wall_s": 4.13}

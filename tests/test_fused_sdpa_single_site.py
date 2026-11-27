@@ -14,6 +14,14 @@ import pytest
 PKG = Path(__file__).resolve().parents[1] / "tt_bio"
 OP = "scaled_dot_product_attention"
 
+# Functions that swap the op on `ttnn.transformer` for a stretch of code and put it back. They
+# never call it: `fused_sdpa` still makes the one call, mask attached, and reaches the swapped
+# version. Each entry says why it swaps.
+SWAPS = {
+    ("tt_bio/train/exact_fp32.py", "exact_fp32"):
+        "gradcheck control: replaces the op with a float64-exact host version inside the `with`",
+}
+
 
 def _is_ttnn_transformer(node):
     return (isinstance(node, ast.Attribute) and node.attr == "transformer"
@@ -51,7 +59,7 @@ def _references():
 
 
 def test_every_fused_sdpa_call_goes_through_the_wrapper():
-    refs = _references()
+    refs = [r for r in _references() if (r[0], r[2]) not in SWAPS]
     bypass = [r for r in refs if r[0] != "tt_bio/tenstorrent.py" or r[2] != "fused_sdpa"]
     assert not bypass, (
         "these reach ttnn.transformer.scaled_dot_product_attention without "

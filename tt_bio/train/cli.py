@@ -76,9 +76,10 @@ def _echo_objectives(ctx, param, value):
 def _chips(ctx, param, value):
     """`--chips` as a count or as the chips themselves. A flag either way, so `--dry-run` decides.
 
-    A count is the first N chips, which is the right default on an idle box and the wrong one on
-    every shared box: chip 0 is routinely the busy one, and a count gives no way to say so. The
-    list form takes tt-smi ids, which are NOT `/dev/tenstorrent` node numbers -- the mesh takes
+    A count takes N chips spread across the box's PCIe root complexes (`launcher.spread`): the
+    first N on a QuietBox, 0,1,8,9,16,17,24,25 for eight on a Galaxy. That is the right default
+    on an idle box and the wrong one on a shared box, where a count gives no way to avoid the
+    busy chips. The list form takes tt-smi ids, which are NOT `/dev/tenstorrent` node numbers -- the mesh takes
     the same ids, and the launcher reads back which node each rank actually got.
     """
     if isinstance(value, (tuple, list)):
@@ -91,7 +92,8 @@ def _chips(ctx, param, value):
             n = int(text)
             if n < 1:
                 raise ValueError
-            ids = tuple(range(n))
+            from .launcher import spread
+            ids = spread(n)
     except ValueError:
         raise click.BadParameter(f"{value!r}; pass a count like 2 or chips like 0,2",
                                  param_hint="--chips") from None

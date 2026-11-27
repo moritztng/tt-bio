@@ -167,7 +167,11 @@ def _sample_one(job: DockJob, options: DockOptions, write_dir: Path, receptor: P
     from rdkit import Chem
 
     # The graph, and so every pose, is heavy-atom only; upstream writes the H-stripped mol.
-    mol = Chem.RemoveHs(Chem.Mol(graph.mol), sanitize=False)
+    # Sanitised, as upstream's `RemoveHs(mol_pred)` is: `sanitize=False` leaves the aromatic
+    # flags without kekulisation, and `SDWriter.write` kekulises, so every heteroaromatic
+    # ligand raised `KekulizeException` AFTER the whole rollout had run and lost the complex
+    # (5S8I_2LY, CNC(=O)c1scc2c1OCCO2).
+    mol = Chem.RemoveHs(Chem.Mol(graph.mol))
     failed = rollout.failed
     if bool(failed.all()):
         raise PoseRolloutFailed(
@@ -188,6 +192,8 @@ def _sample_one(job: DockJob, options: DockOptions, write_dir: Path, receptor: P
                                   torch.full_like(confidences, confidence_model.UNSCORABLE))
         order = torch.argsort(confidences, descending=True).tolist()
         poses, confidences = poses[order], confidences[order].tolist()
+        log.info("%s: ranked %d poses, best confidence %.3f",
+                 job.name, len(confidences), confidences[0])
 
     trajectories = None
     if options.save_trajectory and rollout.trajectory:

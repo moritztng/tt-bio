@@ -1,0 +1,5 @@
+qb2 chip 2 p300c, sha dd3061f74, 2026-11-26 07:29Z, host load 20 (other rows), AICLK 1350 at each sample
+RFD4 denoiser Muon matrices, 178,268,848 fp32 elements, ttnn from_torch/to_torch, synced
+fp32 up 0.406 / 0.444 / 0.278 s; fp32 down 0.647 / 0.644 / 0.637 s
+host muon elementwise (numpy, loaded host) 9.616 (cold) / 3.707 s; r4t-scale D21 quiet: 1.30 s
+bf16 cast+write of the stepped weights (today) 0.416 / 0.335 s

@@ -1,0 +1,8 @@
+batch01 "master_digest": "9929e278f518e26d" | l2t "master_digest": "9929e278f518e26d" "winner": 2 SAME
+batch02 "master_digest": "67fdaafb8f2de619" | l2t "master_digest": "67fdaafb8f2de619" "winner": 2 SAME
+batch03 "master_digest": "5149e6884924b71b" | l2t "master_digest": "5149e6884924b71b" "winner": 1 SAME
+batch04 "master_digest": "ed9bcba9ce30b183" | l2t "master_digest": "ed9bcba9ce30b183" "winner": 1 SAME
+batch05 "master_digest": "65c23f045d375069" | l2t "master_digest": "65c23f045d375069" "winner": 1 SAME
+batch06 "master_digest": "0eab95ed1f0ff0f3" | l2t "master_digest": "0eab95ed1f0ff0f3" "winner": 3 SAME
+batch07 "master_digest": "0c58f54a63e44c47" | l2t "master_digest": "0c58f54a63e44c47" "winner": 1 SAME
+batch08 "master_digest": "37776a9bd04c6bdc" | l2t "master_digest": "37776a9bd04c6bdc" "winner": 1 SAME

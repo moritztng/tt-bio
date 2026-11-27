@@ -3535,8 +3535,34 @@ def fused_sdpa(q, k, v, attn_mask=None, *, scale: float, **kw):
             hit = _ZERO_MASKS[key] = (dev, ttnn.zeros([1, 1, key[1], key[2]], dtype=ttnn.bfloat16,
                                                       layout=ttnn.TILE_LAYOUT, device=dev))
         attn_mask = hit[1]
+    if q.dtype == ttnn.float32:
+        return _sdpa_fp32(q, k, v, attn_mask, scale)
     return ttnn.transformer.scaled_dot_product_attention(
         q, k, v, attn_mask=attn_mask, is_causal=False, scale=scale, **kw)
+
+
+def _sdpa_fp32(q, k, v, mask, scale):
+    """`fused_sdpa` for float32 operands, which the fused kernel refuses (TT_FATAL in
+    `sdpa_device_operation`). The same attention, softmax((q k^T + mask) * scale) v with the mask
+    before the scale, with the scores materialised and each row reduced in one pass at HiFi4, fp32
+    destination and an exact exp. Every verb is one the tape follows, so a taped call needs no rule
+    of its own. Only a float32 trunk reaches it: RFD4 training under `attn_fp32` and the float32
+    gradient controls. No served model hands this function float32."""
+    cfg = ttnn.WormholeComputeKernelConfig(math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,
+                                           fp32_dest_acc_en=True, packer_l1_acc=True)
+    s = ttnn.matmul(q, k, transpose_b=True, compute_kernel_config=cfg)
+    m = mask if mask.dtype == ttnn.float32 else ttnn.typecast(mask, ttnn.float32)
+    sm = ttnn.add(s, m)
+    ttnn.deallocate(s)
+    if m is not mask:
+        ttnn.deallocate(m)
+    ss = ttnn.multiply(sm, scale)
+    ttnn.deallocate(sm)
+    p = ttnn.softmax(ss, dim=-1, compute_kernel_config=cfg)
+    ttnn.deallocate(ss)
+    o = ttnn.matmul(p, v, compute_kernel_config=cfg)
+    ttnn.deallocate(p)
+    return o
 
 
 def _sdpa_masked(fn, q, k, v, bias, *args, site: str, pad: bool = False, **kw):
@@ -9185,6 +9211,10 @@ TRACE_REGIONS = {
     "rfd4": {"wormhole_b0": 192 << 20, "blackhole": 192 << 20},
     "esmfold2": {"wormhole_b0": 32 << 20, "blackhole": 48 << 20},     # ESMFold2 / -Fast diffusion step, PROVISIONAL
     "saprot": {"wormhole_b0": 64 << 20, "blackhole": 64 << 20},       # one live SaProt batch forward, PROVISIONAL
+    # DiffDock-L's 19-step score loop (diffdock/capture.capture_loop). PROVISIONAL, not measured:
+    # only the port's grading scripts capture today, `tt-bio dock` runs eager. Too small shows up
+    # as a refused capture, never as a wrong pose.
+    "diffdock": {"wormhole_b0": 64 << 20, "blackhole": 64 << 20},
 }
 
 
@@ -10447,9 +10477,23 @@ def _in_proj_matmul(x, w, ckc, memory_config, bias=None, split=None, dtype=None)
         kw["config"] = ttnn.MinimalMatmulConfig(
             M_block_size=8, K_block_size=6, N_block_size=1, subblock_h=4, subblock_w=1,
             compute_with_storage_grid_size=_mm_core_coord(*COMPUTE_GRID_MAIN))
-    return ttnn.experimental.minimal_matmul(
-        x, w, bias_tensor=bias, memory_config=memory_config, dtype=dtype,
-        compute_kernel_config=ckc, **kw)
+    try:
+        return ttnn.experimental.minimal_matmul(
+            x, w, bias_tensor=bias, memory_config=memory_config, dtype=dtype,
+            compute_kernel_config=ckc, **kw)
+    except RuntimeError as exc:
+        # float32 operands (device_dtype_override(float32): a training run's fp32 control arm)
+        # double every circular-buffer tile, and the default blocks then overrun L1 whatever the
+        # chunk width (1,683,968 B against 1,572,864 B at RFD4 seq 64), so the caller's narrowing
+        # retry cannot help. K block 1 holds one tile column per operand. Reached only after a
+        # refusal, so every call that runs today runs unchanged.
+        if "circular buffers" not in str(exc) or x.dtype != ttnn.float32 or kw:
+            raise
+        return ttnn.experimental.minimal_matmul(
+            x, w, bias_tensor=bias, memory_config=memory_config, dtype=dtype,
+            compute_kernel_config=ckc, config=ttnn.MinimalMatmulConfig(
+                M_block_size=8, K_block_size=1, N_block_size=8, subblock_h=2, subblock_w=2,
+                compute_with_storage_grid_size=_mm_core_coord(*COMPUTE_GRID_MAIN)))
 
 
 def _trimul_out_proj(
@@ -10843,7 +10887,7 @@ class TriangleMultiplication(Module):
                 "train_in_proj covers the in-projection weights only; this checkpoint's "
                 "g_in/p_in biases would still be cached constants")
         up = lambda t: ttnn.from_torch(  # noqa: E731
-            t, layout=ttnn.TILE_LAYOUT, device=self.device, dtype=ttnn.bfloat16)
+            t, layout=ttnn.TILE_LAYOUT, device=self.device, dtype=_dtype(ttnn.bfloat16))
         self.g_in_weight, self.p_in_weight = up(self._g_in_t), up(self._p_in_t)
         self._gp_cache.clear()
         self._gp_gout_cache.clear()
@@ -10875,7 +10919,7 @@ class TriangleMultiplication(Module):
             return cached
         chunks = [
             ttnn.from_torch(
-                t, layout=ttnn.TILE_LAYOUT, device=self.device, dtype=ttnn.bfloat16,
+                t, layout=ttnn.TILE_LAYOUT, device=self.device, dtype=_dtype(ttnn.bfloat16),
             )
             for t in self._gp_fused_order((self._g_in_t, self._p_in_t), C, group)
         ]
@@ -11438,10 +11482,18 @@ class TriangleMultiplication(Module):
         if (large_seq and _TRIMUL_BACK_INTO and not _TRIMUL_RAW_CHANNEL_MOVES
                 and not _host_concat(x) and Hr == H):
             from tt_bio.size_limits import is_alloc_refusal
+            # Reserve it in the dtype the move will write. Under `pair_x8t` that is bfp8, and a bf16 reservation was
+            # freed at the first chunk for a bfp8 x_out allocated after the chunks: a hole per call that the
+            # tensors made later in the fold settled into, so a second 1024 aa fold in the process found 225 MiB
+            # free in 42.7 MiB pieces and refused its 512 MiB pair (flow-release-2026112701). A wrong guess
+            # only costs that reallocation, as before.
+            pre_dt = (ttnn.bfloat8_b if batch == 1 and fused_residual is None and not lever("trimul_t2cm")
+                      and not lever("pair_tail_cm") and self._x8t_out()
+                      and _reblock.back_x8_ok(memory_config, 1) else _dtype())
             while x_out_pre is None and not keep_chunks:
                 try:
                     x_out_pre = ttnn.allocate_tensor_on_device(
-                        ttnn.Shape([1, H, H, self._hidden]), _dtype(), ttnn.TILE_LAYOUT,
+                        ttnn.Shape([1, H, H, self._hidden]), pre_dt, ttnn.TILE_LAYOUT,
                         self.device, memory_config)
                 except RuntimeError as exc:
                     if not is_alloc_refusal(exc):
@@ -11609,7 +11661,7 @@ class TriangleMultiplication(Module):
             one_pass = not _TRIMUL_RAW_CHANNEL_MOVES and (
                 large_seq or (_TRIMUL_BACK_ONE_PASS_L1 and _reblock.eligible_back(xc, back_mc)))
             into = (one_pass and _TRIMUL_BACK_INTO and large_seq and not host_acc and not keep_chunks
-                    and _reblock.eligible_back(xc, back_mc))
+                    and _reblock.eligible_back(xc, back_mc, into=True))
             return back_mc, one_pass, into
 
         def x8(out_mc):
@@ -11963,7 +12015,7 @@ class TriangleMultiplication(Module):
                             program_config=program_config if not live else
                             _triangle_mul_program_config(seq_len_tiles, _trimul_ibw_full(),
                                                          _trimul_subblock(), not large_seq, live),
-                            dtype=ttnn.bfloat8_b if x8(out_mc) else ttnn.bfloat16,
+                            dtype=ttnn.bfloat8_b if x8(out_mc) else _dtype(ttnn.bfloat16),
                             transpose_a=defer_a,
                             transpose_b=defer_b,
                         )
@@ -12004,8 +12056,7 @@ class TriangleMultiplication(Module):
                         # form reads the output projection's key. Nothing else reads a bfp8 x: Protenix-v2's template
                         # trimul (c 64, key 2x2) took the unfused tail on it and clashed in L1 (spd-fix-bhpair).
                         out_dt = x_chunk.dtype
-                        if x_chunk.dtype == ttnn.bfloat8_b and not (lever("pair_x8t") and _trimul_tail.t2_key(
-                                *(_trimul_tail._tiles(int(self.out_p_weight.shape[i])) for i in (-2, -1)), True)):
+                        if x_chunk.dtype == ttnn.bfloat8_b and not self._x8t_out():
                             out_dt = ttnn.bfloat16
                         if x_out is None and x_out_pre is not None:
                             if x_out_pre.dtype == out_dt:
@@ -12466,6 +12517,12 @@ class TriangleMultiplication(Module):
             k = ("t2:g_not_f1", "x".join(str(int(d)) for d in x.padded_shape))
             _trimul_tail.REJECTS[k] = _trimul_tail.REJECTS.get(k, 0) + 1
         return ok
+
+    def _x8t_out(self):
+        """Whether a bfp8 moved x lands in a bfp8 output (`pair_x8t`): only where a T2 form reads the output
+        projection's key."""
+        return lever("pair_x8t") and _trimul_tail.t2_key(
+            *(_trimul_tail._tiles(int(self.out_p_weight.shape[i])) for i in (-2, -1)), True)
 
     def _t2_serves(self, g_out_fused, x_norm_in, H, add_to_input):
         """Whether the output tail goes to T2 (`trimul_t2` with a fused g_out, else the GATE form

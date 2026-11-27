@@ -1,0 +1,11 @@
+{
+ "uploads": 422,
+ "elems": 571736064,
+ "differ": 54876355,
+ "dev_worse": 54766277,
+ "dev_closer": 109184,
+ "max_worse": 0.015625,
+ "frac": 0.09598197219897607,
+ "broken": true,
+ "a": "FAIL"
+}

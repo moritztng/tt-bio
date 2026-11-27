@@ -1,0 +1,169 @@
+{
+ "host": "qb2",
+ "chip": 2,
+ "board": "p300c",
+ "sha": "fc31db4c3",
+ "broken": true,
+ "rows": [
+  {
+   "kind": "dX",
+   "w": [
+    384,
+    1024
+   ],
+   "served": true,
+   "stock_rel": 0.0017234701311702187,
+   "served_rel": 0.001684747183978326,
+   "ok": true
+  },
+  {
+   "kind": "dW",
+   "w": [
+    384,
+    1024
+   ],
+   "served": true,
+   "stock_rel": 0.0004904918973534637,
+   "served_rel": 0.0004896771857181275,
+   "ok": true
+  },
+  {
+   "kind": "dX",
+   "w": [
+    1024,
+    384
+   ],
+   "served": true,
+   "stock_rel": 0.00172438770058075,
+   "served_rel": 0.001689746022014225,
+   "ok": true
+  },
+  {
+   "kind": "dW",
+   "w": [
+    1024,
+    384
+   ],
+   "served": true,
+   "stock_rel": 0.0004899430181603661,
+   "served_rel": 0.0004898540253118454,
+   "ok": true
+  },
+  {
+   "kind": "dX",
+   "w": [
+    384,
+    384
+   ],
+   "served": true,
+   "stock_rel": 0.0017245706761798295,
+   "served_rel": 1.4096718785878057,
+   "ok": false
+  },
+  {
+   "kind": "dW",
+   "w": [
+    384,
+    384
+   ],
+   "served": true,
+   "stock_rel": 0.0004904000551249407,
+   "served_rel": 0.0004896552836779316,
+   "ok": true
+  },
+  {
+   "kind": "dX",
+   "w": [
+    768,
+    384
+   ],
+   "served": true,
+   "stock_rel": 0.0017204719030459083,
+   "served_rel": 0.0016859483647740582,
+   "ok": true
+  },
+  {
+   "kind": "dW",
+   "w": [
+    768,
+    384
+   ],
+   "served": true,
+   "stock_rel": 0.0004912442468185894,
+   "served_rel": 0.0004901645661753259,
+   "ok": true
+  },
+  {
+   "kind": "dX",
+   "w": [
+    384,
+    768
+   ],
+   "served": true,
+   "stock_rel": 0.0017232154078202515,
+   "served_rel": 0.0016852824599814507,
+   "ok": true
+  },
+  {
+   "kind": "dW",
+   "w": [
+    384,
+    768
+   ],
+   "served": true,
+   "stock_rel": 0.0004899167842842437,
+   "served_rel": 0.0004905368844788699,
+   "ok": true
+  },
+  {
+   "kind": "dX",
+   "w": [
+    256,
+    384
+   ],
+   "served": true,
+   "stock_rel": 0.0017241339157930697,
+   "served_rel": 0.0016893171261449483,
+   "ok": true
+  },
+  {
+   "kind": "dW",
+   "w": [
+    256,
+    384
+   ],
+   "served": true,
+   "stock_rel": 0.0004913436264096572,
+   "served_rel": 0.0004891647519704846,
+   "ok": true
+  },
+  {
+   "kind": "dX",
+   "w": [
+    384,
+    256
+   ],
+   "served": true,
+   "stock_rel": 0.0017164447724141575,
+   "served_rel": 0.0016852627535502592,
+   "ok": true
+  },
+  {
+   "kind": "dW",
+   "w": [
+    384,
+    256
+   ],
+   "served": true,
+   "stock_rel": 0.0004897092282622047,
+   "served_rel": 0.0004885637622086718,
+   "ok": true
+  }
+ ],
+ "stats": {
+  "dx": 7,
+  "dw": 7,
+  "declined": 0
+ },
+ "verdict": "FAIL"
+}

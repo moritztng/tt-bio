@@ -11,8 +11,9 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   out, plus a `confidence.json` with the ranking. Defaults are the published inference recipe, so a plain command
   reproduces the paper's settings, and `tt-bio weights --download diffdock` fetches the v1.1 release. The score
   network is graded against upstream's own at PCC 0.9999999999984 or better across three complexes at five points
-  of the schedule. It runs on CPU for now; the card path comes next. Every upstream inference option has a
-  flag: `--ligand`, `--name`, `--weights`, `--confidence_checkpoint`, `--no_confidence`, `--actual_steps`,
+  of the schedule. On a host with a Tenstorrent card the convolutions of both the score and the confidence network
+  run on the card, otherwise on CPU; the card's confidence network ranks poses exactly as upstream's does. Every
+  upstream inference option has a flag: `--ligand`, `--name`, `--weights`, `--confidence_checkpoint`, `--no_confidence`, `--actual_steps`,
   `--initial_noise_std`, `--init_at_residue`, `--sampler`, `--deterministic`, `--no_model`, `--pocket`,
   `--pocket_radius`, `--minimize`, `--gnina_path` and `--limit_failures`. See
   [`docs/docking.md`](docs/docking.md).

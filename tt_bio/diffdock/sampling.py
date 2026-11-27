@@ -659,7 +659,13 @@ def guard_scores(score: Tensor) -> tuple[Tensor, Tensor]:
     The repair is computed unconditionally and selected with a ``where``: no host branch, so
     the device path keeps its shapes static, and on a run with finite numbers the result is
     the input tensor value for value.
+
+    A rigid ligand has no rotatable bond, so its torsion head is ``[0]`` and there is nothing
+    to repair. That is a property of the shape, not of the numbers, so returning early keeps
+    the device path's shapes as static as the ``where`` does.
     """
+    if score.numel() == 0:
+        return score, score.new_zeros((), dtype=torch.long)
     finite = torch.isfinite(score)
     eps = 0.01 * torch.where(finite, score.abs(), torch.zeros_like(score)).sum() \
         / finite.sum().clamp_min(1)

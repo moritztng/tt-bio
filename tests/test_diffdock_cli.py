@@ -8,6 +8,7 @@ test is "it parses" is a CLI nobody ran.
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 
 import pytest
@@ -24,6 +25,8 @@ ASPIRIN = "CC(=O)Oc1ccccc1C(=O)O"
 
 needs_receptor = pytest.mark.skipif(not RECEPTOR.exists(),
                                     reason="no local receptor structure to dock into")
+
+
 
 
 def run(*args):
@@ -226,8 +229,11 @@ def test_a_ligand_on_both_sides_is_refused(tmp_path):
 
 
 def test_a_receptor_without_a_ligand_is_refused(tmp_path):
-    r = run(str(RECEPTOR if RECEPTOR.exists() else tmp_path), "--no_model",
-            "--out_dir", str(tmp_path / "x"))
+    # Any .pdb path reaches the refusal: it is raised before the receptor is read. A directory
+    # does not, it is read as a folder of YAML jobs, so the test must not depend on RECEPTOR.
+    receptor = tmp_path / "receptor.pdb"
+    receptor.write_text("END\n")
+    r = run(str(receptor), "--no_model", "--out_dir", str(tmp_path / "x"))
     assert r.exit_code != 0 and "--ligand is required" in r.output
 
 
@@ -285,3 +291,129 @@ def test_a_shorter_run_docks(tmp_path):
               "--diffusion_samples", "2", "--out_dir", str(tmp_path))
     assert out.exit_code == 0, out.output
     assert (tmp_path / "complex_0" / "rank1.sdf").exists()
+
+
+def test_dock_runs_on_the_card_it_picked(tmp_path, monkeypatch):
+    """A card on the host means the score network runs on it, not on the CPU.
+
+    `dock` detected the host's cards and pinned one, then handed the run a DockOptions that
+    still said ``cpu``, so the shipped command stayed on the CPU and only the grade harnesses
+    reached a chip (D-dfd-orch-73). The card is faked here: what is under test is which device
+    the options carry into `dock_run.dock`, which is the one thing that decision changes.
+    """
+    from tt_bio import main as tt_main
+    from tt_bio.diffdock import run as dock_run
+
+    seen = {}
+
+    def fake_dock(jobs, options, out_dir, **kw):
+        seen["device"] = options.device
+        return {"docked": [], "failed": [], "out_dir": str(out_dir)}
+
+    monkeypatch.setattr(tt_main, "_local_cards", lambda ids, n: [0])
+    monkeypatch.setattr(tt_main, "_pin_one_card", lambda devices, model: None)
+    monkeypatch.setattr(dock_run, "dock", fake_dock)
+    rec = tmp_path / "rec.pdb"
+    rec.write_text("ATOM      1  CA  ALA A   1       0.000   0.000   0.000  1.00  0.00\n")
+    res = run(str(rec), "--ligand", ASPIRIN, "--out_dir", str(tmp_path / "out"))
+    assert res.exit_code == 0, res.output
+    assert seen["device"] == "tt"
+
+
+def test_dock_without_a_card_stays_on_the_cpu(tmp_path, monkeypatch):
+    """The other half of the same decision: no card, no device path, no import of ttnn."""
+    from tt_bio import main as tt_main
+    from tt_bio.diffdock import run as dock_run
+
+    seen = {}
+    monkeypatch.setattr(tt_main, "_local_cards", lambda ids, n: [])
+    monkeypatch.setattr(dock_run, "dock",
+                        lambda jobs, options, out_dir, **kw: seen.update(device=options.device)
+                        or {"docked": [], "failed": [], "out_dir": str(out_dir)})
+    rec = tmp_path / "rec.pdb"
+    rec.write_text("ATOM      1  CA  ALA A   1       0.000   0.000   0.000  1.00  0.00\n")
+    res = run(str(rec), "--ligand", ASPIRIN, "--out_dir", str(tmp_path / "out"))
+    assert res.exit_code == 0, res.output
+    assert seen["device"] == "cpu"
+
+
+
+def test_the_device_branch_of_load_is_reachable(monkeypatch):
+    """`DockOptions(device="tt")` takes `load`'s device branch and returns that network.
+
+    The seam breaks in one specific way: landed without the `device` field, or without this
+    branch, every `tt-bio dock` on a host with a card dies before it docks. The checkpoints
+    and the card are faked here -- neither exists in CI -- so what is under test is the
+    branch and the names it uses, which is exactly the part that cannot be checked on a
+    machine with no chip.
+    """
+    import tt_bio.diffdock.network as network
+    from tt_bio.diffdock.job import DockOptions
+
+    host = object()
+    # `load` imports these inside the function, so they are patched where they are defined.
+    monkeypatch.setattr("tt_bio.diffdock.checkpoints.resolve",
+                        lambda *a, **k: (Path("score.pt"), Path("params/x.yaml")))
+    monkeypatch.setattr("tt_bio.diffdock.config.load", lambda *a, **k: object())
+    monkeypatch.setattr("tt_bio.diffdock.score_model.load_released", lambda *a, **k: object())
+    monkeypatch.setattr("tt_bio.diffdock.score_model.HostScoreNetwork",
+                        lambda *a, **k: host)
+    monkeypatch.setattr("torch.load", lambda *a, **k: {})
+    monkeypatch.setattr("tt_bio.main.ensure_p300_mesh_descriptor", lambda *a, **k: None)
+    monkeypatch.setattr("tt_bio.tenstorrent.get_device", lambda *a, **k: "a-card")
+    seen = {}
+    monkeypatch.setattr("tt_bio.diffdock.device.DeviceScoreNetwork",
+                        lambda h, d, edge_tp: seen.update(host=h, device=d, edge_tp=edge_tp)
+                        or "device-network")
+
+    assert network.load(DockOptions(no_confidence=True)) is host
+    assert network.load(DockOptions(device="tt", no_confidence=True)) == "device-network"
+    assert seen == {"host": host, "device": "a-card", "edge_tp": "gemm"}
+    network.load(DockOptions(device="tt", edge_tp="tile", no_confidence=True))
+    assert seen["edge_tp"] == "tile"
+
+
+def test_the_tile_form_keeps_the_torsion_head_on_gemm(monkeypatch):
+    """`edge_tp="tile"` puts every convolution on the fused kernel except the torsion head,
+    whose bf16 kernel error failed the SE(3) check; the default puts all of them on GEMM."""
+    import torch
+    import tt_bio.diffdock.device as device
+    from tt_bio.diffdock.conv import TensorProductConvLayer
+
+    made = {}
+
+    class Recorder(torch.nn.Module):
+        def __init__(self, dev, layer, *, name, edge_tp, **kw):
+            super().__init__()
+            made[name] = edge_tp
+
+    monkeypatch.setattr(device, "DeviceConvModule", Recorder)
+    layer = lambda: TensorProductConvLayer("4x0e", "1x0e + 1x1o", "4x0e", 6)
+
+    def model():
+        m = torch.nn.Module()
+        m.conv_layers = torch.nn.ModuleList([layer(), layer()])
+        m.tor_bond_conv = layer()
+        return m
+
+    for edge_tp, want in (("gemm", ["gemm"] * 3), ("tile", ["tile", "tile", "gemm"])):
+        made.clear()
+        host = type("H", (), {"model": model(), "config": None,
+                              "confidence_model": None})()
+        device.DeviceScoreNetwork(host, "a-card", edge_tp=edge_tp)
+        assert [made[k] for k in ("conv_layers.0", "conv_layers.1", "tor_bond_conv")] == want
+
+
+def test_device_score_network_has_the_rollout_interface():
+    """`DeviceScoreNetwork` is a drop-in for `HostScoreNetwork`: same three members.
+
+    The rollout reaches the network through `config`, `score_fn` and `confidence` and must
+    not know a card is involved; a missing member would only show up on a chip.
+    """
+    from tt_bio.diffdock.device import DeviceScoreNetwork
+    from tt_bio.diffdock.score_model import HostScoreNetwork
+
+    for name in ("config", "score_fn", "confidence"):
+        assert hasattr(HostScoreNetwork, name) or name == "config"
+        assert hasattr(DeviceScoreNetwork, name) or name == "config"
+    assert DeviceScoreNetwork.on_device is True

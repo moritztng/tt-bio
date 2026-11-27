@@ -279,6 +279,8 @@ for it and it happens: `tt-bio train ... --chips 2`, or `train.finetune(..., mes
 [0, 1]}))`. The Tier-1 recipe is a single process, so when it sees a wide axis and nothing
 launched it as a rank, it hands the run to `launcher.drive`.
 
+**A count picks the chips for you.** `--chips 8` takes eight chips round-robin across the box's PCIe root complexes (`launcher.spread`): 0,1,8,9,16,17,24,25 on a Galaxy, whose 32 chips sit on four complexes of eight, and the first N on a QuietBox, which has one. Every rank moves weights and activations over PCIe each step and ranks on one complex share its bandwidth; measured on a Blackhole Galaxy, eight ranks step in 10.9 s on chips 0-7 and 9.1 s on 0-3 + 8-11, with identical digests. Name the chips, `--chips 0,2`, to place them yourself.
+
 **It re-runs your program, it does not ship objects to it.** `TT_VISIBLE_DEVICES` is read at
 `import ttnn`, so a fork cannot give a child a different chip than its parent, and an unpinned
 open brings up every visible chip rather than the one being computed on. A rank therefore has to
@@ -482,6 +484,17 @@ Two things follow from walking, and both are checked rather than assumed.
 `train.checks.weight_coverage(model)` reports what a run reaches as leaves against total and
 names every miss, because a leaf count with no denominator cannot show a shortfall.
 
+**A run in which some parameter never trains is refused, not reported.** After the fifth step
+the loop intersects the set of parameters whose gradient was missing or identically zero on
+every step so far, and raises naming them. Five steps rather than one: most published
+initialisations zero each residual branch's output projection, so the weights behind it have an
+exactly zero gradient on step 1 and a normal one on step 2 (36 of 174 parameters on
+RFD4-Proteina's own blocks). Nothing else catches this -- ABodyBuilder3 once ran 1,388 steps
+with 356 of 436 parameters dead while the loss, the gradient norm and the per-step checkpoint
+digest all looked healthy. `coverage_steps=` sets the count; a parameter that legitimately
+never trains goes in by name with its reason rather than by widening anything
+(`train.GradientCoverage(names, exempt={...})`).
+
 `lora_factors_for` runs the shipped forward once with a census hook installed. Every call that
 routes through `tt_bio.ops.linear` announces itself with its own shapes; a call that does not
 route through it is not adaptable, and the census says so by not listing it. The hook records
@@ -680,6 +693,13 @@ the model-frame gradient against upstream OpenFold3 0.4.3 reads 0.99736x its acc
 where the same device kernels with a bf16 softmax backward read 2.168x
 (`perf/of3t_p10exact`). A crop-384 step on a p150a at 1350 MHz takes 54.3 s, 7.1x an H200's 7.620 s
 (`perf/of3t_p10default`).
+
+RFD4-Proteina's trunk trains with its attention in float32: the q/k/v projections, the q/k norms
+and the attention itself (`load_trunk(..., training=True, attn_fp32=True)`, the default of
+`perf/r4t_step/trunk_step.py`; opt out with `--attn-fp32 off`). With bf16 attention a 2,000-step
+run against upstream's loss curve spikes at step 823 (loss 20362) and fails the curve bar; in
+float32 the same step reads 127.5 and the run passes. Inference is unchanged: `attn_fp32` is off
+unless a caller asks for it, and off builds the serving trunk, output for output.
 
 The device path keeps the attention probabilities on the card for the backward, so on one card it
 fits OpenFold3 up to 512 aa (26.0 GB of 34.2 GB at 512). 544 and 576 fit only with `--exact`, and

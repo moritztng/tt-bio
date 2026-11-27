@@ -1,0 +1,10 @@
+Fetching 2 files:   0%|          | 0/2 [00:00<?, ?it/s]Fetching 2 files: 100%|██████████| 2/2 [00:00<00:00, 1169.96it/s]
+Environment variable CCD_MIRROR_PATH not set. Will not be able to use function requiring this variable. To set it you may:
+  (1) add the line 'export VAR_NAME=path/to/variable' to your .bashrc or .zshrc file
+  (2) set it in your current shell with 'export VAR_NAME=path/to/variable'
+  (3) write it to a .env file in the root of the atomworks.io repository
+Environment variable PDB_MIRROR_PATH not set. Will not be able to use function requiring this variable. To set it you may:
+  (1) add the line 'export VAR_NAME=path/to/variable' to your .bashrc or .zshrc file
+  (2) set it in your current shell with 'export VAR_NAME=path/to/variable'
+  (3) write it to a .env file in the root of the atomworks.io repository
+{"step": 1, "loss": 49.77063913980578, "fwd_s": 2.1361, "bwd_s": 1.4065, "fold_bwd_s": 0.8033, "opt_s": 1.2889, "rebuild_s": 0.1863, "rebuild_split": {"free_s": 0.0036, "load_s": 0.1811, "lazy_fwd_s": 0.0, "register_s": 0.0016, "prewarmed": 14}, "idle_dev_w": 50, "step_s": 5.821, "retained_B": 12639852544, "dead": 3, "dead_names": ["glue.init_repr_factory.feat_creators.7.ss_embedding.weight", "glue.insertion_k_proj.weight", "glue.insertion_q_proj.weight"], "dev_base_B": 888713216, "dev_after_bwd_B": 2452850688, "params": 558, "n_elems": 178448304, "master_digest": "397f02aa2ce261c0", "aiclk": [1325, 1350], "aiclk_med": 1350, "k": 4, "depth": 2, "n": 256, "lnbw_reach": {"served: weights": 35, "declined: l1": 7}, "gate_bw": [42, 0], "dev_after_heads_B": 2452850688, "batch": "batch06.npz", "winner": 3, "upstream_winner": 3, "depth_upstream": 2, "terms": {"bb_ca": 0.5908560434521861, "local_latents": 48.47100052653427, "insertion_prediction": 0.0, "sequence_prediction": 0.7087825698193303, "signed_volume": 0.0}, "upstream_terms": {"bb_ca": 0.5955954194068909, "local_latents": 48.46775436401367, "insertion_prediction": 0.0, "sequence_prediction": 0.7111042737960815, "signed_volume": 0.0}, "host_maxrss_GiB": 9.592}
