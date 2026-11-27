@@ -128,26 +128,33 @@ def fixed_update(pos: Tensor, tr_update: Tensor, rot_update: Tensor,
                  torsion_updates: Tensor | None, bonds, mask_rotate: Tensor | None):
     """Sampling's `modify_conformer`, fixed-shape. Returns `(pos, det)`.
 
-    `det` is the correlation determinant from :func:`~tt_bio.diffdock.kabsch.kabsch_horn`, a
-    diagnostic only: negative means the step hit upstream's reflection branch, which Horn's
-    quaternion handles without taking one. Accumulate it on device, read it after the loop.
+    Returns `(pos, det, bad)`. `det` is the correlation determinant from
+    :func:`~tt_bio.diffdock.kabsch.kabsch_horn`, a diagnostic only: negative means the step
+    hit upstream's reflection branch, which Horn's quaternion handles without taking one.
+    `bad` `[B]` is the same overflow mask the host rollout freezes on -- one check, both
+    paths -- and like `det` it is accumulated on device and read after the loop.
     """
     centre = pos.mean(dim=1, keepdim=True)
     rot_mat = axis_angle_to_matrix(rot_update)
     rigid = torch.bmm(pos - centre, rot_mat.permute(0, 2, 1)) + tr_update.unsqueeze(1) + centre
+    no_overflow = torch.zeros(pos.shape[0], dtype=torch.bool, device=pos.device)
     if torsion_updates is None or not len(bonds):
-        return rigid, None
+        return rigid, None, no_overflow
     flexible = apply_torsions(rigid, bonds, mask_rotate,
                               torsion_updates.reshape(rigid.shape[0], -1))
-    rot, t, det = kabsch_horn(flexible, rigid)
-    return torch.bmm(flexible, rot.transpose(1, 2)) + t.transpose(1, 2), det
+    rot, t, det, bad = kabsch_horn(flexible, rigid)
+    return torch.bmm(flexible, rot.transpose(1, 2)) + t.transpose(1, 2), det, bad
 
 
 def diffusion_step(pos, scores, score_coeff, noise_coeff, noise, bonds, mask_rotate):
-    """One step: guard the three scores, perturb, move. Returns `(pos, n_bad, det)`.
+    """One step: guard the three scores, perturb, move. Returns `(pos, n_bad, det, failed)`.
 
     *scores* and *noise* are `(tr, rot, tor)` triples, `[B, 3]`, `[B, 3]`, `[B, R]`. Nothing
     here reads a value off the device.
+
+    A sample whose Kabsch correlation matrix overflowed fp32 keeps the coordinates it came in
+    with and is reported in *failed*, which is the host rollout's freeze-and-record (
+    `sampling._move`) written as a select, so the traced program keeps its static shapes.
     """
     tr_score, n_tr = guard_scores(scores[0])
     rot_score, _ = guard_scores(scores[1])
@@ -158,24 +165,28 @@ def diffusion_step(pos, scores, score_coeff, noise_coeff, noise, bonds, mask_rot
     else:
         tor_score, _ = guard_scores(scores[2])
         tor_perturb = score_coeff[2] * tor_score + noise_coeff[2] * noise[2]
-    pos, det = fixed_update(pos, tr_perturb, rot_perturb, tor_perturb, bonds, mask_rotate)
-    return pos, n_tr, det
+    moved, det, failed = fixed_update(pos, tr_perturb, rot_perturb, tor_perturb, bonds,
+                                      mask_rotate)
+    return torch.where(failed[:, None, None], pos, moved), n_tr, det, failed
 
 
 def run_loop(pos, score_fn, table: CoefficientTable, noise_fn, bonds, mask_rotate):
     """Every step of the rollout, same program each time.
 
     `score_fn(pos, t_idx)` returns the three scores and `noise_fn(t_idx)` the three draws.
-    Returns `(pos, n_bad_total, min_det)` -- both diagnostics accumulated on device and read
-    once by the caller, never inside the loop.
+    Returns `(pos, n_bad_total, min_det, failed)` -- every diagnostic accumulated on device
+    and read once by the caller, never inside the loop. `failed` `[B]` is the samples frozen
+    on an overflowed Kabsch, the device path's half of `Rollout.failed`.
     """
     n_bad = torch.zeros((), dtype=torch.long)
+    failed = torch.zeros(pos.shape[0], dtype=torch.bool, device=pos.device)
     min_det = None
     for t_idx in range(table.steps):
         s, z = table.row(t_idx)
-        pos, step_bad, det = diffusion_step(pos, score_fn(pos, t_idx), s, z, noise_fn(t_idx),
-                                            bonds, mask_rotate)
+        pos, step_bad, det, step_failed = diffusion_step(
+            pos, score_fn(pos, t_idx), s, z, noise_fn(t_idx), bonds, mask_rotate)
         n_bad = n_bad + step_bad
+        failed = failed | step_failed
         if det is not None:
             min_det = det.min() if min_det is None else torch.minimum(min_det, det.min())
-    return pos, n_bad, min_det
+    return pos, n_bad, min_det, failed

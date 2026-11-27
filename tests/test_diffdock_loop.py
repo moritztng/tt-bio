@@ -94,9 +94,10 @@ def run_both(cfg):
             return z
         return (next(drawn), next(drawn), next(drawn).reshape(n_poses, n_bonds))
 
-    traced, n_bad, min_det = run_loop(
+    traced, n_bad, min_det, failed = run_loop(
         pos, lambda p, t: (scores[t][0], scores[t][1], scores[t][2].reshape(n_poses, n_bonds)),
         table, noise_fn, bonds, mask)
+    assert not bool(failed.any()), "no sample overflowed its Kabsch on this fixture"
     return eager.poses, traced, n_bad, min_det
 
 

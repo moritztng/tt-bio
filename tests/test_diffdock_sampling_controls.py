@@ -377,7 +377,8 @@ def test_kabsch_batch_agrees_with_the_shipped_fp64_implementation():
     a = torch.randn(3, 20, 3)
     rot = sampling.axis_angle_to_matrix(torch.randn(3, 3))
     b = torch.bmm(a, rot.transpose(1, 2)) + torch.randn(3, 1, 3)
-    r, t = sampling.kabsch_batch(a, b)
+    r, t, bad = sampling.kabsch_batch(a, b)
+    assert not bool(bad.any())
     fitted = torch.bmm(a, r.transpose(1, 2)) + t.transpose(1, 2)
     assert float((fitted - b).abs().max()) < 1e-4
     for i in range(3):

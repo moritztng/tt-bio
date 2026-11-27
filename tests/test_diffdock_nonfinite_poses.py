@@ -108,3 +108,104 @@ def test_a_clean_rollout_is_untouched_by_the_guard():
     b = rollout([], steps_bad=())
     assert torch.equal(a.poses, b.poses)
     assert not bool(a.failed.any())
+
+
+# ---------------------------------------------------------------------------
+# the overflowed Kabsch covariance: every number finite, and the SVD still raises
+# (D-dfd-sampling-10)
+# ---------------------------------------------------------------------------
+
+def blown_up_batch(mag=1e30, row=3, batch=10):
+    """Ten poses, one of them carried out to *mag* with its geometry along.
+
+    This is where the four eval complexes end up (7AVI_S2Q, 7TBU_S3P, 7X5N_5M5, 7ZCC_OGA):
+    the tr/rot heads reach ~1e16 -- upstream's own network returns the same magnitude on
+    these poses, PCC 0.999999997, `state/dfd/BLOWUP-2026-11-27.md` -- and a few steps later
+    the sample's coordinates are far enough out that the *products* in the Kabsch
+    correlation matrix overflow fp32 while every coordinate is still finite. No guard that
+    keys on a non-finite score or a non-finite update sees anything wrong, and
+    `torch.linalg.svd` raises for all ten samples at once.
+    """
+    pos, edge_index, mask_rotate = ligand()
+    lig_pos = pos.unsqueeze(0).repeat(batch, 1, 1)
+    lig_pos[row] = (lig_pos[row] + 1.0) * mag
+    assert torch.isfinite(lig_pos).all()
+    return lig_pos, edge_index, mask_rotate
+
+
+def blown_up_rollout(mag=1e30, row=3, batch=10):
+    lig_pos, edge_index, mask_rotate = blown_up_batch(mag, row, batch)
+
+    def score_fn(step):
+        return (-0.05 * step.lig_pos.mean(dim=1) / (step.tr_sigma ** 2 + 1.0),
+                torch.zeros(batch, 3),
+                torch.zeros(batch * mask_rotate.shape[0]))
+
+    return sampling.sample(score_fn, lig_pos, cfg=config(), bounds=BOUNDS,
+                           noise=sampling.Noise(seed=11), edge_index=edge_index,
+                           mask_rotate=mask_rotate, trajectory=True)
+
+
+def test_an_overflowing_sample_does_not_take_the_batched_svd_down():
+    """The campaign's last failing eval condition: the complex writes nine poses, not none."""
+    out = blown_up_rollout()
+    assert out.failed.tolist() == [i == 3 for i in range(10)]
+    assert torch.isfinite(out.poses).all()
+    # frozen at the last coordinates it actually had, nothing invented for it
+    assert torch.equal(out.poses[3], out.trajectory[0][3])
+
+
+def test_the_nine_survivors_are_bit_identical_to_a_run_without_the_bad_sample():
+    """Row-local, to the bit: an overflowing sample changes no other sample's arithmetic."""
+    bad = blown_up_rollout()
+    clean = blown_up_rollout(mag=1.0)
+    for row in range(10):
+        if row == 3:
+            continue
+        assert torch.equal(bad.poses[row], clean.poses[row]), row
+    assert not bool(clean.failed.any())
+
+
+def test_the_overflow_is_caught_before_the_svd_is_called(monkeypatch):
+    """Detection is on the SVD's input, so `linalg.svd` is never handed a non-finite matrix."""
+    seen = []
+    real_svd = torch.linalg.svd
+
+    def spy(x, *a, **kw):
+        seen.append(bool(torch.isfinite(x).all()))
+        return real_svd(x, *a, **kw)
+
+    monkeypatch.setattr(torch.linalg, "svd", spy)
+    out = blown_up_rollout()
+    assert seen, "the fixture must actually reach the SVD"
+    assert all(seen), "a non-finite matrix reached the SVD"
+    assert bool(out.failed[3])
+
+
+def test_both_kabsch_routes_flag_the_same_overflowed_sample():
+    """One check, both paths: the host SVD route and the device Horn route agree."""
+    from tt_bio.diffdock.kabsch import kabsch_horn
+
+    a = torch.randn(4, 12, 3)
+    b = a + 0.01
+    a[2] = a[2] * 1e30
+    b[2] = b[2] * 1e30
+    _, _, host_bad = sampling.kabsch_batch(a, b)
+    _, _, _, device_bad = kabsch_horn(a, b)
+    assert host_bad.tolist() == [False, False, True, False]
+    assert device_bad.tolist() == host_bad.tolist()
+
+
+def test_a_complex_whose_every_sample_overflows_is_one_failed_result():
+    """All ten gone is one `failures.csv` row, not a traceback."""
+    pos, edge_index, mask_rotate = ligand()
+    lig_pos = ((pos + 1.0) * 1e30).unsqueeze(0).repeat(3, 1, 1)
+
+    def score_fn(step):
+        return (torch.zeros(3, 3), torch.zeros(3, 3), torch.zeros(3 * mask_rotate.shape[0]))
+
+    out = sampling.sample(score_fn, lig_pos, cfg=config(), bounds=BOUNDS,
+                          noise=sampling.Noise(seed=5), edge_index=edge_index,
+                          mask_rotate=mask_rotate)
+    assert bool(out.failed.all())
+    assert torch.isfinite(out.poses).all()

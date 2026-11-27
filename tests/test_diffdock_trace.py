@@ -85,9 +85,9 @@ def _step_fn(s, rec_pos, bonds, mask_rotate, table):
         tr_z, rot_z, tor_z = noise
         sc, nz = table.row(t_idx)
         pos = lig_pos.reshape(N_POSES, s.n_lig_padded, 3)
-        pos, _ = fixed_update(pos, sc[0] * tr_score + nz[0] * tr_z,
-                              sc[1] * rot_score + nz[1] * rot_z,
-                              sc[2] * tor_score + nz[2] * tor_z, bonds, mask_rotate)
+        pos, _, _ = fixed_update(pos, sc[0] * tr_score + nz[0] * tr_z,
+                                 sc[1] * rot_score + nz[1] * rot_z,
+                                 sc[2] * tor_score + nz[2] * tor_z, bonds, mask_rotate)
         return pos.reshape(-1, 3)
 
     return step
