@@ -88,6 +88,7 @@ import torch
 from rdkit import Chem
 
 from tt_bio import __version__, size_limits, weights
+from tt_bio.diffdock.job import RECIPE as _DOCK_RECIPE
 from tt_bio.data import const
 from tt_bio.data.mol import load_molecules
 from tt_bio.data.msa import run_mmseqs2
@@ -218,6 +219,12 @@ _RFD4_RECIPES = ("high/flat", "high/front_loaded", "high/midpeak",
                  "low/flat", "low/front_loaded", "low/midpeak",
                  "medium/flat", "medium/front_loaded", "medium/midpeak",
                  "thinking_high", "thinking_low", "thinking_medium")
+
+# `dock --model`: small-molecule docking. Separate from PREDICT_MODELS because the output
+# is a ranked set of ligand poses against a fixed receptor, not a folded complex, and the
+# input is a receptor plus a ligand rather than a chain list. One entry today; the choice
+# exists so a second docking model later does not change anyone's command line.
+DOCK_MODELS = ("diffdock",)
 
 # `affinity --model`: scalar-output affinity predictors. Separate from PREDICT_MODELS
 # because these fold nothing — no coordinates, no PAE, no confidence — so they do not
@@ -2161,6 +2168,241 @@ def gen(args):
         "pipeline; `gen run X --output out` becomes `design X --model boltzgen "
         "--out_dir out`).", fg="yellow", err=True)
     _run_boltzgen_cli("tt-bio gen", args)
+
+
+@cli.command("dock")
+@click.argument("data")
+@click.option("--ligand", default=None,
+              help="The ligand to dock: a SMILES string or a molecule file (.sdf, .mol, "
+                   ".mol2, .pdb, .smi). Required unless DATA is a CSV or a YAML job.")
+@click.option("--name", default=None,
+              help="Name for this complex, and the output sub-directory. "
+                   "Default: complex_0, as upstream.")
+@click.option("--out_dir", default="./results", show_default=True,
+              help="Results root. Each complex gets <out_dir>/<name>/.")
+@click.option("--model", type=click.Choice(list(DOCK_MODELS)), default="diffdock",
+              show_default=True,
+              help="Docking model. diffdock: DiffDock-L, diffusion over ligand position, "
+                   "orientation and torsions, with a confidence model that ranks the poses.")
+@click.option("--weights", type=click.Choice(["diffdock-l", "diffdock"]), default="diffdock-l",
+              show_default=True,
+              help="Which released model generation to run. diffdock-l is the v1.1 "
+                   "checkpoint (upstream's default recipe). diffdock is the original "
+                   "DiffDock score architecture (upstream --old_score_model); it is not "
+                   "implemented here and has no released weights, so it is refused.")
+@click.option("--checkpoint", default=None, type=click.Path(exists=True),
+              help="Score-model checkpoint: a .pt file, or a directory in upstream's layout "
+                   "(best_ema_inference_epoch_model.pt + model_parameters.yml). Default: the "
+                   "cached v1.1 release, fetched on first use.")
+@click.option("--confidence_checkpoint", default=None, type=click.Path(exists=True),
+              help="Confidence-model checkpoint, a .pt file or an upstream directory. "
+                   "Default: the cached v1.1 release.")
+@click.option("--no_confidence", is_flag=True,
+              help="Score only: skip the confidence model, rank by sample order and write no "
+                   "confidence-suffixed files.")
+@click.option("--diffusion_samples", default=None, type=int,
+              help=f"Poses to generate per complex (upstream --samples_per_complex). "
+                   f"Default: {_DOCK_RECIPE['samples_per_complex']}.")
+@click.option("--sampling_steps", default=None, type=int,
+              help=f"Length of the denoising schedule (upstream --inference_steps). "
+                   f"Default: {_DOCK_RECIPE['inference_steps']}.")
+@click.option("--actual_steps", default=None, type=int,
+              help=f"Denoising steps actually performed, of --sampling_steps. The recipe "
+                   f"stops one step early. Default: {_DOCK_RECIPE['actual_steps']}.")
+@click.option("--max_parallel_samples", default=None, type=int,
+              help="Poses denoised in one batched forward (upstream --batch_size). Halves "
+                   "itself if the device refuses the batch. Default: 10.")
+@click.option("--no_final_step_noise/--final_step_noise", default=None,
+              help=f"Leave the noise off the last denoising step. Default: "
+                   f"{'on' if _DOCK_RECIPE['no_final_step_noise'] else 'off'}, as the recipe.")
+@click.option("--initial_noise_std", default=None, type=float,
+              help=f"Width of the starting translation prior, in units of tr_sigma_max "
+                   f"(upstream --initial_noise_std_proportion). Default: "
+                   f"{_DOCK_RECIPE['initial_noise_std_proportion']:.4f}, the fitted value.")
+@click.option("--init_at_residue", is_flag=True, default=None,
+              help="Start the ligand at a random receptor residue instead of the receptor "
+                   "centre (upstream --choose_residue).")
+@click.option("--sampler", type=click.Choice(["sde", "ode"]), default=None,
+              help="sde: the stochastic reverse diffusion (default). ode: the "
+                   "probability-flow ODE, upstream's --ode.")
+@click.option("--deterministic", is_flag=True, default=None,
+              help="No randomness in the diffusion steps (upstream --no_random). With "
+                   "--seed this makes a run reproducible step for step.")
+@click.option("--no_model", is_flag=True, default=None,
+              help="Return the randomized RDKit seed conformer without running the model "
+                   "(upstream's null baseline). Needs no weights and no device.")
+@click.option("--pocket", default=None,
+              help="Dock into a known pocket: 'x,y,z' centre coordinates. Without it the "
+                   "whole receptor is searched (blind docking).")
+@click.option("--pocket_radius", default=None, type=float,
+              help="Radius in Angstrom around --pocket the ligand may start in. Default: 5.")
+@click.option("--save_trajectory", is_flag=True, default=None,
+              help="Also write rank<N>_reverseprocess.pdb, every frame of the reverse "
+                   "diffusion (upstream --save_visualisation).")
+@click.option("--minimize", type=click.Choice(["none", "gnina"]), default=None,
+              help="Post-minimize the top pose with gnina, if the binary is on PATH. "
+                   "Default: none.")
+@click.option("--gnina_path", default=None, help="gnina binary for --minimize gnina.")
+@click.option("--limit_failures", default=None, type=int,
+              help=f"Give up on a CSV or directory run after this many failed complexes. "
+                   f"Default: {int(_DOCK_RECIPE['limit_failures'])}.")
+@click.option("--config", default=None, type=click.Path(exists=True, dir_okay=False),
+              help="A DiffDock inference-args YAML. Upstream's default_inference_args.yaml "
+                   "is accepted verbatim, including the nine low-temperature sampling "
+                   "constants, which have no flags of their own.")
+@click.option("--seed", default=None, type=int,
+              help="Random seed. Default: 0. Upstream has no seed flag; it uses the global "
+                   "torch RNG.")
+@click.option("--cache", default=None, type=click.Path(),
+              help="Weight cache directory (default: $TT_BIO_CACHE, $BOLTZ_CACHE, ~/.boltz).")
+@click.option("--devices", "--device_ids", "device_ids", default=None, type=str,
+              help="Comma-separated physical TT card ids to fan the complexes across, "
+                   "e.g. '0,1,2,3'. Default: every card on this machine.")
+@click.option("--host_threads", default=None, type=int,
+              help="CPU threads this process may use in total, split across its cards.")
+@click.option("--controller", default=None,
+              help="Submit to a running `tt-bio controller` at URL instead of scheduling "
+                   "locally. Compute comes from its workers.")
+@click.option("--owner", default=None,
+              help="Opaque fairness key the controller uses to fair-share devices. "
+                   "Requires --controller.")
+@click.option("--fast", is_flag=True,
+              help="Use block-fp8 for some operations (slightly lower precision, faster).")
+@click.option("--log", "loglevel", default="WARNING", show_default=True,
+              type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+                                case_sensitive=False),
+              help="Log level, upstream's --loglevel under tt-bio's name.")
+def dock(data, ligand, name, out_dir, model, config, loglevel, cache, device_ids,
+         host_threads, controller, owner, fast, **flags):
+    """Dock a small molecule into a receptor and rank the poses.
+
+    \b
+        tt-bio dock receptor.pdb --ligand 'CC(=O)Oc1ccccc1C(=O)O' --model diffdock
+        tt-bio dock ligands.csv --model diffdock --out_dir results/
+        tt-bio dock job.yaml --model diffdock
+
+    DATA is a receptor structure (.pdb/.cif), a bare protein sequence, an upstream
+    four-column CSV, a tt-bio job YAML, or a directory of YAMLs. Poses land in upstream's
+    layout, <out_dir>/<name>/rank1.sdf and friends, plus a confidence.json listing the
+    ranking. Defaults are DiffDock-L's published recipe; see docs for the flag map.
+    """
+    import logging
+
+    from tt_bio.capabilities import check_capabilities
+    from tt_bio.diffdock import run as dock_run
+    from tt_bio.diffdock.job import (DockJob, DockOptions, looks_like_sequence,
+                                     override as dock_override, read_jobs)
+
+    level = getattr(logging, loglevel.upper())
+    logging.basicConfig(level=level)
+    # basicConfig leaves an already-configured root alone, so set the level we were asked
+    # for on tt-bio's own logger; upstream's configure_logger does the same for its tree.
+    logging.getLogger("tt_bio").setLevel(level)
+    options = DockOptions()
+    if config:
+        options = options.with_config(config)
+
+    path = Path(data).expanduser()
+    bare_sequence = not path.exists() and looks_like_sequence(data)
+    if not bare_sequence and not path.exists():
+        raise click.ClickException(f"{data}: no such file (and it is not a protein sequence)")
+
+    try:
+        jobs, options = ([], options) if bare_sequence else read_jobs(path, options)
+    except ValueError as e:
+        raise click.ClickException(str(e))
+
+    if path.suffix.lower() in (".yaml", ".yml") or path.is_dir():
+        try:
+            for job_yaml in ([path] if path.is_file() else sorted(path.glob("*.y*ml"))):
+                chains = _dock_chains(job_yaml)
+                check_capabilities(job_yaml, chains, model, echo=_echo_note)
+        except RuntimeError as e:
+            raise click.ClickException(str(e))
+
+    explicit = {k: v for k, v in flags.items() if v is not None and v is not False}
+    if "pocket" in explicit:
+        from tt_bio.diffdock.job import parse_pocket
+        explicit["pocket"] = parse_pocket(explicit["pocket"])
+    if "checkpoint" in explicit:
+        explicit["checkpoint"] = Path(explicit["checkpoint"])
+    if "confidence_checkpoint" in explicit:
+        explicit["confidence_checkpoint"] = Path(explicit["confidence_checkpoint"])
+    try:
+        options = dock_override(options, explicit)
+    except ValueError as e:
+        raise click.ClickException(str(e))
+
+    if not jobs:
+        if not ligand:
+            raise click.ClickException(
+                "--ligand is required when DATA is a single receptor (a SMILES string or a "
+                "molecule file). A CSV or YAML carries its own ligand.")
+        jobs = [DockJob(name=name or "complex_0",
+                        receptor_path=None if bare_sequence else path,
+                        receptor_sequence=data if bare_sequence else None,
+                        ligand=ligand)]
+    elif ligand:
+        raise click.ClickException(
+            f"--ligand and {path.name} both name a ligand; drop one.")
+
+    # Complexes are independent jobs. Several of them on a multi-card host run through the
+    # same controller path a fleet uses, against a private pool of one worker per card.
+    if controller and device_ids:
+        click.secho("Note: with --controller the fleet's workers pick the cards; "
+                    "ignoring --devices.", fg="yellow")
+    elif not controller and not options.no_model:
+        cards = _local_cards(device_ids, len(jobs))
+        if len(cards) > 1:
+            controller = click.get_current_context().with_resource(_local_controller(cards))
+        elif device_ids and cards:
+            _pin_one_card(str(cards[0]), model)
+    if owner and not controller:
+        raise click.UsageError("--owner is a fairness key for --controller; pass both.")
+
+    try:
+        if controller:
+            from tt_bio.diffdock.fleet import dock_via_controller
+
+            summary = dock_via_controller(jobs, options, out_dir, controller_url=controller,
+                                          owner=owner)
+        else:
+            summary = dock_run.dock(jobs, options, out_dir, cache=cache,
+                                    isolate=len(jobs) > 1, download=True)
+    except (RuntimeError, ValueError, FileNotFoundError) as e:
+        raise click.ClickException(str(e))
+    click.echo(json.dumps({"docked": [d["name"] for d in summary["docked"]],
+                           "failed": [f[0] for f in summary["failed"]],
+                           "out_dir": summary["out_dir"]}, indent=2))
+
+
+def _echo_note(msg: str) -> None:
+    click.secho(msg, fg="yellow", err=True)
+
+
+def _dock_chains(path: Path):
+    """The chain tuples ``check_capabilities`` reads, for a docking YAML.
+
+    `tt-bio dock` takes a receptor structure file, which `_read_bio_chains` has no entry
+    for, so the chain list is built here in the same five-tuple shape. Everything else the
+    capability check looks at (templates:, constraints:, properties:, cyclic:) it reads off
+    the file itself, so a docking YAML is refused by the same code and the same words as a
+    fold.
+    """
+    import yaml as _yaml
+
+    data = _yaml.safe_load(path.read_text()) or {}
+    chains = []
+    for entry in data.get("sequences") or []:
+        if not isinstance(entry, dict) or not entry:
+            continue
+        (kind, body), = entry.items()
+        body = body or {}
+        cid = body.get("id") or _chain_label(len(chains))
+        seq = body.get("sequence") or body.get("smiles") or (
+            f"CCD_{body['ccd']}" if body.get("ccd") else "")
+        chains.append((cid, seq, None, kind, body.get("modifications")))
+    return chains
 
 
 @cli.command("score")

@@ -1346,6 +1346,41 @@ def load_esm2(repo: str = "facebook/esm2_t33_650M_UR50D", cache_dir=None) -> Sap
     return model
 
 
+_ESM2_ENCODERS: dict = {}
+
+
+def esm2_encoder(model_name: str = "facebook/esm2_t33_650M_UR50D", cache_dir=None):
+    """``seq -> [1, L+2, 1280]`` float32 final-layer ESM-2 on the card, once per process.
+
+    The 650M on a host CPU is most of a warm prediction's host time (1.4 s of 2.0 s on a
+    12-core desktop, more on a loaded Galaxy host); on the card it is one encoder forward.
+
+    Two models condition on this embedding -- Nesso-1 and DiffDock -- and both reach it here
+    rather than carrying a copy. The returned tensor keeps the ``<cls>`` and ``<eos>`` rows:
+    callers differ on whether they want them (DiffDock strips both), and stripping in two
+    places is cheaper to get wrong than slicing at the call site.
+    """
+    if model_name not in _ESM2_ENCODERS:
+        import torch
+        from transformers import AutoTokenizer
+
+        from tt_bio.weights import hf_revision
+
+        # At the commit preflight fetched: a pinned snapshot writes no refs/main, so an
+        # offline host asking for `main` finds nothing.
+        tok = AutoTokenizer.from_pretrained(model_name, revision=hf_revision(model_name),
+                                            cache_dir=None if cache_dir is None else str(cache_dir))
+        model = load_esm2(model_name, cache_dir)
+
+        def encode(seq: str) -> "torch.Tensor":
+            with torch.no_grad():
+                _, emb = model(tok(seq, return_tensors="pt")["input_ids"], want_logits=False)
+            return emb.float().contiguous()
+
+        _ESM2_ENCODERS[model_name] = encode
+    return _ESM2_ENCODERS[model_name]
+
+
 def load_saprot(name: str = "saprot-650m", *, fast: bool = False):
     from tt_bio import tenstorrent
     tenstorrent.set_fast_mode(fast)

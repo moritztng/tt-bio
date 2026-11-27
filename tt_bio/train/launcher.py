@@ -84,6 +84,8 @@ BARRIER_TIMEOUT_S = 900.0
 #: two steps back, which is safe because the barrier one step back already proved every peer
 #: read it, and it bounds the run at 2 x world x gradient bytes instead of steps x that.
 _KEEP_STEPS = 2
+# reduce_scatter accumulates this many elements at a time (256 KB of fp32, fits a core's L2).
+_RS_BLOCK = 1 << 16
 
 
 def host_threads(world: int) -> int:
@@ -231,6 +233,8 @@ class ProcessAxis(Axis):
 
     dp_rank: int = 0
     run: str = ""
+    #: Slots peers may still be reading once a phase's barrier passes: the one just published.
+    _SLOTS_HELD = 1
     #: per-step timings, mutated in place because the dataclass is frozen. Three numbers per
     #: step and not one: ``publish``+``add`` is what the collective costs, while ``wait`` is
     #: mostly the slower peer's step tail. Summing them into one "comm" figure reports load
@@ -339,51 +343,160 @@ class ProcessAxis(Axis):
             raise ValueError(f"edges {edges.tolist()} do not split {vec.size} elements into "
                              f"{w} ordered slices")
         t0 = time.perf_counter()
-        _publish(d, f"s{step}_r{me}", vec)
+        self._put(d, f"s{step}_r{me}", vec)
         t_pub = time.perf_counter()
         full = self._await(d, step, "r")
         t_wait = time.perf_counter()
         lo, hi = int(edges[me]), int(edges[me + 1])
+        views = [self._view(f)[lo:hi] for f in full]
         part = np.zeros(hi - lo, dtype=vec.dtype)
-        for f in full:
-            part += np.load(f, mmap_mode="r")[lo:hi]
+        # Blocked so the accumulator stays in cache across the peers: one pass over the whole
+        # slice per peer round-tripped it through memory width times, ~3x the bytes the sum
+        # needs and most of the 16-rank reduce_scatter on one host. Same per-element add order.
+        for a in range(0, hi - lo, _RS_BLOCK):
+            blk = part[a:a + _RS_BLOCK]
+            for v in views:
+                blk += v[a:a + _RS_BLOCK]
         # A stack, so a small exchange (the clip norm's sum_scalars) can run between a
         # sharded optimizer's reduce_scatter and its all_gather.
         self.state.setdefault("_open", []).append((step, edges, vec.size))
         self.state.update(_pub=t_pub - t0, _wait=t_wait - t_pub)
         return part
 
-    def all_gather(self, part, edges=None):
+    def all_gather(self, part, edges=None, out=None):
         """Every rank's slice of the step :meth:`reduce_scatter` opened, as one vector.
 
         ``part`` need not be what ``reduce_scatter`` returned: a sharded optimizer hands back
         the slice of weights it just stepped, and every rank gets all of them in the same
         bytes. A rank past this barrier knows every rank finished reading step s-1, so the
-        files ``_KEEP_STEPS`` back are safe to drop.
+        files ``_KEEP_STEPS`` back are safe to drop. ``out`` is filled and returned instead of
+        a fresh vector: a caller that gathers the same size every step keeps one buffer and
+        skips a page-faulting allocation of the whole vector per step.
         """
         import numpy as np
         if edges is not None:
             # A gather on its own (a sharded optimizer's moments at a checkpoint): its own step.
             step = self.state["step"] = self.state["step"] + 1
             edges = np.asarray(edges, dtype=np.int64)
-            n = int(edges[-1])
         else:
-            step, edges, n = self.state["_open"].pop()
+            step, edges, _n = self.state["_open"].pop()
+        parts, edges = self._gather_parts(part, step, edges)
+        n, dt = int(edges[-1]), np.asarray(part).dtype
+        if out is not None and (out.shape != (n,) or out.dtype != dt):
+            raise ValueError(f"out is {out.dtype}{out.shape}, the gather is {dt}({n},)")
+        acc = np.empty(n, dtype=dt) if out is None else out
+        for r, got in enumerate(parts):
+            acc[edges[r]:edges[r + 1]] = got
+        return acc
+
+    def all_gather_parts(self, part):
+        """:meth:`all_gather` of the open step without assembling it: every rank's slice, in rank order.
+
+        Each slice is a read-only mapping of the peer's published slot, valid until this rank's
+        next collective call. A sharded optimizer with tensor-aligned edges copies each
+        parameter straight from its owner's slice into the master, which skips writing and
+        re-reading a whole-model vector per rank per step.
+        """
+        step, edges, _n = self.state["_open"].pop()
+        return self._gather_parts(part, step, edges)[0]
+
+    def _gather_parts(self, part, step, edges):
         d, me = Path(self.run), self.dp_rank
         if part.size != edges[me + 1] - edges[me]:
             raise ValueError(f"rank {me} holds {part.size} elements for a slice of "
                              f"{int(edges[me + 1] - edges[me])}")
-        _publish(d, f"s{step}_q{me}", part)
+        self._put(d, f"s{step}_q{me}", part)
         t0 = time.perf_counter()
         slices = self._await(d, step, "q")
         if "_wait" in self.state:
             self.state["_wait"] += time.perf_counter() - t0
-        acc = np.empty(n, dtype=np.asarray(part).dtype)
-        for r, f in enumerate(slices):
-            acc[edges[r]:edges[r + 1]] = np.load(f, mmap_mode="r")
         for kind in "rq":
             (d / f"s{step - _KEEP_STEPS}_{kind}{me}.npy").unlink(missing_ok=True)
-        return acc
+        return [self._view(f) for f in slices], edges
+
+    def _put(self, d: Path, name: str, arr) -> None:
+        """Publish ``arr`` as ``d/name.npy``: a symlink to one of this rank's slot files.
+
+        A fresh 714 MB file on /dev/shm costs 0.26 s in page allocation where rewriting a
+        resident one costs 0.06 s (``perf/r4t_scale/fault_bench.py``), and every rank pays it
+        every phase, so slots are rewritten in place. A slot is rewritten only once every peer
+        has finished reading it: ranks make the same collective calls in the same order and
+        each reads a phase's files before publishing its next one, so once this rank has seen
+        every peer's file of the NEXT phase, the slot it published before that is free
+        (:meth:`_await`).
+        """
+        import numpy as np
+        st = self.state
+        staged = st.pop("_staged", None)
+        if staged is not None and staged[2] is arr:
+            # The caller wrote its vector straight into the slot (send_buffer): nothing to copy.
+            key, slot = staged[0], staged[1]
+        else:
+            if staged is not None:  # staged but not sent: the slot goes back unused
+                st["_free"][staged[0]].append(staged[1])
+            arr = np.ascontiguousarray(arr)
+            key, slot = self._slot(d, arr.dtype, arr.shape)
+            # Through a cached mapping: 4x faster on tmpfs than write() into the same pages,
+            # and a mapping kept across steps does not fault them in again.
+            self._wmap(d, slot)[...] = arr
+        tmp = d / f"{name}.part"
+        os.symlink(slot, tmp)
+        os.replace(tmp, d / f"{name}.npy")
+        st.setdefault("_sent", []).append((key, slot))
+
+    def send_buffer(self, size: int, dtype="float32"):
+        """A writable vector of ``size`` that the next :meth:`reduce_scatter` sends without a copy.
+
+        It maps the slot file this rank publishes next, so filling it IS the publish: at
+        178 M fp32 that drops a 714 MB copy per rank per step, which on one host shared by 16
+        ranks is memory bandwidth every rank pays for. Its contents are whatever the slot held
+        last time: write every element. Pass the same array to ``reduce_scatter``; anything
+        else is copied as before and the slot goes back unused.
+        """
+        import numpy as np
+        d = Path(self.run)
+        st = self.state
+        old = st.pop("_staged", None)
+        if old is not None:
+            st["_free"][old[0]].append(old[1])
+        key, slot = self._slot(d, np.dtype(dtype), (int(size),))
+        buf = self._wmap(d, slot)
+        st["_staged"] = (key, slot, buf)
+        return buf
+
+    def _slot(self, d: Path, dtype, shape):
+        """A free slot of this dtype and shape, or a new zero-filled one."""
+        import numpy as np
+        st = self.state
+        key = (np.dtype(dtype).str, tuple(shape))
+        free = st.setdefault("_free", {}).setdefault(key, [])
+        if free:
+            return key, free.pop()
+        st["_nslot"] = st.get("_nslot", 0) + 1
+        slot = f"slot{self.dp_rank}_{st['_nslot']}.npy"
+        np.lib.format.open_memmap(d / slot, mode="w+", dtype=dtype, shape=tuple(shape))
+        return key, slot
+
+    def _wmap(self, d: Path, slot: str):
+        """This rank's writable mapping of one of its slots, opened once per run."""
+        import numpy as np
+        maps = self.state.setdefault("_wmaps", {})
+        if slot not in maps:
+            maps[slot] = np.load(d / slot, mmap_mode="r+")
+        return maps[slot]
+
+    def _view(self, f: Path):
+        """A read-only mapping of the slot behind a peer's published file, opened once per run.
+
+        Slots are rewritten in place, never replaced, so a mapping stays current; reopening
+        it every phase cost a page-table fault per 4 KB of every peer's vector, every step.
+        """
+        import numpy as np
+        slot = f.parent / os.readlink(f)
+        maps = self.state.setdefault("_rmaps", {})
+        if slot not in maps:
+            maps[slot] = np.load(slot, mmap_mode="r")
+        return maps[slot]
 
     def _await(self, d: Path, step: int, kind: str) -> list:
         """The ``width`` files of one phase of ``step``, once all exist. Times out, never hangs."""
@@ -398,6 +511,12 @@ class ProcessAxis(Axis):
                     f"{here}. A rank that died holding the barrier stops the run here instead "
                     f"of hanging it")
             time.sleep(0.002)
+        # Every peer published this phase, so every peer finished reading the phase before.
+        sent = self.state.get("_sent", [])
+        done = len(sent) - self._SLOTS_HELD
+        for key, slot in sent[:done]:
+            self.state["_free"][key].append(slot)
+        del sent[:done]
         return want
 
 
@@ -418,15 +537,6 @@ def shard_edges(sizes, world: int):
         edges.append(max(edges[-1], int(bounds[i])))
     edges.append(total)
     return np.asarray(edges, dtype=np.int64)
-
-
-def _publish(d: Path, name: str, arr) -> None:
-    """Write ``arr`` as ``d/name.npy`` atomically: a temporary name, then ``os.replace``."""
-    import numpy as np
-    tmp = d / f"{name}.part"
-    with open(tmp, "wb") as fh:
-        np.save(fh, arr)
-    os.replace(tmp, d / f"{name}.npy")
 
 
 def reducer(axis: Axis) -> Axis:

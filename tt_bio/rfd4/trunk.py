@@ -100,10 +100,14 @@ def _masked_copy(x, mask, dtype, alias=False):
         if x.dtype == dtype:
             return x if alias else ttnn.clone(x)
         return ttnn.typecast(x, dtype)
-    xd = _as(x, dtype)
-    out = ttnn.multiply(xd, mask)
-    if xd is not x:
-        ttnn.deallocate(xd)
+    # Operand and mask in one dtype. A float32 trunk keeps a bfloat16 pair stream under `pair_bf16z`, and
+    # ttnn.multiply of a bf16 [b, n, n, c] by an fp32 [b, n, n, 1] mask wrote wrong values into ~0.4 % of the
+    # real entries, different ones each call (r4t net6, `perf/r4t_tape/mask_dtype.py`). Served calls match.
+    xd, md = _as(x, dtype), _as(mask, dtype)
+    out = ttnn.multiply(xd, md)
+    for t, given in ((xd, x), (md, mask)):
+        if t is not given:
+            ttnn.deallocate(t)
     return out
 
 
@@ -262,29 +266,33 @@ class PairBiasAttention(Module):
     -1e4 fill is scaled with it by the caller and stays far below every real score.
     """
 
-    def __init__(self, state_dict, ckc, n_heads: int, dtype=None):
+    def __init__(self, state_dict, ckc, n_heads: int, dtype=None, attn_dtype=None):
         super().__init__(state_dict, ckc)
         self.dtype = dtype or ttnn.bfloat16
+        #: q/k/v, their norms and the attention: `dtype` unless the trunk runs `attn_fp32` (see `Trunk`)
+        self.attn_dtype = attn_dtype or self.dtype
         self.n_heads = n_heads
         inner = self.weights["to_qkv.weight"].shape[0] // 3
         self.inner = inner
         self.head_dim = inner // n_heads
         self.node_norm_w = self.torch_to_tt("node_norm.weight", transform=lambda x: x, dtype=self.dtype)
         wd, self.wckc = _token_weights(self)
-        self.q_w = self.torch_to_tt("to_qkv.weight", transform=lambda w: w[:inner].t(), dtype=wd)
-        self.k_w = self.torch_to_tt("to_qkv.weight", transform=lambda w: w[inner:2 * inner].t(), dtype=wd)
-        self.v_w = self.torch_to_tt("to_qkv.weight", transform=lambda w: w[2 * inner:].t(), dtype=wd)
-        self.q_b = self.torch_to_tt("to_qkv.bias", transform=lambda b: b[:inner], dtype=self.dtype)
-        self.k_b = self.torch_to_tt("to_qkv.bias", transform=lambda b: b[inner:2 * inner], dtype=self.dtype)
-        self.v_b = self.torch_to_tt("to_qkv.bias", transform=lambda b: b[2 * inner:], dtype=self.dtype)
+        ad = self.attn_dtype
+        qd = wd if ad == self.dtype else ad
+        self.q_w = self.torch_to_tt("to_qkv.weight", transform=lambda w: w[:inner].t(), dtype=qd)
+        self.k_w = self.torch_to_tt("to_qkv.weight", transform=lambda w: w[inner:2 * inner].t(), dtype=qd)
+        self.v_w = self.torch_to_tt("to_qkv.weight", transform=lambda w: w[2 * inner:].t(), dtype=qd)
+        self.q_b = self.torch_to_tt("to_qkv.bias", transform=lambda b: b[:inner], dtype=ad)
+        self.k_b = self.torch_to_tt("to_qkv.bias", transform=lambda b: b[inner:2 * inner], dtype=ad)
+        self.v_b = self.torch_to_tt("to_qkv.bias", transform=lambda b: b[2 * inner:], dtype=ad)
         self.g_w = self.torch_to_tt("to_g.weight", dtype=wd)
         self.g_b = self.torch_to_tt("to_g.bias", transform=lambda x: x, dtype=self.dtype)
         self.out_w = self.torch_to_tt("to_out_node.weight", dtype=wd)
         self.out_b = self.torch_to_tt("to_out_node.bias", transform=lambda x: x, dtype=self.dtype)
         self.qk_norm = "q_layer_norm.weight" in self.weights
         if self.qk_norm:
-            self.q_norm_w = self.torch_to_tt("q_layer_norm.weight", transform=lambda x: x, dtype=self.dtype)
-            self.k_norm_w = self.torch_to_tt("k_layer_norm.weight", transform=lambda x: x, dtype=self.dtype)
+            self.q_norm_w = self.torch_to_tt("q_layer_norm.weight", transform=lambda x: x, dtype=ad)
+            self.k_norm_w = self.torch_to_tt("k_layer_norm.weight", transform=lambda x: x, dtype=ad)
         #: [pair, heads] fp32: sqrt(head_dim) * diag(pair_norm.weight) to_bias.weight^T.
         self.bias_w_host = (self.weights["to_bias.weight"].float().t()
                             * self.weights["pair_norm.weight"].float()[:, None] * self.head_dim ** 0.5)
@@ -307,11 +315,14 @@ class PairBiasAttention(Module):
         recomputed nor freed); otherwise it is built from `z` and `pair_bias_mask`."""
         ckc = self.compute_kernel_config
         a = _rms(x, self.node_norm_w, ckc)
-        c = self.wckc
-        q = self._lin(a, self.q_w, bias=self.q_b, dtype=self.dtype, compute_kernel_config=c)
-        k = self._lin(a, self.k_w, bias=self.k_b, dtype=self.dtype, compute_kernel_config=c)
-        v = self._lin(a, self.v_w, bias=self.v_b, dtype=self.dtype, compute_kernel_config=c)
+        c, ad = self.wckc, self.attn_dtype
+        aq = _as(a, ad)
+        q = self._lin(aq, self.q_w, bias=self.q_b, dtype=ad, compute_kernel_config=c)
+        k = self._lin(aq, self.k_w, bias=self.k_b, dtype=ad, compute_kernel_config=c)
+        v = self._lin(aq, self.v_w, bias=self.v_b, dtype=ad, compute_kernel_config=c)
         g = self._lin(a, self.g_w, bias=self.g_b, dtype=self.dtype, activation="sigmoid", compute_kernel_config=c)
+        if aq is not a:
+            ttnn.deallocate(aq)
         ttnn.deallocate(a)
         if self.qk_norm:
             qn, kn = _rms(q, self.q_norm_w, ckc), _rms(k, self.k_norm_w, ckc)
@@ -340,6 +351,9 @@ class PairBiasAttention(Module):
             ttnn.deallocate(t)
         om = self._merge_heads(o)
         ttnn.deallocate(o)
+        if om.dtype != self.dtype:
+            o32, om = om, ttnn.typecast(om, self.dtype)
+            ttnn.deallocate(o32)
         gated = ttnn.multiply(om, g)
         ttnn.deallocate(om)
         ttnn.deallocate(g)
@@ -352,11 +366,11 @@ class AttnADALN(Module):
     """`MultiHeadBiasedAttentionADALN_MM`: adaptive norm, pair-bias attention, adaptive scale. The
     scale masks the output, so upstream's second mask is not repeated."""
 
-    def __init__(self, state_dict, ckc, n_heads: int, dtype=None):
+    def __init__(self, state_dict, ckc, n_heads: int, dtype=None, attn_dtype=None):
         super().__init__(state_dict, ckc)
         self.dtype = dtype or ttnn.bfloat16
         self.adaln = AdaptiveNorm(self.scope("adaln"), ckc, dtype=self.dtype)
-        self.mha = PairBiasAttention(self.scope("mha"), ckc, n_heads, dtype=self.dtype)
+        self.mha = PairBiasAttention(self.scope("mha"), ckc, n_heads, dtype=self.dtype, attn_dtype=attn_dtype)
         self.scale_output = AdaptiveScale(self.scope("scale_output"), ckc, dtype=self.dtype)
 
     def __call__(self, x, z, cond, mask, pair_bias_mask, cn=None, bias=None):
@@ -373,11 +387,11 @@ class TrunkBlock(Module):
     """`MultiheadAttnAndTransition` with the release settings: sequential (not parallel) attention
     and transition, both residual, both masked."""
 
-    def __init__(self, state_dict, ckc, n_heads: int = 16, dtype=None, residual_dtype=None):
+    def __init__(self, state_dict, ckc, n_heads: int = 16, dtype=None, residual_dtype=None, attn_dtype=None):
         super().__init__(state_dict, ckc)
         self.dtype = dtype or ttnn.bfloat16
         self.residual_dtype = residual_dtype or self.dtype
-        self.mhba = AttnADALN(self.scope("mhba"), ckc, n_heads, dtype=self.dtype)
+        self.mhba = AttnADALN(self.scope("mhba"), ckc, n_heads, dtype=self.dtype, attn_dtype=attn_dtype)
         self.transition = TransitionADALN(self.scope("transition"), ckc, dtype=self.dtype)
 
     def __call__(self, x, z, cond, mask, pair_bias_mask, res_mask=None, cn=None, bias=None):
@@ -841,6 +855,10 @@ class Trunk(Module):
     inference config's `precision: bf16-mixed` does on a GPU (autocast runs the matmuls in bf16
     and leaves the residual adds in fp32). Over 6 recycles x 12 pair updates an all-bf16 pair stream
     drifts far from float64 even when every op is at its bf16 floor; see the parity test.
+
+    `attn_fp32` is a training precision option (r4t D59): every block's q/k/v projections, q/k norms and
+    attention run in float32 on float32 weights, and the attention output returns to `dtype` before the
+    gate. Off, the build is the served one bit for bit.
     """
 
     #: What ran, counted rather than derived from the recycle schedule: per design, the trunk passes and
@@ -851,7 +869,8 @@ class Trunk(Module):
     _ran = (0, 0)
 
     def __init__(self, state_dict, ckc, nlayers: int = 24, n_heads: int = 16, every_n: int = 2,
-                 dtype=None, residual_dtype=None, pair_residual_dtype=None, training: bool = False):
+                 dtype=None, residual_dtype=None, pair_residual_dtype=None, training: bool = False,
+                 attn_fp32: bool = False):
         super().__init__(state_dict, ckc)
         self.dtype = dtype or ttnn.bfloat16
         self.residual_dtype = residual_dtype or self.dtype
@@ -862,7 +881,8 @@ class Trunk(Module):
             else self.residual_dtype)
         with lever_scope(self._levers):   # a lever that picks a stored dtype is read at build
             self.blocks = [TrunkBlock(self.scope(f"transformer_layers.{i}"), ckc, n_heads, dtype=self.dtype,
-                                      residual_dtype=self.residual_dtype)
+                                      residual_dtype=self.residual_dtype,
+                                      attn_dtype=ttnn.float32 if attn_fp32 else None)
                            for i in range(nlayers)]
             self.pair_updates = {i: PairUpdate(self.scope(f"pair_update_layers.{i}"), ckc, dtype=self.dtype,
                                                residual_dtype=self.pair_residual_dtype)

@@ -9,6 +9,7 @@ seed-B control, a side that ran a different recycle depth.
 
 from __future__ import annotations
 
+import dataclasses
 import json
 
 import numpy as np
@@ -32,10 +33,17 @@ def curve(n, seed=1, floor=1.0, noise=0.02):
     return floor + 2.0 * np.exp(-s / 300.0) + noise * rng.standard_normal(n)
 
 
-def write(tmp_path, name, side, losses, p=None, **meta):
+def write(tmp_path, name, side, losses, p=None, offset=None, **meta):
+    """Write one leg. ``gpu_b`` gets seed offset 1 unless a test asks for another: a seed-B leg
+    at offset 0 is the one the grader refuses, so it has to be written on purpose."""
     p = p or plan(len(losses))
+    if offset is None and side == "gpu_b" and not p.seed_offset:
+        offset = 1
+    if offset is not None:
+        p = dataclasses.replace(p, seed_offset=offset)
     if side.startswith("gpu"):      # the grader demands a reference leg declare its hardware
         meta = {"device": "cuda:NVIDIA B200", "dtype": "float32", "tf32": False, **meta}
+    meta = {"optimizers": ["GroupedMuon", "Adam"], "clip": 1.0, **meta}
     path = tmp_path / name
     with CurveLog(path, p, side, meta=meta) as log:
         for i, v in enumerate(losses):
@@ -96,6 +104,36 @@ def test_log_refuses_a_step_out_of_order_and_a_mismatched_depth(tmp_path):
             log.record(2, 1.0)
         with pytest.raises(CurveContractError):
             log.record(1, 1.0, n_recycle=p.step(1).n_recycle + 1)
+
+
+def test_a_resumed_log_continues_where_its_checkpoint_left_it(tmp_path):
+    """A crashed leg logged steps 0..6 but its last checkpoint is after step 4: the resumed run
+    restarts at 5, the stale 5..6 rows go, and the finished log reads as one uninterrupted run."""
+    p = plan(10)
+    full = curve(10)
+    path = tmp_path / "ours.jsonl"
+    with CurveLog(path, p, "ours") as log:
+        for i in range(7):
+            log.record(i, full[i] + 9.0 * (i >= 5))     # rows past the checkpoint are wrong on purpose
+    with CurveLog(path, p, "ours", start=5) as log:
+        with pytest.raises(CurveContractError):
+            log.record(6, full[6])                       # the resumed run must start at 5
+        for i in range(5, 10):
+            log.record(i, full[i])
+    header, losses = read_curve(path)
+    assert header["plan_digest"] == p.digest() and np.allclose(losses, full)
+
+
+def test_a_resume_refuses_a_short_log_a_foreign_plan_and_the_wrong_side(tmp_path):
+    p = plan(10)
+    path = write(tmp_path, "ours.jsonl", "ours", curve(4), p=p)
+    with pytest.raises(CurveContractError, match="ends at step 3"):
+        CurveLog(path, p, "ours", start=6)              # steps 4..5 would be missing
+    with pytest.raises(CurveContractError, match="resuming"):
+        CurveLog(path, plan(10, seed=7), "ours", start=2)
+    with pytest.raises(CurveContractError, match="resuming"):
+        CurveLog(path, p, "gpu_a", start=2)
+    assert len(read_curve(path)[1]) == 4                # a refused resume leaves the log untouched
 
 
 def test_reader_refuses_a_gap_a_bad_header_and_an_edited_plan(tmp_path):
@@ -304,8 +342,166 @@ def test_a_reference_leg_that_does_not_say_is_refused(tmp_path):
     o = write(tmp_path, "ours.jsonl", "ours", curve(n, seed=3), p=p)
     a = write(tmp_path, "gpu_a.jsonl", "gpu_a", curve(n, seed=1), p=p)
     bare = tmp_path / "bare.jsonl"
-    with CurveLog(bare, p, "gpu_b") as log:       # no meta at all
+    with CurveLog(bare, dataclasses.replace(p, seed_offset=1), "gpu_b") as log:   # no meta at all
         for i, v in enumerate(curve(n, seed=2)):
             log.record(i, v)
     with pytest.raises(CurveContractError, match="header has no"):
         grade_curve_files(o, a, bare)
+
+
+# --------------------------------------------- a relaunch into the same file (dead attempt)
+
+def restarted(tmp_path, name, side, dead, live, p=None, **meta):
+    """A log holding a dead attempt (header + ``dead`` rows) and then a live one, exactly the
+    shape r4t-gpu-baseline's A100 legs have: the first run OOMed after step 0 and the relaunch
+    appended its own header to the same file."""
+    p = p or plan(len(live))
+    path = write(tmp_path, name, side, dead, p=p, **meta)
+    path.write_text(path.read_text() + write(tmp_path, name + ".2", side, live, p=p,
+                                             **meta).read_text())
+    return path
+
+
+def test_a_relaunch_into_the_same_file_grades_on_the_live_attempt(tmp_path):
+    p = plan(8)
+    full = curve(8)
+    path = restarted(tmp_path, "ours.jsonl", "ours", full[:1], full, p=p)
+    header, losses = read_curve(path)
+    assert np.allclose(losses, full)                 # the dead attempt's rows are not steps
+    assert header["superseded"] == [1]               # and the reader says it saw one
+
+
+def test_two_different_runs_in_one_file_are_refused(tmp_path):
+    p = plan(8)
+    full = curve(8)
+    with pytest.raises(CurveContractError, match="two runs in one file"):
+        read_curve(_mixed(tmp_path, p, full))
+    # mislabelled side, same plan: also two runs in one file
+    path = write(tmp_path, "b.jsonl", "ours", full[:2], p=p)
+    path.write_text(path.read_text()
+                    + write(tmp_path, "b2.jsonl", "gpu_a", full, p=p,
+                            device="cuda:X", dtype="float32", tf32=False).read_text())
+    with pytest.raises(CurveContractError, match="two runs in one file"):
+        read_curve(path)
+
+
+def _mixed(tmp_path, p, full):
+    path = write(tmp_path, "m.jsonl", "ours", full[:2], p=p)
+    other = write(tmp_path, "m2.jsonl", "ours", full, p=plan(8, seed=99))
+    path.write_text(path.read_text() + other.read_text())
+    return path
+
+
+def test_a_gap_in_the_live_attempt_still_fails(tmp_path):
+    """The dead prefix must not become a way to hide a broken live attempt."""
+    p = plan(8)
+    full = curve(8)
+    path = restarted(tmp_path, "ours.jsonl", "ours", full[:1], full, p=p)
+    lines = path.read_text().splitlines()
+    del lines[-3]                                     # drop one step out of the live attempt
+    path.write_text("\n".join(lines) + "\n")
+    with pytest.raises(CurveContractError, match="steps are not"):
+        read_curve(path)
+
+
+def test_a_resume_of_a_relaunched_log_keeps_the_dead_attempt_and_the_live_prefix(tmp_path):
+    p = plan(10)
+    full = curve(10)
+    path = restarted(tmp_path, "ours.jsonl", "ours", full[:1], full[:7], p=p)
+    with CurveLog(path, p, "ours", start=5) as log:
+        for i in range(5, 10):
+            log.record(i, full[i])
+    header, losses = read_curve(path)
+    assert np.allclose(losses, full) and header["superseded"] == [1]
+
+
+# ------------------------------------------------- the seed control has to be a second draw
+
+def test_the_offset_moves_the_step_seeds_but_not_the_plan_digest():
+    p = plan(10)
+    q = dataclasses.replace(p, seed_offset=1)
+    assert q.digest() == p.digest()                       # same plan: A and B are comparable
+    assert [s.example_ids for s in map(p.step, range(4))] == \
+           [s.example_ids for s in map(q.step, range(4))]
+    assert [s.n_recycle for s in map(p.step, range(4))] == \
+           [s.n_recycle for s in map(q.step, range(4))]
+    assert all(p.step(i).t_seed != q.step(i).t_seed       # but every draw is a different one
+               and p.step(i).noise_seed != q.step(i).noise_seed for i in range(10))
+    seeds = {s for i in range(10) for s in (p.step(i).t_seed, p.step(i).noise_seed)} | \
+            {s for i in range(10) for s in (q.step(i).t_seed, q.step(i).noise_seed)}
+    assert len(seeds) == 40                               # and the two streams never collide
+
+
+def test_a_seed_b_leg_without_an_offset_is_refused(tmp_path):
+    """The hole this was written for: upstream's --seed-offset only reset the global torch seed,
+    so the two A100 legs of 2026-11-26 were byte-identical for 111 steps and the bar's
+    1.5 x |A - B| branch was silently zero."""
+    p = plan(300)
+    a = curve(300, seed=1)
+    ours = write(tmp_path, "ours.jsonl", "ours", a + 0.001, p=p)
+    ga = write(tmp_path, "gpu_a.jsonl", "gpu_a", a, p=p)
+    gb = write(tmp_path, "gpu_b.jsonl", "gpu_b", a, p=p, offset=0)   # a copy of A
+    with pytest.raises(CurveContractError, match="not a seed control"):
+        grade_curve_files(ours, ga, gb)
+
+
+def test_a_b_identical_is_refused_even_when_the_header_claims_an_offset(tmp_path):
+    p = plan(300)
+    a = curve(300, seed=1)
+    ours = write(tmp_path, "ours.jsonl", "ours", a + 0.001, p=p)
+    ga = write(tmp_path, "gpu_a.jsonl", "gpu_a", a, p=p)
+    gb = write(tmp_path, "gpu_b.jsonl", "gpu_b", a, p=dataclasses.replace(p, seed_offset=1))
+    with pytest.raises(CurveContractError, match="identical to seed A"):
+        grade_curve_files(ours, ga, gb)
+
+
+def test_a_matched_leg_may_not_carry_an_offset(tmp_path):
+    p = plan(300)
+    a = curve(300, seed=1)
+    ours = write(tmp_path, "ours.jsonl", "ours", a + 0.001, p=dataclasses.replace(p, seed_offset=2))
+    ga = write(tmp_path, "gpu_a.jsonl", "gpu_a", a, p=p)
+    gb = write(tmp_path, "gpu_b.jsonl", "gpu_b", curve(300, seed=2), p=dataclasses.replace(p, seed_offset=1))
+    with pytest.raises(CurveContractError, match="matched compute"):
+        grade_curve_files(ours, ga, gb)
+
+
+def test_a_real_seed_control_grades(tmp_path):
+    p = plan(2000)
+    a = curve(2000, seed=1)
+    ours = write(tmp_path, "ours.jsonl", "ours", curve(2000, seed=3), p=p)
+    ga = write(tmp_path, "gpu_a.jsonl", "gpu_a", a, p=p)
+    gb = write(tmp_path, "gpu_b.jsonl", "gpu_b", curve(2000, seed=2),
+               p=dataclasses.replace(p, seed_offset=1))
+    assert not grade_curve_files(ours, ga, gb).failures
+
+
+# ------------------------------------------------- the update rule is part of matched compute
+
+def test_a_leg_on_another_optimizer_is_refused(tmp_path):
+    """The first graded TT leg ran AdamW against upstream's Muon + Adam and read 11 % high from
+    step 7: that gap measured the optimizer. Same curves, matching declarations, grade."""
+    n = 400
+    p = plan(n)
+    a = write(tmp_path, "gpu_a.jsonl", "gpu_a", curve(n, seed=1), p=p)
+    b = write(tmp_path, "gpu_b.jsonl", "gpu_b", curve(n, seed=2), p=p)
+    adamw = write(tmp_path, "o1.jsonl", "ours", curve(n, seed=3), p=p, optimizers=["AdamW"])
+    with pytest.raises(CurveContractError, match="two update rules"):
+        grade_curve_files(adamw, a, b)
+    clip = write(tmp_path, "o2.jsonl", "ours", curve(n, seed=3), p=p, clip=10.0)
+    with pytest.raises(CurveContractError, match="two update rules"):
+        grade_curve_files(clip, a, b)
+    ok = write(tmp_path, "o3.jsonl", "ours", curve(n, seed=3), p=p)
+    assert grade_curve_files(ok, a, b).steps == n
+
+
+def test_a_leg_that_does_not_declare_its_optimizer_is_refused(tmp_path):
+    n = 400
+    p = plan(n)
+    a = write(tmp_path, "gpu_a.jsonl", "gpu_a", curve(n, seed=1), p=p)
+    b = write(tmp_path, "gpu_b.jsonl", "gpu_b", curve(n, seed=2), p=p)
+    o = tmp_path / "o.jsonl"
+    with CurveLog(o, p, "ours", meta={"clip": 1.0}) as log:
+        for i, v in enumerate(curve(n, seed=3)):
+            log.record(i, v)
+    with pytest.raises(CurveContractError, match="no 'optimizers'"):
+        grade_curve_files(o, a, b)

@@ -1,0 +1,210 @@
+{
+ "dtype": "bfloat16",
+ "ours": [
+  {
+   "bb_ca": 0.24089650467432086,
+   "local_latents": 46.25315681530526,
+   "insertion_prediction": 0.0,
+   "sequence_prediction": 0.0,
+   "signed_volume": 0.0,
+   "total": 46.49405331997958
+  },
+  {
+   "bb_ca": 0.001874811675016683,
+   "local_latents": 32.8067584565827,
+   "insertion_prediction": 0.0,
+   "sequence_prediction": 2.0601955285882303,
+   "signed_volume": 0.0,
+   "total": 34.868828796845946
+  },
+  {
+   "bb_ca": 1.0726759345969354,
+   "local_latents": 31.52123058512343,
+   "insertion_prediction": 0.0,
+   "sequence_prediction": 0.0,
+   "signed_volume": 0.0,
+   "total": 32.59390651972036
+  },
+  {
+   "bb_ca": 0.002186966695848713,
+   "local_latents": 23.686625242805377,
+   "insertion_prediction": 0.0,
+   "sequence_prediction": 1.8178766817565637,
+   "signed_volume": 0.0,
+   "total": 25.506688891257788
+  },
+  {
+   "bb_ca": 0.5176227209421524,
+   "local_latents": 43.412332961574265,
+   "insertion_prediction": 0.0,
+   "sequence_prediction": 0.0,
+   "signed_volume": 0.0,
+   "total": 43.929955682516415
+  },
+  {
+   "bb_ca": 1.6618693683247365,
+   "local_latents": 136.69353284100643,
+   "insertion_prediction": 0.0,
+   "sequence_prediction": 28.85758808524978,
+   "signed_volume": 0.0,
+   "total": 167.21299029458095
+  },
+  {
+   "bb_ca": 0.5945661015450351,
+   "local_latents": 48.46796624798297,
+   "insertion_prediction": 0.0,
+   "sequence_prediction": 0.7079318044984015,
+   "signed_volume": 0.0,
+   "total": 49.770464154026406
+  },
+  {
+   "bb_ca": 0.2938880128210492,
+   "local_latents": 45.518604835416475,
+   "insertion_prediction": 0.0,
+   "sequence_prediction": 0.44811108023033663,
+   "signed_volume": 0.0,
+   "total": 46.26060392846786
+  },
+  {
+   "bb_ca": 0.10900783423103938,
+   "local_latents": 56.12737508072723,
+   "insertion_prediction": 0.005180772675233127,
+   "sequence_prediction": 0.7222050757760098,
+   "signed_volume": 0.0,
+   "total": 56.96376876340951
+  }
+ ],
+ "ref": [
+  {
+   "bb_ca": 0.23895381391048431,
+   "local_latents": 46.26527404785156,
+   "insertion_prediction": 0.0,
+   "sequence_prediction": 0.0,
+   "signed_volume": 0.0,
+   "total": 46.50422786176205
+  },
+  {
+   "bb_ca": 0.0018620872870087624,
+   "local_latents": 32.83513641357422,
+   "insertion_prediction": 0.0,
+   "sequence_prediction": 2.0715646743774414,
+   "signed_volume": 0.0,
+   "total": 34.90856317523867
+  },
+  {
+   "bb_ca": 1.0720700025558472,
+   "local_latents": 31.515464782714844,
+   "insertion_prediction": 0.0,
+   "sequence_prediction": 0.0,
+   "signed_volume": 0.0,
+   "total": 32.58753478527069
+  },
+  {
+   "bb_ca": 0.0020061463583260775,
+   "local_latents": 23.688209533691406,
+   "insertion_prediction": 0.0,
+   "sequence_prediction": 1.8058077096939087,
+   "signed_volume": 0.0,
+   "total": 25.49602338974364
+  },
+  {
+   "bb_ca": 0.5147570967674255,
+   "local_latents": 43.40956115722656,
+   "insertion_prediction": 0.0,
+   "sequence_prediction": 0.0,
+   "signed_volume": 0.0,
+   "total": 43.92431825399399
+  },
+  {
+   "bb_ca": 1.6398019790649414,
+   "local_latents": 136.55018615722656,
+   "insertion_prediction": 0.0,
+   "sequence_prediction": 28.842723846435547,
+   "signed_volume": 0.0,
+   "total": 167.03271198272705
+  },
+  {
+   "bb_ca": 0.5955954194068909,
+   "local_latents": 48.46775436401367,
+   "insertion_prediction": 0.0,
+   "sequence_prediction": 0.7111042737960815,
+   "signed_volume": 0.0,
+   "total": 49.774454057216644
+  },
+  {
+   "bb_ca": 0.29573217034339905,
+   "local_latents": 45.52531814575195,
+   "insertion_prediction": 0.0,
+   "sequence_prediction": 0.4511633813381195,
+   "signed_volume": 0.0,
+   "total": 46.27221369743347
+  },
+  {
+   "bb_ca": 0.10803326219320297,
+   "local_latents": 56.11806869506836,
+   "insertion_prediction": 0.004195714835077524,
+   "sequence_prediction": 0.7112658619880676,
+   "signed_volume": 0.0,
+   "total": 56.94156353408471
+  }
+ ],
+ "provenance": {
+  "pairs": [
+   {
+    "batch": "batch00.npz",
+    "src": "/home/moritz/r4t/accuracy/noupd/C_batch00.log:step1:batch00.npz",
+    "winner": 0,
+    "upstream_winner": 0
+   },
+   {
+    "batch": "batch01.npz",
+    "src": "/home/moritz/r4t/accuracy/noupd/C_batch01.log:step1:batch01.npz",
+    "winner": 2,
+    "upstream_winner": 2
+   },
+   {
+    "batch": "batch02.npz",
+    "src": "/home/moritz/r4t/accuracy/noupd/C_batch02.log:step1:batch02.npz",
+    "winner": 2,
+    "upstream_winner": 2
+   },
+   {
+    "batch": "batch03.npz",
+    "src": "/home/moritz/r4t/accuracy/noupd/C_batch03.log:step1:batch03.npz",
+    "winner": 1,
+    "upstream_winner": 1
+   },
+   {
+    "batch": "batch04.npz",
+    "src": "/home/moritz/r4t/accuracy/noupd/C_batch04.log:step1:batch04.npz",
+    "winner": 1,
+    "upstream_winner": 1
+   },
+   {
+    "batch": "batch05.npz",
+    "src": "/home/moritz/r4t/accuracy/noupd/C_batch05.log:step1:batch05.npz",
+    "winner": 1,
+    "upstream_winner": 1
+   },
+   {
+    "batch": "batch06.npz",
+    "src": "/home/moritz/r4t/accuracy/noupd/C_batch06.log:step1:batch06.npz",
+    "winner": 3,
+    "upstream_winner": 3
+   },
+   {
+    "batch": "batch07.npz",
+    "src": "/home/moritz/r4t/accuracy/noupd/C_batch07.log:step1:batch07.npz",
+    "winner": 1,
+    "upstream_winner": 1
+   },
+   {
+    "batch": "batch08.npz",
+    "src": "/home/moritz/r4t/accuracy/noupd/C_batch08.log:step1:batch08.npz",
+    "winner": 1,
+    "upstream_winner": 1
+   }
+  ],
+  "dropped": []
+ }
+}

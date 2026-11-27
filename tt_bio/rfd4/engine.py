@@ -92,10 +92,11 @@ class Engine(Protocol):
         ...
 
 
-def load_trunk(glue, state: dict, cfg: dict, training: bool = False):
+def load_trunk(glue, state: dict, cfg: dict, training: bool = False, dtype=None, attn_fp32: bool = False):
     """The device trunk over the `nn.` weights the heads left to it. Refuses a checkpoint where a
     weight is read by neither, so a renamed or extra tensor fails the load instead of designing.
-    `training` builds it on the training lever set (`trunk.TRAIN_DROPS`)."""
+    `training` builds it on the training lever set (`trunk.TRAIN_DROPS`). `dtype` is the trunk compute dtype
+    (bf16 by default; the gradient control passes float32). `attn_fp32`: see `Trunk`."""
     import ttnn
 
     from tt_bio.rfd4 import network as _network
@@ -112,7 +113,7 @@ def load_trunk(glue, state: dict, cfg: dict, training: bool = False):
     trunk = Trunk(scope, trunk_compute_kernel_config(compute_kernel_config()), nlayers=cfg["nlayers"],
                   n_heads=cfg["nheads"],
                   every_n=cfg["update_pair_repr_every_n"], residual_dtype=ttnn.float32,
-                  training=training)
+                  training=training, dtype=dtype, attn_fp32=attn_fp32)
     glue.check_trunk_reads(scope.reads)
     return trunk
 

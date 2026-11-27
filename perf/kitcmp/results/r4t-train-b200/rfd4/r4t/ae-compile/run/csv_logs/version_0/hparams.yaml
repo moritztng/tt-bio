@@ -1,0 +1,3502 @@
+datasets:
+  global_design_task_kwargs:
+    rasa_kwargs:
+      p_add_rasa_condition: 0.6
+    hbond_kwargs:
+      p_add_hbond_condition: 0.2
+    pistack_kwargs:
+      p_add_pistack_condition: 0.2
+    pication_kwargs:
+      p_add_pication_condition: 0.2
+    salt_kwargs:
+      p_add_salt_condition: 0.2
+    hydrophobic_kwargs:
+      p_add_hydrophobic_condition: 0.2
+    metal_kwargs:
+      p_add_metal_condition: 0.2
+    secondary_structure_kwargs:
+      p_add_secondary_structure_condition: 0.1
+    cath_kwargs:
+      p_add_cath_c_condition: 0.0
+      p_add_cath_ca_condition: 0.0
+      p_add_cath_cat_condition: 0.9
+      min_retained_chain_fraction: 0.0
+    sequence_probability_kwargs:
+      p_exact: 0.5
+      p_zero_only: 0.17
+      p_positive_only: 0.17
+      p_zero_and_positive: 0.16
+      dirichlet_concentration: 3.0
+      exclusion_count_alpha: 2.0
+      p_full_probability_vector: 0.75
+      p_augment_unconditioned: 0.2
+      min_augmentation_fraction: 0.05
+      max_augmentation_fraction: 0.2
+      p_zero_only_whole_chain: 0.5
+  train:
+    test_dataset:
+      dataset:
+        id_column: example_id
+        transform:
+          _target_: rfproteina.datapipes.pipeline.build_design_train_pipeline
+          crop_size: 256
+          crop_contiguous_probability: 0.0
+          crop_spatial_probability: 1.0
+          dna_contact_crop_probability: 0.0
+          crop_center_cutoff_distance: 15.0
+          max_atoms_in_crop: 10000
+          b_factor_occupancy_min: null
+          p_random_rotation: 1.0
+          path_length_search_cutoff: 64
+          loss_weight_cfg:
+            non_standard: 2.5
+            unindexed: 2.5
+            sampled_tip_atom: 0.0
+          centroid_kwargs:
+            p_add_centroid_condition: 0.2
+            noise_std_angstrom: 5.0
+          design_tasks:
+            unconditional:
+              frequency: 10.0
+              transform:
+                _target_: rfproteina.transforms.design_task.UnconditionalTask
+                global_design_task_kwargs:
+                  rasa_kwargs:
+                    p_add_rasa_condition: 0.6
+                  hbond_kwargs:
+                    p_add_hbond_condition: 0.2
+                  pistack_kwargs:
+                    p_add_pistack_condition: 0.2
+                  pication_kwargs:
+                    p_add_pication_condition: 0.2
+                  salt_kwargs:
+                    p_add_salt_condition: 0.2
+                  hydrophobic_kwargs:
+                    p_add_hydrophobic_condition: 0.2
+                  metal_kwargs:
+                    p_add_metal_condition: 0.2
+                  secondary_structure_kwargs:
+                    p_add_secondary_structure_condition: 0.1
+                  cath_kwargs:
+                    p_add_cath_c_condition: 0.0
+                    p_add_cath_ca_condition: 0.0
+                    p_add_cath_cat_condition: 0.9
+                    min_retained_chain_fraction: 0.0
+                  sequence_probability_kwargs:
+                    p_exact: 0.5
+                    p_zero_only: 0.17
+                    p_positive_only: 0.17
+                    p_zero_and_positive: 0.16
+                    dirichlet_concentration: 3.0
+                    exclusion_count_alpha: 2.0
+                    p_full_probability_vector: 0.75
+                    p_augment_unconditioned: 0.2
+                    min_augmentation_fraction: 0.05
+                    max_augmentation_fraction: 0.2
+                    p_zero_only_whole_chain: 0.5
+            folding:
+              frequency: 5.0
+              transform:
+                _target_: rfproteina.transforms.design_task.StructurePredictionTask
+                global_design_task_kwargs:
+                  rasa_kwargs:
+                    p_add_rasa_condition: 0.6
+                  hbond_kwargs:
+                    p_add_hbond_condition: 0.2
+                  pistack_kwargs:
+                    p_add_pistack_condition: 0.2
+                  pication_kwargs:
+                    p_add_pication_condition: 0.2
+                  salt_kwargs:
+                    p_add_salt_condition: 0.2
+                  hydrophobic_kwargs:
+                    p_add_hydrophobic_condition: 0.2
+                  metal_kwargs:
+                    p_add_metal_condition: 0.2
+                  secondary_structure_kwargs:
+                    p_add_secondary_structure_condition: 0.1
+                  cath_kwargs:
+                    p_add_cath_c_condition: 0.0
+                    p_add_cath_ca_condition: 0.0
+                    p_add_cath_cat_condition: 0.9
+                    min_retained_chain_fraction: 0.0
+                  sequence_probability_kwargs:
+                    p_exact: 0.5
+                    p_zero_only: 0.17
+                    p_positive_only: 0.17
+                    p_zero_and_positive: 0.16
+                    dirichlet_concentration: 3.0
+                    exclusion_count_alpha: 2.0
+                    p_full_probability_vector: 0.75
+                    p_augment_unconditioned: 0.2
+                    min_augmentation_fraction: 0.05
+                    max_augmentation_fraction: 0.2
+                    p_zero_only_whole_chain: 0.5
+            inverse_folding:
+              frequency: 5.0
+              transform:
+                _target_: rfproteina.transforms.design_task.InverseFoldingTask
+                global_design_task_kwargs:
+                  rasa_kwargs:
+                    p_add_rasa_condition: 0.6
+                  hbond_kwargs:
+                    p_add_hbond_condition: 0.2
+                  pistack_kwargs:
+                    p_add_pistack_condition: 0.2
+                  pication_kwargs:
+                    p_add_pication_condition: 0.2
+                  salt_kwargs:
+                    p_add_salt_condition: 0.2
+                  hydrophobic_kwargs:
+                    p_add_hydrophobic_condition: 0.2
+                  metal_kwargs:
+                    p_add_metal_condition: 0.2
+                  secondary_structure_kwargs:
+                    p_add_secondary_structure_condition: 0.1
+                  cath_kwargs:
+                    p_add_cath_c_condition: 0.0
+                    p_add_cath_ca_condition: 0.0
+                    p_add_cath_cat_condition: 0.9
+                    min_retained_chain_fraction: 0.0
+                  sequence_probability_kwargs:
+                    p_exact: 0.5
+                    p_zero_only: 0.17
+                    p_positive_only: 0.17
+                    p_zero_and_positive: 0.16
+                    dirichlet_concentration: 3.0
+                    exclusion_count_alpha: 2.0
+                    p_full_probability_vector: 0.75
+                    p_augment_unconditioned: 0.2
+                    min_augmentation_fraction: 0.05
+                    max_augmentation_fraction: 0.2
+                    p_zero_only_whole_chain: 0.5
+            tip_atom:
+              frequency: 0.0
+              transform:
+                _target_: rfproteina.transforms.design_task.TipAtomTask
+                min_residues: 2
+                max_residues: 8
+                p_tip_atom: 0.5
+                p_merge_unindexed_groups: 0.1
+                p_split_unindexed_groups: 0.01
+                p_increase_group_id_gap: 0.1
+                global_design_task_kwargs:
+                  rasa_kwargs:
+                    p_add_rasa_condition: 0.6
+                  hbond_kwargs:
+                    p_add_hbond_condition: 0.2
+                  pistack_kwargs:
+                    p_add_pistack_condition: 0.2
+                  pication_kwargs:
+                    p_add_pication_condition: 0.2
+                  salt_kwargs:
+                    p_add_salt_condition: 0.2
+                  hydrophobic_kwargs:
+                    p_add_hydrophobic_condition: 0.2
+                  metal_kwargs:
+                    p_add_metal_condition: 0.2
+                  secondary_structure_kwargs:
+                    p_add_secondary_structure_condition: 0.1
+                  cath_kwargs:
+                    p_add_cath_c_condition: 0.0
+                    p_add_cath_ca_condition: 0.0
+                    p_add_cath_cat_condition: 0.9
+                    min_retained_chain_fraction: 0.0
+                  sequence_probability_kwargs:
+                    p_exact: 0.5
+                    p_zero_only: 0.17
+                    p_positive_only: 0.17
+                    p_zero_and_positive: 0.16
+                    dirichlet_concentration: 3.0
+                    exclusion_count_alpha: 2.0
+                    p_full_probability_vector: 0.75
+                    p_augment_unconditioned: 0.2
+                    min_augmentation_fraction: 0.05
+                    max_augmentation_fraction: 0.2
+                    p_zero_only_whole_chain: 0.5
+            tip_atom_partial_ligand:
+              frequency: 30.0
+              transform:
+                _target_: rfproteina.transforms.design_task.TipAtomPartialLigandTask
+                n_max_ligands: 3
+                n_hops_expected_ligand: 5
+                n_max_residues: 8
+                n_hops_expected_tip_atom: 1
+                p_seq_conditioned: 1.0
+                p_knockout_seq: 0.0
+                p_merge_unindexed_groups: 0.1
+                p_split_unindexed_groups: 0.01
+                p_increase_group_id_gap: 0.1
+                global_design_task_kwargs:
+                  rasa_kwargs:
+                    p_add_rasa_condition: 0.6
+                  hbond_kwargs:
+                    p_add_hbond_condition: 0.2
+                  pistack_kwargs:
+                    p_add_pistack_condition: 0.2
+                  pication_kwargs:
+                    p_add_pication_condition: 0.2
+                  salt_kwargs:
+                    p_add_salt_condition: 0.2
+                  hydrophobic_kwargs:
+                    p_add_hydrophobic_condition: 0.2
+                  metal_kwargs:
+                    p_add_metal_condition: 0.2
+                  secondary_structure_kwargs:
+                    p_add_secondary_structure_condition: 0.1
+                  cath_kwargs:
+                    p_add_cath_c_condition: 0.0
+                    p_add_cath_ca_condition: 0.0
+                    p_add_cath_cat_condition: 0.9
+                    min_retained_chain_fraction: 0.0
+                  sequence_probability_kwargs:
+                    p_exact: 0.5
+                    p_zero_only: 0.17
+                    p_positive_only: 0.17
+                    p_zero_and_positive: 0.16
+                    dirichlet_concentration: 3.0
+                    exclusion_count_alpha: 2.0
+                    p_full_probability_vector: 0.75
+                    p_augment_unconditioned: 0.2
+                    min_augmentation_fraction: 0.05
+                    max_augmentation_fraction: 0.2
+                    p_zero_only_whole_chain: 0.5
+            motif_scaffold:
+              frequency: 0.0
+              transform:
+                _target_: rfproteina.transforms.design_task.MotifScaffoldTask
+                min_tokens_per_motif: 1
+                max_tokens_per_motif: 50
+                min_coverage_fraction: 0.05
+                max_coverage_fraction: 1.0
+                max_unindexed_tokens: 50
+                p_unindex_any: 0.5
+                p_merge_unindexed_groups: 0.1
+                p_split_unindexed_groups: 0.01
+                p_increase_group_id_gap: 0.1
+                p_backbone_only: 0.2
+                p_bb_only_seq_conditioned: 0.3
+                global_design_task_kwargs:
+                  rasa_kwargs:
+                    p_add_rasa_condition: 0.6
+                  hbond_kwargs:
+                    p_add_hbond_condition: 0.2
+                  pistack_kwargs:
+                    p_add_pistack_condition: 0.2
+                  pication_kwargs:
+                    p_add_pication_condition: 0.2
+                  salt_kwargs:
+                    p_add_salt_condition: 0.2
+                  hydrophobic_kwargs:
+                    p_add_hydrophobic_condition: 0.2
+                  metal_kwargs:
+                    p_add_metal_condition: 0.2
+                  secondary_structure_kwargs:
+                    p_add_secondary_structure_condition: 0.1
+                  cath_kwargs:
+                    p_add_cath_c_condition: 0.0
+                    p_add_cath_ca_condition: 0.0
+                    p_add_cath_cat_condition: 0.9
+                    min_retained_chain_fraction: 0.0
+                  sequence_probability_kwargs:
+                    p_exact: 0.5
+                    p_zero_only: 0.17
+                    p_positive_only: 0.17
+                    p_zero_and_positive: 0.16
+                    dirichlet_concentration: 3.0
+                    exclusion_count_alpha: 2.0
+                    p_full_probability_vector: 0.75
+                    p_augment_unconditioned: 0.2
+                    min_augmentation_fraction: 0.05
+                    max_augmentation_fraction: 0.2
+                    p_zero_only_whole_chain: 0.5
+            binder_hotspot_with_3d_target:
+              frequency: 0.0
+              transform:
+                _target_: rfproteina.transforms.design_task.BinderHotspotWith3DTarget
+                hotspot_count_distribution: geometric
+                hotspot_geometric_p: 0.2
+                max_hotspots_frac_to_provide: 0.1
+                p_no_hotspots: 0.05
+                hotspot_max_distance: 4.5
+                ppi_crop_binder_fraction: 0.667
+                p_sample_ppi_crop: 0.75
+                p_bb_only_coord_conditioning: 0.0
+                global_design_task_kwargs:
+                  rasa_kwargs:
+                    p_add_rasa_condition: 0.6
+                  hbond_kwargs:
+                    p_add_hbond_condition: 0.2
+                  pistack_kwargs:
+                    p_add_pistack_condition: 0.2
+                  pication_kwargs:
+                    p_add_pication_condition: 0.2
+                  salt_kwargs:
+                    p_add_salt_condition: 0.2
+                  hydrophobic_kwargs:
+                    p_add_hydrophobic_condition: 0.2
+                  metal_kwargs:
+                    p_add_metal_condition: 0.2
+                  secondary_structure_kwargs:
+                    p_add_secondary_structure_condition: 0.1
+                  cath_kwargs:
+                    p_add_cath_c_condition: 0.0
+                    p_add_cath_ca_condition: 0.0
+                    p_add_cath_cat_condition: 0.9
+                    min_retained_chain_fraction: 0.0
+                  sequence_probability_kwargs:
+                    p_exact: 0.5
+                    p_zero_only: 0.17
+                    p_positive_only: 0.17
+                    p_zero_and_positive: 0.16
+                    dirichlet_concentration: 3.0
+                    exclusion_count_alpha: 2.0
+                    p_full_probability_vector: 0.75
+                    p_augment_unconditioned: 0.2
+                    min_augmentation_fraction: 0.05
+                    max_augmentation_fraction: 0.2
+                    p_zero_only_whole_chain: 0.5
+            tip_atom_pocket:
+              frequency: 30.0
+              transform:
+                _target_: rfproteina.transforms.design_task.TipAtomActiveSiteTask
+                tip_atom_rasa_threshold: 0.2
+                min_tip_atoms: 2
+                max_tip_atoms: 15
+                p_seq_conditioned: 1.0
+                p_knockout_seq: 0.0
+                p_unindex_all: 0.8
+                p_unindex_any: 0.05
+                p_merge_unindexed_groups: 0.1
+                p_split_unindexed_groups: 0.01
+                p_increase_group_id_gap: 0.1
+                global_design_task_kwargs:
+                  rasa_kwargs:
+                    p_add_rasa_condition: 0.6
+                  hbond_kwargs:
+                    p_add_hbond_condition: 0.2
+                  pistack_kwargs:
+                    p_add_pistack_condition: 0.2
+                  pication_kwargs:
+                    p_add_pication_condition: 0.2
+                  salt_kwargs:
+                    p_add_salt_condition: 0.2
+                  hydrophobic_kwargs:
+                    p_add_hydrophobic_condition: 0.2
+                  metal_kwargs:
+                    p_add_metal_condition: 0.2
+                  secondary_structure_kwargs:
+                    p_add_secondary_structure_condition: 0.1
+                  cath_kwargs:
+                    p_add_cath_c_condition: 0.0
+                    p_add_cath_ca_condition: 0.0
+                    p_add_cath_cat_condition: 0.9
+                    min_retained_chain_fraction: 0.0
+                  sequence_probability_kwargs:
+                    p_exact: 0.5
+                    p_zero_only: 0.17
+                    p_positive_only: 0.17
+                    p_zero_and_positive: 0.16
+                    dirichlet_concentration: 3.0
+                    exclusion_count_alpha: 2.0
+                    p_full_probability_vector: 0.75
+                    p_augment_unconditioned: 0.2
+                    min_augmentation_fraction: 0.05
+                    max_augmentation_fraction: 0.2
+                    p_zero_only_whole_chain: 0.5
+            partial_ligand:
+              frequency: 20.0
+              transform:
+                _target_: rfproteina.transforms.design_task.PartialLigandTask
+                min_coverage_fraction: 0.0
+                max_coverage_fraction: 1.0
+                p_fix_ligand_surroundings: 0.0
+                global_design_task_kwargs:
+                  rasa_kwargs:
+                    p_add_rasa_condition: 0.6
+                  hbond_kwargs:
+                    p_add_hbond_condition: 0.2
+                  pistack_kwargs:
+                    p_add_pistack_condition: 0.2
+                  pication_kwargs:
+                    p_add_pication_condition: 0.2
+                  salt_kwargs:
+                    p_add_salt_condition: 0.2
+                  hydrophobic_kwargs:
+                    p_add_hydrophobic_condition: 0.2
+                  metal_kwargs:
+                    p_add_metal_condition: 0.2
+                  secondary_structure_kwargs:
+                    p_add_secondary_structure_condition: 0.1
+                  cath_kwargs:
+                    p_add_cath_c_condition: 0.0
+                    p_add_cath_ca_condition: 0.0
+                    p_add_cath_cat_condition: 0.9
+                    min_retained_chain_fraction: 0.0
+                  sequence_probability_kwargs:
+                    p_exact: 0.5
+                    p_zero_only: 0.17
+                    p_positive_only: 0.17
+                    p_zero_and_positive: 0.16
+                    dirichlet_concentration: 3.0
+                    exclusion_count_alpha: 2.0
+                    p_full_probability_vector: 0.75
+                    p_augment_unconditioned: 0.2
+                    min_augmentation_fraction: 0.05
+                    max_augmentation_fraction: 0.2
+                    p_zero_only_whole_chain: 0.5
+            protein_from_dna_structure_context:
+              frequency: 0.0
+              transform:
+                _target_: rfproteina.transforms.design_task.ProteinFromDNAStructureContextTask
+                global_design_task_kwargs:
+                  rasa_kwargs:
+                    p_add_rasa_condition: 0.6
+                  hbond_kwargs:
+                    p_add_hbond_condition: 0.2
+                  pistack_kwargs:
+                    p_add_pistack_condition: 0.2
+                  pication_kwargs:
+                    p_add_pication_condition: 0.2
+                  salt_kwargs:
+                    p_add_salt_condition: 0.2
+                  hydrophobic_kwargs:
+                    p_add_hydrophobic_condition: 0.2
+                  metal_kwargs:
+                    p_add_metal_condition: 0.2
+                  secondary_structure_kwargs:
+                    p_add_secondary_structure_condition: 0.1
+                  cath_kwargs:
+                    p_add_cath_c_condition: 0.0
+                    p_add_cath_ca_condition: 0.0
+                    p_add_cath_cat_condition: 0.9
+                    min_retained_chain_fraction: 0.0
+                  sequence_probability_kwargs:
+                    p_exact: 0.5
+                    p_zero_only: 0.17
+                    p_positive_only: 0.17
+                    p_zero_and_positive: 0.16
+                    dirichlet_concentration: 3.0
+                    exclusion_count_alpha: 2.0
+                    p_full_probability_vector: 0.75
+                    p_augment_unconditioned: 0.2
+                    min_augmentation_fraction: 0.05
+                    max_augmentation_fraction: 0.2
+                    p_zero_only_whole_chain: 0.5
+            protein_from_dna_sequence_context:
+              frequency: 0.0
+              transform:
+                _target_: rfproteina.transforms.design_task.ProteinFromDNASequenceContextTask
+                global_design_task_kwargs:
+                  rasa_kwargs:
+                    p_add_rasa_condition: 0.6
+                  hbond_kwargs:
+                    p_add_hbond_condition: 0.2
+                  pistack_kwargs:
+                    p_add_pistack_condition: 0.2
+                  pication_kwargs:
+                    p_add_pication_condition: 0.2
+                  salt_kwargs:
+                    p_add_salt_condition: 0.2
+                  hydrophobic_kwargs:
+                    p_add_hydrophobic_condition: 0.2
+                  metal_kwargs:
+                    p_add_metal_condition: 0.2
+                  secondary_structure_kwargs:
+                    p_add_secondary_structure_condition: 0.1
+                  cath_kwargs:
+                    p_add_cath_c_condition: 0.0
+                    p_add_cath_ca_condition: 0.0
+                    p_add_cath_cat_condition: 0.9
+                    min_retained_chain_fraction: 0.0
+                  sequence_probability_kwargs:
+                    p_exact: 0.5
+                    p_zero_only: 0.17
+                    p_positive_only: 0.17
+                    p_zero_and_positive: 0.16
+                    dirichlet_concentration: 3.0
+                    exclusion_count_alpha: 2.0
+                    p_full_probability_vector: 0.75
+                    p_augment_unconditioned: 0.2
+                    min_augmentation_fraction: 0.05
+                    max_augmentation_fraction: 0.2
+                    p_zero_only_whole_chain: 0.5
+            ig_framework_conditioning:
+              frequency: 0.0
+              transform:
+                _target_: rfproteina.transforms.design_task.IgFrameworkConditioningTask
+                global_design_task_kwargs:
+                  rasa_kwargs:
+                    p_add_rasa_condition: 0.6
+                  hbond_kwargs:
+                    p_add_hbond_condition: 0.2
+                  secondary_structure_kwargs:
+                    p_add_secondary_structure_condition: 0.1
+                  cath_kwargs:
+                    p_add_cath_c_condition: 0.0
+                    p_add_cath_ca_condition: 0.0
+                    p_add_cath_cat_condition: 0.9
+                    min_retained_chain_fraction: 0.0
+                cdr_expand_min: -3
+                cdr_expand_max: 4
+                p_fix_all_but_cdr3: 0.2
+                p_cdr_fixed: 0.05
+                p_framework_seq_cond: 0.8
+                p_framework_bb_only: 0.3
+                p_flexible_target: 0.1
+                p_target_intcoord: 0.5
+                p_target_bb_only: 0.3
+                p_separate_ig_coord_groups: 0.5
+                p_no_hotspots: 0.05
+                hotspot_max_distance: 4.5
+                max_hotspots_frac_to_provide: 0.1
+                hotspot_count_distribution: uniform
+                hotspot_geometric_p: null
+        _target_: atomworks.ml.datasets.PandasDataset
+        name: test_dataset_train
+        data: /root/data_path/test_dataset/test_systems.parquet
+        loader:
+          _target_: atomworks.ml.datasets.loaders.create_base_loader
+          example_id_colname: example_id
+          path_colname: path
+          assembly_id_colname: None
+          parser_args:
+            _target_: rfproteina.utils.parse_presets.distillation
+            cache_dir: /tmp/root/atomworks_parse_cache
+          base_path: /root/data_path/test_dataset/cifs
+      probability: 1.0
+  val:
+    unconditional:
+      dataset:
+        _target_: rfproteina.inference_utils.datasets.DesignProblemDataset
+        dir_path_or_file_paths: /root/rfd4/data/benchmarks/monomer
+        subset_to_keys: null
+        num_replicates: 50
+        transform:
+          _target_: rfproteina.datapipes.pipeline.build_design_validation_pipeline
+          metrics_tags:
+          - design
+          - unconditional_refolding
+    unindexed_motif_scaffold_subset:
+      dataset:
+        _target_: rfproteina.inference_utils.datasets.DesignProblemDataset
+        dir_path_or_file_paths: /root/rfd4/data/benchmarks/motif_scaffolding/motif_unindexed
+        num_replicates: 100
+        transform:
+          _target_: rfproteina.datapipes.pipeline.build_design_validation_pipeline
+          metrics_tags:
+          - design
+          - unindexed
+          - 3d_coordinate_conditioning
+          - motif_scaffold_refolding
+        subset_to_keys:
+        - 3IXT_AA
+        - 1YCR_AA
+        - 1QJG_AA
+        - 5TPN_AA
+        - 1PRW_AA
+        - 4ZYP_AA
+    indexed_motif_scaffold_subset:
+      dataset:
+        _target_: rfproteina.inference_utils.datasets.DesignProblemDataset
+        dir_path_or_file_paths: /root/rfd4/data/benchmarks/motif_scaffolding/motif_indexed
+        num_replicates: 100
+        transform:
+          _target_: rfproteina.datapipes.pipeline.build_design_validation_pipeline
+          metrics_tags:
+          - design
+          - 3d_coordinate_conditioning
+          - motif_scaffold_refolding
+        subset_to_keys:
+        - 3IXT_AA
+        - 1YCR_AA
+        - 1QJG_AA
+        - 5TPN_AA
+        - 1PRW_AA
+        - 4ZYP_AA
+    mcsa_subset:
+      generation:
+        n_recycle_schedule:
+        - - 5
+          - 1
+        - - 5
+          - 2
+        - - 5
+          - 2
+        - - 5
+          - 4
+        - - 10
+          - 5
+        - - 5
+          - 4
+        - - 5
+          - 2
+        - - 5
+          - 2
+        - - 15
+          - 1
+        args:
+          nsteps: 60
+      dataset:
+        _target_: rfproteina.inference_utils.datasets.DesignProblemDataset
+        dir_path_or_file_paths: /root/rfd4/data/benchmarks/mcsa/mcsa_37
+        subset_to_keys:
+        - M0040_13pk
+        - M0058_1cju
+        - M0092_1dli
+        - M0097_1ctt
+        - M0151_1q0n
+        - M0209_1lij
+        - M0349_1e3v
+        - M0375_4ts9
+        - M0500_1e3i
+        - M0552_1fgh
+        - M0664_2dhn
+        - M0674_1uf7
+        - M0732_1xs1
+        - M0870_1oh9
+        - M0907_1rbl
+        num_replicates: 100
+        transform:
+          _target_: rfproteina.datapipes.pipeline.build_design_validation_pipeline
+          metrics_tags:
+          - design
+          - unindexed
+          - ame_refolding
+    mcsa_subset_fixed_ligand:
+      generation:
+        n_recycle_schedule:
+        - - 5
+          - 1
+        - - 5
+          - 2
+        - - 5
+          - 2
+        - - 5
+          - 4
+        - - 10
+          - 5
+        - - 5
+          - 4
+        - - 5
+          - 2
+        - - 5
+          - 2
+        - - 15
+          - 1
+        args:
+          nsteps: 60
+      dataset:
+        _target_: rfproteina.inference_utils.datasets.DesignProblemDataset
+        dir_path_or_file_paths: /root/rfd4/data/benchmarks/mcsa/mcsa_37_fixed_ligand
+        subset_to_keys:
+        - M0040_13pk
+        - M0058_1cju
+        - M0092_1dli
+        - M0097_1ctt
+        - M0151_1q0n
+        - M0209_1lij
+        - M0349_1e3v
+        - M0375_4ts9
+        - M0500_1e3i
+        - M0552_1fgh
+        - M0664_2dhn
+        - M0674_1uf7
+        - M0732_1xs1
+        - M0870_1oh9
+        - M0907_1rbl
+        num_replicates: 100
+        transform:
+          _target_: rfproteina.datapipes.pipeline.build_design_validation_pipeline
+          metrics_tags:
+          - design
+          - unindexed
+          - ame_refolding
+      run_every_n_val_epochs: 3
+    mcsa_subset_no_ligand:
+      generation:
+        n_recycle_schedule:
+        - - 5
+          - 1
+        - - 5
+          - 2
+        - - 5
+          - 2
+        - - 5
+          - 4
+        - - 10
+          - 5
+        - - 5
+          - 4
+        - - 5
+          - 2
+        - - 5
+          - 2
+        - - 15
+          - 1
+        args:
+          nsteps: 60
+      dataset:
+        _target_: rfproteina.inference_utils.datasets.DesignProblemDataset
+        dir_path_or_file_paths: /root/rfd4/data/benchmarks/mcsa/mcsa_37_no_ligand
+        subset_to_keys:
+        - M0040_13pk
+        - M0058_1cju
+        - M0092_1dli
+        - M0097_1ctt
+        - M0151_1q0n
+        - M0209_1lij
+        - M0349_1e3v
+        - M0375_4ts9
+        - M0500_1e3i
+        - M0552_1fgh
+        - M0664_2dhn
+        - M0674_1uf7
+        - M0732_1xs1
+        - M0870_1oh9
+        - M0907_1rbl
+        num_replicates: 100
+        transform:
+          _target_: rfproteina.datapipes.pipeline.build_design_validation_pipeline
+          metrics_tags:
+          - design
+          - unindexed
+          - ame_refolding
+          - no_ligand
+      run_every_n_val_epochs: 3
+    ppi_bb_only_subset_12:
+      generation:
+        n_recycle_schedule:
+        - - 5
+          - 6
+        - - 10
+          - 5
+        - - 5
+          - 4
+        - - 10
+          - 3
+        - - 20
+          - 2
+        - - 10
+          - 1
+        args:
+          nsteps: 60
+      dataset:
+        _target_: rfproteina.inference_utils.datasets.DesignProblemDataset
+        dir_path_or_file_paths: /root/rfd4/data/benchmarks/ppi/ppi_bb_only
+        num_replicates: 100
+        transform:
+          _target_: rfproteina.datapipes.pipeline.build_design_validation_pipeline
+          metrics_tags:
+          - design
+          - 3d_coordinate_conditioning
+          - hotspot_conditioning
+          - ppi_refolding
+        subset_to_keys: null
+    dna_binder_structure_context:
+      generation:
+        n_recycle_schedule:
+        - - 5
+          - 6
+        - - 10
+          - 5
+        - - 5
+          - 4
+        - - 10
+          - 3
+        - - 20
+          - 2
+        - - 10
+          - 1
+        args:
+          nsteps: 60
+      dataset:
+        _target_: rfproteina.inference_utils.datasets.DesignProblemDataset
+        dir_path_or_file_paths: /root/rfd4/data/benchmarks/dna_binder/dna_binder_denovo_val
+        subset_to_keys:
+        - 7n5u_structure_context
+        - 7m5w_structure_context
+        - 7rte_structure_context
+        num_replicates: 25
+        transform:
+          _target_: rfproteina.datapipes.pipeline.build_design_validation_pipeline
+          metrics_tags:
+          - design
+          - dna_refolding
+          - interchain_interactions
+    dna_binder_sequence_context:
+      generation:
+        n_recycle_schedule:
+        - - 5
+          - 6
+        - - 10
+          - 5
+        - - 5
+          - 4
+        - - 10
+          - 3
+        - - 20
+          - 2
+        - - 10
+          - 1
+        args:
+          nsteps: 60
+      dataset:
+        _target_: rfproteina.inference_utils.datasets.DesignProblemDataset
+        dir_path_or_file_paths: /root/rfd4/data/benchmarks/dna_binder/dna_binder_denovo_val
+        subset_to_keys:
+        - 7n5u_sequence_context
+        - 7m5w_sequence_context
+        - 7rte_sequence_context
+        num_replicates: 25
+        transform:
+          _target_: rfproteina.datapipes.pipeline.build_design_validation_pipeline
+          metrics_tags:
+          - design
+          - dna_refolding
+          - interchain_interactions
+    disco_subset:
+      generation:
+        n_recycle_schedule:
+        - - 5
+          - 1
+        - - 5
+          - 2
+        - - 5
+          - 2
+        - - 5
+          - 4
+        - - 10
+          - 5
+        - - 5
+          - 4
+        - - 5
+          - 2
+        - - 5
+          - 2
+        - - 15
+          - 1
+        args:
+          nsteps: 60
+      dataset:
+        _target_: rfproteina.inference_utils.datasets.DesignProblemDataset
+        dir_path_or_file_paths: /root/rfd4/data/benchmarks/small_molecule_binder/disco_figure_2c
+        subset_to_keys:
+        - s-adenosylmethionine_final_0
+        - heme_b_final_0
+        - chlorophyll_a_final_0
+        - vitamin_b12_final_0
+        - biotin_final_0
+        - estradiol_final_0
+        - cholesterol_final_0
+        - NAD_final_0
+        - PLP_final_0
+        - retinal_final_0
+        - staurosporine_final_0
+        - colchicine_final_0
+        num_replicates: 100
+        transform:
+          _target_: rfproteina.datapipes.pipeline.build_design_validation_pipeline
+          metrics_tags:
+          - has_small_molecule
+          - design
+          - sm_binder_refolding
+          - disco_refolding
+    sequence_bias:
+      compute_loss: false
+      dataset:
+        _target_: rfproteina.inference_utils.datasets.DesignProblemDataset
+        dir_path_or_file_paths: /root/rfd4/data/benchmarks/sequence_bias/v11_fixed225.cif.zst
+        num_replicates: 20
+        prevalidate: true
+        transform:
+          _target_: rfproteina.datapipes.pipeline.build_design_validation_pipeline
+          metrics_tags: []
+dataloaders:
+  batch_size: 4
+  num_workers: 16
+  prefetch_factor: 8
+  pin_memory: true
+  multiprocessing_context: spawn
+  metrics:
+    num_workers: -1
+  train:
+    dataloader_params:
+      batch_size: 1
+      num_workers: 16
+      prefetch_factor: 8
+      pin_memory: true
+      persistent_workers: true
+      in_order: true
+      drop_last: true
+      multiprocessing_context: spawn
+      collate_fn:
+        _target_: rfproteina.datapipes.collate.collate_batch
+        _partial_: true
+        schema: rfproteina.datapipes.schema.proteina.ProteinaDataSample
+        keep_atom_array: false
+        num_replicates: 4
+        fixed_dimensions:
+          I: 256
+    n_fallback_retries: 4
+    length_bucketing:
+      enabled: false
+      bucket_step: 64
+      buckets:
+      - 64
+      - 128
+      - 192
+      - 256
+      length_columns:
+      - n_standard_amino_acid_residues
+      - n_dna_residues
+      - n_rna_residues
+      - n_other_heavy_atoms
+  val:
+    dataloader_params:
+      batch_size: 5
+      num_workers: 4
+      prefetch_factor: 1
+      pin_memory: true
+      persistent_workers: false
+      drop_last: false
+      multiprocessing_context: spawn
+      collate_fn:
+        _target_: rfproteina.datapipes.collate.collate_batch
+        _partial_: true
+        schema: rfproteina.datapipes.schema.proteina.ProteinaDataSample
+        fixed_dimensions:
+          I:
+          - 256
+          - 320
+          - 384
+          - 448
+          - 512
+          - 560
+          - 608
+nn:
+  name: local_latents_transformer
+  output_parameterization:
+    bb_ca: v
+    local_latents: v
+  sequence_readout:
+    enabled: true
+    detach: true
+    num_classes: 147
+  nlayers: 14
+  token_dim: 768
+  nheads: 12
+  parallel_mha_transition: false
+  token_type_emb_dim: 32
+  cath_emb_dim: 32
+  strict_feats: false
+  noise_align_chirality: true
+  noise_align_internal_coords: false
+  noise_align_chirality_translate: false
+  noise_align_internal_coords_translate: false
+  use_atom37_factory: true
+  feats_seq:
+  - xt_bb_ca
+  - xt_local_latents
+  - token_type
+  - sequence_probabilities
+  - cond_a37coors_nm
+  - cond_a37coors_internal_nm
+  - rasa_binned
+  - secondary_structure
+  - hbond_modernized
+  - pistack
+  - pication
+  - saltbridge
+  - hydrophobic
+  - metal_coord
+  - na_ss_state
+  - hotspot
+  - atom_charge
+  - atomic_element
+  - coord_group_seq
+  - chirality
+  - chain_centroid_xyz
+  feats_cond_seq:
+  - time_emb_bb_ca
+  - time_emb_local_latents
+  - cath_code
+  - recycle_remaining
+  dim_cond: 256
+  idx_emb_dim: 256
+  t_emb_dim: 256
+  feats_pair_repr:
+  - xt_bb_ca_pair_dists
+  - bond_mask
+  - bond_order
+  - is_aromatic
+  - index_group_pair
+  - molecule_idx_pair
+  - molecule_entity_pair
+  - token_bond_path_length
+  - canonical_polymer_ordering
+  - na_ss_pair
+  feats_pair_cond:
+  - time_emb_bb_ca
+  - time_emb_local_latents
+  xt_pair_dist_dim: 30
+  xt_pair_dist_min: 0.1
+  xt_pair_dist_max: 3
+  seq_sep_dim: 64
+  pair_repr_dim: 384
+  update_pair_repr: true
+  update_pair_repr_every_n: 2
+  use_tri_mult: true
+  tri_mult_c: 256
+  tri_mult_bias: false
+  tri_mult_backend: cuequivariance
+  recycle:
+    enabled: true
+    grad: last
+    training_max_recycles: 9
+    condition_probability: 0.5
+  checkpointing: none
+  pair_write: hadamard
+  use_qkln: true
+  attention_type: torch
+  use_torch_compile: true
+  norm_type: rmsnorm_torch_fused
+generation:
+  n_recycle: 0
+  n_recycle_schedule:
+  - - 5
+    - 6
+  - - 10
+    - 5
+  - - 5
+    - 4
+  - - 10
+    - 3
+  - - 20
+    - 2
+  - - 10
+    - 1
+  condition_on_recycle_remaining: true
+  val_set_name_override: null
+  args:
+    nsteps: 60
+    condition_decoder_on_sequence_prediction: true
+    guidance_w: 1.0
+    partial_trajectory_fraction_steps: null
+    partial_t_backbone: null
+    partial_t_latent: null
+    couple_partial_t: false
+    inverse_folding: false
+    inverse_folding_method: resampled_forward_marginal
+    save_trajectory_every: 0
+    bb_ca_only_trajectories: true
+    dump_noisy_trajectories: false
+  model:
+    bb_ca:
+      schedule:
+        mode: log
+        p: 2.0
+        tail_steps: 10
+        tail_step_multiplier: 2
+      gt:
+        mode: 1/t
+        p: 1.0
+        clamp_val: null
+      simulation_step_params:
+        sampling_mode: vf_tsr
+        sc_scale_noise: 1.0
+        t_lim_ode: 0.95
+        t_lim_ode_below: 0.02
+        center_every_step: false
+        tsr_k: 16.0
+        tsr_sigma: 3.0
+    local_latents:
+      schedule:
+        mode: power
+        p: 2.0
+        tail_steps: 10
+        tail_step_multiplier: 2
+      gt:
+        mode: tan
+        p: 1.0
+        clamp_val: null
+      simulation_step_params:
+        sampling_mode: vf_tsr
+        sc_scale_noise: 1.0
+        t_lim_ode: 0.95
+        t_lim_ode_below: 0.02
+        center_every_step: false
+        tsr_k: 4.0
+        tsr_sigma: 12.0
+  compile_lengths:
+  - 256
+  - 320
+  - 384
+  - 448
+  - 512
+  - 560
+  - 608
+metrics:
+  inline_metrics:
+    amino_acid_composition:
+      _target_: rfproteina.metrics.amino_acid_composition.AminoAcidCompositionMetric
+      aggregation:
+      - mean
+    bond_length_metrics:
+      _target_: rfproteina.metrics.design_metrics.BondLengthMetric
+      verbose: true
+      required_tags_any:
+      - design
+      prohibited_tags:
+      - small_molecule_only
+      - structure_prediction
+    clash_metrics:
+      _target_: rfproteina.metrics.design_metrics.ClashMetric
+      threshold: 1.5
+      required_tags_any:
+      - design
+      - structure_prediction
+      prohibited_tags:
+      - small_molecule_only
+    hotspot_obedience:
+      _target_: rfproteina.metrics.hotspots.HotspotObedience
+      max_hotspot_distance: 4.5
+      required_tags_any:
+      - hotspot_conditioning
+    rasa_adherence:
+      _target_: rfproteina.metrics.rasa_metrics.RasaAdherenceMetric
+      required_tags_any:
+      - rasa_conditioning
+    centroid_conditioning_adherence:
+      _target_: rfproteina.metrics.centroid_metrics.CentroidConditioningAdherenceMetric
+      required_tags_any:
+      - centroid_conditioning
+    interchain_interactions:
+      _target_: rfproteina.metrics.interaction_metrics.InterchainInteractionMetric
+      required_tags_any:
+      - interchain_interactions
+      prohibited_tags:
+      - small_molecule_only
+      - structure_prediction
+    sequence_adherence:
+      _target_: rfproteina.metrics.sequence_adherence_metric.SequenceAdherenceMetric
+      required_tags_any:
+      - design
+    sequence_probability_adherence:
+      _target_: rfproteina.metrics.sequence_adherence_metric.SequenceProbabilityAdherenceMetric
+      required_tags_any:
+      - design
+    sse_distribution:
+      _target_: rfproteina.metrics.sse_metrics.SecondaryStructureDistribution
+      required_tags_any:
+      - design
+      prohibited_tags:
+      - small_molecule_only
+      - structure_prediction
+    sse_accuracy:
+      _target_: rfproteina.metrics.sse_metrics.SecondaryStructureAccuracy
+      required_tags_any:
+      - design
+      prohibited_tags:
+      - small_molecule_only
+      - structure_prediction
+    posebusters_metrics:
+      _target_: rfproteina.metrics.posebusters_metrics.PoseBustersMetric
+      atom_array_input_key: predicted_atom_array
+      required_tags_any:
+      - small_molecule_only
+    chiral_accuracy:
+      _target_: rfproteina.metrics.chiral_metric.ChiralAccuracy
+      subset_mask: is_ligand
+      required_tags_any:
+      - has_small_molecule
+    design_motif_allatom_rmsd:
+      _target_: rfproteina.metrics.gt_structure_comparison.StructureComparisonMetric
+      align_mask: sa_mask('SA_CRDSRC')
+      subset_mask: sa_mask('SA_CRDSRC')
+      subdivide_by_annotation: condition_CoordinateGroup_1_atom
+      gt_coord_annotation_name: annotation_coords-with-insertion_1_atom
+      metric_type: rmsd
+      aggregation:
+      - median
+      input_kwarg_names:
+        ground_truth_atom_array: predicted_atom_array
+        predicted_atom_array: predicted_atom_array
+      required_tags_any:
+      - 3d_coordinate_conditioning
+      - unindexed
+      - internal_coordinate_conditioning
+    design_unindexed_motif_allatom_rmsd:
+      _target_: rfproteina.metrics.gt_structure_comparison.StructureComparisonMetric
+      align_mask: sa_mask('SA_CRDSRC') & is_unindexed_insertion
+      subset_mask: sa_mask('SA_CRDSRC') & is_unindexed_insertion
+      subdivide_by_annotation: condition_CoordinateGroup_1_atom
+      gt_coord_annotation_name: annotation_coords-with-insertion_1_atom
+      metric_type: rmsd
+      aggregation:
+      - median
+      input_kwarg_names:
+        ground_truth_atom_array: predicted_atom_array
+        predicted_atom_array: predicted_atom_array
+      required_tags_all:
+      - unindexed
+    unindexed_insertion_mapping:
+      _target_: rfproteina.metrics.unindexed_insertion_metric.UnindexedInsertionMappingMetric
+      required_tags_all:
+      - unindexed
+    contact_molecular_surface:
+      _target_: rfproteina.metrics.physics.contact_ms.metric.ContactMolecularSurfaceMetric
+      required_tags_any:
+      - cms
+    sequence_similarity_to_input:
+      _target_: rfproteina.metrics.design_metrics.SequenceSimilarityToInput
+      required_tags_any:
+      - partial_diffusion
+    ca_rmsd_to_input:
+      _target_: rfproteina.metrics.gt_structure_comparison.StructureComparisonMetric
+      align_mask: is_protein & (atom_name == 'CA')
+      subset_mask: is_protein & (atom_name == 'CA')
+      metric_type: rmsd
+      aggregation:
+      - median
+      required_tags_any:
+      - partial_diffusion
+    cath_metric:
+      _target_: rfproteina.metrics.cath_metric.CathMetric
+      required_tags_any:
+      - cath
+      annotator: foldseek_with_fallback
+    structure_prediction_lddt:
+      _target_: rfproteina.metrics.lddt_metric.AllAtomLDDT
+      predicted_atom_array_key: predicted_atom_array
+      ground_truth_atom_array_key: ground_truth_atom_array
+      required_tags_any:
+      - structure_prediction
+    sequence_developability:
+      _target_: rfproteina.metrics.physics.developability_metrics.SequenceDevelopabilityMetric
+      required_tags_any:
+      - developability
+      prohibited_tags:
+      - small_molecule_only
+      - structure_prediction
+    rosetta_developability:
+      _target_: rfproteina.metrics.physics.developability_metrics.RosettaDevelopabilityMetric
+      required_tags_any:
+      - developability
+      prohibited_tags:
+      - small_molecule_only
+      - structure_prediction
+      sasa_cutoff: 20.0
+    antibody_contacts:
+      _target_: rfproteina.metrics.antibody_metrics.AntibodyContacts
+      required_tags_any:
+      - antibody
+      contact_threshold: 7.0
+  refolding_metrics:
+    refolded_backbone_rmsd:
+      _target_: rfproteina.metrics.gt_structure_comparison.StructureComparisonMetric
+      align_mask: is_protein_backbone
+      subset_mask: is_protein_backbone
+      metric_type: rmsd
+      aggregation:
+      - median
+      required_tags_any:
+      - unconditional_refolding
+      - ppi_refolding
+      - antibody
+      - dna_refolding
+      - motif_scaffold_refolding
+      - internal_coordinate_motif_scaffold_refolding
+      - sm_binder_refolding
+      - ame_refolding
+      - ame_no_ligand_refolding
+      - ame_original_benchmark_refolding
+      - disco_refolding
+      required_tags_all:
+      - is_refold:untransformed
+    refolded_target_aligned_binder_rmsd:
+      _target_: rfproteina.metrics.gt_structure_comparison.StructureComparisonMetric
+      align_mask: ~is_chain_of_interest & (sa_mask('C_CRD') | is_dna)
+      subset_mask: is_chain_of_interest & is_protein
+      metric_type: rmsd
+      aggregation:
+      - median
+      required_tags_any:
+      - ppi_refolding
+      - dna_refolding
+      - antibody
+      required_tags_all:
+      - is_refold:untransformed
+    refolded_target_backbone_aligned_binder_rmsd:
+      _target_: rfproteina.metrics.gt_structure_comparison.StructureComparisonMetric
+      align_mask: ~is_chain_of_interest & sa_mask('C_CRD') & is_protein_backbone
+      subset_mask: is_chain_of_interest & is_protein
+      metric_type: rmsd
+      aggregation:
+      - median
+      required_tags_any:
+      - ppi_refolding
+      required_tags_all:
+      - is_refold:untransformed
+    refolded_motif_allatom_rmsd:
+      _target_: rfproteina.metrics.gt_structure_comparison.StructureComparisonMetric
+      align_mask: sa_mask('SA_CRDSRC') & is_protein
+      subset_mask: sa_mask('SA_CRDSRC') & is_protein
+      subdivide_by_annotation: condition_CoordinateGroup_1_atom
+      gt_coord_annotation_name: annotation_coords-with-insertion_1_atom
+      metric_type: rmsd
+      aggregation:
+      - median
+      required_tags_any:
+      - motif_scaffold_refolding
+      - internal_coordinate_motif_scaffold_refolding
+      - ame_refolding
+      - ame_no_ligand_refolding
+      - ame_original_benchmark_refolding
+      required_tags_all:
+      - is_refold:untransformed
+    refolded_motif_ca_rmsd:
+      _target_: rfproteina.metrics.gt_structure_comparison.StructureComparisonMetric
+      align_mask: sa_mask('SA_CRDSRC') & is_protein & (atom_name == 'CA')
+      subset_mask: sa_mask('SA_CRDSRC') & is_protein & (atom_name == 'CA')
+      subdivide_by_annotation: condition_CoordinateGroup_1_atom
+      gt_coord_annotation_name: annotation_coords-with-insertion_1_atom
+      metric_type: rmsd
+      aggregation:
+      - median
+      required_tags_any:
+      - motif_scaffold_refolding
+      - internal_coordinate_motif_scaffold_refolding
+      required_tags_all:
+      - is_refold:untransformed
+    refolded_backbone_aligned_ligand_rmsd:
+      _target_: rfproteina.metrics.gt_structure_comparison.StructureComparisonMetric
+      align_mask: is_protein_backbone
+      subset_mask: is_ligand
+      metric_type: rmsd
+      aggregation:
+      - median
+      required_tags_any:
+      - sm_binder_refolding
+      required_tags_all:
+      - is_refold:untransformed
+    refolded_apo_holo_rmsd:
+      _target_: rfproteina.metrics.gt_structure_comparison.StructureComparisonMetric
+      align_mask: is_protein_backbone & ~sa_mask('C_CRD')
+      subset_mask: is_protein_backbone & ~sa_mask('C_CRD')
+      metric_type: rmsd
+      aggregation:
+      - median
+      input_kwarg_names:
+        ground_truth_atom_array: refold.apo
+        predicted_atom_array: refold.untransformed
+      required_tags_all:
+      - is_refold:apo
+      - exists_refold:untransformed
+    max_ligand_centroid_distance:
+      _target_: rfproteina.metrics.gt_structure_comparison.LigandCentroidDistanceMetric
+      align_mask: is_protein_backbone
+      aggregation: max
+      required_tags_any:
+      - disco_refolding
+      required_tags_all:
+      - is_refold:untransformed
+  pass_criteria:
+    unconditional:
+      _target_: rfproteina.metrics.oracles.pass_criterion_metric.PassCriterionMetric
+      metric_thresholds:
+        refolded_backbone_rmsd.rmsd:
+          max: 1.5
+      required_tags_any:
+      - unconditional_refolding
+    ppi:
+      _target_: rfproteina.metrics.oracles.pass_criterion_metric.PassCriterionMetric
+      metric_thresholds:
+        oracle_ppi.ptm_coi:
+          min: 80.0
+        oracle_ppi.min_ipae_coi:
+          max: 1.5
+        refolded_target_backbone_aligned_binder_rmsd.rmsd:
+          max: 2.5
+      required_tags_any:
+      - ppi_refolding
+    antibody:
+      _target_: rfproteina.metrics.oracles.pass_criterion_metric.PassCriterionMetric
+      metric_thresholds:
+        oracle_ppi.min_ipae_coi:
+          max: 2.0
+        refolded_target_aligned_binder_rmsd.rmsd:
+          max: 2.0
+      required_tags_any:
+      - antibody
+    dna:
+      _target_: rfproteina.metrics.oracles.pass_criterion_metric.PassCriterionMetric
+      metric_thresholds:
+        oracle_dna.min_ipae_coi:
+          max: 1.5
+        refolded_target_aligned_binder_rmsd.rmsd:
+          max: 8.0
+      required_tags_any:
+      - dna_refolding
+    motif_scaffold:
+      _target_: rfproteina.metrics.oracles.pass_criterion_metric.PassCriterionMetric
+      metric_thresholds:
+        refolded_backbone_rmsd.rmsd:
+          max: 2.0
+        refolded_motif_allatom_rmsd.rmsd:
+          max: 2.0
+        refolded_motif_ca_rmsd.rmsd:
+          max: 1.0
+      required_tags_any:
+      - motif_scaffold_refolding
+    internal_coords:
+      _target_: rfproteina.metrics.oracles.pass_criterion_metric.PassCriterionMetric
+      metric_thresholds:
+        refolded_backbone_rmsd.rmsd:
+          max: 2.0
+        refolded_motif_allatom_rmsd.rmsd:
+          max: 2.0
+        refolded_motif_ca_rmsd.rmsd:
+          max: 1.0
+      required_tags_any:
+      - internal_coordinate_motif_scaffold_refolding
+    sm_binder:
+      _target_: rfproteina.metrics.oracles.pass_criterion_metric.PassCriterionMetric
+      metric_thresholds:
+        oracle.min_ipae_coi:
+          max: 1.5
+        oracle.iptm_coi:
+          min: 80.0
+        refolded_backbone_rmsd.rmsd:
+          max: 1.5
+        refolded_backbone_aligned_ligand_rmsd.rmsd:
+          max: 5.0
+      required_tags_any:
+      - sm_binder_refolding
+    ame:
+      _target_: rfproteina.metrics.oracles.pass_criterion_metric.PassCriterionMetric
+      metric_thresholds:
+        oracle.min_ipae_coi:
+          max_exclusive: 1.5
+        refolded_backbone_rmsd.rmsd:
+          max: 2.0
+        refolded_motif_allatom_rmsd.rmsd:
+          max: 1.5
+        clash_metrics.frac_atoms_clashing_inter_residue_polymer_ligand_1p5A:
+          max: 0
+      required_tags_any:
+      - ame_refolding
+      prohibited_tags:
+      - no_ligand
+    ame_no_ligand:
+      _target_: rfproteina.metrics.oracles.pass_criterion_metric.PassCriterionMetric
+      metric_thresholds:
+        refolded_backbone_rmsd.rmsd:
+          max: 2.0
+        refolded_motif_allatom_rmsd.rmsd:
+          max: 1.5
+      required_tags_any:
+      - ame_refolding
+      required_tags_all:
+      - no_ligand
+    disco:
+      _target_: rfproteina.metrics.oracles.pass_criterion_metric.PassCriterionMetric
+      metric_thresholds:
+        refolded_backbone_rmsd.rmsd:
+          max: 2.0
+        max_ligand_centroid_distance.ligand_centroid_distance:
+          max: 2.0
+      required_tags_any:
+      - disco_refolding
+    developability:
+      _target_: rfproteina.metrics.oracles.pass_criterion_metric.PassCriterionMetric
+      metric_thresholds:
+        rosetta_developability.sap_score:
+          max: 50.0
+        rosetta_developability.hydrophobic_exposure_sasa:
+          max: 1500.0
+        sequence_developability.gravy:
+          max: 0.1
+        sequence_developability.instability_index:
+          max: 40.0
+      required_tags_any:
+      - developability
+  pre_oracle_filters: {}
+callbacks:
+  set_sampler_epoch_callback:
+    _target_: rfproteina.callbacks.sampler_epoch.SetSamplerEpochCallback
+  skip_nan_grad_callback:
+    _target_: rfproteina.utils.training_analysis.SkipNanGradCallback
+  lightning_timing_callback:
+    _target_: rfproteina.callbacks.timing.LightningTimingCallback
+    log_every_n: 500
+  ema_callback:
+    _target_: rfproteina.utils.simple_ema.SimpleEMA
+    decay: 0.999
+    update_every_n: 1
+  coordinated_gc:
+    _target_: rfproteina.callbacks.coordinated_gc.CoordinatedGC
+    interval_batches: 128
+  dataset_task_stats_callback:
+    _target_: rfproteina.callbacks.dataset_task_logging.DatasetTaskStatsCallback
+    log_every_n: 1000
+  r4t_timer:
+    _target_: r4t_step_timer.StepTimer
+    out: /root/kc/rfd4/r4t/ae-compile/steps.jsonl
+verbose: true
+run_name_: r4t_gpu_baseline_local
+out_dir: /root/kc/rfd4/r4t/ae-compile/run
+compress_outputs: true
+pretrain_ckpt_path: null
+resume_ckpt_path: null
+hf_ckpt_path: nvidia/RFD4-Proteina
+hf_ckpt_revision: a06e2509c7033b010fc43614e9fd840303588502
+hf_bundle_overrides:
+  autoencoder_config:
+    nn_ae:
+      use_torch_compile: true
+delete_failing_pre_oracle: true
+weight_loading: null
+parameter_freezing: null
+hardware:
+  accelerator: gpu
+  ngpus_per_node_: 1
+  nnodes_: 1
+  ncpus_per_task_train_: 16
+product_flowmatcher:
+  bb_ca:
+    zero_com_noise: true
+    guidance_enabled: true
+    dim: 3
+    stochastic_centering_mode: x_0
+    stochastic_centering_scale: 0.2
+    stochastic_centering_scope: per_group
+    stochastic_centering_group_keys:
+    - molecule_iid
+  local_latents:
+    zero_com_noise: false
+    guidance_enabled: true
+    dim: 32
+    stochastic_centering_mode: none
+    stochastic_centering_scale: null
+autoencoder_ckpt_path: null
+loss:
+  signed_volume_weight: 2.5
+  sequence_prediction:
+    enabled: true
+    t_min: 0.0
+    t_max: 1.0
+  t_distribution:
+    bb_ca:
+      name: mix_unif_beta
+      p1: 1.9
+      p2: 1.0
+      p3: 0.02
+    local_latents:
+      name: mix_unif_beta
+      p1: 1.0
+      p2: 1.5
+      p3: 0.2
+    shared_groups: null
+precision: bf16-mixed
+force_precision_f32: false
+training:
+  exploration_k: 4
+  exploration_losses:
+  - bb_ca
+  - local_latents
+  n_recycle_max: 9
+  n_recycle_sampler: poisson
+  n_recycle_lambda: 3.0
+  n_recycle_sync: true
+  n_recycle_val_loss: 3
+  motif_conditioning: false
+lora:
+  r: null
+  lora_alpha: 64.0
+  lora_dropout: 0.0
+  train_bias: none
+  target_modules:
+  - to_qkv
+  - to_out_node
+opt:
+  lr: 0.0001
+  muon_warmup_steps: 0
+  adam_warmup_steps: 10000
+  gradient_clip_val: 1.0
+  max_epochs: 1
+  accumulate_grad_batches: 1
+  dist_strategy: ddp
+  steps_per_epoch: 25
+  val_every_n_epochs: 10
+  val_start_epoch: 0
+  compute_val_loss: false
+  foldseek_timeout_minutes: 25
+  muon_exclude_param_patterns:
+  - _factory\.
+  - ^nn\.(local_latents_linear|ca_linear|insertion_q_proj|insertion_k_proj)\.
+  - ^nn\.sequence_readout\.
+  muon_adjust_lr_fn: match_rms_adamw
+  muon_grouped: true
+  num_sanity_val_steps: 0
+  coordinate_descent_tuning: false
+  limit_val_batches: 0
+log:
+  wandb_project: latent_training
+  wandb_entity: null
+  tags:
+  - sota
+  log_wandb: false
+  log_every_n_steps: 10
+  checkpoint: false
+  checkpoint_every_n_epochs: 10
+  last_ckpt_every_n_epochs: 5
+seed: 145
+torch_deterministic: false
+use_unified_ae_encoding: true
+_max_tokens: 256
+_val_compile_lengths:
+- 256
+- 320
+- 384
+- 448
+- 512
+- 560
+- 608
+_crop_size_range:
+- 0.9
+- 1.0
+_p_no_subcrop: 0.2
+_p_internal_coords: 0.25
+_loss_weights:
+  non_standard: 2.5
+  unindexed: 2.5
+  sampled_tip_atom: 0.0
+_centroid_noise_std_angstrom: 2.5
+single: true
+nolog: true
+autoencoder_config:
+  nn_ae:
+    name: transformer_ae_aa_rna_dna_glycan_ncaa
+    latent_z_dim: 32
+    allow_oxt: true
+    use_torch_compile: true
+    torch_compile_fullgraph: false
+    n_residue_types: 147
+    encoder:
+      nlayers: 12
+      token_dim: 768
+      nheads: 12
+      parallel_mha_transition: false
+      token_type_emb_dim: 32
+      strict_feats: false
+      feats_seq:
+      - token_type
+      - x1_a37coors_nm
+      - x1_a37coors_nm_rel
+      - chain_idx_seq
+      - incident_bond_type_counts
+      - atom37_element_charge_embedding
+      feats_cond_seq: null
+      dim_cond: 128
+      idx_emb_dim: 128
+      feats_pair_repr:
+      - token_bond_path_length
+      - canonical_polymer_ordering
+      - molecule_idx_pair
+      - x1_bb_pair_dists_nm
+      seq_sep_dim: 64
+      pair_repr_dim: 256
+      update_pair_repr: false
+      update_pair_repr_every_n: 3
+      use_tri_mult: false
+      use_attn_pair_bias: false
+      use_qkln: true
+      normalize_latent: false
+      latent_z_dim: 32
+      n_residue_types: 147
+      charge_emb_dim: 16
+    decoder:
+      nlayers: 12
+      token_dim: 768
+      abs_coors: false
+      nheads: 12
+      token_type_emb_dim: 32
+      parallel_mha_transition: false
+      strict_feats: false
+      feats_seq:
+      - ca_coors_nm
+      - z_latent_seq
+      - token_type
+      - cond_residue_type
+      feats_cond_seq: null
+      dim_cond: 128
+      idx_emb_dim: 128
+      feats_pair_repr:
+      - token_bond_path_length
+      - canonical_polymer_ordering
+      - molecule_idx_pair
+      - ca_coors_nm_pair_dists
+      seq_sep_dim: 64
+      pair_repr_dim: 256
+      update_pair_repr: false
+      update_pair_repr_every_n: 3
+      use_tri_mult: false
+      use_attn_pair_bias: false
+      use_qkln: true
+      latent_z_dim: 32
+      n_residue_types: 147
+path_length_search_cutoffs:
+- 64
+cfg_exp:
+  datasets:
+    global_design_task_kwargs:
+      rasa_kwargs:
+        p_add_rasa_condition: 0.6
+      hbond_kwargs:
+        p_add_hbond_condition: 0.2
+      pistack_kwargs:
+        p_add_pistack_condition: 0.2
+      pication_kwargs:
+        p_add_pication_condition: 0.2
+      salt_kwargs:
+        p_add_salt_condition: 0.2
+      hydrophobic_kwargs:
+        p_add_hydrophobic_condition: 0.2
+      metal_kwargs:
+        p_add_metal_condition: 0.2
+      secondary_structure_kwargs:
+        p_add_secondary_structure_condition: 0.1
+      cath_kwargs:
+        p_add_cath_c_condition: 0.0
+        p_add_cath_ca_condition: 0.0
+        p_add_cath_cat_condition: 0.9
+        min_retained_chain_fraction: 0.0
+      sequence_probability_kwargs:
+        p_exact: 0.5
+        p_zero_only: 0.17
+        p_positive_only: 0.17
+        p_zero_and_positive: 0.16
+        dirichlet_concentration: 3.0
+        exclusion_count_alpha: 2.0
+        p_full_probability_vector: 0.75
+        p_augment_unconditioned: 0.2
+        min_augmentation_fraction: 0.05
+        max_augmentation_fraction: 0.2
+        p_zero_only_whole_chain: 0.5
+    train:
+      test_dataset:
+        dataset:
+          id_column: example_id
+          transform:
+            _target_: rfproteina.datapipes.pipeline.build_design_train_pipeline
+            crop_size: 256
+            crop_contiguous_probability: 0.0
+            crop_spatial_probability: 1.0
+            dna_contact_crop_probability: 0.0
+            crop_center_cutoff_distance: 15.0
+            max_atoms_in_crop: 10000
+            b_factor_occupancy_min: null
+            p_random_rotation: 1.0
+            path_length_search_cutoff: 64
+            loss_weight_cfg:
+              non_standard: 2.5
+              unindexed: 2.5
+              sampled_tip_atom: 0.0
+            centroid_kwargs:
+              p_add_centroid_condition: 0.2
+              noise_std_angstrom: 5.0
+            design_tasks:
+              unconditional:
+                frequency: 10.0
+                transform:
+                  _target_: rfproteina.transforms.design_task.UnconditionalTask
+                  global_design_task_kwargs:
+                    rasa_kwargs:
+                      p_add_rasa_condition: 0.6
+                    hbond_kwargs:
+                      p_add_hbond_condition: 0.2
+                    pistack_kwargs:
+                      p_add_pistack_condition: 0.2
+                    pication_kwargs:
+                      p_add_pication_condition: 0.2
+                    salt_kwargs:
+                      p_add_salt_condition: 0.2
+                    hydrophobic_kwargs:
+                      p_add_hydrophobic_condition: 0.2
+                    metal_kwargs:
+                      p_add_metal_condition: 0.2
+                    secondary_structure_kwargs:
+                      p_add_secondary_structure_condition: 0.1
+                    cath_kwargs:
+                      p_add_cath_c_condition: 0.0
+                      p_add_cath_ca_condition: 0.0
+                      p_add_cath_cat_condition: 0.9
+                      min_retained_chain_fraction: 0.0
+                    sequence_probability_kwargs:
+                      p_exact: 0.5
+                      p_zero_only: 0.17
+                      p_positive_only: 0.17
+                      p_zero_and_positive: 0.16
+                      dirichlet_concentration: 3.0
+                      exclusion_count_alpha: 2.0
+                      p_full_probability_vector: 0.75
+                      p_augment_unconditioned: 0.2
+                      min_augmentation_fraction: 0.05
+                      max_augmentation_fraction: 0.2
+                      p_zero_only_whole_chain: 0.5
+              folding:
+                frequency: 5.0
+                transform:
+                  _target_: rfproteina.transforms.design_task.StructurePredictionTask
+                  global_design_task_kwargs:
+                    rasa_kwargs:
+                      p_add_rasa_condition: 0.6
+                    hbond_kwargs:
+                      p_add_hbond_condition: 0.2
+                    pistack_kwargs:
+                      p_add_pistack_condition: 0.2
+                    pication_kwargs:
+                      p_add_pication_condition: 0.2
+                    salt_kwargs:
+                      p_add_salt_condition: 0.2
+                    hydrophobic_kwargs:
+                      p_add_hydrophobic_condition: 0.2
+                    metal_kwargs:
+                      p_add_metal_condition: 0.2
+                    secondary_structure_kwargs:
+                      p_add_secondary_structure_condition: 0.1
+                    cath_kwargs:
+                      p_add_cath_c_condition: 0.0
+                      p_add_cath_ca_condition: 0.0
+                      p_add_cath_cat_condition: 0.9
+                      min_retained_chain_fraction: 0.0
+                    sequence_probability_kwargs:
+                      p_exact: 0.5
+                      p_zero_only: 0.17
+                      p_positive_only: 0.17
+                      p_zero_and_positive: 0.16
+                      dirichlet_concentration: 3.0
+                      exclusion_count_alpha: 2.0
+                      p_full_probability_vector: 0.75
+                      p_augment_unconditioned: 0.2
+                      min_augmentation_fraction: 0.05
+                      max_augmentation_fraction: 0.2
+                      p_zero_only_whole_chain: 0.5
+              inverse_folding:
+                frequency: 5.0
+                transform:
+                  _target_: rfproteina.transforms.design_task.InverseFoldingTask
+                  global_design_task_kwargs:
+                    rasa_kwargs:
+                      p_add_rasa_condition: 0.6
+                    hbond_kwargs:
+                      p_add_hbond_condition: 0.2
+                    pistack_kwargs:
+                      p_add_pistack_condition: 0.2
+                    pication_kwargs:
+                      p_add_pication_condition: 0.2
+                    salt_kwargs:
+                      p_add_salt_condition: 0.2
+                    hydrophobic_kwargs:
+                      p_add_hydrophobic_condition: 0.2
+                    metal_kwargs:
+                      p_add_metal_condition: 0.2
+                    secondary_structure_kwargs:
+                      p_add_secondary_structure_condition: 0.1
+                    cath_kwargs:
+                      p_add_cath_c_condition: 0.0
+                      p_add_cath_ca_condition: 0.0
+                      p_add_cath_cat_condition: 0.9
+                      min_retained_chain_fraction: 0.0
+                    sequence_probability_kwargs:
+                      p_exact: 0.5
+                      p_zero_only: 0.17
+                      p_positive_only: 0.17
+                      p_zero_and_positive: 0.16
+                      dirichlet_concentration: 3.0
+                      exclusion_count_alpha: 2.0
+                      p_full_probability_vector: 0.75
+                      p_augment_unconditioned: 0.2
+                      min_augmentation_fraction: 0.05
+                      max_augmentation_fraction: 0.2
+                      p_zero_only_whole_chain: 0.5
+              tip_atom:
+                frequency: 0.0
+                transform:
+                  _target_: rfproteina.transforms.design_task.TipAtomTask
+                  min_residues: 2
+                  max_residues: 8
+                  p_tip_atom: 0.5
+                  p_merge_unindexed_groups: 0.1
+                  p_split_unindexed_groups: 0.01
+                  p_increase_group_id_gap: 0.1
+                  global_design_task_kwargs:
+                    rasa_kwargs:
+                      p_add_rasa_condition: 0.6
+                    hbond_kwargs:
+                      p_add_hbond_condition: 0.2
+                    pistack_kwargs:
+                      p_add_pistack_condition: 0.2
+                    pication_kwargs:
+                      p_add_pication_condition: 0.2
+                    salt_kwargs:
+                      p_add_salt_condition: 0.2
+                    hydrophobic_kwargs:
+                      p_add_hydrophobic_condition: 0.2
+                    metal_kwargs:
+                      p_add_metal_condition: 0.2
+                    secondary_structure_kwargs:
+                      p_add_secondary_structure_condition: 0.1
+                    cath_kwargs:
+                      p_add_cath_c_condition: 0.0
+                      p_add_cath_ca_condition: 0.0
+                      p_add_cath_cat_condition: 0.9
+                      min_retained_chain_fraction: 0.0
+                    sequence_probability_kwargs:
+                      p_exact: 0.5
+                      p_zero_only: 0.17
+                      p_positive_only: 0.17
+                      p_zero_and_positive: 0.16
+                      dirichlet_concentration: 3.0
+                      exclusion_count_alpha: 2.0
+                      p_full_probability_vector: 0.75
+                      p_augment_unconditioned: 0.2
+                      min_augmentation_fraction: 0.05
+                      max_augmentation_fraction: 0.2
+                      p_zero_only_whole_chain: 0.5
+              tip_atom_partial_ligand:
+                frequency: 30.0
+                transform:
+                  _target_: rfproteina.transforms.design_task.TipAtomPartialLigandTask
+                  n_max_ligands: 3
+                  n_hops_expected_ligand: 5
+                  n_max_residues: 8
+                  n_hops_expected_tip_atom: 1
+                  p_seq_conditioned: 1.0
+                  p_knockout_seq: 0.0
+                  p_merge_unindexed_groups: 0.1
+                  p_split_unindexed_groups: 0.01
+                  p_increase_group_id_gap: 0.1
+                  global_design_task_kwargs:
+                    rasa_kwargs:
+                      p_add_rasa_condition: 0.6
+                    hbond_kwargs:
+                      p_add_hbond_condition: 0.2
+                    pistack_kwargs:
+                      p_add_pistack_condition: 0.2
+                    pication_kwargs:
+                      p_add_pication_condition: 0.2
+                    salt_kwargs:
+                      p_add_salt_condition: 0.2
+                    hydrophobic_kwargs:
+                      p_add_hydrophobic_condition: 0.2
+                    metal_kwargs:
+                      p_add_metal_condition: 0.2
+                    secondary_structure_kwargs:
+                      p_add_secondary_structure_condition: 0.1
+                    cath_kwargs:
+                      p_add_cath_c_condition: 0.0
+                      p_add_cath_ca_condition: 0.0
+                      p_add_cath_cat_condition: 0.9
+                      min_retained_chain_fraction: 0.0
+                    sequence_probability_kwargs:
+                      p_exact: 0.5
+                      p_zero_only: 0.17
+                      p_positive_only: 0.17
+                      p_zero_and_positive: 0.16
+                      dirichlet_concentration: 3.0
+                      exclusion_count_alpha: 2.0
+                      p_full_probability_vector: 0.75
+                      p_augment_unconditioned: 0.2
+                      min_augmentation_fraction: 0.05
+                      max_augmentation_fraction: 0.2
+                      p_zero_only_whole_chain: 0.5
+              motif_scaffold:
+                frequency: 0.0
+                transform:
+                  _target_: rfproteina.transforms.design_task.MotifScaffoldTask
+                  min_tokens_per_motif: 1
+                  max_tokens_per_motif: 50
+                  min_coverage_fraction: 0.05
+                  max_coverage_fraction: 1.0
+                  max_unindexed_tokens: 50
+                  p_unindex_any: 0.5
+                  p_merge_unindexed_groups: 0.1
+                  p_split_unindexed_groups: 0.01
+                  p_increase_group_id_gap: 0.1
+                  p_backbone_only: 0.2
+                  p_bb_only_seq_conditioned: 0.3
+                  global_design_task_kwargs:
+                    rasa_kwargs:
+                      p_add_rasa_condition: 0.6
+                    hbond_kwargs:
+                      p_add_hbond_condition: 0.2
+                    pistack_kwargs:
+                      p_add_pistack_condition: 0.2
+                    pication_kwargs:
+                      p_add_pication_condition: 0.2
+                    salt_kwargs:
+                      p_add_salt_condition: 0.2
+                    hydrophobic_kwargs:
+                      p_add_hydrophobic_condition: 0.2
+                    metal_kwargs:
+                      p_add_metal_condition: 0.2
+                    secondary_structure_kwargs:
+                      p_add_secondary_structure_condition: 0.1
+                    cath_kwargs:
+                      p_add_cath_c_condition: 0.0
+                      p_add_cath_ca_condition: 0.0
+                      p_add_cath_cat_condition: 0.9
+                      min_retained_chain_fraction: 0.0
+                    sequence_probability_kwargs:
+                      p_exact: 0.5
+                      p_zero_only: 0.17
+                      p_positive_only: 0.17
+                      p_zero_and_positive: 0.16
+                      dirichlet_concentration: 3.0
+                      exclusion_count_alpha: 2.0
+                      p_full_probability_vector: 0.75
+                      p_augment_unconditioned: 0.2
+                      min_augmentation_fraction: 0.05
+                      max_augmentation_fraction: 0.2
+                      p_zero_only_whole_chain: 0.5
+              binder_hotspot_with_3d_target:
+                frequency: 0.0
+                transform:
+                  _target_: rfproteina.transforms.design_task.BinderHotspotWith3DTarget
+                  hotspot_count_distribution: geometric
+                  hotspot_geometric_p: 0.2
+                  max_hotspots_frac_to_provide: 0.1
+                  p_no_hotspots: 0.05
+                  hotspot_max_distance: 4.5
+                  ppi_crop_binder_fraction: 0.667
+                  p_sample_ppi_crop: 0.75
+                  p_bb_only_coord_conditioning: 0.0
+                  global_design_task_kwargs:
+                    rasa_kwargs:
+                      p_add_rasa_condition: 0.6
+                    hbond_kwargs:
+                      p_add_hbond_condition: 0.2
+                    pistack_kwargs:
+                      p_add_pistack_condition: 0.2
+                    pication_kwargs:
+                      p_add_pication_condition: 0.2
+                    salt_kwargs:
+                      p_add_salt_condition: 0.2
+                    hydrophobic_kwargs:
+                      p_add_hydrophobic_condition: 0.2
+                    metal_kwargs:
+                      p_add_metal_condition: 0.2
+                    secondary_structure_kwargs:
+                      p_add_secondary_structure_condition: 0.1
+                    cath_kwargs:
+                      p_add_cath_c_condition: 0.0
+                      p_add_cath_ca_condition: 0.0
+                      p_add_cath_cat_condition: 0.9
+                      min_retained_chain_fraction: 0.0
+                    sequence_probability_kwargs:
+                      p_exact: 0.5
+                      p_zero_only: 0.17
+                      p_positive_only: 0.17
+                      p_zero_and_positive: 0.16
+                      dirichlet_concentration: 3.0
+                      exclusion_count_alpha: 2.0
+                      p_full_probability_vector: 0.75
+                      p_augment_unconditioned: 0.2
+                      min_augmentation_fraction: 0.05
+                      max_augmentation_fraction: 0.2
+                      p_zero_only_whole_chain: 0.5
+              tip_atom_pocket:
+                frequency: 30.0
+                transform:
+                  _target_: rfproteina.transforms.design_task.TipAtomActiveSiteTask
+                  tip_atom_rasa_threshold: 0.2
+                  min_tip_atoms: 2
+                  max_tip_atoms: 15
+                  p_seq_conditioned: 1.0
+                  p_knockout_seq: 0.0
+                  p_unindex_all: 0.8
+                  p_unindex_any: 0.05
+                  p_merge_unindexed_groups: 0.1
+                  p_split_unindexed_groups: 0.01
+                  p_increase_group_id_gap: 0.1
+                  global_design_task_kwargs:
+                    rasa_kwargs:
+                      p_add_rasa_condition: 0.6
+                    hbond_kwargs:
+                      p_add_hbond_condition: 0.2
+                    pistack_kwargs:
+                      p_add_pistack_condition: 0.2
+                    pication_kwargs:
+                      p_add_pication_condition: 0.2
+                    salt_kwargs:
+                      p_add_salt_condition: 0.2
+                    hydrophobic_kwargs:
+                      p_add_hydrophobic_condition: 0.2
+                    metal_kwargs:
+                      p_add_metal_condition: 0.2
+                    secondary_structure_kwargs:
+                      p_add_secondary_structure_condition: 0.1
+                    cath_kwargs:
+                      p_add_cath_c_condition: 0.0
+                      p_add_cath_ca_condition: 0.0
+                      p_add_cath_cat_condition: 0.9
+                      min_retained_chain_fraction: 0.0
+                    sequence_probability_kwargs:
+                      p_exact: 0.5
+                      p_zero_only: 0.17
+                      p_positive_only: 0.17
+                      p_zero_and_positive: 0.16
+                      dirichlet_concentration: 3.0
+                      exclusion_count_alpha: 2.0
+                      p_full_probability_vector: 0.75
+                      p_augment_unconditioned: 0.2
+                      min_augmentation_fraction: 0.05
+                      max_augmentation_fraction: 0.2
+                      p_zero_only_whole_chain: 0.5
+              partial_ligand:
+                frequency: 20.0
+                transform:
+                  _target_: rfproteina.transforms.design_task.PartialLigandTask
+                  min_coverage_fraction: 0.0
+                  max_coverage_fraction: 1.0
+                  p_fix_ligand_surroundings: 0.0
+                  global_design_task_kwargs:
+                    rasa_kwargs:
+                      p_add_rasa_condition: 0.6
+                    hbond_kwargs:
+                      p_add_hbond_condition: 0.2
+                    pistack_kwargs:
+                      p_add_pistack_condition: 0.2
+                    pication_kwargs:
+                      p_add_pication_condition: 0.2
+                    salt_kwargs:
+                      p_add_salt_condition: 0.2
+                    hydrophobic_kwargs:
+                      p_add_hydrophobic_condition: 0.2
+                    metal_kwargs:
+                      p_add_metal_condition: 0.2
+                    secondary_structure_kwargs:
+                      p_add_secondary_structure_condition: 0.1
+                    cath_kwargs:
+                      p_add_cath_c_condition: 0.0
+                      p_add_cath_ca_condition: 0.0
+                      p_add_cath_cat_condition: 0.9
+                      min_retained_chain_fraction: 0.0
+                    sequence_probability_kwargs:
+                      p_exact: 0.5
+                      p_zero_only: 0.17
+                      p_positive_only: 0.17
+                      p_zero_and_positive: 0.16
+                      dirichlet_concentration: 3.0
+                      exclusion_count_alpha: 2.0
+                      p_full_probability_vector: 0.75
+                      p_augment_unconditioned: 0.2
+                      min_augmentation_fraction: 0.05
+                      max_augmentation_fraction: 0.2
+                      p_zero_only_whole_chain: 0.5
+              protein_from_dna_structure_context:
+                frequency: 0.0
+                transform:
+                  _target_: rfproteina.transforms.design_task.ProteinFromDNAStructureContextTask
+                  global_design_task_kwargs:
+                    rasa_kwargs:
+                      p_add_rasa_condition: 0.6
+                    hbond_kwargs:
+                      p_add_hbond_condition: 0.2
+                    pistack_kwargs:
+                      p_add_pistack_condition: 0.2
+                    pication_kwargs:
+                      p_add_pication_condition: 0.2
+                    salt_kwargs:
+                      p_add_salt_condition: 0.2
+                    hydrophobic_kwargs:
+                      p_add_hydrophobic_condition: 0.2
+                    metal_kwargs:
+                      p_add_metal_condition: 0.2
+                    secondary_structure_kwargs:
+                      p_add_secondary_structure_condition: 0.1
+                    cath_kwargs:
+                      p_add_cath_c_condition: 0.0
+                      p_add_cath_ca_condition: 0.0
+                      p_add_cath_cat_condition: 0.9
+                      min_retained_chain_fraction: 0.0
+                    sequence_probability_kwargs:
+                      p_exact: 0.5
+                      p_zero_only: 0.17
+                      p_positive_only: 0.17
+                      p_zero_and_positive: 0.16
+                      dirichlet_concentration: 3.0
+                      exclusion_count_alpha: 2.0
+                      p_full_probability_vector: 0.75
+                      p_augment_unconditioned: 0.2
+                      min_augmentation_fraction: 0.05
+                      max_augmentation_fraction: 0.2
+                      p_zero_only_whole_chain: 0.5
+              protein_from_dna_sequence_context:
+                frequency: 0.0
+                transform:
+                  _target_: rfproteina.transforms.design_task.ProteinFromDNASequenceContextTask
+                  global_design_task_kwargs:
+                    rasa_kwargs:
+                      p_add_rasa_condition: 0.6
+                    hbond_kwargs:
+                      p_add_hbond_condition: 0.2
+                    pistack_kwargs:
+                      p_add_pistack_condition: 0.2
+                    pication_kwargs:
+                      p_add_pication_condition: 0.2
+                    salt_kwargs:
+                      p_add_salt_condition: 0.2
+                    hydrophobic_kwargs:
+                      p_add_hydrophobic_condition: 0.2
+                    metal_kwargs:
+                      p_add_metal_condition: 0.2
+                    secondary_structure_kwargs:
+                      p_add_secondary_structure_condition: 0.1
+                    cath_kwargs:
+                      p_add_cath_c_condition: 0.0
+                      p_add_cath_ca_condition: 0.0
+                      p_add_cath_cat_condition: 0.9
+                      min_retained_chain_fraction: 0.0
+                    sequence_probability_kwargs:
+                      p_exact: 0.5
+                      p_zero_only: 0.17
+                      p_positive_only: 0.17
+                      p_zero_and_positive: 0.16
+                      dirichlet_concentration: 3.0
+                      exclusion_count_alpha: 2.0
+                      p_full_probability_vector: 0.75
+                      p_augment_unconditioned: 0.2
+                      min_augmentation_fraction: 0.05
+                      max_augmentation_fraction: 0.2
+                      p_zero_only_whole_chain: 0.5
+              ig_framework_conditioning:
+                frequency: 0.0
+                transform:
+                  _target_: rfproteina.transforms.design_task.IgFrameworkConditioningTask
+                  global_design_task_kwargs:
+                    rasa_kwargs:
+                      p_add_rasa_condition: 0.6
+                    hbond_kwargs:
+                      p_add_hbond_condition: 0.2
+                    secondary_structure_kwargs:
+                      p_add_secondary_structure_condition: 0.1
+                    cath_kwargs:
+                      p_add_cath_c_condition: 0.0
+                      p_add_cath_ca_condition: 0.0
+                      p_add_cath_cat_condition: 0.9
+                      min_retained_chain_fraction: 0.0
+                  cdr_expand_min: -3
+                  cdr_expand_max: 4
+                  p_fix_all_but_cdr3: 0.2
+                  p_cdr_fixed: 0.05
+                  p_framework_seq_cond: 0.8
+                  p_framework_bb_only: 0.3
+                  p_flexible_target: 0.1
+                  p_target_intcoord: 0.5
+                  p_target_bb_only: 0.3
+                  p_separate_ig_coord_groups: 0.5
+                  p_no_hotspots: 0.05
+                  hotspot_max_distance: 4.5
+                  max_hotspots_frac_to_provide: 0.1
+                  hotspot_count_distribution: uniform
+                  hotspot_geometric_p: null
+          _target_: atomworks.ml.datasets.PandasDataset
+          name: test_dataset_train
+          data: /root/data_path/test_dataset/test_systems.parquet
+          loader:
+            _target_: atomworks.ml.datasets.loaders.create_base_loader
+            example_id_colname: example_id
+            path_colname: path
+            assembly_id_colname: None
+            parser_args:
+              _target_: rfproteina.utils.parse_presets.distillation
+              cache_dir: /tmp/root/atomworks_parse_cache
+            base_path: /root/data_path/test_dataset/cifs
+        probability: 1.0
+    val:
+      unconditional:
+        dataset:
+          _target_: rfproteina.inference_utils.datasets.DesignProblemDataset
+          dir_path_or_file_paths: /root/rfd4/data/benchmarks/monomer
+          subset_to_keys: null
+          num_replicates: 50
+          transform:
+            _target_: rfproteina.datapipes.pipeline.build_design_validation_pipeline
+            metrics_tags:
+            - design
+            - unconditional_refolding
+      unindexed_motif_scaffold_subset:
+        dataset:
+          _target_: rfproteina.inference_utils.datasets.DesignProblemDataset
+          dir_path_or_file_paths: /root/rfd4/data/benchmarks/motif_scaffolding/motif_unindexed
+          num_replicates: 100
+          transform:
+            _target_: rfproteina.datapipes.pipeline.build_design_validation_pipeline
+            metrics_tags:
+            - design
+            - unindexed
+            - 3d_coordinate_conditioning
+            - motif_scaffold_refolding
+          subset_to_keys:
+          - 3IXT_AA
+          - 1YCR_AA
+          - 1QJG_AA
+          - 5TPN_AA
+          - 1PRW_AA
+          - 4ZYP_AA
+      indexed_motif_scaffold_subset:
+        dataset:
+          _target_: rfproteina.inference_utils.datasets.DesignProblemDataset
+          dir_path_or_file_paths: /root/rfd4/data/benchmarks/motif_scaffolding/motif_indexed
+          num_replicates: 100
+          transform:
+            _target_: rfproteina.datapipes.pipeline.build_design_validation_pipeline
+            metrics_tags:
+            - design
+            - 3d_coordinate_conditioning
+            - motif_scaffold_refolding
+          subset_to_keys:
+          - 3IXT_AA
+          - 1YCR_AA
+          - 1QJG_AA
+          - 5TPN_AA
+          - 1PRW_AA
+          - 4ZYP_AA
+      mcsa_subset:
+        generation:
+          n_recycle_schedule:
+          - - 5
+            - 1
+          - - 5
+            - 2
+          - - 5
+            - 2
+          - - 5
+            - 4
+          - - 10
+            - 5
+          - - 5
+            - 4
+          - - 5
+            - 2
+          - - 5
+            - 2
+          - - 15
+            - 1
+          args:
+            nsteps: 60
+        dataset:
+          _target_: rfproteina.inference_utils.datasets.DesignProblemDataset
+          dir_path_or_file_paths: /root/rfd4/data/benchmarks/mcsa/mcsa_37
+          subset_to_keys:
+          - M0040_13pk
+          - M0058_1cju
+          - M0092_1dli
+          - M0097_1ctt
+          - M0151_1q0n
+          - M0209_1lij
+          - M0349_1e3v
+          - M0375_4ts9
+          - M0500_1e3i
+          - M0552_1fgh
+          - M0664_2dhn
+          - M0674_1uf7
+          - M0732_1xs1
+          - M0870_1oh9
+          - M0907_1rbl
+          num_replicates: 100
+          transform:
+            _target_: rfproteina.datapipes.pipeline.build_design_validation_pipeline
+            metrics_tags:
+            - design
+            - unindexed
+            - ame_refolding
+      mcsa_subset_fixed_ligand:
+        generation:
+          n_recycle_schedule:
+          - - 5
+            - 1
+          - - 5
+            - 2
+          - - 5
+            - 2
+          - - 5
+            - 4
+          - - 10
+            - 5
+          - - 5
+            - 4
+          - - 5
+            - 2
+          - - 5
+            - 2
+          - - 15
+            - 1
+          args:
+            nsteps: 60
+        dataset:
+          _target_: rfproteina.inference_utils.datasets.DesignProblemDataset
+          dir_path_or_file_paths: /root/rfd4/data/benchmarks/mcsa/mcsa_37_fixed_ligand
+          subset_to_keys:
+          - M0040_13pk
+          - M0058_1cju
+          - M0092_1dli
+          - M0097_1ctt
+          - M0151_1q0n
+          - M0209_1lij
+          - M0349_1e3v
+          - M0375_4ts9
+          - M0500_1e3i
+          - M0552_1fgh
+          - M0664_2dhn
+          - M0674_1uf7
+          - M0732_1xs1
+          - M0870_1oh9
+          - M0907_1rbl
+          num_replicates: 100
+          transform:
+            _target_: rfproteina.datapipes.pipeline.build_design_validation_pipeline
+            metrics_tags:
+            - design
+            - unindexed
+            - ame_refolding
+        run_every_n_val_epochs: 3
+      mcsa_subset_no_ligand:
+        generation:
+          n_recycle_schedule:
+          - - 5
+            - 1
+          - - 5
+            - 2
+          - - 5
+            - 2
+          - - 5
+            - 4
+          - - 10
+            - 5
+          - - 5
+            - 4
+          - - 5
+            - 2
+          - - 5
+            - 2
+          - - 15
+            - 1
+          args:
+            nsteps: 60
+        dataset:
+          _target_: rfproteina.inference_utils.datasets.DesignProblemDataset
+          dir_path_or_file_paths: /root/rfd4/data/benchmarks/mcsa/mcsa_37_no_ligand
+          subset_to_keys:
+          - M0040_13pk
+          - M0058_1cju
+          - M0092_1dli
+          - M0097_1ctt
+          - M0151_1q0n
+          - M0209_1lij
+          - M0349_1e3v
+          - M0375_4ts9
+          - M0500_1e3i
+          - M0552_1fgh
+          - M0664_2dhn
+          - M0674_1uf7
+          - M0732_1xs1
+          - M0870_1oh9
+          - M0907_1rbl
+          num_replicates: 100
+          transform:
+            _target_: rfproteina.datapipes.pipeline.build_design_validation_pipeline
+            metrics_tags:
+            - design
+            - unindexed
+            - ame_refolding
+            - no_ligand
+        run_every_n_val_epochs: 3
+      ppi_bb_only_subset_12:
+        generation:
+          n_recycle_schedule:
+          - - 5
+            - 6
+          - - 10
+            - 5
+          - - 5
+            - 4
+          - - 10
+            - 3
+          - - 20
+            - 2
+          - - 10
+            - 1
+          args:
+            nsteps: 60
+        dataset:
+          _target_: rfproteina.inference_utils.datasets.DesignProblemDataset
+          dir_path_or_file_paths: /root/rfd4/data/benchmarks/ppi/ppi_bb_only
+          num_replicates: 100
+          transform:
+            _target_: rfproteina.datapipes.pipeline.build_design_validation_pipeline
+            metrics_tags:
+            - design
+            - 3d_coordinate_conditioning
+            - hotspot_conditioning
+            - ppi_refolding
+          subset_to_keys: null
+      dna_binder_structure_context:
+        generation:
+          n_recycle_schedule:
+          - - 5
+            - 6
+          - - 10
+            - 5
+          - - 5
+            - 4
+          - - 10
+            - 3
+          - - 20
+            - 2
+          - - 10
+            - 1
+          args:
+            nsteps: 60
+        dataset:
+          _target_: rfproteina.inference_utils.datasets.DesignProblemDataset
+          dir_path_or_file_paths: /root/rfd4/data/benchmarks/dna_binder/dna_binder_denovo_val
+          subset_to_keys:
+          - 7n5u_structure_context
+          - 7m5w_structure_context
+          - 7rte_structure_context
+          num_replicates: 25
+          transform:
+            _target_: rfproteina.datapipes.pipeline.build_design_validation_pipeline
+            metrics_tags:
+            - design
+            - dna_refolding
+            - interchain_interactions
+      dna_binder_sequence_context:
+        generation:
+          n_recycle_schedule:
+          - - 5
+            - 6
+          - - 10
+            - 5
+          - - 5
+            - 4
+          - - 10
+            - 3
+          - - 20
+            - 2
+          - - 10
+            - 1
+          args:
+            nsteps: 60
+        dataset:
+          _target_: rfproteina.inference_utils.datasets.DesignProblemDataset
+          dir_path_or_file_paths: /root/rfd4/data/benchmarks/dna_binder/dna_binder_denovo_val
+          subset_to_keys:
+          - 7n5u_sequence_context
+          - 7m5w_sequence_context
+          - 7rte_sequence_context
+          num_replicates: 25
+          transform:
+            _target_: rfproteina.datapipes.pipeline.build_design_validation_pipeline
+            metrics_tags:
+            - design
+            - dna_refolding
+            - interchain_interactions
+      disco_subset:
+        generation:
+          n_recycle_schedule:
+          - - 5
+            - 1
+          - - 5
+            - 2
+          - - 5
+            - 2
+          - - 5
+            - 4
+          - - 10
+            - 5
+          - - 5
+            - 4
+          - - 5
+            - 2
+          - - 5
+            - 2
+          - - 15
+            - 1
+          args:
+            nsteps: 60
+        dataset:
+          _target_: rfproteina.inference_utils.datasets.DesignProblemDataset
+          dir_path_or_file_paths: /root/rfd4/data/benchmarks/small_molecule_binder/disco_figure_2c
+          subset_to_keys:
+          - s-adenosylmethionine_final_0
+          - heme_b_final_0
+          - chlorophyll_a_final_0
+          - vitamin_b12_final_0
+          - biotin_final_0
+          - estradiol_final_0
+          - cholesterol_final_0
+          - NAD_final_0
+          - PLP_final_0
+          - retinal_final_0
+          - staurosporine_final_0
+          - colchicine_final_0
+          num_replicates: 100
+          transform:
+            _target_: rfproteina.datapipes.pipeline.build_design_validation_pipeline
+            metrics_tags:
+            - has_small_molecule
+            - design
+            - sm_binder_refolding
+            - disco_refolding
+      sequence_bias:
+        compute_loss: false
+        dataset:
+          _target_: rfproteina.inference_utils.datasets.DesignProblemDataset
+          dir_path_or_file_paths: /root/rfd4/data/benchmarks/sequence_bias/v11_fixed225.cif.zst
+          num_replicates: 20
+          prevalidate: true
+          transform:
+            _target_: rfproteina.datapipes.pipeline.build_design_validation_pipeline
+            metrics_tags: []
+  dataloaders:
+    batch_size: 4
+    num_workers: 16
+    prefetch_factor: 8
+    pin_memory: true
+    multiprocessing_context: spawn
+    metrics:
+      num_workers: -1
+    train:
+      dataloader_params:
+        batch_size: 1
+        num_workers: 16
+        prefetch_factor: 8
+        pin_memory: true
+        persistent_workers: true
+        in_order: true
+        drop_last: true
+        multiprocessing_context: spawn
+        collate_fn:
+          _target_: rfproteina.datapipes.collate.collate_batch
+          _partial_: true
+          schema: rfproteina.datapipes.schema.proteina.ProteinaDataSample
+          keep_atom_array: false
+          num_replicates: 4
+          fixed_dimensions:
+            I: 256
+      n_fallback_retries: 4
+      length_bucketing:
+        enabled: false
+        bucket_step: 64
+        buckets:
+        - 64
+        - 128
+        - 192
+        - 256
+        length_columns:
+        - n_standard_amino_acid_residues
+        - n_dna_residues
+        - n_rna_residues
+        - n_other_heavy_atoms
+    val:
+      dataloader_params:
+        batch_size: 5
+        num_workers: 4
+        prefetch_factor: 1
+        pin_memory: true
+        persistent_workers: false
+        drop_last: false
+        multiprocessing_context: spawn
+        collate_fn:
+          _target_: rfproteina.datapipes.collate.collate_batch
+          _partial_: true
+          schema: rfproteina.datapipes.schema.proteina.ProteinaDataSample
+          fixed_dimensions:
+            I:
+            - 256
+            - 320
+            - 384
+            - 448
+            - 512
+            - 560
+            - 608
+  nn:
+    name: local_latents_transformer
+    output_parameterization:
+      bb_ca: v
+      local_latents: v
+    sequence_readout:
+      enabled: true
+      detach: true
+      num_classes: 147
+    nlayers: 14
+    token_dim: 768
+    nheads: 12
+    parallel_mha_transition: false
+    token_type_emb_dim: 32
+    cath_emb_dim: 32
+    strict_feats: false
+    noise_align_chirality: true
+    noise_align_internal_coords: false
+    noise_align_chirality_translate: false
+    noise_align_internal_coords_translate: false
+    use_atom37_factory: true
+    feats_seq:
+    - xt_bb_ca
+    - xt_local_latents
+    - token_type
+    - sequence_probabilities
+    - cond_a37coors_nm
+    - cond_a37coors_internal_nm
+    - rasa_binned
+    - secondary_structure
+    - hbond_modernized
+    - pistack
+    - pication
+    - saltbridge
+    - hydrophobic
+    - metal_coord
+    - na_ss_state
+    - hotspot
+    - atom_charge
+    - atomic_element
+    - coord_group_seq
+    - chirality
+    - chain_centroid_xyz
+    feats_cond_seq:
+    - time_emb_bb_ca
+    - time_emb_local_latents
+    - cath_code
+    - recycle_remaining
+    dim_cond: 256
+    idx_emb_dim: 256
+    t_emb_dim: 256
+    feats_pair_repr:
+    - xt_bb_ca_pair_dists
+    - bond_mask
+    - bond_order
+    - is_aromatic
+    - index_group_pair
+    - molecule_idx_pair
+    - molecule_entity_pair
+    - token_bond_path_length
+    - canonical_polymer_ordering
+    - na_ss_pair
+    feats_pair_cond:
+    - time_emb_bb_ca
+    - time_emb_local_latents
+    xt_pair_dist_dim: 30
+    xt_pair_dist_min: 0.1
+    xt_pair_dist_max: 3
+    seq_sep_dim: 64
+    pair_repr_dim: 384
+    update_pair_repr: true
+    update_pair_repr_every_n: 2
+    use_tri_mult: true
+    tri_mult_c: 256
+    tri_mult_bias: false
+    tri_mult_backend: cuequivariance
+    recycle:
+      enabled: true
+      grad: last
+      training_max_recycles: 9
+      condition_probability: 0.5
+    checkpointing: none
+    pair_write: hadamard
+    use_qkln: true
+    attention_type: torch
+    use_torch_compile: true
+    norm_type: rmsnorm_torch_fused
+  generation:
+    n_recycle: 0
+    n_recycle_schedule:
+    - - 5
+      - 6
+    - - 10
+      - 5
+    - - 5
+      - 4
+    - - 10
+      - 3
+    - - 20
+      - 2
+    - - 10
+      - 1
+    condition_on_recycle_remaining: true
+    val_set_name_override: null
+    args:
+      nsteps: 60
+      condition_decoder_on_sequence_prediction: true
+      guidance_w: 1.0
+      partial_trajectory_fraction_steps: null
+      partial_t_backbone: null
+      partial_t_latent: null
+      couple_partial_t: false
+      inverse_folding: false
+      inverse_folding_method: resampled_forward_marginal
+      save_trajectory_every: 0
+      bb_ca_only_trajectories: true
+      dump_noisy_trajectories: false
+    model:
+      bb_ca:
+        schedule:
+          mode: log
+          p: 2.0
+          tail_steps: 10
+          tail_step_multiplier: 2
+        gt:
+          mode: 1/t
+          p: 1.0
+          clamp_val: null
+        simulation_step_params:
+          sampling_mode: vf_tsr
+          sc_scale_noise: 1.0
+          t_lim_ode: 0.95
+          t_lim_ode_below: 0.02
+          center_every_step: false
+          tsr_k: 16.0
+          tsr_sigma: 3.0
+      local_latents:
+        schedule:
+          mode: power
+          p: 2.0
+          tail_steps: 10
+          tail_step_multiplier: 2
+        gt:
+          mode: tan
+          p: 1.0
+          clamp_val: null
+        simulation_step_params:
+          sampling_mode: vf_tsr
+          sc_scale_noise: 1.0
+          t_lim_ode: 0.95
+          t_lim_ode_below: 0.02
+          center_every_step: false
+          tsr_k: 4.0
+          tsr_sigma: 12.0
+    compile_lengths:
+    - 256
+    - 320
+    - 384
+    - 448
+    - 512
+    - 560
+    - 608
+  metrics:
+    inline_metrics:
+      amino_acid_composition:
+        _target_: rfproteina.metrics.amino_acid_composition.AminoAcidCompositionMetric
+        aggregation:
+        - mean
+      bond_length_metrics:
+        _target_: rfproteina.metrics.design_metrics.BondLengthMetric
+        verbose: true
+        required_tags_any:
+        - design
+        prohibited_tags:
+        - small_molecule_only
+        - structure_prediction
+      clash_metrics:
+        _target_: rfproteina.metrics.design_metrics.ClashMetric
+        threshold: 1.5
+        required_tags_any:
+        - design
+        - structure_prediction
+        prohibited_tags:
+        - small_molecule_only
+      hotspot_obedience:
+        _target_: rfproteina.metrics.hotspots.HotspotObedience
+        max_hotspot_distance: 4.5
+        required_tags_any:
+        - hotspot_conditioning
+      rasa_adherence:
+        _target_: rfproteina.metrics.rasa_metrics.RasaAdherenceMetric
+        required_tags_any:
+        - rasa_conditioning
+      centroid_conditioning_adherence:
+        _target_: rfproteina.metrics.centroid_metrics.CentroidConditioningAdherenceMetric
+        required_tags_any:
+        - centroid_conditioning
+      interchain_interactions:
+        _target_: rfproteina.metrics.interaction_metrics.InterchainInteractionMetric
+        required_tags_any:
+        - interchain_interactions
+        prohibited_tags:
+        - small_molecule_only
+        - structure_prediction
+      sequence_adherence:
+        _target_: rfproteina.metrics.sequence_adherence_metric.SequenceAdherenceMetric
+        required_tags_any:
+        - design
+      sequence_probability_adherence:
+        _target_: rfproteina.metrics.sequence_adherence_metric.SequenceProbabilityAdherenceMetric
+        required_tags_any:
+        - design
+      sse_distribution:
+        _target_: rfproteina.metrics.sse_metrics.SecondaryStructureDistribution
+        required_tags_any:
+        - design
+        prohibited_tags:
+        - small_molecule_only
+        - structure_prediction
+      sse_accuracy:
+        _target_: rfproteina.metrics.sse_metrics.SecondaryStructureAccuracy
+        required_tags_any:
+        - design
+        prohibited_tags:
+        - small_molecule_only
+        - structure_prediction
+      posebusters_metrics:
+        _target_: rfproteina.metrics.posebusters_metrics.PoseBustersMetric
+        atom_array_input_key: predicted_atom_array
+        required_tags_any:
+        - small_molecule_only
+      chiral_accuracy:
+        _target_: rfproteina.metrics.chiral_metric.ChiralAccuracy
+        subset_mask: is_ligand
+        required_tags_any:
+        - has_small_molecule
+      design_motif_allatom_rmsd:
+        _target_: rfproteina.metrics.gt_structure_comparison.StructureComparisonMetric
+        align_mask: sa_mask('SA_CRDSRC')
+        subset_mask: sa_mask('SA_CRDSRC')
+        subdivide_by_annotation: condition_CoordinateGroup_1_atom
+        gt_coord_annotation_name: annotation_coords-with-insertion_1_atom
+        metric_type: rmsd
+        aggregation:
+        - median
+        input_kwarg_names:
+          ground_truth_atom_array: predicted_atom_array
+          predicted_atom_array: predicted_atom_array
+        required_tags_any:
+        - 3d_coordinate_conditioning
+        - unindexed
+        - internal_coordinate_conditioning
+      design_unindexed_motif_allatom_rmsd:
+        _target_: rfproteina.metrics.gt_structure_comparison.StructureComparisonMetric
+        align_mask: sa_mask('SA_CRDSRC') & is_unindexed_insertion
+        subset_mask: sa_mask('SA_CRDSRC') & is_unindexed_insertion
+        subdivide_by_annotation: condition_CoordinateGroup_1_atom
+        gt_coord_annotation_name: annotation_coords-with-insertion_1_atom
+        metric_type: rmsd
+        aggregation:
+        - median
+        input_kwarg_names:
+          ground_truth_atom_array: predicted_atom_array
+          predicted_atom_array: predicted_atom_array
+        required_tags_all:
+        - unindexed
+      unindexed_insertion_mapping:
+        _target_: rfproteina.metrics.unindexed_insertion_metric.UnindexedInsertionMappingMetric
+        required_tags_all:
+        - unindexed
+      contact_molecular_surface:
+        _target_: rfproteina.metrics.physics.contact_ms.metric.ContactMolecularSurfaceMetric
+        required_tags_any:
+        - cms
+      sequence_similarity_to_input:
+        _target_: rfproteina.metrics.design_metrics.SequenceSimilarityToInput
+        required_tags_any:
+        - partial_diffusion
+      ca_rmsd_to_input:
+        _target_: rfproteina.metrics.gt_structure_comparison.StructureComparisonMetric
+        align_mask: is_protein & (atom_name == 'CA')
+        subset_mask: is_protein & (atom_name == 'CA')
+        metric_type: rmsd
+        aggregation:
+        - median
+        required_tags_any:
+        - partial_diffusion
+      cath_metric:
+        _target_: rfproteina.metrics.cath_metric.CathMetric
+        required_tags_any:
+        - cath
+        annotator: foldseek_with_fallback
+      structure_prediction_lddt:
+        _target_: rfproteina.metrics.lddt_metric.AllAtomLDDT
+        predicted_atom_array_key: predicted_atom_array
+        ground_truth_atom_array_key: ground_truth_atom_array
+        required_tags_any:
+        - structure_prediction
+      sequence_developability:
+        _target_: rfproteina.metrics.physics.developability_metrics.SequenceDevelopabilityMetric
+        required_tags_any:
+        - developability
+        prohibited_tags:
+        - small_molecule_only
+        - structure_prediction
+      rosetta_developability:
+        _target_: rfproteina.metrics.physics.developability_metrics.RosettaDevelopabilityMetric
+        required_tags_any:
+        - developability
+        prohibited_tags:
+        - small_molecule_only
+        - structure_prediction
+        sasa_cutoff: 20.0
+      antibody_contacts:
+        _target_: rfproteina.metrics.antibody_metrics.AntibodyContacts
+        required_tags_any:
+        - antibody
+        contact_threshold: 7.0
+    refolding_metrics:
+      refolded_backbone_rmsd:
+        _target_: rfproteina.metrics.gt_structure_comparison.StructureComparisonMetric
+        align_mask: is_protein_backbone
+        subset_mask: is_protein_backbone
+        metric_type: rmsd
+        aggregation:
+        - median
+        required_tags_any:
+        - unconditional_refolding
+        - ppi_refolding
+        - antibody
+        - dna_refolding
+        - motif_scaffold_refolding
+        - internal_coordinate_motif_scaffold_refolding
+        - sm_binder_refolding
+        - ame_refolding
+        - ame_no_ligand_refolding
+        - ame_original_benchmark_refolding
+        - disco_refolding
+        required_tags_all:
+        - is_refold:untransformed
+      refolded_target_aligned_binder_rmsd:
+        _target_: rfproteina.metrics.gt_structure_comparison.StructureComparisonMetric
+        align_mask: ~is_chain_of_interest & (sa_mask('C_CRD') | is_dna)
+        subset_mask: is_chain_of_interest & is_protein
+        metric_type: rmsd
+        aggregation:
+        - median
+        required_tags_any:
+        - ppi_refolding
+        - dna_refolding
+        - antibody
+        required_tags_all:
+        - is_refold:untransformed
+      refolded_target_backbone_aligned_binder_rmsd:
+        _target_: rfproteina.metrics.gt_structure_comparison.StructureComparisonMetric
+        align_mask: ~is_chain_of_interest & sa_mask('C_CRD') & is_protein_backbone
+        subset_mask: is_chain_of_interest & is_protein
+        metric_type: rmsd
+        aggregation:
+        - median
+        required_tags_any:
+        - ppi_refolding
+        required_tags_all:
+        - is_refold:untransformed
+      refolded_motif_allatom_rmsd:
+        _target_: rfproteina.metrics.gt_structure_comparison.StructureComparisonMetric
+        align_mask: sa_mask('SA_CRDSRC') & is_protein
+        subset_mask: sa_mask('SA_CRDSRC') & is_protein
+        subdivide_by_annotation: condition_CoordinateGroup_1_atom
+        gt_coord_annotation_name: annotation_coords-with-insertion_1_atom
+        metric_type: rmsd
+        aggregation:
+        - median
+        required_tags_any:
+        - motif_scaffold_refolding
+        - internal_coordinate_motif_scaffold_refolding
+        - ame_refolding
+        - ame_no_ligand_refolding
+        - ame_original_benchmark_refolding
+        required_tags_all:
+        - is_refold:untransformed
+      refolded_motif_ca_rmsd:
+        _target_: rfproteina.metrics.gt_structure_comparison.StructureComparisonMetric
+        align_mask: sa_mask('SA_CRDSRC') & is_protein & (atom_name == 'CA')
+        subset_mask: sa_mask('SA_CRDSRC') & is_protein & (atom_name == 'CA')
+        subdivide_by_annotation: condition_CoordinateGroup_1_atom
+        gt_coord_annotation_name: annotation_coords-with-insertion_1_atom
+        metric_type: rmsd
+        aggregation:
+        - median
+        required_tags_any:
+        - motif_scaffold_refolding
+        - internal_coordinate_motif_scaffold_refolding
+        required_tags_all:
+        - is_refold:untransformed
+      refolded_backbone_aligned_ligand_rmsd:
+        _target_: rfproteina.metrics.gt_structure_comparison.StructureComparisonMetric
+        align_mask: is_protein_backbone
+        subset_mask: is_ligand
+        metric_type: rmsd
+        aggregation:
+        - median
+        required_tags_any:
+        - sm_binder_refolding
+        required_tags_all:
+        - is_refold:untransformed
+      refolded_apo_holo_rmsd:
+        _target_: rfproteina.metrics.gt_structure_comparison.StructureComparisonMetric
+        align_mask: is_protein_backbone & ~sa_mask('C_CRD')
+        subset_mask: is_protein_backbone & ~sa_mask('C_CRD')
+        metric_type: rmsd
+        aggregation:
+        - median
+        input_kwarg_names:
+          ground_truth_atom_array: refold.apo
+          predicted_atom_array: refold.untransformed
+        required_tags_all:
+        - is_refold:apo
+        - exists_refold:untransformed
+      max_ligand_centroid_distance:
+        _target_: rfproteina.metrics.gt_structure_comparison.LigandCentroidDistanceMetric
+        align_mask: is_protein_backbone
+        aggregation: max
+        required_tags_any:
+        - disco_refolding
+        required_tags_all:
+        - is_refold:untransformed
+    pass_criteria:
+      unconditional:
+        _target_: rfproteina.metrics.oracles.pass_criterion_metric.PassCriterionMetric
+        metric_thresholds:
+          refolded_backbone_rmsd.rmsd:
+            max: 1.5
+        required_tags_any:
+        - unconditional_refolding
+      ppi:
+        _target_: rfproteina.metrics.oracles.pass_criterion_metric.PassCriterionMetric
+        metric_thresholds:
+          oracle_ppi.ptm_coi:
+            min: 80.0
+          oracle_ppi.min_ipae_coi:
+            max: 1.5
+          refolded_target_backbone_aligned_binder_rmsd.rmsd:
+            max: 2.5
+        required_tags_any:
+        - ppi_refolding
+      antibody:
+        _target_: rfproteina.metrics.oracles.pass_criterion_metric.PassCriterionMetric
+        metric_thresholds:
+          oracle_ppi.min_ipae_coi:
+            max: 2.0
+          refolded_target_aligned_binder_rmsd.rmsd:
+            max: 2.0
+        required_tags_any:
+        - antibody
+      dna:
+        _target_: rfproteina.metrics.oracles.pass_criterion_metric.PassCriterionMetric
+        metric_thresholds:
+          oracle_dna.min_ipae_coi:
+            max: 1.5
+          refolded_target_aligned_binder_rmsd.rmsd:
+            max: 8.0
+        required_tags_any:
+        - dna_refolding
+      motif_scaffold:
+        _target_: rfproteina.metrics.oracles.pass_criterion_metric.PassCriterionMetric
+        metric_thresholds:
+          refolded_backbone_rmsd.rmsd:
+            max: 2.0
+          refolded_motif_allatom_rmsd.rmsd:
+            max: 2.0
+          refolded_motif_ca_rmsd.rmsd:
+            max: 1.0
+        required_tags_any:
+        - motif_scaffold_refolding
+      internal_coords:
+        _target_: rfproteina.metrics.oracles.pass_criterion_metric.PassCriterionMetric
+        metric_thresholds:
+          refolded_backbone_rmsd.rmsd:
+            max: 2.0
+          refolded_motif_allatom_rmsd.rmsd:
+            max: 2.0
+          refolded_motif_ca_rmsd.rmsd:
+            max: 1.0
+        required_tags_any:
+        - internal_coordinate_motif_scaffold_refolding
+      sm_binder:
+        _target_: rfproteina.metrics.oracles.pass_criterion_metric.PassCriterionMetric
+        metric_thresholds:
+          oracle.min_ipae_coi:
+            max: 1.5
+          oracle.iptm_coi:
+            min: 80.0
+          refolded_backbone_rmsd.rmsd:
+            max: 1.5
+          refolded_backbone_aligned_ligand_rmsd.rmsd:
+            max: 5.0
+        required_tags_any:
+        - sm_binder_refolding
+      ame:
+        _target_: rfproteina.metrics.oracles.pass_criterion_metric.PassCriterionMetric
+        metric_thresholds:
+          oracle.min_ipae_coi:
+            max_exclusive: 1.5
+          refolded_backbone_rmsd.rmsd:
+            max: 2.0
+          refolded_motif_allatom_rmsd.rmsd:
+            max: 1.5
+          clash_metrics.frac_atoms_clashing_inter_residue_polymer_ligand_1p5A:
+            max: 0
+        required_tags_any:
+        - ame_refolding
+        prohibited_tags:
+        - no_ligand
+      ame_no_ligand:
+        _target_: rfproteina.metrics.oracles.pass_criterion_metric.PassCriterionMetric
+        metric_thresholds:
+          refolded_backbone_rmsd.rmsd:
+            max: 2.0
+          refolded_motif_allatom_rmsd.rmsd:
+            max: 1.5
+        required_tags_any:
+        - ame_refolding
+        required_tags_all:
+        - no_ligand
+      disco:
+        _target_: rfproteina.metrics.oracles.pass_criterion_metric.PassCriterionMetric
+        metric_thresholds:
+          refolded_backbone_rmsd.rmsd:
+            max: 2.0
+          max_ligand_centroid_distance.ligand_centroid_distance:
+            max: 2.0
+        required_tags_any:
+        - disco_refolding
+      developability:
+        _target_: rfproteina.metrics.oracles.pass_criterion_metric.PassCriterionMetric
+        metric_thresholds:
+          rosetta_developability.sap_score:
+            max: 50.0
+          rosetta_developability.hydrophobic_exposure_sasa:
+            max: 1500.0
+          sequence_developability.gravy:
+            max: 0.1
+          sequence_developability.instability_index:
+            max: 40.0
+        required_tags_any:
+        - developability
+    pre_oracle_filters: {}
+  callbacks:
+    set_sampler_epoch_callback:
+      _target_: rfproteina.callbacks.sampler_epoch.SetSamplerEpochCallback
+    skip_nan_grad_callback:
+      _target_: rfproteina.utils.training_analysis.SkipNanGradCallback
+    lightning_timing_callback:
+      _target_: rfproteina.callbacks.timing.LightningTimingCallback
+      log_every_n: 500
+    ema_callback:
+      _target_: rfproteina.utils.simple_ema.SimpleEMA
+      decay: 0.999
+      update_every_n: 1
+    coordinated_gc:
+      _target_: rfproteina.callbacks.coordinated_gc.CoordinatedGC
+      interval_batches: 128
+    dataset_task_stats_callback:
+      _target_: rfproteina.callbacks.dataset_task_logging.DatasetTaskStatsCallback
+      log_every_n: 1000
+    r4t_timer:
+      _target_: r4t_step_timer.StepTimer
+      out: /root/kc/rfd4/r4t/ae-compile/steps.jsonl
+  verbose: true
+  run_name_: r4t_gpu_baseline_local
+  out_dir: /root/kc/rfd4/r4t/ae-compile/run
+  compress_outputs: true
+  pretrain_ckpt_path: null
+  resume_ckpt_path: null
+  hf_ckpt_path: nvidia/RFD4-Proteina
+  hf_ckpt_revision: a06e2509c7033b010fc43614e9fd840303588502
+  hf_bundle_overrides:
+    autoencoder_config:
+      nn_ae:
+        use_torch_compile: true
+  delete_failing_pre_oracle: true
+  weight_loading: null
+  parameter_freezing: null
+  hardware:
+    accelerator: gpu
+    ngpus_per_node_: 1
+    nnodes_: 1
+    ncpus_per_task_train_: 16
+  product_flowmatcher:
+    bb_ca:
+      zero_com_noise: true
+      guidance_enabled: true
+      dim: 3
+      stochastic_centering_mode: x_0
+      stochastic_centering_scale: 0.2
+      stochastic_centering_scope: per_group
+      stochastic_centering_group_keys:
+      - molecule_iid
+    local_latents:
+      zero_com_noise: false
+      guidance_enabled: true
+      dim: 32
+      stochastic_centering_mode: none
+      stochastic_centering_scale: null
+  autoencoder_ckpt_path: null
+  loss:
+    signed_volume_weight: 2.5
+    sequence_prediction:
+      enabled: true
+      t_min: 0.0
+      t_max: 1.0
+    t_distribution:
+      bb_ca:
+        name: mix_unif_beta
+        p1: 1.9
+        p2: 1.0
+        p3: 0.02
+      local_latents:
+        name: mix_unif_beta
+        p1: 1.0
+        p2: 1.5
+        p3: 0.2
+      shared_groups: null
+  precision: bf16-mixed
+  force_precision_f32: false
+  training:
+    exploration_k: 4
+    exploration_losses:
+    - bb_ca
+    - local_latents
+    n_recycle_max: 9
+    n_recycle_sampler: poisson
+    n_recycle_lambda: 3.0
+    n_recycle_sync: true
+    n_recycle_val_loss: 3
+    motif_conditioning: false
+  lora:
+    r: null
+    lora_alpha: 64.0
+    lora_dropout: 0.0
+    train_bias: none
+    target_modules:
+    - to_qkv
+    - to_out_node
+  opt:
+    lr: 0.0001
+    muon_warmup_steps: 0
+    adam_warmup_steps: 10000
+    gradient_clip_val: 1.0
+    max_epochs: 1
+    accumulate_grad_batches: 1
+    dist_strategy: ddp
+    steps_per_epoch: 25
+    val_every_n_epochs: 10
+    val_start_epoch: 0
+    compute_val_loss: false
+    foldseek_timeout_minutes: 25
+    muon_exclude_param_patterns:
+    - _factory\.
+    - ^nn\.(local_latents_linear|ca_linear|insertion_q_proj|insertion_k_proj)\.
+    - ^nn\.sequence_readout\.
+    muon_adjust_lr_fn: match_rms_adamw
+    muon_grouped: true
+    num_sanity_val_steps: 0
+    coordinate_descent_tuning: false
+    limit_val_batches: 0
+  log:
+    wandb_project: latent_training
+    wandb_entity: null
+    tags:
+    - sota
+    log_wandb: false
+    log_every_n_steps: 10
+    checkpoint: false
+    checkpoint_every_n_epochs: 10
+    last_ckpt_every_n_epochs: 5
+  seed: 145
+  torch_deterministic: false
+  use_unified_ae_encoding: true
+  _max_tokens: 256
+  _val_compile_lengths:
+  - 256
+  - 320
+  - 384
+  - 448
+  - 512
+  - 560
+  - 608
+  _crop_size_range:
+  - 0.9
+  - 1.0
+  _p_no_subcrop: 0.2
+  _p_internal_coords: 0.25
+  _loss_weights:
+    non_standard: 2.5
+    unindexed: 2.5
+    sampled_tip_atom: 0.0
+  _centroid_noise_std_angstrom: 2.5
+  single: true
+  nolog: true
+  autoencoder_config:
+    nn_ae:
+      name: transformer_ae_aa_rna_dna_glycan_ncaa
+      latent_z_dim: 32
+      allow_oxt: true
+      use_torch_compile: true
+      torch_compile_fullgraph: false
+      n_residue_types: 147
+      encoder:
+        nlayers: 12
+        token_dim: 768
+        nheads: 12
+        parallel_mha_transition: false
+        token_type_emb_dim: 32
+        strict_feats: false
+        feats_seq:
+        - token_type
+        - x1_a37coors_nm
+        - x1_a37coors_nm_rel
+        - chain_idx_seq
+        - incident_bond_type_counts
+        - atom37_element_charge_embedding
+        feats_cond_seq: null
+        dim_cond: 128
+        idx_emb_dim: 128
+        feats_pair_repr:
+        - token_bond_path_length
+        - canonical_polymer_ordering
+        - molecule_idx_pair
+        - x1_bb_pair_dists_nm
+        seq_sep_dim: 64
+        pair_repr_dim: 256
+        update_pair_repr: false
+        update_pair_repr_every_n: 3
+        use_tri_mult: false
+        use_attn_pair_bias: false
+        use_qkln: true
+        normalize_latent: false
+        latent_z_dim: 32
+        n_residue_types: 147
+        charge_emb_dim: 16
+      decoder:
+        nlayers: 12
+        token_dim: 768
+        abs_coors: false
+        nheads: 12
+        token_type_emb_dim: 32
+        parallel_mha_transition: false
+        strict_feats: false
+        feats_seq:
+        - ca_coors_nm
+        - z_latent_seq
+        - token_type
+        - cond_residue_type
+        feats_cond_seq: null
+        dim_cond: 128
+        idx_emb_dim: 128
+        feats_pair_repr:
+        - token_bond_path_length
+        - canonical_polymer_ordering
+        - molecule_idx_pair
+        - ca_coors_nm_pair_dists
+        seq_sep_dim: 64
+        pair_repr_dim: 256
+        update_pair_repr: false
+        update_pair_repr_every_n: 3
+        use_tri_mult: false
+        use_attn_pair_bias: false
+        use_qkln: true
+        latent_z_dim: 32
+        n_residue_types: 147
+  path_length_search_cutoffs:
+  - 64
+store_dir: null

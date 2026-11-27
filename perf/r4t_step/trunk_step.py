@@ -16,6 +16,10 @@ are seeded tensors and the loss seed lands on s (`<s, C>/numel`). Prints one JSO
      `train.bridge.Bridge`; the loss is `train.rfd4_objective.rfd4_loss`. The candidates' winner is chosen
      from our own heads, as upstream does, and printed beside upstream's.
   --exempt FILE: G2 exemptions, one `name<TAB>upstream's reason` a line
+  --dp-cards C0,C1,..: data parallel, one rank per card (processes), gradients summed by the launcher's
+     collective (`train.launcher.ProcessAxis`); --shard steps a ZeRO-1 slice per rank. Rank r's example at
+     step i is index i*world + r, so a world-w step consumes w distinct examples; each rank's JSON lines go
+     to OUT/rank<r>.log and its checkpoints under OUT/rank<r>/. Master digests must agree across ranks.
 """
 import argparse
 import contextlib
@@ -29,7 +33,7 @@ import time
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--n", type=int, default=256)
+    ap.add_argument("--n", type=int, default=256, help="token length; taken from --batch when one is given")
     ap.add_argument("--k", type=int, default=4)
     ap.add_argument("--depth", type=int, default=2)
     ap.add_argument("--steps", type=int, default=6)
@@ -39,6 +43,17 @@ def main():
     ap.add_argument("--batch", default="")
     ap.add_argument("--exempt", default="")
     ap.add_argument("--out", default=os.path.expanduser("~/r4t/step/tck"))
+    ap.add_argument("--curve-dump", default="", help="the G3 curve leg: a directory of plan-step "
+                    "inputs from `curve_upstream.py --dump-dir` (plan.json beside them). Step i "
+                    "trains on step<i>.npz at ITS drawn depth, in order, no cycling.")
+    ap.add_argument("--save-every", type=int, default=0, help="checkpoint every N steps (newest "
+                    "two kept), so a long leg resumes with --resume instead of starting over")
+    ap.add_argument("--curve-out", default="", help="with --curve-dump: the CurveLog to append to, "
+                    "the file grade_parity.py --ours reads")
+    ap.add_argument("--dp-cards", default="")
+    ap.add_argument("--shard", action="store_true")
+    ap.add_argument("--dp-rank", type=int, default=-1, help=argparse.SUPPRESS)
+    ap.add_argument("--dp-run", default="", help=argparse.SUPPRESS)
     ap.add_argument("--cand-pair", choices=("host", "card"), default="card",
                     help="where the grad-off K-candidate pass builds z_init: host (upstream's builder) or the serving "
                          "card path (rfd4.pair.PairOnCard: host constant + bins, card assembly).")
@@ -53,6 +68,18 @@ def main():
     ap.add_argument("--lnbw-weights", choices=("on", "off"), default="on",
                     help="LayerNorm backward with trainable gamma/beta in one fused kernel (tt_bio.lnbw weights form, "
                          "r4t-perf L2) or the composed ttnn path")
+    ap.add_argument("--grad-dump", default="", help="write every trained parameter's gradient of the first "
+                    "step (host glue + upstream trunk leaves, after the fold VJPs) to PATH.npz with PATH.json "
+                    "(winner, batch, loss, clock) and stop before the optimizer: the device side of "
+                    "perf/r4t_tape/net_gradcheck.py")
+    ap.add_argument("--arm", choices=("prod", "fp32-exact"), default="prod",
+                    help="fp32-exact: the D49 control, float32 trunk with no levers and every contraction "
+                         "under tt_bio.train.exact_fp32 (host float64, rounded once)")
+    ap.add_argument("--break", dest="brk", action="store_true",
+                    help="with --grad-dump: the gross broken arm, block 0's Q slice dropped from its fold VJP")
+    ap.add_argument("--attn-fp32", choices=("on", "off"), default="on",
+                    help="q/k/v projections, q/k norms and attention in float32 (load_trunk attn_fp32). On by default: "
+                         "with it off (bf16 attention) the RFD4 curve spikes at step 823 and fails G3; off is the opt-out")
     ap.add_argument("--gate-bw", choices=("on", "off"), default="on",
                     help="backward of every o * sigmoid(g) gate as one kernel (tt_bio.gate_bw, r4t-perf G1) or the "
                          "seven-op composed path")
@@ -63,6 +90,34 @@ def main():
                     help="count host<->device bytes and transfers per step phase (perf/r4t_perf/pcie_meter.py); "
                          "sites adds the top call sites by bytes")
     a = ap.parse_args()
+    if a.arm == "fp32-exact":
+        os.environ["TT_BIO_LEVERS"] = "none"   # Trunk builds on mode_levers(), which reads this, not lever_scope
+        a.lnbw_weights = "off"   # the fused LN-backward kernel is a perf lever; the control arm verified by r4t-tape has none
+        a.gate_bw = "off"        # likewise the fused gate backward (r4t-perf G1)
+        a.cand_levers = "training"   # and the serving levers in the candidate pass (r4t-perf K2)
+    if a.curve_dump and a.dp_cards:
+        raise SystemExit("--curve-dump is a single-card leg: every rank would append to one CurveLog")
+    if a.dp_cards and a.dp_rank < 0:
+        return launch(a)
+    world = len(a.dp_cards.split(",")) if a.dp_cards else 1
+    rank = max(a.dp_rank, 0)
+    if a.curve_dump:
+        from tt_bio.train.curve import CurveLog, read_dump_dir
+        cdir = os.path.expanduser(a.curve_dump)
+        cplan, cfiles = read_dump_dir(cdir)   # refuses a dump that is not this plan's
+        if not a.curve_out:
+            raise SystemExit("--curve-out is required with --curve-dump")
+        a.batch = ",".join(str(f) for f in cfiles)
+        a.steps = min(a.steps, len(cfiles)) if a.steps != 6 else len(cfiles)
+    if a.batch:
+        # A real batch fixes the token length. The trimul prewarm below fills the in-projection entry at
+        # a.n; at any other width the winner uploads it inside its taped verb and those weights get no
+        # gradient (a 64-token crop under the 256 default lost 56 in-projection grads).
+        import numpy as _np
+        lens = {int(_np.load(f)["in/padding_mask"].shape[1]) for f in a.batch.split(",")}
+        if len(lens) != 1:
+            raise SystemExit(f"--batch files disagree on token length: {sorted(lens)}")
+        a.n = lens.pop()
     if a.pcie_meter != "off":
         import sys
         sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "r4t_perf"))
@@ -88,6 +143,13 @@ def main():
     from tt_bio.train.checkpoint import Checkpointer, load_adapter
     from tt_bio.train.optim import AdamW
     from tt_bio.train.parity import GradientCoverage, zero_or_missing
+    import contextlib
+    from tt_bio.train import exact_fp32 as EX
+    TD = ttnn.float32 if a.arm == "fp32-exact" else None
+    arm = contextlib.ExitStack()
+    if TD is not None:   # the trimul follows the override; contractions go exact on the host
+        arm.enter_context(T.device_dtype_override(ttnn.float32))
+        arm.enter_context(EX.exact_fp32())
 
     dev = T.get_device()
     card = int(os.environ["TT_VISIBLE_DEVICES"].split(",")[0])
@@ -127,7 +189,7 @@ def main():
         glue.pair_split = PairSplit(glue.pair_repr_builder)
         card_pair.append(PairOnCard(glue.pair_split, dev))
         return card_pair[0]
-    trunk = E.load_trunk(glue, state, cfg, training=True)   # an unrecorded build for the lever set and dtypes; build() replaces it
+    trunk = E.load_trunk(glue, state, cfg, training=True, dtype=TD, attn_fp32=a.attn_fp32 == "on")   # an unrecorded build for the lever set and dtypes; build() replaces it
 
     RB = {}
 
@@ -191,7 +253,7 @@ def main():
         close_rec()
         if lazy or not inline:
             with folds.recording(device_pack=pack) as sd:
-                trunk = E.load_trunk(glue, sd, cfg, training=True)
+                trunk = E.load_trunk(glue, sd, cfg, training=True, dtype=TD, attn_fp32=a.attn_fp32 == "on")
                 if in_proj:
                     RB["trimuls"] = len([m.train_in_proj() for m in trimuls(trunk)])
                 ttnn.synchronize_device(dev); _rb2 = time.time()
@@ -200,7 +262,7 @@ def main():
         else:
             rec = folds.recording(device_pack=pack)
             sd = rec.__enter__()
-            trunk = E.load_trunk(glue, sd, cfg, training=True)
+            trunk = E.load_trunk(glue, sd, cfg, training=True, dtype=TD, attn_fp32=a.attn_fp32 == "on")
             if in_proj:
                 RB["trimuls"] = len([m.train_in_proj() for m in trimuls(trunk)])
             # The trimul chunk width depends on the batch: the K-candidate pass fills its own width, and the
@@ -283,7 +345,7 @@ def main():
         cur = {}
 
         def use(step):
-            nm, b, m, _rec, rl = batches[step % len(batches)]
+            nm, b, m, _rec, rl = batches[step if a.curve_dump else step % len(batches)]
             cur.update(name=nm, bt=b, meta=m, ref=rl, K=int(b["padding_mask"].shape[0]), depth=max(1, int(m["depth"])))
         use(0)
         glue.requires_grad_(True)
@@ -393,7 +455,8 @@ def main():
             sur = sum((o[k] * torch.from_numpy(np.asarray(g)).to(o[k].dtype)).sum() for k, g in seeds.items())
             br.backward(sur)
             terms = {k: v.get("value") for k, v in bd.items() if isinstance(v, dict)}
-            ref = {k: float(cur["ref"][k][ctx["win"]]) for k in terms if k in cur["ref"]}
+            ref = {k: float(cur["ref"][k][ctx["win"]]) for k in terms if k in cur["ref"]
+                   and ctx["win"] < len(cur["ref"][k])}
             return total, terms, ref
         real = (real_example, real_loss)
 
@@ -412,12 +475,23 @@ def main():
     names = list(params)
     cyc = {nm: "depth-1 draws feed a zero state into the cycle projection; trains at depth >= 2"
            for nm in names if "cycle" in nm and a.depth < 2}
-    opt = AdamW(dict(params), lr=1e-4, clip_norm=1.0, weight_decay=0.0)
+    ax = None
+    if world > 1:
+        from tt_bio.train.launcher import ProcessAxis
+        ax = ProcessAxis(name="dp", device_ids=tuple(range(world)), dp_rank=rank, run=a.dp_run)
+    if a.curve_dump:
+        # A curve leg is graded against upstream's curve, so it takes upstream's step: Muon +
+        # Adam, per-group clip 1.0 (rfd4_objective.update_rule). Plain AdamW here read 11 %
+        # above upstream from step 7 on the first graded leg; that gap was the optimizer.
+        from tt_bio.train.rfd4_objective import update_rule
+        opt = update_rule(dict(params), data_parallel=ax, shard=a.shard)
+    else:
+        opt = AdamW(dict(params), lr=1e-4, clip_norm=1.0, weight_decay=0.0, data_parallel=ax, shard=a.shard)
     start = 0
     if a.resume:
         start = int(load_adapter(a.resume, dict(params), dev, opt=opt)["step"])
         build()
-    ck = Checkpointer(a.out, every=10**9, keep=10)
+    ck = Checkpointer(a.out, every=a.save_every or 10**9, keep=2 if a.save_every else 10)
     if a.exempt:
         for ln in open(a.exempt):
             if ln.strip() and not ln.startswith("#"):
@@ -426,6 +500,15 @@ def main():
     cov = GradientCoverage(names, exempt=cyc, where="r4t-step trunk: ",
                            **({"steps": a.cover_steps} if a.cover_steps else {}))
     threading.Thread(target=sample, daemon=True).start()
+    clog = None
+    if a.curve_dump:
+        from tt_bio.train.rfd4_objective import UPDATE_RULE as RO_RULE
+        clog = CurveLog(os.path.expanduser(a.curve_out), cplan, "ours",
+                        meta={"sha": os.environ.get("TT_BIO_SHA", ""), "card": card,
+                              "dump_dir": cdir, "dtype": str(trunk.dtype), **RO_RULE,
+                              "levers": sorted(levers) if isinstance(levers, (set, list, tuple))
+                              else str(levers), "device": "tenstorrent", "k": a.k, "n": a.n},
+                        start=start)
     for step in range(start, a.steps):
         ttnn.synchronize_device(dev)
         base = used()
@@ -434,7 +517,7 @@ def main():
         mark("fwd")
         extra = {}
         if real:
-            use(step)
+            use(step * world + rank)
             s, z, ctx = real[0](True)
             close_rec()
             ttnn.synchronize_device(dev)
@@ -445,10 +528,10 @@ def main():
             ttnn.synchronize_device(dev)
             extra_mem = used()
             st = s
-            extra = dict(dev_after_heads_B=extra_mem, batch=cur["name"], winner=ctx["win"], upstream_winner=int(cur["meta"]["winners"][0]), depth_upstream=cur["depth"],
+            extra = dict(dev_after_heads_B=extra_mem, batch=cur["name"], winner=ctx["win"], upstream_winner=(None if a.curve_dump else int(cur["meta"]["winners"][0])), depth_upstream=cur["depth"],
                          terms=terms, upstream_terms=ref)
         else:
-            s, z = one_example(step, True)
+            s, z = one_example(step * world + rank, True)
             close_rec()
             ttnn.synchronize_device(dev)
             t1 = time.time()
@@ -460,6 +543,11 @@ def main():
         ttnn.synchronize_device(dev)
         t2 = time.time()
         after_bwd = used()
+        if a.grad_dump and a.brk:
+            walked = {p: t for p, _o, _k, t in T.walk_device_weights(trunk)}
+            cut = next(p for p in walked if p.endswith("q_w"))
+            folds.sources.pop(id(walked[cut]))
+            extra["dropped"] = cut
         mark("fold_bwd")
         idle = folds.tape_backward()   # device-weight gradients through each fold's VJP into the upstream leaves
         grads = {nm: (None if p.grad is None else p.grad.float().numpy()) for nm, p in params.items()}
@@ -468,9 +556,23 @@ def main():
             import numpy as _np
             _np.savez(os.environ["R4T_DUMP_G"], **{nm.replace(".", "__"): g for nm, g in grads.items()
                                                     if g is not None and "pair_update_layers" in nm})
+        if a.grad_dump:
+            import numpy as _np
+            sm = clk[c0:] or clk[-1:]
+            _np.savez(a.grad_dump + ".npz", **{nm: g for nm, g in grads.items() if g is not None})
+            meta = dict(extra, loss=loss, arm=a.arm, attn_fp32=a.attn_fp32, levers=sorted(levers) if not isinstance(levers, str) else levers,
+                        dtype=str(trunk.dtype), n=n, card=card, aiclk=[min(sm or [0]), max(sm or [0])],
+                        exact={"%s/%s" % k: v for k, v in sorted(EX.EXACT_STATS.items())},
+                        no_grad=sorted(nm for nm, g in grads.items() if g is None), sha=os.environ.get("TT_BIO_SHA", ""))
+            open(a.grad_dump + ".json", "w").write(json.dumps(meta, indent=1, default=str))
+            print(json.dumps(dict(grad_dump=a.grad_dump, n_grads=len(grads), loss=loss, aiclk=meta["aiclk"],
+                                  exact=meta["exact"])), flush=True)
+            stop.set()
+            arm.close()
+            return 0
         t2b = time.time()
         mark("opt")
-        opt.step()
+        opt.step(replicas={nm: [g] for nm, g in grads.items() if g is not None}) if ax else opt.step()
         for p in params.values():
             p.grad = None
         t2c = time.time()
@@ -482,7 +584,7 @@ def main():
         del s, z, st
         md = hashlib.sha256(b"".join(opt.master[k].tobytes() for k in sorted(opt.master))).hexdigest()[:16]
         sm = clk[c0:] or clk[-1:]
-        print(json.dumps(dict(step=step + 1, loss=loss, fwd_s=round(t1 - t0, 4), bwd_s=round(t2 - t1, 4),
+        print(json.dumps(dict(step=step + 1, rank=rank, world=world, loss=loss, fwd_s=round(t1 - t0, 4), bwd_s=round(t2 - t1, 4),
                               fold_bwd_s=round(t2b - t2, 4), opt_s=round(t2c - t2b, 4), rebuild_s=round(t3 - t2c, 4), rebuild_split=dict(RB), idle_dev_w=len(idle), step_s=round(t3 - t0, 4), retained_B=retained,
                               dead=len(dead), dead_names=sorted(dead)[:20], dev_base_B=base, dev_after_bwd_B=after_bwd, params=len(params), n_elems=int(sum(v.size for v in opt.master.values())),
                               master_digest=md, aiclk=[min(sm or [0]), max(sm or [0])], aiclk_med=sorted(sm)[len(sm) // 2] if sm else 0,
@@ -491,10 +593,51 @@ def main():
               flush=True)
         if a.save_at and step + 1 == a.save_at:   # before the guard, so a refusal still leaves the resume test its input
             print(json.dumps(dict(saved=str(ck.save(step + 1, opt, metrics={"loss": loss}, force=True)))), flush=True)
-        if not a.resume:
+        if a.save_every and ck.due(step + 1):
+            print(json.dumps(dict(saved=str(ck.save(step + 1, opt, metrics={"loss": loss})))), flush=True)
+        if clog is not None:
+            clog.record(step, loss, terms=extra.get("terms"), n_recycle=cur["depth"],
+                        seconds=round(t3 - t0, 2), dead=len(dead), example=cur["name"],
+                        aiclk_med=sorted(sm)[len(sm) // 2] if sm else 0, master_digest=md)
+        # G2 rides along, as on the upstream side: a depth-1 step trains neither cycle projection
+        # (state/r4t/rows/accuracy.md), so counting it would refuse ~1 healthy run in 150.
+        if not a.resume and (not real or cur["depth"] >= 2):
             cov.observe(dead)
     stop.set()
+    if clog is not None:
+        clog.close()
+
+
+def launch(a):
+    """One trunk_step process per card, each pinned to its own card and lease; waits for all of them."""
+    import subprocess
+    import sys
+    from pathlib import Path
+    cards = a.dp_cards.split(",")
+    out = Path(a.out)
+    out.mkdir(parents=True, exist_ok=True)
+    run = Path("/dev/shm") / f"r4t-trunk-dp-{os.getpid()}"
+    run.mkdir()
+    holder = os.environ.get("TT_BIO_LEASE_HOLDER", "worker:r4t-scale")
+    skip = {"--dp-cards", "--out", "--dp-rank", "--dp-run"}
+    argv, it = [], iter(sys.argv[1:])
+    for t in it:   # forward every flag but the launcher's own
+        if t.split("=")[0] in skip:
+            if "=" not in t:
+                next(it, None)
+            continue
+        argv.append(t)
+    procs = []
+    for r, c in enumerate(cards):
+        env = dict(os.environ, TT_VISIBLE_DEVICES=c, TT_BIO_LEASE_CARDS=c, TT_BIO_LEASE_HOLDER=holder)
+        cmd = [sys.executable, os.path.abspath(__file__), *argv, "--dp-cards", a.dp_cards, "--dp-rank", str(r),
+               "--dp-run", str(run), "--out", str(out / f"rank{r}")]
+        procs.append(subprocess.Popen(cmd, env=env, stdout=open(out / f"rank{r}.log", "w"), stderr=subprocess.STDOUT))
+    rcs = [p.wait() for p in procs]
+    subprocess.run(["rm", "-rf", str(run)])
+    print(json.dumps(dict(world=len(cards), cards=cards, rcs=rcs)), flush=True)
+    return 0 if not any(rcs) else 1
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

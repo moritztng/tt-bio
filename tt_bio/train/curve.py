@@ -74,6 +74,15 @@ class CurvePlan:
     n_recycle_max: int = 9
     n_recycle_lambda: float = 3.0
     dataset: str = "test_dataset"
+    #: The seed-control knob, and the ONE field the digest does not cover. The seed-B leg is the
+    #: same plan -- same data order, same steps, same recycle depths -- re-drawn at a different
+    #: ``t`` and noise sequence, so it has to compare equal to seed A as a plan while running
+    #: different draws. Everything else about a leg is hashed; this is enforced instead, by
+    #: :func:`grade_curve_files`: ``ours`` and ``gpu_a`` must carry 0 (matched compute) and
+    #: ``gpu_b`` must not (or there is no control). Measured on 2026-11-26: without it, upstream's
+    #: own ``--seed-offset`` changed nothing a step reads, and the two A100 legs came out
+    #: byte-identical for 111 steps.
+    seed_offset: int = 0
     #: Parameters this plan's data cannot drive, each with upstream's reason, as
     #: ``((name, reason), ...)``. The G2 guard refuses a run in which a trainable parameter gets
     #: no gradient, and upstream's own run over a small id set trips it honestly: a feature no
@@ -105,9 +114,12 @@ class CurvePlan:
         return self.steps >= CURVE_MIN_STEPS
 
     def digest(self) -> str:
-        """sha256 over the canonical plan. Two logs with different digests are not comparable."""
-        body = json.dumps(asdict(self), sort_keys=True, separators=(",", ":"))
-        return hashlib.sha256(body.encode()).hexdigest()[:16]
+        """sha256 over the canonical plan, ``seed_offset`` excluded (see the field's note). Two
+        logs with different digests are not comparable."""
+        body = asdict(self)
+        body.pop("seed_offset", None)
+        return hashlib.sha256(
+            json.dumps(body, sort_keys=True, separators=(",", ":")).encode()).hexdigest()[:16]
 
     def step(self, i: int) -> "StepSpec":
         if not 0 <= i < self.steps:
@@ -117,8 +129,9 @@ class CurvePlan:
         # Upstream's synchronized recycle draw, by step index (proteina.py handle_recycling).
         rng = np.random.default_rng(0x5EED0000 + i)
         depth = int(np.clip(rng.poisson(self.n_recycle_lambda), 1, self.n_recycle_max))
-        return StepSpec(step=i, example_ids=ids, t_seed=self.seed + 2 * i,
-                        noise_seed=self.seed + 2 * i + 1, n_recycle=depth)
+        base = self.seed + 0x01000000 * self.seed_offset
+        return StepSpec(step=i, example_ids=ids, t_seed=base + 2 * i,
+                        noise_seed=base + 2 * i + 1, n_recycle=depth)
 
     @classmethod
     def from_dict(cls, d: Mapping) -> "CurvePlan":
@@ -153,17 +166,43 @@ class CurveLog:
     plan: CurvePlan
     side: str
     meta: dict = field(default_factory=dict)
+    start: int = 0
 
     def __post_init__(self):
         if self.side not in SIDES:
             raise ValueError(f"side={self.side!r}, expected one of {SIDES}")
         self.path = Path(self.path)
+        if self.start:
+            self._resume()
+            return
         self._f = self.path.open("a", buffering=1)
         header = {"kind": "r4t-curve", "side": self.side, "plan_digest": self.plan.digest(),
                   "plan": asdict(self.plan), "host": socket.gethostname(),
                   "platform": platform.platform(), "started_unix": time.time(), **self.meta}
         self._f.write(json.dumps(header, sort_keys=True) + "\n")
         self._next = 0
+
+    def _resume(self) -> None:
+        """Continue a log from step ``start`` (a run resumed from the checkpoint after step
+        ``start - 1``). Rows at or past ``start`` were written after that checkpoint and are
+        recomputed by the resumed run, so they are dropped; the file must already hold every
+        step before ``start`` for this plan and side, or the resume is refused."""
+        header, losses = read_curve(self.path)
+        if header["plan_digest"] != self.plan.digest() or header["side"] != self.side:
+            raise CurveContractError(f"{self.path}: resuming {self.side} plan {self.plan.digest()} "
+                                     f"onto a {header['side']} log of plan {header['plan_digest']}")
+        if len(losses) < self.start:
+            raise CurveContractError(f"{self.path}: resume at step {self.start} but the log ends "
+                                     f"at step {len(losses) - 1}")
+        lines = [ln for ln in self.path.read_text().splitlines() if ln.strip()]
+        last = max(i for i, ln in enumerate(lines)
+                   if json.loads(ln).get("kind") == "r4t-curve")
+        keep = lines[:last + self.start + 1]  # dead attempts stay, they are the run's record
+        tmp = self.path.with_suffix(self.path.suffix + ".tmp")
+        tmp.write_text("\n".join(keep) + "\n")
+        tmp.replace(self.path)
+        self._f = self.path.open("a", buffering=1)
+        self._next = self.start
 
     def record(self, step: int, loss: float, terms: Optional[Mapping[str, float]] = None,
                n_recycle: Optional[int] = None, **extra) -> None:
@@ -193,6 +232,35 @@ class CurveLog:
         self.close()
 
 
+def _segment(path, lines) -> tuple:
+    """Split a log into attempts and return (header, row objects) of the LAST one.
+
+    A leg that died and was relaunched into the same file leaves its dead attempt in place:
+    header, a few rows, then the live attempt's own header. The grader reads the last attempt
+    and reports the dead ones, but only once every attempt agrees on the plan and the side --
+    two different runs concatenated is a contract error, not a log with a dead prefix.
+    """
+    try:
+        objs = [json.loads(ln) for ln in lines]
+    except json.JSONDecodeError as e:
+        raise CurveContractError(f"{path}: not JSONL ({e})") from e
+    heads = [i for i, o in enumerate(objs)
+             if isinstance(o, dict) and o.get("kind") == "r4t-curve"]
+    if not heads or heads[0] != 0:
+        raise CurveContractError(f"{path}: first line is not a curve-log header")
+    bounds = heads + [len(objs)]
+    attempts = [(objs[bounds[k]], objs[bounds[k] + 1:bounds[k + 1]]) for k in range(len(heads))]
+    first = attempts[0][0]
+    for h, _ in attempts[1:]:
+        if (h.get("plan_digest"), h.get("side")) != (first.get("plan_digest"), first.get("side")):
+            raise CurveContractError(
+                f"{path}: attempt {h.get('side')!r}/{h.get('plan_digest')} appended to a log of "
+                f"{first.get('side')!r}/{first.get('plan_digest')}; two runs in one file")
+    header, rows = attempts[-1]
+    header["superseded"] = [len(r) for _, r in attempts[:-1]]
+    return header, rows
+
+
 def read_curve(path) -> tuple:
     """A curve log -> (header, losses). Raises :class:`CurveContractError` on a broken log."""
     path = Path(path)
@@ -202,12 +270,8 @@ def read_curve(path) -> tuple:
         raise CurveContractError(f"{path}: {e}") from e
     if not lines:
         raise CurveContractError(f"{path}: empty")
-    try:
-        header = json.loads(lines[0])
-        rows = [json.loads(ln) for ln in lines[1:]]
-    except json.JSONDecodeError as e:
-        raise CurveContractError(f"{path}: not JSONL ({e})") from e
-    if header.get("kind") != "r4t-curve" or header.get("side") not in SIDES:
+    header, rows = _segment(path, lines)
+    if header.get("side") not in SIDES:
         raise CurveContractError(f"{path}: first line is not a curve-log header")
     plan = CurvePlan.from_dict(header["plan"])
     if plan.digest() != header.get("plan_digest"):
@@ -224,6 +288,10 @@ def read_curve(path) -> tuple:
                                      f"{plan.step(r['step']).n_recycle}")
     header["plan_obj"] = plan
     return header, [float(r["loss"]) for r in rows]
+
+
+#: What every curve leg must declare, and the matched leg must share with seed A.
+UPDATE_RULE = ("optimizers", "clip")
 
 
 def _check_reference_legs(headers, paths) -> None:
@@ -256,6 +324,58 @@ def _check_reference_legs(headers, paths) -> None:
             f"their gap then carries a hardware difference and is no longer a seed scale")
 
 
+def _check_seed_control(headers, curves, paths) -> None:
+    """The seed-B leg has to be a different draw of the same plan, and has to show it.
+
+    Two ways it silently is not. The offset can be absent, which makes B a second copy of A; and
+    the offset can be set on a leg that must not have one, which breaks the matched compute
+    ``ours`` and ``gpu_a`` are compared on. Both are refusals, not FAILs. The identity check at
+    the end is the backstop: whatever the headers claim, two curves that agree to the bit are one
+    run reported twice, and a bar divided by their gap would be the 2 %-of-upstream branch alone.
+    """
+    off = {side: h["plan_obj"].seed_offset for side, h in headers.items()}
+    for side in ("ours", "gpu_a"):
+        if off[side]:
+            raise CurveContractError(
+                f"{paths[side]}: ran at seed offset {off[side]}, but {side} carries the matched "
+                f"compute and must draw the plan's own t and noise (offset 0)")
+    if not off["gpu_b"]:
+        raise CurveContractError(
+            f"{paths['gpu_b']}: seed offset 0, the same draw as seed A, so it is a copy of the "
+            f"A leg and not a seed control. Re-run it at a non-zero offset.")
+    a, b = np.asarray(curves["gpu_a"]), np.asarray(curves["gpu_b"])
+    n = min(a.size, b.size)
+    if n and np.array_equal(a[:n], b[:n]):
+        raise CurveContractError(
+            f"{paths['gpu_b']}: identical to seed A over all {n} logged steps, so the seed-to-"
+            f"seed gap the bar is scaled by is exactly zero: there is no control here")
+
+
+def _check_update_rule(headers, paths) -> None:
+    """All three legs must train with the same update rule, or the curve compares optimizers.
+
+    "Matched compute" is the same tensors AND the same step: a leg that runs plain AdamW against
+    upstream's Muon + Adam descends a different path from the same start, and its curve gap
+    then measures the optimizer, not the port. That is exactly how the first graded TT leg
+    (2026-11-26, AdamW at 1e-4 against GroupedMuon + Adam) read 11 % high from step 7 on. So
+    every leg declares its optimizers and its clip, and the grader refuses a mismatch or a leg
+    that does not say. The names are upstream's (``type(opt).__name__``): a TT leg that
+    implements Muon + Adam declares ``["GroupedMuon", "Adam"]``.
+    """
+    for side, meta in headers.items():
+        for field in UPDATE_RULE:
+            if field not in meta:
+                raise CurveContractError(
+                    f"{paths[side]}: header has no {field!r}; a leg must declare its update rule "
+                    f"before its curve can be compared at matched compute")
+    for side in ("ours", "gpu_b"):
+        for field in UPDATE_RULE:
+            if headers[side][field] != headers["gpu_a"][field]:
+                raise CurveContractError(
+                    f"{paths[side]}: {field} {headers[side][field]!r} is not seed A's "
+                    f"{headers['gpu_a'][field]!r}, so the curves compare two update rules")
+
+
 def grade_curve_files(ours, gpu_a, gpu_b=None) -> CurveMatch:
     """Grade three curve logs against the pre-registered G3 bars.
 
@@ -277,11 +397,13 @@ def grade_curve_files(ours, gpu_a, gpu_b=None) -> CurveMatch:
     digests = {side: h["plan_digest"] for side, h in headers.items()}
     if len(set(digests.values())) != 1:
         raise CurveContractError(f"the three logs ran different plans: {digests}")
+    _check_seed_control(headers, curves, given)
     plan = headers["ours"]["plan_obj"]
     short = {side: len(c) for side, c in curves.items() if len(c) != plan.steps}
     if short:
         raise CurveContractError(f"log(s) do not cover the plan's {plan.steps} steps: {short}")
     _check_reference_legs(headers, given)
+    _check_update_rule(headers, given)
     return curve_match(curves["ours"], curves["gpu_a"], curves["gpu_b"], plan.warmup)
 
 
@@ -294,3 +416,28 @@ def summarise(losses: Sequence[float], window: int = 100) -> dict:
     return {"steps": int(x.size), "first": float(x[0]), "last": float(x[-1]),
             f"mean_last_{w}": float(x[-w:].mean()),
             "finite": bool(np.isfinite(x).all())}
+
+
+def read_dump_dir(path) -> tuple["CurvePlan", list[Path]]:
+    """A directory of plan-step inputs (``curve_upstream.py --dump-dir``) -> its plan and its
+    step files in step order.
+
+    Every file is checked against ``plan.json``'s digest, so a leg can never train on one plan's
+    tensors while logging another's: mixing two dumps in a directory, or pointing a run at a
+    plan it was not dumped for, raises here rather than producing a log that grades.
+    """
+    path = Path(path)
+    plan = CurvePlan.from_dict(json.loads((path / "plan.json").read_text()))
+    files = sorted(path.glob("step*.npz"))
+    if not files:
+        raise CurveContractError(f"{path}: no step*.npz")
+    want = plan.digest()
+    for f in files:
+        got = str(np.load(f, allow_pickle=False)["plan_digest"])
+        if got != want:
+            raise CurveContractError(f"{f.name} was dumped for plan {got}, plan.json is {want}")
+    missing = [i for i in range(len(files)) if files[i].name != f"step{i:05d}.npz"]
+    if missing:
+        raise CurveContractError(f"{path}: step files are not a gapless run from 0 "
+                                 f"(first bad index {missing[0]}: {files[missing[0]].name})")
+    return plan, files

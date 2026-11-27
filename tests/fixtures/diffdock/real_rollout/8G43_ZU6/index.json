@@ -1,0 +1,44 @@
+{
+ "complex": "8G43_ZU6",
+ "seed": 0,
+ "device": "cpu",
+ "dtype": "float32",
+ "recipe": {
+  "inference_steps": 20,
+  "actual_steps": 19,
+  "samples_per_complex": 10,
+  "no_final_step_noise": true,
+  "sigma_schedule": "expbeta",
+  "initial_noise_std_proportion": 1.4601642460337794
+ },
+ "steps_run": 19,
+ "f64_sigma_embedding": false,
+ "full_recipe": true,
+ "score_ckpt": "best_ema_inference_epoch_model.pt",
+ "confidence_ckpt": "best_model_epoch75.pt",
+ "draws": {
+  "path": "/home/moritz/.coworker/state/dfd/goldens/8G43_ZU6__s0/draws.npz",
+  "n": 74,
+  "sha256": "4d3d0d34d816ecf5b43fd7aab3fb046f537ffb4f779328c18d0abc84960b22fb"
+ },
+ "poses": {
+  "path": "/home/moritz/.coworker/state/dfd/goldens/8G43_ZU6__s0/poses.npz",
+  "shape": [
+   10,
+   21,
+   3
+  ],
+  "sha256": "26d35aec1ffe3baaaae686e6baf33b6c52d017941a250f606a26908a2d2bfa8d"
+ },
+ "trajectory": {
+  "path": "/home/moritz/.coworker/state/dfd/goldens/8G43_ZU6__s0/trajectory.npz",
+  "steps": 19,
+  "sha256": "f9c8d142a91f237d49cfab2b8aab9947d317de16e0470b2f58b22faa7dc90bb1"
+ },
+ "scores": {
+  "path": "/home/moritz/.coworker/state/dfd/goldens/8G43_ZU6__s0/scores.npz",
+  "steps": 19,
+  "sha256": "6fc54d5726ba3bdb59b160ba1056fda2766a31d9c49ba4807ee64c6a036a6eba"
+ },
+ "entries": []
+}
