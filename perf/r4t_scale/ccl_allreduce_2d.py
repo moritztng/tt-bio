@@ -16,6 +16,7 @@ from tt_bio.train.ccl import (
     FABRIC_FP32_MAX_PAYLOAD_BYTES,
     DeviceCCLReducer,
     configure_fp32_ring_fabric,
+    exact_2d_fp32_sum,
     exact_all_gather_2d,
     exact_all_reduce_2d,
     exact_reduce_scatter_2d,
@@ -346,12 +347,16 @@ def bench_dict_on_mesh(sub, rm, cm, out_path, nl=2, ag_ring=True, force_linear=F
     print(f"dict-bench {rm}x{cm}: 558 params ({P:,} elems) -> {len(plan.width_groups)} width groups "
           f"({[wg.cols for wg in plan.width_groups]}) + {len(plan.small_groups)} small groups", flush=True)
 
-    # Pick first + last tensor from EVERY width group and EVERY small group to grade thoroughly.
+    # Pick first + last tensor from EVERY width group, EVERY folded small slot, and EVERY small group.
     check_names = []
     for wg in plan.width_groups:
         check_names.append(wg.entries[0][0])
         if len(wg.entries) > 1:
             check_names.append(wg.entries[-1][0])
+        for slot in wg.folded_smalls:
+            check_names.append(slot.entries[0][0])
+            if len(slot.entries) > 1:
+                check_names.append(slot.entries[-1][0])
     for sg in plan.small_groups:
         check_names.append(sg.entries[0][0])
         if len(sg.entries) > 1:
@@ -415,8 +420,9 @@ def bench_dict_on_mesh(sub, rm, cm, out_path, nl=2, ag_ring=True, force_linear=F
                     out_last = o
         aiclk = clk.summary()
         med = float(np.median(times))
-        # Verify EVERY graded tensor individually against its own fp32 reduction-order floor.
-        max_err, max_floor, agree, all_under_floor, h = 0.0, 0.0, True, True, hashlib.sha256()
+        # Verify EVERY graded tensor individually against BOTH exact CPU 2D IEEE-754 tree sum (0.0 ULP)
+        # AND its own 4-order fp32 reduction-order floor.
+        max_err, max_err_2d, max_floor, agree, all_under_floor, h = 0.0, 0.0, 0.0, True, True, hashlib.sha256()
         worst = {"name": "", "err": 0.0, "floor": 0.0, "ratio": 0.0}
         for nm in check_names:
             t_out = out_last[nm]
@@ -429,6 +435,9 @@ def bench_dict_on_mesh(sub, rm, cm, out_path, nl=2, ag_ring=True, force_linear=F
             if v_out is not t_out and v_out.buffer_address() != t_out.buffer_address():
                 v_out.deallocate()
             agree &= all(torch.equal(b[0], b[i]) for i in range(N))
+            ref_2d = exact_2d_fp32_sum(ref_ranks[nm], (rm, cm), tree=True)
+            err_2d = float((b[0] - ref_2d).abs().max())
+            max_err_2d = max(max_err_2d, err_2d)
             ser, fl = fp32_reduction_order_floor(ref_ranks[nm])
             err = float((b[0] - ser).abs().max())
             lim = max(fl, 1e-7)
@@ -442,20 +451,20 @@ def bench_dict_on_mesh(sub, rm, cm, out_path, nl=2, ag_ring=True, force_linear=F
         for v in out_last.values():
             if v is not None and v.is_allocated():
                 ttnn.deallocate(v)
-        ok = agree and all_under_floor
+        ok = agree and all_under_floor and (max_err_2d == 0.0)
         info = {
             "s_cold": t_cold, "s": times, "s_med": med,
             "s_min": float(min(times)), "s_max": float(max(times)),
             "GBps_per_chip_payload": P * 4 / med / 1e9,
-            "max_err_vs_serial": max_err, "floor": max_floor,
+            "max_err_vs_serial": max_err, "max_err_vs_2d_exact": max_err_2d, "floor": max_floor,
             "worst_tensor": worst,
             "ranks_agree": agree, "verdict": "PASS" if ok else "FAIL",
             "digest": h.hexdigest()[:16], "aiclk": aiclk,
             "checked_tensors": len(check_names),
         }
         print(f"  {arm_name}: med={med:.4f}s (cold={t_cold:.4f}s warm={[round(x,4) for x in times]}) "
-              f"err={max_err:.3e} floor={max_floor:.3e} worst={worst['name']}({worst['ratio']:.2f}x) "
-              f"agree={agree} verdict={info['verdict']} "
+              f"err_2d={max_err_2d:.3e} err_ser={max_err:.3e} floor={max_floor:.3e} "
+              f"worst={worst['name']}({worst['ratio']:.2f}x) agree={agree} verdict={info['verdict']} "
               f"aiclk={aiclk['min']}/{aiclk['med']}/{aiclk['max']}({aiclk['n_reads']}) dig={info['digest']}",
               flush=True)
         return info
@@ -466,7 +475,8 @@ def bench_dict_on_mesh(sub, rm, cm, out_path, nl=2, ag_ring=True, force_linear=F
         "max_packet_payload_bytes": max_payload, "num_links": nl,
         "ag_ring": ag_ring, "force_linear": force_linear,
         "params": P, "n_tensors": 558,
-        "width_groups": [{"cols": wg.cols, "rows": wg.total_rows, "padded": wg.padded_rows, "n": len(wg.entries)}
+        "width_groups": [{"cols": wg.cols, "rows": wg.total_rows, "padded": wg.padded_rows,
+                          "n": len(wg.entries), "folded_smalls": len(wg.folded_smalls)}
                          for wg in plan.width_groups],
         "small_groups": [{"m": sg.m, "n": sg.n, "batch": sg.total_batch, "cnt": len(sg.entries)}
                          for sg in plan.small_groups],
