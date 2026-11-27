@@ -28,11 +28,14 @@ serve() {  # name tree
   echo "RC_srv_$n $? $(date -u +%T)" >> $O/run.log
   find $O/srv_$n -name "*.cif" | sort | while read f; do echo "$(basename $f) $(grep -E '^(ATOM|HETATM)' $f | sha256sum | cut -c1-16)"; done > $O/srv_$n.sha
 }
+# `d2b.sh base` reruns only the base arm (the first run lost card 0 to an spd lease at device open), then re-grades.
+if [ "${1:-}" = base ]; then step base $BASE; else
 step base $BASE
 step d2 $WT
 step lnoff $WT --lnbw-weights off
 serve base $BASE
 serve d2 $WT
+fi
 kill $CL
 python3 - $O >> $O/run.log <<"PY"
 import json, sys
