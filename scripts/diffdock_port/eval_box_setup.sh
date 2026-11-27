@@ -12,7 +12,7 @@
 # box exists only because 428 complexes is tens of CPU-hours that pc cannot spare.
 set -euo pipefail
 
-TARGET=${1:?usage: eval_box_setup.sh <ssh-target>|- [workers] [threads]}
+TARGET=${1:?usage: eval_box_setup.sh <ssh-target>|- [workers] [threads]}   # SHARD=i/n splits the set
 WORKERS=${2:-8}   # `auto` sizes the pool from the box's own nproc, so one query can take
 THREADS=${3:-3}   # a 32-core and a 64-core offer without leaving half the box idle.
 # A vast box is reached as `ssh -p <port> root@<ip>`, not as a bare target, so the caller may
@@ -25,9 +25,15 @@ PB=${DFD_PB:-$HOME/scratch/dfd/pb/posebusters_benchmark_set}
 CKPT=$HOME/.boltz/diffdock/models
 
 if [ "$WORKERS" = auto ]; then
-  NP=$($SSH nproc)
+  # From the cgroup QUOTA, not nproc. A vast box reports the whole host's core count: instance
+  # 62771089 answered `nproc` with 128 while /sys/fs/cgroup/cpu.max said 3071999/100000, i.e. the
+  # 30.7 cores we actually rented. Sizing on nproc started 42 workers x 3 threads on 30.7 cores,
+  # a 4x oversubscription that left every worker running at 0.73 of a core and put the 428-complex
+  # set on a 60 h track (2026-11-27). Quota first, nproc only if there is no quota.
+  NP=$($SSH 'q=$(cut -d" " -f1 /sys/fs/cgroup/cpu.max 2>/dev/null); p=$(cut -d" " -f2 /sys/fs/cgroup/cpu.max 2>/dev/null)
+             case "$q" in ""|max) nproc;; *) echo $(( q / p ));; esac')
   WORKERS=$(( NP / THREADS )); [ "$WORKERS" -lt 1 ] && WORKERS=1
-  echo "== $NP cores -> $WORKERS workers x $THREADS threads"
+  echo "== $NP cores of quota -> $WORKERS workers x $THREADS threads"
 fi
 
 echo "== base packages on $RT"
@@ -69,7 +75,7 @@ echo "== dock, detached"
 # the launch does not need its channel back; it needs the pid, which a second ssh reads.
 timeout 120 $SSH "cd ~/dfd/tt-bio && DFD_PB=~/dfd/pb/posebusters_benchmark_set PYTHONHASHSEED=0 \
       PYTHONUNBUFFERED=1 setsid nohup ~/dfd/venv/bin/python scripts/diffdock_port/pose_eval.py dock \
-      --ids all --out ~/dfd/poses --workers $WORKERS --threads $THREADS --seed 42 \
+      --ids all --shard ${SHARD:-0/1} --out ~/dfd/poses --workers $WORKERS --threads $THREADS --seed 42 \
       > ~/dfd/dock.log 2>&1 < /dev/null & echo \$! > ~/dfd/dock.pid"
 timeout 60 $SSH 'kill -0 $(cat ~/dfd/dock.pid) && echo "dock pid $(cat ~/dfd/dock.pid) alive"' \
   || { echo "dock did not start"; exit 1; }

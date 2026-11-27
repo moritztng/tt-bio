@@ -2,6 +2,7 @@
 # One unattended rented-CPU session that docks the 428 PoseBusters complexes for dfd-eval.
 #
 #   usage: eval_box_session.sh <label> <cap_h> [workers] [threads] ['<vastai query>']
+#   SHARD=i/n docks only that slice of the set, so N boxes can run one set in parallel.
 #   run it DETACHED from pc, redirect stdout; poses land in $OUT/poses and are pulled every 5 min.
 #
 # The job is pure CPU torch (the host half of the grade), so the offer is chosen on cores, not on
@@ -36,7 +37,7 @@ for _ in $(seq "${NMAX:-6}"); do
   vl_ssh || { vl_destroy "$I" "no ssh: intended_status=$(vl_state "$I")"; continue; }
   echo "$S" > "$OUT/ssh-$L"; echo "$I $O" > "$OUT/instance-$L"
 
-  SSH_CMD="$S" bash "$P/eval_box_setup.sh" - "$WORKERS" "$THREADS" || { vl_destroy "$I" "setup failed"; continue; }
+  SSH_CMD="$S" SHARD="${SHARD:-0/1}" bash "$P/eval_box_setup.sh" - "$WORKERS" "$THREADS" || { vl_destroy "$I" "setup failed"; continue; }
   log "$I docking: $(timeout 30 $S 'nproc') cores, \$$ODPH/h"
 
   bash "$P/eval_box_watch.sh" "$L" "$CAP_H" $(( T0 + $(python3 -c "print(int($CAP_H*3600))") ))
