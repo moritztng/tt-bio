@@ -123,6 +123,59 @@ def main():
                      "kept": int(ref_m.sum())}
     print("within", out["within"], flush=True)
 
+    # --- the step's masks ------------------------------------------------------------
+    from tt_bio.diffdock.graph import StaticGraphs
+
+    n_lig, n_rec, n_poses = 24, 48, 4
+    bonds = torch.stack([torch.arange(0, 10), torch.arange(1, 11)])
+    sg = StaticGraphs.build(n_lig, n_rec, bonds, n_poses=n_poses)
+    lp = (torch.rand(sg.n_lig_padded, 3, generator=g) * 2 - 1).float() * 6
+    rp = (torch.rand(sg.n_rec_padded, 3, generator=g) * 2 - 1).float() * 18
+    nl, nc = sg.lig_edge_index.shape[1], sg.cross_edge_index.shape[1]
+    masks = dl.StepMasks(dev, sg, nl, nc)
+    lp_dev, rp_dev = dl.upload(dev, lp), dl.upload(dev, rp)
+
+    # ligand: bond rows always on, the complete block by radius
+    lgeo = dl.EdgeGeometry(dev, sg.lig_edge_index[0], sg.lig_edge_index[1], nl)
+    ldist = dl.norm3(*lgeo.vectors(lp_dev))
+    ref_lm = sg.lig_mask(lp.double(), cfg.lig_max_radius)
+    got_lm = ttnn.to_torch(masks.lig(ldist, cfg.lig_max_radius))[:nl, 0]
+    out["mask_lig"] = {"mismatches": int((got_lm.double() - ref_lm).abs().round().sum()),
+                       "on": int(ref_lm.sum()), "edges": nl}
+    print("mask_lig", out["mask_lig"], flush=True)
+
+    # cross: the host divides the vector by the cutoff and compares the norm with 1
+    cgeo = dl.EdgeGeometry(dev, sg.cross_edge_index[0], sg.cross_edge_index[1], nc)
+    cvec = cgeo.vectors(lp_dev, rp_dev)
+    for label, cutoff in (("scalar", 20.0), ("per_pose", None)):
+        if cutoff is None:
+            per_pose = torch.tensor([14.0, 20.0, 26.0, 32.0])[:n_poses]
+            ref_cm = sg.cross_mask(lp.double(), rp.double(), per_pose.double())
+            col = per_pose.repeat_interleave(n_lig * n_rec).float()
+            col = torch.nn.functional.pad(col, (0, nc - col.shape[0]), value=1.0)
+            arg = dl.upload(dev, col)
+        else:
+            ref_cm = sg.cross_mask(lp.double(), rp.double(), float(cutoff))
+            arg = float(cutoff)
+        got_cm = ttnn.to_torch(masks.cross(*cvec, arg))[:nc, 0]
+        key = f"mask_cross_{label}"
+        out[key] = {"mismatches": int((got_cm.double() - ref_cm).abs().round().sum()),
+                    "on": int(ref_cm.sum()), "edges": nc}
+        print(key, out[key], flush=True)
+
+    # receptor edges: an edge survives iff both ends do
+    rei = sg.rec_edge_index(torch.stack([torch.arange(0, 30), torch.arange(1, 31)]))
+    ne = rei.shape[1]
+    keep = (torch.rand(sg.n_rec_padded, generator=g) > 0.35).float()
+    keep[sg.n_rec * n_poses:] = 0
+    ref_rm = StaticGraphs.rec_edge_mask(keep.double(), rei)
+    rsrc = dl.EdgeGeometry(dev, rei[0], rei[1], ne)
+    got_rm = ttnn.to_torch(dl.StepMasks.rec_edges(
+        dl.upload(dev, keep), rsrc.src, rsrc.dst, ne))[:ne, 0]
+    out["mask_rec_edges"] = {"mismatches": int((got_rm.double() - ref_rm).abs().round().sum()),
+                             "on": int(ref_rm.sum()), "edges": ne}
+    print("mask_rec_edges", out["mask_rec_edges"], flush=True)
+
     print(json.dumps({k: v for k, v in out.items() if isinstance(v, (int, float))}), flush=True)
     Path(args.out).write_text(json.dumps(out, indent=1))
 
