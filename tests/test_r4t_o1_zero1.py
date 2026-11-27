@@ -152,3 +152,21 @@ def test_fast_onehot_idx_matches_exact_onehot():
     assert _fast(f3, 3) is None
 
 
+def test_norm_adaln_on_card_signature_compat():
+    """Verify _norm_adaln_on_card defaults cg=None so 8-arg SPMD callers stay compatible."""
+    import ast
+    from pathlib import Path
+
+    src = Path(__file__).resolve().parents[1] / "tt_bio" / "train" / "rfd4_pair.py"
+    tree = ast.parse(src.read_text())
+    fn = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "_norm_adaln_on_card")
+    pos_names = [a.arg for a in fn.args.args]
+    assert pos_names[:8] == ["x", "lnw_tt", "gamma_tt", "beta_tt", "e1", "e2", "c", "cfg"]
+    assert len(pos_names) == 9 and pos_names[8] == "cg"
+    assert len(fn.args.defaults) == 1 and isinstance(fn.args.defaults[0], ast.Constant) and fn.args.defaults[0].value is None
+    kw_names = [a.arg for a in fn.args.kwonlyargs]
+    assert kw_names == ["return_saved"]
+    assert isinstance(fn.args.kw_defaults[0], ast.Constant) and fn.args.kw_defaults[0].value is False
+
+
+

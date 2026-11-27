@@ -125,27 +125,10 @@ class _PairStepCache:
             setattr(self, attr, None)
 
 
-_INV_C_COL_CACHE: dict = {}
-
-
-def _fast_row_mean(v, c: int, cfg, cg):
-    """All-core fp32 last-dim mean of ``[B, N, N, C]`` -> ``[B, N, N, 1]`` via cached ``[C, 1]`` matmul."""
-    dev = v.device()
-    key = (id(dev), int(c))
-    col = _INV_C_COL_CACHE.get(key)
-    if col is None or not col.is_allocated():
-        col = ttnn.from_torch(
-            torch.full((int(c), 1), 1.0 / float(c), dtype=torch.float32),
-            dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev,
-        )
-        _INV_C_COL_CACHE[key] = col
-    return ttnn.matmul(v, col, dtype=ttnn.float32, compute_kernel_config=cfg, core_grid=cg)
-
-
-def _norm_adaln_on_card(x, lnw_tt, gamma_tt, beta_tt, e1: float, e2: float, c: int, cfg, cg,
+def _norm_adaln_on_card(x, lnw_tt, gamma_tt, beta_tt, e1: float, e2: float, c: int, cfg, cg=None,
                         *, return_saved: bool = False):
     """Run PairReprBuilder's RMSNorm -> ln_out -> AdaLN RMSNorm -> gamma/beta strictly on card."""
-    mean = lambda v: _fast_row_mean(v, c, cfg, cg)
+    mean = lambda v: ag._row_mean(v, cfg, c)
     x2 = ttnn.square(x)
     mx2 = mean(x2)
     ttnn.deallocate(x2)
@@ -598,23 +581,15 @@ class ResidentPairBuilder:
                 _safe_dealloc(rows_flat, keep=rows)
                 x = ttnn.add(rows, C)
                 ttnn.deallocate(rows)
-                lnw_1d = ttnn.from_torch(lnw.reshape(c).contiguous(), dtype=ttnn.float32,
+                lnw_tt = ttnn.from_torch(lnw.reshape(1, 1, 1, c).contiguous(), dtype=ttnn.float32,
                                          layout=ttnn.TILE_LAYOUT, device=self.device)
                 gam_tt = ttnn.from_torch(enc.gamma.detach().float().reshape(k, 1, 1, c).contiguous(),
                                          dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=self.device)
                 bet_tt = ttnn.from_torch(enc.beta.detach().float().reshape(k, 1, 1, c).contiguous(),
                                          dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=self.device)
-                a = ttnn.rms_norm(x, epsilon=self.e1, weight=lnw_1d, compute_kernel_config=cfg)
-                ttnn.deallocate(x)
-                ttnn.deallocate(lnw_1d)
-                bb = ttnn.rms_norm(a, epsilon=self.e2, compute_kernel_config=cfg)
-                ttnn.deallocate(a)
-                z1 = ttnn.multiply(bb, gam_tt)
-                ttnn.deallocate(bb)
-                ttnn.deallocate(gam_tt)
-                z = ttnn.add(z1, bet_tt)
-                ttnn.deallocate(z1)
-                ttnn.deallocate(bet_tt)
+                z = _norm_adaln_on_card(x, lnw_tt, gam_tt, bet_tt, self.e1, self.e2, c, cfg)
+                for t in (x, lnw_tt, gam_tt, bet_tt):
+                    ttnn.deallocate(t)
                 if dtype is not None and z.dtype != dtype:
                     z32, z = z, ttnn.typecast(z, dtype)
                     ttnn.deallocate(z32)
@@ -691,7 +666,7 @@ class ResidentPairBuilder:
 
         def make():
             def bw(g):
-                mean = lambda v: _fast_row_mean(v, c, cfg, cg)
+                mean = lambda v: ag._row_mean(v, cfg, c)
                 g_owned = False
                 if g.dtype != ttnn.float32:
                     g = ttnn.typecast(g, ttnn.float32)

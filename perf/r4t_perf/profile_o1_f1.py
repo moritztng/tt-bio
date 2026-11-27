@@ -79,29 +79,40 @@ class Float64MuonAdamEMA:
         cm = min(1.0, self.clip / nm) if nm > 0 else 1.0
         ca = min(1.0, self.clip / na) if na > 0 else 1.0
         om = 1.0 - self.mu.momentum
+        from concurrent.futures import ThreadPoolExecutor
+
+        def _do_muon(k: str):
+            g = grads.get(k)
+            if g is None:
+                return
+            w = self.master[k]
+            ge = g.astype(np.float64) * cm
+            buf = (ge * om) if k not in self.m1 else (self.m1[k] + (ge - self.m1[k]) * om)
+            self.m1[k] = buf
+            u = (buf - (buf - ge) * om) if self.mu.nesterov else buf
+            o = self._ns(u)
+            w[:] = w * (1.0 - self.lr * self.mu.weight_decay) - self.lr * self.mu.ratio(w.shape) * o
+
+        n_thr = min(16, max(1, os.cpu_count() or 8))
+        with ThreadPoolExecutor(max_workers=n_thr) as pool:
+            list(pool.map(_do_muon, self.muon_names))
+
         for k, w in self.master.items():
+            if k in self.muon_names:
+                continue
             g = grads.get(k)
             if g is None:
                 continue
-            g64 = g.astype(np.float64)
-            if k in self.muon_names:
-                ge = g64 * cm
-                buf = (ge * om) if k not in self.m1 else (self.m1[k] + (ge - self.m1[k]) * om)
-                self.m1[k] = buf
-                u = (buf - (buf - ge) * om) if self.mu.nesterov else buf
-                o = self._ns(u)
-                w[:] = w * (1.0 - self.lr * self.mu.weight_decay) - self.lr * self.mu.ratio(w.shape) * o
+            ge = g.astype(np.float64) * ca
+            if k not in self.m1:
+                self.m1[k] = ge * (1.0 - self.b1)
+                self.m2[k] = (ge * ge) * (1.0 - self.b2)
             else:
-                ge = g64 * ca
-                if k not in self.m1:
-                    self.m1[k] = ge * (1.0 - self.b1)
-                    self.m2[k] = (ge * ge) * (1.0 - self.b2)
-                else:
-                    self.m1[k] = self.b1 * self.m1[k] + (1.0 - self.b1) * ge
-                    self.m2[k] = self.b2 * self.m2[k] + (1.0 - self.b2) * (ge * ge)
-                mh = self.m1[k] / bc1
-                vh = self.m2[k] / bc2
-                w[:] = w - self.lr * (mh / (np.sqrt(vh) + self.eps))
+                self.m1[k] = self.b1 * self.m1[k] + (1.0 - self.b1) * ge
+                self.m2[k] = self.b2 * self.m2[k] + (1.0 - self.b2) * (ge * ge)
+            mh = self.m1[k] / bc1
+            vh = self.m2[k] / bc2
+            w[:] = w - self.lr * (mh / (np.sqrt(vh) + self.eps))
         if self.n_ema == 0:
             self.ema = {k: v.copy() for k, v in self.master.items()}
         else:

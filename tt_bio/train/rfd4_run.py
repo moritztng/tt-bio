@@ -126,6 +126,12 @@ def _device_trunk_masks(mask_cpu, dev, dtype, residual_dtype=None, elide=None):
     ttnn.deallocate(m_row)
     pair_1nn = ttnn.reshape(pair_3d, (b, 1, n, n))
     inv = ttnn.subtract(pair_1nn, 1.0)
+    if pair_1nn is not pair_3d and pair_1nn.is_allocated():
+        try:
+            if pair_1nn.buffer_address() != pair_3d.buffer_address():
+                ttnn.deallocate(pair_1nn)
+        except Exception:
+            pass
     attn_bias = ttnn.multiply(inv, -TR.NEG_INF)    # [b, 1, n, n]: 0 where valid, NEG_INF where masked
     ttnn.deallocate(inv)
     if bool(m.all()):
