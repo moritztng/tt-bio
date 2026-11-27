@@ -42,7 +42,12 @@ export TT_BIO_SHA="$(git rev-parse --short=9 HEAD)" OMP_NUM_THREADS=2 R4T_REBUIL
 unset TT_BIO_LEVERS TT_BIO_TAPED_KERNELS
 echo "START $(date -u +%FT%TZ) sha=$TT_BIO_SHA card=$C load=$(cut -d' ' -f1 /proc/loadavg)" >> "$O/run.log"
 
-# 1. Micro-screen B2/B3/B4
+# 1. B2 DW_2D + split-K float64 grade (normal PASS + BREAK=1 FAIL) & micro-screen B2/B3/B4
+timeout 600 "$PY" "$WT/perf/r4t_bwd/dw2d_grade.py" --out "$O/dw2d_gc.json" > "$O/dw2d_gc.log" 2>&1
+echo "RC_dw2d_gc $? $(date -u +%T)" >> "$O/run.log"
+BREAK=1 timeout 600 "$PY" "$WT/perf/r4t_bwd/dw2d_grade.py" --out "$O/dw2d_brk.json" > "$O/dw2d_brk.log" 2>&1
+echo "RC_dw2d_brk $? $(date -u +%T)" >> "$O/run.log"
+
 timeout 900 "$PY" "$WT/perf/r4t_bwd/screen_mm.py" --out "$O/screen_mm.json" --reps 5 > "$O/screen_mm.log" 2>&1
 echo "RC_screen_mm $? $(date -u +%T)" >> "$O/run.log"
 
@@ -58,18 +63,18 @@ echo "RC_l4_gc $? $(date -u +%T)" >> "$O/run.log"
 TT_BIO_MMVJP_MIN=1 TT_BIO_MMVJP_BROKEN=1 timeout 600 "$PY" "$WT/perf/r4t_perf/l4grade.py" --out "$O/l4_brk.json" > "$O/l4_brk.log" 2>&1
 echo "RC_l4_brk $? $(date -u +%T)" >> "$O/run.log"
 
-# 4. PairUpdate block_gradcheck (bf16 D39 floor + --break + fp32) with B2+B3+B4 ON
-env TT_BIO_LNBW_WEIGHTS=1 TT_BIO_RMSBW_FUSED=1 TT_BIO_MMVJP_MIN=1 TT_BIO_WIDEN_ADD=1 TT_BIO_FANIN_CAST_FUSED=1 \
+# 4. PairUpdate block_gradcheck (bf16 D39 floor + --break + TrunkBlock) with B2+B3+B4 ON
+env TT_BIO_LNBW_WEIGHTS=1 TT_BIO_RMSBW_FUSED=1 TT_BIO_DW_2D=1 TT_BIO_MMVJP_MIN=1 TT_BIO_WIDEN_ADD=1 TT_BIO_FANIN_CAST_FUSED=1 \
   timeout 900 "$PY" "$WT/perf/r4t_tape/block_gradcheck.py" --module pair_update --n 64 --real 48 --probe 8 --seed 7 --arm bf16 \
   --floor "$WT/perf/r4t_tape/floor/pu_n64r48_s7.json" --out "$O/pu_on.json" > "$O/pu_on.log" 2>&1
 echo "RC_pu_on $? $(date -u +%T)" >> "$O/run.log"
 
-env TT_BIO_LNBW_WEIGHTS=1 TT_BIO_RMSBW_FUSED=1 TT_BIO_MMVJP_MIN=1 TT_BIO_WIDEN_ADD=1 TT_BIO_FANIN_CAST_FUSED=1 \
+env TT_BIO_LNBW_WEIGHTS=1 TT_BIO_RMSBW_FUSED=1 TT_BIO_DW_2D=1 TT_BIO_MMVJP_MIN=1 TT_BIO_WIDEN_ADD=1 TT_BIO_FANIN_CAST_FUSED=1 \
   timeout 900 "$PY" "$WT/perf/r4t_tape/block_gradcheck.py" --module pair_update --n 64 --real 48 --probe 8 --seed 7 --arm bf16 --break \
   --floor "$WT/perf/r4t_tape/floor/pu_n64r48_s7.json" --out "$O/pu_brk.json" > "$O/pu_brk.log" 2>&1
 echo "RC_pu_brk $? $(date -u +%T)" >> "$O/run.log"
 
-env TT_BIO_LNBW_WEIGHTS=1 TT_BIO_RMSBW_FUSED=1 TT_BIO_MMVJP_MIN=1 TT_BIO_WIDEN_ADD=1 TT_BIO_FANIN_CAST_FUSED=1 \
+env TT_BIO_LNBW_WEIGHTS=1 TT_BIO_RMSBW_FUSED=1 TT_BIO_DW_2D=1 TT_BIO_MMVJP_MIN=1 TT_BIO_WIDEN_ADD=1 TT_BIO_FANIN_CAST_FUSED=1 \
   timeout 900 "$PY" "$WT/perf/r4t_tape/block_gradcheck.py" --module trunk_block --n 64 --real 48 --probe 8 --seed 7 --arm bf16 --attn-fp32 \
   --out "$O/tb_on.json" > "$O/tb_on.log" 2>&1
 echo "RC_tb_on $? $(date -u +%T)" >> "$O/run.log"
@@ -104,17 +109,17 @@ run_step() {
   rm -rf "$O/ck_$name"
 }
 
-BASE_ENV="TT_BIO_MMVJP_MIN=0 TT_BIO_SPLIT_K_OUT_TILES=32 TT_BIO_SUM_LEADING_SPLIT=0 TT_BIO_RMSBW_FUSED=0 TT_BIO_WIDEN_ADD=0 TT_BIO_FANIN_CAST_FUSED=0"
-B123_ENV="TT_BIO_MMVJP_MIN=1 TT_BIO_SPLIT_K_OUT_TILES=144 TT_BIO_SUM_LEADING_SPLIT=0 TT_BIO_RMSBW_FUSED=0 TT_BIO_WIDEN_ADD=0 TT_BIO_FANIN_CAST_FUSED=0"
-ALL_ENV="TT_BIO_MMVJP_MIN=1 TT_BIO_SPLIT_K_OUT_TILES=144 TT_BIO_SUM_LEADING_SPLIT=1 TT_BIO_RMSBW_FUSED=1 TT_BIO_WIDEN_ADD=1 TT_BIO_FANIN_CAST_FUSED=1"
+BASE_ENV="TT_BIO_DW_2D=0 TT_BIO_MMVJP_MIN=0 TT_BIO_SPLIT_K_OUT_TILES=32 TT_BIO_SUM_LEADING_SPLIT=0 TT_BIO_RMSBW_FUSED=0 TT_BIO_WIDEN_ADD=0 TT_BIO_FANIN_CAST_FUSED=0"
+B123_ENV="TT_BIO_DW_2D=1 TT_BIO_MMVJP_MIN=1 TT_BIO_SPLIT_K_OUT_TILES=144 TT_BIO_SUM_LEADING_SPLIT=0 TT_BIO_RMSBW_FUSED=0 TT_BIO_WIDEN_ADD=0 TT_BIO_FANIN_CAST_FUSED=0"
+ALL_ENV="TT_BIO_DW_2D=1 TT_BIO_MMVJP_MIN=1 TT_BIO_SPLIT_K_OUT_TILES=144 TT_BIO_SUM_LEADING_SPLIT=1 TT_BIO_RMSBW_FUSED=1 TT_BIO_WIDEN_ADD=1 TT_BIO_FANIN_CAST_FUSED=1"
 
-run_step base_1 "$BASE_ENV" --cand-levers serving --win-pre tape
+run_step base_1 "$BASE_ENV" --cand-levers serve --win-pre tape
 run_step b1_1   "$BASE_ENV" $B1_FLAGS
 run_step b123_1 "$B123_ENV" $B1_FLAGS
 run_step all_1  "$ALL_ENV"  $B1_FLAGS
 run_step all_2  "$ALL_ENV"  $B1_FLAGS
 run_step b123_2 "$B123_ENV" $B1_FLAGS
 run_step b1_2   "$BASE_ENV" $B1_FLAGS
-run_step base_2 "$BASE_ENV" --cand-levers serving --win-pre tape
+run_step base_2 "$BASE_ENV" --cand-levers serve --win-pre tape
 
 echo "END $(date -u +%FT%TZ)" >> "$O/run.log"

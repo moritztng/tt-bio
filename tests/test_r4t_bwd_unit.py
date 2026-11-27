@@ -144,3 +144,30 @@ def test_lnbw_rms_l1_budget_accepts_k768_and_declines_ln_k768():
         assert lnbw.eligible(x768, g768, w768, weights=True, center=True, do_beta=True) is False
     finally:
         lnbw.RMS, lnbw.WEIGHTS = old_rms, old_w
+
+
+def test_dw_2d_config_fills_grid_on_p300c_and_galaxy():
+    """DW_2D 2D multicast planner fills both 11x10 p300c and 12x10 Galaxy grids within L1 cap."""
+    import ttnn
+    from tt_bio import mm_layout as mml
+
+    saved = getattr(ttnn, "MatmulMultiCoreReuseMultiCastProgramConfig", None)
+    ttnn.MatmulMultiCoreReuseMultiCastProgramConfig = lambda **kw: kw
+    mml._dw_2d_config.cache_clear()
+    try:
+        for gx_dev, gy_dev in ((11, 10), (12, 10)):
+            for M, N in ((256, 384), (384, 384), (384, 768), (384, 1024), (768, 384), (1024, 384), (384, 256)):
+                cfg = mml._dw_2d_config(M // 32, N // 32, 65536 // 32, gx_dev, gy_dev)
+                assert cfg is not None, (M, N, gx_dev, gy_dev)
+                cg = cfg["compute_with_storage_grid_size"]
+                pm, pn, bw = cfg["per_core_M"], cfg["per_core_N"], cfg["in0_block_w"]
+                cb_bytes = 2 * (pm * bw + pn * bw) * 2048 + pm * pn * 4096
+                assert cb_bytes <= 950_000, (M, N, cb_bytes)
+                min_cores = 64 if gx_dev >= 12 else 36
+                assert cg[0] * cg[1] >= min_cores, (M, N, gx_dev, gy_dev, cg)
+    finally:
+        mml._dw_2d_config.cache_clear()
+        if saved is None:
+            delattr(ttnn, "MatmulMultiCoreReuseMultiCastProgramConfig")
+        else:
+            ttnn.MatmulMultiCoreReuseMultiCastProgramConfig = saved

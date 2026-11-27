@@ -1240,8 +1240,14 @@ def _mmvjp_xt_cached(x) -> bool:
 
 
 def _mmvjp_dw(x, g, cfg):
-    """dW = x^T @ g (fp32 out) on minimal_matmul with x^T materialised, or None."""
+    """dW = x^T @ g (fp32 out) on minimal_matmul with x^T materialised, or None.
+
+    When `mm_layout.DW_2D` is armed and eligible, returns None so the caller routes straight to
+    `ttnn.matmul` with the 2D multicast program_config (zero transpose, zero extra DRAM, 42-62 TF/s,
+    equal or tighter float64 rel_L2)."""
     if not MMVJP_MIN:
+        return None
+    if _mm_layout.dw_2d_eligible(x, g, dtype=ttnn.float32):
         return None
     if not (_mmvjp_ok(x, g) and int(x.shape[0]) >= MMVJP_MIN_ROWS):
         MMVJP_STATS["declined"] += 1
@@ -4298,8 +4304,17 @@ def _checkpoint_segment(fn, *inputs):
     return checkpoint(fn, *inputs, params=_ALL_PARAMS)
 
 
+def _suspend_tape_cm():
+    from .taped_ttnn import suspend
+    return suspend()
+
+
+def _wrap_untaped(t):
+    return t if isinstance(t, Tensor) else Tensor(t, requires_grad=False)
+
+
 def _install_hooks():
-    """The four hooks, and nothing else. What `tape()` re-arms on every entry. Returns the four
+    """The autograd hooks, and nothing else. What `tape()` re-arms on every entry. Returns what
     it replaced, in `_restore_hooks` order."""
     from . import ops
     # A recycling model asks `ops.recycle_region` whether a non-final cycle is differentiated.
@@ -4309,18 +4324,22 @@ def _install_hooks():
             # The host float64 softmax a construction site may select. Injected rather than
             # imported, so `tt_bio/tenstorrent.py` can offer the lever without reaching the tape.
             ops.set_host_softmax_hook(host_f64_softmax),
-            ops.set_grad_hook(_hook))
+            ops.set_grad_hook(_hook),
+            ops.set_suspend_tape_hook(_suspend_tape_cm),
+            ops.set_wrap_untaped_hook(_wrap_untaped))
 
 
 def _restore_hooks(prev):
     """Put back what `_install_hooks` replaced. A checkpoint hook left behind sends a later
     inference forward through `checkpoint`, which hands raw ttnn verbs an `autograd.Tensor`."""
     from . import ops
-    recycle, ckpt, host_softmax, grad = prev
+    recycle, ckpt, host_softmax, grad, susp, wrap = prev
     ops.set_recycle_hook(recycle)
     ops.set_checkpoint_hook(ckpt)
     ops.set_host_softmax_hook(host_softmax)
     ops.set_grad_hook(grad)
+    ops.set_suspend_tape_hook(susp)
+    ops.set_wrap_untaped_hook(wrap)
 
 
 # What each open `install()` armed, innermost last, so `uninstall()` takes out exactly what its
@@ -4362,6 +4381,8 @@ def uninstall(*, exact_softmax: bool = False) -> None:
     ops.set_host_softmax_hook(None)
     if _INSTALL_EXACT:
         _uninstall_exact(_INSTALL_EXACT.pop())
+    ops.set_suspend_tape_hook(None)
+    ops.set_wrap_untaped_hook(None)
     ops.set_grad_hook(None)
 
 
@@ -4376,7 +4397,7 @@ def suspended():
 
     `install()` leaves `ops.taping() == True` for the whole process, which makes every shipped
     serving fused kernel decline even inside `no_grad()`. Entering `suspended()` outside `tape()`
-    clears the four hooks (and any installed exact-training overrides) for the block and restores
+    clears the hooks (and any installed exact-training overrides) for the block and restores
     them on exit, so a grad-off candidate or evaluation pass takes the exact serving path. Raises
     `RuntimeError` if entered while `tape()` is active.
     """
@@ -4387,7 +4408,9 @@ def suspended():
     prev = (ops.set_recycle_hook(None),
             ops.set_checkpoint_hook(None),
             ops.set_host_softmax_hook(None),
-            ops.set_grad_hook(None))
+            ops.set_grad_hook(None),
+            ops.set_suspend_tape_hook(None),
+            ops.set_wrap_untaped_hook(None))
     try:
         with without_exact():
             yield

@@ -828,6 +828,9 @@ WH_NORMAL_LEVERS = NORMAL_LEVERS | {"trimul_t1_stats", "pair_bias_fuse"}
 #: serving lever off and every pair with `transition_b8` still misses bb_ca or sequence_prediction somewhere; only
 #: all five off passes both terms on all 9. The other 28 are digest-neutral at crop 256 and stay. Inference keeps
 #: the full set: its grade is the design RMSD above.
+#: B1 (r4t-bwd, default off): run non-final recycle cycles under `ops.suspend_tape()` ("fp32" or "bf16").
+RECYCLE_SERVE = ""
+
 TRAIN_DROPS = frozenset({"dit_sigf32", "pair_bf16z", "tok_recycle_mm", "tok_w8", "transition_b8"})
 
 
@@ -1048,8 +1051,57 @@ class Trunk(Module):
         self._ran = (0, 0)
         # Under a tape every cycle but the last runs under no_grad, as upstream trains it (only the last
         # pass is differentiated); all cycles still run. With no tape `recycle_region` is a null context.
+        # B1 (`RECYCLE_SERVE` = "fp32" or "bf16"): suspend the tape on non-final cycles so shipped serving
+        # fused kernels (trimul_t1, pair_tail_cm, outer_residual, pair_relu, rms_pair_bias) serve cycle 0..d-2.
         last = len(conds) - 1
         for cyc, c in enumerate(conds):
+            if cyc < last and RECYCLE_SERVE and ops.taping():
+                raw = lambda t: getattr(t, "value", t)  # noqa: E731
+                rmasks = tuple(None if m is None else raw(m) for m in masks)
+                rc = raw(c)
+                rs_init, rz_init = raw(s_init), raw(z_init)
+                bf16_cyc = RECYCLE_SERVE == "bf16"
+                mods = [self] + list(self.pair_updates.values()) if bf16_cyc else ()
+                saved_d = [(m, m.pair_residual_dtype if m is self else m.residual_dtype) for m in mods]
+                saved_levs = self._levers
+                zd_c = ttnn.bfloat16 if bf16_cyc else zd
+                low_c = self.dtype if zd_c == ttnn.float32 and self.dtype == ttnn.bfloat16 else None
+                try:
+                    if bf16_cyc:
+                        self.pair_residual_dtype = ttnn.bfloat16
+                        for m in mods[1:]:
+                            m.residual_dtype = ttnn.bfloat16
+                        self._levers = saved_levs | {"pair_bf16z", "dit_sigf32", "tok_recycle_mm"}
+                    with ops.suspend_tape(), lever_scope(self._levers):
+                        zb = None
+                        if s is None:
+                            s_in = ttnn.clone(rs_init)
+                            z_in = ttnn.typecast(rz_init, zd_c) if rz_init.dtype != zd_c else ttnn.clone(rz_init)
+                        else:
+                            rs, rz = raw(s), raw(z)
+                            s_in = self._recycle(rs_init, rs, self.s_norm, self.s_proj, self.residual_dtype)
+                            rz_init_c = ttnn.typecast(rz_init, zd_c) if rz_init.dtype != zd_c else rz_init
+                            z_in = self._recycle(rz_init_c, rz, self.z_norm, self.z_proj, zd_c, low=low_c)
+                            if rz_init_c is not rz_init:
+                                ttnn.deallocate(rz_init_c)
+                            if low_c is not None:
+                                z_in, zb = z_in
+                            if s is not borrowed[0]:
+                                ttnn.deallocate(rs)
+                            if z is not borrowed[1]:
+                                ttnn.deallocate(rz)
+                        s_raw, z_raw = self.run_pass(s_in, z_in, rc, rmasks, zb=zb)
+                        if bf16_cyc and cyc + 1 == last and z_raw.dtype != zd:
+                            z_up = ttnn.typecast(z_raw, zd)
+                            ttnn.deallocate(z_raw)
+                            z_raw = z_up
+                finally:
+                    self._levers = saved_levs
+                    for m, d in saved_d:
+                        setattr(m, "pair_residual_dtype" if m is self else "residual_dtype", d)
+                s = ops.wrap_untaped(s_raw) if cyc + 1 == last else s_raw
+                z = ops.wrap_untaped(z_raw) if cyc + 1 == last else z_raw
+                continue
             with ops.recycle_region(cyc, last):
                 zb = None
                 if s is None:
