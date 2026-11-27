@@ -896,6 +896,17 @@ def assemble_rows(device, parts, blocks, width: int):
     return ttnn.concat(out, dim=0) if len(out) > 1 else out[0]
 
 
+def tile_width(x):
+    """Zero-pad a card tensor's columns to a multiple of 32, as :func:`device.to_device` does.
+
+    The convolution's split first layer (:func:`device.fc1_blocks`) has ``pad32`` rows per
+    block and the tensor product takes padded harmonics, so a feature made on the card at its
+    logical width (the edge embedding is ``ns`` wide) is widened before it enters a stack.
+    """
+    from .device import pad32
+    return pad_width(x.device(), x, pad32(x.shape[1]))
+
+
 class ResidentStack:
     """:meth:`tt_bio.diffdock.device.DeviceConvModule.run_stack` with its inputs already on card.
 
@@ -945,6 +956,7 @@ class ResidentStack:
         """
         import ttnn
         rows = lambda t, a, b: ttnn.slice(t, [a, 0], [b, t.shape[1]])
+        edge_attr, edge_sh = tile_width(edge_attr), tile_width(edge_sh)
         for mod, graph, (cut, edges) in zip(self.mods, self.graphs, self.groups):
             x = mod.dev(x, graph, [rows(edge_attr, a, b) for a, b in edges],
                         rows(edge_sh, 0, cut), rows(edge_mask, 0, cut), ns=ns)
@@ -985,6 +997,7 @@ class ResidentConv:
         """*x* ``[n_in_p, d]`` and the ``[n_rows, *]`` edge tensors on the card -> ``[n_out_p, d']``."""
         import ttnn
         rows = lambda t, a, b: ttnn.slice(t, [a, 0], [b, t.shape[1]])
+        edge_attr, edge_sh = tile_width(edge_attr), tile_width(edge_sh)
         return self.mod.dev(x, self.graph, [rows(edge_attr, a, b) for a, b in self.groups],
                             edge_sh, edge_mask, ns=ns)
 
