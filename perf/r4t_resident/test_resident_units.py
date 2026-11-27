@@ -100,7 +100,7 @@ def test_heads(dev, glue, batch8_path: str, pcie_meter_mod):
     b1["exploration_k"] = 1
     b, n = b1["padding_mask"].shape
     n_pad = ((n + 31) // 32) * 32
-    print(f"  batch08 b={b}, n={n}, n_pad={n_pad}, ins_rows={(b1["insertion_source_idx"] >= 0).sum().item()}", flush=True)
+    print(f"  batch08 b={b}, n={n}, n_pad={n_pad}, ins_rows={(b1['insertion_source_idx'] >= 0).sum().item()}", flush=True)
 
     # Synthetic s with realistic scale (~1.0), masked on padding
     rng = np.random.default_rng(42)
@@ -305,18 +305,18 @@ def test_heads(dev, glue, batch8_path: str, pcie_meter_mod):
 
     tot_dev, m_good, pcie_heads = run_taped_heads("none")
     loss_rel = abs(tot_dev - tot64) / max(abs(tot64), 1e-12)
-    worst_rel = max(v["rel_l2"] for v in m_good.values())
-    worst_cos = min(v["cos"] for v in m_good.values())
+    worst_rel = max(v['rel_l2'] for v in m_good.values())
+    worst_cos = min(v['cos'] for v in m_good.values())
     print(f"  GOOD arm: loss_rel={loss_rel:.2e}, worst_rel={worst_rel:.3e}, min_cos={worst_cos:.6f}", flush=True)
     for k, v in m_good.items():
-        print(f"    {k:12s}  rel_l2={v["rel_l2"]:.3e}  cos={v["cos"]:.6f}", flush=True)
+        print(f"    {k:12s}  rel_l2={v['rel_l2']:.3e}  cos={v['cos']:.6f}", flush=True)
     if pcie_heads:
         print(f"  Heads PCIe snapshot: {pcie_heads}", flush=True)
 
     _, m_gross, _ = run_taped_heads("gross")
     _, m_sub, _ = run_taped_heads("subtle_110")
-    gross_worst = max(v["rel_l2"] for v in m_gross.values())
-    sub_worst = max(v["rel_l2"] for v in m_sub.values())
+    gross_worst = max(v['rel_l2'] for v in m_gross.values())
+    sub_worst = max(v['rel_l2'] for v in m_sub.values())
     print(f"  BROKEN gross worst_rel={gross_worst:.3e} (expect >5e-2 -> FAIL)", flush=True)
     print(f"  BROKEN subtle_110 worst_rel={sub_worst:.3e} (expect >5e-2 -> FAIL)", flush=True)
 
@@ -579,8 +579,8 @@ def test_device_optim(dev, state, glue):
         timings[ns_mode] = {
             "step1_ms": round((t1 - t0) * 1000, 1),
             "step2_ms": round((t3 - t2) * 1000, 1),
-            "muon_norm": st2["muon_norm"],
-            "adam_norm": st2["adam_norm"],
+            "muon_norm": st2['muon_norm'],
+            "adam_norm": st2['adam_norm'],
             "n_muon": len(opt.muon_names),
             "n_adam": len(opt.adam_names),
             "n_buckets": len(opt._muon_buckets),
@@ -593,9 +593,9 @@ def test_device_optim(dev, state, glue):
             assert om_a_diff == 0.0, f"Omitted Adam param moved: {om_a_diff}"
             # Verify EMA shadow exists
             assert opt.ema is not None and len(opt.ema.shadows) == len(params)
-        print(f"  {ns_mode:14s}: step1={timings[ns_mode]["step1_ms"]} ms, step2={timings[ns_mode]["step2_ms"]} ms "
+        print(f"  {ns_mode:14s}: step1={timings[ns_mode]['step1_ms']} ms, step2={timings[ns_mode]['step2_ms']} ms "
               f"(muon={len(opt.muon_names)} in {len(opt._muon_buckets)} buckets, adam={len(opt.adam_names)}, "
-              f"norms={st2["muon_norm"]:.3f}/{st2["adam_norm"]:.3f})", flush=True)
+              f"norms={st2['muon_norm']:.3f}/{st2['adam_norm']:.3f})", flush=True)
         opt.deallocate()
 
     return timings
@@ -634,10 +634,10 @@ def main():
 
     stop.set()
     t_clk.join(timeout=1.0)
-    res["aiclk_min"] = min(clk) if clk else 0
-    res["aiclk_max"] = max(clk) if clk else 0
-    res["aiclk_n"] = len(clk)
-    print(f"\nALL 3 HARDWARE UNIT SUITES PASSED! AICLK={res["aiclk_min"]}..{res["aiclk_max"]} MHz (n={res["aiclk_n"]})", flush=True)
+    res['aiclk_min'] = min(clk) if clk else 0
+    res['aiclk_max'] = max(clk) if clk else 0
+    res['aiclk_n'] = len(clk)
+    print(f"\nALL 3 HARDWARE UNIT SUITES PASSED! AICLK={res['aiclk_min']}..{res['aiclk_max']} MHz (n={res['aiclk_n']})", flush=True)
     if args.out:
         with open(args.out, "w") as f:
             json.dump(res, f, indent=2)
