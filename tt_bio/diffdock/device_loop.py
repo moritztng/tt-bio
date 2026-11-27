@@ -446,6 +446,7 @@ class CenterHead:
                                        dtype=ttnn.uint32, layout=ttnn.ROW_MAJOR_LAYOUT,
                                        device=device)
         self.ones_atoms = upload(device, torch.ones(sg.n_lig_padded))
+        self.ones_poses = upload(device, torch.ones(sg.n_poses))
 
     def vectors(self, lig_pos, valid):
         """``head_vec = (lig_pos - center[pose_of]) * lig_valid``, as three columns."""
@@ -483,7 +484,7 @@ class CenterHead:
         else:
             tr = ttnn.add(col(0, 3), col(6, 9))
             rot = ttnn.add(col(3, 6), col(9, 12))
-        sig = ttnn.multiply(upload(self.device, torch.ones(n_poses)), sigma_row)
+        sig = ttnn.multiply(ttnn.slice(self.ones_poses, [0, 0], [n_poses, 1]), sigma_row)
         out_pair = []
         for vec, final in ((tr, self.tr_final), (rot, self.rot_final)):
             n = norm3(*[ttnn.slice(vec, [0, k], [n_poses, k + 1]) for k in range(3)])
@@ -968,3 +969,210 @@ class ResidentConv:
         rows = lambda t, a, b: ttnn.slice(t, [a, 0], [b, t.shape[1]])
         return self.mod.dev(x, self.graph, [rows(edge_attr, a, b) for a, b in self.groups],
                             edge_sh, edge_mask, ns=ns)
+
+
+# ---------------------------------------------------------------------------
+# the whole step: `static_net.static_forward` with nothing on the host
+# ---------------------------------------------------------------------------
+
+def pad_rows(device, x, rows: int, width: int):
+    """Zero-pad a ``[n, width]`` device tensor up to *rows*; the node axis a stack expects."""
+    import ttnn
+    n = x.shape[0]
+    if n == rows:
+        return x
+    if n > rows:
+        raise ValueError(f"{n} rows into {rows}")
+    return ttnn.concat([x, ttnn.zeros([rows - n, width], dtype=ttnn.float32,
+                                      layout=ttnn.TILE_LAYOUT, device=device)], dim=0)
+
+
+def pad_width(device, x, width: int):
+    """Zero-pad a device tensor's column axis out to *width*: `static_net.pad_width`."""
+    import ttnn
+    w = x.shape[1]
+    if w == width:
+        return x
+    return ttnn.concat([x, ttnn.zeros([x.shape[0], width - w], dtype=ttnn.float32,
+                                      layout=ttnn.TILE_LAYOUT, device=device)], dim=1)
+
+
+class DeviceStep:
+    """:func:`tt_bio.diffdock.static_net.static_forward` with no host tensor in the middle.
+
+    The step the shipped device network runs today is host torch around 19 device
+    convolutions: the harmonics, the distance expansions, the node embeddings, the masks and
+    both heads' geometry are computed on the CPU and the node features cross the bus twice per
+    convolution stack. This runs all of it on the card, from a pose buffer the card already
+    holds to the three scores, and is the body a trace capture records
+    (``device_resident_loop``).
+
+    It is a composition, not new arithmetic: every piece is one of this module's blocks, each
+    graded against its float64 torch twin on a card, and the order is `static_forward`'s own.
+    The two things that are *not* re-derived here are the edge layout and the plan -- those
+    come from :func:`tt_bio.diffdock.device.stack_layout` and
+    :func:`tt_bio.diffdock.static_net.main_stack_plan`, which the host form uses too.
+
+    What stays on the host: the per-step scalars (the sigmas and the sigma embedding row), which
+    a traced rollout uploads once as a ``[19, *]`` table and slices by the step index at capture
+    (:func:`tt_bio.diffdock.loop.step_inputs`), not per step.
+    """
+
+    def __init__(self, device, model, c, convs):
+        import ttnn
+        from .static_net import main_stack_plan
+        sg = c.sg
+        self.device, self.model, self.sg, self.c = device, model, sg, c
+        self.ns, self.cfg = model.ns, model.config
+        self.P, self.off = sg.n_poses, sg.rec_offset
+        rei = c.rec_edge_index
+        nl, nc, nr = (sg.lig_edge_index.shape[1], sg.cross_edge_index.shape[1], rei.shape[1])
+        self.nl, self.nc = nl, nc
+
+        self.masks = StepMasks(device, sg, nl, nc)
+        self.towers = TowerFeatures(device, model, sg, nl, nc)
+        self.lig_geo = EdgeGeometry(device, sg.lig_edge_index[0], sg.lig_edge_index[1], nl)
+        self.cross_geo = EdgeGeometry(device, sg.cross_edge_index[0], sg.cross_edge_index[1], nc)
+        self.rec_geo = EdgeGeometry(device, rei[0], rei[1], nr)
+
+        # the receptor never moves: its vectors, edge embedding and harmonics are per complex
+        self.rec_pos = upload(device, c.rec_pos.float())
+        self.rec_eattr, self.rec_sh = self.towers.receptor_static(
+            self.rec_geo.vectors(self.rec_pos))
+        self.rec_sig_mlp = MLP(device, model.rec_sigma_embedding)
+        self.rec_enc = NodeEncoder(device, model.rec_node_embedding, c.rec_x)
+        self.lig_enc = NodeEncoder(device, model.lig_node_embedding, c.lig_x,
+                                   sigma_width=self.cfg.sigma_embed_dim)
+
+        bond = torch.zeros(nl, c.bond_attr.shape[1])
+        bond[:sg.lig_n_bond_edges] = c.bond_attr.float()
+        self.bond_block = upload(device, bond)
+        # every constant column a step broadcasts over, uploaded once: a host-to-device copy
+        # inside the body is work a captured trace would repeat for nothing
+        self.ones_rec_nodes = upload(device, torch.ones(sg.n_rec_padded))
+        self.ones_rec_edges = upload(device, torch.ones(nr))
+        self.lig_valid = upload(device, c.lig_valid.float())
+        self.keep_all = upload(device, torch.cat([torch.ones(sg.n_rec_total),
+                                                  torch.zeros(sg.n_rec_padded - sg.n_rec_total)]))
+
+        flat = lambda n: [(n, None)]
+        self.rec_stack = ResidentStack(
+            [convs[f"rec_emb_layers.{i}"] for i in range(len(model.rec_emb_layers))],
+            rei, flat(nr) * len(model.rec_emb_layers), sg.n_rec_padded)
+        self.lig_stack = ResidentStack(
+            [convs[f"lig_emb_layers.{i}"] for i in range(len(model.lig_emb_layers))],
+            sg.lig_edge_index, flat(nl) * len(model.lig_emb_layers), sg.n_lig_padded)
+        ei, plan, (s1, s2, s3) = main_stack_plan(model, sg, rei)
+        self.main = ResidentStack([convs[f"conv_layers.{i}"] for i in range(len(model.conv_layers))],
+                                  ei, plan, sg.n_lig_padded + sg.n_rec_padded)
+
+        head = model.center_head
+        self.center = CenterHead(device, head, sg, self.cfg.sigma_embed_dim)
+        pose_of = (torch.arange(sg.n_lig_padded).div(sg.n_lig, rounding_mode="floor")
+                   .clamp(max=self.P - 1))
+        ce = torch.stack([pose_of, torch.arange(sg.n_lig_padded)])
+        self.center_conv = ResidentConv(convs["center_head.final_conv"], ce, self.P,
+                                        sg.n_lig_padded)
+        self.center_src = ttnn.from_torch(
+            (ce[1] if head.fixed_center_conv else ce[0]).reshape(1, -1).to(torch.int32),
+            dtype=ttnn.uint32, layout=ttnn.ROW_MAJOR_LAYOUT, device=device)
+
+        self.torsion = None
+        if model.torsion_head is not None and sg.n_rot_bonds:
+            th = model.torsion_head
+            self.torsion = TorsionHead(device, th, sg, c.rot_bonds)
+            self.tor_tp = FullTP(device, th.final_tp_tor)
+            self.tor_conv = ResidentConv(convs["torsion_head.tor_bond_conv"],
+                                         sg.tor_edge_index, c.rot_bonds.shape[1],
+                                         sg.n_lig_padded)
+
+    # -- the three towers ---------------------------------------------------------------
+
+    def _receptor(self, sigma_row, keep):
+        """``(rec_h, rec_eattr, rec_mask)``: the crop, the stack, then the sigma term."""
+        import ttnn
+        mask = StepMasks.rec_edges(keep, self.rec_geo.src, self.rec_geo.dst, self.rec_geo.n)
+        base = self.rec_enc()
+        h = pad_rows(self.device, base, self.rec_stack.n_p, base.shape[1])
+        ea = self.rec_stack.assemble(self.device, [self.rec_eattr], self.rec_eattr.shape[1])
+        sh = self.rec_stack.assemble(self.device, [self.rec_sh], self.rec_sh.shape[1])
+        m = self.rec_stack.assemble(self.device, [mask], 1)
+        h = self.rec_stack(h, ea, sh, m, self.ns)
+        # the host adds the sigma term after the stack: rec_h[:, :ns] += rec_sig, and the same
+        # row onto every receptor edge attribute
+        sig = self.rec_sig_mlp(sigma_row)
+        head = ttnn.add(ttnn.slice(h, [0, 0], [h.shape[0], self.ns]),
+                        ttnn.multiply(ttnn.slice(self.ones_rec_nodes, [0, 0], [h.shape[0], 1]), sig))
+        h = ttnn.concat([head, ttnn.slice(h, [0, self.ns], [h.shape[0], h.shape[1]])], dim=1)
+        ea_edges = ttnn.add(self.rec_eattr, ttnn.multiply(self.ones_rec_edges, sig))
+        return h, ea_edges, mask
+
+    def _ligand(self, lig_pos, sigma_row):
+        """``(lig_h, lig_eattr, lig_sh, lig_mask)`` for this step's positions."""
+        vec = self.lig_geo.vectors(lig_pos)
+        dist = norm3(*vec)
+        mask = self.masks.lig(dist, self.cfg.lig_max_radius)
+        eattr, sh = self.towers.ligand(vec, self.bond_block, sigma_row)
+        base = self.lig_enc(sigma_row)
+        h = pad_rows(self.device, base, self.lig_stack.n_p, base.shape[1])
+        ea = self.lig_stack.assemble(self.device, [eattr], eattr.shape[1])
+        esh = self.lig_stack.assemble(self.device, [sh], sh.shape[1])
+        m = self.lig_stack.assemble(self.device, [mask], 1)
+        return self.lig_stack(h, ea, esh, m, self.ns), eattr, sh, mask
+
+    # -- the step -----------------------------------------------------------------------
+
+    def __call__(self, lig_pos, sigma_row, tr_sigma: float, rot_sigma: float,
+                 tor_sigma: float, crop_cutoff: float | None = None):
+        """``(tr [P, 3], rot [P, 3], tor [n_bonds, 1])``, all on the card.
+
+        *lig_pos* is the card's ``[n_lig_padded, 3]`` pose buffer and *sigma_row* this step's
+        ``[1, sigma_embed_dim]`` timestep embedding.
+        """
+        import ttnn
+        from .schedules import so3_score_norm
+        sg, dev = self.sg, self.device
+        cvec = self.cross_geo.vectors(lig_pos, self.rec_pos)
+        cutoff = (3 * tr_sigma + 20) if self.cfg.dynamic_max_cross else self.cfg.cross_max_distance
+
+        if crop_cutoff is None:
+            keep = self.keep_all
+        else:
+            keep = rec_keep(self.masks.cross(*cvec, float(crop_cutoff)), self.P, sg.n_lig,
+                            sg.n_rec, sg.n_rec_padded)
+        rec_h, rec_eattr, rec_mask = self._receptor(sigma_row, keep)
+        lig_h, lig_eattr, lig_sh, lig_mask = self._ligand(lig_pos, sigma_row)
+
+        cross_eattr, cross_sh, rev_sh = self.towers.cross(cvec, sigma_row)
+        cross_m = ttnn.multiply(self.masks.cross(*cvec, float(cutoff)),
+                                gather(keep, self.cross_geo.dst, self.nc))
+
+        node = ttnn.concat([pad_width(dev, lig_h, rec_h.shape[1]), rec_h], dim=0)
+        node = pad_rows(dev, node, self.main.n_p, rec_h.shape[1])
+        ea = self.main.assemble(dev, [lig_eattr, cross_eattr, rec_eattr, cross_eattr],
+                                lig_eattr.shape[1])
+        esh = self.main.assemble(dev, [lig_sh, cross_sh, self.rec_sh, rev_sh], lig_sh.shape[1])
+        em = self.main.assemble(dev, [lig_mask, cross_m, rec_mask, cross_m], 1)
+        node = self.main(node, ea, esh, em, self.ns)
+        lig_h = ttnn.slice(node, [0, 0], [sg.n_lig_padded, node.shape[1]])
+
+        head = self.model.center_head
+        valid = self.lig_valid
+        head_vec = self.center.vectors(lig_pos, valid)
+        cattr = self.center.attributes(head_vec, lig_h, self.ns, sigma_row, self.center_src)
+        hsh = harmonics(*head_vec, ls=tuple(head.sh_ls))
+        out = self.center_conv(lig_h,
+                               self.center_conv.assemble(dev, [cattr], cattr.shape[1]),
+                               self.center_conv.assemble(dev, [hsh], hsh.shape[1]),
+                               self.center_conv.assemble(dev, [valid], 1), self.ns)
+        so3 = float(so3_score_norm(torch.tensor([rot_sigma], dtype=torch.float64))[0])
+        tr, rot = self.center.scale(out, sigma_row, float(tr_sigma), so3, self.P)
+
+        if self.torsion is None:
+            return tr, rot, None
+        attr, sh, bond_sh, tmask = self.torsion(lig_pos, lig_h)
+        tsh = self.tor_tp(sh, bond_sh)
+        conv = self.tor_conv(lig_h, self.tor_conv.assemble(dev, [attr], attr.shape[1]),
+                             self.tor_conv.assemble(dev, [tsh], tsh.shape[1]),
+                             self.tor_conv.assemble(dev, [tmask], 1), self.ns)
+        return tr, rot, self.torsion.score(conv, float(tor_sigma))
