@@ -1198,10 +1198,14 @@ class DeviceStep:
         head_vec = self.center.vectors(lig_pos, valid)
         cattr = self.center.attributes(head_vec, lig_h, self.ns, sigma_row, self.center_src)
         hsh = harmonics(*head_vec, ls=tuple(head.sh_ls))
+        # both heads hand the convolution a COMPLETE edge input: `CenterHead.attributes` has
+        # already concatenated `lig_h[src, :ns]` and the torsion head its node and bond blocks,
+        # exactly as `static_net` builds them for `final_conv`. So no `ns` here: the split first
+        # layer is for the embedding stacks, whose edge input is the edge block alone.
         out = self.center_conv(lig_h,
                                self.center_conv.assemble(dev, [cattr], cattr.shape[1]),
                                self.center_conv.assemble(dev, [hsh], hsh.shape[1]),
-                               self.center_conv.assemble(dev, [valid], 1), self.ns)
+                               self.center_conv.assemble(dev, [valid], 1), None)
         so3 = float(so3_score_norm(torch.tensor([rot_sigma], dtype=torch.float64))[0])
         tr, rot = self.center.scale(out, sigma_row, float(tr_sigma), so3, self.P)
 
@@ -1211,7 +1215,7 @@ class DeviceStep:
         tsh = self.tor_tp(sh, bond_sh)
         conv = self.tor_conv(lig_h, self.tor_conv.assemble(dev, [attr], attr.shape[1]),
                              self.tor_conv.assemble(dev, [tsh], tsh.shape[1]),
-                             self.tor_conv.assemble(dev, [tmask], 1), self.ns)
+                             self.tor_conv.assemble(dev, [tmask], 1), None)
         return tr, rot, self.torsion.score(conv, float(tor_sigma))
 
 
