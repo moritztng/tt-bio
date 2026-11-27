@@ -42,6 +42,11 @@ def main():
                     help="tile: the fused edge-tile kernel (tt_bio/diffdock/edge_tile.py)")
     ap.add_argument("--time-only", action="store_true",
                     help="no host reference and no per-conv grading: a timing run")
+    ap.add_argument("--resident", action="store_true",
+                    help="grade tr/rot/tor against the host with each conv stack resident on the "
+                         "card (no per-conv golden, which needs every layer's input on the host)")
+    ap.add_argument("--per-layer", action="store_true",
+                    help="timing control: every conv uploads its inputs and reads back its output")
     ap.add_argument("--repeats", type=int, default=3, help="timed repeats per step, warm")
     ap.add_argument("--out")
     args = ap.parse_args()
@@ -74,15 +79,21 @@ def main():
 
     dev = get_device()
     convs = ddev.convs_on_device(card, dev, dtype=ttnn.bfloat16 if args.bf16 else None,
-                                 grade=not args.time_only, edge_tp=args.edge_tp)
+                                 grade=not (args.time_only or args.resident),
+                                 edge_tp=args.edge_tp)
+    if args.per_layer:
+        for m in convs.values():
+            m.resident = False
     samples, stop = [], threading.Event()
     th = threading.Thread(target=sample_aiclk, daemon=True,
                           args=(stop, samples, os.environ.get("TT_VISIBLE_DEVICES", "0")))
     th.start()
 
+    in_fixture = int(fx["steps"][sorted(fx["steps"])[0]].lig_pos.shape[0])
     out = {"complex": fx["complex"], "convs_on_device": len(convs),
-           "poses_in_fixture": int(fx["steps"][sorted(fx["steps"])[0]].lig_pos.shape[0]),
+           "poses": args.poses or in_fixture, "poses_in_fixture": in_fixture,
            "dtype": "bfloat16" if args.bf16 else "float32", "edge_tp": args.edge_tp,
+           "resident": (args.time_only or args.resident) and not args.per_layer,
            "steps": {}}
     for k, step in sorted(fx["steps"].items()):
         have = step.lig_pos.shape[0]
@@ -137,7 +148,7 @@ def main():
         print(f"step {k}: " + "  ".join(
             f"{n} pcc {row[n].get('pcc')} rel {row[n].get('max_rel_err'):.3e}"
             for n in ("tr", "rot", "tor") if row[n])
-            + ("" if args.time_only else
+            + ("" if args.time_only or args.resident else
                f"  worst conv pcc {min(v['min_pcc'] for v in worst.values() if v['min_pcc'])}")
             + f"  {secs:.2f} s warm, card {100 * card_secs[times.index(secs)] / secs:.0f} %",
             flush=True)

@@ -407,13 +407,17 @@ class DeviceEdgeTile:
             cbs += [cb(i, n, cr, f32, tf) if wide else cb(i, n, cr) for i, (n, wide) in pages.items()]
         return kernels, cbs
 
-    def __call__(self, edge_attr, x1, sh):
-        """TILE bf16 or fp32 inputs ``[E, *]`` (E a multiple of 32) -> fp32 ``[E, out_pad]``."""
+    def __call__(self, edge_attr, x1, sh, h=None):
+        """TILE bf16 or fp32 inputs ``[E, *]`` (E a multiple of 32) -> fp32 ``[E, out_pad]``.
+
+        *h*, when given, is the FC block's hidden layer already built and *edge_attr* is not read.
+        """
         ttnn = self.ttnn
         bf = ttnn.bfloat16
-        E = int(edge_attr.shape[0])
+        E = int(x1.shape[0])
         cast = lambda t: t if t.dtype == bf else ttnn.typecast(t, bf)
-        h = ttnn.relu(ttnn.linear(cast(edge_attr), self.w1, bias=self.b1, dtype=bf))
+        h = (ttnn.relu(ttnn.linear(cast(edge_attr), self.w1, bias=self.b1, dtype=bf))
+             if h is None else cast(h))
         a = cast(x1)
         b = ttnn.matmul(cast(sh), self.erep, dtype=bf)
         out = ttnn.empty(ttnn.Shape([E, self.out_w]), ttnn.float32, ttnn.TILE_LAYOUT,
