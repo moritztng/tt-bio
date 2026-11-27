@@ -96,6 +96,26 @@ def main():
     got_g = dl.guard([dl.upload(dev, score[:, k]) for k in range(3)])
     out["guard"] = stats(torch.cat([ttnn.to_torch(c)[:B, :1] for c in got_g], 1), ref_g)
 
+    # --- gathered edge geometry -----------------------------------------------------
+    n_nodes, E = 512, args.edges
+    pos = (torch.rand(n_nodes, 3, generator=g) * 2 - 1).float() * 30
+    src = torch.randint(0, n_nodes, (E,), generator=g)
+    dst = torch.randint(0, n_nodes, (E,), generator=g)
+    dst[:32] = src[:32]                       # pad edges: a zero vector, zero harmonics
+    geo = dl.EdgeGeometry(dev, src, dst, E)
+    pos_dev = dl.upload(dev, pos)
+    vcols = geo.vectors(pos_dev)
+    ref_v = pos.double()[dst] - pos.double()[src]
+    out["gathered_edge_vectors"] = stats(
+        torch.cat([ttnn.to_torch(c)[:E, :1] for c in vcols], 1), ref_v)
+    ref_sh = spherical_harmonics(ref_v, (0, 1, 2))
+    out["gathered_harmonics"] = stats(back(dl.harmonics(*vcols), ref_sh.shape[1]), ref_sh)
+    d_gath = dl.norm3(*vcols)
+    ref_m = (ref_v.norm(dim=-1) <= 5.0).double()
+    got_m = ttnn.to_torch(geo.within(d_gath, 5.0))[:E, 0]
+    out["within"] = {"mismatches": int((got_m.double() - ref_m).abs().sum()),
+                     "kept": int(ref_m.sum())}
+
     for k, v in out.items():
         print(k, v, flush=True)
     Path(args.out).write_text(json.dumps(out, indent=1))
