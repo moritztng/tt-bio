@@ -134,19 +134,35 @@ class Float64MuonAdamEMA:
         m_scale = min(1.0, self.clip_norm / m_norm) if (self.clip_norm > 0 and m_norm > 0) else 1.0
         a_scale = min(1.0, self.clip_norm / a_norm) if (self.clip_norm > 0 and a_norm > 0) else 1.0
 
-        for k in self.muon_names:
+        from concurrent.futures import ThreadPoolExecutor
+
+        def _muon_one(k):
             g = grads.get(k)
             if g is None:
-                continue
+                return None
             g64 = np.asarray(g, np.float64) * m_scale
-            buf = self.muon_buf[k]
-            buf = self.muon_momentum * buf + (1.0 - self.muon_momentum) * g64
-            self.muon_buf[k] = buf
+            buf = self.muon_momentum * self.muon_buf[k] + (1.0 - self.muon_momentum) * g64
             u = (1.0 - self.muon_momentum) * g64 + self.muon_momentum * buf if self.muon_nesterov else buf
             orth = self._ns_f64(u)
             ratio = 0.2 * math.sqrt(max(self.master[k].shape))
             eff_lr = lr * ratio
-            self.master[k] = self.master[k] * (1.0 - lr * self.muon_wd) - eff_lr * orth
+            new_w = self.master[k] * (1.0 - lr * self.muon_wd) - eff_lr * orth
+            return k, buf, new_w
+
+        if len(self.muon_names) >= 8:
+            with ThreadPoolExecutor(max_workers=8) as ex:
+                for res in ex.map(_muon_one, self.muon_names):
+                    if res is not None:
+                        k, buf, new_w = res
+                        self.muon_buf[k] = buf
+                        self.master[k] = new_w
+        else:
+            for k in self.muon_names:
+                res = _muon_one(k)
+                if res is not None:
+                    _, buf, new_w = res
+                    self.muon_buf[k] = buf
+                    self.master[k] = new_w
 
         bc1 = 1.0 - self.b1 ** t
         bc2 = 1.0 - self.b2 ** t
@@ -609,11 +625,11 @@ def main():
     ag.release_pins()
     ag.forget_parameters()
 
-    print(f"\n=== [3/3] Broken arms (ns_steps=4, beta2=0.99) on exact same {args.steps}-step grads ===", flush=True)
+    print(f"\n=== [3/3] Broken arms (ns_steps=4, betas swapped 0.999/0.9) on exact same {args.steps}-step grads ===", flush=True)
     broken_results = {}
     for arm_name, kw in (
         ("ns_steps_4", dict(ns_steps=4, betas=(0.9, 0.999))),
-        ("adam_beta2_099", dict(ns_steps=5, betas=(0.9, 0.99))),
+        ("adam_betas_swapped", dict(ns_steps=5, betas=(0.999, 0.9))),
     ):
         opt_brk = rfd4_device_optimizer(init_w, dev, lr=1e-4, ema_decay=0.999, ns_mode=args.ns_mode, **kw)
         for step in range(args.steps):
