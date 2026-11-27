@@ -782,6 +782,51 @@ def main(argv=None, on_step=None):
                    and ctx["win"] < len(cur["ref"][k])}
             return total, terms, ref
 
+        _spmd_pool = None
+
+        def _get_spmd_pool():
+            nonlocal _spmd_pool
+            if _spmd_pool is None:
+                from concurrent.futures import ThreadPoolExecutor
+                _spmd_pool = ThreadPoolExecutor(max_workers=min(16, max(1, world)))
+            return _spmd_pool
+
+        def _trunk_masks_spmd(mask_2d: torch.Tensor):
+            """Build exact sharded trunk masks on card from 1-D [world*B, n] mask (zero [world*B, n, n] CPU/PCIe)."""
+            from tt_bio.train.mesh_dp import put_sharded
+            m = mask_2d.to(torch.float32)
+            if TR.ELIDE_FULL_MASKS and bool((m == 1).all()):
+                return None, None, None, None, None, None
+            b_local = int(m.shape[0]) // world
+            n_tok = int(m.shape[1])
+            dt = trunk.dtype
+            tok = put_sharded(m[:, :, None], dev, dtype=dt, layout=ttnn.TILE_LAYOUT,
+                              memory_config=ttnn.DRAM_MEMORY_CONFIG)
+            tok_row = put_sharded(m[:, None, :], dev, dtype=dt, layout=ttnn.TILE_LAYOUT,
+                                  memory_config=ttnn.DRAM_MEMORY_CONFIG)
+            pair_3d = ttnn.multiply(tok, tok_row)
+            ttnn.deallocate(tok_row)
+            tok_h = put_sharded(m[:, :, None, None], dev, dtype=dt, layout=ttnn.TILE_LAYOUT,
+                                memory_config=ttnn.DRAM_MEMORY_CONFIG)
+            tok_w = put_sharded(m[:, None, :, None], dev, dtype=dt, layout=ttnn.TILE_LAYOUT,
+                                memory_config=ttnn.DRAM_MEMORY_CONFIG)
+            pair_c = ttnn.multiply(tok_h, tok_w)
+            ttnn.deallocate(tok_h)
+            ttnn.deallocate(tok_w)
+            one_minus = ttnn.rsub(pair_3d, 1.0)
+            neg = ttnn.multiply(one_minus, TR.NEG_INF)
+            ttnn.deallocate(one_minus)
+            attn = ttnn.reshape(neg, (b_local, 1, n_tok, n_tok))
+            res = trunk.residual_dtype or dt
+            if res == dt:
+                res_tok, res_pair_c = tok, pair_c
+            else:
+                res_tok, res_pair_c = ttnn.typecast(tok, res), ttnn.typecast(pair_c, res)
+            if bool(m.all()):
+                ttnn.deallocate(pair_3d)
+                pair_3d = None
+            return tok, attn, pair_3d, pair_c, res_tok, res_pair_c
+
         def real_example_spmd(step):
             """SPMD data-parallel real step across all ``world`` chips of a MeshDevice."""
             from tt_bio.train.mesh_dp import (
@@ -792,9 +837,9 @@ def main(argv=None, on_step=None):
 
             if res_pair is None:
                 raise RuntimeError("--mesh real-batch path requires ResidentPairBuilder (--cand-pair card --win-pair card)")
-            rank_items = select_rank_batches(batches, step, world)
+            batch_indices, rank_bts, stacked_bt = select_rank_batches([it[1] for it in batches], step, world)
+            rank_items = [batches[i] for i in batch_indices]
             rank_names = [it[0] for it in rank_items]
-            rank_bts = [it[1] for it in rank_items]
             rank_metas = [it[2] for it in rank_items]
             rank_refs = [it[4] for it in rank_items]
             K = int(rank_bts[0]["padding_mask"].shape[0])
@@ -806,16 +851,12 @@ def main(argv=None, on_step=None):
                 step_depth = max(1, int(rank_metas[0]["depth"]))
             cur.update(name=rank_names[0], bt=rank_bts[0], meta=rank_metas[0], ref=rank_refs[0], K=K, depth=step_depth)
 
-            stacked_bt = stack_batches(rank_bts)
-            mk = TR.trunk_masks(
-                stacked_bt["padding_mask"].float(), dev,
-                dtype=trunk.dtype, residual_dtype=trunk.residual_dtype, sharded=True,
-            )
+            mk = _trunk_masks_spmd(stacked_bt["padding_mask"])
             phase = {}
             want_penult = a.win_pre == "reuse" and step_depth > 1
             with torch.no_grad():
                 ck = conds_for(stacked_bt, step_depth)
-                encs = [res_pair.encode_step(b) for b in rank_bts]
+                encs = list(_get_spmd_pool().map(res_pair.encode_step, rank_bts))
                 s0 = glue.init_repr_factory(stacked_bt) * stacked_bt["padding_mask"][..., None]
 
             penult_k = (None, None)
@@ -852,13 +893,9 @@ def main(argv=None, on_step=None):
                 ttnn.synchronize_device(dev)
                 phase["cand_trunk_s"] = round(time.time() - _tc0, 5)
 
-            rank_bws = gather_winner_batches(rank_bts, win_indices, K)
-            stacked_bw = stack_batches(rank_bws)
+            rank_bws, stacked_bw = gather_winner_batches(rank_bts, win_indices)
             br = MeshBridge(dev, trunk.dtype)
-            m1 = TR.trunk_masks(
-                stacked_bw["padding_mask"].float(), dev,
-                dtype=trunk.dtype, residual_dtype=trunk.residual_dtype, sharded=True,
-            )
+            m1 = _trunk_masks_spmd(stacked_bw["padding_mask"])
             cs = conds_for(stacked_bw, step_depth)
             s_i = glue.init_repr_factory(stacked_bw) * stacked_bw["padding_mask"][..., None]
             gamma_w, beta_w = res_pair.modulation(stacked_bw)
@@ -1201,7 +1238,7 @@ def main(argv=None, on_step=None):
             if a.resident:
                 mark("fold_bwd")
                 if acc_dev_grads is not None:
-                    dev_grads, idle = acc_dev_grads, sorted(acc_idle)
+                    dev_grads, idle = acc_dev_grads, list(acc_idle)
                 else:
                     dev_grads, idle = dfolds.tape_backward(opt.master)
                     ag.release_pins()

@@ -346,14 +346,20 @@ def device_candidate_scores_spmd(
     ttnn.deallocate(ca_raw)
     ttnn.deallocate(ll_raw)
 
-    winners: list[int] = []
-    for r in range(world):
+    def _score_cand(r: int) -> int:
         ok = {
             "v_bb_ca": ca_all[r * K:(r + 1) * K],
             "v_local_latents": ll_all[r * K:(r + 1) * K],
         }
         _t, bd, _s = RO.rfd4_loss({**_npy_dict(rank_batches[r]), "exploration_k": K}, ok, w)
-        winners.append(int(bd["winners"][0]))
+        return int(bd["winners"][0])
+
+    if world > 1:
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=min(16, world)) as pool:
+            winners = list(pool.map(_score_cand, range(world)))
+    else:
+        winners = [_score_cand(0)]
     return winners
 
 
@@ -405,7 +411,7 @@ def device_winner_loss_spmd(
     per_rank_terms: list[dict] = []
     per_rank_refs: list[dict] = []
 
-    for r in range(world):
+    def _eval_rank_win(r: int):
         ok_r = {
             "v_bb_ca": ca_all[r:r + 1],
             "v_local_latents": ll_all[r:r + 1],
@@ -414,6 +420,16 @@ def device_winner_loss_spmd(
             ok_r["sequence_logits"] = seq_all[r:r + 1]
         bw_np = {**_npy_dict(rank_bws[r]), "exploration_k": 1}
         total_non_ins, bd_r, seeds_r = RO.rfd4_loss(bw_np, ok_r, w)
+        return r, total_non_ins, bd_r, seeds_r
+
+    if world > 1:
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=min(16, world)) as pool:
+            eval_results = list(pool.map(_eval_rank_win, range(world)))
+    else:
+        eval_results = [_eval_rank_win(0)]
+
+    for r, total_non_ins, bd_r, seeds_r in eval_results:
         ins_val = float(ins_loss_np[r])
         total_r = float(total_non_ins) + ins_w * ins_val
         bd_r["insertion_prediction"] = {
