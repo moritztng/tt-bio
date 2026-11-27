@@ -54,10 +54,15 @@ def main():
     back = lambda t, w: ttnn.to_torch(t)[:args.edges, :w]
     out = {"edges": args.edges}
 
+    def flush_json():
+        """Write what is measured so far, so a later leg's failure costs only that leg."""
+        Path(args.out).write_text(json.dumps(out, indent=1))
+
     def record(name, got, ref):
         """Measure one leg and print it at once: a later failure keeps the earlier numbers."""
         out[name] = stats(got, ref)
         print(name, out[name], flush=True)
+        flush_json()
         return out[name]
 
     dist = vec.double().norm(dim=-1)
@@ -122,6 +127,7 @@ def main():
     out["within"] = {"mismatches": int((got_m.double() - ref_m).abs().sum()),
                      "kept": int(ref_m.sum())}
     print("within", out["within"], flush=True)
+    flush_json()
 
     # --- the step's masks ------------------------------------------------------------
     from tt_bio.diffdock.graph import StaticGraphs
@@ -143,6 +149,7 @@ def main():
     out["mask_lig"] = {"mismatches": int((got_lm.double() - ref_lm).abs().round().sum()),
                        "on": int(ref_lm.sum()), "edges": nl}
     print("mask_lig", out["mask_lig"], flush=True)
+    flush_json()
 
     # cross: the host divides the vector by the cutoff and compares the norm with 1
     cgeo = dl.EdgeGeometry(dev, sg.cross_edge_index[0], sg.cross_edge_index[1], nc)
@@ -162,6 +169,7 @@ def main():
         out[key] = {"mismatches": int((got_cm.double() - ref_cm).abs().round().sum()),
                     "on": int(ref_cm.sum()), "edges": nc}
         print(key, out[key], flush=True)
+        flush_json()
 
     # receptor edges: an edge survives iff both ends do
     rei = sg.rec_edge_index(torch.stack([torch.arange(0, 30), torch.arange(1, 31)]))
@@ -175,6 +183,7 @@ def main():
     out["mask_rec_edges"] = {"mismatches": int((got_rm.double() - ref_rm).abs().round().sum()),
                              "on": int(ref_rm.sum()), "edges": ne}
     print("mask_rec_edges", out["mask_rec_edges"], flush=True)
+    flush_json()
 
     print(json.dumps({k: v for k, v in out.items() if isinstance(v, (int, float))}), flush=True)
     Path(args.out).write_text(json.dumps(out, indent=1))
