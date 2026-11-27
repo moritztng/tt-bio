@@ -185,10 +185,13 @@ def main(argv=None, on_step=None):
 
     dev = T.get_device()
     card = int(os.environ.get("TT_VISIBLE_DEVICES", "0").split(",")[0])
+    from tt_bio.train.provenance import open_nodes
+    nodes = open_nodes()
+    clk_node = nodes[0] if nodes else card
     clk, stop = [], threading.Event()
 
     def sample():
-        path = f"/sys/class/tenstorrent/tenstorrent!{card}/tt_aiclk"
+        path = f"/sys/class/tenstorrent/tenstorrent!{clk_node}/tt_aiclk"
         while not stop.is_set():
             try:
                 clk.append(int(open(path).read().split()[0]))

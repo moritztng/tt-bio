@@ -415,9 +415,15 @@ loss curve over 2,000 steps; bf16 attention is not validated for training
 ([why](#training-runs-on-the-device-float64-is-a-diagnostic)). Inference is unaffected.
 
 Resume works as it does for OpenFold3 (run the same command again), reading the newest
-checkpoint in `OUT`, or in `OUT/rank0` when `--chips` named more than one. Under data
-parallelism each rank writes its own JSON rows to `OUT/rank<r>.log`; `status.json` and
-`progress.jsonl` follow rank 0, whose masters every rank matches by digest.
+checkpoint in `OUT`, or in `OUT/rank0` when `--chips` named more than one. A checkpoint saves
+the fp32 masters together with Adam moments and Muon momentum, so a resumed step matches an
+uninterrupted run bit for bit on the same chip. Under data parallelism each rank writes its own
+JSON rows to `OUT/rank<r>.log`; `status.json` and `progress.jsonl` follow rank 0, whose masters
+every rank matches by digest.
+
+On one Blackhole Galaxy chip at 1350 MHz (`DC16-BG-0203-u26-22`, chip 28, 256 tokens, `k=4`,
+recycle depth 2, Muon + Adam over 558 parameters), a warm step from the installed wheel takes
+5.83 s median.
 
 ## What a run writes
 

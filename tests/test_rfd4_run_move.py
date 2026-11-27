@@ -60,6 +60,13 @@ def test_upstream_exempt_documents_ss_embedding():
     assert key in rfd4_run.UPSTREAM_EXEMPT and "padding_idx=0" in rfd4_run.UPSTREAM_EXEMPT[key]
 
 
+def test_aiclk_sampler_resolves_open_device_node():
+    """On a Galaxy, TT_VISIBLE_DEVICES != /dev/tenstorrent/<minor>, so reading
+    tenstorrent!{card}/tt_aiclk watches an idle chip (800 MHz). Must use provenance.open_nodes."""
+    src = (ROOT / "tt_bio/train/rfd4_run.py").read_text()
+    assert "open_nodes" in src and "tenstorrent!{clk_node}/tt_aiclk" in src
+
+
 def test_the_step_module_imports_without_ttnn():
     code = ("import sys; import tt_bio.train.rfd4_run; "
             "assert 'ttnn' not in sys.modules and 'torch' not in sys.modules")
