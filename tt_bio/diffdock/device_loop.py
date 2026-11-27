@@ -99,3 +99,72 @@ class MLP:
         for op in self.ops:
             x = ttnn.relu(x) if op == "relu" else ttnn.linear(x, op[0], bias=op[1])
         return x
+
+
+# ---------------------------------------------------------------------------
+# the pose update: `tt_bio.diffdock.loop.diffusion_step` on the card
+# ---------------------------------------------------------------------------
+
+def axis_angle_matrix(ax, ay, az):
+    """:func:`tt_bio.diffdock.sampling.axis_angle_to_matrix` on three ``[B, 1]`` columns.
+
+    Returns R's nine entries as ``[B, 1]`` columns, row-major. Upstream's quaternion route and
+    its 1e-6 small-angle series, which is already a ``where`` and so needs no branch here.
+    """
+    import ttnn
+    angles = norm3(ax, ay, az)
+    half = ttnn.multiply(angles, 0.5)
+    series = ttnn.subtract(0.5, ttnn.multiply(ttnn.multiply(angles, angles), 1.0 / 48))
+    ratio = ttnn.where(ttnn.lt(ttnn.abs(angles), 1e-6), series,
+                       ttnn.multiply(ttnn.sin(half),
+                                     ttnn.reciprocal(ttnn.clamp(angles, min=1e-30))))
+    r = ttnn.cos(half)
+    i, j, k = (ttnn.multiply(c, ratio) for c in (ax, ay, az))
+    sq = ttnn.add(ttnn.add(ttnn.multiply(r, r), ttnn.multiply(i, i)),
+                  ttnn.add(ttnn.multiply(j, j), ttnn.multiply(k, k)))
+    two = ttnn.multiply(ttnn.reciprocal(sq), 2.0)
+    mul = lambda a, b: ttnn.multiply(two, ttnn.multiply(a, b))
+    diag = lambda a, b: ttnn.subtract(1.0, ttnn.add(mul(a, a), mul(b, b)))
+    return (diag(j, k), ttnn.subtract(mul(i, j), mul(k, r)), ttnn.add(mul(i, k), mul(j, r)),
+            ttnn.add(mul(i, j), mul(k, r)), diag(i, k), ttnn.subtract(mul(j, k), mul(i, r)),
+            ttnn.subtract(mul(i, k), mul(j, r)), ttnn.add(mul(j, k), mul(i, r)), diag(i, j))
+
+
+def rotate(cols, m):
+    """``x @ R.T`` for coordinate columns *cols* ``(x, y, z)`` and R's nine entries *m*.
+
+    Columns are ``[n, 1]``; R's entries are whatever row layout the caller gathered them into,
+    one row per atom when a pose's matrix applies to its atoms.
+    """
+    import ttnn
+    x, y, z = cols
+    row = lambda a, b, c: ttnn.add(ttnn.add(ttnn.multiply(x, a), ttnn.multiply(y, b)),
+                                   ttnn.multiply(z, c))
+    return row(m[0], m[1], m[2]), row(m[3], m[4], m[5]), row(m[6], m[7], m[8])
+
+
+def guard(cols):
+    """:func:`tt_bio.diffdock.sampling.guard_scores`'s repair, over a head's ``[B, 1]`` columns.
+
+    A non-finite entry becomes ``0.01 * mean|finite entries| * sign``, and the whole repair is a
+    ``where``, so nothing branches on a device value. The head's columns share one eps, as the
+    host's whole-tensor reduction does.
+    """
+    import ttnn
+    finite = [ttnn.isfinite(c) for c in cols]
+    zero = ttnn.multiply(cols[0], 0.0)
+    total = None
+    count = None
+    for c, f in zip(cols, finite):
+        mag = ttnn.where(f, ttnn.abs(c), zero)
+        total = mag if total is None else ttnn.add(total, mag)
+        got = ttnn.where(f, ttnn.add(zero, 1.0), zero)
+        count = got if count is None else ttnn.add(count, got)
+    eps = ttnn.multiply(ttnn.multiply(ttnn.sum(total), 0.01),
+                        ttnn.reciprocal(ttnn.clamp(ttnn.sum(count), min=1.0)))
+    out = []
+    for c, f in zip(cols, finite):
+        # host: sign(nan_to_num(c, nan=1, posinf=1, neginf=-1)) -- a -inf keeps its sign
+        sign = ttnn.sign(ttnn.where(ttnn.isnan(c), ttnn.add(zero, 1.0), c))
+        out.append(ttnn.where(f, c, ttnn.multiply(sign, eps)))
+    return out
