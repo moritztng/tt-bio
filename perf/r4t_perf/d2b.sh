@@ -4,7 +4,7 @@
 # over the 9 batches; discrimination arm `lnoff` (d2 tree, --lnbw-weights off) must DIFFER from base, so the compare can
 # FAIL; serving A/B: `tt-bio design --model rfd4` on the served 336-token fixture, 2 designs seed 7, both trees, ATOM-line
 # sha256 per CIF must match.
-C=0; WT=$HOME/.coworker/wt/r4t-perf; O=$HOME/r4t/perf/d2b; mkdir -p $O; cd $WT
+C=${C:-0}; WT=$HOME/.coworker/wt/r4t-perf; O=$HOME/r4t/perf/d2b; mkdir -p $O; cd $WT
 PY=$HOME/scratch/shipflow/venv-c4f99e695d34/bin/python; BASE=$HOME/r4t/perf/d2/base
 wait_card() { local h w; for w in $(seq 1 360); do h=$(python3 ~/spd/feed/book.py active $C --except fleet-r4t-perf 2>/dev/null | tr " " "\n" | grep -v "^fleet-"); [ -z "$h" ] && [ -z "$(sudo -n fuser /dev/tenstorrent/$C 2>/dev/null)" ] && return; [ $w = 1 ] && echo "WAIT $(date -u +%T) $h" >> $O/run.log; sleep 20; done; echo "ABORT no window $(date -u +%T)" >> $O/run.log; exit 1; }
 echo "START $(date -u +%FT%TZ) sha $(git rev-parse --short HEAD)" >> $O/run.log
@@ -29,7 +29,10 @@ serve() {  # name tree
   find $O/srv_$n -name "*.cif" | sort | while read f; do echo "$(basename $f) $(grep -E '^(ATOM|HETATM)' $f | sha256sum | cut -c1-16)"; done > $O/srv_$n.sha
 }
 # `d2b.sh base` reruns only the base arm (the first run lost card 0 to an spd lease at device open), then re-grades.
-if [ "${1:-}" = base ]; then step base $BASE; else
+# `C=2 d2b.sh srv` reruns only the serving pair on card C (the first run died after srv_base: the script was edited
+# while bash was still reading it). srv_base from card 0 is kept as srv_base_c0.sha, a cross-card check.
+if [ "${1:-}" = base ]; then step base $BASE
+elif [ "${1:-}" = srv ]; then [ -f $O/srv_base.sha ] && mv $O/srv_base.sha $O/srv_base_c0.sha; serve base $BASE; serve d2 $WT; else
 step base $BASE
 step d2 $WT
 step lnoff $WT --lnbw-weights off
@@ -50,5 +53,8 @@ for a in ("base", "d2"):
     print(a, "fwd_up_MB", [x["pcie"]["fwd"]["up_MB"] for x in r[a]], "fwd_s", [x["fwd_s"] for x in r[a]], "step_s", [x.get("step_s") for x in r[a]])
 sb, sd = (open(f"{o}/srv_{a}.sha").read() for a in ("base", "d2"))
 print("SERVING", "PASS" if sb and sb == sd else "FAIL", sb.split(), sd.split())
+import os
+if os.path.exists(f"{o}/srv_base_c0.sha"):
+    c0 = open(f"{o}/srv_base_c0.sha").read(); print("SERVING-CROSS-CARD", "PASS" if c0 == sb else "FAIL", c0.split())
 PY
 echo "END $(date -u +%FT%TZ)" >> $O/run.log
