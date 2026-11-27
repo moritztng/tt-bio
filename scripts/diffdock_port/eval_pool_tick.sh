@@ -21,6 +21,26 @@ done
 n=$(find "$POSES" -mindepth 1 -maxdepth 1 -type d | wc -l)
 echo "$(date -u +%FT%TZ) pooled $n complexes" >>"$ROOT/tick.log"
 
+# A host whose pool died without DOCK_DONE is relaunched here. The dock is resumable, both
+# hosts are fleet hosts, and nothing else watches them: without this a dead pool means its half
+# of the set is simply never attempted while the run still reads "in progress", which is exactly
+# how the five rented boxes lost 390 complexes on 2026-11-26.
+relaunch() {   # host shard workers threads
+  local h=$1 shard=$2 w=$3 t=$4
+  timeout 60 ssh -o BatchMode=yes -o ConnectTimeout=15 "$h" \
+    'kill -0 $(cat ~/dfd-eval/dock.pid 2>/dev/null) 2>/dev/null' && return 0
+  timeout 60 ssh -o BatchMode=yes -o ConnectTimeout=15 "$h" \
+    'tail -5 ~/dfd-eval/dock.log 2>/dev/null' | grep -q DOCK_DONE && return 0
+  echo "$(date -u +%FT%TZ) $h dock is dead without DOCK_DONE, relaunching $shard" >>"$ROOT/tick.log"
+  timeout 120 ssh -o BatchMode=yes -o ConnectTimeout=15 "$h" "cd ~/dfd-eval/tt-bio && \
+      DFD_PB=\$HOME/dfd-eval/pb/posebusters_benchmark_set PYTHONHASHSEED=0 PYTHONUNBUFFERED=1 \
+      setsid nohup \$HOME/dfd-eval/venv/bin/python scripts/diffdock_port/pose_eval.py dock \
+      --ids all --shard $shard --out \$HOME/dfd-eval/poses --workers $w --threads $t --seed 42 \
+      >> \$HOME/dfd-eval/dock.log 2>&1 < /dev/null & echo \$! > \$HOME/dfd-eval/dock.pid"
+}
+relaunch anx-glx 0/2 12 2
+relaunch whglx  1/2 20 2
+
 done_hosts=0
 for h in anx-glx whglx; do
   if timeout 60 ssh -o BatchMode=yes -o ConnectTimeout=15 "$h" \
