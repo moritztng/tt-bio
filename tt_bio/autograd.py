@@ -714,8 +714,9 @@ class Tensor:
         self._join_parts()
         if self._pend is not None:
             self._flush_pend()
-        if (self._grad is not None and self._grad.dtype == ttnn.bfloat16
-                and self.value.dtype == ttnn.float32):
+        if (self._grad is not None
+                and getattr(self._grad, "dtype", None) == ttnn.bfloat16
+                and getattr(self._value, "dtype", None) == ttnn.float32):
             old = self._grad
             self._grad = ttnn.typecast(old, ttnn.float32)
             ttnn.deallocate(old)

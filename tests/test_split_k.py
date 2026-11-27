@@ -28,7 +28,8 @@ class _Op:
     ((28672, 64), (28672, 224), {"transpose_a": True, "core_grid": object()}),
     ((1024, 64), (1024, 224), {"transpose_a": True}),                  # K below the floor
     ((28672, 256), (28672, 224), {"transpose_a": True}),               # output above the cap
-    ((28672, 64), (28672, 200), {"transpose_a": True}),                # not whole tiles
+    ((28670, 64), (28670, 224), {"transpose_a": True}),                # K not whole tiles
+    ((28672, 60), (28672, 224), {"transpose_a": True}),                # M not whole tiles
     ((2, 28672, 64), (2, 28672, 224), {"transpose_a": True}),          # batched
 ])
 def test_declines_leave_the_call_alone(a, b, kw):
@@ -59,7 +60,11 @@ def test_cut_is_a_fixed_number_of_whole_tile_chunks(monkeypatch):
     out = ag._split_k(_Op((8192, 64)), _Op((8192, 224)), {"transpose_a": True})
     assert calls[0][:3] == ("mm", [64, 128, 64], [64, 128, 224])
     assert calls[-1] == ("cast", ttnn.bfloat16) and out.dtype == ttnn.bfloat16
-    assert ag.SPLIT_K_STATS["served"] == before + 2
+    calls.clear()
+    # Ragged N (e.g. RFD4 pair_bias [K, 384]^T @ [K, 24]) is served because only K is split.
+    out = ag._split_k(_Op((8192, 64)), _Op((8192, 24)), {"transpose_a": True, "dtype": ttnn.float32})
+    assert calls[0][:3] == ("mm", [64, 128, 64], [64, 128, 24]) and out.shape == [64, 24]
+    assert ag.SPLIT_K_STATS["served"] == before + 3
 
 
 @pytest.mark.device
