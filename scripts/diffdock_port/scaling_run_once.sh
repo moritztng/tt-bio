@@ -14,7 +14,7 @@
 # nothing, and K=1 and K=2 alternate inside one window so both carry the same external load; the
 # harness reports that load (external_cpu_cores, contended) on every point.
 WT=/home/ttuser/.coworker/wt/dfd-scaling
-OUT=/home/ttuser/scratch/dfd/scaling/gemm
+OUT=${DFD_OUT:-/home/ttuser/scratch/dfd/scaling/gemm}   # one directory per curve: every K in it shares a window
 PY=/home/ttuser/tt-bio-dev/env/bin/python
 FX=/home/ttuser/scratch/dfd/device/fx_8G43.pt
 BOOK=/home/ttuser/spd/feed/book.py
@@ -118,5 +118,7 @@ for name in smoke k1_r1 k2_r1 k3_r1 k1_r2 k2_r2 k3_r2 k1_r3 k2_r3 k3_r3; do
   fi
   ran=$((ran+1))
 done
-[ -s $OUT/k1_r3.json ] && [ -s $OUT/k2_r3.json ] && touch $OUT/DONE   # K=3: DFD_CHIPS="0 1 2"
+kmax=$(echo $CHIPS | wc -w)
+done_all=1; for k in $(seq 1 $kmax); do [ -s $OUT/k${k}_r3.json ] || done_all=0; done
+[ $done_all -eq 1 ] && touch $OUT/DONE
 echo "invocation done, ran $ran $(date -u +%FT%TZ)" >> $OUT/run.log
