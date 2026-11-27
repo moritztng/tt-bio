@@ -15,6 +15,7 @@ Zero ``ttnn`` import at module load (preserves ``tests/test_training_opt_in.py``
 from __future__ import annotations
 
 import hashlib
+import inspect
 import json
 import math
 from pathlib import Path
@@ -31,7 +32,7 @@ from .mesh_dp import (
     assert_mesh_consensus,
     mesh_shape,
     mesh_world,
-    read_axis0_sum,
+    read_axis0_vectors,
     read_rep0,
     stack_batches,
 )
@@ -337,11 +338,11 @@ class SPMDZero1Step:
                 dev_grads, reduce_fn=rfn, disabled=disabled, free_grads=free_grads
             )
 
+        import numpy as np
         import ttnn
         from .device_optim import (
             _clone_exact_f32,
             _concat_dim0_exact_f32,
-            _reduce_dim0_sum_exact_f32,
             _safe_dealloc,
             _sum_sq_last2_exact_f32,
             newton_schulz_device,
@@ -352,6 +353,7 @@ class SPMDZero1Step:
         opt = self.base_opt
         dis = set(disabled)
         sh_names = self.muon_plan.sharded_names
+        ns_has_tall = "tall" in inspect.signature(newton_schulz_device).parameters
 
         # 1. Phase A: RS_2D -> AG_ax1 for sharded Muon + exact 2D all-reduce for remaining params.
         if skip_reduce_for_broken_arm:
@@ -386,7 +388,7 @@ class SPMDZero1Step:
             rem_in = {nm: g for nm, g in dev_grads.items() if nm not in sh_names}
             rem_grads = self.reducer(rem_in)
 
-        # 2. Schedule & exact global norms (matches DeviceOptimizer.step() verbatim).
+        # 2. Schedule & exact global norms + dead_grads across all 558 params (MeshDevice-safe).
         lr_now = opt.lr if opt.schedule is None else float(opt.schedule(opt.steps))
         lr_muon = (
             lr_now if (opt.muon is None or opt.muon.schedule is None)
@@ -398,16 +400,37 @@ class SPMDZero1Step:
         bc1 = 1.0 - opt.beta1_pow
         bc2 = 1.0 - opt.beta2_pow
 
-        sh_sq_slices = [_sum_sq_last2_exact_f32(g_sh) for g_sh in grad_shards.values()]
+        dead: set[str] = set()
+        ordered_slots = [slot for wg in self.muon_plan.width_groups for slot in wg.buckets]
+        sh_sq_slices = [_sum_sq_last2_exact_f32(grad_shards[slot.shape]) for slot in ordered_slots]
         if len(sh_sq_slices) == 1:
             sh_sq_joined = sh_sq_slices[0]
         else:
             sh_sq_joined = _concat_dim0_exact_f32(sh_sq_slices)
             for s in sh_sq_slices:
                 ttnn.deallocate(s)
-        sh_sq_acc = _reduce_dim0_sum_exact_f32(sh_sq_joined)
-        sh_sq = read_axis0_sum(sh_sq_acc, self.mshape, self.device)
-        ttnn.deallocate(sh_sq_acc)
+        row_vecs = read_axis0_vectors(sh_sq_joined, self.mshape, self.device)
+        ttnn.deallocate(sh_sq_joined)
+
+        rm = self.mshape[0]
+        sh_sq = 0.0
+        slot_off = 0
+        for slot in ordered_slots:
+            for r0 in range(rm):
+                vec = row_vecs[r0]
+                for j in range(slot.k_shard):
+                    idx = r0 * slot.k_shard + j
+                    if idx >= slot.k:
+                        continue
+                    nm = slot.names[idx]
+                    if nm in dis or dev_grads.get(nm) is None:
+                        dead.add(nm)
+                    else:
+                        p_sq = float(vec[slot_off + j])
+                        if p_sq == 0.0:
+                            dead.add(nm)
+                        sh_sq += p_sq
+            slot_off += slot.k_shard
 
         packed_rem_muon = []
         for bk in opt._muon_buckets:
@@ -420,8 +443,43 @@ class SPMDZero1Step:
             g_b, flags = opt._pack_grads(bk, rem_grads, dis)
             packed_adam.append((bk, g_b, flags))
 
-        rem_muon_sq = opt._sum_group_norm_sq(packed_rem_muon)
-        adam_sq = opt._sum_group_norm_sq(packed_adam)
+        rem_parts = []
+        rem_meta = []
+        for group_kind, packed in (("muon", packed_rem_muon), ("adam", packed_adam)):
+            for bk, g_b, flags in packed:
+                if g_b is None:
+                    dead.update(bk.names)
+                    continue
+                rem_parts.append(_sum_sq_last2_exact_f32(g_b))
+                rem_meta.append((group_kind, bk, flags))
+
+        rem_muon_sq = 0.0
+        adam_sq = 0.0
+        if rem_parts:
+            if len(rem_parts) == 1:
+                rem_joined = rem_parts[0]
+            else:
+                rem_joined = _concat_dim0_exact_f32(rem_parts)
+                for p in rem_parts:
+                    ttnn.deallocate(p)
+            rem_vals = read_rep0(rem_joined, self.device).float().numpy().reshape(-1)
+            ttnn.deallocate(rem_joined)
+            off = 0
+            for group_kind, bk, flags in rem_meta:
+                s0 = bk.canon[0]
+                for i, (nm, ok) in enumerate(zip(bk.names, flags)):
+                    sl = rem_vals[off + i * s0:off + (i + 1) * s0]
+                    if not ok:
+                        dead.add(nm)
+                    else:
+                        p_sq = float(np.sum(sl, dtype=np.float64))
+                        if p_sq == 0.0:
+                            dead.add(nm)
+                        if group_kind == "muon":
+                            rem_muon_sq += p_sq
+                        else:
+                            adam_sq += p_sq
+                off += bk.k * s0
 
         muon_gnorm = math.sqrt(max(sh_sq + rem_muon_sq, 0.0))
         adam_gnorm = math.sqrt(max(adam_sq, 0.0))
@@ -429,6 +487,7 @@ class SPMDZero1Step:
         clip_adam = opt.clip_coef(adam_gnorm)
         opt.last_grad_norm = adam_gnorm
         opt.last_grad_norm_muon = muon_gnorm
+        opt.last_dead_grads = frozenset(dead)
 
         # 3. Phase B: 1/rm Muon step matching DeviceOptimizer._step_muon_bucket verbatim.
         mu = opt.muon
@@ -477,16 +536,21 @@ class SPMDZero1Step:
                 ttnn.deallocate(g_sh)
 
                 flipped = slot.m > slot.cols
-                tall_native = flipped and opt.ns_mode in ("split2_fast", "split2_hyb1", "split2_hyb2", "fp32")
+                tall_native = (
+                    ns_has_tall
+                    and flipped
+                    and opt.ns_mode in ("split2_fast", "split2_hyb1", "split2_hyb2", "fp32")
+                )
                 if flipped and not tall_native:
                     u_ns = transpose_exact_f32(u_b)
                     ttnn.deallocate(u_b)
                 else:
                     u_ns = u_b
 
+                ns_kw = {"tall": tall_native} if ns_has_tall else {}
                 o_ns = newton_schulz_device(
                     u_ns, steps=mu.ns_steps, coeffs=mu.ns_coefficients, eps=mu.eps,
-                    mode=opt.ns_mode, tall=tall_native,
+                    mode=opt.ns_mode, **ns_kw,
                 )
                 ttnn.deallocate(u_ns)
 
@@ -576,6 +640,7 @@ class SPMDZero1Step:
             "clip": clip_adam,
             "clip_adam": clip_adam,
             "clip_muon": clip_muon,
+            "dead_grads": dead,
         }
 
     def host_ema_shadow(self) -> Dict[str, "np.ndarray"]:

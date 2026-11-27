@@ -25,6 +25,7 @@ __all__ = [
     "read_sharded",
     "read_rep0",
     "read_axis0_sum",
+    "read_axis0_vectors",
     "assert_mesh_consensus",
     "stack_batches",
     "unstack_leading",
@@ -66,11 +67,20 @@ def use_mesh_device(mesh):
 
     Every internal ``tenstorrent.get_device()`` call inside ``Trunk``, ``DeviceFolds``,
     ``DeviceHeads``, and custom ``generic_op`` wrappers receives ``mesh`` automatically.
+    Also configures ``tenstorrent.CORE_GRID_MAIN`` / ``COMPUTE_GRID_MAIN`` and ``_dest_guard``
+    from ``mesh`` so Blackhole Galaxy runs on its real 12x10 (120c) or 11x10 grid instead of
+    the import-time fallback.
     """
     from .. import tenstorrent as T
 
     prev = T._device
     T._device = mesh
+    if hasattr(mesh, "compute_with_storage_grid_size"):
+        T._configure_active_compute_grid(mesh)
+        try:
+            T._dest_guard.install(mesh)
+        except Exception:
+            pass
     try:
         yield mesh
     finally:
@@ -84,12 +94,16 @@ def open_galaxy_submesh(
     full_shape: Tuple[int, int] = (8, 4),
     max_payload_bytes: int = 8192,
     trace_region_size: int = 0,
+    eth_dispatch: bool | None = None,
 ):
     """Open a clean single-submesh Blackhole Galaxy ``MeshDevice`` and bind ``tenstorrent._device``.
 
     Enforces ``tt-metal`` ``mesh_device.cpp:861``: always opens ``full_shape`` with
     ``FABRIC_1D_RING`` (``max_packet_payload_size_bytes >= 8192``), creates at most ONE submesh
     without ever running ops on ``full``, and closes ``sub`` then ``full`` on exit.
+    When ``eth_dispatch`` is True (or ``None`` on a Blackhole host supporting ETH dispatch),
+    opens with ``DispatchCoreType.ETH`` so all chips use the full 12x10 (120-core) compute grid
+    while active Ethernet links serve the 2D Ring fabric.
     """
     import ttnn
     from .ccl import configure_fp32_ring_fabric
@@ -103,6 +117,12 @@ def open_galaxy_submesh(
     open_kw: dict[str, Any] = {}
     if trace_region_size > 0:
         open_kw["trace_region_size"] = int(trace_region_size)
+    use_eth = eth_dispatch
+    if use_eth is None:
+        from .. import tenstorrent as T
+        use_eth = (not T.is_wormhole()) and T.bh_eth_dispatch()
+    if use_eth:
+        open_kw["dispatch_core_config"] = ttnn.DispatchCoreConfig(ttnn.DispatchCoreType.ETH)
     full = ttnn.open_mesh_device(ttnn.MeshShape(fr, fc), **open_kw)
     sub = None
     try:
@@ -217,6 +237,23 @@ def read_axis0_sum(tt_tensor, shape_2d: Tuple[int, int] | None = None, device=No
     for r in range(rm):
         total += float(ttnn.to_torch(shards[r * cm]).float().reshape(-1)[0].item())
     return total
+
+
+def read_axis0_vectors(tt_tensor, shape_2d: Tuple[int, int] | None = None, device=None) -> list:
+    """Read flat float32 numpy vectors from the ``rm`` row representatives ``r * cm``.
+
+    Used by Axis-0 SPMD ZeRO-1 to collect exact per-parameter squared gradient norms (and
+    ``dead_grads`` flags) for all sharded Muon parameters in one tiny readback (~1.3 KB on 8x4)
+    without running a device binary-tree scalar reduction.
+    """
+    import ttnn
+
+    dev = tt_tensor.device() if device is None else device
+    if mesh_world(dev) <= 1:
+        return [ttnn.to_torch(tt_tensor).float().numpy().reshape(-1)]
+    rm, cm = mesh_shape(dev) if shape_2d is None else (int(shape_2d[0]), int(shape_2d[1]))
+    shards = ttnn.get_device_tensors(tt_tensor)
+    return [ttnn.to_torch(shards[r * cm]).float().numpy().reshape(-1) for r in range(rm)]
 
 
 def assert_mesh_consensus(tt_tensor, device=None, *, name: str = "") -> str:

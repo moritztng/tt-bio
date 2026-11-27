@@ -515,7 +515,10 @@ def test_spmd_zero1_step_matches_serial_reference_and_broken_fails(monkeypatch, 
         dev_grads = {}
         ref_grads = {}
         for nm, arr in weights.items():
-            per_rank = [torch.from_numpy(rng.standard_normal(arr.shape, dtype=np.float32) * 0.05) for _ in range(world)]
+            if step_idx == 2 and nm == "mu_tall_1":
+                per_rank = [torch.zeros(arr.shape, dtype=torch.float32) for _ in range(world)]
+            else:
+                per_rank = [torch.from_numpy(rng.standard_normal(arr.shape, dtype=np.float32) * 0.05) for _ in range(world)]
             dev_grads[nm] = dev.make_tensor(per_rank)
             # Exact 2D binary-tree fp32 sum matching ccl.exact_2d_fp32_sum!
             s_exact = exact_2d_fp32_sum(torch.stack(per_rank, dim=0), mshape, tree=True)
@@ -527,6 +530,10 @@ def test_spmd_zero1_step_matches_serial_reference_and_broken_fails(monkeypatch, 
         assert st_spmd["step"] == st_ref["step"]
         assert abs(st_spmd["grad_norm"] - st_ref["grad_norm"]) < 1e-5
         assert abs(st_spmd["grad_norm_muon"] - st_ref["grad_norm_muon"]) < 1e-5
+        if use_zero1:
+            expected_dead = set(disabled) | ({"mu_tall_1"} if step_idx == 2 else set())
+            assert st_spmd["dead_grads"] == expected_dead
+            assert base_spmd.last_dead_grads == frozenset(expected_dead)
 
         # Every single master param is bit-identical across all mesh chips!
         digest, n_chk = master_consensus_digest(spmd.master, dev)
@@ -559,3 +566,35 @@ def test_spmd_zero1_step_matches_serial_reference_and_broken_fails(monkeypatch, 
     ref_opt.deallocate()
     assert len(dev.live_bufs) == 0, f"leaked {len(dev.live_bufs)} device buffers on SPMD mesh!"
     assert len(dev_ref.live_bufs) == 0, f"leaked {len(dev_ref.live_bufs)} device buffers on ref!"
+
+
+def test_spmd_zero1_works_without_tall_kwarg_in_ns(monkeypatch):
+    """SPMDZero1Step works identically when newton_schulz_device has no tall= parameter (r4t-resident)."""
+    _install_mock_ttnn(monkeypatch)
+    _install_mock_device_optim(monkeypatch)
+    orig_mod = sys.modules["tt_bio.train.device_optim"]
+    orig_ns = orig_mod.newton_schulz_device
+
+    def _ns_no_tall(u, *, steps, coeffs, eps, mode):
+        assert u.shape[-2] <= u.shape[-1], "caller must transpose tall matrices when tall= is absent"
+        return orig_ns(u, steps=steps, coeffs=coeffs, eps=eps, mode=mode, tall=False)
+
+    monkeypatch.setattr(orig_mod, "newton_schulz_device", _ns_no_tall)
+    dev = _FakeMeshDevice(2, 4)
+    rng = np.random.default_rng(7)
+    weights = {
+        **{f"mu_tall_{i}": rng.standard_normal((64, 32), dtype=np.float32) * 0.1 for i in range(4)},
+        "ad_b": rng.standard_normal((32,), dtype=np.float32) * 0.1,
+    }
+    base = _FakeDeviceOptimizer(weights, {k for k in weights if k.startswith("mu_")}, dev, ema_decay=None)
+    spmd = SPMDZero1Step(base, weights, dev, full_shape=(2, 4), use_zero1_muon=True)
+    grads = {
+        nm: dev.make_tensor([torch.from_numpy(rng.standard_normal(arr.shape, dtype=np.float32) * 0.05) for _ in range(8)])
+        for nm, arr in weights.items()
+    }
+    st = spmd.step(grads, free_grads=True)
+    assert st["dead_grads"] == set()
+    master_consensus_digest(spmd.master, dev)
+    spmd.deallocate()
+    base.deallocate()
+    assert len(dev.live_bufs) == 0
