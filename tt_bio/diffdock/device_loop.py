@@ -544,3 +544,80 @@ class NodeEncoder:
         if sigma_row is None:
             raise ValueError("this encoder takes a sigma row per step")
         return self.linear(ttnn.concat([self.base, ttnn.multiply(self.ones, sigma_row)], dim=1))
+
+
+class TorsionHead:
+    """The torsion head around its two tensor products: bond frame, edge geometry, attributes.
+
+    :class:`tt_bio.diffdock.heads.TorsionHead` builds, per step, the rotatable bonds' midpoints
+    and axes, the bond-centre <- atom edge vectors, their radius mask and harmonics, the axis
+    harmonics each edge pairs with in ``final_tp_tor``, and three scalar blocks per edge
+    (embedded distance, the atom's first ``ns`` features, the bond's). All of that is here.
+    ``final_tp_tor`` and ``tor_bond_conv`` are the two tensor products and are not.
+
+    Both index sets (the bonds' two atoms, the complete bond x atom edge set) are fixed for the
+    rollout, so they are uploaded once and every lookup is the exact fp32 gather. The released
+    model does not set ``smooth_edges``, so the edge weight is 1 and is not built.
+    """
+
+    def __init__(self, device, head, sg, rot_bonds):
+        import ttnn
+        if head.smooth_edges:
+            raise NotImplementedError("smooth_edges: the released model does not set it")
+        idx = lambda t: ttnn.from_torch(t.reshape(1, -1).to(torch.int32), dtype=ttnn.uint32,
+                                        layout=ttnn.ROW_MAJOR_LAYOUT, device=device)
+        self.ns, self.sh_ls = head.ns, tuple(head.sh_ls)
+        self.cutoff = float(head.lig_max_radius)
+        self.nb = rot_bonds.shape[1]
+        self.b0, self.b1 = idx(rot_bonds[0]), idx(rot_bonds[1])
+        self.ne = sg.tor_edge_index.shape[1]
+        self.edges = EdgeGeometry(device, sg.tor_edge_index[0], sg.tor_edge_index[1], self.ne)
+        real = torch.zeros(self.ne)
+        real[:sg.n_rot_bonds * sg.n_lig * sg.n_poses] = 1.0
+        self.real = upload(device, real)
+        self.smear = Smearing(device, head.lig_distance_expansion)
+        self.edge_mlp = MLP(device, head.final_edge_embedding)
+        self.final = MLP(device, head.tor_final_layer)
+        self.scale_by_sigma = bool(head.scale_by_sigma)
+
+    def bonds(self, lig_pos):
+        """``(bond_pos, bond_vec)``, each ``[n_bonds, 3]``: midpoint and ``pos[b1] - pos[b0]``."""
+        import ttnn
+        a, b = gather(lig_pos, self.b0, self.nb), gather(lig_pos, self.b1, self.nb)
+        return ttnn.multiply(ttnn.add(a, b), 0.5), ttnn.subtract(b, a)
+
+    def __call__(self, lig_pos, lig_h):
+        """``(edge_attr [E, 3 ns], edge_sh [E, sh], bond_sh [E, 5], mask [E, 1])`` for one step.
+
+        ``mask`` is :meth:`StaticGraphs.tor_mask`: ``|v| <= lig_max_radius`` on the real edges,
+        0 on the pad. ``bond_sh`` is each edge's own bond's ``2e`` harmonics, the second operand
+        of ``final_tp_tor``.
+        """
+        import ttnn
+        bond_pos, bond_vec = self.bonds(lig_pos)
+        v = self.edges.vectors(bond_pos, lig_pos)
+        dist = norm3(*v)
+        mask = ttnn.multiply(self.edges.within(dist, self.cutoff), self.real)
+        axis = [ttnn.slice(bond_vec, [0, k], [self.nb, k + 1]) for k in range(3)]
+        bond_sh = gather(harmonics(*axis, ls=(2,)), self.edges.src, self.ne)
+        ns = self.ns
+        h = ttnn.slice(lig_h, [0, 0], [lig_h.shape[0], ns])
+        bond_h = ttnn.add(gather(h, self.b0, self.nb), gather(h, self.b1, self.nb))
+        attr = ttnn.concat([self.edge_mlp(self.smear(dist)),
+                            gather(h, self.edges.dst, self.ne),
+                            gather(bond_h, self.edges.src, self.ne)], dim=1)
+        return attr, harmonics(*v, ls=self.sh_ls), bond_sh, mask
+
+    def score(self, conv_out, tor_sigma: float):
+        """``tor_final_layer(conv_out) * sqrt(torus_score_norm(tor_sigma))``, ``[n_bonds, 1]``.
+
+        Every bond of a rollout shares one sigma per step, so the host's per-bond table lookup
+        is one scalar, taken from the host's own table.
+        """
+        import ttnn
+        tor = self.final(conv_out)
+        if not self.scale_by_sigma:
+            return tor
+        from .schedules import torus_score_norm
+        s = float(torus_score_norm(torch.tensor([tor_sigma], dtype=torch.float64))[0]) ** 0.5
+        return ttnn.multiply(tor, s)

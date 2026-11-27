@@ -296,6 +296,46 @@ def main():
     print("rec_keep", out["rec_keep"], flush=True)
     flush_json()
 
+    # --- the torsion head around its two tensor products -----------------------------
+    # Newest block, so last: the json is flushed after each leg.
+    th = model.torsion_head
+    if th is not None:
+        from tt_bio.diffdock.graph import pad_edge_index, tile_disjoint
+        from tt_bio.diffdock.schedules import torus_score_norm
+
+        rot = torch.tensor([[2, 5, 8], [3, 6, 9]])
+        sgt = StaticGraphs.build(n_lig, n_rec, bonds, n_rot_bonds=3, n_poses=n_poses)
+        rb = pad_edge_index(tile_disjoint(rot, n_poses, n_lig, n_lig), sgt.n_bond_padded,
+                            sgt.lig_pad_node)
+        tdev = dl.TorsionHead(dev, th.float(), sgt, rb)
+        th.double()
+        ns, ei, ne, nb = th.ns, sgt.tor_edge_index, sgt.tor_edge_index.shape[1], rb.shape[1]
+        lh = torch.randn(sgt.n_lig_padded, 2 * ns, generator=g).double()
+        p64 = lp.double()[:sgt.n_lig_padded]
+        bpos = (p64[rb[0]] + p64[rb[1]]) / 2
+        ev = p64[ei[1]] - bpos[ei[0]]
+        ref_attr = torch.cat([th.final_edge_embedding(th.lig_distance_expansion(ev.norm(dim=-1))),
+                              lh[ei[1], :ns], (lh[rb[0]] + lh[rb[1]])[ei[0], :ns]], 1)
+        ref_bsh = spherical_harmonics(p64[rb[1]] - p64[rb[0]], (2,))[ei[0]]
+        ref_m = sgt.tor_mask(p64, bpos, th.lig_max_radius)
+        g_attr, g_sh, g_bsh, g_m = tdev(dl.upload(dev, p64.float()), dl.upload(dev, lh.float()))
+        record("tor_bond_pos", cut(tdev.bonds(dl.upload(dev, p64.float()))[0], nb, 3), bpos)
+        record("tor_edge_attr", cut(g_attr, ne, 3 * ns), ref_attr)
+        record("tor_edge_sh", cut(g_sh, ne, sum(2 * l + 1 for l in th.sh_ls)),
+               spherical_harmonics(ev, tuple(th.sh_ls)))
+        record("tor_bond_sh", cut(g_bsh, ne, 5), ref_bsh)
+        out["tor_mask"] = {"mismatches": int((cut(g_m, ne, 1)[:, 0].double() - ref_m).abs()
+                                             .round().sum()), "on": int(ref_m.sum()), "edges": ne}
+        print("tor_mask", out["tor_mask"], flush=True)
+        width = th.tor_final_layer[0].in_features
+        conv = torch.randn(nb, width, generator=g).double()
+        sigma = 0.37
+        ref_tor = th.tor_final_layer(conv)
+        if th.scale_by_sigma:
+            ref_tor = ref_tor * float(torus_score_norm(torch.tensor([sigma]).double())[0]) ** 0.5
+        record("tor_score", cut(tdev.score(dl.upload(dev, conv.float()), sigma), nb, 1), ref_tor)
+    flush_json()
+
     print(json.dumps({k: v for k, v in out.items() if isinstance(v, (int, float))}), flush=True)
     Path(args.out).write_text(json.dumps(out, indent=1))
 
