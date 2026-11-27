@@ -165,7 +165,7 @@ def test_heads(dev, glue, batch8_path: str, pcie_meter_mod):
     b1["exploration_k"] = 1
     b, n = b1["padding_mask"].shape
     n_pad = ((n + 31) // 32) * 32
-    print(f"  batch08 b={b}, n={n}, n_pad={n_pad}, ins_rows={(b1[insertion_source_idx] >= 0).sum().item()}", flush=True)
+    print(f"  batch08 b={b}, n={n}, n_pad={n_pad}, ins_rows={(b1['insertion_source_idx'] >= 0).sum().item()}", flush=True)
 
     rng = np.random.default_rng(42)
     s_np = (rng.standard_normal((b, n, 768)).astype(np.float32) * 0.5)
@@ -606,10 +606,10 @@ def test_device_optim(dev, state, glue, pcie_meter_mod):
             assert om_m_diff == 0.0, f"Omitted Muon param moved: {om_m_diff}"
             assert opt.ema is not None and len(opt.ema.shadows) == len(params)
         print(
-            f"  {ns_mode:14s}: cold={timings[ns_mode][cold_ms]} ms, warm={timings[ns_mode][warm_ms]} ms "
+            f"  {ns_mode:14s}: cold={timings[ns_mode]['cold_ms']} ms, warm={timings[ns_mode]['warm_ms']} ms "
             f"(muon={len(opt.muon_names)} in {len(opt._muon_buckets)} bkts, "
             f"adam={len(opt.adam_names)} in {len(opt._adam_buckets)} bkts, "
-            f"norms={st[muon_norm]:.3f}/{st[adam_norm]:.3f}, pcie={pcie_step})",
+            f"norms={st['muon_norm']:.3f}/{st['adam_norm']:.3f}, pcie={pcie_step})",
             flush=True,
         )
         opt.deallocate()
@@ -656,7 +656,7 @@ def main():
     res["aiclk_max"] = max(clk) if clk else 0
     res["aiclk_med"] = sorted(clk)[len(clk) // 2] if clk else 0
     res["aiclk_n"] = len(clk)
-    print(f"\nALL HARDWARE UNIT SUITES PASSED! AICLK={res[aiclk_min]}..{res[aiclk_max]} (med={res[aiclk_med]}) MHz (n={res[aiclk_n]})", flush=True)
+    print(f"\nALL HARDWARE UNIT SUITES PASSED! AICLK={res['aiclk_min']}..{res['aiclk_max']} (med={res['aiclk_med']}) MHz (n={res['aiclk_n']})", flush=True)
     if args.out:
         with open(args.out, "w") as f:
             json.dump(res, f, indent=2)
