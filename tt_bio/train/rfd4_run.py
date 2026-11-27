@@ -28,12 +28,33 @@ import argparse
 import contextlib
 import hashlib
 import json
+import math
 import os
 import resource
 import threading
 import time
 
 from tt_bio.envflags import env_flag
+
+#: Parameters whose upstream gradient is identically zero on unconditional batches (D29).
+#: Selected by ``--exempt default`` (used by Tier 0, which has no ``perf/`` tree in a wheel).
+UPSTREAM_EXEMPT = {
+    "glue.init_repr_factory.feat_creators.7.ss_embedding.weight":
+        "upstream Embedding(4, 16, padding_idx=0) and every unconditional token is NONE "
+        "(index 0): upstream gradient is an exact zero (r4t-accuracy D29)",
+}
+
+
+def _checkpoint_due(step: int, total_steps: int, save_every: int, save_at: int) -> tuple[bool, bool]:
+    """Return ``(should_save, force)`` for the periodic checkpointer at 1-based ``step``.
+
+    When ``--save-every`` is set, save on every multiple and on the final step (matching
+    ``tt-bio train --checkpoint-every``'s contract), skipping if ``--save-at`` already wrote it.
+    """
+    if not save_every or (save_at and step == save_at):
+        return False, False
+    last = step == total_steps
+    return (last or step % save_every == 0), last
 
 
 def main(argv=None, on_step=None):
@@ -98,6 +119,9 @@ def main(argv=None, on_step=None):
     ap.add_argument("--pcie-meter", choices=("off", "on", "sites"), default="off",
                     help="count host<->device bytes and transfers per step phase (perf/r4t_perf/pcie_meter.py); "
                          "sites adds the top call sites by bytes")
+    ap.add_argument("--optimizer", choices=("auto", "muon", "adamw"), default="auto",
+                    help="update rule: muon (upstream Muon + Adam, rfd4_objective.update_rule), "
+                         "adamw (plain AdamW at 1e-4), or auto (muon for --curve-dump, adamw otherwise)")
     a = ap.parse_args(argv)
     if a.arm == "fp32-exact":
         os.environ["TT_BIO_LEVERS"] = "none"   # Trunk builds on mode_levers(), which reads this, not lever_scope
@@ -136,6 +160,7 @@ def main(argv=None, on_step=None):
     import faulthandler
     import signal
     faulthandler.register(signal.SIGUSR1)   # kill -USR1 <pid> prints every thread stack to the log
+    os.environ.setdefault("TT_VISIBLE_DEVICES", "0")
     from tt_bio.main import ensure_p300_mesh_descriptor
     ensure_p300_mesh_descriptor()
     import torch
@@ -159,7 +184,7 @@ def main(argv=None, on_step=None):
         arm.enter_context(EX.exact_fp32())
 
     dev = T.get_device()
-    card = int(os.environ["TT_VISIBLE_DEVICES"].split(",")[0])
+    card = int(os.environ.get("TT_VISIBLE_DEVICES", "0").split(",")[0])
     clk, stop = [], threading.Event()
 
     def sample():
@@ -476,10 +501,10 @@ def main(argv=None, on_step=None):
     if world > 1:
         from tt_bio.train.launcher import ProcessAxis
         ax = ProcessAxis(name="dp", device_ids=tuple(range(world)), dp_rank=rank, run=a.dp_run)
-    if a.curve_dump:
-        # A curve leg is graded against upstream's curve, so it takes upstream's step: Muon +
-        # Adam, per-group clip 1.0 (rfd4_objective.update_rule). Plain AdamW here read 11 %
-        # above upstream from step 7 on the first graded leg; that gap was the optimizer.
+    use_muon = a.optimizer == "muon" or (a.optimizer == "auto" and bool(a.curve_dump))
+    if use_muon:
+        # Upstream's step: Muon + Adam, per-group clip 1.0 (rfd4_objective.update_rule). Plain
+        # AdamW read 11 % above upstream from step 7 on the first graded leg; that gap was the optimizer.
         from tt_bio.train.rfd4_objective import update_rule
         opt = update_rule(dict(params), data_parallel=ax, shard=a.shard)
     else:
@@ -490,7 +515,11 @@ def main(argv=None, on_step=None):
         build()
     ck = Checkpointer(a.out, every=a.save_every or 10**9, keep=a.keep or (2 if a.save_every else 10))
     seen = []   # losses this process logged, for --pin-spike
-    if a.exempt:
+    if a.exempt == "default":
+        for nm, why in UPSTREAM_EXEMPT.items():
+            if nm in params:
+                cyc[nm] = why
+    elif a.exempt:
         for ln in open(a.exempt):
             if ln.strip() and not ln.startswith("#"):
                 nm, why = ln.rstrip("\n").split("\t", 1)
@@ -576,9 +605,8 @@ def main(argv=None, on_step=None):
             arm.close()
             return 0
         t2b = time.time()
-        opt.step(replicas={nm: [g] for nm, g in grads.items() if g is not None}) if ax else opt.step()
         mark("opt")
-        opt.step()
+        opt.step(replicas={nm: [g] for nm, g in grads.items() if g is not None}) if ax else opt.step()
         for p in params.values():
             p.grad = None
         t2c = time.time()
@@ -590,7 +618,9 @@ def main(argv=None, on_step=None):
         del s, z, st
         md = hashlib.sha256(b"".join(opt.master[k].tobytes() for k in sorted(opt.master))).hexdigest()[:16]
         sm = clk[c0:] or clk[-1:]
-        row = dict(step=step + 1, rank=rank, world=world, loss=loss, fwd_s=round(t1 - t0, 4), bwd_s=round(t2 - t1, 4),
+        gnorm = math.hypot(opt.last_grad_norm, getattr(opt, "last_grad_norm_muon", 0.0))
+        row = dict(step=step + 1, rank=rank, world=world, loss=loss, lr=opt.last_lr, grad_norm=gnorm,
+                   fwd_s=round(t1 - t0, 4), bwd_s=round(t2 - t1, 4),
                    fold_bwd_s=round(t2b - t2, 4), opt_s=round(t2c - t2b, 4), rebuild_s=round(t3 - t2c, 4), rebuild_split=dict(RB), idle_dev_w=len(idle), step_s=round(t3 - t0, 4), retained_B=retained,
                    dead=len(dead), dead_names=sorted(dead)[:20], dev_base_B=base, dev_after_bwd_B=after_bwd, params=len(params), n_elems=int(sum(v.size for v in opt.master.values())),
                    master_digest=md, aiclk=[min(sm or [0]), max(sm or [0])], aiclk_med=sorted(sm)[len(sm) // 2] if sm else 0,
@@ -607,9 +637,10 @@ def main(argv=None, on_step=None):
                 print(json.dumps(dict(spike=step, loss=loss, median100=ref, example=cur["name"] if real else None,
                                       pinned=str(ck.pin(step)))), flush=True)
             seen.append(loss)
-        if a.save_every and ck.due(step + 1):   # --keep: a ring by step, so no metric to rank by
-            print(json.dumps(dict(saved=str(ck.save(step + 1, opt, metrics=None if a.keep else {"loss": loss})))),
-                  flush=True)
+        due_save, force_save = _checkpoint_due(step + 1, a.steps, a.save_every, a.save_at)
+        if due_save:   # --keep: a ring by step, so no metric to rank by
+            print(json.dumps(dict(saved=str(ck.save(step + 1, opt, metrics=None if a.keep else {"loss": loss},
+                                                    force=force_save)))), flush=True)
         if clog is not None:
             clog.record(step, loss, terms=extra.get("terms"), n_recycle=cur["depth"],
                         seconds=round(t3 - t0, 2), dead=len(dead), example=cur["name"],

@@ -7,8 +7,8 @@ around it is the shared stack: the same `Folds`, `AdamW`, `Checkpointer`, `Proce
 `GradientCoverage` an OpenFold3 run uses (G6).
 
 What this module owns is the Tier-0 contract over that body: flag legality decided before a
-device opens, the shipped batch fixture when no DATA is given, ``status.json`` /
-``progress.jsonl`` in ``--out``, DATA refused by name when it is missing or empty, and resume from the newest checkpoint in the run directory
+device opens, DATA refused by name when it is missing or empty, ``status.json`` /
+``progress.jsonl`` in ``--out``, and resume from the newest checkpoint in the run directory
 when the same command is run again.
 
 A flag the RFD4 step does not honour is REFUSED rather than ignored. `--lr` is the example that
@@ -19,6 +19,7 @@ hand back a run whose status file disagreed with what it trained.
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 import click
@@ -82,11 +83,15 @@ def train_rfd4(*, files, out_dir: Path, steps, chip_ids, checkpoint_every, token
                status) -> None:
     """Run the RFD4 step loop on ``files`` under the Tier-0 contract."""
     argv = ["--batch", ",".join(str(f) for f in files), "--out", str(out_dir),
-            "--steps", str(steps or len(files))]
+            "--steps", str(steps or len(files)), "--optimizer", "muon", "--exempt", "default"]
     if checkpoint_every:
         argv += ["--save-every", str(checkpoint_every)]
     if len(chip_ids) > 1:
         argv += ["--dp-cards", ",".join(str(c) for c in chip_ids)]
+    elif chip_ids[0] != 0:
+        os.environ["TT_VISIBLE_DEVICES"] = str(chip_ids[0])
+    else:
+        os.environ.setdefault("TT_VISIBLE_DEVICES", "0")
     if tokens:
         argv += ["--n", str(tokens)]
     resume = latest_checkpoint(out_dir, chip_ids)

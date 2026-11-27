@@ -37,10 +37,21 @@ def test_rfd4_refuses_a_flag_its_step_does_not_honour():
 
     res = CliRunner().invoke(train, ["--model", "rfd4", "--lr", "1e-3"])
     assert res.exit_code == 2 and "--lr is not honoured" in res.output, res.output
+    res = CliRunner().invoke(train, ["--model", "rfd4", "--lr", "1e-3", "--dry-run"])
+    assert res.exit_code == 2 and "--lr is not honoured" in res.output, res.output
     res = CliRunner().invoke(train, ["--model", "rfd4", "--train", "adapters"])
     assert res.exit_code == 2 and "trains the trunk's own weights" in res.output, res.output
     # The untyped default must not trip it: a plain dry run has lr=3e-4 in ctx.params.
     assert CliRunner().invoke(train, ["--model", "rfd4", "--dry-run"]).exit_code == 0
+
+
+def test_rfd4_help_says_data_is_required():
+    """`--help` must agree with `batches(None)`: DATA is required for RFD4."""
+    from tt_bio.train.cli import train
+
+    out = CliRunner().invoke(train, ["--help"]).output
+    assert "without DATA an RFD4 run" not in out, out
+    assert "DATA for RFD4 is required" in out, out
 
 
 def test_rfd4_batch_directory_refuses_by_name(tmp_path):
@@ -84,13 +95,25 @@ def test_rfd4_tier0_hands_the_step_loop_its_argv(tmp_path, monkeypatch):
             Status.rows.append(row)
 
     files = rfd4_tier0.batches(data)
+    monkeypatch.delenv("TT_VISIBLE_DEVICES", raising=False)
     rfd4_tier0.train_rfd4(files=files, out_dir=out, steps=None, chip_ids=(0,),
                           checkpoint_every=100, tokens=None, status=Status())
     argv = seen["argv"]
     assert argv[argv.index("--steps") + 1] == "3", "no --steps means one pass over DATA"
     assert argv[argv.index("--save-every") + 1] == "100"
+    assert argv[argv.index("--optimizer") + 1] == "muon"
+    assert argv[argv.index("--exempt") + 1] == "default"
     assert "--resume" not in argv and "--dp-cards" not in argv
     assert Status.rows == [{"step": 1, "loss": 0.5, "step_s": 2.0}], "the row reaches the status writer unchanged; rfd4_run adds `s`"
+    import os
+    assert os.environ.get("TT_VISIBLE_DEVICES") == "0"
+    monkeypatch.setenv("TT_VISIBLE_DEVICES", "28")
+    rfd4_tier0.train_rfd4(files=files, out_dir=out, steps=2, chip_ids=(0,),
+                          checkpoint_every=0, tokens=None, status=Status())
+    assert os.environ.get("TT_VISIBLE_DEVICES") == "28", "preserve ambient pin for default --chips 1"
+    rfd4_tier0.train_rfd4(files=files, out_dir=out, steps=2, chip_ids=(31,),
+                          checkpoint_every=0, tokens=None, status=Status())
+    assert os.environ.get("TT_VISIBLE_DEVICES") == "31", "honour explicit single chip id"
 
     # A checkpoint in the run directory is resumed from, and multiple chips go data-parallel.
     # A DP run checkpoints under rank0/, so that is where its resume comes from.

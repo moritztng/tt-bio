@@ -242,9 +242,8 @@ def train(ctx, data, model, out_dir, steps, chip_ids, dry_run, global_batch, lr,
         tt-bio train data/ --model openfold3 --steps 1000 --chips 4
         tt-bio train batches/ --model rfd4 --steps 2000 --chips 4
 
-    DATA for RFD4 is a directory of training batches, as
-    perf/r4t/loss_parity_reference.py dumps them; without DATA an RFD4 run trains on the
-    shipped 16-example fixture. DATA for OpenFold3 is upstream's training-set directory (pdb_training_set/ plus a
+    DATA for RFD4 is required: a directory of training batches, as
+    perf/r4t/loss_parity_reference.py dumps them. DATA for OpenFold3 is upstream's training-set directory (pdb_training_set/ plus a
     training_cache*.json). Without DATA the run fetches upstream's 8-structure sample
     (73 MB) and trains on that. The run writes OUT/status.json, whose `status` is running,
     succeeded or failed, and OUT/progress.jsonl, one JSON line per step. Run the same
@@ -275,6 +274,14 @@ def train(ctx, data, model, out_dir, steps, chip_ids, dry_run, global_batch, lr,
         if value is not None and value < 1:
             raise click.BadParameter("must be at least 1", param_hint=name)
 
+    if model in OWN_STEP:
+        from .rfd4_tier0 import refuse_unhonoured
+        # Before dry-run and before anything is written: a flag the step does not honour is
+        # refused even on `--dry-run`, and never leaves a claimed run directory behind.
+        refuse_unhonoured({n for n in ctx.params
+                           if (src := ctx.get_parameter_source(n)) is not None
+                           and src.name != "DEFAULT"})
+
     crop = tokens or _DEFAULT_CROP[model]
     fit = plan(tokens=crop, model=model, chips=chips, global_batch=global_batch,
                frozen_trunk=train_mode == "adapters")
@@ -286,13 +293,11 @@ def train(ctx, data, model, out_dir, steps, chip_ids, dry_run, global_batch, lr,
         return
 
     if model in OWN_STEP:
-        from .rfd4_tier0 import batches, refuse_unhonoured, train_rfd4
-        # Before anything is written: a refusal must not leave a claimed run directory behind,
-        # or the next command refuses in turn with a settings conflict.
-        refuse_unhonoured({n for n in ctx.params
-                           if (src := ctx.get_parameter_source(n)) is not None
-                           and src.name != "DEFAULT"})
+        import os
+        from .rfd4_tier0 import batches, train_rfd4
         files = batches(data)
+        if len(chip_ids) == 1 and chip_ids[0] != 0:
+            os.environ["TT_VISIBLE_DEVICES"] = str(chip_ids[0])
         out_dir.mkdir(parents=True, exist_ok=True)
         status = _Status(out_dir)
         config = {"model": model, "data": str(Path(data).resolve()),

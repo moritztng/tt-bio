@@ -1176,12 +1176,13 @@ and the hook becomes public. More chips is `mesh=train.Mesh({"dp": [1, 2]})` one
 and adapters instead of weights is `train="adapters"`; one loop body serves both, which the
 escape-hatch test checks instruction for instruction.
 
-**What works today:** OpenFold3 end to end from the command line (data, featurisation, the
-weights, training its weights, checkpoints, resume, the agent files, folding with the result), the dry run, gradient
-checking, and data parallelism across the chips in one box. **What does not:** OpenFold3 is the
-only model that ships a training featuriser; `--model` offers only it, and another model
-registers its own with `tt_bio.train.catalogue.register`. LoRA adapters are not offered for
-OpenFold3: they have never been measured on it, and `predict` loads full weights only.
+**What works today:** OpenFold3 and RFD4-Proteina end to end from the command line (weights
+training, checkpoints, resume, the agent files, plus on-the-fly featurisation and `weights.pt`
+export for OpenFold3), the dry run, gradient checking, and data parallelism across the chips in
+one box. **What does not:** OpenFold3 is the only model that ships a training featuriser; RFD4
+takes pre-dumped batches, and other models register a featuriser with
+`tt_bio.train.catalogue.register`. LoRA adapters are not offered for OpenFold3 or RFD4: both
+train their own weights.
 
 `tt-bio train` follows OpenFold3's optimizer setup rather than Adam's library defaults, which
 differ in three places that no loss curve shows: `betas=(0.9, 0.95)`, no weight decay, and the

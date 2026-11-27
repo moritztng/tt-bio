@@ -4,6 +4,7 @@ Host-only. The device A/A (master digests before = after on the r4t-step 3x3 pro
 proof; these pin what can break on a laptop: the perf caller still reaches the package entry point,
 and the batch reader the step uses is the one the upstream harness writes for.
 """
+import ast
 import subprocess
 import sys
 from pathlib import Path
@@ -17,10 +18,46 @@ def test_the_perf_caller_runs_the_package_step():
     out = subprocess.run([sys.executable, str(ROOT / "perf/r4t_step/trunk_step.py"), "--help"],
                          capture_output=True, text=True, timeout=120, cwd="/")
     assert out.returncode == 0, out.stderr
-    for flag in ("--batch", "--curve-dump", "--dp-cards", "--cand-levers", "--attn-fp32"):
+    for flag in ("--batch", "--curve-dump", "--dp-cards", "--cand-levers", "--attn-fp32",
+                 "--optimizer"):
         assert flag in out.stdout
     src = (ROOT / "perf/r4t_step/trunk_step.py").read_text()
     assert "from tt_bio.train.rfd4_run import main" in src and "argparse" not in src
+
+
+def test_step_loop_calls_opt_step_once():
+    """Guard against duplicate opt.step() merge regressions (doubles single-chip opt_s and
+    crashes DP with UnreducedGradients on step 1)."""
+    tree = ast.parse((ROOT / "tt_bio/train/rfd4_run.py").read_text())
+    main_fn = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "main")
+    step_loops = [n for n in ast.walk(main_fn)
+                  if isinstance(n, ast.For) and isinstance(n.target, ast.Name)
+                  and n.target.id == "step"]
+    assert len(step_loops) == 1
+    def _has_opt_step(node):
+        return any(isinstance(c, ast.Call) and isinstance(c.func, ast.Attribute)
+                   and c.func.attr == "step" and isinstance(c.func.value, ast.Name)
+                   and c.func.value.id == "opt" for c in ast.walk(node))
+    stmts = [s for s in step_loops[0].body if _has_opt_step(s)]
+    assert len(stmts) == 1, f"expected 1 opt.step statement in step loop, found {len(stmts)}"
+
+
+def test_checkpoint_due_saves_final_step_and_avoids_double_save():
+    from tt_bio.train import rfd4_run
+
+    assert rfd4_run._checkpoint_due(1, 3, save_every=100, save_at=0) == (False, False)
+    assert rfd4_run._checkpoint_due(3, 3, save_every=100, save_at=0) == (True, True)
+    assert rfd4_run._checkpoint_due(2, 4, save_every=2, save_at=0) == (True, False)
+    assert rfd4_run._checkpoint_due(4, 4, save_every=2, save_at=0) == (True, True)
+    assert rfd4_run._checkpoint_due(3, 3, save_every=100, save_at=3) == (False, False)
+    assert rfd4_run._checkpoint_due(3, 3, save_every=0, save_at=0) == (False, False)
+
+
+def test_upstream_exempt_documents_ss_embedding():
+    from tt_bio.train import rfd4_run
+
+    key = "glue.init_repr_factory.feat_creators.7.ss_embedding.weight"
+    assert key in rfd4_run.UPSTREAM_EXEMPT and "padding_idx=0" in rfd4_run.UPSTREAM_EXEMPT[key]
 
 
 def test_the_step_module_imports_without_ttnn():
