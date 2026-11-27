@@ -215,7 +215,9 @@ def device_winner_loss(
     dev = s_raw.device()
 
     # Production dispatch through FlowGlue.heads in place (taped automatically by taped_ttnn).
-    o = glue.heads(s_taped, bw, insertion=True)
+    # Re-entrant `ag.tape()` ensures heads attach onto s_taped even when the caller closed its outer tape.
+    with ag.tape():
+        o = glue.heads(s_taped, bw, insertion=True)
     ca_t = next(iter(o["bb_ca"].values()))
     ll_t = next(iter(o["local_latents"].values()))
     seq_t = o["sequence"]["logits"] if "sequence" in o else None
@@ -267,6 +269,7 @@ def device_winner_loss(
     ag.backward(outs_bwd, seeds_bwd)
     for sd in seeds_bwd:
         ttnn.deallocate(sd)
+    del o, ca_t, ll_t, seq_t, ins_t, outs_bwd
 
     # Propagate tiny non-pair host-glue leaf gradients (s_init, conds, pair_taped leaves) if bridged.
     if bridge is not None:

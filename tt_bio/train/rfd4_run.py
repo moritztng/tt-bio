@@ -126,6 +126,13 @@ def main(argv=None, on_step=None):
     ap.add_argument("--optimizer", choices=("auto", "muon", "adamw"), default="auto",
                     help="update rule: muon (upstream Muon + Adam, rfd4_objective.update_rule), "
                          "adamw (plain AdamW at 1e-4), or auto (muon for --curve-dump, adamw otherwise)")
+    ap.add_argument("--resident", action="store_true",
+                    help="device-resident training (D89): DeviceOptimizer (Muon+Adam+clip+EMA), "
+                         "DeviceFolds (on-card fold_bwd+refold), and DeviceHeads + on-card insertion loss")
+    ap.add_argument("--ns-mode", choices=("split2", "split2_hifi4", "fp32"), default="split2",
+                    help="Newton-Schulz precision mode for DeviceOptimizer under --resident")
+    ap.add_argument("--ema-decay", type=float, default=0.999,
+                    help="EMA decay for DeviceOptimizer under --resident (<0 disables EMA)")
     a = ap.parse_args(argv)
     if a.arm == "fp32-exact":
         os.environ["TT_BIO_LEVERS"] = "none"   # Trunk builds on mode_levers(), which reads this, not lever_scope
@@ -219,10 +226,12 @@ def main(argv=None, on_step=None):
     card_pair = []   # r4t-perf P1 (--cand-pair card): the candidate pass builds its pair as serving does
 
     def pair_card():
-        """This step's PairOnCard, or None. A split copies the builder's weights, which the optimizer moves, so
-        each step takes a fresh one (the split refuses stale weights)."""
+        """This step's PairOnCard, or None. Under --resident, on_refold refreshes card_pair[0]
+        after each step; otherwise build a fresh PairOnCard each step."""
         if a.cand_pair != "card":
             return None
+        if a.resident and card_pair:
+            return card_pair[0]
         from tt_bio.rfd4.pair import PairOnCard, PairSplit
         if card_pair:
             card_pair.pop().release()
@@ -309,7 +318,12 @@ def main(argv=None, on_step=None):
             # batch-1 winner would upload its in-projection INSIDE its taped verb, after the verb has resolved
             # its parents (R1 forms 1 and 3: 14 sources recorded, read, never on the tape). `prewarm` fills
             # exactly the entry `__call__` will use, so the winner width exists and is walked below.
-            RB["prewarmed"] = len([m.prewarm(a.n, 1) for m in trimuls(trunk) if hasattr(m, "prewarm")])
+            tmods = [m for m in trimuls(trunk) if hasattr(m, "prewarm")]
+            RB["prewarmed"] = len([m.prewarm(a.n, 1) for m in tmods])
+            if a.cand_levers != "serve":
+                k_cand = cur["K"] if real else a.k
+                if k_cand != 1:
+                    [m.prewarm(a.n, k_cand) for m in tmods]
             ttnn.synchronize_device(dev); _rb2 = _rb3 = time.time()
             recorded = ttnn.from_torch
 
@@ -457,11 +471,16 @@ def main(argv=None, on_step=None):
             with torch.no_grad():
                 ck = conds_for(bt)
                 s0, z0 = glue.initial_states(bt, pair_constant=glue.pair_split.constant(bt) if pc else None)
+            win = None
             if a.cand_levers == "serve":
                 with ag.suspended(), cand_scope():
                     zk0 = pc(z0, 0) if pc else put(z0, trunk.pair_dtype(mk))
                     sk, zk = trunk(put(s0), zk0, [put(c, trunk.dtype) for c in ck], mk)
-                    sh = ttnn.to_torch(sk).float().reshape(s0.shape)
+                    if a.resident:
+                        from tt_bio.train.rfd4_heads import device_candidate_scores
+                        win = device_candidate_scores(glue, sk, bt, K)
+                    else:
+                        sh = ttnn.to_torch(sk).float().reshape(s0.shape)
                 for t in (sk, zk):
                     ttnn.deallocate(t)
             with T.lever_scope(levers), ag.tape():
@@ -469,14 +488,19 @@ def main(argv=None, on_step=None):
                     with ag.no_grad(), cand_scope():
                         zk0 = pc(z0, 0) if pc else put(z0, trunk.pair_dtype(mk))
                         sk, zk = trunk(put(s0), zk0, [put(c, trunk.dtype) for c in ck], mk)
-                        sh = ttnn.to_torch(getattr(sk, "value", sk)).float().reshape(s0.shape)
+                        if a.resident:
+                            from tt_bio.train.rfd4_heads import device_candidate_scores
+                            win = device_candidate_scores(glue, getattr(sk, "value", sk), bt, K)
+                        else:
+                            sh = ttnn.to_torch(getattr(sk, "value", sk)).float().reshape(s0.shape)
                     for t in (sk, zk):
                         ttnn.deallocate(getattr(t, "value", t))
                 walk_register()
-                with torch.no_grad():
-                    ok = {k: v.double().numpy() for k, v in flat(glue.heads(sh, bt)).items()}
-                _t, bd, _s = RO.rfd4_loss({**npy(bt), "exploration_k": K}, ok, RO.WEIGHTS)
-                win = int(bd["winners"][0])
+                if win is None:
+                    with torch.no_grad():
+                        ok = {k: v.double().numpy() for k, v in flat(glue.heads(sh, bt)).items()}
+                    _t, bd, _s = RO.rfd4_loss({**npy(bt), "exploration_k": K}, ok, RO.WEIGHTS)
+                    win = int(bd["winners"][0])
                 bw = take(bt, win)
                 br = Bridge(dev, trunk.dtype)
                 m1 = tmask(bw)
@@ -501,9 +525,14 @@ def main(argv=None, on_step=None):
             return s, z, dict(br=br, bw=bw, win=win, shape=s_i.shape)
 
         def real_loss(s, ctx):
-            """rfd4_loss on our heads; its seeds are d total / d output, so <outputs, seeds> carries the
-            gradient into the heads, back over the bridge into the tape and from its inputs into the glue."""
+            """rfd4_loss on our heads; under --resident runs DeviceHeads + on-card insertion loss."""
             br, bw = ctx["br"], ctx["bw"]
+            if a.resident:
+                from tt_bio.train.rfd4_heads import device_winner_loss
+                return device_winner_loss(
+                    glue, s if isinstance(s, ag.Tensor) else ag.Tensor(s, requires_grad=True),
+                    bw, bridge=br, ref_terms=cur["ref"], win_idx=ctx["win"],
+                )
             sh = br.down(s if isinstance(s, ag.Tensor) else ag.Tensor(s, requires_grad=True)).reshape(ctx["shape"])
             o = flat(glue.heads(sh, bw))
             total, bd, seeds = RO.rfd4_loss({**npy(bw), "exploration_k": 1},
@@ -517,32 +546,95 @@ def main(argv=None, on_step=None):
         real = (real_example, real_loss)
 
     ag.install()
-    build()
-    unreached = set(folds.unreached())   # one autograd pass over every fold; never inside a per-leaf loop
-    every = folds.params()
-    params = {nm: p for nm, p in every.items() if nm not in unreached}
-    if real:
-        params.update(host_params(glue, "glue."))
-    if a.freeze:
-        fz = next(nm for nm in sorted(params) if a.freeze in nm)
-        folds.leaves[fz].requires_grad_(False)
-        build()
-        print(json.dumps(dict(frozen=fz)), flush=True)
-    names = list(params)
-    cyc = {nm: "depth-1 draws feed a zero state into the cycle projection; trains at depth >= 2"
-           for nm in names if "cycle" in nm and a.depth < 2}
-    ax = None
-    if world > 1:
-        from tt_bio.train.launcher import ProcessAxis
-        ax = ProcessAxis(name="dp", device_ids=tuple(range(world)), dp_rank=rank, run=a.dp_run)
-    use_muon = a.optimizer == "muon" or (a.optimizer == "auto" and bool(a.curve_dump))
-    if use_muon:
-        # Upstream's step: Muon + Adam, per-group clip 1.0 (rfd4_objective.update_rule). Plain
-        # AdamW read 11 % above upstream from step 7 on the first graded leg; that gap was the optimizer.
-        from tt_bio.train.rfd4_objective import update_rule
-        opt = update_rule(dict(params), data_parallel=ax, shard=a.shard)
+    dfolds = None
+    dheads = None
+    host_glue_params = {}
+    refold_hook = None
+    if a.resident:
+        from tt_bio.rfd4.heads import DeviceHeads
+        from tt_bio.train.device_optim import DeviceOptimizer, rfd4_device_optimizer
+        from tt_bio.train.folds import DeviceFolds, make_rfd4_refold_hook
+
+        # Free unrecorded dummy trunk from line 229 before building the single persistent trunk.
+        if trunk is not None:
+            for _p, _o, _k, t in T.walk_device_weights(trunk):
+                ttnn.deallocate(getattr(t, "value", t))
+            ag.release_pins()
+            ag.forget_parameters()
+        state_res = dict(state)
+        if real:
+            for gn, gp in glue.named_parameters():
+                if gp.requires_grad:
+                    state_res[f"glue.{gn}"] = gp.detach()
+        dfolds = DeviceFolds(state_res, dev)
+        with dfolds.recording(device_pack=pack) as sd:
+            trunk = E.load_trunk(glue, sd, cfg, training=True, dtype=TD, attn_fp32=a.attn_fp32 == "on")
+            RB["prewarmed"] = len([m.prewarm(a.n, 1) for m in trimuls(trunk) if hasattr(m, "prewarm")])
+            if real:
+                dheads = DeviceHeads(glue, dev, state=sd)
+                glue._device_heads = dheads
+        dfolds.bind(trunk, *([dheads] if dheads is not None else []))
+        for spec in dfolds.specs:
+            ag.parameter(spec.handle)
+        unreached = set(dfolds.unreached())
+        folded_names = [nm for nm in dfolds.leaves if nm not in unreached]
+        folded_set = set(folded_names)
+        if real:
+            host_glue_params = {
+                f"glue.{gn}": gp for gn, gp in glue.named_parameters()
+                if gp.requires_grad and f"glue.{gn}" not in folded_set
+            }
+        init_w = {nm: dfolds.leaves[nm].detach() for nm in folded_names}
+        init_w.update({nm: p.detach() for nm, p in host_glue_params.items()})
+        params = init_w
+        names = list(params)
+        cyc = {nm: "depth-1 draws feed a zero state into the cycle projection; trains at depth >= 2"
+               for nm in names if "cycle" in nm and a.depth < 2}
+        ax = None
+        if world > 1:
+            from tt_bio.train.launcher import ProcessAxis
+            ax = ProcessAxis(name="dp", device_ids=tuple(range(world)), dp_rank=rank, run=a.dp_run)
+        ema_d = None if a.ema_decay < 0 else a.ema_decay
+        if a.optimizer == "adamw":
+            opt = DeviceOptimizer(init_w, dev, lr=1e-4, clip_norm=1.0, weight_decay=0.0,
+                                  muon=None, ema_decay=ema_d, ns_mode=a.ns_mode)
+        else:
+            opt = rfd4_device_optimizer(init_w, dev, lr=1e-4, ema_decay=ema_d, ns_mode=a.ns_mode)
+        refold_hook = make_rfd4_refold_hook(
+            trunk, glue if real else None,
+            host_glue_params=host_glue_params,
+            pair_card_ref=(card_pair if (real and a.cand_pair == "card") else None),
+            device=dev,
+        )
+        if real and a.cand_pair == "card":
+            pair_card()
     else:
-        opt = AdamW(dict(params), lr=1e-4, clip_norm=1.0, weight_decay=0.0, data_parallel=ax, shard=a.shard)
+        build()
+        unreached = set(folds.unreached())   # one autograd pass over every fold; never inside a per-leaf loop
+        every = folds.params()
+        params = {nm: p for nm, p in every.items() if nm not in unreached}
+        if real:
+            params.update(host_params(glue, "glue."))
+        if a.freeze:
+            fz = next(nm for nm in sorted(params) if a.freeze in nm)
+            folds.leaves[fz].requires_grad_(False)
+            build()
+            print(json.dumps(dict(frozen=fz)), flush=True)
+        names = list(params)
+        cyc = {nm: "depth-1 draws feed a zero state into the cycle projection; trains at depth >= 2"
+               for nm in names if "cycle" in nm and a.depth < 2}
+        ax = None
+        if world > 1:
+            from tt_bio.train.launcher import ProcessAxis
+            ax = ProcessAxis(name="dp", device_ids=tuple(range(world)), dp_rank=rank, run=a.dp_run)
+        use_muon = a.optimizer == "muon" or (a.optimizer == "auto" and bool(a.curve_dump))
+        if use_muon:
+            # Upstream's step: Muon + Adam, per-group clip 1.0 (rfd4_objective.update_rule). Plain
+            # AdamW read 11 % above upstream from step 7 on the first graded leg; that gap was the optimizer.
+            from tt_bio.train.rfd4_objective import update_rule
+            opt = update_rule(dict(params), data_parallel=ax, shard=a.shard)
+        else:
+            opt = AdamW(dict(params), lr=1e-4, clip_norm=1.0, weight_decay=0.0, data_parallel=ax, shard=a.shard)
     start = 0
     if a.resume:
         start = int(load_adapter(a.resume, dict(params), dev, opt=opt)["step"])
@@ -609,57 +701,103 @@ def main(argv=None, on_step=None):
             cut = next(p for p in walked if p.endswith("q_w"))
             folds.sources.pop(id(walked[cut]))
             extra["dropped"] = cut
-        mark("fold_bwd")
-        idle = folds.tape_backward()   # device-weight gradients through each fold's VJP into the upstream leaves
-        grads = {nm: (None if p.grad is None else p.grad.float().numpy()) for nm, p in params.items()}
-        ag.release_pins()   # the backward is done; build() released them too, one rebuild later
-        dead = zero_or_missing(grads)
-        if ax:
-            # G2 judges the gradient the optimizer steps on, the rank sum: a leaf that only another
-            # rank's example reaches (a feature embedding its batch lacks) is alive. Dead = dead on every rank.
-            order = sorted(grads)
-            hits = ax.sum_scalars([float(nm not in dead) for nm in order])
-            dead = {nm for nm, h in zip(order, hits) if h == 0.0}
-        if os.environ.get("R4T_DUMP_G") and step == start:
-            import numpy as _np
-            _np.savez(os.environ["R4T_DUMP_G"], **{nm.replace(".", "__"): g for nm, g in grads.items()
-                                                    if g is not None and "pair_update_layers" in nm})
-        if a.grad_dump:
-            import numpy as _np
+        if a.resident:
+            mark("fold_bwd")
+            dev_grads, idle = dfolds.tape_backward(opt.master)
+            ag.release_pins()
+            # Upload only the tiny non-pair host-glue grads (~1.87 M elems = 7.5 MB).
+            for gn, gp in host_glue_params.items():
+                if gp.grad is not None:
+                    dev_grads[gn] = ttnn.from_torch(
+                        gp.grad.detach().to(torch.float32).contiguous(),
+                        dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev,
+                    )
+                    gp.grad = None
+            dead = {nm for nm in names if dev_grads.get(nm) is None}
+            ttnn.synchronize_device(dev)
+            t2b = time.time()
+            mark("opt")
+            opt_info = opt.step(dev_grads, free_grads=True)
+            ttnn.synchronize_device(dev)
+            t2c = time.time()
+            mark("rebuild")
+            dfolds.refold(opt.master, on_refold=refold_hook)
+            ttnn.synchronize_device(dev)
+            t3 = time.time()
+            del s, z, st
+            pcie_snap = PM.take() if PM else None
+            mark("digest")
+            md = opt.master_digest() if (step + 1 == a.steps) else "resident"
             sm = clk[c0:] or clk[-1:]
-            _np.savez(a.grad_dump + ".npz", **{nm: g for nm, g in grads.items() if g is not None})
-            meta = dict(extra, loss=loss, arm=a.arm, attn_fp32=a.attn_fp32, levers=sorted(levers) if not isinstance(levers, str) else levers,
-                        dtype=str(trunk.dtype), n=n, card=card, aiclk=[min(sm or [0]), max(sm or [0])],
-                        exact={"%s/%s" % k: v for k, v in sorted(EX.EXACT_STATS.items())},
-                        no_grad=sorted(nm for nm, g in grads.items() if g is None), sha=os.environ.get("TT_BIO_SHA", ""))
-            open(a.grad_dump + ".json", "w").write(json.dumps(meta, indent=1, default=str))
-            print(json.dumps(dict(grad_dump=a.grad_dump, n_grads=len(grads), loss=loss, aiclk=meta["aiclk"],
-                                  exact=meta["exact"])), flush=True)
-            stop.set()
-            arm.close()
-            return 0
-        t2b = time.time()
-        mark("opt")
-        opt.step(replicas={nm: [g] for nm, g in grads.items() if g is not None}) if ax else opt.step()
-        for p in params.values():
-            p.grad = None
-        t2c = time.time()
-        mark("rebuild")
-        build(lazy=False)
-        ttnn.synchronize_device(dev)
-        t3 = time.time()
-        mark("digest")
-        del s, z, st
-        md = hashlib.sha256(b"".join(opt.master[k].tobytes() for k in sorted(opt.master))).hexdigest()[:16]
-        sm = clk[c0:] or clk[-1:]
-        gnorm = math.hypot(opt.last_grad_norm, getattr(opt, "last_grad_norm_muon", 0.0))
-        row = dict(step=step + 1, rank=rank, world=world, loss=loss, lr=opt.last_lr, grad_norm=gnorm,
-                   fwd_s=round(t1 - t0, 4), bwd_s=round(t2 - t1, 4),
-                   fold_bwd_s=round(t2b - t2, 4), opt_s=round(t2c - t2b, 4), rebuild_s=round(t3 - t2c, 4), rebuild_split=dict(RB), idle_dev_w=len(idle), step_s=round(t3 - t0, 4), retained_B=retained,
-                   dead=len(dead), dead_names=sorted(dead)[:20], dev_base_B=base, dev_after_bwd_B=after_bwd, params=len(params), n_elems=int(sum(v.size for v in opt.master.values())),
-                   master_digest=md, aiclk=[min(sm or [0]), max(sm or [0])], aiclk_med=sorted(sm)[len(sm) // 2] if sm else 0,
-                   k=a.k, depth=a.depth, n=n, lnbw_reach=dict(lnbw.REACH), gate_bw=list(gate_bw.STATS), kernels={k: list(v) for k, v in __import__("tt_bio.taped_ttnn", fromlist=["x"]).KERNEL_STATS.items()}, **extra,
-                   **({"pcie": PM.take()} if PM else {}), host_maxrss_GiB=round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 2**20, 3))
+            gnorm = math.hypot(opt.last_grad_norm, getattr(opt, "last_grad_norm_muon", 0.0))
+            n_elems = int(sum(int(math.prod(shp)) for shp in opt.shapes.values()))
+            row = dict(step=step + 1, rank=rank, world=world, resident=True, ns_mode=a.ns_mode,
+                       loss=loss, lr=opt_info["lr"], grad_norm=gnorm,
+                       fwd_s=round(t1 - t0, 4), bwd_s=round(t2 - t1, 4),
+                       fold_bwd_s=round(t2b - t2, 4), opt_s=round(t2c - t2b, 4),
+                       rebuild_s=round(t3 - t2c, 4), rebuild_split=dict(RB), idle_dev_w=len(idle),
+                       step_s=round(t3 - t0, 4), retained_B=retained,
+                       dead=len(dead), dead_names=sorted(dead)[:20],
+                       dev_base_B=base, dev_after_bwd_B=after_bwd,
+                       params=len(params), n_elems=n_elems,
+                       master_digest=md, aiclk=[min(sm or [0]), max(sm or [0])],
+                       aiclk_med=sorted(sm)[len(sm) // 2] if sm else 0,
+                       k=a.k, depth=a.depth, n=n, lnbw_reach=dict(lnbw.REACH), gate_bw=list(gate_bw.STATS),
+                       kernels={k: list(v) for k, v in __import__("tt_bio.taped_ttnn", fromlist=["x"]).KERNEL_STATS.items()},
+                       **extra, **({"pcie": pcie_snap} if pcie_snap is not None else {}),
+                       host_maxrss_GiB=round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 2**20, 3))
+        else:
+            mark("fold_bwd")
+            idle = folds.tape_backward()   # device-weight gradients through each fold's VJP into the upstream leaves
+            grads = {nm: (None if p.grad is None else p.grad.float().numpy()) for nm, p in params.items()}
+            ag.release_pins()   # the backward is done; build() released them too, one rebuild later
+            dead = zero_or_missing(grads)
+            if ax:
+                # G2 judges the gradient the optimizer steps on, the rank sum: a leaf that only another
+                # rank's example reaches (a feature embedding its batch lacks) is alive. Dead = dead on every rank.
+                order = sorted(grads)
+                hits = ax.sum_scalars([float(nm not in dead) for nm in order])
+                dead = {nm for nm, h in zip(order, hits) if h == 0.0}
+            if os.environ.get("R4T_DUMP_G") and step == start:
+                import numpy as _np
+                _np.savez(os.environ["R4T_DUMP_G"], **{nm.replace(".", "__"): g for nm, g in grads.items()
+                                                        if g is not None and "pair_update_layers" in nm})
+            if a.grad_dump:
+                import numpy as _np
+                sm = clk[c0:] or clk[-1:]
+                _np.savez(a.grad_dump + ".npz", **{nm: g for nm, g in grads.items() if g is not None})
+                meta = dict(extra, loss=loss, arm=a.arm, attn_fp32=a.attn_fp32, levers=sorted(levers) if not isinstance(levers, str) else levers,
+                            dtype=str(trunk.dtype), n=n, card=card, aiclk=[min(sm or [0]), max(sm or [0])],
+                            exact={"%s/%s" % k: v for k, v in sorted(EX.EXACT_STATS.items())},
+                            no_grad=sorted(nm for nm, g in grads.items() if g is None), sha=os.environ.get("TT_BIO_SHA", ""))
+                open(a.grad_dump + ".json", "w").write(json.dumps(meta, indent=1, default=str))
+                print(json.dumps(dict(grad_dump=a.grad_dump, n_grads=len(grads), loss=loss, aiclk=meta["aiclk"],
+                                      exact=meta["exact"])), flush=True)
+                stop.set()
+                arm.close()
+                return 0
+            t2b = time.time()
+            mark("opt")
+            opt.step(replicas={nm: [g] for nm, g in grads.items() if g is not None}) if ax else opt.step()
+            for p in params.values():
+                p.grad = None
+            t2c = time.time()
+            mark("rebuild")
+            build(lazy=False)
+            ttnn.synchronize_device(dev)
+            t3 = time.time()
+            mark("digest")
+            del s, z, st
+            md = hashlib.sha256(b"".join(opt.master[k].tobytes() for k in sorted(opt.master))).hexdigest()[:16]
+            sm = clk[c0:] or clk[-1:]
+            gnorm = math.hypot(opt.last_grad_norm, getattr(opt, "last_grad_norm_muon", 0.0))
+            row = dict(step=step + 1, rank=rank, world=world, loss=loss, lr=opt.last_lr, grad_norm=gnorm,
+                       fwd_s=round(t1 - t0, 4), bwd_s=round(t2 - t1, 4),
+                       fold_bwd_s=round(t2b - t2, 4), opt_s=round(t2c - t2b, 4), rebuild_s=round(t3 - t2c, 4), rebuild_split=dict(RB), idle_dev_w=len(idle), step_s=round(t3 - t0, 4), retained_B=retained,
+                       dead=len(dead), dead_names=sorted(dead)[:20], dev_base_B=base, dev_after_bwd_B=after_bwd, params=len(params), n_elems=int(sum(v.size for v in opt.master.values())),
+                       master_digest=md, aiclk=[min(sm or [0]), max(sm or [0])], aiclk_med=sorted(sm)[len(sm) // 2] if sm else 0,
+                       k=a.k, depth=a.depth, n=n, lnbw_reach=dict(lnbw.REACH), gate_bw=list(gate_bw.STATS), kernels={k: list(v) for k, v in __import__("tt_bio.taped_ttnn", fromlist=["x"]).KERNEL_STATS.items()}, **extra,
+                       **({"pcie": PM.take()} if PM else {}), host_maxrss_GiB=round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 2**20, 3))
         print(json.dumps(row), flush=True)
         if on_step is not None:
             on_step({**row, "s": row["step_s"]})

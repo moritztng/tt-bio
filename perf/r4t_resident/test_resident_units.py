@@ -1,16 +1,17 @@
-"""Hardware verification for DeviceOptimizer, DeviceHeads + device_insertion_loss, and DeviceFolds.
+"""Hardware verification for u32 fp32 ops, DeviceHeads + device_insertion_loss, DeviceFolds, and DeviceOptimizer.
 
 Runs on one Blackhole chip (anx-glx or qb2) and verifies:
-1. DeviceOptimizer: all 558 RFD4 params (282 Muon + 276 Adam), 1-step parity vs float64 host
-   reference, zero-grad decay rule, reduce_fn hook, and split2/split2_hifi4/fp32 wall times.
-2. DeviceHeads + device_insertion_loss on real batch08 (all 5 loss terms active):
+0. u32 bitcast op smoke: verifies uint32 bitcast + clone/slice/concat/repeat preserve exact fp32 bits.
+1. DeviceHeads + device_insertion_loss on real batch08 (all 5 loss terms active):
    - FD-validated float64 reference (fd_check < 2e-6)
    - Grad-off byte-identical A/A + forward parity vs host FlowGlue.heads
    - Taped VJP graded per D28 on d_s + all 8 head weights with 0 pair-sized PCIe transfers
    - Broken arms (gross + subtle x1.10) both FAIL
-3. DeviceFolds on full RFD4 Trunk + prewarm(256,1/4) + DeviceHeads:
-   - refold(): 0 PCIe bytes, parity on all 714 weights vs fresh host build, wall time
-   - tape_backward(): 0 PCIe bytes, parity on all leaf grads vs host Folds.backward, wall time
+2. DeviceFolds on full RFD4 Trunk + prewarm(256,1/4) + DeviceHeads:
+   - refold(): 0 PCIe bytes, exact fp32/bf16 parity across all 714 weights vs fresh host build, warm wall time
+   - tape_backward(): 0 PCIe bytes, exact parity (<1e-4) across all leaf grads vs host Folds.backward, warm wall time
+3. DeviceOptimizer on exact 558 trained RFD4 params:
+   - Zero-grad decay rule, reduce_fn hook, EMA 0.999 shadows, warm step wall times for split2/split2_hifi4/fp32.
 """
 
 from __future__ import annotations
@@ -25,9 +26,9 @@ import time
 import numpy as np
 
 
-def _aiclk_sampler(card: int):
+def _aiclk_sampler(node: int):
     clk, stop = [], threading.Event()
-    path = f"/sys/class/tenstorrent/tenstorrent!{card}/tt_aiclk"
+    path = f"/sys/class/tenstorrent/tenstorrent!{node}/tt_aiclk"
 
     def run():
         while not stop.is_set():
@@ -47,9 +48,7 @@ def _rel_l2(a: np.ndarray, b: np.ndarray) -> float:
     b64 = np.asarray(b, np.float64).ravel()
     den = float(np.linalg.norm(b64))
     num = float(np.linalg.norm(a64 - b64))
-    if den == 0.0:
-        return num
-    return num / den
+    return num if den == 0.0 else num / den
 
 
 def _cos(a: np.ndarray, b: np.ndarray) -> float:
@@ -79,16 +78,82 @@ def _load_npz_batch(path: str) -> dict:
     return batch
 
 
+def test_u32_smoke(dev):
+    """Verify bit-exact fp32 helpers using uint32 bitcast on ttnn==0.68.0."""
+    import torch
+    import ttnn
+    from tt_bio.train.folds import (
+        _dev_clone_f32, _dev_concat_f32, _dev_expand_f32,
+        _dev_mul_f32, _dev_reduce_to_f32, _dev_reshape_f32, _dev_slice_f32,
+    )
+
+    print("\n=== [0/3] Bit-exact uint32 fp32 DeviceFolds op smoke ===", flush=True)
+    rng = np.random.default_rng(7)
+    x_np = rng.standard_normal((64, 64)).astype(np.float32)
+    x_tt = ttnn.from_torch(torch.from_numpy(x_np), dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev)
+
+    # 1. clone
+    c_tt = _dev_clone_f32(x_tt)
+    c_np = ttnn.to_torch(c_tt).numpy()
+    assert np.array_equal(c_np, x_np), f"clone bit mismatch: max={np.max(np.abs(c_np - x_np))}"
+    ttnn.deallocate(c_tt)
+
+    # 2. aligned slice + concat
+    s0 = _dev_slice_f32(x_tt, 1, 0, 32)
+    s1 = _dev_slice_f32(x_tt, 1, 32, 64)
+    cat_tt = _dev_concat_f32([s0, s1], 1)
+    cat_np = ttnn.to_torch(cat_tt).numpy()
+    assert np.array_equal(cat_np, x_np), f"aligned slice/concat mismatch: max={np.max(np.abs(cat_np - x_np))}"
+    for t in (s0, s1, cat_tt, x_tt):
+        ttnn.deallocate(t)
+
+    # 3. unaligned slice/concat (384, 12) + (384, 12) -> (384, 24) (bias_ws)
+    a_np = rng.standard_normal((384, 12)).astype(np.float32)
+    b_np = rng.standard_normal((384, 12)).astype(np.float32)
+    a_tt = ttnn.from_torch(torch.from_numpy(a_np), dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev)
+    b_tt = ttnn.from_torch(torch.from_numpy(b_np), dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev)
+    ab_tt = _dev_concat_f32([a_tt, b_tt], 1)
+    ab_np = ttnn.to_torch(ab_tt).numpy()
+    assert np.array_equal(ab_np, np.concatenate([a_np, b_np], axis=1)), (
+        f"unaligned concat mismatch: max={np.max(np.abs(ab_np - np.concatenate([a_np, b_np], axis=1)))}"
+    )
+    ab_s0 = _dev_slice_f32(ab_tt, 1, 0, 12)
+    ab_s1 = _dev_slice_f32(ab_tt, 1, 12, 24)
+    assert np.array_equal(ttnn.to_torch(ab_s0).numpy(), a_np), "unaligned slice 0 mismatch"
+    assert np.array_equal(ttnn.to_torch(ab_s1).numpy(), b_np), "unaligned slice 1 mismatch"
+
+    # 4. width-1 reshape (384,) -> (384, 1) and broadcast mul (384, 12) * (384, 1) + reduce back to (384, 1)
+    w_np = rng.standard_normal((384,)).astype(np.float32)
+    w_tt = ttnn.from_torch(torch.from_numpy(w_np), dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev)
+    w_col = _dev_reshape_f32(w_tt, (384, 1))
+    assert np.array_equal(ttnn.to_torch(w_col).numpy(), w_np[:, None]), "width-1 reshape mismatch"
+    mul_tt = _dev_mul_f32(a_tt, w_col)
+    mul_rel = _rel_l2(ttnn.to_torch(mul_tt).numpy(), a_np * w_np[:, None])
+    assert mul_rel < 1e-6, f"broadcast mul (384,12)*(384,1) mismatch: {mul_rel}"
+    red_tt = _dev_reduce_to_f32(mul_tt, (384, 1))
+    red_rel = _rel_l2(ttnn.to_torch(red_tt).numpy(), (a_np * w_np[:, None]).sum(axis=1, keepdims=True))
+    assert red_rel < 1e-6, f"reduce_to (384,1) mismatch: {red_rel}"
+
+    # 5. expand (384, 1) -> (384, 12)
+    exp_tt = _dev_expand_f32(w_col, (384, 12))
+    assert np.array_equal(ttnn.to_torch(exp_tt).numpy(), np.broadcast_to(w_np[:, None], (384, 12))), "expand mismatch"
+
+    for t in (a_tt, b_tt, ab_tt, ab_s0, ab_s1, w_tt, w_col, mul_tt, red_tt, exp_tt):
+        ttnn.deallocate(t)
+    print(f"  u32 fp32 smoke PASS (mul_rel={mul_rel:.2e}, red_rel={red_rel:.2e})", flush=True)
+    return {"mul_rel": mul_rel, "red_rel": red_rel}
+
+
 def test_heads(dev, glue, batch8_path: str, pcie_meter_mod):
     import torch
     import ttnn
     from tt_bio import autograd as ag
-    from tt_bio.rfd4.heads import DeviceHeads, device_insertion_loss
+    from tt_bio.rfd4.heads import DeviceHeads
+    from tt_bio.train.rfd4_heads import device_insertion_loss
     from tt_bio.train import rfd4_objective as OBJ
 
     print("\n=== [1/3] DeviceHeads + device_insertion_loss (batch08, all 5 terms) ===", flush=True)
     batch = _load_npz_batch(batch8_path)
-    # Use single winner example [0:1] so b=1, n=256 (same as winner pass)
     b1 = {}
     for k, v in batch.items():
         if isinstance(v, dict):
@@ -100,16 +165,14 @@ def test_heads(dev, glue, batch8_path: str, pcie_meter_mod):
     b1["exploration_k"] = 1
     b, n = b1["padding_mask"].shape
     n_pad = ((n + 31) // 32) * 32
-    print(f"  batch08 b={b}, n={n}, n_pad={n_pad}, ins_rows={(b1['insertion_source_idx'] >= 0).sum().item()}", flush=True)
+    print(f"  batch08 b={b}, n={n}, n_pad={n_pad}, ins_rows={(b1[insertion_source_idx] >= 0).sum().item()}", flush=True)
 
-    # Synthetic s with realistic scale (~1.0), masked on padding
     rng = np.random.default_rng(42)
     s_np = (rng.standard_normal((b, n, 768)).astype(np.float32) * 0.5)
     s_np *= b1["padding_mask"].numpy()[..., None].astype(np.float32)
     s_pad_np = np.zeros((b, n_pad, 768), dtype=np.float32)
     s_pad_np[:, :n, :] = s_np
 
-    # --- Float64 reference + FD check ---
     def host_f64_loss_and_grads(s64_t, head_w64):
         from tt_bio._vendor.rfd4_prep._cif.model_masks import compute_flow_emit_masks
         emit = compute_flow_emit_masks(b1)
@@ -136,7 +199,6 @@ def test_heads(dev, glue, batch8_path: str, pcie_meter_mod):
             "insertion_logits": v_ins.detach().numpy(),
         }
         tot, brk, seeds = OBJ.rfd4_loss(b1, outs_np, OBJ.WEIGHTS)
-        # Backprop seeds through float64 heads
         loss_proxy = (
             (v_ca * torch.as_tensor(seeds["v_bb_ca"])).sum()
             + (v_ll * torch.as_tensor(seeds["v_local_latents"])).sum()
@@ -162,7 +224,6 @@ def test_heads(dev, glue, batch8_path: str, pcie_meter_mod):
     s64 = torch.from_numpy(s_np.astype(np.float64)).requires_grad_(True)
     tot64, brk64, outs64, seeds64, g64 = host_f64_loss_and_grads(s64, head_w64)
 
-    # Validate float64 reference via central finite differences along 3 random directions!
     fd_errs = []
     for key_fd in ("s", "ca_w", "ins_q_w"):
         eps = 1e-6
@@ -188,7 +249,6 @@ def test_heads(dev, glue, batch8_path: str, pcie_meter_mod):
     print(f"  FD check on float64 ref: {fd_errs} (max={max_fd:.2e})", flush=True)
     assert max_fd < 2e-6, f"FD check failed: {fd_errs}"
 
-    # --- Build DeviceHeads + grad-off A/A check ---
     dheads = DeviceHeads(glue, dev)
     glue._device_heads = dheads
     s_tt = ttnn.from_torch(torch.from_numpy(s_pad_np), dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev)
@@ -215,129 +275,105 @@ def test_heads(dev, glue, batch8_path: str, pcie_meter_mod):
     assert all(d[0] == 0.0 for d in aa_diffs.values()), f"A/A not bit-identical: {aa_diffs}"
     assert all(d[1] < 1e-2 for d in aa_diffs.values()), f"Fwd parity failed: {aa_diffs}"
 
-    # --- Taped forward + on-card insertion_loss + taped backward ---
     def run_taped_heads(broken_mode: str = "none"):
         ag.forget_parameters()
         head_handles = {
-            "ca_norm_w": dheads.ca_norm_w,
-            "ca_w": dheads.ca_w,
-            "ll_norm_w": dheads.ll_norm_w,
-            "ll_w": dheads.ll_w,
-            "seq_norm_w": dheads.seq_norm_w,
-            "seq_w": dheads.seq_w,
-            "ins_q_w": dheads.ins_q_w,
-            "ins_k_w": dheads.ins_k_w,
+            "ca_norm_w": dheads.ca_norm_w, "ca_w": dheads.ca_w,
+            "ll_norm_w": dheads.ll_norm_w, "ll_w": dheads.ll_w,
+            "seq_norm_w": dheads.seq_norm_w, "seq_w": dheads.seq_w,
+            "ins_q_w": dheads.ins_q_w, "ins_k_w": dheads.ins_k_w,
         }
         p_leaves = {k: ag.parameter(h) for k, h in head_handles.items()}
         for pl in p_leaves.values():
             pl.grad = None
 
-        if pcie_meter_mod is not None and broken_mode == "none":
+        if pcie_meter_mod is not None:
             pcie_meter_mod.take()
-            pcie_meter_mod.phase("heads_fwd_bwd")
+            pcie_meter_mod.phase("heads_taped")
 
-        s_var = ag.Tensor(s_tt, requires_grad=True)
+        s_in = ag.Tensor(s_tt, requires_grad=True)
         with ag.tape():
-            dout = glue.heads(s_var, b1, insertion=True)
+            o = glue.heads(s_in, b1, insertion=True)
+        ca_t = next(iter(o["bb_ca"].values()))
+        ll_t = next(iter(o["local_latents"].values()))
+        seq_t = o["sequence"]["logits"]
+        ins_t = o["insertion"]["logits"]
 
-        # Download ONLY 1-D heads (NO insertion_logits download!)
-        outs_1d = {
-            "v_bb_ca": ttnn.to_torch(dout["bb_ca"]["v"].value).numpy()[:, :n, :],
-            "v_local_latents": ttnn.to_torch(dout["local_latents"]["v"].value).numpy()[:, :n, :],
-            "sequence_logits": ttnn.to_torch(dout["sequence"]["logits"].value).numpy()[:, :n, :],
+        ok = {
+            "v_bb_ca": ttnn.to_torch(ca_t.value).float().numpy()[:, :n, :3].astype(np.float64),
+            "v_local_latents": ttnn.to_torch(ll_t.value).float().numpy()[:, :n, :32].astype(np.float64),
+            "sequence_logits": ttnn.to_torch(seq_t.value).float().numpy()[:, :n, :147].astype(np.float64),
         }
-        tot_1d, brk_1d, seeds_1d = OBJ.rfd4_loss(b1, outs_1d, OBJ.WEIGHTS)
-        win = np.asarray(brk_1d["winners"], np.int64)
+        tot_non_ins, _bd, seeds = OBJ.rfd4_loss(b1, ok, OBJ.WEIGHTS)
         ins_w = float(OBJ.WEIGHTS["insertion_prediction"])
-        ins_loss_np, dz_ins = device_insertion_loss(
-            dout["insertion"]["logits"], b1, win=win, weight=ins_w)
-        tot_dev = tot_1d + ins_w * float(ins_loss_np[win].mean())
-
+        ins_loss_np, dz_ins = device_insertion_loss(ins_t, b1, weight=ins_w)
         if broken_mode == "gross":
-            # Drop insertion grad completely
-            dz_ins_use = ttnn.multiply(dz_ins, 0.0)
             ttnn.deallocate(dz_ins)
-            dz_ins = dz_ins_use
+            dz_ins = None
         elif broken_mode == "subtle_110":
-            # Subtle 1.10x scaling on insertion gradient
-            dz_ins_use = ttnn.multiply(dz_ins, 1.10)
-            ttnn.deallocate(dz_ins)
-            dz_ins = dz_ins_use
+            dz_old = dz_ins
+            dz_ins = ttnn.multiply(dz_old, 1.10)
+            ttnn.deallocate(dz_old)
 
-        def up_seed(arr):
-            pad = np.zeros((b, n_pad, arr.shape[-1]), dtype=np.float32)
-            pad[:, :n, :] = np.asarray(arr, dtype=np.float32)
-            return ttnn.from_torch(
-                torch.from_numpy(pad), dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev)
+        def up_seed(arr, d_out):
+            buf = np.zeros((b, n_pad, d_out), dtype=np.float32)
+            buf[:, :n, :d_out] = np.asarray(arr, dtype=np.float32)
+            return ttnn.from_torch(torch.from_numpy(buf), dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev)
 
-        g_ca = up_seed(seeds_1d["v_bb_ca"])
-        g_ll = up_seed(seeds_1d["v_local_latents"])
-        g_sq = up_seed(seeds_1d["sequence_logits"])
-        ag.backward(
-            [dout["bb_ca"]["v"], dout["local_latents"]["v"],
-             dout["sequence"]["logits"], dout["insertion"]["logits"]],
-            [g_ca, g_ll, g_sq, dz_ins],
-        )
-        ttnn.synchronize_device(dev)
+        outs_bwd = [ca_t, ll_t, seq_t]
+        seeds_bwd = [up_seed(seeds["v_bb_ca"], 3), up_seed(seeds["v_local_latents"], 32), up_seed(seeds["sequence_logits"], 147)]
+        if dz_ins is not None:
+            outs_bwd.append(ins_t)
+            seeds_bwd.append(dz_ins)
+        ag.backward(outs_bwd, seeds_bwd)
+        for sd in seeds_bwd:
+            ttnn.deallocate(sd)
 
-        pcie_snap = None
-        if pcie_meter_mod is not None and broken_mode == "none":
-            pcie_snap = pcie_meter_mod.take()
+        pcie_snap = pcie_meter_mod.take() if pcie_meter_mod is not None else None
 
-        # Read back grads to compare vs float64
-        got = {"s": ttnn.to_torch(s_var.grad).numpy()[:, :n, :]}
-        ttnn.deallocate(s_var.grad)
+        res_g = {}
+        res_g["s"] = ttnn.to_torch(s_in.grad).float().numpy()[:, :n, :]
+        ttnn.deallocate(s_in.grad)
         for k, pl in p_leaves.items():
-            arr = ttnn.to_torch(pl.grad).numpy()
-            if k.endswith("_norm_w"):
-                arr = arr.reshape(-1)
-            got[k] = arr
-            ttnn.deallocate(pl.grad)
-            pl.grad = None
-        for t in (g_ca, g_ll, g_sq, dz_ins):
-            ttnn.deallocate(t)
+            if pl.grad is None:
+                res_g[k] = np.zeros_like(g64[k], dtype=np.float32)
+            else:
+                res_g[k] = ttnn.to_torch(pl.grad).float().numpy().reshape(g64[k].shape)
+                ttnn.deallocate(pl.grad)
+                pl.grad = None
         ag.release_pins()
+        ag.forget_parameters()
 
-        metrics = {}
-        for k in got:
-            metrics[k] = {"rel_l2": _rel_l2(got[k], g64[k]), "cos": _cos(got[k], g64[k])}
-        return tot_dev, metrics, pcie_snap
+        rels = {k: _rel_l2(res_g[k], g64[k]) for k in g64}
+        coss = {k: _cos(res_g[k], g64[k]) for k in g64}
+        return tot_non_ins + ins_w * float(ins_loss_np[0]), rels, coss, pcie_snap
 
-    tot_dev, m_good, pcie_heads = run_taped_heads("none")
+    tot_dev, rels_ok, coss_ok, pcie_heads = run_taped_heads("none")
+    worst_rel = max(rels_ok.values())
+    min_cos = min(coss_ok.values())
     loss_rel = abs(tot_dev - tot64) / max(abs(tot64), 1e-12)
-    worst_rel = max(v['rel_l2'] for v in m_good.values())
-    worst_cos = min(v['cos'] for v in m_good.values())
-    print(f"  GOOD arm: loss_rel={loss_rel:.2e}, worst_rel={worst_rel:.3e}, min_cos={worst_cos:.6f}", flush=True)
-    for k, v in m_good.items():
-        print(f"    {k:12s}  rel_l2={v['rel_l2']:.3e}  cos={v['cos']:.6f}", flush=True)
-    if pcie_heads:
-        print(f"  Heads PCIe snapshot: {pcie_heads}", flush=True)
+    print(f"  Good arm: loss_rel={loss_rel:.3e}, worst_rel={worst_rel:.3e}, min_cos={min_cos:.6f}", flush=True)
+    for k in sorted(rels_ok):
+        print(f"    {k:12s}: rel_l2={rels_ok[k]:.3e}  cos={coss_ok[k]:.6f}", flush=True)
+    print(f"  Heads PCIe: {pcie_heads}", flush=True)
 
-    _, m_gross, _ = run_taped_heads("gross")
-    _, m_sub, _ = run_taped_heads("subtle_110")
-    gross_worst = max(v['rel_l2'] for v in m_gross.values())
-    sub_worst = max(v['rel_l2'] for v in m_sub.values())
-    print(f"  BROKEN gross worst_rel={gross_worst:.3e} (expect >5e-2 -> FAIL)", flush=True)
-    print(f"  BROKEN subtle_110 worst_rel={sub_worst:.3e} (expect >5e-2 -> FAIL)", flush=True)
+    _, rels_gross, _, _ = run_taped_heads("gross")
+    _, rels_sub, _, _ = run_taped_heads("subtle_110")
+    gross_worst = max(rels_gross.values())
+    sub_worst = max(rels_sub.values())
+    print(f"  Broken arm (gross drop insertion): worst_rel={gross_worst:.3e} (>1e-2 FAIL)", flush=True)
+    print(f"  Broken arm (subtle x1.10 ins grad): worst_rel={sub_worst:.3e} (>1e-2 FAIL)", flush=True)
 
-    assert worst_rel <= 5e-2 and worst_cos >= 0.9999, f"Heads D28 FAILED: {m_good}"
-    assert gross_worst > 5e-2, f"Gross broken arm did NOT fail: {gross_worst}"
-    assert sub_worst > 5e-2, f"Subtle broken arm did NOT fail: {sub_worst}"
-
-    ttnn.deallocate(s_tt)
-    for h in (dheads.ca_norm_w, dheads.ca_w, dheads.ll_norm_w, dheads.ll_w,
-              dheads.seq_norm_w, dheads.seq_w, dheads.ins_q_w, dheads.ins_k_w):
-        ttnn.deallocate(h)
+    dheads.deallocate()
     glue._device_heads = None
+    ttnn.deallocate(s_tt)
+
+    assert worst_rel <= 1e-2 and min_cos >= 0.9999, f"Heads VJP D28 failed: worst_rel={worst_rel}, min_cos={min_cos}"
+    assert gross_worst > 1e-2 and sub_worst > 1e-2, f"Broken arms failed to fail: {gross_worst}, {sub_worst}"
     return {
-        "max_fd_err": max_fd,
-        "aa_bit_exact": True,
-        "loss_rel": loss_rel,
-        "worst_rel": worst_rel,
-        "min_cos": worst_cos,
-        "gross_broken_worst_rel": gross_worst,
-        "subtle_110_broken_worst_rel": sub_worst,
-        "per_param": m_good,
+        "fd_max": max_fd, "aa_max_abs": max(d[0] for d in aa_diffs.values()),
+        "loss_rel": loss_rel, "worst_rel": worst_rel, "min_cos": min_cos,
+        "broken_gross": gross_worst, "broken_subtle_110": sub_worst, "pcie": pcie_heads,
     }
 
 
@@ -349,29 +385,28 @@ def test_device_folds(dev, state, cfg, glue, pcie_meter_mod):
     from tt_bio.rfd4.heads import DeviceHeads
     from tt_bio.train.folds import DeviceFolds, Folds
 
-    print("\n=== [2/3] DeviceFolds (714 weights: refold + tape_backward, 0 PCIe) ===", flush=True)
+    print("\n=== [2/3] DeviceFolds (full RFD4 Trunk + prewarm + DeviceHeads, 0 PCIe) ===", flush=True)
     full_state = dict(state)
-    for k, p in glue.named_parameters():
-        full_state[f"glue.{k}"] = p.detach()
+    for nm, p in glue.named_parameters():
+        full_state[f"glue.{nm}"] = p.detach()
 
     def find_trimuls(root):
-        seen, tms, todo = set(), [], [root]
+        seen, out, todo = set(), [], [root]
         while todo:
             o = todo.pop()
             if id(o) in seen:
                 continue
             seen.add(id(o))
             if hasattr(o, "prewarm") and hasattr(o, "width_variants"):
-                tms.append(o)
+                out.append(o)
             if isinstance(o, (list, tuple)):
                 todo.extend(o)
             elif isinstance(o, dict):
                 todo.extend(o.values())
             elif hasattr(o, "__dict__") and not isinstance(o, (torch.Tensor, ttnn.Tensor, type)):
                 todo.extend(v for v in vars(o).values() if not isinstance(v, (torch.Tensor, ttnn.Tensor)))
-        return tms
+        return out
 
-    # Build DeviceFolds + Trunk + DeviceHeads + prewarm(256, 1) and prewarm(256, 4)
     dfolds = DeviceFolds(full_state, dev)
     with dfolds.recording() as leaves:
         trunk = E.load_trunk(glue, leaves, cfg, training=True, attn_fp32=True)
@@ -380,47 +415,34 @@ def test_device_folds(dev, state, cfg, glue, pcie_meter_mod):
             m.prewarm(256, 1)
             m.prewarm(256, 4)
     n_bound = dfolds.bind(trunk, dheads)
-    print(f"  Bound {n_bound}/{len(dfolds.specs)} device weight handles, {len(dfolds._tuple_bindings)} tuples", flush=True)
+    unreached = set(dfolds.unreached())
+    used_leaf_names = [nm for nm in dfolds.leaves if nm not in unreached]
+    print(f"  Bound {n_bound} specs, {len(dfolds.nodes)} IR nodes, {len(used_leaf_names)} used leaves", flush=True)
 
-    # Create perturbed masters on host and device
-    rng = np.random.default_rng(7)
-    # Only upload masters that are actually read by specs (all 529 trunk + 8 head = 537 leaves)
-    used_leaf_names = set()
-    stack = [s.nid for s in dfolds.specs]
-    seen_n = set()
-    while stack:
-        nid = stack.pop()
-        if nid in seen_n:
-            continue
-        seen_n.add(nid)
-        nd = dfolds.nodes[nid]
-        if nd.op == "leaf":
-            used_leaf_names.add(nd.attrs["name"])
-        else:
-            stack.extend(nd.inputs)
-
+    rng = np.random.default_rng(99)
     perturbed_host = {}
     dev_masters = {}
-    for nm in sorted(used_leaf_names):
-        base = full_state[nm].detach().float()
+    for nm in used_leaf_names:
+        base = full_state[nm].detach().float().contiguous()
         delta = torch.from_numpy((rng.standard_normal(base.shape) * 0.02).astype(np.float32))
-        new_t = (base + delta).contiguous()
-        perturbed_host[nm] = new_t
-        dev_masters[nm] = ttnn.from_torch(new_t, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev)
+        w_new = (base + delta).contiguous()
+        perturbed_host[nm] = w_new
+        dev_masters[nm] = ttnn.from_torch(w_new, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev)
 
-    # Run dfolds.refold(dev_masters) under pcie_meter
+    # Warmup refold x2, then timed refold under pcie_meter
+    for _ in range(2):
+        dfolds.refold(dev_masters)
+    ttnn.synchronize_device(dev)
     if pcie_meter_mod is not None:
         pcie_meter_mod.take()
         pcie_meter_mod.phase("refold")
-    ttnn.synchronize_device(dev)
     t0 = time.time()
     dfolds.refold(dev_masters)
     ttnn.synchronize_device(dev)
     refold_s = time.time() - t0
     refold_pcie = pcie_meter_mod.take() if pcie_meter_mod is not None else None
-    print(f"  refold() time={refold_s*1000:.1f} ms, pcie={refold_pcie}", flush=True)
+    print(f"  refold() warm time={refold_s*1000:.1f} ms, pcie={refold_pcie}", flush=True)
 
-    # Verify refolded handles vs host Folds build from perturbed_host
     host_ref_state = dict(full_state)
     host_ref_state.update(perturbed_host)
     hfolds = Folds(host_ref_state)
@@ -431,7 +453,6 @@ def test_device_folds(dev, state, cfg, glue, pcie_meter_mod):
             m.prewarm(256, 1)
             m.prewarm(256, 4)
 
-    # Compare every spec by order (same build sequence -> exact 1:1 spec order)
     h_handles = [h for h, _ in hfolds.sources.values()]
     assert len(h_handles) == len(dfolds.specs), (len(h_handles), len(dfolds.specs))
     worst_by_dt = {}
@@ -441,43 +462,49 @@ def test_device_folds(dev, state, cfg, glue, pcie_meter_mod):
         rel = _rel_l2(a, b)
         dt = str(spec.dtype)
         worst_by_dt[dt] = max(worst_by_dt.get(dt, 0.0), rel)
-    print(f"  refold() max rel_l2 vs fresh host build across {len(dfolds.specs)} weights: {worst_by_dt}", flush=True)
+    print(f"  refold() max rel_l2 vs fresh host build ({len(dfolds.specs)} weights): {worst_by_dt}", flush=True)
 
-    # Now test tape_backward() on ALL 714 specs with synthetic fp32 grads!
-    # Put identical random fp32 grads on both dfolds (via ag.parameter) and hfolds (host backward).
-    host_grad_pairs = []
-    for spec, hh in zip(dfolds.specs, h_handles):
-        g_np = (rng.standard_normal(spec.shape) * 0.1).astype(np.float32)
-        g_t = torch.from_numpy(g_np)
-        g_tt = ttnn.from_torch(g_t, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev)
-        leaf = ag.parameter_for(spec.handle)
-        assert leaf is not None, f"spec not registered after refold: {spec.shape}"
-        leaf.grad = g_tt
-        host_grad_pairs.append((hh, g_t))
+    # Warmup tape_backward x1, then timed parity pass
+    def seed_all_grads():
+        pairs = []
+        for spec, hh in zip(dfolds.specs, h_handles):
+            g_np = (rng.standard_normal(spec.shape) * 0.1).astype(np.float32)
+            g_t = torch.from_numpy(g_np)
+            g_tt = ttnn.from_torch(g_t, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev)
+            leaf = ag.parameter_for(spec.handle)
+            assert leaf is not None
+            leaf.grad = g_tt
+            pairs.append((hh, g_t))
+        return pairs
 
-    # Host Folds reference backward
+    seed_all_grads()
+    warm_g, _ = dfolds.tape_backward(dev_masters)
+    for t in warm_g.values():
+        ttnn.deallocate(t)
+
+    host_grad_pairs = seed_all_grads()
+    for p in hfolds.leaves.values():
+        p.grad = None
     hfolds.backward(host_grad_pairs)
     host_leaf_grads = {
         nm: hfolds.leaves[nm].grad.detach().numpy().copy()
         for nm in used_leaf_names if hfolds.leaves[nm].grad is not None
     }
 
-    # DeviceFolds.tape_backward() under pcie_meter
+    ttnn.synchronize_device(dev)
     if pcie_meter_mod is not None:
         pcie_meter_mod.take()
         pcie_meter_mod.phase("fold_bwd")
-    ttnn.synchronize_device(dev)
     t1 = time.time()
     dev_grads, idle = dfolds.tape_backward(dev_masters)
     ttnn.synchronize_device(dev)
     bwd_s = time.time() - t1
     bwd_pcie = pcie_meter_mod.take() if pcie_meter_mod is not None else None
-    print(f"  tape_backward() time={bwd_s*1000:.1f} ms, grads={len(dev_grads)}, idle={len(idle)}, pcie={bwd_pcie}", flush=True)
+    print(f"  tape_backward() warm time={bwd_s*1000:.1f} ms, grads={len(dev_grads)}, idle={len(idle)}, pcie={bwd_pcie}", flush=True)
 
     assert set(dev_grads.keys()) == set(host_leaf_grads.keys()), (
         set(dev_grads.keys()) ^ set(host_leaf_grads.keys()))
-    worst_g_rel = 0.0
-    worst_g_name = ""
+    worst_g_rel, worst_g_name = 0.0, ""
     for nm, g_tt in dev_grads.items():
         g_dev = ttnn.to_torch(g_tt).float().numpy().reshape(host_leaf_grads[nm].shape)
         rel = _rel_l2(g_dev, host_leaf_grads[nm])
@@ -486,7 +513,6 @@ def test_device_folds(dev, state, cfg, glue, pcie_meter_mod):
         ttnn.deallocate(g_tt)
     print(f"  tape_backward() max rel_l2 across {len(host_leaf_grads)} leaves: {worst_g_rel:.3e} ({worst_g_name})", flush=True)
 
-    # Cleanup all device tensors
     for spec in dfolds.specs:
         ttnn.deallocate(spec.handle)
     for h in h_handles:
@@ -498,7 +524,6 @@ def test_device_folds(dev, state, cfg, glue, pcie_meter_mod):
     ag.release_pins()
     ag.forget_parameters()
 
-    # Check 0 PCIe bytes for both refold and fold_bwd!
     if refold_pcie:
         tot_r = sum(v.get("up_n", 0) + v.get("down_n", 0) for v in refold_pcie.values() if isinstance(v, dict))
         assert tot_r == 0, f"refold had non-zero PCIe bytes: {refold_pcie}"
@@ -509,93 +534,84 @@ def test_device_folds(dev, state, cfg, glue, pcie_meter_mod):
     assert worst_by_dt.get("DataType.FLOAT32", 0.0) < 1e-6, f"fp32 refold mismatch: {worst_by_dt}"
     assert worst_by_dt.get("DataType.BFLOAT16", 0.0) < 1e-2, f"bf16 refold mismatch: {worst_by_dt}"
     return {
-        "n_specs": n_bound,
-        "refold_ms": round(refold_s * 1000, 2),
-        "fold_bwd_ms": round(bwd_s * 1000, 2),
-        "refold_worst_by_dtype": worst_by_dt,
-        "fold_bwd_worst_rel": worst_g_rel,
-        "fold_bwd_worst_name": worst_g_name,
+        "n_specs": n_bound, "refold_ms": round(refold_s * 1000, 2),
+        "fold_bwd_ms": round(bwd_s * 1000, 2), "refold_worst_by_dtype": worst_by_dt,
+        "fold_bwd_worst_rel": worst_g_rel, "fold_bwd_worst_name": worst_g_name,
     }
 
 
-def test_device_optim(dev, state, glue):
+def test_device_optim(dev, state, glue, pcie_meter_mod):
     import torch
     import ttnn
-    from tt_bio.train.device_optim import DeviceOptimizer
-    from tt_bio.train.rfd4_objective import MUON_EXCLUDE
+    from tt_bio.train.device_optim import rfd4_device_optimizer
 
-    print("\n=== [3/3] DeviceOptimizer (all 558 RFD4 params, timing + 1-step f64 parity) ===", flush=True)
-    params = {k: v.detach().float() for k, v in state.items() if k.startswith("nn.")}
+    print("\n=== [3/3] DeviceOptimizer (exact 558 RFD4 params, warm timing + 0-pair PCIe) ===", flush=True)
+    # Match rfd4_run.py exact 558 params (trunk nn.* excluding glue-owned + all glue.*)
+    glue_keys = {f"nn.{k}" for k, _ in glue.named_parameters()}
+    params = {k: v.detach().float() for k, v in state.items() if k.startswith("nn.") and k not in glue_keys}
     for k, p in glue.named_parameters():
-        params[f"glue.{k}"] = p.detach().float()
+        if p.requires_grad:
+            params[f"glue.{k}"] = p.detach().float()
+    print(f"  Parameter count: {len(params)} ({sum(t.numel() for t in params.values())} elems)", flush=True)
 
     rng = np.random.default_rng(123)
     host_grads = {
         nm: torch.from_numpy((rng.standard_normal(t.shape) * 0.05).astype(np.float32))
         for nm, t in params.items()
     }
-    # Deliberately omit one Adam param and one Muon param to test zero-grad decay semantics!
     omitted_adam = next(nm for nm, t in params.items() if t.ndim < 2)
     omitted_muon = next(nm for nm, t in params.items() if t.ndim == 2 and nm.startswith("nn."))
 
-    # Check timing & accuracy for split2 vs split2_hifi4 vs fp32
     timings = {}
     for ns_mode in ("split2", "split2_hifi4", "fp32"):
-        opt = DeviceOptimizer(
-            params, dev,
-            lr=1e-4, adam_lr=1e-4, muon_exclude=MUON_EXCLUDE,
-            ema_decay=0.999, ns_mode=ns_mode,
-        )
-        # Upload grads once (outside step timer)
-        dev_grads = {
-            nm: ttnn.from_torch(g, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev)
-            for nm, g in host_grads.items()
-            if nm not in (omitted_adam, omitted_muon)
-        }
-        # Test reduce_fn hook on first mode
+        opt = rfd4_device_optimizer(params, dev, lr=1e-4, ema_decay=0.999, ns_mode=ns_mode)
         reduced_count = [0]
+
         def _red(g):
             reduced_count[0] += 1
             return g
 
-        # Warmup step 1 + timed step 2
-        ttnn.synchronize_device(dev)
-        t0 = time.time()
-        st1 = opt.step(dev_grads, reduce_fn=_red if ns_mode == "split2" else None)
-        ttnn.synchronize_device(dev)
-        t1 = time.time()
-        # Re-upload grads for step 2 timing
-        dev_grads2 = {
-            nm: ttnn.from_torch(g, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev)
-            for nm, g in host_grads.items()
-            if nm not in (omitted_adam, omitted_muon)
-        }
-        ttnn.synchronize_device(dev)
-        t2 = time.time()
-        st2 = opt.step(dev_grads2)
-        ttnn.synchronize_device(dev)
-        t3 = time.time()
+        step_ms = []
+        pcie_step = None
+        for it in range(4):
+            dev_grads = {
+                nm: ttnn.from_torch(g, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev)
+                for nm, g in host_grads.items()
+                if nm not in (omitted_adam, omitted_muon)
+            }
+            ttnn.synchronize_device(dev)
+            if it == 3 and pcie_meter_mod is not None:
+                pcie_meter_mod.take()
+                pcie_meter_mod.phase("opt")
+            t0 = time.time()
+            st = opt.step(dev_grads, reduce_fn=(_red if (ns_mode == "split2" and it == 0) else None), free_grads=True)
+            ttnn.synchronize_device(dev)
+            step_ms.append((time.time() - t0) * 1000.0)
+            if it == 3 and pcie_meter_mod is not None:
+                pcie_step = pcie_meter_mod.take()
 
         timings[ns_mode] = {
-            "step1_ms": round((t1 - t0) * 1000, 1),
-            "step2_ms": round((t3 - t2) * 1000, 1),
-            "muon_norm": st2['muon_norm'],
-            "adam_norm": st2['adam_norm'],
-            "n_muon": len(opt.muon_names),
-            "n_adam": len(opt.adam_names),
-            "n_buckets": len(opt._muon_buckets),
+            "cold_ms": round(step_ms[0], 1),
+            "warm_ms": round(float(np.median(step_ms[2:])), 1),
+            "muon_norm": st["muon_norm"], "adam_norm": st["adam_norm"],
+            "n_muon": len(opt.muon_names), "n_adam": len(opt.adam_names),
+            "n_muon_buckets": len(opt._muon_buckets), "n_adam_buckets": len(opt._adam_buckets),
+            "pcie": pcie_step,
         }
         if ns_mode == "split2":
             assert reduced_count[0] == len(host_grads) - 2
-            # Verify omitted Adam param did NOT move (zero-grad skips Adam moment/decay)
-            om_a_after = opt.host_master(omitted_adam).numpy()
-            om_a_diff = float(np.max(np.abs(om_a_after - params[omitted_adam].numpy())))
+            om_a_diff = float(np.max(np.abs(opt.host_master(omitted_adam).numpy() - params[omitted_adam].numpy())))
+            om_m_diff = float(np.max(np.abs(opt.host_master(omitted_muon).numpy() - params[omitted_muon].numpy())))
             assert om_a_diff == 0.0, f"Omitted Adam param moved: {om_a_diff}"
-            # Verify EMA shadow exists
+            assert om_m_diff == 0.0, f"Omitted Muon param moved: {om_m_diff}"
             assert opt.ema is not None and len(opt.ema.shadows) == len(params)
-        print(f"  {ns_mode:14s}: step1={timings[ns_mode]['step1_ms']} ms, step2={timings[ns_mode]['step2_ms']} ms "
-              f"(muon={len(opt.muon_names)} in {len(opt._muon_buckets)} buckets, adam={len(opt.adam_names)}, "
-              f"norms={st2['muon_norm']:.3f}/{st2['adam_norm']:.3f})", flush=True)
+        print(
+            f"  {ns_mode:14s}: cold={timings[ns_mode][cold_ms]} ms, warm={timings[ns_mode][warm_ms]} ms "
+            f"(muon={len(opt.muon_names)} in {len(opt._muon_buckets)} bkts, "
+            f"adam={len(opt.adam_names)} in {len(opt._adam_buckets)} bkts, "
+            f"norms={st[muon_norm]:.3f}/{st[adam_norm]:.3f}, pcie={pcie_step})",
+            flush=True,
+        )
         opt.deallocate()
 
     return timings
@@ -609,35 +625,38 @@ def main():
 
     from tt_bio.main import ensure_p300_mesh_descriptor
     ensure_p300_mesh_descriptor()
-    import ttnn
     from tt_bio import tenstorrent as T
     from tt_bio.rfd4 import engine as E, network as N
+    from tt_bio.train.provenance import open_nodes
 
-    # Load pcie_meter
     pm_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "r4t_perf")
     sys.path.insert(0, pm_dir)
     import pcie_meter as PM
     PM.install(sites=False)
 
     dev = T.get_device()
-    card = int(os.environ["TT_VISIBLE_DEVICES"].split(",")[0])
-    clk, stop, t_clk = _aiclk_sampler(card)
+    card = int(os.environ.get("TT_VISIBLE_DEVICES", "0").split(",")[0])
+    nodes = open_nodes()
+    clk_node = nodes[0] if nodes else card
+    clk, stop, t_clk = _aiclk_sampler(clk_node)
 
     state, config = N.load_checkpoint(E._resolve_weights(E.DEFAULT_WEIGHTS))
     cfg = config["nn"]
     glue = N.FlowGlue(state, config)
 
-    res = {"card": card}
+    res = {"card": card, "clk_node": clk_node}
+    res["u32_smoke"] = test_u32_smoke(dev)
     res["heads"] = test_heads(dev, glue, args.batch8, PM)
     res["device_folds"] = test_device_folds(dev, state, cfg, glue, PM)
-    res["device_optim"] = test_device_optim(dev, state, glue)
+    res["device_optim"] = test_device_optim(dev, state, glue, PM)
 
     stop.set()
     t_clk.join(timeout=1.0)
-    res['aiclk_min'] = min(clk) if clk else 0
-    res['aiclk_max'] = max(clk) if clk else 0
-    res['aiclk_n'] = len(clk)
-    print(f"\nALL 3 HARDWARE UNIT SUITES PASSED! AICLK={res['aiclk_min']}..{res['aiclk_max']} MHz (n={res['aiclk_n']})", flush=True)
+    res["aiclk_min"] = min(clk) if clk else 0
+    res["aiclk_max"] = max(clk) if clk else 0
+    res["aiclk_med"] = sorted(clk)[len(clk) // 2] if clk else 0
+    res["aiclk_n"] = len(clk)
+    print(f"\nALL HARDWARE UNIT SUITES PASSED! AICLK={res[aiclk_min]}..{res[aiclk_max]} (med={res[aiclk_med]}) MHz (n={res[aiclk_n]})", flush=True)
     if args.out:
         with open(args.out, "w") as f:
             json.dump(res, f, indent=2)
