@@ -82,6 +82,7 @@ class DockOptions:
     pocket_radius: float = 5.0              # evaluate.py --pocket_cutoff
     save_trajectory: bool = False
     seed: int | None = None                 # tt-bio extension; upstream uses the global RNG
+    device: str = "cpu"                     # "tt": the score network's convolutions on a card
     minimize: str = "none"
     gnina_path: str = "gnina"
     limit_failures: int = int(RECIPE["limit_failures"])
