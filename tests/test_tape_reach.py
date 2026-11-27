@@ -57,6 +57,11 @@ ALLOWED = {
     # `train/folds.py` patches the real `ttnn.from_torch` while the model is built (as `lineage.py`
     # does) and moves gradients only after the tape replay has finished (as `mesh.py` does).
     "train/bridge.py", "train/folds.py", "train/device_optim.py",
+    # `train/rfd4_run.py` is the RFD4 step driver, moved verbatim from perf/r4t_step/trunk_step.py
+    # (D56) and pinned by an A/A on master digests. Its own uploads under a tape are the
+    # trunk's inputs and seeds, which it wraps itself; the network's taped work runs in the
+    # trunk's modules, and the host glue crosses through `train/bridge.py`.
+    "train/rfd4_run.py",
     # `af2_structure.Card` uploads its leaves with the raw `from_torch` and tapes its own VJPs
     # (`sqrt`, `reciprocal` on `.value`, then `autograd._tape`), so the shim would tape them
     # twice. It defers the import for the same `pin_card()` reason as `bindcraft2.py`, which
