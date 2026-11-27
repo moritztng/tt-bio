@@ -363,3 +363,47 @@ def test_rfd4_run_resident_audit_wiring():
     assert "if a.freeze:" in src
     # Ensure rfd4_run parses cleanly and keeps single top-level step branch.
     assert any(isinstance(n, ast.FunctionDef) and n.name == "main" for n in ast.walk(tree))
+
+
+def test_refold_hook_populates_empty_t1_cache_on_resume(monkeypatch):
+    """After --resume, tri._t1_w is empty before step 1; refold_hook must populate it
+    from dev_masters so _t1_in never lazily reads stale step-0 host weights."""
+    import tt_bio.train.folds as F
+
+    fake_ttnn = _make_fake_ttnn()
+    monkeypatch.setitem(sys.modules, "ttnn", fake_ttnn)
+    monkeypatch.setattr(F, "_dev_concat_f32", lambda xs, dim: _FakeTensor(
+        torch.cat([x._data for x in xs], dim=dim), "float32"))
+    monkeypatch.setattr(F, "_dev_transpose_2d", lambda x: _FakeTensor(x._data.t().contiguous(), "float32"))
+
+    tri = types.SimpleNamespace(_t1_w={})
+    pu = types.SimpleNamespace(tri_out=tri, tri_in=None)
+    trunk = types.SimpleNamespace(
+        pair_updates={0: pu},
+        blocks=(),
+        _levers=frozenset({"trimul_t1", "trimul_t1w8"}),
+    )
+    hook = F.make_rfd4_refold_hook(trunk)
+    pfx = "nn.pair_update_layers.0.tri_mult_out."
+    dev_masters = {
+        pfx + "linear_a_p.weight": _FakeTensor(torch.full((4, 4), 2.0), "float32"),
+        pfx + "linear_b_p.weight": _FakeTensor(torch.full((4, 4), 3.0), "float32"),
+        pfx + "linear_a_g.weight": _FakeTensor(torch.full((4, 4), 4.0), "float32"),
+        pfx + "linear_b_g.weight": _FakeTensor(torch.full((4, 4), 5.0), "float32"),
+        pfx + "linear_g.weight": _FakeTensor(torch.full((4, 4), 6.0), "float32"),
+    }
+    hook(dev_masters)
+    assert True in tri._t1_w, "refold_hook left _t1_w empty on resume"
+    wp, wg, wgo = tri._t1_w[True]
+    assert wp.shape == (8, 4) and torch.allclose(wp._data[:4], torch.full((4, 4), 2.0))
+    assert torch.allclose(wp._data[4:], torch.full((4, 4), 3.0))
+    assert wg.shape == (8, 4) and torch.allclose(wg._data[:4], torch.full((4, 4), 4.0))
+    assert torch.allclose(wg._data[4:], torch.full((4, 4), 5.0))
+    assert wgo is not None and torch.allclose(wgo._data, torch.full((4, 4), 6.0))
+    # Without trimul_t1 in trunk._levers, empty _t1_w stays empty (no extra DRAM allocated).
+    tri2 = types.SimpleNamespace(_t1_w={})
+    trunk2 = types.SimpleNamespace(pair_updates={0: types.SimpleNamespace(tri_out=tri2, tri_in=None)},
+                                   blocks=(), _levers=frozenset())
+    F.make_rfd4_refold_hook(trunk2)(dev_masters)
+    assert tri2._t1_w == {}
+
