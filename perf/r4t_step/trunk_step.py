@@ -57,10 +57,10 @@ def main():
     ap.add_argument("--cand-pair", choices=("host", "card"), default="card",
                     help="where the grad-off K-candidate pass builds z_init: host (upstream's builder) or the serving "
                          "card path (rfd4.pair.PairOnCard: host constant + bins, card assembly).")
-    ap.add_argument("--win-pair", choices=("host", "card"), default="host",
+    ap.add_argument("--win-pair", choices=("host", "card"), default="card",
                     help="where the taped winner builds z_init and runs its backward: host (upstream's builder, torch "
                          "autograd, the pair and its gradient over PCIe) or the card (PairOnCard.taped; needs --cand-pair card)")
-    ap.add_argument("--cand-levers", choices=("training", "serving", "inference", "serve"), default="serving",
+    ap.add_argument("--cand-levers", choices=("training", "serving", "inference", "serve"), default="serve",
                     help="lever set of the grad-off K-candidate pass: the training set, or that set plus the dropped levers that "
                          "switch at run time (pair_bf16z, dit_sigf32, tok_recycle_mm; r4t-perf K2). The pass only picks the "
                          "winner, so the gradient is unchanged whenever the winner is; inference also lets the fused kernels without a tape entry "
@@ -80,6 +80,10 @@ def main():
     ap.add_argument("--attn-fp32", choices=("on", "off"), default="on",
                     help="q/k/v projections, q/k norms and attention in float32 (load_trunk attn_fp32). On by default: "
                          "with it off (bf16 attention) the RFD4 curve spikes at step 823 and fails G3; off is the opt-out")
+    ap.add_argument("--dw-2d", choices=("on", "off"), default="off",
+                    help="2D multicast program_config for long-K dW matmuls (tt_bio.mm_layout.DW_2D, r4t-perf B1)")
+    ap.add_argument("--recycle-serve", choices=("off", "fp32", "bf16"), default="off",
+                    help="run non-final winner recycle cycles under ops.suspend_tape() for serving fused kernels (r4t-perf K15)")
     ap.add_argument("--gate-bw", choices=("on", "off"), default="on",
                     help="backward of every o * sigmoid(g) gate as one kernel (tt_bio.gate_bw, r4t-perf G1) or the "
                          "seven-op composed path")
@@ -138,7 +142,10 @@ def main():
     lnbw.WEIGHTS = a.lnbw_weights == "on"
     from tt_bio import gate_bw
     gate_bw.GATE_BW_FUSED = a.gate_bw == "on"
+    from tt_bio import mm_layout as _mml
+    _mml.DW_2D = a.dw_2d == "on"
     from tt_bio.rfd4 import network as N, engine as E, trunk as TR
+    TR.RECYCLE_SERVE = "" if a.recycle_serve == "off" else a.recycle_serve
     from tt_bio.train.folds import Folds
     from tt_bio.train.checkpoint import Checkpointer, load_adapter
     from tt_bio.train.optim import AdamW
@@ -451,10 +458,11 @@ def main():
                 if pc and a.win_pair == "card":
                     # r4t-perf P2: the winner's pair on the card from the candidate pass's constant, its backward too
                     from tt_bio.rfd4.pair import PairInputs
+                    from tt_bio.train.rfd4_pair import pair_taped
                     s_i = glue.init_repr_factory(bw) * bw["padding_mask"][..., None]
                     gamma, beta = glue.pair_split.modulation(bw)
                     zw = PairInputs(z0.constant, z0.bins[win:win + 1], z0.scale[win:win + 1], gamma, beta)
-                    z_in = pc.taped(zw, br, bw, trunk.pair_dtype(m1))
+                    z_in = pair_taped(pc, zw, br, bw, trunk.pair_dtype(m1))
                 else:
                     s_i, z_i = glue.initial_states(bw)
                     z_in = br.up(z_i, trunk.pair_dtype(m1))

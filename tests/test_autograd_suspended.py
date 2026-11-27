@@ -71,3 +71,24 @@ def test_suspended_refuses_inside_tape():
         with pytest.raises(RuntimeError, match="outside autograd.tape"):
             with ag.suspended():
                 pass
+
+
+def test_suspend_tape_inside_tape():
+    import ttnn
+    from tt_bio import taped_ttnn
+    from tt_bio.rfd4 import trunk as TR
+    with ag.tape():
+        assert bool(taped_ttnn._SHIMMED) is True
+        assert ops.taping() is True
+        assert TR.ttnn is not ttnn
+        with ops.suspend_tape():
+            assert ops.taping() is False
+            assert TR.ttnn is ttnn
+            assert ops.declines_under_tape("pair_relu") is False
+        assert bool(taped_ttnn._SHIMMED) is True
+        assert ops.taping() is True
+        assert TR.ttnn is not ttnn
+        w = ops.wrap_untaped("raw")
+        assert isinstance(w, ag.Tensor) and w.requires_grad is False and w.value == "raw"
+    assert bool(taped_ttnn._SHIMMED) is False
+    assert TR.ttnn is ttnn

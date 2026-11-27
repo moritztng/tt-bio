@@ -1920,6 +1920,31 @@ def recompute_scope():
 
 
 @contextlib.contextmanager
+def suspend():
+    """Temporarily unshim ttnn and clear autograd hooks inside an active `tape()` for a grad-off
+    non-final recycle cycle, restoring the exact shimmed tape and hooks on exit while preserving
+    registered parameters and live taped tensors."""
+    if not _SHIMMED:
+        with ag.suspended():
+            yield
+        return
+    from . import ops
+    _swap(False)
+    prev = (ops.set_recycle_hook(None),
+            ops.set_checkpoint_hook(None),
+            ops.set_host_softmax_hook(None),
+            ops.set_grad_hook(None),
+            ops.set_suspend_tape_hook(None),
+            ops.set_wrap_untaped_hook(None))
+    try:
+        with ag.without_exact():
+            yield
+    finally:
+        ag._restore_hooks(prev)
+        _swap(True)
+
+
+@contextlib.contextmanager
 def tape():
     """Make the shipped forward differentiable for the duration of the block.
 

@@ -4192,8 +4192,17 @@ def _checkpoint_segment(fn, *inputs):
     return checkpoint(fn, *inputs, params=_ALL_PARAMS)
 
 
+def _suspend_tape_cm():
+    from .taped_ttnn import suspend
+    return suspend()
+
+
+def _wrap_untaped(t):
+    return t if isinstance(t, Tensor) else Tensor(t, requires_grad=False)
+
+
 def _install_hooks():
-    """The four hooks, and nothing else. What `tape()` re-arms on every entry. Returns the four
+    """The autograd hooks, and nothing else. What `tape()` re-arms on every entry. Returns what
     it replaced, in `_restore_hooks` order."""
     from . import ops
     # A recycling model asks `ops.recycle_region` whether a non-final cycle is differentiated.
@@ -4203,18 +4212,22 @@ def _install_hooks():
             # The host float64 softmax a construction site may select. Injected rather than
             # imported, so `tt_bio/tenstorrent.py` can offer the lever without reaching the tape.
             ops.set_host_softmax_hook(host_f64_softmax),
-            ops.set_grad_hook(_hook))
+            ops.set_grad_hook(_hook),
+            ops.set_suspend_tape_hook(_suspend_tape_cm),
+            ops.set_wrap_untaped_hook(_wrap_untaped))
 
 
 def _restore_hooks(prev):
     """Put back what `_install_hooks` replaced. A checkpoint hook left behind sends a later
     inference forward through `checkpoint`, which hands raw ttnn verbs an `autograd.Tensor`."""
     from . import ops
-    recycle, ckpt, host_softmax, grad = prev
+    recycle, ckpt, host_softmax, grad, susp, wrap = prev
     ops.set_recycle_hook(recycle)
     ops.set_checkpoint_hook(ckpt)
     ops.set_host_softmax_hook(host_softmax)
     ops.set_grad_hook(grad)
+    ops.set_suspend_tape_hook(susp)
+    ops.set_wrap_untaped_hook(wrap)
 
 
 # What each open `install()` armed, innermost last, so `uninstall()` takes out exactly what its
@@ -4256,6 +4269,8 @@ def uninstall(*, exact_softmax: bool = False) -> None:
     ops.set_host_softmax_hook(None)
     if _INSTALL_EXACT:
         _uninstall_exact(_INSTALL_EXACT.pop())
+    ops.set_suspend_tape_hook(None)
+    ops.set_wrap_untaped_hook(None)
     ops.set_grad_hook(None)
 
 
@@ -4281,7 +4296,9 @@ def suspended():
     prev = (ops.set_recycle_hook(None),
             ops.set_checkpoint_hook(None),
             ops.set_host_softmax_hook(None),
-            ops.set_grad_hook(None))
+            ops.set_grad_hook(None),
+            ops.set_suspend_tape_hook(None),
+            ops.set_wrap_untaped_hook(None))
     try:
         with without_exact():
             yield

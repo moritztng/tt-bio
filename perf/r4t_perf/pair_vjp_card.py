@@ -13,6 +13,7 @@ from loss_parity_reference import load_batch
 from tt_bio.rfd4 import network as N, engine as E
 from tt_bio.rfd4.pair import PairSplit, PairOnCard, PairInputs
 from tt_bio.train.bridge import Bridge
+from tt_bio.train.rfd4_pair import pair_taped
 
 batch, win = sys.argv[1], int(sys.argv[2]) if len(sys.argv) > 2 else 0
 state, config = N.load_checkpoint(E._resolve_weights(E.DEFAULT_WEIGHTS))
@@ -56,7 +57,7 @@ pb.requires_grad_(True)
 gamma, beta = split.modulation(bw)
 br = Bridge(dev, ttnn.float32)
 with ag.tape():
-    zt = pc.taped(PairInputs(z0.constant, z0.bins[win:win + 1], z0.scale[win:win + 1], gamma, beta), br, bw, ttnn.float32)
+    zt = pair_taped(pc, PairInputs(z0.constant, z0.bins[win:win + 1], z0.scale[win:win + 1], gamma, beta), br, bw, ttnn.float32)
     zc = ttnn.to_torch(zt.value).float().reshape(1, n, n, 384)
     ag.backward([zt], [ttnn.from_torch(G, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev)])
 back = [(h, ttnn.to_torch(leaf.grad).to(h.dtype).reshape(h.shape)) for h, leaf in br.ups if leaf.grad is not None]
