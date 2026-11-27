@@ -114,4 +114,7 @@ def load(options, *, cache=None, download: bool = False) -> ScoreNetwork:
     from tt_bio.tenstorrent import get_device
 
     ensure_p300_mesh_descriptor()
-    return DeviceScoreNetwork(host, get_device())
+    # The fp32 GEMM form is the approved default: the fused edge-tile kernel is 3.9x faster
+    # whole-step but its pose and SE(3) re-grade is not finished, and a measured win is not
+    # made the default before the accuracy bar clears it.
+    return DeviceScoreNetwork(host, get_device(), edge_tp="gemm")
