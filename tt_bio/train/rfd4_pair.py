@@ -125,30 +125,48 @@ class _PairStepCache:
             setattr(self, attr, None)
 
 
-def _norm_adaln_on_card(x, lnw_tt, gamma_tt, beta_tt, e1: float, e2: float, c: int, cfg):
+_INV_C_COL_CACHE: dict = {}
+
+
+def _fast_row_mean(v, c: int, cfg, cg):
+    """All-core fp32 last-dim mean of ``[B, N, N, C]`` -> ``[B, N, N, 1]`` via cached ``[C, 1]`` matmul."""
+    dev = v.device()
+    key = (id(dev), int(c))
+    col = _INV_C_COL_CACHE.get(key)
+    if col is None or not col.is_allocated():
+        col = ttnn.from_torch(
+            torch.full((int(c), 1), 1.0 / float(c), dtype=torch.float32),
+            dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev,
+        )
+        _INV_C_COL_CACHE[key] = col
+    return ttnn.matmul(v, col, dtype=ttnn.float32, compute_kernel_config=cfg, core_grid=cg)
+
+
+def _norm_adaln_on_card(x, lnw_tt, gamma_tt, beta_tt, e1: float, e2: float, c: int, cfg, cg,
+                        *, return_saved: bool = False):
     """Run PairReprBuilder's RMSNorm -> ln_out -> AdaLN RMSNorm -> gamma/beta strictly on card."""
-    mean = lambda v: ag._row_mean(v, cfg, c)
-    x2 = ttnn.multiply(x, x)
+    mean = lambda v: _fast_row_mean(v, c, cfg, cg)
+    x2 = ttnn.square(x)
     mx2 = mean(x2)
     ttnn.deallocate(x2)
     r1 = ttnn.rsqrt(ttnn.add(mx2, e1))
     ttnn.deallocate(mx2)
     n1 = ttnn.multiply(x, r1)
-    ttnn.deallocate(r1)
     a = ttnn.multiply(n1, lnw_tt)
-    ttnn.deallocate(n1)
-    a2 = ttnn.multiply(a, a)
+    a2 = ttnn.square(a)
     ma2 = mean(a2)
     ttnn.deallocate(a2)
     r2 = ttnn.rsqrt(ttnn.add(ma2, e2))
     ttnn.deallocate(ma2)
     bb = ttnn.multiply(a, r2)
     ttnn.deallocate(a)
-    ttnn.deallocate(r2)
     z1 = ttnn.multiply(bb, gamma_tt)
-    ttnn.deallocate(bb)
     z = ttnn.add(z1, beta_tt)
     ttnn.deallocate(z1)
+    if return_saved:
+        return z, n1, r1, bb, r2
+    for t in (r1, n1, r2, bb):
+        ttnn.deallocate(t)
     return z
 
 
@@ -362,17 +380,22 @@ class ResidentPairBuilder:
                     f = f.reshape(f.shape[0], 1, 1, -1).expand(-1, n, n, -1)
                 return f.float()
 
+            def _fast_onehot_idx(f: torch.Tensor, d: int):
+                """Single-pass one-hot verification & index extraction (equivalent to exact {0,1} & sum<=1)."""
+                mx, idx = f.max(-1)
+                s = f.sum(-1)
+                if bool(((mx == 0) | (mx == 1)).all() and (s == mx).all() and (f.min() >= 0)):
+                    return torch.where(mx > 0.5, idx, d).reshape(b_c, n * n).to(torch.int32).contiguous()
+                return None
+
             idx_oh = []
             compact_ok = True
             raw_large = []
             for fc, cols, _boff, bw in self.large_oh:
                 f = _eval_fc(fc)
-                d = len(cols)
-                is_1h = bool(((f == 0) | (f == 1)).all() and (f.sum(-1) <= 1).all())
-                if is_1h:
-                    has = f.sum(-1) > 0.5
-                    idx = torch.where(has, f.argmax(-1), torch.tensor(d, dtype=torch.long))
-                    idx_oh.append(("large", idx.reshape(b_c, n * n).to(torch.int32).contiguous()))
+                idx_t = _fast_onehot_idx(f, len(cols))
+                if idx_t is not None:
+                    idx_oh.append(("large", idx_t))
                 else:
                     compact_ok = False
                 raw_large.append((f, bw))
@@ -380,12 +403,9 @@ class ResidentPairBuilder:
             raw_small = []
             for fc, cols, moff in self.small_oh:
                 f = _eval_fc(fc)
-                d = len(cols)
-                is_1h = bool(((f == 0) | (f == 1)).all() and (f.sum(-1) <= 1).all())
-                if is_1h:
-                    has = f.sum(-1) > 0.5
-                    idx = torch.where(has, f.argmax(-1), torch.tensor(d, dtype=torch.long))
-                    idx_oh.append(("small", idx.reshape(b_c, n * n).to(torch.int32).contiguous()))
+                idx_t = _fast_onehot_idx(f, len(cols))
+                if idx_t is not None:
+                    idx_oh.append(("small", idx_t))
                 else:
                     compact_ok = False
                 raw_small.append((f, moff))
@@ -449,9 +469,14 @@ class ResidentPairBuilder:
         return ws_h, ws_l, wc_h, wc_l
 
     def _mm_f_wt(self, F_bf16, w_hi, w_lo, cfg):
-        """Compute ``F_bf16 @ (w_hi + w_lo)^T`` in fp32 (HiFi4 + fp32_dest_acc)."""
-        p0 = ttnn.matmul(F_bf16, w_hi, transpose_b=True, dtype=ttnn.float32, compute_kernel_config=cfg)
-        p1 = ttnn.matmul(F_bf16, w_lo, transpose_b=True, dtype=ttnn.float32, compute_kernel_config=cfg)
+        """Compute ``F_bf16 @ (w_hi + w_lo)^T`` in fp32 (HiFi4 + fp32_dest_acc, full core grid)."""
+        from .device_optim import _core_grid
+
+        cg = _core_grid(self.device)
+        p0 = ttnn.matmul(F_bf16, w_hi, transpose_b=True, dtype=ttnn.float32,
+                         compute_kernel_config=cfg, core_grid=cg)
+        p1 = ttnn.matmul(F_bf16, w_lo, transpose_b=True, dtype=ttnn.float32,
+                         compute_kernel_config=cfg, core_grid=cg)
         out = ttnn.add(p0, p1)
         ttnn.deallocate(p0)
         ttnn.deallocate(p1)
@@ -513,10 +538,11 @@ class ResidentPairBuilder:
 
     def candidates(self, enc: EncodedPair, dtype=None) -> tuple[object, _PairStepCache]:
         """Build grad-off candidate ``z_init`` [K, n, n, c] on card and cache const state for winner."""
-        from .device_optim import _safe_dealloc
+        from .device_optim import _core_grid, _safe_dealloc
 
         with ag.no_grad():
             cfg = ag.precise_config()
+            cg = _core_grid(self.device)
             k, n, c = enc.k, enc.n, self.c
             b_c = 1 if enc.dedup else k
             nn2 = n * n
@@ -538,27 +564,60 @@ class ResidentPairBuilder:
             )  # [1, k * nn2, step_w] bf16 TILE
             ttnn.deallocate(bins_tt)
 
-            rows_flat = self._mm_f_wt(F_step_k, ws_h, ws_l, cfg)  # [1, k * nn2, c] fp32
-            rows = ttnn.reshape(rows_flat, (k, n, n, c))
-            _safe_dealloc(rows_flat, keep=rows)
-
-            x = ttnn.add(rows, C)  # broadcasts C [1, n, n, c] over [k, n, n, c]
-            ttnn.deallocate(rows)
-
             lnw = self.builder.init_repr_factory.ln_out.weight.detach().float()
-            lnw_tt = ttnn.from_torch(lnw.reshape(1, 1, 1, c).contiguous(), dtype=ttnn.float32,
-                                     layout=ttnn.TILE_LAYOUT, device=self.device)
-            gam_tt = ttnn.from_torch(enc.gamma.detach().float().reshape(k, 1, 1, c).contiguous(),
-                                     dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=self.device)
-            bet_tt = ttnn.from_torch(enc.beta.detach().float().reshape(k, 1, 1, c).contiguous(),
-                                     dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=self.device)
-
-            z = _norm_adaln_on_card(x, lnw_tt, gam_tt, bet_tt, self.e1, self.e2, c, cfg)
-            for t in (x, lnw_tt, gam_tt, bet_tt):
-                ttnn.deallocate(t)
-            if dtype is not None and z.dtype != dtype:
-                z32, z = z, ttnn.typecast(z, dtype)
-                ttnn.deallocate(z32)
+            if dtype == ttnn.bfloat16:
+                # Grad-off bf16 candidate pass: 1-part bf16 step projection + fused ttnn.rms_norm (~35 ms faster).
+                rows_flat = ttnn.matmul(F_step_k, ws_h, transpose_b=True, dtype=ttnn.bfloat16,
+                                        compute_kernel_config=cfg, core_grid=cg)
+                rows = ttnn.reshape(rows_flat, (k, n, n, c))
+                _safe_dealloc(rows_flat, keep=rows)
+                C16 = ttnn.typecast(C, ttnn.bfloat16)
+                x = ttnn.add(rows, C16)
+                ttnn.deallocate(rows)
+                ttnn.deallocate(C16)
+                lnw_1d = ttnn.from_torch(lnw.reshape(c).contiguous(), dtype=ttnn.bfloat16,
+                                         layout=ttnn.TILE_LAYOUT, device=self.device)
+                gam_tt = ttnn.from_torch(enc.gamma.detach().float().reshape(k, 1, 1, c).contiguous(),
+                                         dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=self.device)
+                bet_tt = ttnn.from_torch(enc.beta.detach().float().reshape(k, 1, 1, c).contiguous(),
+                                         dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=self.device)
+                a = ttnn.rms_norm(x, epsilon=self.e1, weight=lnw_1d)
+                ttnn.deallocate(x)
+                ttnn.deallocate(lnw_1d)
+                bb = ttnn.rms_norm(a, epsilon=self.e2)
+                ttnn.deallocate(a)
+                z1 = ttnn.multiply(bb, gam_tt)
+                ttnn.deallocate(bb)
+                ttnn.deallocate(gam_tt)
+                z = ttnn.add(z1, bet_tt)
+                ttnn.deallocate(z1)
+                ttnn.deallocate(bet_tt)
+            else:
+                rows_flat = self._mm_f_wt(F_step_k, ws_h, ws_l, cfg)  # [1, k * nn2, c] fp32
+                rows = ttnn.reshape(rows_flat, (k, n, n, c))
+                _safe_dealloc(rows_flat, keep=rows)
+                x = ttnn.add(rows, C)
+                ttnn.deallocate(rows)
+                lnw_1d = ttnn.from_torch(lnw.reshape(c).contiguous(), dtype=ttnn.float32,
+                                         layout=ttnn.TILE_LAYOUT, device=self.device)
+                gam_tt = ttnn.from_torch(enc.gamma.detach().float().reshape(k, 1, 1, c).contiguous(),
+                                         dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=self.device)
+                bet_tt = ttnn.from_torch(enc.beta.detach().float().reshape(k, 1, 1, c).contiguous(),
+                                         dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=self.device)
+                a = ttnn.rms_norm(x, epsilon=self.e1, weight=lnw_1d)
+                ttnn.deallocate(x)
+                ttnn.deallocate(lnw_1d)
+                bb = ttnn.rms_norm(a, epsilon=self.e2)
+                ttnn.deallocate(a)
+                z1 = ttnn.multiply(bb, gam_tt)
+                ttnn.deallocate(bb)
+                ttnn.deallocate(gam_tt)
+                z = ttnn.add(z1, bet_tt)
+                ttnn.deallocate(z1)
+                ttnn.deallocate(bet_tt)
+                if dtype is not None and z.dtype != dtype:
+                    z32, z = z, ttnn.typecast(z, dtype)
+                    ttnn.deallocate(z32)
 
         cache = _PairStepCache(k, n, enc.dedup, C, F_const, F_step_k, ws_h, ws_l)
         return z, cache
@@ -569,9 +628,10 @@ class ResidentPairBuilder:
 
         Consumes and releases ``cache`` (reusing ``C``, ``F_const``, and ``F_step_k[win_idx]``).
         """
-        from .device_optim import _safe_dealloc, _split2_bf16
+        from .device_optim import _core_grid, _safe_dealloc, _split2_bf16
 
         cfg = ag.precise_config()
+        cg = _core_grid(self.device)
         n, c = cache.n, self.c
         nn2 = n * n
         w = int(win_idx)
@@ -611,7 +671,10 @@ class ResidentPairBuilder:
             row_t = lambda v: ttnn.from_torch(v.detach().float().reshape(1, 1, 1, c).contiguous(),
                                               dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=self.device)
             w_tt, g_tt, b_tt = row_t(lnw), row_t(gamma_w), row_t(beta_w)
-            z = _norm_adaln_on_card(x_w, w_tt, g_tt, b_tt, self.e1, self.e2, c, cfg)
+            z, n1, r1, bb, r2 = _norm_adaln_on_card(
+                x_w, w_tt, g_tt, b_tt, self.e1, self.e2, c, cfg, cg, return_saved=True,
+            )
+            ttnn.deallocate(x_w)
             ttnn.deallocate(b_tt)
             if dtype is not None and z.dtype != dtype:
                 z32, z = z, ttnn.typecast(z, dtype)
@@ -619,36 +682,20 @@ class ResidentPairBuilder:
 
         leaves = [bridge.up(t, ttnn.float32) for t in (W, lnw.view(1, c), gamma_w.reshape(1, c), beta_w.reshape(1, c))]
         if not any(t.requires_grad for t in leaves):
-            for t in (x_w, F_step_w, F_const_w, w_tt, g_tt):
+            for t in (n1, r1, bb, r2, F_step_w, F_const_w, w_tt, g_tt):
                 ttnn.deallocate(t)
             return ag.Tensor(z)
 
-        e1, e2 = self.e1, self.e2
         k_orig, k_orig_pad, k_pack = self.k_orig, self._k_orig_pad, self.k_pack
         p_inv = self._P_pack_to_orig
 
         def make():
             def bw(g):
-                mean = lambda v: ag._row_mean(v, cfg, c)
+                mean = lambda v: _fast_row_mean(v, c, cfg, cg)
                 g_owned = False
                 if g.dtype != ttnn.float32:
                     g = ttnn.typecast(g, ttnn.float32)
                     g_owned = True
-                x2 = ttnn.multiply(x_w, x_w)
-                mx2 = mean(x2)
-                ttnn.deallocate(x2)
-                r1 = ttnn.rsqrt(ttnn.add(mx2, e1))
-                ttnn.deallocate(mx2)
-                n1 = ttnn.multiply(x_w, r1)
-                ttnn.deallocate(x_w)
-                a = ttnn.multiply(n1, w_tt)
-                a2 = ttnn.multiply(a, a)
-                ma2 = mean(a2)
-                ttnn.deallocate(a2)
-                r2 = ttnn.rsqrt(ttnn.add(ma2, e2))
-                ttnn.deallocate(ma2)
-                bb = ttnn.multiply(a, r2)
-                ttnn.deallocate(a)
 
                 Wl, Ll, Gl, Bl = leaves
                 if Bl.requires_grad:
@@ -697,8 +744,10 @@ class ResidentPairBuilder:
                     _safe_dealloc(dx_2d, keep=dx)
                     ttnn.deallocate(dx)
 
-                    dw0 = ttnn.matmul(dx_hi, F_2d, transpose_a=True, dtype=ttnn.float32, compute_kernel_config=cfg)
-                    dw1 = ttnn.matmul(dx_lo, F_2d, transpose_a=True, dtype=ttnn.float32, compute_kernel_config=cfg)
+                    dw0 = ttnn.matmul(dx_hi, F_2d, transpose_a=True, dtype=ttnn.float32,
+                                      compute_kernel_config=cfg, core_grid=cg)
+                    dw1 = ttnn.matmul(dx_lo, F_2d, transpose_a=True, dtype=ttnn.float32,
+                                      compute_kernel_config=cfg, core_grid=cg)
                     ttnn.deallocate(dx_hi)
                     ttnn.deallocate(dx_lo)
                     _safe_dealloc(F_2d, keep=F_all)
@@ -710,8 +759,10 @@ class ResidentPairBuilder:
                     # Exact inverse column permutation on card: [c, k_pack] @ [k_pack, k_orig_pad] -> [c, k_orig]
                     dp_hi, dp_lo = _split2_bf16(dW_pack)
                     ttnn.deallocate(dW_pack)
-                    u0 = ttnn.matmul(dp_hi, p_inv, dtype=ttnn.float32, compute_kernel_config=cfg)
-                    u1 = ttnn.matmul(dp_lo, p_inv, dtype=ttnn.float32, compute_kernel_config=cfg)
+                    u0 = ttnn.matmul(dp_hi, p_inv, dtype=ttnn.float32,
+                                     compute_kernel_config=cfg, core_grid=cg)
+                    u1 = ttnn.matmul(dp_lo, p_inv, dtype=ttnn.float32,
+                                     compute_kernel_config=cfg, core_grid=cg)
                     ttnn.deallocate(dp_hi)
                     ttnn.deallocate(dp_lo)
                     dW_pad = ttnn.add(u0, u1)

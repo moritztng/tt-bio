@@ -159,8 +159,7 @@ def profile_subphases(dev, init_np: dict[str, np.ndarray], grads_np: dict[str, n
         phases["pack"] += time.perf_counter() - t0
 
         t0 = time.perf_counter()
-        sqm = opt._sum_group_norm_sq(mp)
-        sqa = opt._sum_group_norm_sq(ap)
+        sqm, sqa, _dead = opt._group_norms_and_dead(mp, ap)
         cm = opt.clip_coef(math.sqrt(max(sqm, 0.0)))
         ca = opt.clip_coef(math.sqrt(max(sqa, 0.0)))
         ttnn.synchronize_device(dev)
@@ -263,7 +262,7 @@ def grade_parity(dev, init_np: dict[str, np.ndarray], step_grads: list[dict[str,
 
 
 def grade_zero1(dev, init_np: dict[str, np.ndarray], step_grads: list[dict[str, np.ndarray]],
-                ns_mode: str, shard_world: int = 4, *, opt_ref=None, broken_skip_norm_reduce: bool = False):
+                ns_mode: str, shard_world: int = 4, *, opt_ref=None, broken_skip_gather: bool = False):
     """Simulate shard_world ZeRO-1 ranks on one device and compare against Float64 reference."""
     ranks = [
         rfd4_device_optimizer(init_np, dev, lr=1e-4, ema_decay=0.999, ns_mode=ns_mode,
@@ -282,25 +281,21 @@ def grade_zero1(dev, init_np: dict[str, np.ndarray], step_grads: list[dict[str, 
         for g_np in step_grads:
             opt_ref.step(g_np)
     for g_np in step_grads:
-        # Compute local norm sq per rank, then global sum (unless broken arm)
-        # To simulate collective norm_reduce_fn in-process across ranks on 1 chip, pre-compute exact group sums
-        # from local shards via a 2-pass closure? Even simpler: compute exact global sq_muon & sq_adam from
-        # owned shards using the same DeviceOptimizer._sum_group_norm_sq, then feed norm_reduce_fn!
         sq_m_total = 0.0
         sq_a_total = 0.0
-        if not broken_skip_norm_reduce:
-            for o in ranks:
-                dg = {k: ttnn.from_torch(torch.from_numpy(g_np[k]), dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev)
-                      for k in o.owned_names if k in g_np}
-                mp = [(bk, *o._pack_grads(bk, dg, set())) for bk in o._muon_buckets]
-                ap = [(bk, *o._pack_grads(bk, dg, set())) for bk in o._adam_buckets]
-                sq_m_total += o._sum_group_norm_sq(mp)
-                sq_a_total += o._sum_group_norm_sq(ap)
-                for _, gb, _ in mp + ap:
-                    if gb is not None:
-                        ttnn.deallocate(gb)
-                for g in dg.values():
-                    ttnn.deallocate(g)
+        for o in ranks:
+            dg = {k: ttnn.from_torch(torch.from_numpy(g_np[k]), dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev)
+                  for k in o.owned_names if k in g_np}
+            mp = [(bk, *o._pack_grads(bk, dg, set())) for bk in o._muon_buckets]
+            ap = [(bk, *o._pack_grads(bk, dg, set())) for bk in o._adam_buckets]
+            sm, sa, _ = o._group_norms_and_dead(mp, ap)
+            sq_m_total += sm
+            sq_a_total += sa
+            for _, gb, _ in mp + ap:
+                if gb is not None:
+                    ttnn.deallocate(gb)
+            for g in dg.values():
+                ttnn.deallocate(g)
 
         for o in ranks:
             dg = {k: ttnn.from_torch(torch.from_numpy(g_np[k]), dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev)
@@ -308,20 +303,19 @@ def grade_zero1(dev, init_np: dict[str, np.ndarray], step_grads: list[dict[str, 
             call_idx = [0]
             def _norm_red(local_sq, _ci=call_idx):
                 idx = _ci[0]; _ci[0] += 1
-                if broken_skip_norm_reduce:
-                    return local_sq
                 return sq_m_total if idx == 0 else sq_a_total
             o.step(dg, norm_reduce_fn=_norm_red, free_grads=True)
 
-        # Simulate gather_fn: sync every rank's non-owned master from owner
-        for name, owner_r in ranks[0].owner_of.items():
-            src_t = ranks[owner_r].master[name]
-            for r, o in enumerate(ranks):
-                if r != owner_r:
-                    old = o.master[name]
-                    o.master[name] = ttnn.clone(src_t)
-                    if old.is_allocated():
-                        ttnn.deallocate(old)
+        # Simulate gather_fn: sync every rank's non-owned master from owner (skipped in broken arm)
+        if not broken_skip_gather:
+            for name, owner_r in ranks[0].owner_of.items():
+                src_t = ranks[owner_r].master[name]
+                for r, o in enumerate(ranks):
+                    if r != owner_r:
+                        old = o.master[name]
+                        o.master[name] = ttnn.clone(src_t)
+                        if old.is_allocated():
+                            ttnn.deallocate(old)
 
     ttnn.synchronize_device(dev)
     hm0 = ranks[0].host_master()
@@ -351,7 +345,7 @@ def grade_zero1(dev, init_np: dict[str, np.ndarray], step_grads: list[dict[str, 
     n_owned_32 = len(opt32.owned_names)
     opt32.deallocate()
     return dict(
-        shard_world=shard_world, broken=broken_skip_norm_reduce,
+        shard_world=shard_world, broken=broken_skip_gather,
         worst_param=worst_w, worst_ema=worst_e, pass_1e4=bool(max(worst_w, worst_e) <= 1e-4),
         zero1_32_rank0_owned=n_owned_32,
         zero1_32_rank0_ms=round(1000.0 * float(np.median(t32)), 2),
@@ -395,7 +389,7 @@ def main():
         print(f"Opened device, aiclk={clk0} MHz, params={len(init_np)}", flush=True)
 
         profs = {}
-        for mode in ("split2", "split2_fast", "split2_hyb2", "split2_hyb1", "fp32"):
+        for mode in ("fp32", "hyb_e1", "split2_fast", "split2"):
             p = profile_subphases(dev, init_np, step_grads[0], mode)
             profs[mode] = p
             print(f"[PROF {mode:13s}] clean={p['clean_ms']:6.1f} ms | phases={p['phases_ms']}", flush=True)
@@ -417,23 +411,23 @@ def main():
 
         clk1 = _aiclk()
         parities = {}
-        for mode in ("split2_fast", "split2_hyb2", "split2_hyb1", "fp32"):
+        for mode in ("fp32", "hyb_e1", "split2_fast"):
             r = grade_parity(dev, init_np, step_grads, mode, opt_ref=ref_full)
             parities[mode] = r
             print(f"[PARITY {mode:12s} {args.steps}st] muon={r['worst_muon']:.3e} ({r['worst_muon_name']}) "
                   f"adam={r['worst_adam']:.3e} ema={r['worst_ema']:.3e} PASS={r['pass_1e4']}", flush=True)
 
         # Broken arms (must FAIL!)
-        brk_ns = grade_parity(dev, init_np, step_grads[:5], "split2_fast", opt_ref=ref_5, ns_steps=4)
-        brk_b2 = grade_parity(dev, init_np, step_grads[:5], "split2_fast", opt_ref=ref_5, betas=(0.9, 0.99))
+        brk_ns = grade_parity(dev, init_np, step_grads[:5], "fp32", opt_ref=ref_5, ns_steps=4)
+        brk_betas = grade_parity(dev, init_np, step_grads[:5], "fp32", opt_ref=ref_5, betas=(0.999, 0.9))
         print(f"[BROKEN ns=4] muon={brk_ns['worst_muon']:.3e} PASS={brk_ns['pass_1e4']} (expect False)", flush=True)
-        print(f"[BROKEN b2=0.99] adam={brk_b2['worst_adam']:.3e} PASS={brk_b2['pass_1e4']} (expect False)", flush=True)
+        print(f"[BROKEN betas_swapped] adam={brk_betas['worst_adam']:.3e} PASS={brk_betas['pass_1e4']} (expect False)", flush=True)
 
         # ZeRO-1 parity (shard_world=4, 5 steps + broken arm + shard_world=32 timing)
-        z1_ok = grade_zero1(dev, init_np, step_grads[:5], "split2_fast", shard_world=4, opt_ref=ref_5,
-                            broken_skip_norm_reduce=False)
-        z1_brk = grade_zero1(dev, init_np, step_grads[:5], "split2_fast", shard_world=4, opt_ref=ref_5,
-                             broken_skip_norm_reduce=True)
+        z1_ok = grade_zero1(dev, init_np, step_grads[:5], "fp32", shard_world=4, opt_ref=ref_5,
+                            broken_skip_gather=False)
+        z1_brk = grade_zero1(dev, init_np, step_grads[:5], "fp32", shard_world=4, opt_ref=ref_5,
+                             broken_skip_gather=True)
         print(f"[ZERO1 w=4 OK] param={z1_ok['worst_param']:.3e} ema={z1_ok['worst_ema']:.3e} PASS={z1_ok['pass_1e4']} | "
               f"w=32 rank0 ({z1_ok['zero1_32_rank0_owned']} params)={z1_ok['zero1_32_rank0_ms']} ms", flush=True)
         print(f"[ZERO1 w=4 BROKEN] param={z1_brk['worst_param']:.3e} PASS={z1_brk['pass_1e4']} (expect False)", flush=True)
@@ -442,7 +436,7 @@ def main():
             aiclk=[clk0, clk1, _aiclk()],
             profiles=profs,
             parities=parities,
-            broken=dict(ns4=brk_ns, b2_099=brk_b2),
+            broken=dict(ns4=brk_ns, betas_swapped=brk_betas),
             zero1=dict(ok=z1_ok, broken=z1_brk),
         )
         if args.out:
