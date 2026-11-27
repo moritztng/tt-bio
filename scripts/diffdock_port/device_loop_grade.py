@@ -234,6 +234,55 @@ def main():
     ref_rev = spherical_harmonics(-cvec_h, tuple(model.sh_ls))
     record("tower_cross_rev_sh", cut(got_rev, nc, ref_rev.shape[1]), ref_rev)
 
+    # --- the centre head: geometry, attributes and the final scaling -----------------
+    head = model.center_head
+    P, ns = sg.n_poses, model.ns
+    valid = torch.zeros(sg.n_lig_padded, 1, dtype=torch.float64)
+    valid[:sg.n_lig * P] = 1.0
+    ch = dl.CenterHead(dev, head.float(), sg, cfg.sigma_embed_dim)
+    head.double()
+
+    ref_center = lp.double()[:sg.n_lig * P].reshape(P, sg.n_lig, 3).mean(1)
+    pose_of = (torch.arange(sg.n_lig_padded).div(sg.n_lig, rounding_mode="floor")
+               .clamp(max=P - 1))
+    ref_hv = (lp.double() - ref_center[pose_of]) * valid
+    got_hv = ch.vectors(lp_dev, dl.upload(dev, valid.float()))
+    record("center_head_vec",
+           torch.cat([ttnn.to_torch(c)[:sg.n_lig_padded, :1] for c in got_hv], 1), ref_hv)
+
+    lig_sig_pad = sigma_emb.expand(sg.n_lig_padded, -1)
+    lig_h = torch.randn(sg.n_lig_padded, ns, generator=g).double()
+    ref_cattr = head.center_edge_embedding(torch.cat(
+        [head.center_distance_expansion(ref_hv.norm(dim=-1)), lig_sig_pad], 1))
+    src = torch.arange(sg.n_lig_padded) if head.fixed_center_conv else pose_of
+    ref_cattr = torch.cat([ref_cattr, lig_h[src, :ns]], -1)
+    src_dev = ttnn.from_torch(src.reshape(1, -1).to(torch.int32), dtype=ttnn.uint32,
+                              layout=ttnn.ROW_MAJOR_LAYOUT, device=dev)
+    got_cattr = ch.attributes(got_hv, dl.upload(dev, lig_h.float()), ns, sigma_row, src_dev)
+    record("center_cattr", cut(got_cattr, sg.n_lig_padded, ref_cattr.shape[1]), ref_cattr)
+
+    # the norm-and-rescale, against the host's own expression
+    from tt_bio.diffdock.schedules import so3_score_norm
+
+    conv_out = torch.randn(P, 6 if head.odd_parity else 12, generator=g).double()
+    tr_sigma, rot_sigma = 1.7, 0.9
+    if head.odd_parity:
+        rtr, rrot = conv_out[:, :3], conv_out[:, 3:6]
+    else:
+        rtr = conv_out[:, :3] + conv_out[:, 6:9]
+        rrot = conv_out[:, 3:6] + conv_out[:, 9:]
+    gg = sigma_emb.expand(P, -1)
+    trn = torch.linalg.vector_norm(rtr, dim=1, keepdim=True)
+    rtr = rtr / trn * head.tr_final_layer(torch.cat([trn, gg], 1))
+    rotn = torch.linalg.vector_norm(rrot, dim=1, keepdim=True)
+    rrot = rrot / rotn * head.rot_final_layer(torch.cat([rotn, gg], 1))
+    so3n = float(so3_score_norm(torch.as_tensor(rot_sigma).reshape(1)).item())
+    if head.scale_by_sigma:
+        rtr, rrot = rtr / tr_sigma, rrot * so3n
+    g_tr, g_rot = ch.scale(dl.upload(dev, conv_out.float()), sigma_row, tr_sigma, so3n, P)
+    record("center_tr", ttnn.to_torch(g_tr)[:P, :3], rtr)
+    record("center_rot", ttnn.to_torch(g_rot)[:P, :3], rrot)
+
     # --- the receptor crop, as a reduction over the complete cross graph --------------
     # Last leg on purpose: it is the newest block and the json is flushed after each leg,
     # so if the ttnn reduction raises, every measurement above it is already on disk.

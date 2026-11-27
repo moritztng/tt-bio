@@ -330,6 +330,13 @@ class TowerFeatures:
       on every one of the 19 steps. They are computed in :meth:`receptor_static` once and
       held; only the crop mask changes, and that is :class:`StepMasks`' job.
 
+    The node embeddings are **not** here. ``lig_node_embedding`` and ``rec_node_embedding``
+    are :class:`AtomEncoder`, not ``Sequential``: a sum of one embedding table per
+    categorical atom feature, then one linear over that sum concatenated with the continuous
+    block. That is a gather-and-sum followed by a GEMM, not an MLP, so it is its own block.
+    Worth noting for it: the categorical half is static per complex, so the embedding sum can
+    be computed once and only the linear re-run per step.
+
     The receptor's sigma term is the one per-step piece of the receptor tower, and the host
     adds it *after* the embedding stack (``rec_h[:, :ns] += rec_sig``), so it is not here.
     """
@@ -343,8 +350,6 @@ class TowerFeatures:
         self.rec_edge_mlp = MLP(device, model.rec_edge_embedding)
         self.lig_edge_mlp = MLP(device, model.lig_edge_embedding)
         self.cross_edge_mlp = MLP(device, model.cross_edge_embedding)
-        self.rec_node_mlp = MLP(device, model.rec_node_embedding)
-        self.lig_node_mlp = MLP(device, model.lig_node_embedding)
         self.ones_lig = upload(device, torch.ones(n_lig_edges))
         self.ones_cross = upload(device, torch.ones(n_cross_edges))
 
@@ -383,19 +388,6 @@ class TowerFeatures:
         eattr = self.cross_edge_mlp(ttnn.concat([sig, self.cross_smear(dist)], dim=1))
         rev = [ttnn.multiply(c, -1.0) for c in cvec_cols]
         return eattr, harmonics(*cvec_cols, self.sh_ls), harmonics(*rev, self.sh_ls)
-
-    def nodes(self, rec_x, lig_x, sigma_row):
-        """``(rec_h, lig_h)`` before the embedding stacks.
-
-        ``rec_h`` has no sigma term at this point and ``lig_h`` does, exactly as the host
-        writes them: ``rec_node_embedding(rec_x)`` and
-        ``lig_node_embedding(cat([lig_x, lig_sig], 1))``.
-        """
-        import ttnn
-        ones = upload(self.device, torch.ones(self.sg.n_lig_padded))
-        sig = self._broadcast(ones, sigma_row)
-        return (self.rec_node_mlp(rec_x),
-                self.lig_node_mlp(ttnn.concat([lig_x, sig], dim=1)))
 
 
 def pose_centers(lig_pos, n_poses: int, n_lig: int):
