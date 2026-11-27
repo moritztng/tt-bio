@@ -10,6 +10,7 @@ Covers:
 from __future__ import annotations
 
 import ast
+import importlib.machinery
 import importlib.util
 import sys
 import types
@@ -47,6 +48,7 @@ class _FakeTensor:
 
 def _make_fake_ttnn():
     m = types.ModuleType("ttnn")
+    m.__spec__ = importlib.machinery.ModuleSpec("ttnn", loader=None)
     m.Tensor = _FakeTensor
     m.float32 = "float32"
     m.bfloat16 = "bfloat16"
@@ -406,4 +408,126 @@ def test_refold_hook_populates_empty_t1_cache_on_resume(monkeypatch):
                                    blocks=(), _levers=frozenset())
     F.make_rfd4_refold_hook(trunk2)(dev_masters)
     assert tri2._t1_w == {}
+
+
+def test_device_insertion_loss_small_and_near_zero(monkeypatch):
+    """Exact float64 insertion CE must hold on small (~4e-3) and near-zero (<1e-6)
+    losses without SFPU negative-CE bias or p-onehot cancellation, and do 0 PCIe
+    when no query rows are active."""
+    import contextlib
+    fake = _install_fake_ttnn(monkeypatch, preload=("tt_bio.train.rfd4_heads",))
+    if "tt_bio.autograd" not in sys.modules:
+        import tt_bio
+        fake_ag = types.ModuleType("tt_bio.autograd")
+        fake_ag.no_grad = contextlib.nullcontext
+        monkeypatch.setitem(sys.modules, "tt_bio.autograd", fake_ag)
+        monkeypatch.setattr(tt_bio, "autograd", fake_ag, raising=False)
+    import tt_bio.train.rfd4_heads as RH
+    from tt_bio.train import rfd4_objective as RO
+
+    monkeypatch.setattr(RH, "ttnn", fake)
+    reads, writes = [], []
+    orig_to, orig_from = fake.to_torch, fake.from_torch
+
+    def spy_to(t):
+        reads.append(t.shape)
+        return orig_to(t)
+
+    def spy_from(t, *a, **kw):
+        writes.append(tuple(t.shape))
+        return orig_from(t, *a, **kw)
+
+    monkeypatch.setattr(fake, "to_torch", spy_to)
+    monkeypatch.setattr(fake, "from_torch", spy_from)
+
+    n_tok, n_pad = 30, 32
+    pad = np.zeros((1, n_tok), dtype=bool)
+    pad[0, :26] = True
+    z_np = np.full((1, n_pad, n_pad), -8.0, dtype=np.float32)
+
+    # 1. Inactive batch: 0 device ops, 0 PCIe transfers.
+    target_none = np.full((1, n_tok), -1, dtype=np.int64)
+    z_tt = orig_from(torch.from_numpy(z_np))
+    loss0, dz0 = RH.device_insertion_loss(
+        z_tt, {"insertion_source_idx": target_none, "padding_mask": pad},
+    )
+    assert np.array_equal(loss0, np.zeros(1, dtype=np.float64)) and dz0 is None
+    assert reads == [] and writes == []
+
+    # 2. Small-loss (~4e-3) and near-zero (<1e-6) peaked logits (5 active rows).
+    target = np.full((1, n_tok), -1, dtype=np.int64)
+    active_rows = [20, 21, 22, 23, 24]
+    for k, r in enumerate(active_rows):
+        target[0, r] = k  # indexed candidate keys 0..4
+    for label, runner_up in (("small_4e-3", -5.47), ("near_zero_1e-7", -16.1), ("exact_zero", -40.0)):
+        z_case = np.full((1, n_pad, n_pad), -30.0, dtype=np.float32)
+        for k, r in enumerate(active_rows):
+            z_case[0, r, k] = 0.0
+            z_case[0, r, (k + 1) % 5] = runner_up
+        z_tt = orig_from(torch.from_numpy(z_case))
+        loss_got, dz_tt = RH.device_insertion_loss(
+            z_tt, {"insertion_source_idx": target, "padding_mask": pad}, weight=0.5,
+        )
+        loss_ref, dz_ref = RO.insertion_loss(
+            z_case[:, :n_tok, :n_tok].astype(np.float64),
+            {"insertion_source_idx": target, "padding_mask": pad},
+        )
+        assert float(loss_got[0]) >= 0.0, f"{label}: negative CE loss {loss_got[0]}"
+        abs_err = abs(float(loss_got[0]) - float(loss_ref[0]))
+        rel_err = abs_err / max(abs(float(loss_ref[0])), 1e-12)
+        assert abs_err < 1e-12 and rel_err < 1e-12, f"{label}: loss mismatch {loss_got[0]} vs {loss_ref[0]}"
+
+        dz_got = orig_to(dz_tt).numpy()
+        assert np.all(dz_got[:, n_tok:, :] == 0.0) and np.all(dz_got[:, :, n_tok:] == 0.0)
+        dz_want = (dz_ref * 0.5).astype(np.float64)
+        dz_rel = float(np.linalg.norm(dz_got[:, :n_tok, :n_tok] - dz_want) / max(np.linalg.norm(dz_want), 1e-12))
+        assert dz_rel < 1e-6, f"{label}: dz rel_l2={dz_rel:.3e}"
+
+        # Broken-arm check: -5e-4 SFPU bias on small_4e-3 or x1.10 dz must fail the bar loudly.
+        if label == "small_4e-3":
+            bad_loss = float(loss_got[0]) - 5e-4
+            assert abs(bad_loss - float(loss_ref[0])) / float(loss_ref[0]) > 1e-2
+            bad_dz_rel = float(np.linalg.norm(dz_got[:, :n_tok, :n_tok] * 1.10 - dz_want) / np.linalg.norm(dz_want))
+            assert bad_dz_rel > 1e-2
+
+    # 3. Winner-mask scaling + SPMD multi-chip path (world == 2) + shape guard.
+    import tt_bio.train.mesh_dp as mdp
+    b_global = 2
+    z_2 = np.full((b_global, n_pad, n_pad), -30.0, dtype=np.float32)
+    target_2 = np.full((b_global, n_tok), -1, dtype=np.int64)
+    pad_2 = np.broadcast_to(pad, (b_global, n_tok)).copy()
+    for bi in range(b_global):
+        for k, r in enumerate(active_rows):
+            target_2[bi, r] = k
+            z_2[bi, r, k] = 0.0
+            z_2[bi, r, (k + 1) % 5] = -5.47 - 0.5 * bi
+    sharded_in = orig_from(torch.from_numpy(z_2[:1]))
+    monkeypatch.setattr(mdp, "mesh_world", lambda d: 2)
+    monkeypatch.setattr(mdp, "read_sharded", lambda t, d: torch.from_numpy(z_2))
+    put_seen = []
+
+    def fake_put_sharded(t, d, **kw):
+        put_seen.append(t.clone())
+        return orig_from(t[:1])
+
+    monkeypatch.setattr(mdp, "put_sharded", fake_put_sharded)
+    loss_2, _ = RH.device_insertion_loss(
+        sharded_in, {"insertion_source_idx": target_2, "padding_mask": pad_2},
+        win=np.array([1]), weight=0.5,
+    )
+    loss_2_ref, dz_2_ref = RO.insertion_loss(
+        z_2[:, :n_tok, :n_tok].astype(np.float64),
+        {"insertion_source_idx": target_2, "padding_mask": pad_2},
+    )
+    assert np.allclose(loss_2, loss_2_ref, atol=1e-12, rtol=1e-12)
+    dz_uploaded = put_seen[-1].numpy()
+    assert np.all(dz_uploaded[0] == 0.0), "loser rank must get zero insertion dz"
+    assert np.allclose(dz_uploaded[1, :n_tok, :n_tok], dz_2_ref[1] * 0.5, atol=1e-6, rtol=1e-5)
+
+    with pytest.raises(ValueError, match="batch leading dim"):
+        RH.device_insertion_loss(
+            sharded_in, {"insertion_source_idx": target, "padding_mask": pad},
+        )
+
+
 
