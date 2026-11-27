@@ -126,6 +126,9 @@ def main():
     else:
         PM = None
     mark = (lambda name: PM.phase(name)) if PM else (lambda name: None)
+    if not PM and os.environ.get("R4T_SIGNPOST"):   # r4t-ceiling: phase starts as Tracy signposts (device profiler runs only)
+        from tracy import signpost
+        mark = lambda name: signpost(header=name)
     import faulthandler
     import signal
     faulthandler.register(signal.SIGUSR1)   # kill -USR1 <pid> prints every thread stack to the log
