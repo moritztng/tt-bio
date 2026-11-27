@@ -67,13 +67,22 @@ def main():
     ap.add_argument("--npz", required=True, nargs="+")
     ap.add_argument("--out", required=True)
     ap.add_argument("--seed", type=int, default=42)
+    ap.add_argument("--tol", type=float, default=1e-4,
+                    help="allowed maxdiff on rec_x: the two sides ran ESM-2 on different "
+                         "hosts, so the embedding carries float noise. Every other tensor "
+                         "must match exactly.")
+    ap.add_argument("--pb", default=None, help="PoseBusters root, if not dump_graph_golden's")
     ap.add_argument("--sdf-ligand", action="store_true",
                     help="build the ligand from the crystal SDF instead of its SMILES")
     a = ap.parse_args()
+    global PB
+    if a.pb:
+        PB = Path(a.pb).expanduser()
 
     L.setup(a.seed)
     from torch_geometric.loader import DataLoader
     from utils.diffusion_utils import t_to_sigma as t_to_sigma_compl, set_time
+    from utils.utils import crop_beyond
     from utils.inference_utils import InferenceDataset
     from utils.utils import get_model
 
@@ -111,6 +120,26 @@ def main():
     for path in a.npz:
         d = np.load(path)
         g = copy.deepcopy(graph)
+        t_tr, t_rot, t_tor = float(d["t_tr"]), float(d["t_rot"]), float(d["t_tor"])
+
+        # The pose has to go in BEFORE the crop: upstream crops the receptor against the
+        # ligand it is about to score, every step, at 3 * tr_sigma + model_args.crop_beyond
+        # (utils/sampling.py:104-108, crop_beyond: 20 in the v1.1 model_parameters.yml). The
+        # port does the same thing as a node mask (`graph.rec_keep`), so a dump taken mid
+        # rollout carries the CROPPED receptor and comparing it against the full graph is a
+        # mismatch in the check, not in the port.
+        g["ligand"].pos = torch.from_numpy(d["lig_pos"]).float()
+        tr_sigma, _, _ = t_to_sigma(t_tr, t_rot, t_tor)
+        cropped_at = None
+        if getattr(sma, "crop_beyond", None) is not None:
+            cropped_at = float(tr_sigma) * 3 + sma.crop_beyond
+            crop_beyond(g, cropped_at, getattr(sma, "all_atoms", False))
+            # crop_beyond rewrites x/pos/side_chain_vecs and the rec-rec edges but not the
+            # batch vector, which upstream's sampler never needs because it rebuilds the
+            # Batch from the cropped data list. One complex, so it is all zeros.
+            g["receptor"].batch = torch.zeros(g["receptor"].x.shape[0], dtype=torch.long)
+            g["ligand"].batch = torch.zeros(g["ligand"].x.shape[0], dtype=torch.long)
+
         # The port's receptor x carries the ESM block already concatenated; upstream's carries
         # the residue-type column plus the same block, so the two must agree column for column.
         checks = {
@@ -130,20 +159,21 @@ def main():
                 diffs[k] = f"shape {u.shape} vs {p.shape}"
             else:
                 diffs[k] = float(np.abs(u.astype(np.float64) - p.astype(np.float64)).max())
-        results[Path(path).stem] = {"graph_maxdiff": diffs}
-        if any(isinstance(v, str) or v != 0 for v in diffs.values()):
-            print(f"{path}: GRAPH MISMATCH {diffs}", flush=True)
+        results[Path(path).stem] = {"graph_maxdiff": diffs, "cropped_at": cropped_at,
+                                    "n_rec_after_crop": int(g["receptor"].x.shape[0])}
+        bad = {k: v for k, v in diffs.items()
+               if isinstance(v, str) or v > (a.tol if k == "rec_x" else 0.0)}
+        if bad:
+            print(f"{path}: GRAPH MISMATCH {bad}", flush=True)
             continue
 
-        g["ligand"].pos = torch.from_numpy(d["lig_pos"]).float()
-        t_tr, t_rot, t_tor = float(d["t_tr"]), float(d["t_rot"]), float(d["t_tor"])
         set_time(g, None, t_tr, t_rot, t_tor, 1, getattr(sma, "all_atoms", False), device)
         with torch.no_grad():
             tr, rot, tor = model(g)[:3]
         ours = {k: d[k] for k in ("tr", "rot", "tor")}
         row = results[Path(path).stem]
         row.update({
-            "t_tr": t_tr,
+            "t_tr": t_tr, "tr_sigma": float(tr_sigma),
             "upstream": {k: census(v) for k, v in
                          (("tr", tr), ("rot", rot), ("tor", tor))},
             "port": {k: census(v) for k, v in ours.items()},
