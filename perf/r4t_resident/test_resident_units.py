@@ -138,10 +138,19 @@ def test_u32_smoke(dev):
     exp_tt = _dev_expand_f32(w_col, (384, 12))
     assert np.array_equal(ttnn.to_torch(exp_tt).numpy(), np.broadcast_to(w_np[:, None], (384, 12))), "expand mismatch"
 
+    # 6. fp32 square vs multiply(a, a) precision check
+    sq_tt = ttnn.square(a_tt)
+    mm_tt = ttnn.multiply(a_tt, a_tt)
+    sq_rel = _rel_l2(ttnn.to_torch(sq_tt).numpy(), a_np * a_np)
+    mm_rel = _rel_l2(ttnn.to_torch(mm_tt).numpy(), a_np * a_np)
+    ttnn.deallocate(sq_tt)
+    ttnn.deallocate(mm_tt)
+    assert sq_rel < 1e-3, f"ttnn.square(f32) rel_l2={sq_rel:.2e} >= 1e-3"
+
     for t in (a_tt, b_tt, ab_tt, ab_s0, ab_s1, w_tt, w_col, mul_tt, red_tt, exp_tt):
         ttnn.deallocate(t)
-    print(f"  u32 fp32 smoke PASS (mul_rel={mul_rel:.2e}, red_rel={red_rel:.2e})", flush=True)
-    return {"mul_rel": mul_rel, "red_rel": red_rel}
+    print(f"  u32 fp32 smoke PASS (mul_rel={mul_rel:.2e}, red_rel={red_rel:.2e}, sq_rel={sq_rel:.2e}, mm_f32_rel={mm_rel:.2e})", flush=True)
+    return {"mul_rel": mul_rel, "red_rel": red_rel, "sq_rel": sq_rel, "mm_f32_rel": mm_rel}
 
 
 def test_heads(dev, glue, batch8_path: str, pcie_meter_mod):
@@ -710,24 +719,91 @@ def test_resident_pair(dev, glue, batch8_path: str, pcie_meter_mod):
         d_t.grad = None
     br.ups.clear()
     ag.release_pins()
+    # Broken arm: perturb upstream dz by 1.10x -> VJP parity must FAIL > 1e-2
+    enc_brk = rpb.encode_step(bt)
+    zk_brk, cache_brk = rpb.candidates(enc_brk, dtype=ttnn.float32)
+    ttnn.deallocate(zk_brk)
+    br_brk = Bridge(dev, ttnn.float32)
+    dz_brk = ttnn.from_torch(torch.from_numpy((dz_np * 1.10).astype(np.float32)), dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev)
+    with ag.tape():
+        gam_b, bet_b = rpb.modulation(b1)
+        z_b = rpb.winner_taped(cache_brk, 0, gam_b, bet_b, br_brk, dtype=ttnn.float32)
+    ag.backward([z_b], [dz_brk])
+    ttnn.synchronize_device(dev)
+    ttnn.deallocate(dz_brk)
+    brk_rels = {}
+    for nm, (_, d_t) in zip(leaf_names, br_brk.ups):
+        brk_rels[nm] = _rel_l2(ttnn.to_torch(d_t.grad).float().numpy().reshape(ref_g[nm].shape), ref_g[nm])
+        ttnn.deallocate(d_t.grad)
+        d_t.grad = None
+    br_brk.ups.clear()
+    ag.release_pins()
+    brk_worst = max(brk_rels.values())
+
+    # Warm timing (3 bf16 iterations, matching production step)
+    warm_enc, warm_cand, warm_wfwd, warm_wbwd, warm_tot = [], [], [], [], []
+    for it in range(4):
+        t_a = time.time()
+        enc_w = rpb.encode_step(bt)
+        t_b = time.time()
+        zk_w, cache_w = rpb.candidates(enc_w, dtype=ttnn.bfloat16)
+        ttnn.synchronize_device(dev)
+        t_c = time.time()
+        ttnn.deallocate(zk_w)
+        br_w = Bridge(dev, ttnn.float32)
+        dz_w = ttnn.from_torch(torch.from_numpy(dz_np), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)
+        ttnn.synchronize_device(dev)
+        t_d = time.time()
+        with ag.tape():
+            gam_ww, bet_ww = rpb.modulation(b1)
+            z_w = rpb.winner_taped(cache_w, 0, gam_ww, bet_ww, br_w, dtype=ttnn.bfloat16)
+        ttnn.synchronize_device(dev)
+        t_e = time.time()
+        ag.backward([z_w], [dz_w])
+        ttnn.synchronize_device(dev)
+        t_f = time.time()
+        ttnn.deallocate(dz_w)
+        for _, d_t in br_w.ups:
+            if d_t.grad is not None:
+                ttnn.deallocate(d_t.grad)
+                d_t.grad = None
+        br_w.ups.clear()
+        ag.release_pins()
+        if it >= 1:
+            warm_enc.append((t_b - t_a) * 1e3)
+            warm_cand.append((t_c - t_b) * 1e3)
+            warm_wfwd.append((t_e - t_d) * 1e3)
+            warm_wbwd.append((t_f - t_e) * 1e3)
+            warm_tot.append(((t_c - t_a) + (t_f - t_d)) * 1e3)
+
     rpb.deallocate()
 
     rels = {nm: _rel_l2(dev_g[nm], ref_g[nm]) for nm in leaf_names}
     coss = {nm: _cos(dev_g[nm], ref_g[nm]) for nm in leaf_names}
     worst_rel = max(rels.values())
     min_cos = min(coss.values())
+    warm_med = {
+        "enc_ms": round(float(np.median(warm_enc)), 1),
+        "cand_ms": round(float(np.median(warm_cand)), 1),
+        "win_fwd_ms": round(float(np.median(warm_wfwd)), 1),
+        "win_bwd_ms": round(float(np.median(warm_wbwd)), 1),
+        "total_ms": round(float(np.median(warm_tot)), 1),
+    }
     print(
         f"  ResidentPairBuilder: cand_fwd_rel={cand_fwd_rel:.3e}, win_fwd_rel={win_fwd_rel:.3e}, "
-        f"bwd worst_rel={worst_rel:.3e}, min_cos={min_cos:.6f}, wall={pair_ms:.1f} ms, pcie={pcie_snap}",
+        f"bwd worst_rel={worst_rel:.3e}, min_cos={min_cos:.6f}, cold={pair_ms:.1f} ms, "
+        f"warm={warm_med}, broken_x1.10={brk_worst:.3e}, pcie={pcie_snap}",
         flush=True,
     )
     for nm in leaf_names:
         print(f"    {nm:8s}: rel_l2={rels[nm]:.3e}  cos={coss[nm]:.6f}", flush=True)
     assert cand_fwd_rel < 2e-3 and win_fwd_rel < 2e-3, (cand_fwd_rel, win_fwd_rel)
     assert worst_rel <= 1e-2 and min_cos >= 0.9999, (rels, coss)
+    assert brk_worst > 1e-2, f"broken ResidentPairBuilder arm failed to trip: {brk_worst}"
     return {
         "cand_fwd_rel": cand_fwd_rel, "win_fwd_rel": win_fwd_rel,
-        "worst_rel": worst_rel, "min_cos": min_cos, "rels": rels, "wall_ms": round(pair_ms, 1),
+        "worst_rel": worst_rel, "min_cos": min_cos, "rels": rels, "broken_x1_10": brk_worst,
+        "wall_ms": round(pair_ms, 1), "warm_ms": warm_med,
         "pcie": pcie_snap,
     }
 

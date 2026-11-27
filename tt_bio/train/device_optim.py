@@ -206,7 +206,7 @@ def _sum_sq_last2_exact_f32(x):
     ckc = _ckc(ttnn.MathFidelity.HiFi4)
     f32 = ttnn.float32
 
-    x2 = ttnn.multiply(x, x)
+    x2 = ttnn.square(x)
     hi, lo = _split2_bf16(x2)
     ttnn.deallocate(x2)
 
@@ -832,7 +832,7 @@ class DeviceOptimizer:
                 m_cand = v_cand = None
         else:
             g_eff = ttnn.multiply(g_b, float(clip_adam)) if clip_adam != 1.0 else g_b
-            g2 = ttnn.multiply(g_eff, g_eff)
+            g2 = ttnn.square(g_eff)
             if bk.state1_b is None:
                 m_cand = ttnn.multiply(g_eff, om1)
                 v_cand = ttnn.multiply(g2, om2)

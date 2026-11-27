@@ -95,10 +95,8 @@ class Float64MuonAdamEMA:
         self.muon_buf = {k: np.zeros_like(self.master[k]) for k in self.muon_names}
         self.adam_m = {k: np.zeros_like(self.master[k]) for k in self.adam_names}
         self.adam_v = {k: np.zeros_like(self.master[k]) for k in self.adam_names}
-        self.ema = (
-            {k: w.copy() for k, w in self.master.items()}
-            if self.ema_decay is not None else None
-        )
+        self.ema: dict[str, np.ndarray] | None = None
+        self.ema_n_averaged = 0
         self.step_count = 0
 
     def _ns_f64(self, u: np.ndarray) -> np.ndarray:
@@ -133,8 +131,8 @@ class Float64MuonAdamEMA:
 
         m_norm = math.sqrt(m_sq)
         a_norm = math.sqrt(a_sq)
-        m_scale = min(1.0, self.clip_norm / (m_norm + 1e-6)) if self.clip_norm > 0 else 1.0
-        a_scale = min(1.0, self.clip_norm / (a_norm + 1e-6)) if self.clip_norm > 0 else 1.0
+        m_scale = min(1.0, self.clip_norm / m_norm) if (self.clip_norm > 0 and m_norm > 0) else 1.0
+        a_scale = min(1.0, self.clip_norm / a_norm) if (self.clip_norm > 0 and a_norm > 0) else 1.0
 
         for k in self.muon_names:
             g = grads.get(k)
@@ -156,9 +154,9 @@ class Float64MuonAdamEMA:
         inv_sqrt_bc2 = 1.0 / math.sqrt(bc2)
         for k in self.adam_names:
             g = grads.get(k)
-            if g is None:
-                continue
-            g64 = np.asarray(g, np.float64) * a_scale
+            # Match production AdamW (tt_bio/train/optim.py:559-569): a missing Adam grad is
+            # stepped as zero so existing m/v decay by beta1/beta2 instead of freezing.
+            g64 = np.zeros_like(self.master[k]) if g is None else np.asarray(g, np.float64) * a_scale
             m = self.b1 * self.adam_m[k] + (1.0 - self.b1) * g64
             v = self.b2 * self.adam_v[k] + (1.0 - self.b2) * (g64 * g64)
             self.adam_m[k] = m
@@ -168,10 +166,16 @@ class Float64MuonAdamEMA:
                 self.master[k] = self.master[k] * (1.0 - lr * self.wd)
             self.master[k] = self.master[k] - step_size * (m / denom)
 
-        if self.ema is not None:
-            d = self.ema_decay
-            for k in self.master:
-                self.ema[k] = d * self.ema[k] + (1.0 - d) * self.master[k]
+        if self.ema_decay is not None:
+            # Match production EMA (tt_bio/train/optim.py:274-299): first update after step 1
+            # copies the stepped master; later steps blend ema += (1 - decay) * (master - ema).
+            if self.ema_n_averaged == 0:
+                self.ema = {k: w.copy() for k, w in self.master.items()}
+            else:
+                w = 1.0 - self.ema_decay
+                for k, v in self.master.items():
+                    self.ema[k] = self.ema[k] + w * (v - self.ema[k])
+            self.ema_n_averaged += 1
 
         return {"muon_norm": m_norm, "adam_norm": a_norm}
 
@@ -350,15 +354,44 @@ def main():
     args = ap.parse_args()
 
     if args.cpu_selftest:
+        import torch
+        from tt_bio.train.bridge import HostParam
+        from tt_bio.train.optim import AdamW, EMA
+
         rng = np.random.default_rng(0)
-        w = {"a": rng.standard_normal((16, 32)).astype(np.float32), "b": rng.standard_normal((16,)).astype(np.float32)}
-        ref = Float64MuonAdamEMA(w, lr=1e-4)
+        w = {
+            "a": rng.standard_normal((16, 32)).astype(np.float32),
+            "b": np.zeros((16,), dtype=np.float32),  # zero-init bias like to_out_node.bias
+            "ins": rng.standard_normal((8,)).astype(np.float32),  # sparse Adam param like insertion_k_proj
+        }
+        # Compare Adam + EMA semantics directly against production tt_bio.train.optim.AdamW + EMA
+        ref = Float64MuonAdamEMA(w, lr=1e-4, muon_exclude=(r".*",), ema_decay=0.999)
+        tparams = {k: torch.nn.Parameter(torch.from_numpy(v.copy())) for k, v in w.items()}
+        hparams = {k: HostParam(p) for k, p in tparams.items()}
+        prod_opt = AdamW(hparams, lr=1e-4, betas=(0.9, 0.999), eps=1e-8, weight_decay=0.0, clip_norm=1.0)
+        prod_ema = EMA(0.999)
+        for st_i in range(1, 21):
+            ga = rng.standard_normal((16, 32)).astype(np.float32) * 0.2
+            gb = rng.standard_normal((16,)).astype(np.float32) * 0.2
+            gins = rng.standard_normal((8,)).astype(np.float32) * 0.2 if st_i in (9, 18) else None
+            ref.step({"a": ga, "b": gb, "ins": gins})
+            tparams["a"].grad = torch.from_numpy(ga.copy())
+            tparams["b"].grad = torch.from_numpy(gb.copy())
+            tparams["ins"].grad = None if gins is None else torch.from_numpy(gins.copy())
+            prod_opt.step()
+            prod_ema.update(prod_opt.master)
+        worst_w = max(_rel_l2(prod_opt.master[k], ref.master[k]) for k in w)
+        worst_e = max(_rel_l2(prod_ema.shadow[k], ref.ema[k]) for k in w)
+        assert worst_w < 1e-6 and worst_e < 1e-6, (worst_w, worst_e)
+        # Also exercise Muon path
+        ref_m = Float64MuonAdamEMA(w, lr=1e-4)
         for _ in range(3):
             g = {"a": rng.standard_normal((16, 32)).astype(np.float32) * 0.1,
-                 "b": rng.standard_normal((16,)).astype(np.float32) * 0.1}
-            st = ref.step(g)
-        assert ref.step_count == 3 and st["muon_norm"] > 0 and st["adam_norm"] > 0
-        print("CPU Float64MuonAdamEMA selftest PASS")
+                 "b": rng.standard_normal((16,)).astype(np.float32) * 0.1,
+                 "ins": None}
+            st = ref_m.step(g)
+        assert ref_m.step_count == 3 and st["muon_norm"] > 0 and st["adam_norm"] > 0
+        print(f"CPU Float64MuonAdamEMA selftest PASS (vs prod AdamW+EMA 20st: w={worst_w:.2e}, ema={worst_e:.2e})")
         return
 
     from tt_bio.main import ensure_p300_mesh_descriptor
@@ -544,6 +577,12 @@ def main():
             ttnn.deallocate(old)
         dfolds2.refold(dev_masters_f64, on_refold=refold_hook2)
         ttnn.synchronize_device(dev)
+        if (step + 1) in (1, 5, 10, 15, args.steps):
+            print(
+                f"  ref step {step+1:2d}/{args.steps} ({bt_tup[0]}): res={res_losses[step]:.5f} "
+                f"ref={loss_r:.5f} rel={lrel:.3e} win={res_winners[step]}/{win_r}",
+                flush=True,
+            )
 
     print(
         f"  Closed-loop 20-step trajectory: max_loss_rel={max_loss_rel:.3e} (step {max_loss_step}, bar <= 1e-2), "
