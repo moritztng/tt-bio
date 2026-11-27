@@ -46,13 +46,20 @@ def call(self, s, z, conds, masks):
         dt = time.perf_counter() - t0; outs_free(o); return dt, CLK[c0:]
     threading.Thread(target=sampler, daemon=True).start()
     res = dict(K=K, n=n, zdtype_in=str(Z.dtype), zdtype=str(zd), batchK=[], split=[], clk=[])
-    for rep in range(6):
+    from tt_bio import reblock_permute as RP
+    def rj():
+        r = {"|".join(map(str, k)): v for k, v in RP.REJECTS.items()}; RP.REJECTS.clear()
+        st = list(RP.STATS); RP.STATS[:] = [0] * len(RP.STATS); return dict(rejects=r, stats=st)
+    rj()
+    for rep in range(int(os.environ.get("KSPLIT_REPS", "6"))):
         dt, ck = run(ttnn.clone(S), ttnn.clone(Z), [ttnn.clone(c) for c in C], mk)
+        if rep == 0: res["reblock_batchK"] = rj()
         res["batchK"].append(round(dt, 4)); res["clk"] += ck
         tot = 0.0
         for i in range(K):
             dt, ck = run(sl(S, i), sl(Z, i), [sl(c, i) for c in C], m1); tot += dt; res["clk"] += ck
         res["split"].append(round(tot, 4))
+        if rep == 0: res["reblock_batch1"] = rj()
     c = res.pop("clk"); res["aiclk"] = [min(c or [0]), max(c or [0]), len(c)]
     json.dump(res, open(os.environ["KSPLIT_OUT"], "w"), indent=1); print("KSPLIT", json.dumps(res), flush=True)
     os._exit(0)

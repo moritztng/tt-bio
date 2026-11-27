@@ -791,7 +791,7 @@ def back_x8_ok(memory_config, batch: int = 2) -> bool:
                 and memory_config.memory_layout == ttnn.TensorMemoryLayout.INTERLEAVED)
 
 
-def eligible_back(x, memory_config, taped_ok: bool = False) -> bool:
+def eligible_back(x, memory_config, taped_ok: bool = False, into: bool = False) -> bool:
     """The gate for the back direction.
 
     Deliberately narrower than the forward one. ``N`` must be a multiple of 32: the forward kernels
@@ -810,6 +810,12 @@ def eligible_back(x, memory_config, taped_ok: bool = False) -> bool:
         # node and the reason to refuse is gone. `eligible_gated` keeps the blanket refusal --
         # it fuses a sigmoid and a multiply and its VJP is not an index move.
         return False
+    if into and ops.taping() and ops.grad_hook().on_tape((x,), {}):
+        # `out=` writes the move into a buffer the caller allocated, and no tape entry can attach
+        # a node to that buffer: with `reblock_permute_back`'s entry installed this route used to
+        # open, and every trimul in-projection weight upstream of the einsum lost its gradient
+        # (K11, 56 dead weights). The caller keeps the returning move, which the entry tapes.
+        return _reject("back_into_taped", [int(d) for d in x.shape])
 
     if not _ENABLED_BACK:
         return False

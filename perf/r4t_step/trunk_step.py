@@ -62,10 +62,11 @@ def main():
     ap.add_argument("--cand-pair", choices=("host", "card"), default="card",
                     help="where the grad-off K-candidate pass builds z_init: host (upstream's builder) or the serving "
                          "card path (rfd4.pair.PairOnCard: host constant + bins, card assembly). The taped winner is always host.")
-    ap.add_argument("--cand-levers", choices=("training", "serving"), default="serving",
+    ap.add_argument("--cand-levers", choices=("training", "serving", "inference"), default="serving",
                     help="lever set of the grad-off K-candidate pass: the training set, or that set plus the dropped levers that "
                          "switch at run time (pair_bf16z, dit_sigf32, tok_recycle_mm; r4t-perf K2). The pass only picks the "
-                         "winner, so the gradient is unchanged whenever the winner is")
+                         "winner, so the gradient is unchanged whenever the winner is; inference also lets the fused kernels without a tape entry "
+                         "serve that pass (ops.NOGRAD_IS_INFERENCE, r4t-perf K4)")
     ap.add_argument("--lnbw-weights", choices=("on", "off"), default="on",
                     help="LayerNorm backward with trainable gamma/beta in one fused kernel (tt_bio.lnbw weights form, "
                          "r4t-perf L2) or the composed ttnn path")
@@ -83,6 +84,12 @@ def main():
     ap.add_argument("--gate-bw", choices=("on", "off"), default="on",
                     help="backward of every o * sigmoid(g) gate as one kernel (tt_bio.gate_bw, r4t-perf G1) or the "
                          "seven-op composed path")
+    ap.add_argument("--cover-steps", type=int, default=0,
+                    help="steps the no-gradient guard intersects over (default: the guard's own minimum). A run cycling "
+                         "logged batches sets it to the cycle length: a head no early batch drives is not dead")
+    ap.add_argument("--pcie-meter", choices=("off", "on", "sites"), default="off",
+                    help="count host<->device bytes and transfers per step phase (perf/r4t_perf/pcie_meter.py); "
+                         "sites adds the top call sites by bytes")
     a = ap.parse_args()
     if a.arm == "fp32-exact":
         os.environ["TT_BIO_LEVERS"] = "none"   # Trunk builds on mode_levers(), which reads this, not lever_scope
@@ -112,6 +119,14 @@ def main():
         if len(lens) != 1:
             raise SystemExit(f"--batch files disagree on token length: {sorted(lens)}")
         a.n = lens.pop()
+    if a.pcie_meter != "off":
+        import sys
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "r4t_perf"))
+        import pcie_meter as PM
+        PM.install(sites=a.pcie_meter == "sites")
+    else:
+        PM = None
+    mark = (lambda name: PM.phase(name)) if PM else (lambda name: None)
     import faulthandler
     import signal
     faulthandler.register(signal.SIGUSR1)   # kill -USR1 <pid> prints every thread stack to the log
@@ -368,9 +383,12 @@ def main():
         def cand_scope():
             """--cand-levers serving: the candidate pass adds the run-time levers training drops; pair_bf16z also
             carries the pair stream in bf16, a dtype the trunk and its pair updates read from attributes."""
-            if a.cand_levers != "serving":
+            if a.cand_levers == "training":
                 yield
                 return
+            from tt_bio import ops as _ops
+            nogi = _ops.NOGRAD_IS_INFERENCE
+            _ops.NOGRAD_IS_INFERENCE = a.cand_levers == "inference" or nogi
             mods = [trunk] + list(trunk.pair_updates.values())
             saved = [(m, m.pair_residual_dtype if m is trunk else m.residual_dtype) for m in mods]
             trunk.pair_residual_dtype = ttnn.bfloat16
@@ -382,6 +400,7 @@ def main():
             finally:
                 for m, d in saved:
                     setattr(m, "pair_residual_dtype" if m is trunk else "residual_dtype", d)
+                _ops.NOGRAD_IS_INFERENCE = nogi
 
         def real_example(taped):
             """Upstream's step on the dumped batch: k candidates grad-off through glue + trunk + heads, the
@@ -472,7 +491,8 @@ def main():
             if ln.strip() and not ln.startswith("#"):
                 nm, why = ln.rstrip("\n").split("\t", 1)
                 cyc[nm] = why
-    cov = GradientCoverage(names, exempt=cyc, where="r4t-step trunk: ")
+    cov = GradientCoverage(names, exempt=cyc, where="r4t-step trunk: ",
+                           **({"steps": a.cover_steps} if a.cover_steps else {}))
     threading.Thread(target=sample, daemon=True).start()
     clog = None
     if a.curve_dump:
@@ -488,6 +508,7 @@ def main():
         base = used()
         c0 = len(clk)
         t0 = time.time()
+        mark("fwd")
         extra = {}
         if real:
             use(step * world + rank)
@@ -495,6 +516,7 @@ def main():
             close_rec()
             ttnn.synchronize_device(dev)
             t1 = time.time()
+            mark("heads_bwd")
             retained = used() - base
             loss, terms, ref = real[1](s, ctx)
             ttnn.synchronize_device(dev)
@@ -507,6 +529,7 @@ def main():
             close_rec()
             ttnn.synchronize_device(dev)
             t1 = time.time()
+            mark("heads_bwd")
             retained = used() - base
             st = s if isinstance(s, ag.Tensor) else ag.Tensor(s)
             loss = float((ttnn.to_torch(st.value).float().reshape(Cs.shape) * Cs).sum() / numel)
@@ -519,6 +542,7 @@ def main():
             cut = next(p for p in walked if p.endswith("q_w"))
             folds.sources.pop(id(walked[cut]))
             extra["dropped"] = cut
+        mark("fold_bwd")
         idle = folds.tape_backward()   # device-weight gradients through each fold's VJP into the upstream leaves
         grads = {nm: (None if p.grad is None else p.grad.float().numpy()) for nm, p in params.items()}
         dead = zero_or_missing(grads)
@@ -548,12 +572,16 @@ def main():
             return 0
         t2b = time.time()
         opt.step(replicas={nm: [g] for nm, g in grads.items() if g is not None}) if ax else opt.step()
+        mark("opt")
+        opt.step()
         for p in params.values():
             p.grad = None
         t2c = time.time()
+        mark("rebuild")
         build(lazy=False)
         ttnn.synchronize_device(dev)
         t3 = time.time()
+        mark("digest")
         del s, z, st
         md = hashlib.sha256(b"".join(opt.master[k].tobytes() for k in sorted(opt.master))).hexdigest()[:16]
         sm = clk[c0:] or clk[-1:]
@@ -561,8 +589,8 @@ def main():
                               fold_bwd_s=round(t2b - t2, 4), opt_s=round(t2c - t2b, 4), rebuild_s=round(t3 - t2c, 4), rebuild_split=dict(RB), idle_dev_w=len(idle), step_s=round(t3 - t0, 4), retained_B=retained,
                               dead=len(dead), dead_names=sorted(dead)[:20], dev_base_B=base, dev_after_bwd_B=after_bwd, params=len(params), n_elems=int(sum(v.size for v in opt.master.values())),
                               master_digest=md, aiclk=[min(sm or [0]), max(sm or [0])], aiclk_med=sorted(sm)[len(sm) // 2] if sm else 0,
-                              k=a.k, depth=a.depth, n=n, lnbw_reach=dict(lnbw.REACH), gate_bw=list(gate_bw.STATS), **extra,
-                              host_maxrss_GiB=round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 2**20, 3))),
+                              k=a.k, depth=a.depth, n=n, lnbw_reach=dict(lnbw.REACH), gate_bw=list(gate_bw.STATS), kernels={k: list(v) for k, v in __import__("tt_bio.taped_ttnn", fromlist=["x"]).KERNEL_STATS.items()}, **extra,
+                              **({"pcie": PM.take()} if PM else {}), host_maxrss_GiB=round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 2**20, 3))),
               flush=True)
         if a.save_at and step + 1 == a.save_at:   # before the guard, so a refusal still leaves the resume test its input
             print(json.dumps(dict(saved=str(ck.save(step + 1, opt, metrics={"loss": loss}, force=True)))), flush=True)

@@ -235,6 +235,10 @@ class PairOnCard:
             return self._const[2]
         self.release()
         proj = c.proj
+        if proj.shape[0] > 1 and proj.stride(0) == 0:
+            # PairSplit.constant's dedup view (K candidates / samples of one design): upload the one row, which
+            # `pair_build` broadcasts. Materialising the expansion cost 4x the host memory traffic and PCIe bytes.
+            proj = proj[:1]
         padded = torch.nn.functional.pad(proj, [0, 0, 0, npad, 0, npad]) if npad else proj
         self._const = (c, npad, upload(padded.float().contiguous(), dtype=ttnn.float32, device=self.device))
         return self._const[2]
@@ -253,8 +257,11 @@ class PairOnCard:
         if z is not None:
             return z
         rows = self.rows(bins)
-        x = ttnn.add(rows, const)
+        full = const if int(const.shape[0]) == int(bins.shape[0]) else ttnn.concat([const] * int(bins.shape[0]), dim=0)
+        x = ttnn.add(rows, full)
         ttnn.deallocate(rows)
+        if full is not const:
+            ttnn.deallocate(full)
         # z = x * r1 r2 * (w gamma) + beta; r1 r2 is the host's per-pair scale.
         s = upload(scale[..., None].float().contiguous(), dtype=ttnn.float32, device=self.device)
         wg = (self.split.ln_weight.double() * p.gamma.double()).float()

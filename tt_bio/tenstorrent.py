@@ -11661,7 +11661,7 @@ class TriangleMultiplication(Module):
             one_pass = not _TRIMUL_RAW_CHANNEL_MOVES and (
                 large_seq or (_TRIMUL_BACK_ONE_PASS_L1 and _reblock.eligible_back(xc, back_mc)))
             into = (one_pass and _TRIMUL_BACK_INTO and large_seq and not host_acc and not keep_chunks
-                    and _reblock.eligible_back(xc, back_mc))
+                    and _reblock.eligible_back(xc, back_mc, into=True))
             return back_mc, one_pass, into
 
         def x8(out_mc):

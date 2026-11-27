@@ -1,0 +1,7 @@
+K4/K5/K6, qb2 card 1 p300c, sha dbe71a027, 2 pinned CPUs (6,7), batch00, AICLK 1300-1350 during every run.
+K4 (--cand-levers inference vs serving): 9/9 winners + step-1 digests identical, gX differs; fwd steps 2-3 2.061 -> 2.049 s. No lever.
+K5: taping() stays True under NOGRAD_IS_INFERENCE; eligible_gated declines at ops.declines_under_tape (TT_BIO_TAPED_KERNELS empty). K pass batch-4 0.968 s, 4 x batch-1 1.005 s.
+K6 SCREEN (not a grade): TT_BIO_TAPED_KERNELS=all. ksplit: batch-4 0.920 s (gated_shape rejects batch 4), 4 x batch-1 0.733 s.
+  trunk_step 3 steps x2 interleaved, steps 2-3: fwd off 2.00-2.09 / all 1.78-1.91 s; bwd off 0.87-0.95 / all 0.77-0.83 s; step off 4.11-4.77 / all 3.88-4.30 s.
+  Step-1 loss identical (46.50310727683735), winners equal upstream; master digest 9cf01842 -> 3cc25123 (gradient moved, deterministic across 2 runs).
+  Owed before default: block float64 grade with the taped kernels, 9-batch parity, and which entries serve (KERNEL_STATS).
