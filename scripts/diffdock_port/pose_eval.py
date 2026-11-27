@@ -174,9 +174,28 @@ def dock(ids, out_dir: Path, workers: int, chunk: int, seed: int, threads: int):
                 done = sum(1 for i in part if docked(out_dir, i))
                 print(f"chunk {part[0]}..{part[-1]}: rc={p.returncode} {done}/{len(part)} "
                       f"({time.time() - t0:.0f}s elapsed)", flush=True)
+    # The done-marker must assert the work this run did, not the artifacts it happens to find.
+    # On 2026-11-27 Galaxy .112 was launched without the checkpoints: all 20 workers raised
+    # CheckpointMissing, every chunk returned rc=1 0/n, and the run still printed
+    # "DOCK_DONE 108/214" after 10 s, because 108 poses were sitting in the output directory
+    # from the rsync that seeded it. A marker counted off the directory cannot tell a finished
+    # run from a run that did nothing, which is the whole question the grade gate asks it.
     n = sum(1 for i in ids if docked(out_dir, i))
-    print(f"DOCK_DONE {n}/{len(ids)} complexes have rank1.sdf after "
-          f"{time.time() - t0:.0f}s", flush=True)
+    refused = set()
+    for lg in sorted(logs.glob("dock-*.log")):
+        for ln in lg.read_text(errors="replace").splitlines():
+            if ln.startswith("FAILED ") or ln.startswith("skip "):
+                refused.add(ln.split(None, 2)[1].rstrip(":"))
+    unexplained = [i for i in ids if not docked(out_dir, i) and i not in refused]
+    el = time.time() - t0
+    if unexplained:
+        print(f"DOCK_INCOMPLETE {n}/{len(ids)} docked, {len(refused)} refused with a reason, "
+              f"{len(unexplained)} unaccounted after {el:.0f}s. First unaccounted: "
+              f"{unexplained[:8]}. This run is NOT a finished set and must not gate a grade.",
+              flush=True)
+    else:
+        print(f"DOCK_DONE {n}/{len(ids)} complexes have rank1.sdf and {len(refused)} are "
+              f"refused with a recorded reason, after {el:.0f}s", flush=True)
 
 
 # ---------------------------------------------------------------- grading
