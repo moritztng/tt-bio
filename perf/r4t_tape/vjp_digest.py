@@ -4,7 +4,7 @@ Wraps every taped op: forward output digest at tape time; in the backward, the i
 digest of every contribution the closure deposits (add_grad / add_grad_slice), keyed by forward index. Reading a
 tensor back does not change it, so the run's numbers are the production ones. Writes JSONL to $VJPLOG.
 
-Usage: VJPLOG=out.jsonl [VJPRUN=perf/r4t_step/trunk_step.py] python3 perf/r4t_tape/vjp_digest.py <that script's args>
+Usage: VJPLOG=out.jsonl [VJPBREAK=<op index>] [VJPRUN=perf/r4t_step/trunk_step.py] python3 perf/r4t_tape/vjp_digest.py <that script's args>
        python3 perf/r4t_tape/vjp_digest.py --cmp A.jsonl B.jsonl
 The op to blame is the first backward entry whose incoming gradient agrees on both boards and whose contributions do
 not: same inputs, different outputs. Forward entries are compared first (a forward diff explains everything after it)."""
@@ -53,6 +53,7 @@ OUT = open(os.environ["VJPLOG"], "w")
 CUR = [None]
 N = [0]
 META = {}
+BREAK = int(os.environ.get("VJPBREAK", "-1"))   # broken arm: scale this closure's incoming gradient by 1+2^-6
 
 
 def dg(v):
@@ -86,6 +87,8 @@ def tape(out_value, parents, make_fn, reads=None):
         def wrapped(g, _fn=fn, _i=i):
             rec = {"k": "b", "i": _i, "op": META[_i][0], "shape": META[_i][1], "dtype": META[_i][2], "gin": dg(g), "out": []}
             prev = CUR[0]; CUR[0] = rec
+            if _i == BREAK:
+                g = ttnn.multiply(g, 1.015625); rec["broken"] = True
             try:
                 return _fn(g)
             finally:
