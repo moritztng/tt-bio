@@ -1264,8 +1264,13 @@ def _reblock_vjp(dims):
         # `out=` fills a caller's buffer in place: a node here would hang off the return value
         # while the caller reads its own buffer untaped, silently cutting the gradient upstream.
         # `eligible_back(..., into=True)` keeps such calls off the tape; this catches a new one.
+        # The hook stays installed between tapes, so an untaped forward reaches here too: with no
+        # taped operand there is no gradient to cut and the move runs as shipped.
         if kwargs.get("out") is not None or len(args) > 3:
-            raise RuntimeError("reblock_permute: an in-place out= move cannot be taped")
+            ra, rk = _raw(args, kwargs)
+            if _on_tape(args, kwargs):
+                raise RuntimeError("reblock_permute: an in-place out= move cannot be taped")
+            return shipped(*ra, **rk)
         x = _wrap(args[0])
         ra, rk = _raw(args, kwargs)
         out_v = shipped(*ra, **rk)
