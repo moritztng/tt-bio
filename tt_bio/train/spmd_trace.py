@@ -374,10 +374,13 @@ class SPMDMeshTracer:
         z_init,
         c_one,
         masks: Sequence[Any],
+        zd,
+        low,
         prev=None,
     ):
-        """Run one recycle pass ``trunk(s_init, z_init, [c_one], masks, prev=prev)`` under MeshTrace."""
+        """Run one recycle cycle matching ``Trunk.__call__`` bit-for-bit under MeshTrace."""
         import ttnn
+        from .. import tenstorrent as T
 
         has_prev = prev is not None
         key = (
@@ -386,11 +389,23 @@ class SPMDMeshTracer:
             tuple(s_init.shape), str(s_init.dtype),
             tuple(z_init.shape), str(z_init.dtype),
             tuple(c_one.shape), str(c_one.dtype),
+            str(zd), str(low),
             tuple(m is not None for m in masks),
         )
 
         def _call(si, zi, ci, mk_a, pr_a):
-            return trunk(si, zi, [ci], mk_a, prev=pr_a)
+            with T.lever_scope(trunk._levers):
+                zb = None
+                if pr_a is None:
+                    s_in, z_in = ttnn.clone(si), ttnn.clone(zi)
+                else:
+                    s_in = trunk._recycle(si, pr_a[0], trunk.s_norm, trunk.s_proj, trunk.residual_dtype)
+                    z_rec = trunk._recycle(zi, pr_a[1], trunk.z_norm, trunk.z_proj, zd, low=low)
+                    if low is not None:
+                        z_in, zb = z_rec
+                    else:
+                        z_in = z_rec
+                return trunk.run_pass(s_in, z_in, ci, mk_a, zb=zb)
 
         tr = self._untaped_traces.get(key)
         if tr == "eager":
@@ -467,18 +482,31 @@ class SPMDMeshTracer:
         return_penultimate: bool = False,
     ):
         import ttnn
+        from .. import tenstorrent as T
+        from ..rfd4.trunk import _masked_copy
 
         if not self.enabled:
             if return_penultimate:
                 return trunk(s, z, cs, masks, return_penultimate=True)
             return trunk(s, z, cs, masks)
 
-        cur_s, cur_z = self._run_untaped_pass(tag, trunk, s, z, cs[0], masks, prev=None)
+        with T.lever_scope(trunk._levers):
+            res_mask = masks[4]
+            zd = trunk.pair_dtype(masks)
+            res_pair_mask_c = masks[5] if zd == trunk.residual_dtype else masks[3]
+            s_init = _masked_copy(s, res_mask, trunk.residual_dtype, alias=True)
+            z_init = _masked_copy(z, res_pair_mask_c, zd, alias=True)
+            low = trunk.dtype if zd == ttnn.float32 and trunk.dtype == ttnn.bfloat16 else None
+            do_final_mask = res_mask is not None and T.lever("mask_at_mix")
+
+        cur_s, cur_z = self._run_untaped_pass(
+            tag, trunk, s_init, z_init, cs[0], masks, zd, low, prev=None,
+        )
         penult = (None, None)
         last = len(cs) - 1
         for i in range(1, len(cs)):
             nxt_s, nxt_z = self._run_untaped_pass(
-                tag, trunk, s, z, cs[i], masks, prev=(cur_s, cur_z),
+                tag, trunk, s_init, z_init, cs[i], masks, zd, low, prev=(cur_s, cur_z),
             )
             if return_penultimate and i == last:
                 penult = (cur_s, cur_z)
@@ -486,6 +514,26 @@ class SPMDMeshTracer:
                 ttnn.deallocate(cur_s)
                 ttnn.deallocate(cur_z)
             cur_s, cur_z = nxt_s, nxt_z
+
+        if do_final_mask:
+            with T.lever_scope(trunk._levers):
+                ms = _masked_copy(cur_s, res_mask, trunk.residual_dtype)
+                mz = _masked_copy(cur_z, res_pair_mask_c, zd)
+                ttnn.deallocate(cur_s)
+                ttnn.deallocate(cur_z)
+                cur_s, cur_z = ms, mz
+                if penult[0] is not None:
+                    pm = masks[5] if penult[1].dtype == trunk.residual_dtype else masks[3]
+                    ps = _masked_copy(penult[0], res_mask, penult[0].dtype)
+                    pz = _masked_copy(penult[1], pm, penult[1].dtype)
+                    ttnn.deallocate(penult[0])
+                    ttnn.deallocate(penult[1])
+                    penult = (ps, pz)
+
+        for t, given in ((s_init, s), (z_init, z)):
+            if t is not given:
+                ttnn.deallocate(t)
+
         if return_penultimate:
             return cur_s, cur_z, penult
         return cur_s, cur_z
