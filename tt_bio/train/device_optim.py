@@ -254,6 +254,23 @@ def _ones_row_bf16(m: int, device):
     return t
 
 
+def _ones_batch_row_bf16(k: int, m: int, device):
+    """Cached ``[k, 1, m]`` bf16 TILE batched row of ones for rank-3 batched matmul."""
+    import torch
+    import ttnn
+
+    key = (id(device), int(k), int(m))
+    hit = _ONES_ROW_CACHE.get(key)
+    if hit is not None and hit.is_allocated():
+        return hit
+    t = ttnn.from_torch(
+        torch.ones(int(k), 1, int(m), dtype=torch.bfloat16),
+        dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=device,
+    )
+    _ONES_ROW_CACHE[key] = t
+    return t
+
+
 def _sum_sq_last2_exact_f32(x):
     """Exact per-slice sum of squares over the last two dims of ``[k, m, n]`` -> ``[k, 1, 1]`` fp32.
 
@@ -276,8 +293,11 @@ def _sum_sq_last2_exact_f32(x):
 
     cg_kw = _mm_cg(cg)
     if m > n and m > 1:
-        # Reduce tall axis m first via [1, m] @ [k, m, n] -> [k, 1, n] across all cores.
-        ones_m = _ones_row_bf16(m, dev)
+        # Reduce tall axis m first via [k, 1, m] @ [k, m, n] -> [k, 1, n] across all cores.
+        ones_m = (
+            _ones_batch_row_bf16(int(x.shape[0]), m, dev)
+            if len(x.shape) == 3 else _ones_row_bf16(m, dev)
+        )
         c_hi = ttnn.matmul(ones_m, hi, dtype=f32, compute_kernel_config=ckc, **cg_kw)
         c_lo = ttnn.matmul(ones_m, lo, dtype=f32, compute_kernel_config=ckc, **cg_kw)
         ttnn.deallocate(hi)
