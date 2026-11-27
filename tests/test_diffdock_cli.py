@@ -301,3 +301,47 @@ def test_a_shorter_run_docks(tmp_path):
               "--diffusion_samples", "2", "--out_dir", str(tmp_path))
     assert out.exit_code == 0, out.output
     assert (tmp_path / "complex_0" / "rank1.sdf").exists()
+
+
+def test_dock_runs_on_the_card_it_picked(tmp_path, monkeypatch):
+    """A card on the host means the score network runs on it, not on the CPU.
+
+    `dock` detected the host's cards and pinned one, then handed the run a DockOptions that
+    still said ``cpu``, so the shipped command stayed on the CPU and only the grade harnesses
+    reached a chip (D-dfd-orch-73). The card is faked here: what is under test is which device
+    the options carry into `dock_run.dock`, which is the one thing that decision changes.
+    """
+    from tt_bio import main as tt_main
+    from tt_bio.diffdock import run as dock_run
+
+    seen = {}
+
+    def fake_dock(jobs, options, out_dir, **kw):
+        seen["device"] = options.device
+        return {"docked": [], "failed": [], "out_dir": str(out_dir)}
+
+    monkeypatch.setattr(tt_main, "_local_cards", lambda ids, n: [0])
+    monkeypatch.setattr(tt_main, "_pin_one_card", lambda devices, model: None)
+    monkeypatch.setattr(dock_run, "dock", fake_dock)
+    rec = tmp_path / "rec.pdb"
+    rec.write_text("ATOM      1  CA  ALA A   1       0.000   0.000   0.000  1.00  0.00\n")
+    res = run(str(rec), "--ligand", ASPIRIN, "--out_dir", str(tmp_path / "out"))
+    assert res.exit_code == 0, res.output
+    assert seen["device"] == "tt"
+
+
+def test_dock_without_a_card_stays_on_the_cpu(tmp_path, monkeypatch):
+    """The other half of the same decision: no card, no device path, no import of ttnn."""
+    from tt_bio import main as tt_main
+    from tt_bio.diffdock import run as dock_run
+
+    seen = {}
+    monkeypatch.setattr(tt_main, "_local_cards", lambda ids, n: [])
+    monkeypatch.setattr(dock_run, "dock",
+                        lambda jobs, options, out_dir, **kw: seen.update(device=options.device)
+                        or {"docked": [], "failed": [], "out_dir": str(out_dir)})
+    rec = tmp_path / "rec.pdb"
+    rec.write_text("ATOM      1  CA  ALA A   1       0.000   0.000   0.000  1.00  0.00\n")
+    res = run(str(rec), "--ligand", ASPIRIN, "--out_dir", str(tmp_path / "out"))
+    assert res.exit_code == 0, res.output
+    assert seen["device"] == "cpu"
