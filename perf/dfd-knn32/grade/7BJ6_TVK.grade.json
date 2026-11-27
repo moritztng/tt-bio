@@ -1,6 +1,6 @@
 {
   "complex": "7BJ6_TVK",
-  "npz": "artifacts/dfd-knn32/grade/7BJ6_TVK.npz",
+  "npz": "perf/dfd-knn32/grade/7BJ6_TVK.npz",
   "steps": {
     "0": {
       "tr": {
