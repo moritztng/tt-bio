@@ -30,6 +30,7 @@ __all__ = [
     "stack_batches",
     "unstack_leading",
     "MeshBridge",
+    "select_per_rank_candidate",
 ]
 
 
@@ -382,11 +383,8 @@ class MeshBridge:
             if d_t.grad is None:
                 continue
             if is_rep and self.world > 1:
-                shards = ttnn.get_device_tensors(d_t.grad)
-                g_acc = ttnn.to_torch(shards[0]).float().reshape(h_t.shape)
-                for r in range(1, self.world):
-                    g_acc = g_acc + ttnn.to_torch(shards[r]).float().reshape(h_t.shape)
-                g_h = g_acc.to(h_t.dtype)
+                g_all = read_sharded(d_t.grad, self.device).float().reshape(self.world, *h_t.shape)
+                g_h = g_all.sum(dim=0).to(h_t.dtype)
             else:
                 g_h = read_sharded(d_t.grad, self.device).float().reshape(h_t.shape).to(h_t.dtype)
             ttnn.deallocate(d_t.grad)
@@ -397,3 +395,46 @@ class MeshBridge:
             torch.autograd.backward(host_leaves, host_grads)
         self.ups.clear()
         self.downs.clear()
+
+
+def select_per_rank_candidate(t, win_indices: Sequence[int], device):
+    """Select slice ``win_indices[r]`` along dim 0 on each chip ``r`` strictly on card.
+
+    Handles both uniform winners (1-op ``ttnn.slice`` fast path) and heterogeneous per-rank
+    winners across a ``MeshDevice`` without any host-device transfer of the candidate tensor
+    and without relying on 4-D ``ttnn.sum(dim=0)`` permutes.
+    """
+    import torch
+    import ttnn
+
+    sh = [int(d) for d in t.shape]
+    if len(set(win_indices)) == 1:
+        w = int(win_indices[0])
+        return ttnn.slice(t, [w] + [0] * (len(sh) - 1), [w + 1] + sh[1:])
+
+    k = sh[0]
+    world = len(win_indices)
+    if world != mesh_world(device):
+        raise ValueError(f"win_indices length {world} != mesh_world {mesh_world(device)}")
+    c = sh[-1]
+    mask_shape = (world,) + (1,) * (len(sh) - 2) + (c,)
+    acc = None
+    for j in range(k):
+        sl = ttnn.slice(t, [j] + [0] * (len(sh) - 1), [j + 1] + sh[1:])
+        m_host = torch.zeros(mask_shape, dtype=torch.float32)
+        for r, w in enumerate(win_indices):
+            if int(w) == j:
+                m_host[r].fill_(1.0)
+        m_tt = put_sharded(m_host, device, dtype=t.dtype, layout=ttnn.TILE_LAYOUT)
+        part = ttnn.multiply(sl, m_tt)
+        ttnn.deallocate(sl)
+        ttnn.deallocate(m_tt)
+        if acc is None:
+            acc = part
+        else:
+            nxt = ttnn.add(acc, part)
+            ttnn.deallocate(acc)
+            ttnn.deallocate(part)
+            acc = nxt
+    return acc
+

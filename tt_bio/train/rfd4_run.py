@@ -141,7 +141,51 @@ def main(argv=None, on_step=None):
                     help="Newton-Schulz precision mode for DeviceOptimizer under --resident")
     ap.add_argument("--ema-decay", type=float, default=0.999,
                     help="EMA decay for DeviceOptimizer under --resident (<0 disables EMA)")
+    ap.add_argument("--mesh", default="",
+                    help="SPMD MeshDevice data-parallel grid over Galaxy Ethernet fabric (e.g. 1x4, 2x4, 4x4, 8x4); "
+                         "implies --resident")
+    ap.add_argument("--full-mesh", default="8x4",
+                    help="physical Galaxy mesh shape for --mesh submesh opening (default: 8x4)")
+    ap.add_argument("--spmd-zero1", dest="spmd_zero1", action="store_true", default=True,
+                    help="enable Axis-0 SPMD K-sharded Muon ZeRO-1 under --mesh when mesh rows > 1 (default: on)")
+    ap.add_argument("--no-spmd-zero1", dest="spmd_zero1", action="store_false",
+                    help="disable Axis-0 SPMD Muon ZeRO-1 under --mesh (run full 2D all-reduce + replicated Muon)")
+    ap.add_argument("--eth-dispatch", choices=("auto", "on", "off"), default="auto",
+                    help="ETH dispatch cores under --mesh (auto=ETH on BH Galaxy for 12x10=120 Tensix cores)")
+    ap.add_argument("--depths-from", default="",
+                    help="JSONL path whose n_recycle column overrides per-step recycle depth (e.g. B200 steps.jsonl)")
+    ap.add_argument("--depth-override", type=int, default=0,
+                    help="override per-step recycle depth to a fixed positive integer on real batches")
+    ap.add_argument("--break-spmd-reduce", action="store_true",
+                    help="G5 broken arm under --mesh: skip cross-rank CCL gradient reduction (must FAIL consensus/parity)")
+    ap.add_argument("--consensus-every", type=int, default=0,
+                    help="check bit-identical all-rank master consensus every N steps under --mesh (0 = final step only)")
+    ap.add_argument("--dump-master-np", default="",
+                    help="write final fp32 host master weights dict to PATH.npz for serial-sum vs SPMD parity checks")
+    ap.add_argument("--serial-accum", type=int, default=1,
+                    help="accumulate gradients over M consecutive batches on 1 chip before stepping (exact serial-sum reference)")
     a = ap.parse_args(argv)
+    spmd_mesh_shape = None
+    full_mesh_shape = None
+    if a.mesh:
+        from tt_bio.train.spmd_rfd4 import parse_mesh_arg
+        spmd_mesh_shape = parse_mesh_arg(a.mesh)
+        full_mesh_shape = parse_mesh_arg(a.full_mesh)
+        if a.dp_cards:
+            raise SystemExit("--mesh cannot be combined with --dp-cards")
+        if a.curve_dump:
+            raise SystemExit("--mesh cannot be combined with --curve-dump")
+        if a.serial_accum != 1:
+            raise SystemExit("--mesh cannot be combined with --serial-accum > 1")
+        a.resident = True
+    if a.serial_accum < 1:
+        raise SystemExit("--serial-accum must be >= 1")
+    if a.serial_accum > 1 and not a.resident:
+        raise SystemExit("--serial-accum > 1 requires --resident")
+    depth_seq = None
+    if a.depths_from:
+        from tt_bio.train.spmd_rfd4 import load_depths_jsonl
+        depth_seq = load_depths_jsonl(a.depths_from)
     if a.arm == "fp32-exact":
         os.environ["TT_BIO_LEVERS"] = "none"   # Trunk builds on mode_levers(), which reads this, not lever_scope
         a.lnbw_weights = "off"   # the fused LN-backward kernel is a perf lever; the control arm verified by r4t-tape has none
@@ -181,7 +225,8 @@ def main(argv=None, on_step=None):
     import faulthandler
     import signal
     faulthandler.register(signal.SIGUSR1)   # kill -USR1 <pid> prints every thread stack to the log
-    os.environ.setdefault("TT_VISIBLE_DEVICES", "0")
+    if spmd_mesh_shape is None:
+        os.environ.setdefault("TT_VISIBLE_DEVICES", "0")
     from tt_bio.main import ensure_p300_mesh_descriptor
     ensure_p300_mesh_descriptor()
     import torch
@@ -204,20 +249,31 @@ def main(argv=None, on_step=None):
         arm.enter_context(T.device_dtype_override(ttnn.float32))
         arm.enter_context(EX.exact_fp32())
 
-    dev = T.get_device()
-    card = int(os.environ.get("TT_VISIBLE_DEVICES", "0").split(",")[0])
+    if spmd_mesh_shape is not None:
+        from tt_bio.train.mesh_dp import mesh_world, open_galaxy_submesh
+        eth_opt = None if a.eth_dispatch == "auto" else (a.eth_dispatch == "on")
+        dev = arm.enter_context(
+            open_galaxy_submesh(spmd_mesh_shape, full_shape=full_mesh_shape, eth_dispatch=eth_opt)
+        )
+        world = mesh_world(dev)
+        rank = 0
+        card = 0
+    else:
+        dev = T.get_device()
+        card = int(os.environ.get("TT_VISIBLE_DEVICES", "0").split(",")[0])
     from tt_bio.train.provenance import open_nodes
     nodes = open_nodes()
-    clk_node = nodes[0] if nodes else card
+    clk_nodes = list(nodes) if (spmd_mesh_shape is not None and nodes) else ([nodes[0]] if nodes else [card])
     clk, stop = [], threading.Event()
 
     def sample():
-        path = f"/sys/class/tenstorrent/tenstorrent!{clk_node}/tt_aiclk"
+        paths = [f"/sys/class/tenstorrent/tenstorrent!{clk_node}/tt_aiclk" for clk_node in clk_nodes]
         while not stop.is_set():
-            try:
-                clk.append(int(open(path).read().split()[0]))
-            except Exception:
-                pass
+            for path in paths:
+                try:
+                    clk.append(int(open(path).read().split()[0]))
+                except Exception:
+                    pass
             time.sleep(0.05)
 
     def used():
@@ -381,20 +437,47 @@ def main(argv=None, on_step=None):
         return trunk(s_init, z_init, conds, masks, prev=prev)
 
     def one_example(step, taped):
+        step_d = int(depth_seq[step % len(depth_seq)]) if depth_seq is not None else (
+            int(a.depth_override) if a.depth_override > 0 else a.depth
+        )
+        if spmd_mesh_shape is not None:
+            from tt_bio.train.mesh_dp import put_sharded
+            s_parts, z_parts = [], []
+            for r in range(world):
+                sr, zr = inputs(step * world + r)
+                s_parts.append(sr)
+                z_parts.append(zr)
+            s0_all = torch.cat(s_parts, dim=0)
+            z0_all = torch.cat(z_parts, dim=0)
+            with T.lever_scope(levers), ag.tape():
+                with ag.no_grad():
+                    sk, zk = trunk(put_sharded(s0_all, dev, dtype=ttnn.float32),
+                                   put_sharded(z0_all, dev, dtype=zd),
+                                   [condk] * step_d, masksk)
+                for t in (sk, zk):
+                    ttnn.deallocate(t.value if isinstance(t, ag.Tensor) else t)
+                s_win = torch.cat([sr[0:1] for sr in s_parts], dim=0)
+                z_win = torch.cat([zr[0:1] for zr in z_parts], dim=0)
+                s_init = put_sharded(s_win, dev, dtype=ttnn.float32)
+                z_init = put_sharded(z_win, dev, dtype=zd)
+                if not taped:
+                    with ag.no_grad():
+                        return winner(s_init, z_init, [cond1] * step_d)
+                return winner(s_init, z_init, [cond1] * step_d)
         s0, z0 = inputs(step)
         # Everything runs inside one tape so the walked (taped) weights meet taped verbs everywhere; the
         # k candidates are the sampler's batched inference call and stay grad-off.
         with T.lever_scope(levers), ag.tape():
             with ag.no_grad():
-                sk, zk = trunk(put(s0), put(z0, zd), [condk] * a.depth, masksk)
+                sk, zk = trunk(put(s0), put(z0, zd), [condk] * step_d, masksk)
             win = 0   # the objective picks the winner from the heads' loss; heads are not bridged yet (see doc)
             for t in (sk, zk):
                 ttnn.deallocate(t.value if isinstance(t, ag.Tensor) else t)
             s_init, z_init = put(s0[win:win + 1]), put(z0[win:win + 1], zd)
             if not taped:
                 with ag.no_grad():
-                    return winner(s_init, z_init)
-            return winner(s_init, z_init)
+                    return winner(s_init, z_init, [cond1] * step_d)
+            return winner(s_init, z_init, [cond1] * step_d)
 
     real = None
     if a.batch:
@@ -405,9 +488,16 @@ def main(argv=None, on_step=None):
         batches = [(os.path.basename(f),) + load_batch(f) for f in a.batch.split(",")]
         cur = {}
 
-        def use(step):
+        def use(step, *, depth_step=None):
             nm, b, m, _rec, rl = batches[step if a.curve_dump else step % len(batches)]
-            cur.update(name=nm, bt=b, meta=m, ref=rl, K=int(b["padding_mask"].shape[0]), depth=max(1, int(m["depth"])))
+            ds = step if depth_step is None else depth_step
+            if depth_seq is not None:
+                d_use = int(depth_seq[ds % len(depth_seq)])
+            elif a.depth_override > 0:
+                d_use = int(a.depth_override)
+            else:
+                d_use = max(1, int(m["depth"]))
+            cur.update(name=nm, bt=b, meta=m, ref=rl, K=int(b["padding_mask"].shape[0]), depth=d_use)
         use(0)
         glue.requires_grad_(True)
 
@@ -420,8 +510,8 @@ def main(argv=None, on_step=None):
             return {k: npy(v) for k, v in d.items()} if isinstance(d, dict) else (
                 d.detach().numpy() if torch.is_tensor(d) else d)
 
-        def conds_for(b):
-            depth = cur["depth"]
+        def conds_for(b, depth_val=None):
+            depth = cur["depth"] if depth_val is None else int(depth_val)
             cs = [glue.conditioning(b, None)]
             for cyc in range(1, depth):
                 cs.append(glue.conditioning(b, depth - cyc - 1) if glue.condition_on_recycle_remaining else cs[0])
@@ -648,10 +738,14 @@ def main(argv=None, on_step=None):
             br, bw = ctx["br"], ctx["bw"]
             if a.resident:
                 from tt_bio.train.rfd4_heads import device_winner_loss
-                return device_winner_loss(
+                res = device_winner_loss(
                     glue, s if isinstance(s, ag.Tensor) else ag.Tensor(s, requires_grad=True),
                     bw, bridge=br, ref_terms=cur["ref"], win_idx=ctx["win"],
                 )
+                for t in ctx.get("keep", ()):
+                    if t is not None and t.is_allocated():
+                        ttnn.deallocate(t)
+                return res
             sh = br.down(s if isinstance(s, ag.Tensor) else ag.Tensor(s, requires_grad=True)).reshape(ctx["shape"])
             o = flat(glue.heads(sh, bw))
             total, bd, seeds = RO.rfd4_loss({**npy(bw), "exploration_k": 1},
@@ -687,6 +781,162 @@ def main(argv=None, on_step=None):
             ref = {k: float(cur["ref"][k][ctx["win"]]) for k in terms if k in cur["ref"]
                    and ctx["win"] < len(cur["ref"][k])}
             return total, terms, ref
+
+        def real_example_spmd(step):
+            """SPMD data-parallel real step across all ``world`` chips of a MeshDevice."""
+            from tt_bio.train.mesh_dp import (
+                MeshBridge, put_sharded, select_per_rank_candidate, stack_batches,
+            )
+            from tt_bio.train.rfd4_heads import device_candidate_scores_spmd
+            from tt_bio.train.spmd_rfd4 import gather_winner_batches, select_rank_batches
+
+            if res_pair is None:
+                raise RuntimeError("--mesh real-batch path requires ResidentPairBuilder (--cand-pair card --win-pair card)")
+            rank_items = select_rank_batches(batches, step, world)
+            rank_names = [it[0] for it in rank_items]
+            rank_bts = [it[1] for it in rank_items]
+            rank_metas = [it[2] for it in rank_items]
+            rank_refs = [it[4] for it in rank_items]
+            K = int(rank_bts[0]["padding_mask"].shape[0])
+            if depth_seq is not None:
+                step_depth = int(depth_seq[step % len(depth_seq)])
+            elif a.depth_override > 0:
+                step_depth = int(a.depth_override)
+            else:
+                step_depth = max(1, int(rank_metas[0]["depth"]))
+            cur.update(name=rank_names[0], bt=rank_bts[0], meta=rank_metas[0], ref=rank_refs[0], K=K, depth=step_depth)
+
+            stacked_bt = stack_batches(rank_bts)
+            mk = TR.trunk_masks(
+                stacked_bt["padding_mask"].float(), dev,
+                dtype=trunk.dtype, residual_dtype=trunk.residual_dtype, sharded=True,
+            )
+            phase = {}
+            want_penult = a.win_pre == "reuse" and step_depth > 1
+            with torch.no_grad():
+                ck = conds_for(stacked_bt, step_depth)
+                encs = [res_pair.encode_step(b) for b in rank_bts]
+                s0 = glue.init_repr_factory(stacked_bt) * stacked_bt["padding_mask"][..., None]
+
+            penult_k = (None, None)
+            cand_outside = a.cand_levers in ("serve", "serve_train")
+            if a.phase_timing:
+                ttnn.synchronize_device(dev)
+                _tc0 = time.time()
+            if cand_outside:
+                with ag.suspended(), cand_scope():
+                    zk0, pair_cache = res_pair.candidates_spmd(encs, trunk.pair_dtype(mk))
+                    s0_tt = put_sharded(s0, dev, dtype=ttnn.float32)
+                    ck_tt = [put_sharded(c, dev, dtype=trunk.dtype) for c in ck]
+                    if want_penult:
+                        sk, zk, penult_k = trunk(s0_tt, zk0, ck_tt, mk, return_penultimate=True)
+                    else:
+                        sk, zk = trunk(s0_tt, zk0, ck_tt, mk)
+                    win_indices = device_candidate_scores_spmd(glue, sk, rank_bts, K)
+                for t in (sk, zk):
+                    ttnn.deallocate(t)
+            else:
+                with T.lever_scope(levers), ag.tape(), ag.no_grad(), cand_scope():
+                    zk0, pair_cache = res_pair.candidates_spmd(encs, trunk.pair_dtype(mk))
+                    s0_tt = put_sharded(s0, dev, dtype=ttnn.float32)
+                    ck_tt = [put_sharded(c, dev, dtype=trunk.dtype) for c in ck]
+                    if want_penult:
+                        sk, zk, penult_k = trunk(s0_tt, zk0, ck_tt, mk, return_penultimate=True)
+                    else:
+                        sk, zk = trunk(s0_tt, zk0, ck_tt, mk)
+                    win_indices = device_candidate_scores_spmd(glue, getattr(sk, "value", sk), rank_bts, K)
+                    for t in (sk, zk):
+                        ttnn.deallocate(getattr(t, "value", t))
+                penult_k = tuple(getattr(t, "value", t) if t is not None else None for t in penult_k)
+            if a.phase_timing:
+                ttnn.synchronize_device(dev)
+                phase["cand_trunk_s"] = round(time.time() - _tc0, 5)
+
+            rank_bws = gather_winner_batches(rank_bts, win_indices, K)
+            stacked_bw = stack_batches(rank_bws)
+            br = MeshBridge(dev, trunk.dtype)
+            m1 = TR.trunk_masks(
+                stacked_bw["padding_mask"].float(), dev,
+                dtype=trunk.dtype, residual_dtype=trunk.residual_dtype, sharded=True,
+            )
+            cs = conds_for(stacked_bw, step_depth)
+            s_i = glue.init_repr_factory(stacked_bw) * stacked_bw["padding_mask"][..., None]
+            gamma_w, beta_w = res_pair.modulation(stacked_bw)
+            with T.lever_scope(levers):
+                win_pair_dt = trunk.pair_dtype(m1)
+            z_in_pre = res_pair.winner_taped_spmd(pair_cache, encs, win_indices, gamma_w, beta_w, br, win_pair_dt)
+
+            prev = None
+            keep = ()
+            if a.phase_timing:
+                ttnn.synchronize_device(dev)
+                _tw0 = time.time()
+            if want_penult and penult_k[0] is not None:
+                s_prev = select_per_rank_candidate(penult_k[0], win_indices, dev)
+                z_prev = select_per_rank_candidate(penult_k[1], win_indices, dev)
+                ttnn.deallocate(penult_k[0])
+                ttnn.deallocate(penult_k[1])
+                if a.break_win_pre:
+                    bad = ttnn.multiply(s_prev, -1.0)
+                    ttnn.deallocate(s_prev)
+                    s_prev = bad
+                prev = (s_prev, z_prev)
+                keep = prev
+            elif a.win_pre == "suspend" and step_depth > 1:
+                with ag.suspended(), cand_scope():
+                    sp_in = put_sharded(s_i.detach(), dev, dtype=ttnn.float32)
+                    want_dt = trunk.pair_dtype(m1)
+                    zp_in = (z_in_pre.value if z_in_pre.value.dtype == want_dt
+                             else ttnn.typecast(z_in_pre.value, want_dt))
+                    zp_owned = (zp_in is not z_in_pre.value)
+                    cp_in = [put_sharded(c.detach(), dev, dtype=trunk.dtype) for c in cs[:-1]]
+                    s_prev, z_prev = trunk(sp_in, zp_in, cp_in, m1)
+                    for t in (sp_in, *cp_in):
+                        ttnn.deallocate(t)
+                    if zp_owned:
+                        ttnn.deallocate(zp_in)
+                if a.break_win_pre:
+                    bad = ttnn.multiply(s_prev, -1.0)
+                    ttnn.deallocate(s_prev)
+                    s_prev = bad
+                prev = (s_prev, z_prev)
+                keep = prev
+            with T.lever_scope(levers), ag.tape():
+                c_arg = [br.up(cs[-1])] if prev is not None else [br.up(c) for c in cs]
+                s, z = winner(br.up(s_i, ttnn.float32), z_in_pre, c_arg, m1, prev=prev)
+            if a.phase_timing:
+                ttnn.synchronize_device(dev)
+                phase["win_trunk_s"] = round(time.time() - _tw0, 5)
+            return s, z, dict(
+                br=br, rank_bws=rank_bws, rank_names=rank_names, rank_metas=rank_metas,
+                rank_refs=rank_refs, win_indices=win_indices, step_depth=step_depth,
+                keep=keep, phase=phase,
+            )
+
+        def real_loss_spmd(s, ctx):
+            from tt_bio.train.rfd4_heads import device_winner_loss_spmd
+
+            if a.phase_timing:
+                ttnn.synchronize_device(dev)
+                _tb0 = time.time()
+            mean_total, per_rank_totals, per_rank_terms, per_rank_refs = device_winner_loss_spmd(
+                glue,
+                s if isinstance(s, ag.Tensor) else ag.Tensor(s, requires_grad=True),
+                ctx["rank_bws"],
+                bridge=ctx["br"],
+                ref_terms_list=ctx["rank_refs"],
+                win_indices=ctx["win_indices"],
+            )
+            for t in ctx.get("keep", ()):
+                if t is not None and t.is_allocated():
+                    ttnn.deallocate(t)
+            if a.phase_timing:
+                ttnn.synchronize_device(dev)
+                tb = round(time.time() - _tb0, 5)
+                ctx["phase"]["tape_bwd_s"] = tb
+                ctx["phase"]["win_plus_bwd_s"] = round(ctx["phase"].get("win_trunk_s", 0.0) + tb, 5)
+            return mean_total, per_rank_terms[0], per_rank_refs[0], per_rank_totals
+
         real = (real_example, real_loss)
 
     ag.install()
@@ -743,7 +993,7 @@ def main(argv=None, on_step=None):
         cyc = {nm: "depth-1 draws feed a zero state into the cycle projection; trains at depth >= 2"
                for nm in names if "cycle" in nm and a.depth < 2}
         ax = None
-        if world > 1:
+        if world > 1 and spmd_mesh_shape is None:
             from tt_bio.train.launcher import ProcessAxis
             ax = ProcessAxis(name="dp", device_ids=tuple(range(world)), dp_rank=rank, run=a.dp_run)
         ema_d = None if a.ema_decay < 0 else a.ema_decay
@@ -752,6 +1002,15 @@ def main(argv=None, on_step=None):
                                   muon=None, ema_decay=ema_d, ns_mode=a.ns_mode)
         else:
             opt = rfd4_device_optimizer(init_w, dev, lr=1e-4, ema_decay=ema_d, ns_mode=a.ns_mode)
+        spmd_opt = None
+        if spmd_mesh_shape is not None:
+            from tt_bio.train.spmd_rfd4 import SPMDZero1Step
+            spmd_opt = SPMDZero1Step(
+                opt, init_w, dev,
+                full_shape=full_mesh_shape,
+                replicated_names=set(host_glue_params),
+                use_zero1_muon=a.spmd_zero1,
+            )
         if real and a.cand_pair == "card" and a.win_pair == "card":
             from tt_bio.train.rfd4_pair import ResidentPairBuilder
             res_pair = ResidentPairBuilder(glue.pair_repr_builder, dev)
@@ -820,175 +1079,331 @@ def main(argv=None, on_step=None):
                               "levers": sorted(levers) if isinstance(levers, (set, list, tuple))
                               else str(levers), "device": "tenstorrent", "k": a.k, "n": a.n},
                         start=start)
-    for step in range(start, a.steps):
-        ttnn.synchronize_device(dev)
-        base = used()
-        c0 = len(clk)
-        t0 = time.time()
-        mark("fwd")
-        extra = {}
-        if real:
-            use(step * world + rank)
-            s, z, ctx = real[0](True)
-            close_rec()
+    exit_code = 0
+    try:
+        for step in range(start, a.steps):
             ttnn.synchronize_device(dev)
-            t1 = time.time()
-            mark("heads_bwd")
-            retained = used() - base
-            loss, terms, ref = real[1](s, ctx)
-            ttnn.synchronize_device(dev)
-            extra_mem = used()
-            st = s
-            extra = dict(dev_after_heads_B=extra_mem, batch=cur["name"], winner=ctx["win"], upstream_winner=(None if a.curve_dump else int(cur["meta"]["winners"][0])), depth_upstream=cur["depth"],
-                         terms=terms, upstream_terms=ref, **({"phase": ctx["phase"]} if a.phase_timing else {}))
-        else:
-            s, z = one_example(step * world + rank, True)
-            close_rec()
-            ttnn.synchronize_device(dev)
-            t1 = time.time()
-            mark("heads_bwd")
-            retained = used() - base
-            st = s if isinstance(s, ag.Tensor) else ag.Tensor(s)
-            loss = float((ttnn.to_torch(st.value).float().reshape(Cs.shape) * Cs).sum() / numel)
-            ag.backward([st], [seed_s])
-        ttnn.synchronize_device(dev)
-        t2 = time.time()
-        after_bwd = used()
-        if a.grad_dump and a.brk:
-            walked = {p: t for p, _o, _k, t in T.walk_device_weights(trunk)}
-            cut = next(p for p in walked if p.endswith("q_w"))
-            folds.sources.pop(id(walked[cut]))
-            extra["dropped"] = cut
-        if a.resident:
-            mark("fold_bwd")
-            dev_grads, idle = dfolds.tape_backward(opt.master)
-            ag.release_pins()
-            # Upload only the tiny non-pair host-glue grads (~1.87 M elems = 7.5 MB).
-            for gn, gp in host_glue_params.items():
-                if gp.grad is not None:
-                    dev_grads[gn] = ttnn.from_torch(
-                        gp.grad.detach().to(torch.float32).contiguous(),
-                        dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev,
+            base = used()
+            c0 = len(clk)
+            t0 = time.time()
+            mark("fwd")
+            extra = {}
+            acc_dev_grads = None
+            acc_idle = set()
+            if a.serial_accum > 1 and a.resident and spmd_mesh_shape is None:
+                # Exact 1-chip serial-sum reference over M consecutive batches for G5 parity grading.
+                losses_acc = []
+                terms_acc, ref_acc, wins_acc, names_acc = None, None, [], []
+                for m_idx in range(a.serial_accum):
+                    use(step * a.serial_accum + m_idx, depth_step=step)
+                    s_m, z_m, ctx_m = real[0](True) if real else (*one_example(step * a.serial_accum + m_idx, True), None)
+                    close_rec()
+                    ttnn.synchronize_device(dev)
+                    if m_idx == 0:
+                        retained = used() - base
+                    if real:
+                        l_m, tm_m, rf_m = real[1](s_m, ctx_m)
+                        losses_acc.append(float(l_m))
+                        wins_acc.append(ctx_m["win"])
+                        names_acc.append(cur["name"])
+                        if m_idx == 0:
+                            terms_acc, ref_acc = tm_m, rf_m
+                    else:
+                        st_m = s_m if isinstance(s_m, ag.Tensor) else ag.Tensor(s_m)
+                        losses_acc.append(float((ttnn.to_torch(st_m.value).float().reshape(Cs.shape) * Cs).sum() / numel))
+                        ag.backward([st_m], [seed_s])
+                    ttnn.synchronize_device(dev)
+                    dg_m, id_m = dfolds.tape_backward(opt.master)
+                    ag.release_pins()
+                    acc_idle.update(id_m)
+                    if acc_dev_grads is None:
+                        acc_dev_grads = dg_m
+                    else:
+                        for k_g, v_g in dg_m.items():
+                            if k_g in acc_dev_grads and acc_dev_grads[k_g] is not None:
+                                prev_g = acc_dev_grads[k_g]
+                                acc_dev_grads[k_g] = ttnn.add(prev_g, v_g)
+                                ttnn.deallocate(prev_g)
+                                ttnn.deallocate(v_g)
+                            else:
+                                acc_dev_grads[k_g] = v_g
+                    del s_m, z_m
+                t1 = t2 = time.time()
+                after_bwd = used()
+                loss = float(sum(losses_acc) / len(losses_acc))
+                s = z = st = None
+                if real:
+                    extra = dict(
+                        serial_accum=a.serial_accum, batch=names_acc[0], batches=names_acc,
+                        winner=wins_acc[0], winners=wins_acc, depth_upstream=cur["depth"],
+                        depth_used=cur["depth"], terms=terms_acc, upstream_terms=ref_acc,
                     )
-                    gp.grad = None
-            ttnn.synchronize_device(dev)
-            t2b = time.time()
-            mark("opt")
-            opt_info = opt.step(dev_grads, free_grads=True)
-            dead = set(opt_info["dead_grads"]) | {nm for nm in names if nm not in opt.master}
-            if ax:
-                order = sorted(names)
-                hits = ax.sum_scalars([float(nm not in dead) for nm in order])
-                dead = {nm for nm, h in zip(order, hits) if h == 0.0}
-            ttnn.synchronize_device(dev)
-            t2c = time.time()
-            mark("rebuild")
-            dfolds.refold(opt.master, on_refold=refold_hook)
-            ttnn.synchronize_device(dev)
-            t3 = time.time()
-            del s, z, st
-            pcie_snap = PM.take() if PM else None
-            mark("digest")
-            md = opt.master_digest() if (step + 1 == a.steps) else "resident"
-            sm = clk[c0:] or clk[-1:]
-            gnorm = math.hypot(opt.last_grad_norm, getattr(opt, "last_grad_norm_muon", 0.0))
-            n_elems = int(sum(int(math.prod(shp)) for shp in opt.shapes.values()))
-            row = dict(step=step + 1, rank=rank, world=world, resident=True, ns_mode=a.ns_mode,
-                       loss=loss, lr=opt_info["lr"], grad_norm=gnorm,
-                       fwd_s=round(t1 - t0, 4), bwd_s=round(t2 - t1, 4),
-                       fold_bwd_s=round(t2b - t2, 4), opt_s=round(t2c - t2b, 4),
-                       rebuild_s=round(t3 - t2c, 4), rebuild_split=dict(RB), idle_dev_w=len(idle),
-                       step_s=round(t3 - t0, 4), retained_B=retained,
-                       dead=len(dead), dead_names=sorted(dead)[:20],
-                       dev_base_B=base, dev_after_bwd_B=after_bwd,
-                       params=len(params), n_elems=n_elems,
-                       master_digest=md, aiclk=[min(sm or [0]), max(sm or [0])],
-                       aiclk_med=sorted(sm)[len(sm) // 2] if sm else 0,
-                       k=a.k, depth=a.depth, n=n, lnbw_reach=dict(lnbw.REACH), gate_bw=list(gate_bw.STATS),
-                       mmvjp=dict(ag.MMVJP_STATS), dw_2d=dict(ag._mm_layout.DW_2D_REACH),
-                       split_k=dict(ag.SPLIT_K_STATS), sum_leading=dict(ag.SUM_LEADING_STATS),
-                       widen_reach=dict(ag._rne_add.WIDEN_REACH),
-                       kernels={k: list(v) for k, v in __import__("tt_bio.taped_ttnn", fromlist=["x"]).KERNEL_STATS.items()},
-                       **extra, **({"pcie": pcie_snap} if pcie_snap is not None else {}),
-                       host_maxrss_GiB=round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 2**20, 3))
-        else:
-            mark("fold_bwd")
-            idle = folds.tape_backward()   # device-weight gradients through each fold's VJP into the upstream leaves
-            grads = {nm: (None if p.grad is None else p.grad.float().numpy()) for nm, p in params.items()}
-            ag.release_pins()   # the backward is done; build() released them too, one rebuild later
-            dead = zero_or_missing(grads)
-            if ax:
-                # G2 judges the gradient the optimizer steps on, the rank sum: a leaf that only another
-                # rank's example reaches (a feature embedding its batch lacks) is alive. Dead = dead on every rank.
-                order = sorted(grads)
-                hits = ax.sum_scalars([float(nm not in dead) for nm in order])
-                dead = {nm for nm, h in zip(order, hits) if h == 0.0}
-            if os.environ.get("R4T_DUMP_G") and step == start:
-                import numpy as _np
-                _np.savez(os.environ["R4T_DUMP_G"], **{nm.replace(".", "__"): g for nm, g in grads.items()
-                                                        if g is not None and "pair_update_layers" in nm})
-            if a.grad_dump:
-                import numpy as _np
+            elif spmd_mesh_shape is not None and real:
+                s, z, ctx = real_example_spmd(step)
+                close_rec()
+                ttnn.synchronize_device(dev)
+                t1 = time.time()
+                mark("heads_bwd")
+                retained = used() - base
+                loss, terms, ref, per_rank_losses = real_loss_spmd(s, ctx)
+                ttnn.synchronize_device(dev)
+                extra_mem = used()
+                st = s
+                extra = dict(
+                    dev_after_heads_B=extra_mem, batch=ctx["rank_names"][0],
+                    winner=ctx["win_indices"][0], winners=ctx["win_indices"],
+                    upstream_winner=int(ctx["rank_metas"][0]["winners"][0]),
+                    depth_upstream=ctx["step_depth"], depth_used=ctx["step_depth"],
+                    per_rank_losses=[round(x, 6) for x in per_rank_losses],
+                    terms=terms, upstream_terms=ref,
+                    **({"phase": ctx["phase"]} if a.phase_timing else {}),
+                )
+            elif real:
+                use(step * world + rank, depth_step=step)
+                s, z, ctx = real[0](True)
+                close_rec()
+                ttnn.synchronize_device(dev)
+                t1 = time.time()
+                mark("heads_bwd")
+                retained = used() - base
+                loss, terms, ref = real[1](s, ctx)
+                ttnn.synchronize_device(dev)
+                extra_mem = used()
+                st = s
+                extra = dict(dev_after_heads_B=extra_mem, batch=cur["name"], winner=ctx["win"],
+                             upstream_winner=(None if a.curve_dump else int(cur["meta"]["winners"][0])),
+                             depth_upstream=cur["depth"], depth_used=cur["depth"],
+                             terms=terms, upstream_terms=ref, **({"phase": ctx["phase"]} if a.phase_timing else {}))
+            else:
+                s, z = one_example(step if spmd_mesh_shape is not None else (step * world + rank), True)
+                close_rec()
+                ttnn.synchronize_device(dev)
+                t1 = time.time()
+                mark("heads_bwd")
+                retained = used() - base
+                st = s if isinstance(s, ag.Tensor) else ag.Tensor(s)
+                if spmd_mesh_shape is not None:
+                    from tt_bio.train.mesh_dp import read_sharded
+                    s_all = read_sharded(st.value, dev).float().reshape(world, *Cs.shape)
+                    loss = float(((s_all * Cs.unsqueeze(0)).sum(dim=(1, 2, 3)) / numel).mean())
+                else:
+                    loss = float((ttnn.to_torch(st.value).float().reshape(Cs.shape) * Cs).sum() / numel)
+                ag.backward([st], [seed_s])
+            if acc_dev_grads is None:
+                ttnn.synchronize_device(dev)
+                t2 = time.time()
+                after_bwd = used()
+            if a.grad_dump and a.brk:
+                walked = {p: t for p, _o, _k, t in T.walk_device_weights(trunk)}
+                cut = next(p for p in walked if p.endswith("q_w"))
+                folds.sources.pop(id(walked[cut]))
+                extra["dropped"] = cut
+            if a.resident:
+                mark("fold_bwd")
+                if acc_dev_grads is not None:
+                    dev_grads, idle = acc_dev_grads, sorted(acc_idle)
+                else:
+                    dev_grads, idle = dfolds.tape_backward(opt.master)
+                    ag.release_pins()
+                # Upload only the tiny non-pair host-glue grads (~1.87 M elems = 7.5 MB).
+                # Under --mesh, MeshBridge.backward_ups() already summed host-glue grads across
+                # all `world` chips, and SPMDZero1Step passes `replicated_names=host_glue_params`
+                # so CCL does not re-sum them.
+                for gn, gp in host_glue_params.items():
+                    if gp.grad is not None:
+                        dev_grads[gn] = ttnn.from_torch(
+                            gp.grad.detach().to(torch.float32).contiguous(),
+                            dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev,
+                        )
+                        gp.grad = None
+                ttnn.synchronize_device(dev)
+                t2b = time.time()
+                mark("opt")
+                if spmd_opt is not None:
+                    opt_info = spmd_opt.step(
+                        dev_grads, free_grads=True,
+                        skip_reduce_for_broken_arm=a.break_spmd_reduce,
+                        profile_sync=a.phase_timing,
+                    )
+                else:
+                    opt_info = opt.step(dev_grads, free_grads=True)
+                dead = set(opt_info["dead_grads"]) | {nm for nm in names if nm not in opt.master}
+                if ax:
+                    order = sorted(names)
+                    hits = ax.sum_scalars([float(nm not in dead) for nm in order])
+                    dead = {nm for nm, h in zip(order, hits) if h == 0.0}
+                ttnn.synchronize_device(dev)
+                t2c = time.time()
+                mark("rebuild")
+                dfolds.refold(opt.master, on_refold=refold_hook)
+                ttnn.synchronize_device(dev)
+                t3 = time.time()
+                del s, z, st
+                pcie_snap = PM.take() if PM else None
+                mark("digest")
+                want_cons = (
+                    spmd_mesh_shape is not None
+                    and ((step + 1 == a.steps) or (a.consensus_every > 0 and (step + 1) % a.consensus_every == 0))
+                )
+                cons_ok = None
+                cons_n = 0
+                cons_err = ""
+                if want_cons:
+                    from tt_bio.train.spmd_rfd4 import master_consensus_digest
+                    try:
+                        md, cons_n = master_consensus_digest(opt.master, dev)
+                        cons_ok = True
+                    except AssertionError as exc:
+                        cons_ok = False
+                        cons_err = str(exc)
+                        md = "DIVERGED"
+                elif step + 1 == a.steps:
+                    md = (spmd_opt.master_digest() if spmd_opt is not None else opt.master_digest())
+                else:
+                    md = "resident"
                 sm = clk[c0:] or clk[-1:]
-                _np.savez(a.grad_dump + ".npz", **{nm: g for nm, g in grads.items() if g is not None})
-                meta = dict(extra, loss=loss, arm=a.arm, attn_fp32=a.attn_fp32, levers=sorted(levers) if not isinstance(levers, str) else levers,
-                            dtype=str(trunk.dtype), n=n, card=card, aiclk=[min(sm or [0]), max(sm or [0])],
-                            exact={"%s/%s" % k: v for k, v in sorted(EX.EXACT_STATS.items())},
-                            no_grad=sorted(nm for nm, g in grads.items() if g is None), sha=os.environ.get("TT_BIO_SHA", ""))
-                open(a.grad_dump + ".json", "w").write(json.dumps(meta, indent=1, default=str))
-                print(json.dumps(dict(grad_dump=a.grad_dump, n_grads=len(grads), loss=loss, aiclk=meta["aiclk"],
-                                      exact=meta["exact"])), flush=True)
-                stop.set()
-                arm.close()
-                return 0
-            t2b = time.time()
-            mark("opt")
-            opt.step(replicas={nm: [g] for nm, g in grads.items() if g is not None}) if ax else opt.step()
-            for p in params.values():
-                p.grad = None
-            t2c = time.time()
-            mark("rebuild")
-            build(lazy=False)
-            ttnn.synchronize_device(dev)
-            t3 = time.time()
-            mark("digest")
-            del s, z, st
-            md = hashlib.sha256(b"".join(opt.master[k].tobytes() for k in sorted(opt.master))).hexdigest()[:16]
-            sm = clk[c0:] or clk[-1:]
-            gnorm = math.hypot(opt.last_grad_norm, getattr(opt, "last_grad_norm_muon", 0.0))
-            row = dict(step=step + 1, rank=rank, world=world, loss=loss, lr=opt.last_lr, grad_norm=gnorm,
-                       fwd_s=round(t1 - t0, 4), bwd_s=round(t2 - t1, 4),
-                       fold_bwd_s=round(t2b - t2, 4), opt_s=round(t2c - t2b, 4), rebuild_s=round(t3 - t2c, 4), rebuild_split=dict(RB), idle_dev_w=len(idle), step_s=round(t3 - t0, 4), retained_B=retained,
-                       dead=len(dead), dead_names=sorted(dead)[:20], dev_base_B=base, dev_after_bwd_B=after_bwd, params=len(params), n_elems=int(sum(v.size for v in opt.master.values())),
-                       master_digest=md, aiclk=[min(sm or [0]), max(sm or [0])], aiclk_med=sorted(sm)[len(sm) // 2] if sm else 0,
-                       k=a.k, depth=a.depth, n=n, lnbw_reach=dict(lnbw.REACH), gate_bw=list(gate_bw.STATS), mmvjp=dict(ag.MMVJP_STATS), dw_2d=dict(ag._mm_layout.DW_2D_REACH), split_k=dict(ag.SPLIT_K_STATS), sum_leading=dict(ag.SUM_LEADING_STATS), widen_reach=dict(ag._rne_add.WIDEN_REACH), kernels={k: list(v) for k, v in __import__("tt_bio.taped_ttnn", fromlist=["x"]).KERNEL_STATS.items()}, **extra,
-                       **({"pcie": PM.take()} if PM else {}), host_maxrss_GiB=round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 2**20, 3))
-        print(json.dumps(row), flush=True)
-        if on_step is not None:
-            on_step({**row, "s": row["step_s"]})
-        if a.save_at and step + 1 == a.save_at:   # before the guard, so a refusal still leaves the resume test its input
-            print(json.dumps(dict(saved=str(ck.save(step + 1, opt, metrics={"loss": loss}, force=True)))), flush=True)
-        if a.pin_spike:
-            ref = sorted(seen[-100:])[len(seen[-100:]) // 2] if len(seen) >= 20 else None
-            if ref is not None and loss > a.pin_spike * ref:
-                print(json.dumps(dict(spike=step, loss=loss, median100=ref, example=cur["name"] if real else None,
-                                      pinned=str(ck.pin(step)))), flush=True)
-            seen.append(loss)
-        due_save, force_save = _checkpoint_due(step + 1, a.steps, a.save_every, a.save_at)
-        if due_save:   # --keep: a ring by step, so no metric to rank by
-            print(json.dumps(dict(saved=str(ck.save(step + 1, opt, metrics=None if a.keep else {"loss": loss},
-                                                    force=force_save)))), flush=True)
+                gnorm = math.hypot(opt.last_grad_norm, getattr(opt, "last_grad_norm_muon", 0.0))
+                n_elems = int(sum(int(math.prod(shp)) for shp in opt.shapes.values()))
+                spmd_fields = {}
+                if spmd_mesh_shape is not None:
+                    spmd_fields = dict(
+                        mesh=f"{spmd_mesh_shape[0]}x{spmd_mesh_shape[1]}",
+                        spmd_zero1=bool(spmd_opt.use_zero1_muon),
+                        eth_dispatch=a.eth_dispatch,
+                        break_spmd_reduce=bool(a.break_spmd_reduce),
+                        grad_norm_adam=float(opt.last_grad_norm),
+                        grad_norm_muon=float(getattr(opt, "last_grad_norm_muon", 0.0)),
+                    )
+                    if "sync_s" in opt_info:
+                        spmd_fields["sync_s"] = opt_info["sync_s"]
+                    if cons_ok is not None:
+                        spmd_fields["consensus_ok"] = bool(cons_ok)
+                        spmd_fields["consensus_checked"] = int(cons_n)
+                        if cons_err:
+                            spmd_fields["consensus_err"] = cons_err
+                else:
+                    spmd_fields = dict(
+                        grad_norm_adam=float(opt.last_grad_norm),
+                        grad_norm_muon=float(getattr(opt, "last_grad_norm_muon", 0.0)),
+                    )
+                row = dict(step=step + 1, rank=rank, world=world, resident=True, ns_mode=a.ns_mode,
+                           loss=loss, lr=opt_info["lr"], grad_norm=gnorm,
+                           fwd_s=round(t1 - t0, 4), bwd_s=round(t2 - t1, 4),
+                           fold_bwd_s=round(t2b - t2, 4), opt_s=round(t2c - t2b, 4),
+                           rebuild_s=round(t3 - t2c, 4), rebuild_split=dict(RB), idle_dev_w=len(idle),
+                           step_s=round(t3 - t0, 4), retained_B=retained,
+                           dead=len(dead), dead_names=sorted(dead)[:20],
+                           dev_base_B=base, dev_after_bwd_B=after_bwd,
+                           params=len(params), n_elems=n_elems,
+                           master_digest=md, aiclk=[min(sm or [0]), max(sm or [0])],
+                           aiclk_med=sorted(sm)[len(sm) // 2] if sm else 0,
+                           k=a.k, depth=cur["depth"] if real else a.depth, n=n,
+                           lnbw_reach=dict(lnbw.REACH), gate_bw=list(gate_bw.STATS),
+                           mmvjp=dict(ag.MMVJP_STATS), dw_2d=dict(ag._mm_layout.DW_2D_REACH),
+                           split_k=dict(ag.SPLIT_K_STATS), sum_leading=dict(ag.SUM_LEADING_STATS),
+                           widen_reach=dict(ag._rne_add.WIDEN_REACH),
+                           kernels={k: list(v) for k, v in __import__("tt_bio.taped_ttnn", fromlist=["x"]).KERNEL_STATS.items()},
+                           **spmd_fields, **extra, **({"pcie": pcie_snap} if pcie_snap is not None else {}),
+                           host_maxrss_GiB=round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 2**20, 3))
+            else:
+                mark("fold_bwd")
+                idle = folds.tape_backward()   # device-weight gradients through each fold's VJP into the upstream leaves
+                grads = {nm: (None if p.grad is None else p.grad.float().numpy()) for nm, p in params.items()}
+                ag.release_pins()   # the backward is done; build() released them too, one rebuild later
+                dead = zero_or_missing(grads)
+                if ax:
+                    # G2 judges the gradient the optimizer steps on, the rank sum: a leaf that only another
+                    # rank's example reaches (a feature embedding its batch lacks) is alive. Dead = dead on every rank.
+                    order = sorted(grads)
+                    hits = ax.sum_scalars([float(nm not in dead) for nm in order])
+                    dead = {nm for nm, h in zip(order, hits) if h == 0.0}
+                if os.environ.get("R4T_DUMP_G") and step == start:
+                    import numpy as _np
+                    _np.savez(os.environ["R4T_DUMP_G"], **{nm.replace(".", "__"): g for nm, g in grads.items()
+                                                            if g is not None and "pair_update_layers" in nm})
+                if a.grad_dump:
+                    import numpy as _np
+                    sm = clk[c0:] or clk[-1:]
+                    _np.savez(a.grad_dump + ".npz", **{nm: g for nm, g in grads.items() if g is not None})
+                    meta = dict(extra, loss=loss, arm=a.arm, attn_fp32=a.attn_fp32, levers=sorted(levers) if not isinstance(levers, str) else levers,
+                                dtype=str(trunk.dtype), n=n, card=card, aiclk=[min(sm or [0]), max(sm or [0])],
+                                exact={"%s/%s" % k: v for k, v in sorted(EX.EXACT_STATS.items())},
+                                no_grad=sorted(nm for nm, g in grads.items() if g is None), sha=os.environ.get("TT_BIO_SHA", ""))
+                    open(a.grad_dump + ".json", "w").write(json.dumps(meta, indent=1, default=str))
+                    print(json.dumps(dict(grad_dump=a.grad_dump, n_grads=len(grads), loss=loss, aiclk=meta["aiclk"],
+                                          exact=meta["exact"])), flush=True)
+                    return 0
+                t2b = time.time()
+                mark("opt")
+                opt.step(replicas={nm: [g] for nm, g in grads.items() if g is not None}) if ax else opt.step()
+                for p in params.values():
+                    p.grad = None
+                t2c = time.time()
+                mark("rebuild")
+                build(lazy=False)
+                ttnn.synchronize_device(dev)
+                t3 = time.time()
+                mark("digest")
+                del s, z, st
+                md = hashlib.sha256(b"".join(opt.master[k].tobytes() for k in sorted(opt.master))).hexdigest()[:16]
+                sm = clk[c0:] or clk[-1:]
+                gnorm = math.hypot(opt.last_grad_norm, getattr(opt, "last_grad_norm_muon", 0.0))
+                row = dict(step=step + 1, rank=rank, world=world, loss=loss, lr=opt.last_lr, grad_norm=gnorm,
+                           fwd_s=round(t1 - t0, 4), bwd_s=round(t2 - t1, 4),
+                           fold_bwd_s=round(t2b - t2, 4), opt_s=round(t2c - t2b, 4), rebuild_s=round(t3 - t2c, 4), rebuild_split=dict(RB), idle_dev_w=len(idle), step_s=round(t3 - t0, 4), retained_B=retained,
+                           dead=len(dead), dead_names=sorted(dead)[:20], dev_base_B=base, dev_after_bwd_B=after_bwd, params=len(params), n_elems=int(sum(v.size for v in opt.master.values())),
+                           master_digest=md, aiclk=[min(sm or [0]), max(sm or [0])], aiclk_med=sorted(sm)[len(sm) // 2] if sm else 0,
+                           k=a.k, depth=a.depth, n=n, lnbw_reach=dict(lnbw.REACH), gate_bw=list(gate_bw.STATS), mmvjp=dict(ag.MMVJP_STATS), dw_2d=dict(ag._mm_layout.DW_2D_REACH), split_k=dict(ag.SPLIT_K_STATS), sum_leading=dict(ag.SUM_LEADING_STATS), widen_reach=dict(ag._rne_add.WIDEN_REACH), kernels={k: list(v) for k, v in __import__("tt_bio.taped_ttnn", fromlist=["x"]).KERNEL_STATS.items()}, **extra,
+                           **({"pcie": PM.take()} if PM else {}), host_maxrss_GiB=round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 2**20, 3))
+            print(json.dumps(row), flush=True)
+            if on_step is not None:
+                on_step({**row, "s": row["step_s"]})
+            if a.resident and spmd_mesh_shape is not None and cons_ok is False:
+                exit_code = 2
+                if not a.break_spmd_reduce:
+                    raise RuntimeError(f"SPMD master consensus mismatch at step {step + 1}: {cons_err}")
+                break
+            if a.save_at and step + 1 == a.save_at:   # before the guard, so a refusal still leaves the resume test its input
+                print(json.dumps(dict(saved=str(ck.save(step + 1, opt, metrics={"loss": loss}, force=True)))), flush=True)
+            if a.pin_spike:
+                ref = sorted(seen[-100:])[len(seen[-100:]) // 2] if len(seen) >= 20 else None
+                if ref is not None and loss > a.pin_spike * ref:
+                    print(json.dumps(dict(spike=step, loss=loss, median100=ref, example=cur["name"] if real else None,
+                                          pinned=str(ck.pin(step)))), flush=True)
+                seen.append(loss)
+            due_save, force_save = _checkpoint_due(step + 1, a.steps, a.save_every, a.save_at)
+            if due_save:   # --keep: a ring by step, so no metric to rank by
+                print(json.dumps(dict(saved=str(ck.save(step + 1, opt, metrics=None if a.keep else {"loss": loss},
+                                                        force=force_save)))), flush=True)
+            if clog is not None:
+                clog.record(step, loss, terms=extra.get("terms"), n_recycle=cur["depth"],
+                            seconds=round(t3 - t0, 2), dead=len(dead), example=cur["name"],
+                            aiclk_med=sorted(sm)[len(sm) // 2] if sm else 0, master_digest=md)
+            # G2 rides along, as on the upstream side: a depth-1 step trains neither cycle projection
+            # (state/r4t/rows/accuracy.md), so counting it would refuse ~1 healthy run in 150.
+            if not a.resume and not a.break_spmd_reduce and (not real or cur["depth"] >= 2):
+                cov.observe(dead)
+        if a.dump_master_np:
+            import numpy as _np
+            hm = (spmd_opt.host_master() if (a.resident and spmd_opt is not None)
+                  else (opt.host_master() if a.resident else {k: v for k, v in opt.master.items()}))
+            os.makedirs(os.path.dirname(os.path.abspath(a.dump_master_np)), exist_ok=True)
+            _np.savez(a.dump_master_np, **hm)
+    finally:
+        stop.set()
         if clog is not None:
-            clog.record(step, loss, terms=extra.get("terms"), n_recycle=cur["depth"],
-                        seconds=round(t3 - t0, 2), dead=len(dead), example=cur["name"],
-                        aiclk_med=sorted(sm)[len(sm) // 2] if sm else 0, master_digest=md)
-        # G2 rides along, as on the upstream side: a depth-1 step trains neither cycle projection
-        # (state/r4t/rows/accuracy.md), so counting it would refuse ~1 healthy run in 150.
-        if not a.resume and (not real or cur["depth"] >= 2):
-            cov.observe(dead)
-    stop.set()
-    if clog is not None:
-        clog.close()
+            clog.close()
+        if spmd_mesh_shape is not None:
+            for obj in (locals().get("spmd_opt"), locals().get("opt"), locals().get("res_pair")):
+                if obj is not None and hasattr(obj, "deallocate"):
+                    try:
+                        obj.deallocate()
+                    except Exception:
+                        pass
+            arm.close()
+        else:
+            arm.close()
+    return exit_code
 
 
 def launch(a, argv=None):

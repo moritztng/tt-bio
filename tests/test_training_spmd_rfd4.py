@@ -4,6 +4,7 @@ from __future__ import annotations
 import math
 import subprocess
 import sys
+import types
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -12,7 +13,7 @@ import pytest
 import torch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from test_training_ccl import _FakeMeshDevice, _make_mock_ttnn
+from test_training_ccl import _FakeMeshDevice, _FakeMeshTensor, _make_mock_ttnn
 from tt_bio.train.ccl import exact_2d_fp32_sum
 from tt_bio.train.spmd_rfd4 import (
     B200_REF_EX_S_PER_GPU,
@@ -38,6 +39,16 @@ def _install_mock_ttnn(monkeypatch):
         return a.device().make_tensor([x - y for x, y in zip(a._buf.shards, b._buf.shards)])
 
     mod.subtract = subtract
+    mod.synchronize_device = lambda dev: None
+    mod.DRAM_MEMORY_CONFIG = "DRAM"
+    mod.bfloat16 = "bf16"
+    mod.bfloat4_b = "bf4"
+    mod.uint32 = "u32"
+    mod.int32 = "i32"
+    mod.CoreCoord = lambda x, y: (x, y)
+    mod.NOC = types.SimpleNamespace(NOC_0=0, NOC_1=1)
+    mod.UnaryOpType = types.SimpleNamespace(RELU=0)
+    mod.MathFidelity = types.SimpleNamespace(HiFi4=4, HiFi2=2, LoFi=0)
     monkeypatch.setitem(sys.modules, "ttnn", mod)
     return mod
 
@@ -598,3 +609,226 @@ def test_spmd_zero1_works_without_tall_kwarg_in_ns(monkeypatch):
     spmd.deallocate()
     base.deallocate()
     assert len(dev.live_bufs) == 0
+
+
+def test_select_per_rank_candidate_uniform_and_heterogeneous(monkeypatch):
+    """select_per_rank_candidate matches manual per-rank slicing for both uniform & heterogeneous winners."""
+    _install_mock_ttnn(monkeypatch)
+    from tt_bio.train.mesh_dp import select_per_rank_candidate
+
+    dev = _FakeMeshDevice(2, 2)
+    rng = np.random.default_rng(19)
+    # 4D [K=4, 4, 4, 8] and 3D [K=4, 6, 8] tensors
+    for shape in ((4, 4, 4, 8), (4, 6, 8)):
+        shards = [torch.from_numpy(rng.standard_normal(shape, dtype=np.float32)) for _ in range(4)]
+        t_mesh = dev.make_tensor(shards)
+
+        # Uniform fast path
+        u = select_per_rank_candidate(t_mesh, [2, 2, 2, 2], dev)
+        for r in range(4):
+            assert torch.equal(u._buf.shards[r], shards[r][2:3])
+        sys.modules["ttnn"].deallocate(u)
+
+        # Heterogeneous per-rank winners
+        wins = [3, 0, 2, 1]
+        h = select_per_rank_candidate(t_mesh, wins, dev)
+        for r, w in enumerate(wins):
+            assert torch.allclose(h._buf.shards[r], shards[r][w:w + 1], atol=0.0, rtol=0.0)
+        sys.modules["ttnn"].deallocate(h)
+        sys.modules["ttnn"].deallocate(t_mesh)
+    assert len(dev.live_bufs) == 0
+
+
+def test_mesh_bridge_backward_ups_sharded_and_replicated(monkeypatch):
+    """MeshBridge.backward_ups gathers sharded activation grads and sums replicated parameter grads."""
+    _install_mock_ttnn(monkeypatch)
+    fake_ag = types.ModuleType("tt_bio.autograd")
+
+    class _Leaf:
+        def __init__(self, v, requires_grad=False):
+            self.value = v
+            self.requires_grad = requires_grad
+            self.grad = None
+
+    fake_ag.Tensor = _Leaf
+    monkeypatch.setitem(sys.modules, "tt_bio.autograd", fake_ag)
+    from tt_bio.train.mesh_dp import MeshBridge
+
+    dev = _FakeMeshDevice(2, 2)  # world=4
+    W = torch.randn(4, 3, requires_grad=True)
+    x = torch.randn(4, 5, requires_grad=True)
+    br = MeshBridge(dev)
+    Wl = br.up_replicated(W)
+    xl = br.up(x)
+
+    # Simulate per-chip device gradients: chip r produces gW_r and gx_r
+    gW_shards = [torch.randn(4, 3) for _ in range(4)]
+    gx_shards = [torch.randn(1, 5) for _ in range(4)]
+    Wl.grad = dev.make_tensor(gW_shards)
+    xl.grad = dev.make_tensor(gx_shards)
+
+    br.backward_ups()
+    assert torch.allclose(W.grad, sum(gW_shards), atol=1e-6)
+    assert torch.allclose(x.grad, torch.cat(gx_shards, dim=0), atol=1e-6)
+
+    sys.modules["ttnn"].deallocate(Wl.value)
+    sys.modules["ttnn"].deallocate(xl.value)
+    assert len(dev.live_bufs) == 0
+
+
+def test_device_insertion_loss_spmd_matches_serial(monkeypatch):
+    """device_insertion_loss on a 2x2 MeshDevice matches exact per-rank serial calls (incl. mixed active/inactive)."""
+    import contextlib
+
+    mock_ttnn = _install_mock_ttnn(monkeypatch)
+    fake_ag = types.ModuleType("tt_bio.autograd")
+    fake_ag.no_grad = contextlib.nullcontext
+    monkeypatch.setitem(sys.modules, "tt_bio.autograd", fake_ag)
+    # Add ops needed by device_insertion_loss on _FakeMeshTensor
+    def _bin(fn):
+        def _op(a, b):
+            if isinstance(a, _FakeMeshTensor) and isinstance(b, _FakeMeshTensor):
+                return a.device().make_tensor([fn(sa, sb) for sa, sb in zip(a._buf.shards, b._buf.shards)])
+            if isinstance(a, _FakeMeshTensor):
+                return a.device().make_tensor([fn(sa, b) for sa in a._buf.shards])
+            return b.device().make_tensor([fn(a, sb) for sb in b._buf.shards])
+        return _op
+
+    mock_ttnn.eq = _bin(lambda a, b: (a == b).to(torch.float32))
+    mock_ttnn.typecast = lambda t, dt: t.device().make_tensor([s.clone() for s in t._buf.shards])
+    mock_ttnn.max = lambda t, dim=-1, keepdim=False: t.device().make_tensor(
+        [s.max(dim=dim, keepdim=keepdim).values for s in t._buf.shards]
+    )
+    mock_ttnn.exp = lambda t: t.device().make_tensor([torch.exp(s) for s in t._buf.shards])
+    mock_ttnn.log = lambda t: t.device().make_tensor([torch.log(s) for s in t._buf.shards])
+    mock_ttnn.divide = _bin(lambda a, b: a / b)
+    mock_ttnn.sum = lambda t, dim=-1, keepdim=False: t.device().make_tensor(
+        [s.sum(dim=dim, keepdim=keepdim) for s in t._buf.shards]
+    )
+
+    import tt_bio.train.rfd4_heads as r4h
+    monkeypatch.setattr(r4h, "ttnn", mock_ttnn)
+
+    dev4 = _FakeMeshDevice(2, 2)
+    dev1 = _FakeMeshDevice(1, 1)
+    rng = np.random.default_rng(23)
+    n_tok, n_pad = 6, 8
+    logits_shards = [torch.from_numpy(rng.standard_normal((1, n_pad, n_pad), dtype=np.float32)) for _ in range(4)]
+    # Ranks 0 and 2 have insertion queries; ranks 1 and 3 have NO insertion targets (-1 everywhere).
+    targets = np.array([
+        [-1, -1, 0, -1, 1, -1],
+        [-1, -1, -1, -1, -1, -1],
+        [-1, 0, -1, 2, -1, 4],
+        [-1, -1, -1, -1, -1, -1],
+    ], dtype=np.int64)
+    pad = np.array([
+        [1, 1, 1, 1, 1, 0],
+        [1, 1, 1, 1, 0, 0],
+        [1, 1, 1, 1, 1, 1],
+        [1, 1, 1, 0, 0, 0],
+    ], dtype=bool)
+    batch_spmd = {"insertion_source_idx": targets, "padding_mask": pad}
+
+    z_mesh = dev4.make_tensor(logits_shards)
+    loss_spmd, dz_spmd = r4h.device_insertion_loss(z_mesh, batch_spmd, weight=2.5)
+    assert loss_spmd.shape == (4,)
+    assert loss_spmd[1] == 0.0 and loss_spmd[3] == 0.0
+    assert loss_spmd[0] > 0.0 and loss_spmd[2] > 0.0
+
+    for r in range(4):
+        z_r = dev1.make_tensor([logits_shards[r]])
+        b_r = {"insertion_source_idx": targets[r:r + 1], "padding_mask": pad[r:r + 1]}
+        l_r, dz_r = r4h.device_insertion_loss(z_r, b_r, weight=2.5)
+        assert abs(loss_spmd[r] - l_r[0]) <= 1e-6
+        if dz_r is None:
+            assert torch.all(dz_spmd._buf.shards[r] == 0.0)
+        else:
+            assert torch.allclose(dz_spmd._buf.shards[r], dz_r._buf.shards[0], atol=1e-6)
+            mock_ttnn.deallocate(dz_r)
+        mock_ttnn.deallocate(z_r)
+
+    mock_ttnn.deallocate(dz_spmd)
+    mock_ttnn.deallocate(z_mesh)
+    assert len(dev4.live_bufs) == 0 and len(dev1.live_bufs) == 0
+
+
+def test_spmd_zero1_host_master_replicated_exclusion_and_profile_sync(monkeypatch):
+    """replicated_names are excluded from sharding, host_master/digest match ref, profile_sync reports sync_s."""
+    _install_mock_ttnn(monkeypatch)
+    _install_mock_device_optim(monkeypatch)
+
+    dev = _FakeMeshDevice(2, 4)
+    rng = np.random.default_rng(41)
+    weights = {
+        **{f"mu_{i}": rng.standard_normal((32, 32), dtype=np.float32) * 0.1 for i in range(4)},
+        "glue.host_lin": rng.standard_normal((32, 32), dtype=np.float32) * 0.1,
+        "ad_0": rng.standard_normal((32,), dtype=np.float32) * 0.1,
+    }
+    muon_names = {k for k in weights if k != "ad_0"}
+    base = _FakeDeviceOptimizer(weights, muon_names, dev, ema_decay=0.9)
+    spmd = SPMDZero1Step(
+        base, weights, dev, full_shape=(2, 4),
+        replicated_names={"glue.host_lin"}, use_zero1_muon=True,
+    )
+    assert "glue.host_lin" not in spmd.sharded_names()
+    assert spmd.sharded_names() == {f"mu_{i}" for i in range(4)}
+
+    # Per-chip distinct grads for device params, IDENTICAL pre-reduced grad for glue.host_lin.
+    g_glue_sum = torch.from_numpy(rng.standard_normal((32, 32), dtype=np.float32) * 0.1)
+    grads = {
+        **{
+            nm: dev.make_tensor([torch.from_numpy(rng.standard_normal(arr.shape, dtype=np.float32) * 0.05) for _ in range(8)])
+            for nm, arr in weights.items() if nm != "glue.host_lin"
+        },
+        "glue.host_lin": dev.make_tensor([g_glue_sum.clone() for _ in range(8)]),
+    }
+    info = spmd.step(grads, free_grads=True, profile_sync=True)
+    assert "sync_s" in info and info["sync_s"] >= 0.0
+    hm = spmd.host_master()
+    assert set(hm) == set(weights)
+    assert len(spmd.master_digest()) == 16
+    master_consensus_digest(spmd.master, dev)
+    spmd.deallocate()
+    base.deallocate()
+    assert len(dev.live_bufs) == 0
+
+
+def test_trunk_masks_sharded_flag(monkeypatch):
+    """trunk_masks passes ShardTensorToMesh only when sharded=True on multi-chip device."""
+    import ast
+
+    mock_ttnn = _install_mock_ttnn(monkeypatch)
+    seen_mappers = []
+    orig_from_torch = mock_ttnn.from_torch
+
+    def _spy_from_torch(t, *args, **kwargs):
+        seen_mappers.append(kwargs.get("mesh_mapper"))
+        return orig_from_torch(t, *args, **kwargs)
+
+    mock_ttnn.from_torch = _spy_from_torch
+    mock_ttnn.typecast = lambda t, dt: t.device().make_tensor([s.clone() for s in t._buf.shards])
+    src = Path("tt_bio/rfd4/trunk.py").read_text()
+    tree = ast.parse(src)
+    fn_node = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "trunk_masks")
+    ns = {"torch": torch, "ttnn": mock_ttnn, "ELIDE_FULL_MASKS": True, "NEG_INF": -1e9}
+    exec(compile(ast.Module(body=[fn_node], type_ignores=[]), "tt_bio/rfd4/trunk.py", "exec"), ns)
+    trunk_masks = ns["trunk_masks"]
+
+    dev4 = _FakeMeshDevice(2, 2)
+    mask = torch.tensor([[1, 1, 0, 0], [1, 1, 1, 0], [1, 0, 0, 0], [1, 1, 1, 1]], dtype=torch.float32)
+
+    seen_mappers.clear()
+    outs_rep = trunk_masks(mask, dev4, sharded=False)
+    assert all(m is None for m in seen_mappers)
+    for t in outs_rep:
+        if t is not None and t.is_allocated():
+            mock_ttnn.deallocate(t)
+
+    seen_mappers.clear()
+    outs_sh = trunk_masks(mask, dev4, sharded=True)
+    assert len(seen_mappers) >= 3 and all(isinstance(m, tuple) and m[0] == "shard1d" and m[1] == 0 for m in seen_mappers)
+    for t in outs_sh:
+        if t is not None and t.is_allocated():
+            mock_ttnn.deallocate(t)
+    assert len(dev4.live_bufs) == 0
+

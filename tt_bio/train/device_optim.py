@@ -459,20 +459,20 @@ class DeviceEMA:
 
     def host_shadow(self) -> Dict[str, "np.ndarray"]:
         import numpy as np
-        import ttnn
+        from .mesh_dp import read_rep0
 
         if self._buckets is not None:
             out: Dict[str, np.ndarray] = {}
             for bk in self._buckets:
                 if bk.ema_b is None:
                     continue
-                arr = ttnn.to_torch(bk.ema_b).float().numpy()
+                arr = read_rep0(bk.ema_b).float().numpy()
                 s0, m, n = bk.canon
                 for i, name in enumerate(bk.names):
                     sl = arr[i * s0:(i + 1) * s0, :m, :n]
                     out[name] = np.ascontiguousarray(sl.reshape(bk.shape), dtype=np.float32)
             return out
-        return {n: ttnn.to_torch(v).float().numpy().astype(np.float32, copy=False)
+        return {n: read_rep0(v).float().numpy().astype(np.float32, copy=False)
                 for n, v in self.shadow.items()}
 
     def deallocate(self) -> None:
@@ -702,7 +702,9 @@ class DeviceOptimizer:
             for p in parts:
                 ttnn.deallocate(p)
 
-        vals = ttnn.to_torch(all_sq).float().numpy().reshape(-1)
+        from .mesh_dp import read_rep0
+
+        vals = read_rep0(all_sq).float().numpy().reshape(-1)
         ttnn.deallocate(all_sq)
         if vals.size != total_slices:
             raise RuntimeError(
@@ -946,6 +948,7 @@ class DeviceOptimizer:
         """Run one optimizer step wholly on card."""
         import ttnn
 
+        orig_grads = grads
         if reduce_fn is not None:
             grads = reduce_fn(grads)
         dis = set(disabled)
@@ -968,6 +971,10 @@ class DeviceOptimizer:
             for g in grads.values():
                 if g is not None and g.is_allocated():
                     ttnn.deallocate(g)
+            if orig_grads is not grads:
+                for g in orig_grads.values():
+                    if g is not None and g.is_allocated():
+                        ttnn.deallocate(g)
 
         sq_muon, sq_adam, dead_grads = self._group_norms_and_dead(muon_packed, adam_packed)
         self.last_dead_grads = frozenset(dead_grads)
@@ -1011,11 +1018,11 @@ class DeviceOptimizer:
 
     def _unpack_bucket_host(self, bk: _Bucket, dev_t) -> Dict[str, "np.ndarray"]:
         import numpy as np
-        import ttnn
+        from .mesh_dp import read_rep0
 
         if dev_t is None:
             return {nm: np.zeros(bk.shape, dtype=np.float32) for nm in bk.names}
-        arr = ttnn.to_torch(dev_t).float().numpy()
+        arr = read_rep0(dev_t).float().numpy()
         s0, m, n = bk.canon
         out: Dict[str, np.ndarray] = {}
         for i, name in enumerate(bk.names):

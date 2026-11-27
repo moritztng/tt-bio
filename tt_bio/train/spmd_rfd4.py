@@ -257,7 +257,7 @@ class SPMDZero1Step:
 
         if self.use_zero1_muon:
             self.muon_plan = plan_spmd_muon_shards(
-                base_opt.shapes, base_opt.muon_names, self.mshape
+                base_opt.shapes, base_opt.muon_names - self.replicated_names, self.mshape
             )
             if not self.muon_plan.sharded_names:
                 self.use_zero1_muon = False
@@ -330,16 +330,35 @@ class SPMDZero1Step:
         disabled: Collection[str] = (),
         free_grads: bool = False,
         skip_reduce_for_broken_arm: bool = False,
+        profile_sync: bool = False,
     ) -> dict:
         """Run one synchronized SPMD optimizer step on ``MeshDevice``."""
+        import time as _time
+        import ttnn
+
         if not self.use_zero1_muon:
-            rfn = None if skip_reduce_for_broken_arm else self.reducer
-            return self.base_opt.step(
+            sync_s = 0.0
+            if skip_reduce_for_broken_arm:
+                rfn = None
+            elif profile_sync:
+                def rfn(g):
+                    nonlocal sync_s
+                    ttnn.synchronize_device(self.device)
+                    _ts0 = _time.time()
+                    out = self.reducer(g)
+                    ttnn.synchronize_device(self.device)
+                    sync_s += _time.time() - _ts0
+                    return out
+            else:
+                rfn = self.reducer
+            info = self.base_opt.step(
                 dev_grads, reduce_fn=rfn, disabled=disabled, free_grads=free_grads
             )
+            if profile_sync:
+                info["sync_s"] = round(sync_s, 5)
+            return info
 
         import numpy as np
-        import ttnn
         from .device_optim import (
             _clone_exact_f32,
             _concat_dim0_exact_f32,
@@ -354,8 +373,12 @@ class SPMDZero1Step:
         dis = set(disabled)
         sh_names = self.muon_plan.sharded_names
         ns_has_tall = "tall" in inspect.signature(newton_schulz_device).parameters
+        sync_s = 0.0
 
         # 1. Phase A: RS_2D -> AG_ax1 for sharded Muon + exact 2D all-reduce for remaining params.
+        if profile_sync:
+            ttnn.synchronize_device(self.device)
+            _ts0 = _time.time()
         if skip_reduce_for_broken_arm:
             # Deliberate broken arm for G5 verification: drop cross-rank reduction on sharded Muon.
             grad_shards = {}
@@ -387,6 +410,9 @@ class SPMDZero1Step:
             )
             rem_in = {nm: g for nm, g in dev_grads.items() if nm not in sh_names}
             rem_grads = self.reducer(rem_in)
+        if profile_sync:
+            ttnn.synchronize_device(self.device)
+            sync_s += _time.time() - _ts0
 
         # 2. Schedule & exact global norms + dead_grads across all 558 params (MeshDevice-safe).
         lr_now = opt.lr if opt.schedule is None else float(opt.schedule(opt.steps))
@@ -616,7 +642,13 @@ class SPMDZero1Step:
             opt.ema.update()
 
         # 5. Phase C: AG_axis0 -> bit-identical replicated masters for all sharded Muon params.
+        if profile_sync:
+            ttnn.synchronize_device(self.device)
+            _ts1 = _time.time()
         gathered = self.muon_sharder.all_gather_masters(self.sh_master, self.device)
+        if profile_sync:
+            ttnn.synchronize_device(self.device)
+            sync_s += _time.time() - _ts1
         for nm, new_m in gathered.items():
             old_m = opt.master.get(nm)
             opt.master[nm] = new_m
@@ -631,7 +663,7 @@ class SPMDZero1Step:
                 if g is not None and g.is_allocated():
                     ttnn.deallocate(g)
 
-        return {
+        out = {
             "step": opt.steps,
             "lr": lr_now,
             "lr_muon": lr_muon,
@@ -642,6 +674,26 @@ class SPMDZero1Step:
             "clip_muon": clip_muon,
             "dead_grads": dead,
         }
+        if profile_sync:
+            out["sync_s"] = round(sync_s, 5)
+        return out
+
+    def host_master(self) -> Dict[str, "np.ndarray"]:
+        """Return full host fp32 master dict across both unsharded and axis-0 sharded Muon buckets."""
+        out = self.base_opt.host_master()
+        if self.use_zero1_muon and self.muon_sharder is not None and self.sh_master:
+            out.update(self.muon_sharder.gather_host_shards(self.sh_master))
+        return out
+
+    def master_digest(self) -> str:
+        """SHA-256 prefix over sorted fp32 master bytes across all parameters."""
+        import hashlib
+
+        hm = self.host_master()
+        h = hashlib.sha256()
+        for k in sorted(hm):
+            h.update(hm[k].tobytes())
+        return h.hexdigest()[:16]
 
     def host_ema_shadow(self) -> Dict[str, "np.ndarray"]:
         """Return full host EMA shadow combining replicated and axis-0 sharded Muon buckets."""

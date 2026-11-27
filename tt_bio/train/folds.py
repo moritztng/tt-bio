@@ -1401,12 +1401,13 @@ def make_rfd4_refold_hook(trunk, glue=None, *, host_glue_params: Mapping[str, to
 
         # 3. Sync small host-only glue params (non-pair-sized) and refresh PairSplit/PairOnCard
         if host_glue_params:
+            from .mesh_dp import read_rep0
             with torch.no_grad():
                 for name, p in host_glue_params.items():
                     dm = dev_masters.get(name)
                     if dm is None:
                         continue
-                    arr = ttnn.to_torch(dm).float().reshape(p.shape).to(p.dtype)
+                    arr = read_rep0(dm).float().reshape(p.shape).to(p.dtype)
                     p.copy_(arr)
             if glue is not None and pair_card_ref is not None:
                 from ..rfd4.pair import PairOnCard, PairSplit
