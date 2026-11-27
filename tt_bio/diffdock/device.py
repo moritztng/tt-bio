@@ -182,11 +182,10 @@ def _pad2(t: Tensor, rows: int, cols: int) -> Tensor:
     return torch.nn.functional.pad(t, (0, cols - t.shape[1], 0, rows - t.shape[0]))
 
 
-def fc1_blocks(fc, ns: int, in_pad: int, plan=None):
+def fc1_blocks(fc, ns: int, in_pad: int):
     """``(W1a, W1s, W1d, b1)`` in float64 with ``cat([ea, x[src, :ns], x[dst, :ns]]) @ W1 + b =
     ea @ W1a + x[src] @ W1s + x[dst] @ W1d + b1`` for zero-padded ``ea`` and node rows ``x`` of
-    width *in_pad*. With an edge-tile *plan*, the hidden width and bias are the kernel's (its
-    folded-bias lane included); otherwise ``pad32(hidden)`` and the FC bias.
+    width *in_pad*, hidden width ``pad32(hidden)``.
     """
     f64 = torch.float64
     W = fc[0].weight.detach().to(f64).T                 # [F, hidden]
@@ -194,12 +193,9 @@ def fc1_blocks(fc, ns: int, in_pad: int, plan=None):
     a = F - 2 * ns
     if a <= 0:
         raise ValueError(f"edge features {F} cannot hold two node blocks of {ns}")
-    hp = plan.hidden_pad if plan is not None else pad32(hidden)
+    hp = pad32(hidden)
     b1 = torch.zeros(hp, dtype=f64)
-    if plan is not None:
-        b1[:] = plan.b1
-    else:
-        b1[:hidden] = fc[0].bias.detach().to(f64)
+    b1[:hidden] = fc[0].bias.detach().to(f64)
     blocks = []
     for rows, lo, hi in ((pad32(a), 0, a), (in_pad, a, a + ns), (in_pad, a + ns, F)):
         w = torch.zeros(rows, hp, dtype=f64)
@@ -309,9 +305,7 @@ class DeviceConvLayer:
             up = lambda t: self.ttnn.from_torch(t.float(), dtype=self.dtype,
                                                 layout=self.ttnn.TILE_LAYOUT, device=self.device)
             self._split[ns] = [
-                tuple(up(t) for t in fc1_blocks(fc, ns, pad32(self.in_dim),
-                                                getattr(tp, "plan", None)))
-                for fc, tp in zip(self.fcs, self.tps)]
+                tuple(up(t) for t in fc1_blocks(fc, ns, pad32(self.in_dim))) for fc in self.fcs]
         return self._split[ns]
 
     def _group_index(self, g, sizes):
@@ -372,6 +366,51 @@ class DeviceConvLayer:
         return out
 
 
+class GraphCache:
+    """Uploaded static graphs (gather index + dense ``[n_out, E]`` bf16 scatter), keyed by shape
+    and checked by content, least recently used out first.
+
+    The static network reuses one edge index across layers and steps (masks carry what moves),
+    so the conv modules of one network share a cache and each graph crosses to the card once
+    per rollout instead of once per call. A rollout touches six: the receptor, ligand and main
+    stacks, the main stack's last layer and the two heads. A screening run brings new shapes
+    with every complex, so past *size* entries the oldest is freed on the card.
+    """
+
+    def __init__(self, size: int = 8):
+        from collections import OrderedDict
+        self.size, self.entries = size, OrderedDict()
+
+    def get(self, key, edge_index: Tensor, build) -> dict:
+        hit = self.entries.get(key)
+        if hit is None or not torch.equal(hit[0], edge_index):
+            if hit is not None:
+                _free(hit[1])
+            hit = self.entries[key] = (edge_index, build())
+        self.entries.move_to_end(key)
+        while len(self.entries) > self.size:
+            _free(self.entries.popitem(last=False)[1][1])
+        return hit[1]
+
+    def nbytes(self) -> int:
+        """Card bytes held: per graph the bf16 scatter, its uint32 index and any per-group
+        ``(src, dst)`` indices :meth:`DeviceConvLayer._group_index` added."""
+        total = 0
+        for _, g in self.entries.values():
+            groups = sum(1 for k in g if isinstance(k, tuple))
+            total += g["n_out"] * g["E"] * 2 + g["E"] * 4 * (1 + 2 * groups)
+        return total
+
+
+def _free(g: dict) -> None:
+    import ttnn
+    for v in g.values():
+        for t in (v if isinstance(v, list) else [v]):
+            for u in (t if isinstance(t, list) else [t]):
+                if isinstance(u, ttnn.Tensor):
+                    ttnn.deallocate(u)
+
+
 class DeviceConvModule(torch.nn.Module):
     """A host :class:`~tt_bio.diffdock.conv.TensorProductConvLayer` whose arithmetic runs on
     the card: same call signature, so it drops into :class:`~tt_bio.diffdock.score_model.ScoreModel`
@@ -385,15 +424,12 @@ class DeviceConvModule(torch.nn.Module):
     """
 
     def __init__(self, device, layer, *, dtype=None, grade: bool = False, name: str = "",
-                 graphs: dict | None = None):
+                 graphs: GraphCache | None = None):
         super().__init__()
         import copy
         self.name, self.log = name, []
-        #: uploaded static graphs (gather index + dense scatter), keyed by shape and checked by
-        #: content. The static network reuses one edge index across layers and steps (masks
-        #: carry what moves), so modules built together share this and each graph crosses to
-        #: the card once instead of once per call.
-        self.graphs = {} if graphs is None else graphs
+        #: uploaded static graphs, shared by the modules built together (:class:`GraphCache`)
+        self.graphs = GraphCache() if graphs is None else graphs
         #: wall seconds spent inside :meth:, summed over calls. Upload, the device ops
         #: and the read-back: everything this module owns. The rest of a step is host glue, so
         #: 1 - sum(secs) / step is the card's idle fraction in the untraced form.
@@ -405,11 +441,8 @@ class DeviceConvModule(torch.nn.Module):
         self.dev = DeviceConvLayer(device, copy.deepcopy(layer).float(), dtype=dtype)
 
     def _graph(self, ei: Tensor, n_out_p: int, n_in_p: int) -> dict:
-        key = (tuple(ei.shape), n_out_p, n_in_p)
-        hit = self.graphs.get(key)
-        if hit is None or not torch.equal(hit[0], ei):
-            hit = self.graphs[key] = (ei, self.dev.graph(ei, n_out_p, n_in_p))
-        return hit[1]
+        return self.graphs.get((tuple(ei.shape), n_out_p, n_in_p), ei,
+                               lambda: self.dev.graph(ei, n_out_p, n_in_p))
 
     @staticmethod
     def run_stack(mods, node_attr, edge_index, edge_attr, edge_sh, edge_mask, ns, plan):
@@ -524,12 +557,11 @@ def convs_on_device(model, device, *, dtype=None, grade: bool = False) -> dict:
     Returns ``{module path: DeviceConvModule}`` so a caller can read each one's grade log.
     """
     from tt_bio.diffdock.conv import TensorProductConvLayer
-    swapped, graphs = {}, {}
+    swapped, graphs = {}, GraphCache()
     for path, mod in list(model.named_modules()):
         for name, child in list(mod._modules.items()):
             if isinstance(child, TensorProductConvLayer):
                 full = f"{path}.{name}" if path else name
                 mod._modules[name] = swapped[full] = DeviceConvModule(
-                    device, child, dtype=dtype, grade=grade, name=full,
-                    graphs=graphs)
+                    device, child, dtype=dtype, grade=grade, name=full, graphs=graphs)
     return swapped
