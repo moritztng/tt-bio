@@ -17,7 +17,7 @@ WT=/home/moritz/.coworker/wt/dfd-eval
 mkdir -p "$ROOT" "$POSES" "$ACC"
 exec 9>"$ROOT/tick.lock"; flock -n 9 || exit 0
 
-# host:remote-root:todo-on-pc:workers:threads:nice
+# host:remote-root:todo-on-pc:workers:threads:nice:chunk
 # Each host runs an EXPLICIT id list ($root/todo.json, same file as the pc copy named here), not a
 # shard of the set. Fixed shards tie the remaining work to the host that was given it: at 08:45Z on
 # 2026-11-27 anx-glx held 94 complexes at ~20/h under RLX's relion load while .112 was finishing its
@@ -27,10 +27,13 @@ exec 9>"$ROOT/tick.lock"; flock -n 9 || exit 0
 # anx-glx runs at nice 19, not 10: RLX's relion_refine_mpi holds that host near 71 of 64 cores on
 # its own and r4t's host-bound G3 leg-3 curve shares it, so this pool must lose every scheduling
 # contest it enters there (measured 2026-11-27 08:32Z, load 78 of 64 with 24 of my threads).
-HOSTS="anx-glx:/home/ttuser/dfd-eval:todo-anxglx.json:12:2:19 172.16.102.112:/home/agent/dfd-eval:todo-glx112.json:20:2:10"
+# anx-glx takes chunk 2, not 4: its list is 23 ids, and at chunk 4 that is 6 chunks, so half
+# its 12 worker slots would have sat empty for the whole tail. The chunk only groups complexes
+# inside one process; it changes nothing about the recipe or the poses.
+HOSTS="anx-glx:/home/ttuser/dfd-eval:todo-anxglx.json:12:2:19:2 172.16.102.112:/home/agent/dfd-eval:todo-glx112.json:20:2:10:4"
 
 for rec in $HOSTS; do
-  IFS=: read -r h root _ _ _ _ <<<"$rec"
+  IFS=: read -r h root _ _ _ _ _ <<<"$rec"
   timeout 900 rsync -a --ignore-existing --exclude logs \
     -e "ssh -o BatchMode=yes -o ConnectTimeout=15" "$h:$root/poses/" "$POSES/" \
     >>"$ROOT/tick.log" 2>&1
@@ -66,8 +69,8 @@ EOF
 # hosts are fleet hosts, and nothing else watches them: without this a dead pool means its half
 # of the set is simply never attempted while the run still reads "in progress", which is exactly
 # how the five rented boxes lost 390 complexes on 2026-11-26.
-relaunch() {   # host root todo-on-pc workers threads nice
-  local h=$1 root=$2 todo=$3 w=$4 t=$5 nice=$6
+relaunch() {   # host root todo-on-pc workers threads nice chunk
+  local h=$1 root=$2 todo=$3 w=$4 t=$5 nice=$6 chunk=$7
   # never launch into a tree that was never set up (a half-finished copy has no dock.pid)
   timeout 60 ssh -o BatchMode=yes -o ConnectTimeout=15 "$h" "[ -f $root/dock.pid ]" || return 0
   timeout 60 ssh -o BatchMode=yes -o ConnectTimeout=15 "$h" \
@@ -81,17 +84,17 @@ relaunch() {   # host root todo-on-pc workers threads nice
   timeout 120 ssh -o BatchMode=yes -o ConnectTimeout=15 "$h" "cd $root/tt-bio && \
       DFD_PB=$root/pb/posebusters_benchmark_set PYTHONHASHSEED=0 PYTHONUNBUFFERED=1 \
       setsid nohup nice -n $nice $root/venv/bin/python scripts/diffdock_port/pose_eval.py dock \
-      --ids $root/todo.json --out $root/poses --workers $w --threads $t --seed 42 \
+      --ids $root/todo.json --out $root/poses --workers $w --chunk $chunk --threads $t --seed 42 \
       >> $root/dock.log 2>&1 < /dev/null & echo \$! > $root/dock.pid"
 }
 for rec in $HOSTS; do
-  IFS=: read -r h root todo w t nice <<<"$rec"
-  relaunch "$h" "$root" "$todo" "$w" "$t" "$nice"
+  IFS=: read -r h root todo w t nice chunk <<<"$rec"
+  relaunch "$h" "$root" "$todo" "$w" "$t" "$nice" "$chunk"
 done
 
 left_total=0
 for rec in $HOSTS; do
-  IFS=: read -r _ _ todo _ _ _ <<<"$rec"
+  IFS=: read -r _ _ todo _ _ _ _ <<<"$rec"
   left_total=$((left_total + $(left_of "$todo")))
 done
 [ "$left_total" -eq 0 ] || exit 0
