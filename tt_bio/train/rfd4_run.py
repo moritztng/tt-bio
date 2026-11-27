@@ -239,11 +239,13 @@ def _device_cand_conds(glue, bt, depth: int, master: dict, mk, dev, out_dtype):
                 c2.contiguous(), dtype=out_dtype, layout=ttnn.TILE_LAYOUT,
                 device=dev, memory_config=ttnn.DRAM_MEMORY_CONFIG,
             )
-            if tok_m is not None:
-                c_full = ttnn.multiply(c_t, tok_m)
-            else:
-                c_full = ttnn.repeat(c_t, (1, n, 1))
+            c_rep = ttnn.repeat(c_t, (1, n, 1))
             ttnn.deallocate(c_t)
+            if tok_m is not None:
+                c_full = ttnn.multiply(c_rep, tok_m)
+                ttnn.deallocate(c_rep)
+            else:
+                c_full = c_rep
             u_devs.append(c_full)
         return [u_devs[ui] for ui in cyc_to_u]
 
@@ -255,6 +257,10 @@ def _device_cand_conds(glue, bt, depth: int, master: dict, mk, dev, out_dtype):
     can_dev = (
         not glue.transition_c_1.use_layer_norm
         and not glue.transition_c_2.use_layer_norm
+        and glue.transition_c_1.swish_linear[0].bias is None
+        and glue.transition_c_1.linear_out.bias is None
+        and glue.transition_c_2.swish_linear[0].bias is None
+        and glue.transition_c_2.linear_out.bias is None
         and all(k in master for k in (k_sw1, k_lo1, k_sw2, k_lo2))
     )
     raw_u = []
@@ -296,11 +302,16 @@ def _device_cand_conds(glue, bt, depth: int, master: dict, mk, dev, out_dtype):
     )
     m3_owned = False
     if mk[4] is not None:
+        m_base = mk[4] if mk[4].dtype == ttnn.float32 else ttnn.typecast(mk[4], ttnn.float32)
+        m_base_owned = (m_base is not mk[4])
         if U > 1:
-            m3 = ttnn.repeat(mk[4], (U, 1, 1))
+            m3 = ttnn.repeat(m_base, (U, 1, 1))
+            if m_base_owned:
+                ttnn.deallocate(m_base)
             m3_owned = True
         else:
-            m3 = mk[4]
+            m3 = m_base
+            m3_owned = m_base_owned
     else:
         m3 = None
     y1 = _device_transition_f32(x_dev, master[k_sw1], master[k_lo1], m3, ckc, cg)
@@ -332,6 +343,7 @@ def _device_cand_init_repr(glue, bt, master: dict, mk, dev):
     w_key = "glue.init_repr_factory.linear_out.weight"
     if (getattr(irf, "ret_zero", False)
             or not isinstance(irf.ln_out, torch.nn.Identity)
+            or irf.linear_out.bias is not None
             or w_key not in master):
         s0 = irf(bt) * bt["padding_mask"][..., None]
         return ttnn.from_torch(
@@ -353,7 +365,10 @@ def _device_cand_init_repr(glue, bt, master: dict, mk, dev):
         device=dev, memory_config=ttnn.DRAM_MEMORY_CONFIG,
     )
     if mk[4] is not None:
-        fm = ttnn.multiply(f_dev, mk[4])
+        m4 = mk[4] if mk[4].dtype == ttnn.float32 else ttnn.typecast(mk[4], ttnn.float32)
+        fm = ttnn.multiply(f_dev, m4)
+        if m4 is not mk[4]:
+            ttnn.deallocate(m4)
         ttnn.deallocate(f_dev)
         f_dev = fm
     g = dev.compute_with_storage_grid_size()
