@@ -363,11 +363,45 @@ def test_the_device_branch_of_load_is_reachable(monkeypatch):
     monkeypatch.setattr("tt_bio.tenstorrent.get_device", lambda *a, **k: "a-card")
     seen = {}
     monkeypatch.setattr("tt_bio.diffdock.device.DeviceScoreNetwork",
-                        lambda h, d: seen.update(host=h, device=d) or "device-network")
+                        lambda h, d, edge_tp: seen.update(host=h, device=d, edge_tp=edge_tp)
+                        or "device-network")
 
     assert network.load(DockOptions(no_confidence=True)) is host
     assert network.load(DockOptions(device="tt", no_confidence=True)) == "device-network"
-    assert seen == {"host": host, "device": "a-card"}
+    assert seen == {"host": host, "device": "a-card", "edge_tp": "gemm"}
+    network.load(DockOptions(device="tt", edge_tp="tile", no_confidence=True))
+    assert seen["edge_tp"] == "tile"
+
+
+def test_the_tile_form_keeps_the_torsion_head_on_gemm(monkeypatch):
+    """`edge_tp="tile"` puts every convolution on the fused kernel except the torsion head,
+    whose bf16 kernel error failed the SE(3) check; the default puts all of them on GEMM."""
+    import torch
+    import tt_bio.diffdock.device as device
+    from tt_bio.diffdock.conv import TensorProductConvLayer
+
+    made = {}
+
+    class Recorder(torch.nn.Module):
+        def __init__(self, dev, layer, *, name, edge_tp, **kw):
+            super().__init__()
+            made[name] = edge_tp
+
+    monkeypatch.setattr(device, "DeviceConvModule", Recorder)
+    layer = lambda: TensorProductConvLayer("4x0e", "1x0e + 1x1o", "4x0e", 6)
+
+    def model():
+        m = torch.nn.Module()
+        m.conv_layers = torch.nn.ModuleList([layer(), layer()])
+        m.tor_bond_conv = layer()
+        return m
+
+    for edge_tp, want in (("gemm", ["gemm"] * 3), ("tile", ["tile", "tile", "gemm"])):
+        made.clear()
+        host = type("H", (), {"model": model(), "config": None,
+                              "confidence_model": None})()
+        device.DeviceScoreNetwork(host, "a-card", edge_tp=edge_tp)
+        assert [made[k] for k in ("conv_layers.0", "conv_layers.1", "tor_bond_conv")] == want
 
 
 def test_device_score_network_has_the_rollout_interface():

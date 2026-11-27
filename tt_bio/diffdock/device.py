@@ -195,10 +195,11 @@ def _pad2(t: Tensor, rows: int, cols: int) -> Tensor:
     return torch.nn.functional.pad(t, (0, cols - t.shape[1], 0, rows - t.shape[0]))
 
 
-def fc1_blocks(fc, ns: int, in_pad: int):
+def fc1_blocks(fc, ns: int, in_pad: int, plan=None):
     """``(W1a, W1s, W1d, b1)`` in float64 with ``cat([ea, x[src, :ns], x[dst, :ns]]) @ W1 + b =
     ea @ W1a + x[src] @ W1s + x[dst] @ W1d + b1`` for zero-padded ``ea`` and node rows ``x`` of
-    width *in_pad*, hidden width ``pad32(hidden)``.
+    width *in_pad*. With an edge-tile *plan*, the hidden width and bias are the kernel's (its
+    folded-bias lane included); otherwise ``pad32(hidden)`` and the FC bias.
     """
     f64 = torch.float64
     W = fc[0].weight.detach().to(f64).T                 # [F, hidden]
@@ -206,9 +207,12 @@ def fc1_blocks(fc, ns: int, in_pad: int):
     a = F - 2 * ns
     if a <= 0:
         raise ValueError(f"edge features {F} cannot hold two node blocks of {ns}")
-    hp = pad32(hidden)
+    hp = plan.hidden_pad if plan is not None else pad32(hidden)
     b1 = torch.zeros(hp, dtype=f64)
-    b1[:hidden] = fc[0].bias.detach().to(f64)
+    if plan is not None:
+        b1[:] = plan.b1
+    else:
+        b1[:hidden] = fc[0].bias.detach().to(f64)
     blocks = []
     for rows, lo, hi in ((pad32(a), 0, a), (in_pad, a, a + ns), (in_pad, a + ns, F)):
         w = torch.zeros(rows, hp, dtype=f64)
@@ -257,18 +261,42 @@ class DeviceConvLayer:
     built once per static graph (tt-atom's form, ``tt_atom/model.py``); the mask scales the
     messages and is what the divisor sums, so a node with every edge masked gets
     ``0 / eps = 0`` rather than NaN, which is the all-masked rule of D-dfd-orch-10.
+
+    *edge_tp* picks the per-edge FC + tensor product: ``"gemm"`` (:class:`DeviceEdgeTP`) or
+    ``"tile"`` (:class:`~tt_bio.diffdock.edge_tile.DeviceEdgeTile`, one fused Blackhole kernel).
+    The tile kernel writes its own column order; the 0/1 permutation back to e3nn's commutes
+    with the scatter, so it is applied on node rows after it.
     """
 
-    def __init__(self, device, layer, *, dtype=None):
+    def __init__(self, device, layer, *, dtype=None, edge_tp: str = "gemm"):
         import ttnn
         if layer.residual_first:
             raise NotImplementedError("the confidence model's residual-first order is not ported yet")
         self.ttnn, self.device, self.layer = ttnn, device, layer
         self.dtype = dtype or ttnn.float32
         self.fcs = fcs = list(layer.fc) if layer.edge_groups > 1 else [layer.fc]
-        self.tps = [DeviceEdgeTP(device, layer.tp, fc, dtype=self.dtype) for fc in fcs]
         self.in_dim, self.out_dim = layer.in_irreps.dim, layer.out_irreps.dim
         self.out_pad = pad32(self.out_dim)
+        self.perm = None
+        if edge_tp == "gemm":
+            self.tps = [DeviceEdgeTP(device, layer.tp, fc, dtype=self.dtype) for fc in fcs]
+            self.ckc = self.tps[0].ckc
+        elif edge_tp == "tile":
+            from tt_bio.diffdock.edge_tile import DeviceEdgeTile
+            if device.arch() != ttnn.Arch.BLACKHOLE:
+                raise NotImplementedError("the fused edge-tile kernel is Blackhole only")
+            self.tps = [DeviceEdgeTile(device, layer.tp, fc) for fc in fcs]
+            perm = self.tps[0].plan.perm
+            if any(not torch.equal(t.plan.perm, perm) for t in self.tps[1:]):
+                raise ValueError("edge groups disagree on the kernel column order")
+            self.perm = ttnn.from_torch(_pad2(perm, perm.shape[0], self.out_pad).float(),
+                                        dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT,
+                                        device=device)
+            self.ckc = ttnn.types.BlackholeComputeKernelConfig(
+                math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,
+                fp32_dest_acc_en=True, packer_l1_acc=True)
+        else:
+            raise ValueError(f"edge_tp must be gemm or tile, not {edge_tp!r}")
         bn = layer.batch_norm
         scale = torch.ones(self.out_pad, dtype=torch.float64)
         shift = torch.zeros(self.out_pad, dtype=torch.float64)
@@ -313,13 +341,15 @@ class DeviceConvLayer:
         ``e @ W1 = edge_attr @ W1a + (x @ W1s)[src] + (x @ W1d)[dst]``: the node halves are
         multiplied on node rows and gathered, and the concatenated edge block never exists.
         ``W1s``/``W1d`` take the whole padded node row and are zero past ``ns``. The bias is the
-        edge TP's own.
+        edge TP's own, including the tile kernel's folded-bias lane.
         """
         if ns not in self._split:
             up = lambda t: self.ttnn.from_torch(t.float(), dtype=self.dtype,
                                                 layout=self.ttnn.TILE_LAYOUT, device=self.device)
             self._split[ns] = [
-                tuple(up(t) for t in fc1_blocks(fc, ns, pad32(self.in_dim))) for fc in self.fcs]
+                tuple(up(t) for t in fc1_blocks(fc, ns, pad32(self.in_dim),
+                                                getattr(tp, "plan", None)))
+                for fc, tp in zip(self.fcs, self.tps)]
         return self._split[ns]
 
     def _group_index(self, g, sizes):
@@ -337,16 +367,19 @@ class DeviceConvLayer:
             g[key] = idx
         return g[key]
 
-    def __call__(self, node_attr, g, edge_attr_groups, edge_sh, edge_mask, ns=None):
+    def __call__(self, node_attr, g, edge_attr_groups, edge_sh, edge_mask, ns=None,
+                 out_attr=None):
         """*node_attr* is ``[N, pad32(in_dim)]`` TILE.
 
         *edge_attr_groups* are TILE ``[E_g, pad32(F)]`` blocks partitioning the edges in order,
         *edge_sh* ``[E, pad32(sh)]`` TILE and *edge_mask* ``[E, 1]`` TILE. With *ns* set they
         are the bare edge attributes instead, and the node halves of the edge input are built
         here from *node_attr* (:meth:`fc1_split`), so a stack of layers never leaves the card.
+        *out_attr* is the table the messages land in when it is not *node_attr* (a cross group
+        of the confidence model): the ``x[src]`` half of the edge input is read from it.
         """
         ttnn = self.ttnn
-        ckc = self.tps[0].ckc
+        ckc = self.ckc
         x1 = gather_rows(node_attr, g["idx"], g["E"])
         if ns is not None:
             sizes = tuple(int(ea.shape[0]) for ea in edge_attr_groups)
@@ -360,13 +393,16 @@ class DeviceConvLayer:
                 w1a, w1s, w1d, b1 = self.fc1_split(ns)[gi]
                 src, dst = index[gi]
                 h = ttnn.linear(ea, w1a, bias=b1, compute_kernel_config=ckc, dtype=self.dtype)
-                h = ttnn.add(h, gather_rows(mm(node_attr, w1s), src, n))
+                out_t = node_attr if out_attr is None else out_attr
+                h = ttnn.add(h, gather_rows(mm(out_t, w1s), src, n))
                 h = ttnn.relu(ttnn.add(h, gather_rows(mm(node_attr, w1d), dst, n)))
             msgs.append(tp(ea, x1[lo:lo + n, :], edge_sh[lo:lo + n, :], h=h))
             lo += n
         msg = msgs[0] if len(msgs) == 1 else ttnn.concat(msgs, dim=0)
         msg = ttnn.multiply(msg, edge_mask)
         s = ttnn.matmul(g["S"], msg, compute_kernel_config=ckc, dtype=self.dtype)
+        if self.perm is not None:
+            s = ttnn.matmul(s, self.perm, compute_kernel_config=ckc, dtype=self.dtype)
         div = ttnn.matmul(g["S"], edge_mask, compute_kernel_config=ckc, dtype=self.dtype)
         div = ttnn.reciprocal(ttnn.clamp(div, min=float(torch.finfo(torch.float32).eps)))
         out = ttnn.multiply(s, div)
@@ -438,7 +474,7 @@ class DeviceConvModule(torch.nn.Module):
     """
 
     def __init__(self, device, layer, *, dtype=None, grade: bool = False, name: str = "",
-                 graphs: GraphCache | None = None):
+                 graphs: GraphCache | None = None, edge_tp: str = "gemm"):
         super().__init__()
         import copy
         self.name, self.log = name, []
@@ -452,7 +488,8 @@ class DeviceConvModule(torch.nn.Module):
         #: :meth:`run_stack` may carry this layer. Grading needs every layer's input on the host.
         self.resident = not grade
         self.layer = layer
-        self.dev = DeviceConvLayer(device, copy.deepcopy(layer).float(), dtype=dtype)
+        self.dev = DeviceConvLayer(device, copy.deepcopy(layer).float(), dtype=dtype,
+                                   edge_tp=edge_tp)
 
     def _graph(self, ei: Tensor, n_out_p: int, n_in_p: int) -> dict:
         return self.graphs.get((tuple(ei.shape), n_out_p, n_in_p), ei,
@@ -565,20 +602,31 @@ class DeviceConvModule(torch.nn.Module):
         return out
 
 
-def convs_on_device(model, device, *, dtype=None, grade: bool = False) -> dict:
+def convs_on_device(model, device, *, dtype=None, grade: bool = False,
+                    edge_tp: str = "gemm", gemm_modules=(), graphs: int = 8) -> dict:
     """Swap every convolution in *model* for a :class:`DeviceConvModule`, in place.
 
-    Returns ``{module path: DeviceConvModule}`` so a caller can read each one's grade log.
+    *edge_tp* is the edge tensor-product form of every convolution except those whose path ends
+    in one of *gemm_modules*, which keep the fp32 GEMM form. Returns ``{module path:
+    DeviceConvModule}`` so a caller can read each one's grade log. *graphs* sizes the shared
+    :class:`GraphCache`.
     """
     from tt_bio.diffdock.conv import TensorProductConvLayer
-    swapped, graphs = {}, GraphCache()
+    swapped, graphs = {}, GraphCache(graphs)
     for path, mod in list(model.named_modules()):
         for name, child in list(mod._modules.items()):
             if isinstance(child, TensorProductConvLayer):
                 full = f"{path}.{name}" if path else name
                 mod._modules[name] = swapped[full] = DeviceConvModule(
-                    device, child, dtype=dtype, grade=grade, name=full, graphs=graphs)
+                    device, child, dtype=dtype, grade=grade, name=full, graphs=graphs,
+                    edge_tp="gemm" if full.endswith(tuple(gemm_modules)) else edge_tp)
     return swapped
+
+
+#: Convolutions that keep the fp32 GEMM form when the rest run the edge-tile kernel. The torsion
+#: head's bf16 kernel error broke the SE(3) check at step 18 (2 of 51 legs against a float64
+#: reference); on GEMM every leg passes (state/dfd/PERF.md, D-dfd-orch-19).
+TILE_GEMM_MODULES = ("tor_bond_conv",)
 
 
 class DeviceScoreNetwork:
@@ -589,15 +637,24 @@ class DeviceScoreNetwork:
     differ from the host class: the convolutions run through :class:`DeviceConvModule`, as one
     device-resident stack per edge set, and a step is one :func:`~tt_bio.diffdock.static_net.static_forward`
     over fixed-shape graphs instead of a loop over poses, which is what makes the shapes the same
-    every step. The confidence pass stays on the host.
+    every step. The confidence model's 45 convolutions are swapped the same way, so the ranking
+    pass runs the same device layers; its host glue (graph build, encoders, head) is unchanged.
     """
 
     on_device = True
 
-    def __init__(self, host, device):
+    def __init__(self, host, device, *, edge_tp: str = "gemm"):
         self.host, self.device = host, device
         self.model, self.config = host.model, host.config
-        self.convs = convs_on_device(host.model, device)
+        self.convs = convs_on_device(host.model, device, edge_tp=edge_tp,
+                                     gemm_modules=TILE_GEMM_MODULES if edge_tp == "tile" else ())
+        # The confidence model keeps the GEMM form: the tile kernel was graded on the score
+        # network only, and the ranking pass is 0.54 s, not the bottleneck.
+        self.confidence_convs = ({} if host.confidence_model is None
+                                 else convs_on_device(host.confidence_model, device,
+                                                      graphs=CONFIDENCE_GRAPHS))
+        self._confidence = (None if host.confidence_model is None
+                            else DeviceConfidence(host.confidence_model, self.confidence_convs))
 
     def score_fn(self, graph):
         from tt_bio.diffdock.conv import pad_nodes
@@ -623,4 +680,97 @@ class DeviceScoreNetwork:
         return score
 
     def confidence(self, graph, poses: Tensor):
-        return self.host.confidence(graph, poses)
+        """The host ranking pass with its interaction layers in :class:`DeviceConfidence`."""
+        return self.host.confidence(graph, poses, convolve=self._confidence)
+
+
+#: A confidence pose touches nine graphs per layer, four of them the receptor's; an LRU of 8
+#: would evict each one just before it is needed again.
+CONFIDENCE_GRAPHS = 16
+
+
+class DeviceConfidence:
+    """The confidence model's interaction layers with every node table on the card.
+
+    :meth:`ConfidenceModel.convolve <tt_bio.diffdock.confidence_model.ConfidenceModel.convolve>`
+    walks the wiring; this object is its executor. Per pose the ligand's node table and its
+    three edge sets cross to the card once, the receptor's two node tables and three edge sets
+    once per pose set (they are the same host tensors for every pose), and one read-back of the
+    ligand features ends the pass. The 41 convolutions are the :class:`DeviceConvModule`
+    layers :func:`convs_on_device` put on the model, so nothing here is a second implementation.
+
+    A group with no edges contributes zeros, as the host layer does (D-dfd-orch-10).
+    """
+
+    def __init__(self, model, convs: dict):
+        from tt_bio.diffdock.confidence_model import WIRING
+        self.model = model
+        self.mods = [convs[f"conv_layers.{i}"] for i in range(len(model.conv_layers))]
+        self.device = self.mods[0].dev.device
+        #: edge set -> (out set, source set) in its stored direction
+        self.ends = {es: (out, src) for out, src, es, flip in WIRING if not flip}
+        self._held = {}
+
+    def _keep(self, key, src: Tensor, build):
+        """*build()*'s upload for *key*, rebuilt only when *src* is a different host tensor."""
+        hit = self._held.get(key)
+        if hit is None or hit[0] is not src:
+            if hit is not None and hit[1] is not None:
+                _free(hit[1] if isinstance(hit[1], dict) else {"t": hit[1]})
+            hit = self._held[key] = (src, build())
+        return hit[1]
+
+    def _edges(self, es, edges, rows):
+        import ttnn
+        ei, attr, sh = edges
+        E = ei.shape[1]
+        if E == 0:
+            return None
+        a, b = self.ends[es]
+        extra = pad32(E) - E
+        pad = lambda t: torch.nn.functional.pad(t.float(), (0, 0, 0, extra))
+        return dict(
+            ei=torch.cat([ei, torch.tensor([[rows[a] - 1], [rows[b] - 1]]).expand(2, extra)], 1),
+            attr=to_device(self.device, pad(attr)), sh=to_device(self.device, pad(sh)),
+            mask=ttnn.from_torch(pad(torch.ones(E, 1)), dtype=ttnn.float32,
+                                 layout=ttnn.TILE_LAYOUT, device=self.device))
+
+    def _conv(self, i, out, src, e, flip):
+        import ttnn
+        mod = self.mods[i]
+        if e is None:
+            return ttnn.zeros((int(out.shape[0]), mod.dev.out_pad), dtype=ttnn.float32,
+                              layout=ttnn.TILE_LAYOUT, device=self.device)
+        ei = torch.flip(e["ei"], dims=[0]) if flip else e["ei"]
+        g = mod._graph(ei, int(out.shape[0]), int(src.shape[0]))
+        return mod.dev(src, g, [e["attr"]], e["sh"], e["mask"], ns=self.model.ns, out_attr=out)
+
+    @staticmethod
+    def _combine(x, updates):
+        import ttnn
+        width = int(updates[0].shape[-1])
+        if int(x.shape[-1]) < width:
+            x = ttnn.pad(x, [(0, 0), (0, width - int(x.shape[-1]))], value=0.0)
+        for u in updates:
+            x = ttnn.add(x, u)
+        return x
+
+    def __call__(self, g: dict) -> Tensor:
+        """Final ligand features ``[n_lig, width]`` on the host for one pose's graph *g*
+        (:meth:`ConfidenceModel.ligand_side`)."""
+        import time
+        import ttnn
+        from tt_bio.diffdock.graph import pad_count
+        t0 = time.perf_counter()
+        rows = {s: pad_count(x.shape[0]) for s, x in g["nodes"].items()}
+        nodes = {s: self._keep(("node", s), x, lambda x=x, s=s: to_device(
+                     self.device, torch.nn.functional.pad(x, (0, 0, 0, rows[s] - x.shape[0]))))
+                 for s, x in g["nodes"].items()}
+        edges = {es: self._keep(("edge", es), e[1], lambda es=es, e=e: self._edges(es, e, rows))
+                 for es, e in g["edges"].items()}
+        lig = self.model.convolve(nodes, edges, conv=self._conv, combine=self._combine)
+        n_lig = g["nodes"]["lig"].shape[0]
+        width = self.mods[-1].layer.out_irreps.dim
+        out = ttnn.to_torch(lig)[:n_lig, :width].to(g["nodes"]["lig"].dtype)
+        self.mods[0].secs += time.perf_counter() - t0
+        return out

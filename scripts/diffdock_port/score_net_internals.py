@@ -42,6 +42,12 @@ def main():
     ap.add_argument("--steps", default="0")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--out", required=True)
+    ap.add_argument("--pose-npz", default=None,
+                    help="run ONE forward on the pose in this npz (blowup_dump.py's "
+                         "contract) instead of upstream's own rollout")
+    ap.add_argument("--from-smiles", action="store_true",
+                    help="build the ligand from its SMILES, as the 428-set grade does, "
+                         "rather than from the crystal SDF")
     a = ap.parse_args()
     want = [int(s) for s in a.steps.split(",")]
 
@@ -53,7 +59,12 @@ def main():
     from utils.utils import get_model
 
     cid = a.id
-    prot, lig = PB / cid / f"{cid}_protein.pdb", PB / cid / f"{cid}_ligand.sdf"
+    prot = PB / cid / f"{cid}_protein.pdb"
+    lig = PB / cid / f"{cid}_ligand.sdf"
+    if a.from_smiles:
+        from rdkit import Chem
+        m = next(Chem.SDMolSupplier(str(lig), sanitize=True, removeHs=True), None)
+        lig = Chem.MolToSmiles(Chem.RemoveHs(m))
     run_dir = D / "runs/net-parity" / cid
     run_dir.mkdir(parents=True, exist_ok=True)
     inf = yaml.safe_load((D / "upstream/default_inference_args.yaml").read_text())
@@ -202,6 +213,33 @@ def main():
         return out
 
     model.forward = forward
+    if a.pose_npz:
+        # One forward on a pose somebody else produced, instead of upstream's own rollout.
+        # Used to ask upstream what it would have returned at the exact step where the port's
+        # head reaches 1e15: same graph, same time, the port's coordinates.
+        from utils.diffusion_utils import set_time
+        d = np.load(a.pose_npz)
+        for k, u in (("lig_x", graph["ligand"].x), ("rec_x", graph["receptor"].x),
+                     ("rec_pos", graph["receptor"].pos),
+                     ("bond_index", graph["ligand", "ligand"].edge_index),
+                     ("rec_edge_index", graph["receptor", "receptor"].edge_index)):
+            u = np.asarray(u.numpy(), np.float64)
+            p = np.asarray(d[k], np.float64)
+            if u.shape != p.shape or np.abs(u - p).max() != 0:
+                raise SystemExit(f"graph mismatch on {k}: {u.shape} vs {p.shape}")
+        graph["ligand"].pos = torch.from_numpy(d["lig_pos"]).float()
+        set_time(graph, None, float(d["t_tr"]), float(d["t_rot"]), float(d["t_tor"]), 1,
+                 getattr(sma, "all_atoms", False), device)
+        with torch.no_grad():
+            try:
+                model(graph)
+            except _Done:
+                pass
+        flat["steps"] = np.asarray(want, np.int32)
+        flat["complex"] = np.asarray(cid)
+        np.savez(a.out, **flat)
+        print("wrote", a.out, "keys", len(flat))
+        return
     torch.manual_seed(a.seed)
     np.random.seed(a.seed)
     randomize_position(data_list, sma.no_torsion, False, sma.tr_sigma_max,

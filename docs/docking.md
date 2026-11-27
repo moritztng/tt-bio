@@ -21,11 +21,12 @@ Below that the cost is time rather than memory: on one CPU box a 1712-residue re
 PoseBusters-sized complex takes 54 s at the default recipe; the first run after a new install
 adds about 70 s of one-off kernel compilation.
 
-On a host with a Tenstorrent card `tt-bio dock` pins a card and runs the score network's
-convolutions on it; with no card both networks run on host torch, so a dock never requires
-one. The confidence network stays on the host either way. The score network is graded
-against upstream's own at PCC 0.9999999999984 or better on every output, over three complexes
-at five points of the schedule. `--no_model` still runs upstream's randomized seed-conformer
+On a host with a Tenstorrent card `tt-bio dock` pins a card and runs the convolutions of both
+networks on it; with no card both run on host torch, so a dock never requires one. The score
+network is graded against upstream's own at PCC 0.9999999999984 or better on every output, over
+three complexes at five points of the schedule. The confidence network on the card orders the
+poses exactly as upstream's does on every complex graded (same top pose, same full ranking,
+scores at PCC 0.99998), and scores ten poses in 0.54 s against 1.54 s on host torch. `--no_model` still runs upstream's randomized seed-conformer
 baseline, which needs no checkpoint.
 
 One deliberate difference from upstream: where upstream keeps at most 32 neighbours per ligand

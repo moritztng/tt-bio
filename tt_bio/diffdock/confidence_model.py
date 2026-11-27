@@ -76,6 +76,20 @@ EDGE_GROUPS = ("lig", "lr", "la", "atom", "al", "ar", "rec", "rl", "ra")
 #: optimisation"), because the head reads ligand features alone.
 LIGAND_GROUPS = (0, 1, 2)
 
+#: Per group k: ``(out set, source set, edge set, flipped)``. The edge input is
+#: ``cat([attr, out[ei[0], :ns], source[ei[1], :ns]])``, the message gathers the source at
+#: ``ei[1]`` and lands on the out set at ``ei[0]``. A flipped group runs a cross edge set
+#: backwards and reuses its attributes and harmonics unchanged, as upstream does.
+WIRING = (("lig", "lig", "lig", False), ("lig", "rec", "lr", False),
+          ("lig", "atom", "la", False), ("atom", "atom", "atom", False),
+          ("atom", "lig", "la", True), ("atom", "rec", "ar", False),
+          ("rec", "rec", "rec", False), ("rec", "lig", "lr", True),
+          ("rec", "atom", "ar", True))
+
+#: The order each node set adds its updates in, upstream's (float addition does not commute
+#: bit for bit).
+SUMS = {"lig": (0, 2, 1), "atom": (3, 4, 5), "rec": (6, 8, 7)}
+
 
 class ScalarAtomEncoder(nn.Module):
     """Upstream's ``models/layers.OldAtomEncoder``.
@@ -204,24 +218,61 @@ class ConfidenceModel(nn.Module):
         return timestep_embedding(tt, self.config.sigma_embed_dim,
                                   self.config.embedding_scale).expand(n, -1)
 
-    def forward(self, lig_x: Tensor, lig_pos: Tensor, bond_index: Tensor, bond_attr: Tensor,
-                rec_x: Tensor, rec_pos: Tensor, rec_edge_index: Tensor,
-                atom_x: Tensor, atom_pos: Tensor, atom_edge_index: Tensor,
-                atom_rec_edge_index: Tensor, *, t: float = 0.0,
-                tr_sigma: float = 0.0) -> Tensor:
-        """One pose in, ``[1, num_confidence_outputs]`` out.
+    def receptor_side(self, rec_x: Tensor, rec_pos: Tensor, rec_edge_index: Tensor,
+                      atom_x: Tensor, atom_pos: Tensor, atom_edge_index: Tensor,
+                      atom_rec_edge_index: Tensor, *, t: float = 0.0) -> dict:
+        """Everything the receptor contributes before the convolutions: residue and atom node
+        features and the ``rec``, ``atom`` and ``ar`` edge sets. None of it depends on the
+        pose, so a pose set computes it once (:func:`score_poses`).
 
-        *atom_rec_edge_index* is ``[2, n_atom]`` of ``(atom, residue)``; it is fixed by the
-        structure, which is why the receptor graph builder precomputes it. *tr_sigma* sets the
-        cross-edge cutoff ``3 * tr_sigma + 20``; it is 0 at the call site upstream uses.
+        Returns ``{"nodes": {set: [n, ns]}, "edges": {set: (edge_index, attr, sh)}, "pos":
+        {set: [n, 3]}}``, the form :meth:`ligand_side` extends and :meth:`convolve` reads.
+        """
+        dtype, device = rec_pos.dtype, rec_pos.device
+        rec_sigma = self._sigma_embedding(rec_pos.shape[0], t, dtype, device)
+        atom_sigma = self._sigma_embedding(atom_pos.shape[0], t, dtype, device)
+
+        # Receptor residues: a fixed k-NN graph from preprocessing.
+        rec_vec = rec_pos[rec_edge_index[1]] - rec_pos[rec_edge_index[0]]
+        rec_edge_attr = self.rec_edge_embedding(torch.cat(
+            [rec_sigma[rec_edge_index[0]],
+             self.rec_distance_expansion(rec_vec.norm(dim=-1))], dim=1))
+        rec_node_attr = self.rec_node_embedding(torch.cat([rec_x, rec_sigma], dim=1))
+
+        # Receptor atoms. Upstream expands these distances with lig_distance_expansion, not
+        # rec_distance_expansion (old_aa_model.py:435); the cutoffs differ (5 A against 15 A)
+        # so this is not interchangeable.
+        atom_vec = atom_pos[atom_edge_index[1]] - atom_pos[atom_edge_index[0]]
+        atom_edge_attr = self.atom_edge_embedding(torch.cat(
+            [atom_sigma[atom_edge_index[0]],
+             self.lig_distance_expansion(atom_vec.norm(dim=-1))], dim=1))
+        atom_node_attr = self.atom_node_embedding(torch.cat([atom_x, atom_sigma], dim=1))
+
+        ar_vec = rec_pos[atom_rec_edge_index[1]] - atom_pos[atom_rec_edge_index[0]]
+        ar_edge_attr = self.ar_edge_embedding(torch.cat(
+            [atom_sigma[atom_rec_edge_index[0]],
+             self.rec_distance_expansion(ar_vec.norm(dim=-1))], dim=1))
+
+        sh = lambda v: spherical_harmonics(v, self.sh_ls)
+        return dict(
+            nodes=dict(rec=rec_node_attr, atom=atom_node_attr),
+            edges=dict(rec=(rec_edge_index, rec_edge_attr, sh(rec_vec)),
+                       atom=(atom_edge_index, atom_edge_attr, sh(atom_vec)),
+                       ar=(atom_rec_edge_index, ar_edge_attr, sh(ar_vec))),
+            pos=dict(rec=rec_pos, atom=atom_pos))
+
+    def ligand_side(self, receptor: dict, lig_x: Tensor, lig_pos: Tensor, bond_index: Tensor,
+                    bond_attr: Tensor, *, t: float = 0.0, tr_sigma: float = 0.0) -> dict:
+        """*receptor* (:meth:`receptor_side`) with one pose's ligand added: its node features
+        and the ``lig``, ``lr`` and ``la`` edge sets. A new dict; *receptor* is not changed.
+
+        *tr_sigma* sets the cross-edge cutoff ``3 * tr_sigma + 20``; it is 0 at the call site
+        upstream uses.
         """
         cfg = self.config
         dtype, device = lig_pos.dtype, lig_pos.device
-        n_lig, n_rec, n_atom = lig_pos.shape[0], rec_pos.shape[0], atom_pos.shape[0]
-
-        lig_sigma = self._sigma_embedding(n_lig, t, dtype, device)
-        rec_sigma = self._sigma_embedding(n_rec, t, dtype, device)
-        atom_sigma = self._sigma_embedding(n_atom, t, dtype, device)
+        lig_sigma = self._sigma_embedding(lig_pos.shape[0], t, dtype, device)
+        rec_pos, atom_pos = receptor["pos"]["rec"], receptor["pos"]["atom"]
 
         # Ligand: the bond graph plus a 5 A radius graph, bonds first, radius edges with a
         # zero bond-type block.
@@ -233,26 +284,7 @@ class ConfidenceModel(nn.Module):
         lig_edge_attr = self.lig_edge_embedding(torch.cat(
             [lig_bond_attr, lig_sigma[lig_edge_index[0]],
              self.lig_distance_expansion(lig_vec.norm(dim=-1))], dim=1))
-        lig_edge_sh = spherical_harmonics(lig_vec, self.sh_ls)
         lig_node_attr = self.lig_node_embedding(torch.cat([lig_x, lig_sigma], dim=1))
-
-        # Receptor residues: a fixed k-NN graph from preprocessing.
-        rec_vec = rec_pos[rec_edge_index[1]] - rec_pos[rec_edge_index[0]]
-        rec_edge_attr = self.rec_edge_embedding(torch.cat(
-            [rec_sigma[rec_edge_index[0]],
-             self.rec_distance_expansion(rec_vec.norm(dim=-1))], dim=1))
-        rec_edge_sh = spherical_harmonics(rec_vec, self.sh_ls)
-        rec_node_attr = self.rec_node_embedding(torch.cat([rec_x, rec_sigma], dim=1))
-
-        # Receptor atoms. Upstream expands these distances with lig_distance_expansion, not
-        # rec_distance_expansion (old_aa_model.py:435); the cutoffs differ (5 A against 15 A)
-        # so this is not interchangeable.
-        atom_vec = atom_pos[atom_edge_index[1]] - atom_pos[atom_edge_index[0]]
-        atom_edge_attr = self.atom_edge_embedding(torch.cat(
-            [atom_sigma[atom_edge_index[0]],
-             self.lig_distance_expansion(atom_vec.norm(dim=-1))], dim=1))
-        atom_edge_sh = spherical_harmonics(atom_vec, self.sh_ls)
-        atom_node_attr = self.atom_node_embedding(torch.cat([atom_x, atom_sigma], dim=1))
 
         # Cross graphs. ligand->receptor uses the annealed cutoff; ligand->atom uses 5 A but
         # is still expanded with cross_distance_expansion (old_aa_model.py:470), another
@@ -263,77 +295,82 @@ class ConfidenceModel(nn.Module):
         lr_edge_attr = self.lr_edge_embedding(torch.cat(
             [lig_sigma[lr_edge_index[0]],
              self.cross_distance_expansion(lr_vec.norm(dim=-1))], dim=1))
-        lr_edge_sh = spherical_harmonics(lr_vec, self.sh_ls)
 
         la_edge_index = cross_edges(lig_pos, atom_pos, cfg.lig_max_radius)
         la_vec = atom_pos[la_edge_index[1]] - lig_pos[la_edge_index[0]]
         la_edge_attr = self.la_edge_embedding(torch.cat(
             [lig_sigma[la_edge_index[0]],
              self.cross_distance_expansion(la_vec.norm(dim=-1))], dim=1))
-        la_edge_sh = spherical_harmonics(la_vec, self.sh_ls)
 
-        ar_vec = rec_pos[atom_rec_edge_index[1]] - atom_pos[atom_rec_edge_index[0]]
-        ar_edge_attr = self.ar_edge_embedding(torch.cat(
-            [atom_sigma[atom_rec_edge_index[0]],
-             self.rec_distance_expansion(ar_vec.norm(dim=-1))], dim=1))
-        ar_edge_sh = spherical_harmonics(ar_vec, self.sh_ls)
+        sh = lambda v: spherical_harmonics(v, self.sh_ls)
+        return dict(
+            nodes=dict(receptor["nodes"], lig=lig_node_attr),
+            edges=dict(receptor["edges"], lig=(lig_edge_index, lig_edge_attr, sh(lig_vec)),
+                       lr=(lr_edge_index, lr_edge_attr, sh(lr_vec)),
+                       la=(la_edge_index, la_edge_attr, sh(la_vec))),
+            pos=dict(receptor["pos"], lig=lig_pos))
 
-        flip = lambda e: torch.flip(e, dims=[0])
-        for layer in range(cfg.num_conv_layers):
-            base = 9 * layer
-            is_last = layer == cfg.num_conv_layers - 1
+    def _conv_host(self, i: int, out: Tensor, src: Tensor, edges, flip: bool) -> Tensor:
+        """Convolution *i* of :meth:`convolve` on host tensors (the default executor)."""
+        edge_index, attr, sh = edges
+        if flip:
+            edge_index = torch.flip(edge_index, dims=[0])
+        e = torch.cat([attr, out[:, :self.ns][edge_index[0]],
+                       src[:, :self.ns][edge_index[1]]], dim=-1)
+        return self.conv_layers[i](src, edge_index, e, sh, out_nodes=out.shape[0])
 
-            def run(k, src_attr, edge_index, edge_attr, edge_sh, read, write, out_nodes):
-                """One edge group: concatenate the two endpoint scalar blocks, then convolve.
+    @staticmethod
+    def _combine_host(x: Tensor, updates: list) -> Tensor:
+        acc = torch.nn.functional.pad(x, (0, updates[0].shape[-1] - x.shape[-1]))
+        for u in updates:
+            acc = acc + u
+        return acc
 
-                *read* supplies the scalars of the node the message comes FROM and *write*
-                those of the node it goes TO, in upstream's order for that group.
-                """
-                e = torch.cat([edge_attr, read, write], dim=-1)
-                return self.conv_layers[base + k](src_attr, edge_index, e, edge_sh,
-                                                  out_nodes=out_nodes)
+    def convolve(self, nodes: dict, edges: dict, conv=None, combine=None):
+        """The interaction layers over :data:`WIRING`; returns the ligand node features.
 
-            lig_s, rec_s, atom_s = (lig_node_attr[:, :self.ns], rec_node_attr[:, :self.ns],
-                                    atom_node_attr[:, :self.ns])
-            lig_update = run(0, lig_node_attr, lig_edge_index, lig_edge_attr, lig_edge_sh,
-                             lig_s[lig_edge_index[0]], lig_s[lig_edge_index[1]], n_lig)
-            lr_update = run(1, rec_node_attr, lr_edge_index, lr_edge_attr, lr_edge_sh,
-                            lig_s[lr_edge_index[0]], rec_s[lr_edge_index[1]], n_lig)
-            la_update = run(2, atom_node_attr, la_edge_index, la_edge_attr, la_edge_sh,
-                            lig_s[la_edge_index[0]], atom_s[la_edge_index[1]], n_lig)
+        *conv* ``(i, out, src, edges, flip) -> update`` runs convolution ``conv_layers[i]``
+        and *combine* ``(x, updates) -> x'`` adds a node set's updates to its zero-padded
+        features in :data:`SUMS` order. Both default to host torch; the card path
+        (:class:`tt_bio.diffdock.device.DeviceConfidence`) passes its own and keeps every
+        node table on the card, so the wiring exists once.
+        """
+        conv, combine = conv or self._conv_host, combine or self._combine_host
+        n_layers = self.config.num_conv_layers
+        for layer in range(n_layers):
+            last = layer == n_layers - 1
+            upd = {k: conv(9 * layer + k, nodes[out], nodes[src], edges[es], flip)
+                   for k, (out, src, es, flip) in enumerate(WIRING)
+                   if not last or k in LIGAND_GROUPS}
+            nodes = {s: combine(x, [upd[k] for k in SUMS[s]]) if all(k in upd for k in SUMS[s])
+                     else x for s, x in nodes.items()}
+        return nodes["lig"]
 
-            if not is_last:
-                atom_update = run(3, atom_node_attr, atom_edge_index, atom_edge_attr,
-                                  atom_edge_sh, atom_s[atom_edge_index[0]],
-                                  atom_s[atom_edge_index[1]], n_atom)
-                al_update = run(4, lig_node_attr, flip(la_edge_index), la_edge_attr,
-                                la_edge_sh, atom_s[la_edge_index[1]],
-                                lig_s[la_edge_index[0]], n_atom)
-                ar_update = run(5, rec_node_attr, atom_rec_edge_index, ar_edge_attr,
-                                ar_edge_sh, atom_s[atom_rec_edge_index[0]],
-                                rec_s[atom_rec_edge_index[1]], n_atom)
-                rec_update = run(6, rec_node_attr, rec_edge_index, rec_edge_attr, rec_edge_sh,
-                                 rec_s[rec_edge_index[0]], rec_s[rec_edge_index[1]], n_rec)
-                rl_update = run(7, lig_node_attr, flip(lr_edge_index), lr_edge_attr,
-                                lr_edge_sh, rec_s[lr_edge_index[1]],
-                                lig_s[lr_edge_index[0]], n_rec)
-                ra_update = run(8, atom_node_attr, flip(atom_rec_edge_index), ar_edge_attr,
-                                ar_edge_sh, rec_s[atom_rec_edge_index[1]],
-                                atom_s[atom_rec_edge_index[0]], n_rec)
+    def head(self, lig_node_attr: Tensor) -> Tensor:
+        """``[1, num_confidence_outputs]`` from the final ligand features.
 
-            pad = lambda x, u: torch.nn.functional.pad(x, (0, u.shape[-1] - x.shape[-1]))
-            lig_node_attr = pad(lig_node_attr, lig_update) + lig_update + la_update + lr_update
-            if not is_last:
-                atom_node_attr = (pad(atom_node_attr, atom_update)
-                                  + atom_update + al_update + ar_update)
-                rec_node_attr = (pad(rec_node_attr, rec_update)
-                                 + rec_update + ra_update + rl_update)
-
-        # The head reads the true scalars and the pseudoscalars, the first and last ns
-        # columns, and pools over the pose's ligand atoms.
+        The head reads the true scalars and the pseudoscalars, the first and last ns columns,
+        and pools over the pose's ligand atoms.
+        """
         scalars = (torch.cat([lig_node_attr[:, :self.ns], lig_node_attr[:, -self.ns:]], dim=1)
-                   if cfg.num_conv_layers >= 3 else lig_node_attr[:, :self.ns])
+                   if self.config.num_conv_layers >= 3 else lig_node_attr[:, :self.ns])
         return self.confidence_predictor(scalars.mean(dim=0, keepdim=True))
+
+    def forward(self, lig_x: Tensor, lig_pos: Tensor, bond_index: Tensor, bond_attr: Tensor,
+                rec_x: Tensor, rec_pos: Tensor, rec_edge_index: Tensor,
+                atom_x: Tensor, atom_pos: Tensor, atom_edge_index: Tensor,
+                atom_rec_edge_index: Tensor, *, t: float = 0.0,
+                tr_sigma: float = 0.0) -> Tensor:
+        """One pose in, ``[1, num_confidence_outputs]`` out.
+
+        *atom_rec_edge_index* is ``[2, n_atom]`` of ``(atom, residue)``; it is fixed by the
+        structure, which is why the receptor graph builder precomputes it.
+        """
+        rec = self.receptor_side(rec_x, rec_pos, rec_edge_index, atom_x, atom_pos,
+                                 atom_edge_index, atom_rec_edge_index, t=t)
+        g = self.ligand_side(rec, lig_x, lig_pos, bond_index, bond_attr, t=t,
+                             tr_sigma=tr_sigma)
+        return self.head(self.convolve(g["nodes"], g["edges"]))
 
 
 #: e3nn keeps three artefacts in a TensorProduct's state dict that carry no learned
@@ -403,15 +440,18 @@ def load_checkpoint(ckpt_path, params_dir=None, *, old_model: bool = True) -> "C
 
 
 def score_poses(model: "ConfidenceModel", receptor: dict, ligand: dict,
-                poses: Tensor) -> Tensor:
+                poses: Tensor, *, convolve=None) -> Tensor:
     """Confidence of every pose, as a ``[N]`` tensor. Higher is better.
 
     *receptor* is a graph built with ``all_atoms=True`` (``input.CONFIDENCE_GRAPH``) and
     must be in the same frame as *poses* -- both centred, or neither. *poses* is
     ``[N, n_lig, 3]``.
 
-    One forward pass per pose. Upstream collates the N poses into one disjoint graph, which
-    is the same arithmetic: no edge joins two poses and both normalisations read running
+    The receptor side is embedded once (it does not depend on the pose), then one pass per
+    pose. *convolve* ``(graph) -> ligand features`` replaces :meth:`ConfidenceModel.convolve`;
+    the card path passes :class:`tt_bio.diffdock.device.DeviceConfidence`.
+
+    Upstream collates the N poses into one disjoint graph, which is the same arithmetic: no edge joins two poses and both normalisations read running
     statistics in eval mode, so nothing couples them. Keeping the pose axis out of the graph
     is also what lets the device path hold every shape static.
 
@@ -424,16 +464,17 @@ def score_poses(model: "ConfidenceModel", receptor: dict, ligand: dict,
             "the confidence model needs an all-atom receptor graph; build it with "
             "input.CONFIDENCE_GRAPH (all_atoms=True), not SCORE_GRAPH")
     atom = receptor["atom"]
+    convolve = convolve or (lambda g: model.convolve(g["nodes"], g["edges"]))
     out = []
     with torch.no_grad():
+        rec = model.receptor_side(
+            receptor["x"].float(), receptor["pos"].float(), receptor["edge_index"].long(),
+            atom["x"].float(), atom["pos"].float(), atom["edge_index"].long(),
+            atom["atom_rec_edge_index"].long())
         for pose in poses:
-            raw = model(
-                ligand["x"].float(), pose.float(), ligand["edge_index"].long(),
-                ligand["edge_attr"].float(), receptor["x"].float(),
-                receptor["pos"].float(), receptor["edge_index"].long(),
-                atom["x"].float(), atom["pos"].float(), atom["edge_index"].long(),
-                atom["atom_rec_edge_index"].long())
-            out.append(raw[:, 0])
+            g = model.ligand_side(rec, ligand["x"].float(), pose.float(),
+                                  ligand["edge_index"].long(), ligand["edge_attr"].float())
+            out.append(model.head(convolve(g))[:, 0])
     return torch.cat(out).nan_to_num(nan=UNSCORABLE)
 
 
