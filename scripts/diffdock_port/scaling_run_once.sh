@@ -49,6 +49,16 @@ sys.exit(0)
 P
   ! fuser -s /dev/tenstorrent/$1 2>/dev/null
 }
+MAXEXT=${DFD_MAX_EXT:-2}           # external busy cores above which a point is an artifact
+busy_cores() {   # box-wide busy cores over 10 s, from /proc/stat
+  python3 -c '
+import os,time
+def r():
+    v=[int(x) for x in open("/proc/stat").readline().split()[1:]]
+    return sum(v), v[3]+v[4]
+a=r(); time.sleep(10); b=r()
+print(round(os.cpu_count()*(1-(b[1]-a[1])/(b[0]-a[0])),2))'
+}
 unbook() { [ -f $BOOK ] && python3 $BOOK rm $OWNER >/dev/null 2>&1; }
 trap unbook EXIT
 
@@ -92,6 +102,12 @@ for name in smoke k1_r1 k2_r1 k3_r1 k1_r2 k2_r2 k3_r2 k1_r3 k2_r3 k3_r3; do
   [ $(date +%s) -ge $stop ] && break
   free_now=1; for c in $avail; do free $c || free_now=0; done
   [ $free_now -eq 1 ] || { echo "a held chip went busy, stopping" >> $OUT/run.log; break; }
+  # A host-bound run on a loaded box measures the other load (11-27 05:08Z: 14.3 of 16 cores
+  # external, 4.9 CPU-s/step against 1.89). Nothing of ours runs yet, so all of it is external.
+  ext=$(busy_cores)
+  if [ "$name" != smoke ] && python3 -c "import sys; sys.exit(not $ext > $MAXEXT)"; then
+    echo "box busy ($ext cores > $MAXEXT), stopping before $name" >> $OUT/run.log; break
+  fi
   sub=$(echo $avail | tr " " "\n" | head -$k | paste -sd,)
   steps=$STEPS; [ "$name" = smoke ] && steps=3
   echo "-- $name chips $sub steps $steps $(date -u +%FT%TZ)" >> $OUT/run.log
@@ -103,6 +119,16 @@ for name in smoke k1_r1 k2_r1 k3_r1 k1_r2 k2_r2 k3_r2 k1_r3 k2_r3 k3_r3; do
   if [ $rc -eq 124 ] || [ $rc -eq 137 ]; then
     for c in $(echo $sub | tr , " "); do /home/ttuser/.local/bin/tt-smi -r $c >> $OUT/run.log 2>&1; done
     break
+  fi
+  # Never bank a contended point: the loop skips any JSON that exists, so it would stand for good.
+  if [ "$name" != smoke ] && [ -s $OUT/$name.json ] && python3 - $OUT/$name.json $MAXEXT <<'P'
+import json,sys
+e=json.load(open(sys.argv[1])).get("external_cpu_cores")
+sys.exit(not (e is None or e > float(sys.argv[2])))
+P
+  then
+    mv $OUT/$name.json $OUT/$name.contended-$(date -u +%H%MZ).json
+    echo "-- $name contended, moved aside, stopping" >> $OUT/run.log; break
   fi
   ran=$((ran+1))
 done
