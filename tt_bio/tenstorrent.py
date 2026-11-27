@@ -912,6 +912,11 @@ _FAST_MODE = False
 #                   block) as one `dit_pair_bias.rms_pair_bias` program, with no padded token (state/rfd4/bets/pairbias.md)
 #   pair_bias_fuse  with pair_bias_rms: the pair transition (`pair_relu`) also computes the next blocks' pair biases from
 #                   the z' it writes (`pb`), so the bias call's read of z' goes. Off by default, ungraded.
+#   apb_sdpa        the accurate-softmax token attention (Protenix-v2's pairformer and confidence head) as one fp32
+#                   `_sdpa32` program instead of matmul, the fp32 softmax chain and matmul. Closer to float64 than the chain.
+#   apb_qkvf        the same attention read straight out of the fused qkv projection (`_sdpa32_fused`), heads written
+#                   concatenated on their padded lanes, so neither the head split nor the re-assembly runs; gate and
+#                   output projection as apb_cat. The bias is built before the heads instead of after (it reads only z).
 #   pair_write_res  RFD4's Hadamard pair write and its residual add into the float32 pair stream as one
 #                   `outer_residual` program, with no padded token (state/rfd4/bets/pairbias.md)
 #   pair_bf16z      RFD4's pair stream in bf16 between sublayers, written in place by pair_write_res, pair_tail and
@@ -977,7 +982,7 @@ LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffus
            "pair_tail_cm", "pair_batch", "pair_block_hifi2", "trimul_t1g8", "trimul_tail_hifi2", "pair_bfp8z",
            "trimul_t1_fgate", "pair_x8", "pair_x8t", "tok_recycle_mm", "tok_w8", "trimul_x8", "ws_ln_resid", "dit_pad_short", "bg_featproc", "ef2_msa_ffn", "ef2_opm_proj", "trimul_t1_part",
            "trimul_t1_3g", "trimul_t1split", "adaln_at", "dit_kl1", "mask_at_mix", "mask_at_mix_z8", "trunk_trace", "dit_qkvf_h4",
-           "ws_ln_t1l1", "dit_gres", "atom_kvw", "trimul_t1_stats", "trimul_t1_stats2", "pair_bias_fuse")
+           "ws_ln_t1l1", "dit_gres", "atom_kvw", "trimul_t1_stats", "trimul_t1_stats2", "pair_bias_fuse", "apb_sdpa", "apb_qkvf")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -1011,7 +1016,7 @@ UNGRADED_LEVERS = frozenset({"trunk_trace", "dit_bf16", "atom_kvcat", "bres_ta_h
                              "trimul_tail_hifi2", "pair_bfp8z", "trimul_t1_fgate", "pair_x8", "pair_x8t",
                              "tok_recycle_mm", "tok_w8", "trimul_x8", "ws_ln_resid", "dit_pad_short", "bg_featproc", "ef2_msa_ffn", "ef2_opm_proj", "trimul_t1_part",
                              "trimul_t1_3g", "trimul_t1split", "ws_ln_t1l1", "dit_gres", "atom_kvw",
-                             "trimul_t1_stats", "trimul_t1_stats2", "pair_bias_fuse"})
+                             "trimul_t1_stats", "trimul_t1_stats2", "pair_bias_fuse", "apb_sdpa", "apb_qkvf"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -2913,6 +2918,7 @@ B2_TOKEN_DIT_SDPA_STATS = [0, 0]     # [served, declined] at the token-DiT site
 # projection, which is why this is priced per shape and not asserted.
 _APB_CONCAT_HEADS = env_flag("TT_BIO_APB_CONCAT_HEADS", False)
 APB_CONCAT_HEADS_STATS = [0, 0]      # [served, declined] at the token head re-assembly (either switch)
+APB_SDPA_STATS = [0, 0]              # [one _sdpa32 program, the op chain] at the pair-biased token attention (`apb_sdpa`)
 # dit_qkvf: the bf16 token DiT's attention as OpenFold3's dit_fuse runs it (`_sdpa32_fused`): read out of the
 # fused qkv projection and written [B, S, n_heads * padded_head_dim], so neither nlp_create_qkv_heads nor the
 # head re-assembly runs; the gate and output projection take apb_cat's padded-lane weights. HiFi2 like the
@@ -3460,6 +3466,28 @@ def _sdpa32(q, k, v, mask, scale: float) -> ttnn.Tensor:
     SG.sdpa(dev, q, k, v, mask, out, chunk, k_chunk, grid, _SDPA32_CKC, scale, boxes=boxes,
             pv_l1acc=_sdpa32_pv_l1acc(dev, k_chunk))
     return out
+
+
+def _apb_sdpa32(q, k, v, bias, scale: float):
+    """`apb_sdpa`: a pair-biased token attention that runs the fp32 `_accurate_softmax` chain (Protenix-v2's
+    pairformer and confidence head) as one `_sdpa32` program, softmax((q @ k^T + bias) * scale) @ v. q, k, v and
+    the per-head bias are upcast to fp32 (the program wants one dtype across its operands), the output comes back in
+    q's dtype like the chain's. None where the token axis has no `sdpa32_chunk` or the bias is not one unpadded
+    [B, H, n, n] tensor, so the caller keeps its chain."""
+    n = int(q.shape[2])
+    shape = [int(q.shape[0]), int(q.shape[1]), n, n]
+    if not (lever("apb_sdpa") and bias is not None and sdpa32_chunk(n) and int(k.shape[2]) == n
+            and [int(d) for d in bias.shape] == shape and [int(d) for d in bias.padded_shape] == shape):
+        return None
+    up = [t if t.dtype == ttnn.float32 else ttnn.typecast(t, ttnn.float32) for t in (q, k, v, bias)]
+    o = _sdpa32(*up, scale)
+    for t, u in zip((q, k, v, bias), up):
+        if u is not t:
+            ttnn.deallocate(u)
+    if q.dtype != ttnn.float32:
+        o32, o = o, ttnn.typecast(o, q.dtype)
+        ttnn.deallocate(o32)
+    return o
 
 
 def _sdpa32_fused(qkv, mask, scale: float, heads: int, out_dtype=ttnn.float32, ckc=None,
@@ -9157,6 +9185,10 @@ TRACE_REGIONS = {
     "rfd4": {"wormhole_b0": 192 << 20, "blackhole": 192 << 20},
     "esmfold2": {"wormhole_b0": 32 << 20, "blackhole": 48 << 20},     # ESMFold2 / -Fast diffusion step, PROVISIONAL
     "saprot": {"wormhole_b0": 64 << 20, "blackhole": 64 << 20},       # one live SaProt batch forward, PROVISIONAL
+    # DiffDock-L's 19-step score loop (diffdock/capture.capture_loop). PROVISIONAL, not measured:
+    # only the port's grading scripts capture today, `tt-bio dock` runs eager. Too small shows up
+    # as a refused capture, never as a wrong pose.
+    "diffdock": {"wormhole_b0": 64 << 20, "blackhole": 64 << 20},
 }
 
 
@@ -11410,10 +11442,18 @@ class TriangleMultiplication(Module):
         if (large_seq and _TRIMUL_BACK_INTO and not _TRIMUL_RAW_CHANNEL_MOVES
                 and not _host_concat(x) and Hr == H):
             from tt_bio.size_limits import is_alloc_refusal
+            # Reserve it in the dtype the move will write. Under `pair_x8t` that is bfp8, and a bf16 reservation was
+            # freed at the first chunk for a bfp8 x_out allocated after the chunks: a hole per call that the
+            # tensors made later in the fold settled into, so a second 1024 aa fold in the process found 225 MiB
+            # free in 42.7 MiB pieces and refused its 512 MiB pair (flow-release-2026112701). A wrong guess
+            # only costs that reallocation, as before.
+            pre_dt = (ttnn.bfloat8_b if batch == 1 and fused_residual is None and not lever("trimul_t2cm")
+                      and not lever("pair_tail_cm") and self._x8t_out()
+                      and _reblock.back_x8_ok(memory_config, 1) else _dtype())
             while x_out_pre is None and not keep_chunks:
                 try:
                     x_out_pre = ttnn.allocate_tensor_on_device(
-                        ttnn.Shape([1, H, H, self._hidden]), _dtype(), ttnn.TILE_LAYOUT,
+                        ttnn.Shape([1, H, H, self._hidden]), pre_dt, ttnn.TILE_LAYOUT,
                         self.device, memory_config)
                 except RuntimeError as exc:
                     if not is_alloc_refusal(exc):
@@ -11976,8 +12016,7 @@ class TriangleMultiplication(Module):
                         # form reads the output projection's key. Nothing else reads a bfp8 x: Protenix-v2's template
                         # trimul (c 64, key 2x2) took the unfused tail on it and clashed in L1 (spd-fix-bhpair).
                         out_dt = x_chunk.dtype
-                        if x_chunk.dtype == ttnn.bfloat8_b and not (lever("pair_x8t") and _trimul_tail.t2_key(
-                                *(_trimul_tail._tiles(int(self.out_p_weight.shape[i])) for i in (-2, -1)), True)):
+                        if x_chunk.dtype == ttnn.bfloat8_b and not self._x8t_out():
                             out_dt = ttnn.bfloat16
                         if x_out is None and x_out_pre is not None:
                             if x_out_pre.dtype == out_dt:
@@ -12427,7 +12466,10 @@ class TriangleMultiplication(Module):
 
     def _t2g_exact(self, x, x_norm_in, x_in):
         """T2's GATE form serves only the calls the F1 tail would serve with the residual folded in, where
-        it computes the same bits; elsewhere (F1 off, its product in L1) the tail runs as before."""
+        it computes the same bits; elsewhere (F1 off, its product in L1) the tail runs as before. A bfp8 x
+        (`pair_x8t`) has no bf16 F1 run to match: the fallback typecasts it first, so the GATE form takes it."""
+        if x.dtype == ttnn.bfloat8_b:
+            return True
         ok = (_TRIMUL_TAIL_F1 and self.p_out_bias is None and _trimul_tail.f1_folds_resid(
             x, x_norm_in, self.out_p_weight, self.g_out_weight, x_in,
             _mm_generic.ckc_args(self.compute_kernel_config), self._f1_out_mc(x)))
@@ -12435,6 +12477,12 @@ class TriangleMultiplication(Module):
             k = ("t2:g_not_f1", "x".join(str(int(d)) for d in x.padded_shape))
             _trimul_tail.REJECTS[k] = _trimul_tail.REJECTS.get(k, 0) + 1
         return ok
+
+    def _x8t_out(self):
+        """Whether a bfp8 moved x lands in a bfp8 output (`pair_x8t`): only where a T2 form reads the output
+        projection's key."""
+        return lever("pair_x8t") and _trimul_tail.t2_key(
+            *(_trimul_tail._tiles(int(self.out_p_weight.shape[i])) for i in (-2, -1)), True)
 
     def _t2_serves(self, g_out_fused, x_norm_in, H, add_to_input):
         """Whether the output tail goes to T2 (`trimul_t2` with a fused g_out, else the GATE form
@@ -13844,7 +13892,7 @@ class AttentionPairBias(Module):
         (it would upload)."""
         if self._cat_w is None:
             g_w, o_w = (self._lp[1]["g_weight"], self._lp[1]["o_weight"]) if self._lp else (self.g_weight, self.o_weight)
-            if (self.atom_level or self._concat_heads or not (lever("apb_cat") or lever("dit_qkvf"))
+            if (self.atom_level or self._concat_heads or not (lever("apb_cat") or lever("dit_qkvf") or lever("apb_qkvf"))
                     or getattr(self, "padded_head_dim", self.head_dim) == self.head_dim
                     or {g_w.dtype, o_w.dtype} not in ({ttnn.bfloat16}, {ttnn.float32}) or CAPTURING[0]):
                 return None
@@ -13852,7 +13900,7 @@ class AttentionPairBias(Module):
                 _pad_head_lanes(ttnn.to_torch(w), self.n_heads, self.head_dim, self.padded_head_dim, ax),
                 dtype=w.dtype, layout=ttnn.TILE_LAYOUT, device=self.device)
             self._cat_w = (wide(g_w, -1), wide(o_w, 0))
-        return self._cat_w if lever("apb_cat") or lever("dit_qkvf") else None
+        return self._cat_w if lever("apb_cat") or lever("dit_qkvf") or lever("apb_qkvf") else None
 
     def enable_lowp(self, lp: DitLowp):
         """`dit_mm16` / `dit_b8` on this token-level instance: its three linears read an `lp.act`
@@ -14160,7 +14208,11 @@ class AttentionPairBias(Module):
                                   + [(0, int(z.shape[-1]) - seq), (0, 0)], value=0.0)
                 ttnn.deallocate(qkv)
                 qkv = padded
-            if cat_w is not None and lever("dit_qkvf") and (self.token_dit or self.sdpa32):
+            apb_qkvf = self.accurate_softmax and lever("apb_qkvf") and not self._raw_fp32()
+            if cat_w is not None and (apb_qkvf or lever("dit_qkvf") and (self.token_dit or self.sdpa32)):
+                if apb_qkvf and self.compute_pair_bias and not bias_precomputed and z is not None:
+                    # the bias reads only z, so building it before the heads changes no arithmetic
+                    z, bias_precomputed = self._pair_bias(z), True
                 o = self._qkvf(qkv, z, seq, bias_precomputed, seq_mask)
                 if o is not None:
                     return self._gate_out(s, o, cat_w, gres)
@@ -14174,63 +14226,7 @@ class AttentionPairBias(Module):
             ttnn.deallocate(qkv)
             # bias_precomputed: z is ALREADY finish_bias(compute_bias(z)), (1,n_heads,S,S) -> skip recompute
             if self.compute_pair_bias and not bias_precomputed:
-                def whole(z=z):
-                    # apb_ln: norm and projection as one kernel (triatt_ln.ln_proj), the normed pair
-                    # never written anywhere. On a Wormhole chip it does not fit L1 at 512 tokens, so
-                    # the two-call path below writes it to DRAM and reads it back at 80 GB/s.
-                    zb = (None if len(z.shape) != 4 or z.shape[0] != 1 else _triatt_ln.ln_proj(
-                        ttnn.reshape(z, tuple(z.shape)[1:]), self.z_norm_weight, self.z_norm_bias, self.z_weight,
-                        _mm_generic.ckc_args(self.compute_kernel_config), tuple(COMPUTE_GRID_MAIN)))
-                    if zb is not None:
-                        zb = ttnn.reshape(zb, (1,) + tuple(zb.shape))
-                        z = ttnn.permute(zb, (0, 3, 1, 2))
-                        ttnn.deallocate(zb)
-                        return z
-                    # The z->bias projection below reads this whole tensor (48.82 MB at 298 aa) to
-                    # write one tile of width, so it is bound by its SOURCE, not by its own write.
-                    # Handing it an L1-resident normed z removes the norm's DRAM write and the
-                    # projection's DRAM read at once: 450.3 -> 137.0 us on the projection.
-                    z, in_l1 = (_l1_layer_norm(z, 1.0, _PAIR_L1_CONSUMER_RESERVE,
-                                               weight=self.z_norm_weight,
-                                               bias=self.z_norm_bias, epsilon=1e-5,
-                                               compute_kernel_config=ln_compute_kernel_config(
-                                                   self.compute_kernel_config))
-                                if _PAIR_BIAS_L1_NORM else
-                                (ttnn.layer_norm(z, weight=self.z_norm_weight, bias=self.z_norm_bias,
-                                                 epsilon=1e-5,
-                                                 compute_kernel_config=ln_compute_kernel_config(
-                                                     self.compute_kernel_config)),
-                                 False))
-                    zb = _narrow_proj_linear(z, self.z_weight, self.compute_kernel_config, z.dtype,
-                                             l1_out=in_l1)
-                    if zb is None:
-                        zb = ttnn.linear(
-                            z,
-                            self.z_weight,
-                            compute_kernel_config=self.compute_kernel_config,
-                            core_grid=CORE_GRID_MAIN,
-                        )
-                    # The normed pair tensor is dead as soon as the projection has read it, and at
-                    # 1.5x headroom it holds most of every L1 bank. Freeing it HERE rather than at the
-                    # rebind below is what matters: the bias permute then allocates in the space it
-                    # vacates instead of underneath it, so the q@k^T matmul four lines down can still
-                    # place its circular buffers. Without this the whole [385, 506] token band throws
-                    # `Statically allocated circular buffers ... clash with L1 buffers`.
-                    ttnn.deallocate(z)
-                    z = ttnn.permute(zb, (0, 3, 1, 2))
-                    ttnn.deallocate(zb)
-                    return z
-
-                def rows(n, z=z):
-                    # layer_norm is row-local and the projection per row: the same bias with
-                    # LN(z) never whole. OpenDDE's refiner pair is 6.95 GB at 1536 residues.
-                    return _pair_bias_from_z(ttnn.reshape(z, tuple(z.shape)[1:]),
-                                             self.z_norm_weight, self.z_norm_bias,
-                                             self.z_weight, self.compute_kernel_config, n)
-
-                z = (whole() if z.shape[0] != 1 else row_block_after_refusal(
-                    _APB_BIAS_REFUSED, (tuple(z.padded_shape), str(z.dtype)), whole, rows,
-                    rows=PAIR_ROW_BLOCK, tag="pair bias"))
+                z = self._pair_bias(z)
             # Named once so the census counter below cannot drift from the branch it counts.
             token_dit_sdpa = (self.token_dit and _B2_TOKEN_DIT_SDPA and z is not None
                               and seq_mask is None
@@ -14301,19 +14297,22 @@ class AttentionPairBias(Module):
                 # cycles). matmul + ttnn.softmax + matmul on the same q/k/v/bias is
                 # PCC-clean (0.99993 vs 0.98128). SDPA scales its additive mask along
                 # with QK, so (q@k^T + z) * head_dim**-0.5 reproduces it exactly.
-                kt = ttnn.transpose(k, -2, -1)
-                logits = batched_matmul(q, kt, compute_kernel_config=self.compute_kernel_config)
-                ttnn.deallocate(kt)
-                if z is not None:
-                    logits = ttnn.add_(logits, z)
-                logits = ttnn.multiply_(logits, self.head_dim**-0.5)
-                probs = (_accurate_softmax(logits, self.compute_kernel_config)
-                         if self.accurate_softmax else
-                         ttnn.softmax(logits, dim=-1,
-                                      compute_kernel_config=self.compute_kernel_config))
-                ttnn.deallocate(logits)
-                o = batched_matmul(probs, v, compute_kernel_config=self.compute_kernel_config)
-                ttnn.deallocate(probs)
+                o = _apb_sdpa32(q, k, v, z, self.head_dim**-0.5) if self.accurate_softmax else None
+                APB_SDPA_STATS[0 if o is not None else 1] += 1
+                if o is None:
+                    kt = ttnn.transpose(k, -2, -1)
+                    logits = batched_matmul(q, kt, compute_kernel_config=self.compute_kernel_config)
+                    ttnn.deallocate(kt)
+                    if z is not None:
+                        logits = ttnn.add_(logits, z)
+                    logits = ttnn.multiply_(logits, self.head_dim**-0.5)
+                    probs = (_accurate_softmax(logits, self.compute_kernel_config)
+                             if self.accurate_softmax else
+                             ttnn.softmax(logits, dim=-1,
+                                          compute_kernel_config=self.compute_kernel_config))
+                    ttnn.deallocate(logits)
+                    o = batched_matmul(probs, v, compute_kernel_config=self.compute_kernel_config)
+                    ttnn.deallocate(probs)
             ttnn.deallocate(q)
             ttnn.deallocate(k)
             ttnn.deallocate(v)
@@ -14464,22 +14463,94 @@ class AttentionPairBias(Module):
             o = ttnn.typecast(o, s.dtype)
         return ttnn.reshape(o, (B, K, W, H * dh))
 
+    def _pair_bias(self, z):
+        """The per-head attention bias `[B, n_heads, S, S]` from the pair z: LayerNorm, projection to the heads,
+        permute (whole, or by row blocks where the whole pair refuses)."""
+        def whole(z=z):
+            # apb_ln: norm and projection as one kernel (triatt_ln.ln_proj), the normed pair
+            # never written anywhere. On a Wormhole chip it does not fit L1 at 512 tokens, so
+            # the two-call path below writes it to DRAM and reads it back at 80 GB/s.
+            zb = (None if len(z.shape) != 4 or z.shape[0] != 1 else _triatt_ln.ln_proj(
+                ttnn.reshape(z, tuple(z.shape)[1:]), self.z_norm_weight, self.z_norm_bias, self.z_weight,
+                _mm_generic.ckc_args(self.compute_kernel_config), tuple(COMPUTE_GRID_MAIN)))
+            if zb is not None:
+                zb = ttnn.reshape(zb, (1,) + tuple(zb.shape))
+                z = ttnn.permute(zb, (0, 3, 1, 2))
+                ttnn.deallocate(zb)
+                return z
+            # The z->bias projection below reads this whole tensor (48.82 MB at 298 aa) to
+            # write one tile of width, so it is bound by its SOURCE, not by its own write.
+            # Handing it an L1-resident normed z removes the norm's DRAM write and the
+            # projection's DRAM read at once: 450.3 -> 137.0 us on the projection.
+            z, in_l1 = (_l1_layer_norm(z, 1.0, _PAIR_L1_CONSUMER_RESERVE,
+                                       weight=self.z_norm_weight,
+                                       bias=self.z_norm_bias, epsilon=1e-5,
+                                       compute_kernel_config=ln_compute_kernel_config(
+                                           self.compute_kernel_config))
+                        if _PAIR_BIAS_L1_NORM else
+                        (ttnn.layer_norm(z, weight=self.z_norm_weight, bias=self.z_norm_bias,
+                                         epsilon=1e-5,
+                                         compute_kernel_config=ln_compute_kernel_config(
+                                             self.compute_kernel_config)),
+                         False))
+            zb = _narrow_proj_linear(z, self.z_weight, self.compute_kernel_config, z.dtype,
+                                     l1_out=in_l1)
+            if zb is None:
+                zb = ttnn.linear(
+                    z,
+                    self.z_weight,
+                    compute_kernel_config=self.compute_kernel_config,
+                    core_grid=CORE_GRID_MAIN,
+                )
+            # The normed pair tensor is dead as soon as the projection has read it, and at
+            # 1.5x headroom it holds most of every L1 bank. Freeing it HERE rather than at the
+            # rebind below is what matters: the bias permute then allocates in the space it
+            # vacates instead of underneath it, so the q@k^T matmul four lines down can still
+            # place its circular buffers. Without this the whole [385, 506] token band throws
+            # `Statically allocated circular buffers ... clash with L1 buffers`.
+            ttnn.deallocate(z)
+            z = ttnn.permute(zb, (0, 3, 1, 2))
+            ttnn.deallocate(zb)
+            return z
+
+        def rows(n, z=z):
+            # layer_norm is row-local and the projection per row: the same bias with
+            # LN(z) never whole. OpenDDE's refiner pair is 6.95 GB at 1536 residues.
+            return _pair_bias_from_z(ttnn.reshape(z, tuple(z.shape)[1:]),
+                                     self.z_norm_weight, self.z_norm_bias,
+                                     self.z_weight, self.compute_kernel_config, n)
+
+        return (whole() if z.shape[0] != 1 else row_block_after_refusal(
+            _APB_BIAS_REFUSED, (tuple(z.padded_shape), str(z.dtype)), whole, rows,
+            rows=PAIR_ROW_BLOCK, tag="pair bias"))
+
     def _qkvf(self, qkv, z, seq, bias_precomputed, seq_mask):
         """dit_qkvf's attention, `[B, seq, n_heads * padded_head_dim]` (bf16, fp32 under `_sdpa32`), or None where
         it does not apply."""
         n = int(qkv.shape[-2])
         fp32 = self._raw_fp32() and self.sdpa32
+        # apb_qkvf: the accurate-softmax token attention (Protenix-v2's pairformer), what apb_sdpa's `_sdpa32` runs
+        # with the head split and re-assembly folded in: operands upcast to fp32, the output in qkv's dtype.
+        apb = self.accurate_softmax and lever("apb_qkvf") and not self._raw_fp32() and not self.token_dit
         ok = (bias_precomputed and z is not None and seq_mask is None
-              and (fp32 or (self.token_dit and _B2_TOKEN_DIT_SDPA and not self._raw_fp32()))
+              and (fp32 or apb or (self.token_dit and _B2_TOKEN_DIT_SDPA and not self._raw_fp32()))
               and not self.kq_norm and len(qkv.shape) == 3 and sdpa32_chunk(n)
               and int(qkv.shape[-1]) == 3 * self.n_heads * self.padded_head_dim
-              and len(z.shape) == 4 and int(z.shape[-1]) == n and int(z.shape[1]) == self.n_heads)
-        DIT_QKVF_STATS[0 if ok else 1] += 1
+              and len(z.shape) == 4 and int(z.shape[-1]) == n and int(z.shape[1]) == self.n_heads
+              and int(z.padded_shape[-1]) == n)
+        (APB_SDPA_STATS if apb else DIT_QKVF_STATS)[0 if ok else 1] += 1
         if not ok:
             return None
-        o = (_sdpa32_fused(ttnn.unsqueeze(qkv, 1), z, self.head_dim ** -0.5, self.n_heads) if fp32 else
-             _sdpa32_fused(ttnn.unsqueeze(qkv, 1), z, self.head_dim ** -0.5, self.n_heads,
-                           out_dtype=ttnn.bfloat16, ckc=_SDPA32_CKC if lever("dit_qkvf_h4") else _DIT_QKVF_CKC))
+        if apb:
+            q32, z32 = (t if t.dtype == ttnn.float32 else ttnn.typecast(t, ttnn.float32) for t in (qkv, z))
+            o = _sdpa32_fused(ttnn.unsqueeze(q32, 1), z32, self.head_dim ** -0.5, self.n_heads, out_dtype=qkv.dtype)
+            for t, u in ((qkv, q32), (z, z32)):
+                if u is not t:
+                    ttnn.deallocate(u)
+        else:
+            o = (_sdpa32_fused(ttnn.unsqueeze(qkv, 1), z, self.head_dim ** -0.5, self.n_heads) if fp32 else
+                 _sdpa32_fused(ttnn.unsqueeze(qkv, 1), z, self.head_dim ** -0.5, self.n_heads,
+                               out_dtype=ttnn.bfloat16, ckc=_SDPA32_CKC if lever("dit_qkvf_h4") else _DIT_QKVF_CKC))
         ttnn.deallocate(qkv)
         o = ttnn.reshape(o, (int(o.shape[0]), n, int(o.shape[3])))
         if n > seq:

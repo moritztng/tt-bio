@@ -2187,8 +2187,9 @@ def gen(args):
 @click.option("--weights", type=click.Choice(["diffdock-l", "diffdock"]), default="diffdock-l",
               show_default=True,
               help="Which released model generation to run. diffdock-l is the v1.1 "
-                   "checkpoint (upstream's default recipe); diffdock is the original "
-                   "DiffDock score model (upstream --old_score_model).")
+                   "checkpoint (upstream's default recipe). diffdock is the original "
+                   "DiffDock score architecture (upstream --old_score_model); it is not "
+                   "implemented here and has no released weights, so it is refused.")
 @click.option("--checkpoint", default=None, type=click.Path(exists=True),
               help="Score-model checkpoint: a .pt file, or a directory in upstream's layout "
                    "(best_ema_inference_epoch_model.pt + model_parameters.yml). Default: the "
@@ -2289,7 +2290,8 @@ def dock(data, ligand, name, out_dir, model, config, loglevel, cache, device_ids
 
     from tt_bio.capabilities import check_capabilities
     from tt_bio.diffdock import run as dock_run
-    from tt_bio.diffdock.job import DockJob, DockOptions, looks_like_sequence, read_jobs
+    from tt_bio.diffdock.job import (DockJob, DockOptions, looks_like_sequence,
+                                     override as dock_override, read_jobs)
 
     level = getattr(logging, loglevel.upper())
     logging.basicConfig(level=level)
@@ -2326,7 +2328,10 @@ def dock(data, ligand, name, out_dir, model, config, loglevel, cache, device_ids
         explicit["checkpoint"] = Path(explicit["checkpoint"])
     if "confidence_checkpoint" in explicit:
         explicit["confidence_checkpoint"] = Path(explicit["confidence_checkpoint"])
-    options = replace(options, **explicit)
+    try:
+        options = dock_override(options, explicit)
+    except ValueError as e:
+        raise click.ClickException(str(e))
 
     if not jobs:
         if not ligand:
@@ -2341,9 +2346,29 @@ def dock(data, ligand, name, out_dir, model, config, loglevel, cache, device_ids
         raise click.ClickException(
             f"--ligand and {path.name} both name a ligand; drop one.")
 
+    # Complexes are independent jobs. Several of them on a multi-card host run through the
+    # same controller path a fleet uses, against a private pool of one worker per card.
+    if controller and device_ids:
+        click.secho("Note: with --controller the fleet's workers pick the cards; "
+                    "ignoring --devices.", fg="yellow")
+    elif not controller and not options.no_model:
+        cards = _local_cards(device_ids, len(jobs))
+        if len(cards) > 1:
+            controller = click.get_current_context().with_resource(_local_controller(cards))
+        elif device_ids and cards:
+            _pin_one_card(str(cards[0]), model)
+    if owner and not controller:
+        raise click.UsageError("--owner is a fairness key for --controller; pass both.")
+
     try:
-        summary = dock_run.dock(jobs, options, out_dir, cache=cache,
-                                isolate=len(jobs) > 1, download=True)
+        if controller:
+            from tt_bio.diffdock.fleet import dock_via_controller
+
+            summary = dock_via_controller(jobs, options, out_dir, controller_url=controller,
+                                          owner=owner)
+        else:
+            summary = dock_run.dock(jobs, options, out_dir, cache=cache,
+                                    isolate=len(jobs) > 1, download=True)
     except (RuntimeError, ValueError, FileNotFoundError) as e:
         raise click.ClickException(str(e))
     click.echo(json.dumps({"docked": [d["name"] for d in summary["docked"]],

@@ -435,6 +435,17 @@ SPECS_EXEMPT: dict[str, str] = {
                   "checkpoint, embed shape identical to saprot-650m)",
     "saprot-1.3b": "not yet seeded -- TODO: measure and add a SPECS entry (own "
                    "checkpoint, embed shape identical to saprot-650m)",
+    "diffdock": "not yet seeded, and the leg is specified rather than vague: kind='dock', "
+                "unit='complexes/s', direction='higher', fixture 6Z5Z_BDF at 2 samples (the same "
+                "complex scripts/ux_regression.py::run_dock drives), single-shot like the other "
+                "verb models. What is missing is a CARD reading taken by this gate's own "
+                "protocol: the only device number the campaign has is dfd-device's 89-95 "
+                "s/complex at AICLK 1350 MHz for score evaluation alone, 10 poses, untraced "
+                "(state/dfd/PERF.md), which is neither this leg's protocol nor an end-to-end "
+                "dock. A host-torch number would be worse than no cell -- seeding a gate from a "
+                "CPU run makes the first real card run read as a 100x 'improvement' and every "
+                "later one as noise. dfd-perf owns the kernel this waits on; the cell is seeded "
+                "from its card run, not from main",
     "rfd4": "not yet seeded -- TODO: measure and add a SPECS entry (design kind, "
             "same designs/s protocol as rfd3) once the port is graded on card",
 }

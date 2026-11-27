@@ -40,7 +40,9 @@ import numpy as np
 import torch
 from torch import Tensor
 
+from tt_bio.diffdock.harmonics import unit
 from tt_bio.diffdock.job import RECIPE
+
 
 def recipe() -> dict:
     """The shipped inference recipe, verbatim (D-dfd-2); a fresh copy of ``job.RECIPE``."""
@@ -274,8 +276,12 @@ def torsion_update_batch(pos: Tensor, edge_index: Tensor, mask_rotate, updates: 
     pos = pos + 0
     mask_rotate = _as_mask(mask_rotate)
     for idx, (u, v) in enumerate(edge_index):
-        rot_vec = pos[:, u] - pos[:, v]
-        rot_vec = rot_vec / torch.linalg.norm(rot_vec, dim=-1, keepdims=True) * updates[:, idx:idx + 1]
+        # `unit`, not a raw division by the norm: a pose thrown far enough out that fp32
+        # collapses a bond to zero length would otherwise give NaN here, and the NaN lands in
+        # the Kabsch SVD two lines later, where it takes every pose of the complex down. This
+        # is the device path's normalisation (loop.apply_torsions) and it is a no-op above
+        # 1e-12, so upstream's trajectory is unchanged (D-dfd-sampling-9).
+        rot_vec = unit(pos[:, u] - pos[:, v]) * updates[:, idx:idx + 1]
         rot_mat = axis_angle_to_matrix(rot_vec)
         moving = mask_rotate[idx]
         pos[:, moving] = torch.bmm(pos[:, moving] - pos[:, v:v + 1],
@@ -461,10 +467,16 @@ class StepInput:
 
 @dataclass
 class Rollout:
-    """The result: ``poses [B, N, 3]``, and the trajectory when it was asked for."""
+    """The result: ``poses [B, N, 3]``, and the trajectory when it was asked for.
+
+    ``failed`` is a ``[B]`` bool mask of poses that went non-finite during the rollout and
+    were frozen at their last finite coordinates. Such a pose is a result the caller must
+    not rank, not a reason to lose the complex: see :func:`sample`.
+    """
 
     poses: Tensor
     trajectory: list[Tensor] = field(default_factory=list)
+    failed: Tensor = field(default_factory=lambda: torch.zeros(0, dtype=torch.bool))
 
 
 def _temperature_scale(kind: int, cfg: SamplingConfig, sigma: float, bounds: SigmaBounds,
@@ -493,6 +505,13 @@ def sample(score_fn, lig_pos: Tensor, *, cfg: SamplingConfig, bounds: SigmaBound
 
     ``score_fn(StepInput) -> (tr_score [B,3], rot_score [B,3], tor_score [B*m])`` is the only
     thing the rollout knows about the model.
+
+    One pose going bad does not take the complex down. The scores are repaired by
+    :func:`guard_scores`, and if a pose still goes non-finite -- its update overflows, or the
+    model hands back a number no repair can scale -- that pose is frozen where it last was
+    and recorded in ``Rollout.failed`` for the caller to exclude from the ranking, while the
+    other poses carry on. All of this is a no-op, value for value, on a rollout whose numbers
+    stay finite: the freezing branch is not taken at all.
     """
     noise = Noise() if noise is None else noise
     if cfg.ode and any(t != 1.0 for t in cfg.temp_sampling):
@@ -507,6 +526,17 @@ def sample(score_fn, lig_pos: Tensor, *, cfg: SamplingConfig, bounds: SigmaBound
     batch = lig_pos.shape[0]
     torsion = not no_torsion and mask_rotate is not None and len(mask_rotate) > 0
     traj = [lig_pos.clone()] if trajectory else []
+    # A start pose that is already non-finite cannot be rolled out, but it also cannot be
+    # left in the batch: every step's arithmetic is batched. It takes a finite pose's
+    # coordinates for the ride and is marked failed, so nothing downstream ranks or reads it.
+    # Zeros would not do -- a ligand collapsed to a point has zero-length bond axes, and the
+    # torsion update divides by their length.
+    failed = _nonfinite_rows(lig_pos, batch)
+    if bool(failed.all()):
+        return Rollout(poses=torch.nan_to_num(lig_pos), trajectory=traj, failed=failed)
+    if bool(failed.any()):
+        donor = lig_pos[int((~failed).nonzero()[0])]
+        lig_pos = torch.where(failed[:, None, None], donor[None], lig_pos)
 
     with torch.no_grad():
         for t_idx in range(steps):
@@ -552,32 +582,93 @@ def sample(score_fn, lig_pos: Tensor, *, cfg: SamplingConfig, bounds: SigmaBound
                 else:
                     tor_perturb = None
 
-            lig_pos = modify_conformer(lig_pos, tr_perturb, rot_perturb, tor_perturb,
-                                       edge_index=edge_index, mask_rotate=mask_rotate)
+            lig_pos, failed = _move(lig_pos, tr_perturb, rot_perturb, tor_perturb, failed,
+                                    edge_index=edge_index, mask_rotate=mask_rotate)
             if trajectory:
                 traj.append(lig_pos.clone())
-    return Rollout(poses=lig_pos, trajectory=traj)
+    return Rollout(poses=lig_pos, trajectory=traj, failed=failed)
+
+
+def _move(pos: Tensor, tr_perturb: Tensor, rot_perturb: Tensor, tor_perturb: Tensor | None,
+          failed: Tensor, *, edge_index, mask_rotate) -> tuple[Tensor, Tensor]:
+    """One step's :func:`modify_conformer`, with a non-finite pose frozen instead of fatal.
+
+    The Kabsch SVD inside ``modify_conformer`` is batched, so a single non-finite row raises
+    for every pose at once ("input matrix contained non-finite values") and the complex is
+    lost. Zeroing that row's update first keeps the batch finite, and reverting its position
+    afterwards keeps it at the last coordinates it actually had.
+    """
+    batch = pos.shape[0]
+    bad = _nonfinite_rows(pos, batch)
+    for perturb in (tr_perturb, rot_perturb, tor_perturb):
+        if perturb is not None:
+            bad = bad | _nonfinite_rows(perturb, batch)
+    if bool(bad.any()):
+        tr_perturb, rot_perturb, tor_perturb = (
+            _zero_rows(p, bad) for p in (tr_perturb, rot_perturb, tor_perturb))
+    moved = modify_conformer(pos, tr_perturb, rot_perturb, tor_perturb,
+                             edge_index=edge_index, mask_rotate=mask_rotate)
+    bad = bad | _nonfinite_rows(moved, batch)
+    if not bool(bad.any()):
+        return moved, failed
+    return torch.where(bad[:, None, None], pos, moved), failed | bad
 
 
 def _z(batch: int, dim: int, quiet: bool, noise: Noise) -> Tensor:
     return torch.zeros((batch, dim)) if quiet else noise.normal(size=(batch, dim))
 
 
-def _repair_nans(tr_score: Tensor, rot_score: Tensor, tor_score: Tensor):
-    """Upstream's NaN guard: nudge a failed pose instead of dropping the whole batch.
+def guard_scores(score: Tensor) -> tuple[Tensor, Tensor]:
+    """Repair one head's non-finite entries. Returns ``(repaired, n_bad_poses)``.
 
-    A NaN score would otherwise poison every later step of that pose. Upstream replaces it
-    with 1 % of the head's mean magnitude, which perturbs the pose slightly and usually
-    recovers on the next step.
+    This is the campaign's one score repair: the host rollout below and the traced device
+    driver (:func:`tt_bio.diffdock.loop.diffusion_step`, which imports this) call it.
+
+    A non-finite score would otherwise poison every later step of that pose, and then
+    ``modify_conformer``'s Kabsch SVD raises on the whole batch. Upstream replaces it with
+    1 % of the head's mean magnitude, which perturbs the pose slightly and usually recovers
+    on the next step. Two differences from upstream's version, both forced by cases it does
+    not survive:
+
+    * It keys on ``isfinite``, not ``isnan``. A head that goes to +-inf with no NaN passes
+      upstream's `isnan` test untouched and takes the complex down in the SVD. That is not
+      hypothetical: it is what three of `tt-bio dock`'s output tests hit under torch 2.8.0,
+      where the starting draw differs (D-dfd-sampling-9).
+    * An infinity is excluded from the mean rather than poisoning it, so the replacement
+      value stays finite. Upstream's ``nanmean`` keeps the infinity, and when a head is
+      non-finite in *every* row the replacement is itself non-finite and the guard does
+      nothing at all.
+
+    The repair is computed unconditionally and selected with a ``where``: no host branch, so
+    the device path keeps its shapes static, and on a run with finite numbers the result is
+    the input tensor value for value.
     """
-    if not bool(torch.isnan(tr_score).any() or torch.isnan(rot_score).any()
-                or (tor_score is not None and torch.isnan(tor_score).any())):
-        return tr_score, rot_score, tor_score
-    out = []
-    for score in (tr_score, rot_score, tor_score):
-        if score is None:
-            out.append(score)
-            continue
-        eps = float(0.01 * torch.nanmean(score.abs()))
-        out.append(torch.nan_to_num(score, nan=eps, posinf=eps, neginf=-eps))
-    return tuple(out)
+    finite = torch.isfinite(score)
+    eps = 0.01 * torch.where(finite, score.abs(), torch.zeros_like(score)).sum() \
+        / finite.sum().clamp_min(1)
+    sign = torch.sign(torch.nan_to_num(score, nan=1.0, posinf=1.0, neginf=-1.0))
+    repaired = torch.where(finite, score, eps * sign)
+    n_bad = (~torch.isfinite(score.reshape(score.shape[0], -1).sum(dim=-1))).sum()
+    return repaired, n_bad
+
+
+def _repair_nans(tr_score: Tensor, rot_score: Tensor, tor_score: Tensor):
+    """:func:`guard_scores` over the three heads, each scaled by its own magnitude."""
+    return tuple(None if score is None else guard_scores(score)[0]
+                 for score in (tr_score, rot_score, tor_score))
+
+
+def _nonfinite_rows(x: Tensor, batch: int) -> Tensor:
+    """``[batch]`` bool: which poses carry a non-finite number anywhere in *x*.
+
+    *x* is anything with the pose axis first, including the torsion head's flat ``[B * m]``.
+    """
+    return ~torch.isfinite(x.reshape(batch, -1)).all(dim=1)
+
+
+def _zero_rows(x: Tensor | None, rows: Tensor) -> Tensor | None:
+    """*x* with the poses *rows* selects set to zero, in whatever shape *x* has."""
+    if x is None:
+        return None
+    flat = x.reshape(rows.shape[0], -1)
+    return torch.where(rows[:, None], torch.zeros_like(flat), flat).reshape(x.shape)

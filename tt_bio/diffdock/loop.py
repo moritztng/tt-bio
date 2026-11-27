@@ -11,10 +11,9 @@ What this module adds is only what a trace needs and the eager sampler does not:
   `[steps, 3]` score coefficient and a `[steps, 3]` noise coefficient. The loop body reads a
   row instead of calling back into Python, and every sampling option becomes table contents
   rather than a branch in the body.
-* **The NaN guard without the host branch.** Sampling's `_repair_nans` asks
-  `bool(isnan(...).any())` on the host and repairs only then. :func:`guard_scores` computes
-  the same repair unconditionally and selects it with that predicate as a *device* tensor:
-  equal on every input, and no sync.
+* **Nothing of the score guard.** `sampling.guard_scores` is already branch-free -- it
+  repairs unconditionally and selects with a `where` on a device predicate -- so this module
+  imports it rather than carrying a second copy (D-dfd-sampling-9).
 * **The pose update without a masked write or an SVD.** :func:`apply_torsions` replaces
   `pos[:, moving] = ...`, whose width is read off the mask at run time, with
   `where(mask, rotated, pos)`; :func:`fixed_update` replaces the SVD Kabsch with Horn's
@@ -37,7 +36,8 @@ from torch import Tensor
 
 from .harmonics import unit
 from .kabsch import kabsch_horn
-from .sampling import SamplingConfig, SigmaBounds, _temperature_scale, axis_angle_to_matrix
+from .sampling import (SamplingConfig, SigmaBounds, _temperature_scale, axis_angle_to_matrix,
+                       guard_scores)
 
 
 @dataclass(frozen=True)
@@ -95,28 +95,6 @@ def coefficient_table(cfg: SamplingConfig, bounds: SigmaBounds,
             noise[t_idx, head] = 0.0 if quiet else g * np.sqrt(dt * w)
     return CoefficientTable(torch.as_tensor(score, dtype=dtype),
                             torch.as_tensor(noise, dtype=dtype), tuple(drawn))
-
-
-def guard_scores(score: Tensor) -> tuple[Tensor, Tensor]:
-    """Sampling's `_repair_nans` for one head, with the host branch removed.
-
-    Upstream (and sampling, following it) replaces every non-finite entry with 1 % of the
-    head's mean magnitude, but only after a host-side `bool(isnan(...).any())`. Computing the
-    repair unconditionally gives the identical tensor -- the replacement is a no-op when there
-    is nothing to replace -- and a `where` on a device predicate keeps the step host-free.
-    Returns the repaired score and the number of poses that were non-finite, to be accumulated
-    on device and read once after the loop, where it only ever drove a warning.
-
-    One deliberate difference from `nanmean`: an infinity is excluded from the mean rather
-    than poisoning it, so `eps` stays finite in the case the guard exists for.
-    """
-    finite = torch.isfinite(score)
-    eps = 0.01 * torch.where(finite, score.abs(), torch.zeros_like(score)).sum() \
-        / finite.sum().clamp_min(1)
-    sign = torch.sign(torch.nan_to_num(score, nan=1.0, posinf=1.0, neginf=-1.0))
-    repaired = torch.where(finite, score, eps * sign)
-    n_bad = (~torch.isfinite(score.reshape(score.shape[0], -1).sum(dim=-1))).sum()
-    return repaired, n_bad
 
 
 def apply_torsions(pos: Tensor, bonds, mask_rotate: Tensor, updates: Tensor) -> Tensor:

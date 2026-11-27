@@ -8,6 +8,7 @@ test is "it parses" is a CLI nobody ran.
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 
 import pytest
@@ -24,6 +25,18 @@ ASPIRIN = "CC(=O)Oc1ccccc1C(=O)O"
 
 needs_receptor = pytest.mark.skipif(not RECEPTOR.exists(),
                                     reason="no local receptor structure to dock into")
+
+
+
+@pytest.fixture(autouse=True)
+def _restore_tt_bio_log_level():
+    """`tt-bio dock` sets the tt_bio logger's level, which is right for a process and wrong for
+    a test session: left at WARNING it hides the INFO records a later file's caplog reads
+    (test_tfg_features::test_1a14_pocket_resolves_epitope_and_paratope, gate rel-4eddd643f)."""
+    log = logging.getLogger("tt_bio")
+    level = log.level
+    yield
+    log.setLevel(level)
 
 
 def run(*args):
@@ -226,8 +239,11 @@ def test_a_ligand_on_both_sides_is_refused(tmp_path):
 
 
 def test_a_receptor_without_a_ligand_is_refused(tmp_path):
-    r = run(str(RECEPTOR if RECEPTOR.exists() else tmp_path), "--no_model",
-            "--out_dir", str(tmp_path / "x"))
+    # Any .pdb path reaches the refusal: it is raised before the receptor is read. A directory
+    # does not, it is read as a folder of YAML jobs, so the test must not depend on RECEPTOR.
+    receptor = tmp_path / "receptor.pdb"
+    receptor.write_text("END\n")
+    r = run(str(receptor), "--no_model", "--out_dir", str(tmp_path / "x"))
     assert r.exit_code != 0 and "--ligand is required" in r.output
 
 
@@ -255,3 +271,33 @@ def test_a_yaml_diffdock_cannot_honour_is_refused_not_dropped(tmp_path):
     r = run(str(path), "--out_dir", str(tmp_path / "o"))
     assert r.exit_code != 0
     assert "RNA" in r.output or "rna" in r.output
+
+
+def test_a_shorter_run_keeps_the_recipes_shape():
+    """`--sampling_steps 4` on its own used to run 19 steps of a 4-entry schedule.
+
+    `actual_steps` truncates the schedule, so it only means something relative to
+    `sampling_steps`: shortening the run keeps the recipe's "stop one step early" shape,
+    and asking for more steps than are scheduled runs all of them.
+    """
+    from tt_bio.diffdock.job import override
+
+    o = override(DockOptions(), {"sampling_steps": 4})
+    assert (o.sampling_steps, o.actual_steps, o.steps) == (4, 3, 3)
+
+    both = override(DockOptions(), {"sampling_steps": 6, "actual_steps": 6})
+    assert both.steps == 6, "an explicit pair is honoured"
+
+    clamped = override(DockOptions(), {"sampling_steps": 4, "actual_steps": 19})
+    assert clamped.steps == 4, "more steps than the schedule holds runs the schedule"
+
+    assert DockOptions().steps == 19, "the default recipe is untouched"
+
+
+@needs_receptor
+def test_a_shorter_run_docks(tmp_path):
+    """The flag combination above, through the command, on a real receptor."""
+    out = run(str(RECEPTOR), "--ligand", ASPIRIN, "--no_model", "--sampling_steps", "4",
+              "--diffusion_samples", "2", "--out_dir", str(tmp_path))
+    assert out.exit_code == 0, out.output
+    assert (tmp_path / "complex_0" / "rank1.sdf").exists()

@@ -30,6 +30,7 @@ CAPTURE_SITES = {
     "tt_bio/esmfold2.py": "esmfold2",
     "tt_bio/saprot.py": "saprot",
     "tt_bio/rfd4/trunk.py": "rfd4",
+    "tt_bio/diffdock/capture.py": "diffdock",
 }
 
 

@@ -65,6 +65,8 @@ dependencies = [
     "pdbeccdutils",       # CCD component lookup
     "func_timeout",       # RDKit conformer-embedding timeout guard
     "networkx",           # CCD bond-graph connected components
+    "spyrmsd",            # symmetry-corrected RMSD, tt_bio/diffdock/evaluate.py
+    "posebusters",        # physical-validity rate, tt_bio/diffdock/evaluate.py
     "packaging",          # tt_bio/_vendor/openfold3/__init__.py version check
     # RF3 vendors AtomWorks (see NOTICE #7) for host featurization. typing_extensions
     # backs the 3.10 shim for typing.Never.
@@ -143,6 +145,7 @@ include = ["tt_bio*"]
 "tt_bio.boltzgen.resources" = ["*.json"]
 "tt_bio.boltzgen.resources.config" = ["*.yaml"]
 "tt_bio.boltzgen.resources.splits" = ["*.txt"]
+"tt_bio.diffdock" = ["*.yaml", "*.json"]   # recipe.yaml is read at CLI import: without it `tt-bio` itself crashes
 # kernel sources: tt_bio/reblock_permute.py, tt_bio/mm_generic.py (triatt /
 # triatt_sdpa / trimul fused kernels) and friends load them by path
 # (KERNEL_DIR, ttnn KernelDescriptor FILE_PATH) on the DEFAULT path, so a clean

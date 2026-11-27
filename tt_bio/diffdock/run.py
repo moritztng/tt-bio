@@ -34,25 +34,27 @@ class SamplerUnavailable(RuntimeError):
     pass
 
 
+class PoseRolloutFailed(RuntimeError):
+    """Every pose of one complex went non-finite in the rollout.
+
+    One pose going bad is recorded and ranked last (`sampling.Rollout.failed`); losing all
+    of them means there is no answer for this complex, which is a `failures.csv` row on a
+    CSV or directory run and a loud error on a single complex -- the same split every other
+    per-complex failure takes.
+    """
+
+
 def dock(jobs: list[DockJob], options: DockOptions, out_dir, *, cache=None,
-         isolate: bool = False, download: bool = False) -> dict:
-    """Dock every job, writing upstream's layout under ``out_dir``. Returns a summary."""
+         isolate: bool = False, download: bool = False, model=None) -> dict:
+    """Dock every job, writing upstream's layout under ``out_dir``. Returns a summary.
+
+    ``model`` is a network :func:`load_model` already built, which a fleet worker keeps
+    across the complexes it is handed; without it this call loads its own.
+    """
     out_dir = Path(out_dir).expanduser()
     out_dir.mkdir(parents=True, exist_ok=True)
-    model = None
-    if not options.no_model:
-        # Resolve both checkpoints before the first complex: a missing weight file is not
-        # a per-complex failure, and finding out after 9,999 rows is worse than before one.
-        checkpoints.resolve("score", options.checkpoint, cache, download=download)
-        if not options.no_confidence:
-            checkpoints.resolve("confidence", options.confidence_checkpoint, cache,
-                                download=download)
-        # And the network itself once for the whole screen, not once per complex: 30 M
-        # parameters, and a device path would otherwise re-open a card 10,000 times.
-        try:
-            model = network.load(options, cache=cache, download=download)
-        except network.ScoreNetworkUnavailable as e:
-            raise SamplerUnavailable(str(e)) from e
+    if model is None and not options.no_model:
+        model = load_model(options, cache=cache, download=download)
 
     done, failures = [], []
     for job in jobs:
@@ -69,6 +71,22 @@ def dock(jobs: list[DockJob], options: DockOptions, out_dir, *, cache=None,
                 break
     output.write_failures(out_dir, failures)
     return {"docked": done, "failed": failures, "out_dir": str(out_dir)}
+
+
+def load_model(options: DockOptions, *, cache=None, download: bool = False):
+    """The score network (and confidence model) ``options`` name, once for a whole screen."""
+    # Resolve both checkpoints before the first complex: a missing weight file is not
+    # a per-complex failure, and finding out after 9,999 rows is worse than before one.
+    checkpoints.resolve("score", options.checkpoint, cache, download=download)
+    if not options.no_confidence:
+        checkpoints.resolve("confidence", options.confidence_checkpoint, cache,
+                            download=download)
+    # And the network itself once for the whole screen, not once per complex: 30 M
+    # parameters, and a device path would otherwise re-open a card 10,000 times.
+    try:
+        return network.load(options, cache=cache, download=download)
+    except network.ScoreNetworkUnavailable as e:
+        raise SamplerUnavailable(str(e)) from e
 
 
 def _dock_one(job: DockJob, options: DockOptions, write_dir: Path, *, cache=None,
@@ -101,7 +119,8 @@ def _sample_one(job: DockJob, options: DockOptions, write_dir: Path, receptor: P
     """
     import torch
 
-    from tt_bio.diffdock import chunking, esm, input as dfd_input, sampling
+    from tt_bio.diffdock import (chunking, confidence_model, esm, input as dfd_input,
+                                 neighbour_cap, sampling)
 
     spec = dfd_input.ComplexSpec(name=job.name, protein_path=str(receptor),
                                  ligand_description=job.ligand)
@@ -114,6 +133,10 @@ def _sample_one(job: DockJob, options: DockOptions, write_dir: Path, receptor: P
     graph = dfd_input.build_complex_graph(spec, seed=options.seed, receptor_path=receptor,
                                           lm_embeddings=embeddings,
                                           all_atoms=model.config.all_atoms)
+    # Say so when this ligand is dense enough that upstream's torch_cluster graph would be
+    # truncated and ours is not (D-dfd-trace-1). One `cdist` on a ligand, once per complex.
+    neighbour_cap.check_ligand_graph(graph.ligand["pos"], model.config.lig_max_radius,
+                                     label=job.name, on_input=True)
 
     cfg = _sampling_config(options)
     bounds = sampling.SigmaBounds.from_config(model.config)
@@ -144,13 +167,29 @@ def _sample_one(job: DockJob, options: DockOptions, write_dir: Path, receptor: P
     from rdkit import Chem
 
     # The graph, and so every pose, is heavy-atom only; upstream writes the H-stripped mol.
-    mol = Chem.RemoveHs(Chem.Mol(graph.mol), sanitize=False)
+    # Sanitised, as upstream's `RemoveHs(mol_pred)` is: `sanitize=False` leaves the aromatic
+    # flags without kekulisation, and `SDWriter.write` kekulises, so every heteroaromatic
+    # ligand raised `KekulizeException` AFTER the whole rollout had run and lost the complex
+    # (5S8I_2LY, CNC(=O)c1scc2c1OCCO2).
+    mol = Chem.RemoveHs(Chem.Mol(graph.mol))
+    failed = rollout.failed
+    if bool(failed.all()):
+        raise PoseRolloutFailed(
+            f"every one of the {len(failed)} poses went non-finite during the rollout")
+    if bool(failed.any()):
+        log.warning("%s: %d of %d poses went non-finite during the rollout; they are frozen "
+                    "at their last finite coordinates and ranked last",
+                    job.name, int(failed.sum()), len(failed))
     poses = (rollout.poses + graph.original_center).numpy()
     confidences = None if options.no_confidence else model.confidence(graph, rollout.poses)
     order = list(range(len(poses)))
     if confidences is not None:
-        confidences = torch.nan_to_num(torch.as_tensor(confidences).flatten().float(),
-                                       nan=-1000.0)
+        confidences = torch.as_tensor(confidences).flatten().float()
+        # Same answer as the confidence model's own for a pose it cannot score: far below
+        # any real logit, so it sorts last instead of disappearing. `isfinite`, not `isnan`:
+        # an infinite logit would otherwise sort *first* (D-dfd-sampling-9).
+        confidences = torch.where(torch.isfinite(confidences) & ~failed, confidences,
+                                  torch.full_like(confidences, confidence_model.UNSCORABLE))
         order = torch.argsort(confidences, descending=True).tolist()
         poses, confidences = poses[order], confidences[order].tolist()
 
