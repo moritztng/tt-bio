@@ -100,7 +100,7 @@ def test_heads(dev, glue, batch8_path: str, pcie_meter_mod):
     b1["exploration_k"] = 1
     b, n = b1["padding_mask"].shape
     n_pad = ((n + 31) // 32) * 32
-    print(f"  batch08 b={b}, n={n}, n_pad={n_pad}, ins_rows={(b1[insertion_source_idx] >= 0).sum().item()}", flush=True)
+    print(f"  batch08 b={b}, n={n}, n_pad={n_pad}, ins_rows={(b1["insertion_source_idx"] >= 0).sum().item()}", flush=True)
 
     # Synthetic s with realistic scale (~1.0), masked on padding
     rng = np.random.default_rng(42)
@@ -309,7 +309,7 @@ def test_heads(dev, glue, batch8_path: str, pcie_meter_mod):
     worst_cos = min(v["cos"] for v in m_good.values())
     print(f"  GOOD arm: loss_rel={loss_rel:.2e}, worst_rel={worst_rel:.3e}, min_cos={worst_cos:.6f}", flush=True)
     for k, v in m_good.items():
-        print(f"    {k:12s}  rel_l2={v[rel_l2]:.3e}  cos={v[cos]:.6f}", flush=True)
+        print(f"    {k:12s}  rel_l2={v["rel_l2"]:.3e}  cos={v["cos"]:.6f}", flush=True)
     if pcie_heads:
         print(f"  Heads PCIe snapshot: {pcie_heads}", flush=True)
 
@@ -593,9 +593,9 @@ def test_device_optim(dev, state, glue):
             assert om_a_diff == 0.0, f"Omitted Adam param moved: {om_a_diff}"
             # Verify EMA shadow exists
             assert opt.ema is not None and len(opt.ema.shadows) == len(params)
-        print(f"  {ns_mode:14s}: step1={timings[ns_mode][step1_ms]} ms, step2={timings[ns_mode][step2_ms]} ms "
+        print(f"  {ns_mode:14s}: step1={timings[ns_mode]["step1_ms"]} ms, step2={timings[ns_mode]["step2_ms"]} ms "
               f"(muon={len(opt.muon_names)} in {len(opt._muon_buckets)} buckets, adam={len(opt.adam_names)}, "
-              f"norms={st2[muon_norm]:.3f}/{st2[adam_norm]:.3f})", flush=True)
+              f"norms={st2["muon_norm"]:.3f}/{st2["adam_norm"]:.3f})", flush=True)
         opt.deallocate()
 
     return timings
@@ -637,7 +637,7 @@ def main():
     res["aiclk_min"] = min(clk) if clk else 0
     res["aiclk_max"] = max(clk) if clk else 0
     res["aiclk_n"] = len(clk)
-    print(f"\nALL 3 HARDWARE UNIT SUITES PASSED! AICLK={res[aiclk_min]}..{res[aiclk_max]} MHz (n={res[aiclk_n]})", flush=True)
+    print(f"\nALL 3 HARDWARE UNIT SUITES PASSED! AICLK={res["aiclk_min"]}..{res["aiclk_max"]} MHz (n={res["aiclk_n"]})", flush=True)
     if args.out:
         with open(args.out, "w") as f:
             json.dump(res, f, indent=2)
