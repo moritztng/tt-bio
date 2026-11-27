@@ -31,7 +31,10 @@ flock -n 9 || exit 0
 free() {   # $1 = chip
   [ ! -e /home/ttuser/.coworker/state/cardblock-qb2-$1 ] || return 1
   if [ -f $BOOK ]; then
-    on=$(python3 $BOOK active "$1" --except $OWNER 2>/dev/null | tr " " "\n" | grep -v -x -e "" -e fleet-dfd-scaling)
+    # held:unbooked means "flock held or node open": the flock is ours (free() only sees chips in
+    # $held) and the open node is checked by fuser below, so here it never names another holder.
+    # Counting it left chip 2 permanently busy behind our own lock (11-27 04:58Z).
+    on=$(python3 $BOOK active "$1" --except $OWNER 2>/dev/null | tr " " "\n" | grep -v -x -e "" -e fleet-dfd-scaling -e held:unbooked)
     [ -z "$on" ] || return 1
   fi
   python3 - "/home/ttuser/.coworker/state/leases/tt-quietbox2-card$1.json" <<'P' || return 1
