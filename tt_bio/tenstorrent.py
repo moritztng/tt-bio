@@ -11030,8 +11030,8 @@ class TriangleMultiplication(Module):
         # and c_z 256 one
         w8 = lever("trimul_t1w8")
         if w8 not in self._t1_w:
-            wpT, wgT, wgo = TT1.t1_host_weights(self._g_in_t, self._p_in_t,
-                                                self.weights["g_out.weight"].t())
+            wpT, wgT, wgo = TT1.t1_host_weights(self._g_in_t.detach(), self._p_in_t.detach(),
+                                                self.weights["g_out.weight"].detach().t())
             up = lambda t: ttnn.from_torch(  # noqa: E731
                 t, layout=ttnn.TILE_LAYOUT, device=self.device,
                 dtype=ttnn.bfloat8_b if w8 else ttnn.bfloat16)

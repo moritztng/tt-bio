@@ -60,7 +60,7 @@ def main():
     ap.add_argument("--win-pair", choices=("host", "card"), default="host",
                     help="where the taped winner builds z_init and runs its backward: host (upstream's builder, torch "
                          "autograd, the pair and its gradient over PCIe) or the card (PairOnCard.taped; needs --cand-pair card)")
-    ap.add_argument("--cand-levers", choices=("training", "serving", "inference"), default="serving",
+    ap.add_argument("--cand-levers", choices=("training", "serving", "inference", "serve"), default="serving",
                     help="lever set of the grad-off K-candidate pass: the training set, or that set plus the dropped levers that "
                          "switch at run time (pair_bf16z, dit_sigf32, tok_recycle_mm; r4t-perf K2). The pass only picks the "
                          "winner, so the gradient is unchanged whenever the winner is; inference also lets the fused kernels without a tape entry "
@@ -384,7 +384,11 @@ def main():
         @contextlib.contextmanager
         def cand_scope():
             """--cand-levers serving: the candidate pass adds the run-time levers training drops; pair_bf16z also
-            carries the pair stream in bf16, a dtype the trunk and its pair updates read from attributes."""
+            carries the pair stream in bf16, a dtype the trunk and its pair updates read from attributes.
+            --cand-levers serve (r4t-perf K14): also swaps `trunk._levers` (so `Trunk.__call__`'s `@under_lever_scope`
+            does not overwrite the candidate lever set) and runs outside `ag.tape()` under `ag.suspended()`, unlocking
+            the shipped serving fused kernels (`trimul_t1`, `pair_tail_cm`, `pair_relu`, `outer_residual`,
+            `rms_pair_bias`, `rne_add`) on the grad-off candidate pass."""
             if a.cand_levers == "training":
                 yield
                 return
@@ -393,13 +397,18 @@ def main():
             _ops.NOGRAD_IS_INFERENCE = a.cand_levers == "inference" or nogi
             mods = [trunk] + list(trunk.pair_updates.values())
             saved = [(m, m.pair_residual_dtype if m is trunk else m.residual_dtype) for m in mods]
+            saved_levers = trunk._levers
+            cand_levs = levers | {"pair_bf16z", "dit_sigf32", "tok_recycle_mm"}
             trunk.pair_residual_dtype = ttnn.bfloat16
             for m in mods[1:]:
                 m.residual_dtype = ttnn.bfloat16
+            if a.cand_levers == "serve":
+                trunk._levers = cand_levs
             try:
-                with T.lever_scope(levers | {"pair_bf16z", "dit_sigf32", "tok_recycle_mm"}):
+                with T.lever_scope(cand_levs):
                     yield
             finally:
+                trunk._levers = saved_levers
                 for m, d in saved:
                     setattr(m, "pair_residual_dtype" if m is trunk else "residual_dtype", d)
                 _ops.NOGRAD_IS_INFERENCE = nogi
@@ -413,14 +422,22 @@ def main():
             with torch.no_grad():
                 ck = conds_for(bt)
                 s0, z0 = glue.initial_states(bt, pair_constant=glue.pair_split.constant(bt) if pc else None)
-            with T.lever_scope(levers), ag.tape():
-                with ag.no_grad(), cand_scope():
+            if a.cand_levers == "serve":
+                with ag.suspended(), cand_scope():
                     zk0 = pc(z0, 0) if pc else put(z0, trunk.pair_dtype(mk))
                     sk, zk = trunk(put(s0), zk0, [put(c, trunk.dtype) for c in ck], mk)
-                    sh = ttnn.to_torch(getattr(sk, "value", sk)).float().reshape(s0.shape)
-                walk_register()
+                    sh = ttnn.to_torch(sk).float().reshape(s0.shape)
                 for t in (sk, zk):
-                    ttnn.deallocate(getattr(t, "value", t))
+                    ttnn.deallocate(t)
+            with T.lever_scope(levers), ag.tape():
+                if a.cand_levers != "serve":
+                    with ag.no_grad(), cand_scope():
+                        zk0 = pc(z0, 0) if pc else put(z0, trunk.pair_dtype(mk))
+                        sk, zk = trunk(put(s0), zk0, [put(c, trunk.dtype) for c in ck], mk)
+                        sh = ttnn.to_torch(getattr(sk, "value", sk)).float().reshape(s0.shape)
+                    for t in (sk, zk):
+                        ttnn.deallocate(getattr(t, "value", t))
+                walk_register()
                 with torch.no_grad():
                     ok = {k: v.double().numpy() for k, v in flat(glue.heads(sh, bt)).items()}
                 _t, bd, _s = RO.rfd4_loss({**npy(bt), "exploration_k": K}, ok, RO.WEIGHTS)
