@@ -589,7 +589,8 @@ class DeviceScoreNetwork:
     differ from the host class: the convolutions run through :class:`DeviceConvModule`, as one
     device-resident stack per edge set, and a step is one :func:`~tt_bio.diffdock.static_net.static_forward`
     over fixed-shape graphs instead of a loop over poses, which is what makes the shapes the same
-    every step. The confidence pass stays on the host.
+    every step. The confidence model's 45 convolutions are swapped the same way, so the ranking
+    pass runs the same device layers; its host glue (graph build, encoders, head) is unchanged.
     """
 
     on_device = True
@@ -598,6 +599,8 @@ class DeviceScoreNetwork:
         self.host, self.device = host, device
         self.model, self.config = host.model, host.config
         self.convs = convs_on_device(host.model, device)
+        self.confidence_convs = ({} if host.confidence_model is None
+                                 else convs_on_device(host.confidence_model, device))
 
     def score_fn(self, graph):
         from tt_bio.diffdock.conv import pad_nodes
@@ -623,4 +626,5 @@ class DeviceScoreNetwork:
         return score
 
     def confidence(self, graph, poses: Tensor):
+        """The host ranking pass, whose model now carries the device convolutions."""
         return self.host.confidence(graph, poses)
