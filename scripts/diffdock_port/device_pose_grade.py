@@ -166,7 +166,7 @@ def cmd_equiv(args):
         base = score_fn(model, static_complex(model, fx, P), n_lig)(step)
         hbase = score_fn(host, static_complex(host, fx, P), n_lig)(step)
         row = {}
-        for seed in (0, 1, 2, 3):
+        for seed in range(args.seeds):
             R, t = rigid_transform(seed)
             moved = fx["graph"].receptor["pos"].double() @ R.T + t
             fx2 = dict(fx)
@@ -237,6 +237,7 @@ def main():
     e = sub.add_parser("equiv")
     e.add_argument("--fixture", required=True)
     e.add_argument("--net", default="tile", choices=["host", "gemm", "tile"])
+    e.add_argument("--seeds", type=int, default=4, help="transform seeds; 0 is the identity")
     e.add_argument("--out", required=True)
     e.set_defaults(fn=cmd_equiv)
     c = sub.add_parser("compare")
