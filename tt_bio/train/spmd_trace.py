@@ -282,7 +282,7 @@ class SPMDMeshTracer:
         device,
         *,
         enabled: bool = True,
-        hole_per_bank: int = 1792 << 20,
+        hole_per_bank: int = 1600 << 20,
         trace_win_pair: bool = True,
         trace_muon_ns: bool = True,
     ):
@@ -291,6 +291,7 @@ class SPMDMeshTracer:
         self.trace_win_pair = bool(trace_win_pair)
         self.trace_muon_ns = bool(trace_muon_ns)
         self.hole_per_bank = int(hole_per_bank)
+        self._hole_ready = not self.trace_win_pair
         self._scratch = None
         self._tids: list[Any] = []
         self._owned_slots: list[Any] = []
@@ -348,6 +349,9 @@ class SPMDMeshTracer:
             return
 
         if self._refold_state == 1:
+            if not self._hole_ready:
+                dfolds.refold(dev_masters, on_refold=dev_hook, in_place=True)
+                return
             ttnn.synchronize_device(self.device)
             try:
                 tids = self._capture_runs([lambda: dfolds.refold(dev_masters, on_refold=dev_hook, in_place=True)])
@@ -426,7 +430,7 @@ class SPMDMeshTracer:
             return ttnn.clone(tr["s_out"]), ttnn.clone(tr["z_out"])
 
         seen = self._untaped_seen.get(key, 0)
-        if seen == 0:
+        if seen == 0 or not self._hole_ready:
             self._untaped_seen[key] = 1
             return _call(s_init, z_init, c_one, masks, prev)
 
@@ -706,6 +710,7 @@ class SPMDMeshTracer:
 
         try:
             tids = self._capture_runs([_run_fwd, _run_bwd_fold], settle=_settle)
+            self._hole_ready = True
             self._track(
                 s_i_slot, z_in_slot, *c_slots, *(prev_slots or ()), *m1_slots,
                 s_out_slot, ds_out_slot, d_s_i_slot, d_z_in_slot, *d_c_slots,
@@ -736,6 +741,7 @@ class SPMDMeshTracer:
                 *dev_grad_slots.values(),
             ):
                 _safe_dealloc(t)
+            self._hole_ready = True
             self._win_traces[key] = "eager"
             self.stats["refused"] += 1
             self.refusal_reasons.append(f"win_pair:{type(exc).__name__}:{exc}")
@@ -765,7 +771,7 @@ class SPMDMeshTracer:
             return [ttnn.clone(o) for o in tr["o_out"]]
 
         seen = self._ns_seen.get(key, 0)
-        if seen == 0:
+        if seen == 0 or not self._hole_ready:
             self._ns_seen[key] = 1
             return run_fn(u_list)
 
