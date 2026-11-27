@@ -22,7 +22,7 @@ from typing import Callable, Optional
 
 import numpy as np
 
-__all__ = ["FIXTURE", "FIXTURE_KEYS", "LATENT_PLACEHOLDER", "load", "clean_samples"]
+__all__ = ["FIXTURE", "FIXTURE_KEYS", "LATENT_PLACEHOLDER", "load", "clean_samples", "load_batch"]
 
 #: Shipped with the package; see `perf/r4t/build_fixture.py` for how it was built.
 FIXTURE = Path(__file__).with_name("fixtures") / "rfd4_train_16.npz"
@@ -74,3 +74,36 @@ def clean_samples(batch: dict, encode: Optional[Callable] = None,
     if z.shape[:2] != ca.shape[:2] or z.shape[-1] != latent_dim:
         raise ValueError(f"encoder returned {z.shape}, expected {ca.shape[:2] + (latent_dim,)}")
     return {"bb_ca": ca, "local_latents": z}
+
+
+def load_batch(path, dtype=None):
+    """A dumped `batch<NN>.npz` back into the dict `call_nn` receives, with `in/a/b` unflattened.
+
+    `strict_feats` is set: the feature factory fills a MISSING feature with a silent zero default
+    unless it is on (`nn/feature_factory.py:196`), and a replay that quietly lost a key must raise
+    rather than train against zeros (LESSONS-OF3T T1). It does NOT cover every feature: upstream's
+    `chirality` and `charge` features fall back to zeros with only a warning whatever the flag says,
+    so losing either key is caught only by the outputs moving, on a batch where it is non-zero
+    (chirality: 2plh alone in this set). `replay --drop chirality` on that batch is the control. It is not in the dump because it is a flag,
+    not data; neither is `example_id_batch`, which only names the example in an error message.
+    """
+    import torch
+    z = np.load(path, allow_pickle=False)
+    batch = {}
+    for key in z.files:
+        if not key.startswith("in/"):
+            continue
+        parts = key[3:].split("/")
+        v = torch.as_tensor(z[key])
+        if dtype is not None and v.is_floating_point():
+            v = v.to(dtype)
+        d = batch
+        for p in parts[:-1]:
+            d = d.setdefault(p, {})
+        d[parts[-1]] = v
+    batch["strict_feats"] = True
+    meta = {"depth": int(z["depth"]), "seed": int(z["seed"]), "winners": z["winners"],
+            "rng_state": torch.as_tensor(z["rng_state"], dtype=torch.uint8)}
+    recorded = {k[4:]: z[k] for k in z.files if k.startswith("out/")}
+    losses = {k[5:]: z[k] for k in z.files if k.startswith("loss/")}
+    return batch, meta, recorded, losses

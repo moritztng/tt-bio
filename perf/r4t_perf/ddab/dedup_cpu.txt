@@ -1,0 +1,6 @@
+K torch.Size([4, 256])
+old 0.494 (4, 256, 256, 384) 2dff6a0c5447a97e 5f7ec75d74827aaf
+new 0.19 (4, 256, 256, 384) 2dff6a0c5447a97e 5f7ec75d74827aaf
+old 0.66 (4, 256, 256, 384) 2dff6a0c5447a97e 5f7ec75d74827aaf
+new 0.228 (4, 256, 256, 384) 2dff6a0c5447a97e 5f7ec75d74827aaf
+BROKEN-ARM declined (PASS) df4e3243ea7b8206 df4e3243ea7b8206

@@ -1,0 +1,41 @@
+{
+ "K": 4,
+ "n": 256,
+ "zdtype_in": "DataType.FLOAT32",
+ "zdtype": "DataType.BFLOAT16",
+ "batchK": [
+  0.9692,
+  0.9673,
+  0.9679,
+  0.9677,
+  0.9671,
+  0.9678
+ ],
+ "split": [
+  1.0063,
+  1.007,
+  1.0058,
+  1.0053,
+  1.0047,
+  1.0046
+ ],
+ "reblock_batchK": {
+  "rejects": {},
+  "stats": [
+   0,
+   0
+  ]
+ },
+ "reblock_batch1": {
+  "rejects": {},
+  "stats": [
+   0,
+   0
+  ]
+ },
+ "aiclk": [
+  1306,
+  1350,
+  40
+ ]
+}

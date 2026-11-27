@@ -44,6 +44,7 @@ Each runs as `tt-bio <command> --model <name>`:
 | [RFdiffusion3](https://www.biorxiv.org/content/10.1101/2025.09.18.676967) | All-atom design: binders, motif scaffolding, nucleic-acid binders | [`design`](#design) | `rfd3` |
 | [RFD4-Proteina](https://huggingface.co/nvidia/RFD4-Proteina) | Binder and motif design through a latent flow, with a thinking budget | [`design`](#design) | `rfd4` |
 | [PXDesign](https://github.com/bytedance/PXDesign) | Binder backbones against a target structure | [`design`](#design) | `pxdesign` |
+| [DiffDock-L](https://github.com/gcorso/DiffDock) | Places a small molecule in a receptor and ranks the poses | [`dock`](#docking) | `diffdock` |
 | ESMC | Protein language model embeddings | [`embed`](#protein-embeddings-esmc) | `esmc-300m`, `esmc-600m`, `esmc-6b` |
 | SaProt | Structure-aware embeddings, variant-effect scoring | [`saprot`](#structure-aware-protein-embeddings-saprot) | `saprot-35m`, `saprot-650m`, `saprot-1.3b` |
 | Nesso-1 | Protein-ligand binding affinity without a structure | [`affinity`](#binding-affinity-without-a-structure-nesso-1) | `nesso1` |
@@ -410,6 +411,22 @@ and no less accurate from 276 tokens up, and fp32 runs out of DRAM around 1000 t
 under ~150 tokens fp32 is the more faithful arm, and `--trunk fp32` switches back. See
 [`docs/nesso1.md`](docs/nesso1.md) for the input schema, the four upstream limits, and what to watch
 when comparing numbers against another implementation.
+
+## Docking
+
+`tt-bio dock` places a small molecule in a receptor and ranks the poses with DiffDock-L.
+
+```bash
+tt-bio dock receptor.pdb --ligand 'CC(=O)Oc1ccccc1C(=O)O' --model diffdock
+tt-bio dock ligands.csv --model diffdock --out_dir screen/
+```
+
+Poses are written in upstream DiffDock's layout (`rank1.sdf`,
+`rank1_confidence-0.42.sdf`, ...) plus a `confidence.json` listing the ranking, so an
+existing pipeline reads them unchanged. Defaults are DiffDock-L's published recipe, and
+the weights are fetched on first use with `tt-bio weights --download diffdock`. On a host
+with a Tenstorrent card the score network runs on the card, otherwise on CPU. See [`docs/docking.md`](docs/docking.md) for the input forms, pocket docking and the
+full flag map.
 
 ## Design
 
@@ -1069,7 +1086,7 @@ model tt-bio does not ship, and what it took for the ones it does: [`docs/portin
 
 ## Training
 
-Train OpenFold3 with the same forward the inference path uses:
+Train OpenFold3 or RFD4-Proteina with the same forward the inference path uses:
 
 ```bash
 pip install 'tt-bio[tenstorrent,train]'
@@ -1101,6 +1118,26 @@ tt-bio predict target.yaml --model openfold3 --checkpoint runs/openfold3/weights
 ```
 
 Without `--checkpoint`, `predict` folds with the shipped weights exactly as before.
+
+### RFD4-Proteina
+
+```bash
+tt-bio train batches/ --model rfd4 --steps 2000
+tt-bio train batches/ --model rfd4 --steps 2000 --chips 4
+```
+
+RFD4 trains the release trunk's own weights on upstream's flow-matching objective. Each step
+runs `k` noise candidates through the production trunk with gradients off, picks a winner the
+way upstream does, and trains that candidate's last recycle, so one step costs a fold plus one
+backward. DATA is required and it is a directory of training batches dumped by
+`perf/r4t/loss_parity_reference.py`, one `.npz` per example: the features, `x_1`/`x_t`/`t`, the
+candidate noise and upstream's own winners beside them.
+
+The flags the step does not honour are refused by name rather than ignored: `--lr` and
+`--warmup-steps` (upstream's rule runs at 1e-4 with no warmup), the LoRA flags, `--objective`
+and `--seed`. Everything else works as above, resume included.
+
+Training runs attention in float32, the setting that follows upstream's loss curve over 2,000 steps; designs and inference are unaffected ([why](docs/training.md#training-runs-on-the-device-float64-is-a-diagnostic)).
 
 `--help` lists the next layer: `--steps`, `--chips`, `--global-batch`, `--lr`,
 `--warmup-steps`, `--checkpoint-every`, `--tokens`, `--seed`. `--help-all` adds the expert
@@ -1139,12 +1176,13 @@ and the hook becomes public. More chips is `mesh=train.Mesh({"dp": [1, 2]})` one
 and adapters instead of weights is `train="adapters"`; one loop body serves both, which the
 escape-hatch test checks instruction for instruction.
 
-**What works today:** OpenFold3 end to end from the command line (data, featurisation, the
-weights, training its weights, checkpoints, resume, the agent files, folding with the result), the dry run, gradient
-checking, and data parallelism across the chips in one box. **What does not:** OpenFold3 is the
-only model that ships a training featuriser; `--model` offers only it, and another model
-registers its own with `tt_bio.train.catalogue.register`. LoRA adapters are not offered for
-OpenFold3: they have never been measured on it, and `predict` loads full weights only.
+**What works today:** OpenFold3 and RFD4-Proteina end to end from the command line (weights
+training, checkpoints, resume, the agent files, plus on-the-fly featurisation and `weights.pt`
+export for OpenFold3), the dry run, gradient checking, and data parallelism across the chips in
+one box. **What does not:** OpenFold3 is the only model that ships a training featuriser; RFD4
+takes pre-dumped batches, and other models register a featuriser with
+`tt_bio.train.catalogue.register`. LoRA adapters are not offered for OpenFold3 or RFD4: both
+train their own weights.
 
 `tt-bio train` follows OpenFold3's optimizer setup rather than Adam's library defaults, which
 differ in three places that no loss curve shows: `betas=(0.9, 0.95)`, no weight decay, and the

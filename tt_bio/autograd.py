@@ -90,7 +90,7 @@ __all__ = [
     "relu", "silu", "reshape", "pairwise_distance", "split_heads", "merge_heads",
     "split_heads_value", "merge_heads_value",
     "triangle_attention", "permute", "pair_contract", "checkpoint",
-    "install", "uninstall", "installed", "is_grad_enabled", "backward", "tape",
+    "install", "uninstall", "installed", "suspended", "is_grad_enabled", "backward", "tape",
     "exact", "exact_training", "exact_training_ops", "EXACT_TRAINING_OPS", "exact_softmax", "exact_softmax_installed",
     "exact_layer_norm_installed", "EXACT_SOFTMAX_STATS", "EXACT_LAYER_NORM_STATS",
 ]
@@ -4262,6 +4262,31 @@ def uninstall(*, exact_softmax: bool = False) -> None:
 def installed() -> bool:
     from . import ops
     return ops.grad_hook() is _hook
+
+
+@contextlib.contextmanager
+def suspended():
+    """Run a grad-off inference pass inside a training process with autograd hooks cleared.
+
+    `install()` leaves `ops.taping() == True` for the whole process, which makes every shipped
+    serving fused kernel decline even inside `no_grad()`. Entering `suspended()` outside `tape()`
+    clears the four hooks (and any installed exact-training overrides) for the block and restores
+    them on exit, so a grad-off candidate or evaluation pass takes the exact serving path. Raises
+    `RuntimeError` if entered while `tape()` is active.
+    """
+    from . import ops
+    _tt = sys.modules.get("tt_bio.taped_ttnn")
+    if _tt is not None and _tt._SHIMMED:
+        raise RuntimeError("autograd.suspended() must be entered outside autograd.tape()")
+    prev = (ops.set_recycle_hook(None),
+            ops.set_checkpoint_hook(None),
+            ops.set_host_softmax_hook(None),
+            ops.set_grad_hook(None))
+    try:
+        with without_exact():
+            yield
+    finally:
+        _restore_hooks(prev)
 
 
 # The taped ttnn surface lives in `taped_ttnn.py`, not here: `state/ptx/DESIGN.md` §6 puts

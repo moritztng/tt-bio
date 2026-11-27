@@ -90,6 +90,13 @@ def load_adapter(path, params: Dict[str, ag.Tensor], device, *, opt: Optional[Ad
             for fam in ("exp_avg", "exp_avg_sq", "momentum_buffer"):
                 if f"{fam}{_SPLIT}{name}" in blob:
                     getattr(opt, fam)[name] = blob[f"{fam}{_SPLIT}{name}"].astype(np.float32).copy()
+    if opt is not None:
+        # A Muon resume from a file without momentum would restart Muon at zero and quietly
+        # take a different step than the unbroken run.
+        lost = [n for n in getattr(opt, "muon_names", ()) if f"momentum_buffer{_SPLIT}{n}" not in blob]
+        if lost:
+            raise ValueError(f"{path}: no Muon momentum for {len(lost)} parameter(s) (e.g. {lost[0]}); "
+                             f"it was saved by a run without Muon, and resuming would zero it")
     with open(path, "rb") as fh:
         n = int.from_bytes(fh.read(8), "little")
         header = json.loads(fh.read(n))
@@ -125,6 +132,7 @@ class Checkpointer:
     lower_is_better: bool = True
     prefix: str = "adapter"
     written: list = field(default_factory=list)
+    pinned: list = field(default_factory=list)
 
     def __post_init__(self):
         self.dir = Path(self.dir)
@@ -155,6 +163,22 @@ class Checkpointer:
         self.written.append({"path": path, "step": step, "score": score})
         self._prune()
         return path
+
+    def pin(self, step: int) -> Optional[Path]:
+        """Exempt the newest checkpoint at or before ``step`` from pruning, for good.
+
+        A long run keeps a small ring to resume from, but a step it may later need to replay
+        (a loss spike) is gone from that ring 30 steps on. Pinning the checkpoint the step
+        started from keeps exactly what the replay needs and nothing else. Returns the pinned
+        path, or ``None`` when no checkpoint precedes ``step``.
+        """
+        before = [w for w in self.written if w["step"] <= step]
+        if not before:
+            return None
+        w = before[-1]
+        self.written.remove(w)
+        self.pinned.append(w)
+        return Path(w["path"])
 
     @property
     def weights(self) -> Path:

@@ -14,12 +14,15 @@
 #   R4T_AB_DRY=1 PY=<python> ...   skip booking/flock/chip wait (used to show a leg can FAIL)
 set -u
 N=${1:?chip}; R=${2:?outdir}; MAIN=${3:?main sha}; STEP=${4:?step sha}; LAND=${5:?land sha}
-PY=${PY:-$HOME/scratch/shipflow/venv312-1384f4c1b7bf/bin/python}
+PY=${PY:-$HOME/scratch/shipflow/venv312-c4f99e695d34/bin/python}
 ABB3_PY=${ABB3_PY:-$HOME/tt-bio-dev/env/bin/python}
 T=${T:-$HOME/r4t/land/trees}; IN=$HOME/rfd4-inputs; W=$HOME/rfd4-bundle; DESIGNS=2
 BOOK="python3 $HOME/spd/feed/book.py"; OWN=fleet-r4t-land
 mkdir -p "$R"; R=$(cd "$R" && pwd); D=$R/driver
 stamp(){ echo "$1 $(date -u +%FT%TZ)" | tee -a "$R/done"; }
+# shipflow venvs are garbage-collected: a vanished interpreter must stop the chain before it books a chip
+# (c6 burned its window on four rc=127 legs).
+for p in "$PY" "$ABB3_PY"; do [ -x "$p" ] || { stamp "ALLDONE FAIL preflight: no interpreter $p"; exit 4; }; done
 fails=0
 export TT_VISIBLE_DEVICES=$N TT_BIO_LEASE_CARDS=$N TT_BIO_LEASE_HOLDER=worker:r4t-land
 

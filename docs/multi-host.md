@@ -45,10 +45,11 @@ tt-bio predict ./targets --model boltz2 --out_dir ./out \
     --controller http://127.0.0.1:8765 --run-id job-42 --owner 3f9a...
 ```
 
-`predict`, `embed`, `saprot` and `design` all take `--controller`. The command checks
+`predict`, `embed`, `saprot`, `design` and `dock` all take `--controller`. The command checks
 the inputs, builds the run, blocks until every job has ended and writes results to
 `--out_dir` exactly as a local run would. It exits 0 when every job succeeded, 2 when
-some failed and 1 when all did.
+some failed and 1 when all did. `dock` is the exception: like a local screen it lists
+failed complexes in `failures.csv` and exits 1 only when none docked.
 
 - `--run-id` (on `predict` and `design`) names the run, so you can watch or cancel it by
   that id.
