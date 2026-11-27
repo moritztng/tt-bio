@@ -40,6 +40,7 @@ import torch
 from torch import Tensor
 
 TILE = 32
+LIST_BYTES = 1024  # compute.cpp schedule lists: TRISC0 has ~2 KB for them and its stack
 
 
 def pad32(n: int) -> int:
@@ -264,6 +265,12 @@ def _schedule(plan: EdgeTilePlan, g: Group):
         w_list.append(len(ents))
         for e in ents:
             w_list += list(e)
+    # compute.cpp keeps these lists as uint8_t in TRISC local memory (4 KB with the firmware's
+    # data and the stack): lists that outgrow it overflow the stack and hang the unpacker.
+    lists = [x for p in ab for x in p] + y_list + w_list
+    if max(lists) > 255 or len(lists) > LIST_BYTES:
+        raise NotImplementedError(f"schedule lists of {len(lists)} entries (max {max(lists)}) "
+                                  f"exceed the kernel's {LIST_BYTES}-byte uint8 budget")
     Gpack = torch.cat(gblocks, 1) if gblocks else torch.zeros(T, T, dtype=torch.float64)
     return dict(bj=bj, ab=[x for p in ab for x in p], y=y_list, w=w_list, Gpack=Gpack,
                 nG=max(nG, 1), nab=len(ab), ops=len(ab) + sum(len(k) for k in g.ag_ktiles)

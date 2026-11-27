@@ -18,9 +18,12 @@
 #include "api/compute/eltwise_binary.h"
 #include "api/compute/tile_move_copy.h"
 
-constexpr uint32_t ab_list[] = {AB_LIST};
-constexpr uint32_t y_list[] = {Y_LIST};
-constexpr uint32_t w_list[] = {W_LIST};
+// uint8_t, not uint32_t: these arrays live in TRISC local memory (4 KB, shared with firmware data
+// and the stack). At uint32_t the conv-signature lists left TRISC0 its 192-byte minimum stack
+// and the unpacker overflowed it and hung; edge_tile.py checks every entry fits a byte.
+constexpr uint8_t ab_list[] = {AB_LIST};
+constexpr uint8_t y_list[] = {Y_LIST};
+constexpr uint8_t w_list[] = {W_LIST};
 
 void kernel_main() {
     constexpr uint32_t KH = get_compile_time_arg_val(0);
@@ -132,7 +135,7 @@ void kernel_main() {
         p = 0;
         for (uint32_t wi = 0; wi < NW && !(ABL & 2); ++wi) {
             const uint32_t n = w_list[p];
-            const uint32_t* e = &w_list[p + 1];
+            const uint8_t* e = &w_list[p + 1];
             p += 1 + 3 * n;
             // Wt = H @ L2[wi]
             mm_init_short(cb_h, cb_l2);
