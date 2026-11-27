@@ -17,9 +17,13 @@ run, no noise on the final step.
 
 A receptor above 3000 residues is refused, as upstream refuses it, before any weights load.
 Below that the cost is time rather than memory: on one CPU box a 1712-residue receptor docks in
-639 s against 129 s for 87 residues, with peak memory 5.1 GB against 3.3 GB.
+639 s against 129 s for 87 residues, with peak memory 5.1 GB against 3.3 GB. On a p300 card a
+PoseBusters-sized complex takes 54 s at the default recipe; the first run after a new install
+adds about 70 s of one-off kernel compilation.
 
-Both networks run on host torch today, so a dock needs no card. The score network is graded
+On a host with a Tenstorrent card `tt-bio dock` pins a card and runs the score network's
+convolutions on it; with no card both networks run on host torch, so a dock never requires
+one. The confidence network stays on the host either way. The score network is graded
 against upstream's own at PCC 0.9999999999984 or better on every output, over three complexes
 at five points of the schedule. `--no_model` still runs upstream's randomized seed-conformer
 baseline, which needs no checkpoint.
