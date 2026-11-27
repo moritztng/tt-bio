@@ -80,10 +80,6 @@ def main():
     ap.add_argument("--attn-fp32", choices=("on", "off"), default="on",
                     help="q/k/v projections, q/k norms and attention in float32 (load_trunk attn_fp32). On by default: "
                          "with it off (bf16 attention) the RFD4 curve spikes at step 823 and fails G3; off is the opt-out")
-    ap.add_argument("--dw-2d", choices=("on", "off"), default="off",
-                    help="2D multicast program_config for long-K dW matmuls (tt_bio.mm_layout.DW_2D, r4t-perf B1)")
-    ap.add_argument("--recycle-serve", choices=("off", "fp32", "bf16"), default="off",
-                    help="run non-final winner recycle cycles under ops.suspend_tape() for serving fused kernels (r4t-perf K15)")
     ap.add_argument("--gate-bw", choices=("on", "off"), default="on",
                     help="backward of every o * sigmoid(g) gate as one kernel (tt_bio.gate_bw, r4t-perf G1) or the "
                          "seven-op composed path")
@@ -142,10 +138,7 @@ def main():
     lnbw.WEIGHTS = a.lnbw_weights == "on"
     from tt_bio import gate_bw
     gate_bw.GATE_BW_FUSED = a.gate_bw == "on"
-    from tt_bio import mm_layout as _mml
-    _mml.DW_2D = a.dw_2d == "on"
     from tt_bio.rfd4 import network as N, engine as E, trunk as TR
-    TR.RECYCLE_SERVE = "" if a.recycle_serve == "off" else a.recycle_serve
     from tt_bio.train.folds import Folds
     from tt_bio.train.checkpoint import Checkpointer, load_adapter
     from tt_bio.train.optim import AdamW
