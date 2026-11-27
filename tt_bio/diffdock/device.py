@@ -389,3 +389,48 @@ def convs_on_device(model, device, *, dtype=None, grade: bool = False) -> dict:
                 mod._modules[name] = swapped[full] = DeviceConvModule(
                     device, child, dtype=dtype, grade=grade, name=full)
     return swapped
+
+
+class DeviceScoreNetwork:
+    """The score network with its 19 convolutions on a card, every pose of a step in one forward.
+
+    Same interface as :class:`tt_bio.diffdock.score_model.HostScoreNetwork` (``config``,
+    ``score_fn``, ``confidence``), so the rollout does not know a card is involved. Two things
+    differ from the host class: the convolutions run through :class:`DeviceConvModule`, as one
+    device-resident stack per edge set, and a step is one :func:`~tt_bio.diffdock.static_net.static_forward`
+    over fixed-shape graphs instead of a loop over poses, which is what makes the shapes the same
+    every step. The confidence pass stays on the host.
+    """
+
+    on_device = True
+
+    def __init__(self, host, device):
+        self.host, self.device = host, device
+        self.model, self.config = host.model, host.config
+        self.convs = convs_on_device(host.model, device)
+
+    def score_fn(self, graph):
+        from tt_bio.diffdock.conv import pad_nodes
+        from tt_bio.diffdock.static_net import StaticComplex, static_forward
+
+        lig, rec = graph.ligand, graph.receptor
+        n_lig = lig["pos"].shape[0]
+        rec_x = self.host._receptor_x(rec)
+        built = {}
+
+        def score(step):
+            P = step.lig_pos.shape[0]
+            if P not in built:      # one layout per batch size; the rollout keeps it fixed
+                built[P] = StaticComplex.build(lig, rec_x, rec["pos"].float(),
+                                               rec["edge_index"], P)
+            c = built[P]
+            lp = pad_nodes(step.lig_pos.reshape(P * n_lig, 3).float(), c.sg.n_lig_padded)
+            with torch.no_grad():
+                return static_forward(self.model, c, lp, step.t_tr, step.tr_sigma,
+                                      step.rot_sigma, step.tor_sigma,
+                                      crop_cutoff=step.crop_cutoff)
+
+        return score
+
+    def confidence(self, graph, poses: Tensor):
+        return self.host.confidence(graph, poses)
