@@ -59,9 +59,8 @@ with ag.tape():
     zt = pc.taped(PairInputs(z0.constant, z0.bins[win:win + 1], z0.scale[win:win + 1], gamma, beta), br, bw, ttnn.float32)
     zc = ttnn.to_torch(zt.value).float().reshape(1, n, n, 384)
     ag.backward([zt], [ttnn.from_torch(G, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev)])
-for h, leaf in br.ups:
-    if leaf.grad is not None:
-        torch.autograd.backward([h], [ttnn.to_torch(leaf.grad).to(h.dtype).reshape(h.shape)])
+back = [(h, ttnn.to_torch(leaf.grad).to(h.dtype).reshape(h.shape)) for h, leaf in br.ups if leaf.grad is not None]
+torch.autograd.backward([h for h, _ in back], [g for _, g in back])   # gamma, beta share one graph: one pass, as Bridge.backward
 card = {nm: p.grad.detach().double() for nm, p in pb.named_parameters()}
 zerr = ((zc.double() - z64) * m[None, ..., None]).norm() / (z64 * m[None, ..., None]).norm()
 rows, ok = [], True
