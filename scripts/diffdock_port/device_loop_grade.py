@@ -185,6 +185,19 @@ def main():
     print("mask_rec_edges", out["mask_rec_edges"], flush=True)
     flush_json()
 
+    # --- the receptor crop, as a reduction over the complete cross graph --------------
+    # Last leg on purpose: it is the newest block and the json is flushed after each leg,
+    # so if the ttnn reduction raises, every measurement above it is already on disk.
+    cross_dev = masks.cross(*cvec, 20.0)
+    ref_near = sg.cross_mask(lp.double(), rp.double(), 20.0)
+    ref_keep = sg.rec_keep_from_cross(ref_near)
+    got_keep = ttnn.to_torch(dl.rec_keep(cross_dev, n_poses, n_lig, n_rec,
+                                         sg.n_rec_padded))[:sg.n_rec_padded, 0]
+    out["rec_keep"] = {"mismatches": int((got_keep.double() - ref_keep).abs().round().sum()),
+                       "kept": int(ref_keep.sum()), "nodes": int(sg.n_rec_padded)}
+    print("rec_keep", out["rec_keep"], flush=True)
+    flush_json()
+
     print(json.dumps({k: v for k, v in out.items() if isinstance(v, (int, float))}), flush=True)
     Path(args.out).write_text(json.dumps(out, indent=1))
 

@@ -276,3 +276,35 @@ class StepMasks:
         """:meth:`StaticGraphs.rec_edge_mask`: an edge survives the crop iff both ends do."""
         import ttnn
         return ttnn.multiply(gather(keep, src, n_edges), gather(keep, dst, n_edges))
+
+
+def rec_keep(cross_near, n_poses: int, n_lig: int, n_rec: int, n_rec_padded: int):
+    """:meth:`StaticGraphs.rec_keep` without a ``cdist`` and without a scatter.
+
+    The host builds the receptor crop either as an ``[n_rec, n_lig]`` distance matrix per
+    pose (`rec_keep`) or as an ``index_add`` over the cross edges (`rec_keep_from_cross`).
+    Neither is needed on the card: the cross graph is the **complete** ligand x receptor
+    pair set per pose, laid out source-major by :func:`graph.complete_pairs` and tiled by
+    pose, so edge ``((p * n_lig) + l) * n_rec + r`` is exactly the pair ``(p, l, r)``. "Some
+    ligand atom of this pose is within the radius of this residue" is then a reduction over
+    the ligand axis of a ``[n_poses, n_lig, n_rec]`` view, not a scatter into a node axis.
+
+    The reduction is a max of a 0/1 column, so it is exact in any dtype, and it agrees with
+    `rec_keep_from_cross` row for row (checked in torch at (24, 48, 4), (11, 37, 3) and
+    (40, 120, 10), equal everywhere).
+
+    *cross_near* is the ``[E, 1]`` cross mask; its first ``n_poses * n_lig * n_rec`` rows are
+    the real edges and the rest is pad. Returns an ``[n_rec_padded, 1]`` fp32 node mask with
+    the pad rows zero, which is what :meth:`StepMasks.rec_edges` and the cross product want.
+    """
+    import ttnn
+    real = n_poses * n_lig * n_rec
+    flat = ttnn.to_layout(ttnn.slice(cross_near, [0, 0], [real, 1]), ttnn.ROW_MAJOR_LAYOUT)
+    block = ttnn.to_layout(ttnn.reshape(flat, [n_poses, n_lig, n_rec]), ttnn.TILE_LAYOUT)
+    kept = ttnn.max(block, dim=1)                      # [n_poses, 1, n_rec] or [n_poses, n_rec]
+    rows = ttnn.reshape(ttnn.to_layout(kept, ttnn.ROW_MAJOR_LAYOUT), [n_poses * n_rec, 1])
+    if n_rec_padded > n_poses * n_rec:
+        pad = ttnn.zeros([n_rec_padded - n_poses * n_rec, 1], dtype=ttnn.float32,
+                         layout=ttnn.ROW_MAJOR_LAYOUT, device=cross_near.device())
+        rows = ttnn.concat([rows, pad], dim=0)
+    return ttnn.to_layout(rows, ttnn.TILE_LAYOUT)
