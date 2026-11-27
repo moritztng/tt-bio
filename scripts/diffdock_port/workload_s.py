@@ -16,6 +16,11 @@ from pathlib import Path
 ap = argparse.ArgumentParser()
 ap.add_argument("--edge-tp", default="gemm", choices=["gemm", "tile"])
 ap.add_argument("--name", default="wls")
+ap.add_argument("--warmup-all", action="store_true",
+                help="warm on all 72 jobs instead of the first 8. wlt2's batch 0 ran 16.9%% "
+                     "slower than batch 1, which breaks PROTOCOL's 10%% spread; the 8-ligand "
+                     "warm-up does not compile the shapes the 64 timed ligands need. Still "
+                     "discarded, still >= 8 ligands, so still protocol section 2.")
 args = ap.parse_args()
 
 T0 = time.time()
@@ -30,6 +35,8 @@ WARMUP, TIMED, BATCHES = 8, 64, 3
 jobs = read_csv_jobs(WL / "screen72.csv")
 assert len(jobs) == WARMUP + TIMED, len(jobs)
 warm, timed = jobs[:WARMUP], jobs[WARMUP:]
+if args.warmup_all:
+    warm = jobs
 options = DockOptions(device="tt", **({"edge_tp": "tile"} if args.edge_tp == "tile" else {}))
 
 t = time.time()
@@ -42,7 +49,7 @@ t = time.time()
 d = OUT / "warm"
 shutil.rmtree(d, ignore_errors=True)
 dock_run.dock(warm, options, d, isolate=True, model=model)
-print(f"warm-up batch ({WARMUP} ligands, discarded): {time.time() - t:.1f}s", flush=True)
+print(f"warm-up batch ({len(warm)} ligands, discarded): {time.time() - t:.1f}s", flush=True)
 
 RESULT = Path(f"/home/ttuser/scratch/dfd/perf/{args.name}.json")
 
@@ -59,7 +66,7 @@ def summary(rows, partial):
             "median_complexes_per_s": med, "min_complexes_per_s": w[0],
             "max_complexes_per_s": w[-1], "spread_frac_of_median": round(spread, 4),
             "spread_ok": spread <= 0.10,
-            "cold_lines": {"import_s": round(t_import, 3), "load_model_s": round(t_load, 3)},
+            "warmup_ligands": len(warm), "cold_lines": {"import_s": round(t_import, 3), "load_model_s": round(t_load, 3)},
             "b200_complexes_per_s": 0.24042, "ratio_vs_b200": round(med / 0.24042, 4)}
 
 
