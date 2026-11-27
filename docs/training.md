@@ -381,6 +381,50 @@ Without DATA the run uses upstream's own 8-structure sample (the subset its
 `tt_bio/data/openfold3_train_sample_files.json`. It is for trying the command, not for
 training a model.
 
+## RFD4-Proteina: a model whose step is its own
+
+RFD4 does not train through `train.loop`, and the reason is the step rather than the stack.
+Upstream's recipe runs `k` noise candidates through the trunk with gradients off, picks the
+winner the way inference does, and tapes only that candidate's LAST recycle; a generic loop
+that taped the whole forward would train a different model. So the step body lives in
+`tt_bio/train/rfd4_run.py` and `tt_bio/train/rfd4_tier0.py` puts the Tier-0 surface over it.
+Everything around the step is the shared stack: `Folds`, `AdamW` (with Muon on the 2-D weights
+outside `MUON_EXCLUDE`), `Checkpointer`, the launcher's `ProcessAxis` for data parallelism and
+`GradientCoverage` for the every-parameter-trains guard.
+
+```bash
+tt-bio train batches/ --model rfd4 --steps 2000
+tt-bio train batches/ --model rfd4 --steps 2000 --chips 4
+```
+
+DATA is a directory of batches as `perf/r4t/loss_parity_reference.py` dumps them: one `.npz`
+per example carrying the features, `x_1`/`x_t`/`t`, the candidate noise, and upstream's own
+winners and losses beside them. Step `i` trains on batch `i % len(DATA)`. DATA is required: the
+`rfd4_train_16.npz` fixture that ships with the package is upstream's collated features, which
+the objective and the parity tests read, and it carries none of what a step replays, so the
+command refuses by name rather than defaulting to it. All the batch files must agree on token length, because the length fixes the trimul
+prewarm: a crop narrower than `--tokens` leaves the in-projection weights without gradients.
+
+**A flag the step does not honour is refused, not ignored.** `--lr` and `--warmup-steps`
+(upstream's rule is 1e-4 with no warmup), `--train adapters`, `--rank`/`--alpha`/`--target`,
+`--objective` and `--seed` all refuse by name, before the run directory is claimed. They refuse
+only when typed: an untouched default never trips one.
+
+Training runs the trunk's attention in float32, the only setting measured to follow upstream's
+loss curve over 2,000 steps; bf16 attention is not validated for training
+([why](#training-runs-on-the-device-float64-is-a-diagnostic)). Inference is unaffected.
+
+Resume works as it does for OpenFold3 (run the same command again), reading the newest
+checkpoint in `OUT`, or in `OUT/rank0` when `--chips` named more than one. A checkpoint saves
+the fp32 masters together with Adam moments and Muon momentum, so a resumed step matches an
+uninterrupted run bit for bit on the same chip. Under data parallelism each rank writes its own
+JSON rows to `OUT/rank<r>.log`; `status.json` and `progress.jsonl` follow rank 0, whose masters
+every rank matches by digest.
+
+On one Blackhole Galaxy chip at 1350 MHz (`DC16-BG-0203-u26-22`, chip 28, 256 tokens, `k=4`,
+recycle depth 2, Muon + Adam over 558 parameters), a warm step from the installed wheel takes
+5.83 s median.
+
 ## What a run writes
 
 `OUT` is `--out`, `runs/<model>` by default.
@@ -696,7 +740,7 @@ where the same device kernels with a bf16 softmax backward read 2.168x
 
 RFD4-Proteina's trunk trains with its attention in float32: the q/k/v projections, the q/k norms
 and the attention itself (`load_trunk(..., training=True, attn_fp32=True)`, the default of
-`perf/r4t_step/trunk_step.py`; opt out with `--attn-fp32 off`). With bf16 attention a 2,000-step
+`tt-bio train --model rfd4` and `perf/r4t_step/trunk_step.py`, where `--attn-fp32 off` opts out). With bf16 attention a 2,000-step
 run against upstream's loss curve spikes at step 823 (loss 20362) and fails the curve bar; in
 float32 the same step reads 127.5 and the run passes. Inference is unchanged: `attn_fp32` is off
 unless a caller asks for it, and off builds the serving trunk, output for output.

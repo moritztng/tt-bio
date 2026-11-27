@@ -6,6 +6,12 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 ## [Unreleased]
 
 ### Added
+- **`tt-bio train batches/ --model rfd4` trains RFD4-Proteina's release trunk weights on Tenstorrent cards.** Each
+  step runs `k` noise candidates through the production trunk with gradients off, picks the winner on upstream's
+  flow-matching objective, and tapes the winner's last recycle using upstream's Muon + Adam update rule. Supports
+  single-chip and multi-chip data parallel (`--chips`), checkpoint and bit-identical resume from the same `--out`,
+  `status.json` / `progress.jsonl`, and refuses unhonoured flags by name. Inference and design outputs are
+  byte-identical when gradients are off. See [`docs/training.md`](docs/training.md#rfd4-proteina-a-model-whose-step-is-its-own).
 - **`tt-bio dock --model diffdock` places a ligand in a receptor and ranks the poses.** DiffDock-L, end to end:
   upstream's four-column CSV or a tt-bio job YAML in, upstream's `rank1.sdf` / `rank1_confidence-0.42.sdf` layout
   out, plus a `confidence.json` with the ranking. Defaults are the published inference recipe, so a plain command

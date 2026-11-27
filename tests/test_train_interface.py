@@ -199,10 +199,11 @@ def test_tier0_a_model_with_no_featuriser_refuses_by_name():
     from click.testing import CliRunner
 
     from tt_bio.train import catalogue
-    from tt_bio.train.cli import TRAINABLE, train
+    from tt_bio.train.cli import OWN_STEP, TRAINABLE, train
 
-    assert TRAINABLE == tuple(catalogue.SHIPPED), (
-        "the CLI's --model choices and the shipped featurisers disagree")
+    assert sorted(TRAINABLE) == sorted({*catalogue.SHIPPED, *OWN_STEP}), (
+        "the CLI's --model choices disagree with the shipped featurisers plus the models "
+        "whose training step is their own")
     before = set(sys.modules)
     res = CliRunner().invoke(train, [str(REPO_ROOT), "--model", "protenix-v2"])
     assert res.exit_code == 2 and "openfold3" in res.output, res.output

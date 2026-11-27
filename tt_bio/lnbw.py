@@ -30,7 +30,7 @@ FUSED = env_flag("TT_BIO_LNBW_FUSED", False)
 #: The training lever (weights' gradients from the kernel). Off unless armed; graded in perf/r4t_perf.
 WEIGHTS = env_flag("TT_BIO_LNBW_WEIGHTS", False)
 #: RMSNorm backward fusion (CENTER=0, no beta): serves both weight-free and gamma-weighted RMSNorms.
-RMS = env_flag("TT_BIO_RMSBW_FUSED", False)
+RMS = env_flag("TT_BIO_RMSBW_FUSED", True)
 
 #: Served and declined calls by reason, cumulative; sample at a round boundary.
 REACH: collections.Counter = collections.Counter()

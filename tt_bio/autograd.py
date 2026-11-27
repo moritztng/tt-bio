@@ -287,7 +287,7 @@ FANIN_MIXED = False
 # for the closure: 1,719 Typecast calls a BindCraft 2 round right after a widen_add, 0.249 s of
 # card. On, `add_grad` holds the last contribution back and the closure's read does that add with
 # a bf16 output, rounded once at pack (`rne_add.round_add`). Any other read flushes it as before.
-FANIN_CAST_FUSED = env_flag("TT_BIO_FANIN_CAST_FUSED", False)
+FANIN_CAST_FUSED = env_flag("TT_BIO_FANIN_CAST_FUSED", True)
 FANIN_CAST_STATS = {"served": 0, "flushed": 0}
 #: `Tensor.grad_slab` joins: whole (every slice written, no concat) or cut back out.
 SLAB_STATS = {"whole": 0, "cut": 0}
@@ -1154,7 +1154,7 @@ SPLIT_K_STATS = {"served": 0}
 # whatever the fidelity (LoFi = HiFi4 time), while minimal_matmul on a pre-transposed operand is 1.1-2.9x faster
 # at the same or better rel vs float64 (perf/r4t_perf/mm/prog.json). Served only on what was measured:
 # bf16, 2-D, interleaved, tile-multiple, >= MMVJP_MIN_ROWS tokens. Anything else, or any error, falls back.
-MMVJP_MIN = env_flag("TT_BIO_MMVJP_MIN", False)
+MMVJP_MIN = env_flag("TT_BIO_MMVJP_MIN", True)
 MMVJP_BROKEN = env_flag("TT_BIO_MMVJP_BROKEN", False)  # grader's broken arm: dX against the UN-transposed W
 MMVJP_TUNE = env_flag("TT_BIO_MMVJP_TUNE", True)       # grid-filling MinimalMatmulConfig on dW/dX
 MMVJP_DW_SPLIT_K = env_flag("TT_BIO_MMVJP_DW_SPLIT_K", False)  # prefer zero-transpose _split_k on uncached small dW
@@ -1183,30 +1183,40 @@ def _mmvjp_config(M: int, K: int, N: int, table: dict, device, *, fill_small: bo
     spec = table.get((Mt, Kt, Nt)) or table.get((Mt, Nt))
     if spec is None:
         if not fill_small:
-            return None
-        # Unified grid-filling rule for small-output long-K dW products: pick (Mb, Nb) dividing
-        # (Mt, Nt) so ceil(Mt/Mb)*ceil(Nt/Nb) fills the core grid instead of default 8x8 (2-8 cores).
-        ncores = int(grid.x) * int(grid.y)
-        kb = max(d for d in (8, 4, 2, 1) if Kt % d == 0)
-        best = None
-        for mb in (1, 2, 4):
-            if Mt % mb:
-                continue
-            for nb in (1, 2, 4):
-                if Nt % nb:
+            # Unified dX rule for long-M pair/token projections (screened on BH Galaxy 120c:
+            # m8_k4_n2_s2x2 for Nt<=12 and m8_k4_n4_s1x4 for wider Nt beat default minimal_matmul
+            # by 1.05-1.22x across all 5 RFD4 dX shapes at strictly tighter float64 rel_L2).
+            if Mt >= 128 and Kt % 4 == 0 and Nt >= 8:
+                if Nt <= 12 and Nt % 2 == 0:
+                    spec = (8, 4, 2, 2, 2)
+                elif Nt % 4 == 0:
+                    spec = (8, 4, 4, 1, 4)
+            if spec is None:
+                return None
+        else:
+            # Unified grid-filling rule for small-output long-K dW products: pick (Mb, Nb) dividing
+            # (Mt, Nt) so ceil(Mt/Mb)*ceil(Nt/Nb) fills the core grid instead of default 8x8 (2-8 cores).
+            ncores = int(grid.x) * int(grid.y)
+            kb = max(d for d in (8, 4, 2, 1) if Kt % d == 0)
+            best = None
+            for mb in (1, 2, 4):
+                if Mt % mb:
                     continue
-                blocks = (Mt // mb) * (Nt // nb)
-                waves = -(-blocks // ncores)
-                active = min(blocks, ncores)
-                # Prefer 1 wave with maximum active cores, breaking ties toward larger blocks (more reuse).
-                score = (waves == 1, active, mb * nb)
-                if best is None or score > best[0]:
-                    sh = max(d for d in (2, 1) if mb % d == 0)
-                    sw = max(d for d in (4 // sh, 2, 1) if nb % d == 0 and sh * d <= 4)
-                    best = (score, (mb, kb, nb, sh, sw))
-        if best is None:
-            return None
-        spec = best[1]
+                for nb in (1, 2, 4):
+                    if Nt % nb:
+                        continue
+                    blocks = (Mt // mb) * (Nt // nb)
+                    waves = -(-blocks // ncores)
+                    active = min(blocks, ncores)
+                    # Prefer 1 wave with maximum active cores, breaking ties toward larger blocks (more reuse).
+                    score = (waves == 1, active, mb * nb)
+                    if best is None or score > best[0]:
+                        sh = max(d for d in (2, 1) if mb % d == 0)
+                        sw = max(d for d in (4 // sh, 2, 1) if nb % d == 0 and sh * d <= 4)
+                        best = (score, (mb, kb, nb, sh, sw))
+            if best is None:
+                return None
+            spec = best[1]
     mb, kb, nb, sh, sw = spec
     return ttnn.MinimalMatmulConfig(
         M_block_size=mb, K_block_size=kb, N_block_size=nb,
@@ -1841,7 +1851,7 @@ def _tree_sum(t, ax):
 SUM_LEADING_SPLIT = env_flag("TT_BIO_SUM_LEADING_SPLIT", True)
 SUM_LEADING_BROKEN = env_flag("TT_BIO_SUM_LEADING_BROKEN", False)
 SUM_LEADING_MIN_ROWS = 4096
-SUM_LEADING_CHUNKS = int(os.environ.get("TT_BIO_SUM_LEADING_CHUNKS", "32"))
+SUM_LEADING_CHUNKS = int(os.environ.get("TT_BIO_SUM_LEADING_CHUNKS", "16"))
 SUM_LEADING_STATS = {"split": 0, "stock": 0}
 
 

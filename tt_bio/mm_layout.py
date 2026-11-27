@@ -87,7 +87,7 @@ def _dram_interleaved(t) -> bool:
 #: ttnn.matmul plans those shapes onto 12-66 cores (6.8-30.8 TF/s); sizing the 2D grid to the
 #: device compute grid with L1-safe `in0_block_w` hits 42-62 TF/s (1.96-6.52x) at equal or tighter
 #: float64 rel_L2 with zero transpose and zero extra DRAM allocation.
-DW_2D = env_flag("TT_BIO_DW_2D", False)
+DW_2D = env_flag("TT_BIO_DW_2D", True)
 DW_2D_REACH: collections.Counter = collections.Counter()
 
 

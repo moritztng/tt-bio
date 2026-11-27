@@ -459,7 +459,7 @@ def rne_add_masked(a, b, m, memory_config=None, out=None, device=None):
 # no cast to remove.
 
 #: The lever. Default OFF and release-gated; `autograd.Tensor.add_grad` is the only caller.
-WIDEN_ADD = env_flag("TT_BIO_WIDEN_ADD", False)
+WIDEN_ADD = env_flag("TT_BIO_WIDEN_ADD", True)
 
 #: Served and declined calls by name, cumulative; sample at a round boundary.
 WIDEN_REACH: collections.Counter = collections.Counter()
@@ -477,9 +477,9 @@ def widen_eligible(a, b) -> bool:
     """What `widen_add` serves. Everything else falls through to the caller's widened path."""
     if not WIDEN_ADD:
         return False
-    if _ops.taping():
-        # Nothing tapes a backward, so this never fires on the fan-in; a taped caller would need
-        # a tape entry, and there is none.
+    if not isinstance(a, ttnn.Tensor) or not isinstance(b, ttnn.Tensor):
+        # Refuse any taped `autograd.Tensor` carrier; raw device tensors inside `backward()`
+        # are never taped even while `ag.install()` keeps `_ops.taping()` True.
         return _widen_decline("taped")
     if a.dtype not in _WIDE_IN or b.dtype not in _WIDE_IN:
         return _widen_decline("dtype")

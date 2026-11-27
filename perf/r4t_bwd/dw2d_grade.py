@@ -93,14 +93,14 @@ def main():
         B = ttnn.from_torch(bh, dtype=ttnn.bfloat16, **tile)
 
         mml.DW_2D = False
-        old_sk = ag.SPLIT_K
-        ag.SPLIT_K = False
+        old_sk = ag.SPLIT_K_OUT_TILES
+        ag.SPLIT_K_OUT_TILES = 0
         t_stk, o_stk = timed(lambda: ag._matmul(A, B, transpose_a=True, dtype=ttnn.float32, compute_kernel_config=cfg))
         r_stk, c_stk = metrics(o_stk, ref64)
         ttnn.deallocate(o_stk)
 
         mml.DW_2D = True
-        ag.SPLIT_K = old_sk
+        ag.SPLIT_K_OUT_TILES = old_sk
         t_2d, o_2d = timed(lambda: ag._matmul(A, B, transpose_a=True, dtype=ttnn.float32, compute_kernel_config=cfg))
         r_2d, c_2d = metrics(o_2d, ref64, scale=1.10 if brk else 1.0)
         ttnn.deallocate(o_2d)
@@ -122,12 +122,12 @@ def main():
         A = ttnn.from_torch(ah, dtype=ttnn.bfloat16, **tile)
         B = ttnn.from_torch(bh, dtype=ttnn.bfloat16, **tile)
 
-        ag.SPLIT_K = False
+        ag.SPLIT_K_OUT_TILES = 0
         t_stk, o_stk = timed(lambda: ag._matmul(A, B, transpose_a=True, dtype=ttnn.float32, compute_kernel_config=cfg))
         r_stk, c_stk = metrics(o_stk, ref64)
         ttnn.deallocate(o_stk)
 
-        ag.SPLIT_K = True
+        ag.SPLIT_K_OUT_TILES = 144
         ag.SPLIT_K_BROKEN = brk
         t_sk, o_sk = timed(lambda: ag._matmul(A, B, transpose_a=True, dtype=ttnn.float32, compute_kernel_config=cfg))
         r_sk, c_sk = metrics(o_sk, ref64)
