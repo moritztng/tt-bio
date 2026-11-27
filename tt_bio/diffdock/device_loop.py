@@ -1131,6 +1131,10 @@ class DeviceStep:
         sh = self.rec_stack.assemble(self.device, [self.rec_sh], self.rec_sh.shape[1])
         m = self.rec_stack.assemble(self.device, [mask], 1)
         h = self.rec_stack(h, ea, sh, m, self.ns)
+        # the stack's trailing padding node is its own bookkeeping, not a receptor node: the
+        # main stack concatenates `sg.n_rec_padded` receptor rows after the ligand's, and one
+        # extra row here overflows its node count
+        h = ttnn.slice(h, [0, 0], [self.sg.n_rec_padded, h.shape[1]])
         # the host adds the sigma term after the stack: rec_h[:, :ns] += rec_sig, and the same
         # row onto every receptor edge attribute
         sig = self.rec_sig_mlp(sigma_row)
