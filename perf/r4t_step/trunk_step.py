@@ -574,7 +574,6 @@ def main():
         t2b = time.time()
         opt.step(replicas={nm: [g] for nm, g in grads.items() if g is not None}) if ax else opt.step()
         mark("opt")
-        opt.step()
         for p in params.values():
             p.grad = None
         t2c = time.time()
