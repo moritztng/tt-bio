@@ -1150,6 +1150,7 @@ class DeviceStep:
 
     def _ligand(self, lig_pos, sigma_row):
         """``(lig_h, lig_eattr, lig_sh, lig_mask)`` for this step's positions."""
+        import ttnn
         vec = self.lig_geo.vectors(lig_pos)
         dist = norm3(*vec)
         mask = self.masks.lig(dist, self.cfg.lig_max_radius)
@@ -1159,7 +1160,13 @@ class DeviceStep:
         ea = self.lig_stack.assemble(self.device, [eattr], eattr.shape[1])
         esh = self.lig_stack.assemble(self.device, [sh], sh.shape[1])
         m = self.lig_stack.assemble(self.device, [mask], 1)
-        return self.lig_stack(h, ea, esh, m, self.ns), eattr, sh, mask
+        # same crop as the receptor's: the stack hands back its own padded node count and
+        # the main stack concatenates exactly `sg.n_lig_padded` ligand rows before the
+        # receptor's. One extra row here shifts every receptor node by a tile and every
+        # cross and receptor edge then reads the wrong one.
+        out = self.lig_stack(h, ea, esh, m, self.ns)
+        return (ttnn.slice(out, [0, 0], [self.sg.n_lig_padded, out.shape[1]]),
+                eattr, sh, mask)
 
     # -- the step -----------------------------------------------------------------------
 
