@@ -210,7 +210,7 @@ def _matmul(a, b, compute_kernel_config, transpose_a, transpose_b, budget, max_c
             fidelity = ttnn.MathFidelity.HiFi3
     for t in (a, b):
         mc = t.memory_config()
-        if (t.dtype not in (ttnn.bfloat16, ttnn.bfloat8_b) or t.layout != ttnn.TILE_LAYOUT
+        if (t.dtype not in (ttnn.bfloat16, ttnn.bfloat8_b, ttnn.bfloat4_b) or t.layout != ttnn.TILE_LAYOUT
                 or mc.memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED or len(t.shape) != 4
                 or int(t.shape[0]) != 1):
             return None
