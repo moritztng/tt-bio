@@ -694,6 +694,13 @@ where the same device kernels with a bf16 softmax backward read 2.168x
 (`perf/of3t_p10exact`). A crop-384 step on a p150a at 1350 MHz takes 54.3 s, 7.1x an H200's 7.620 s
 (`perf/of3t_p10default`).
 
+RFD4-Proteina's trunk trains with its attention in float32: the q/k/v projections, the q/k norms
+and the attention itself (`load_trunk(..., training=True, attn_fp32=True)`, the default of
+`perf/r4t_step/trunk_step.py`; opt out with `--attn-fp32 off`). With bf16 attention a 2,000-step
+run against upstream's loss curve spikes at step 823 (loss 20362) and fails the curve bar; in
+float32 the same step reads 127.5 and the run passes. Inference is unchanged: `attn_fp32` is off
+unless a caller asks for it, and off builds the serving trunk, output for output.
+
 The device path keeps the attention probabilities on the card for the backward, so on one card it
 fits OpenFold3 up to 512 aa (26.0 GB of 34.2 GB at 512). 544 and 576 fit only with `--exact`, and
 `tt-bio train` turns it on for those crops by itself and says so. Lower `--tokens` to stay on

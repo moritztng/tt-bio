@@ -79,8 +79,9 @@ def main():
                          "under tt_bio.train.exact_fp32 (host float64, rounded once)")
     ap.add_argument("--break", dest="brk", action="store_true",
                     help="with --grad-dump: the gross broken arm, block 0's Q slice dropped from its fold VJP")
-    ap.add_argument("--attn-fp32", choices=("on", "off"), default="off",
-                    help="D59 remedy arm: q/k/v projections, q/k norms and attention in float32 (load_trunk attn_fp32)")
+    ap.add_argument("--attn-fp32", choices=("on", "off"), default="on",
+                    help="q/k/v projections, q/k norms and attention in float32 (load_trunk attn_fp32). On by default: "
+                         "with it off (bf16 attention) the RFD4 curve spikes at step 823 and fails G3; off is the opt-out")
     ap.add_argument("--gate-bw", choices=("on", "off"), default="on",
                     help="backward of every o * sigmoid(g) gate as one kernel (tt_bio.gate_bw, r4t-perf G1) or the "
                          "seven-op composed path")
