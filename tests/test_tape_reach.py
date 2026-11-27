@@ -67,6 +67,9 @@ ALLOWED = {
     # host-side `PairSplit` that the ttnn-free `network.py` imports beside the card's
     # `PairOnCard`, so it defers for the same reason.
     "rfd4/engine.py", "rfd4/pair.py",
+    # DiffDock-L is inference only and nothing tapes it either. `device.py` and `capture.py`
+    # defer the import so `tt-bio dock` and the CPU reference path import without the wheel.
+    "diffdock/device.py", "diffdock/capture.py",
     # A kernel-source patcher, not a model path.
     "kernels/trimul_tail/patch_trimul_tail.py",
     # `bindcraft2.py` defers the import because `pin_card()` has to set TT_VISIBLE_DEVICES

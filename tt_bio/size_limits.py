@@ -1004,6 +1004,13 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
             "trunk's O(N^3), so nothing fast falls off between them. Nothing above 1024 has been "
             "tried, so there is still no failing size to refuse on and this row refuses nothing"),
     },
+    "diffdock": {
+        "wormhole_b0": _unmeasured(
+            "no size ladder walked for DiffDock-L yet; it landed 2026-11-27 and its graded runs are "
+            "PoseBusters complexes, which are pocket-sized receptors. Nothing on record failed"),
+        "blackhole": _unmeasured(
+            "no size ladder walked for DiffDock-L on Blackhole yet; same state as the Wormhole row"),
+    },
     "nesso1": {
         "wormhole_b0": _unmeasured(
             "no ceiling, and unusually this is a positive result rather than an untested gap: the "

@@ -23,6 +23,13 @@
       "chains": 2,
       "lig_heavy_atoms": 9,
       "conformer_seed": 42
+    },
+    {
+      "id": "7FT9_4MB",
+      "residues": 771,
+      "chains": 7,
+      "lig_heavy_atoms": 14,
+      "conformer_seed": 42
     }
   ]
 }

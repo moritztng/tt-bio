@@ -4,5 +4,5 @@
 set -u
 cd /home/moritz/.coworker/wt/dfd-knn32
 while pgrep -f "score_net_parity.py --id 7BJ6_TVK" > /dev/null; do sleep 30; done
-OUT=/home/moritz/.coworker/wt/dfd-knn32/artifacts/dfd-knn32/grade \
-  ./artifacts/dfd-knn32/grade_knn32.sh 7F8T_FAD
+OUT=/home/moritz/.coworker/wt/dfd-knn32/perf/dfd-knn32/grade \
+  ./perf/dfd-knn32/grade_knn32.sh 7F8T_FAD

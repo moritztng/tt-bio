@@ -36,9 +36,9 @@ network does not implement it and is run step by step;
 agree, and it skips until a device network offers this member.
 
 `load` returns the host implementation, `score_model.HostScoreNetwork`, around the released
-v1.1 weights. A card implementation replaces that return value and nothing else: the dock
-path above it (graph, ESM-2 embeddings, randomised start, rollout, ranking, upstream's output
-layout) runs against any object with these members.
+v1.1 weights, or with ``DockOptions(device="tt")`` `device.DeviceScoreNetwork`, the same
+weights with every convolution on the card. The dock path above it (graph, ESM-2 embeddings,
+randomised start, rollout, ranking, upstream's output layout) runs against either.
 """
 
 from __future__ import annotations
@@ -106,4 +106,15 @@ def load(options, *, cache=None, download: bool = False) -> ScoreNetwork:
                                                cache, download=download)
         confidence = cm.load_checkpoint(c_ckpt, c_params.parent,
                                         old_model=options.old_filtering_model)
-    return score_model.HostScoreNetwork(model, confidence_model=confidence)
+    host = score_model.HostScoreNetwork(model, confidence_model=confidence)
+    if options.device == "cpu":
+        return host
+    from tt_bio.diffdock.device import DeviceScoreNetwork
+    from tt_bio.main import ensure_p300_mesh_descriptor
+    from tt_bio.tenstorrent import get_device
+
+    ensure_p300_mesh_descriptor()
+    # The fp32 GEMM form is the approved default: the fused edge-tile kernel is 3.9x faster
+    # whole-step but its pose and SE(3) re-grade is not finished, and a measured win is not
+    # made the default before the accuracy bar clears it.
+    return DeviceScoreNetwork(host, get_device())

@@ -65,6 +65,8 @@ dependencies = [
     "pdbeccdutils",       # CCD component lookup
     "func_timeout",       # RDKit conformer-embedding timeout guard
     "networkx",           # CCD bond-graph connected components
+    "spyrmsd",            # symmetry-corrected RMSD, tt_bio/diffdock/evaluate.py
+    "posebusters",        # physical-validity rate, tt_bio/diffdock/evaluate.py
     "packaging",          # tt_bio/_vendor/openfold3/__init__.py version check
     # RF3 vendors AtomWorks (see NOTICE #7) for host featurization. typing_extensions
     # backs the 3.10 shim for typing.Never.
