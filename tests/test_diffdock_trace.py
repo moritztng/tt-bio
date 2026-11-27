@@ -184,13 +184,15 @@ def test_traced_rollout_matches_untraced():
     """
     pytest.importorskip("ttnn")
 
-    from tt_bio.diffdock import network, sampling
+    from tt_bio.diffdock import checkpoints, network, sampling
     from tt_bio.diffdock.capture import capture_loop
 
     try:
         model = network.load(_device_options())
     except network.ScoreNetworkUnavailable as e:
         pytest.skip(f"no device score network yet: {e}")
+    except checkpoints.CheckpointMissing as e:
+        pytest.skip(str(e))   # 124 MiB, not in the repo: a host without them skips
     if not hasattr(model, "trace_body"):
         pytest.skip("the score network does not offer trace_body: nothing to capture yet")
 
