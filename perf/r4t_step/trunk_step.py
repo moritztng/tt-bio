@@ -41,7 +41,10 @@ def main():
     ap.add_argument("--out", default=os.path.expanduser("~/r4t/step/tck"))
     ap.add_argument("--cand-pair", choices=("host", "card"), default="card",
                     help="where the grad-off K-candidate pass builds z_init: host (upstream's builder) or the serving "
-                         "card path (rfd4.pair.PairOnCard: host constant + bins, card assembly). The taped winner is always host.")
+                         "card path (rfd4.pair.PairOnCard: host constant + bins, card assembly).")
+    ap.add_argument("--win-pair", choices=("host", "card"), default="host",
+                    help="where the taped winner builds z_init and runs its backward: host (upstream's builder, torch "
+                         "autograd, the pair and its gradient over PCIe) or the card (PairOnCard.taped; needs --cand-pair card)")
     ap.add_argument("--cand-levers", choices=("training", "serving", "inference"), default="serving",
                     help="lever set of the grad-off K-candidate pass: the training set, or that set plus the dropped levers that "
                          "switch at run time (pair_bf16z, dit_sigf32, tok_recycle_mm; r4t-perf K2). The pass only picks the "
@@ -366,9 +369,17 @@ def main():
                         return winner(put(s_i), put(z_i, trunk.pair_dtype(m1)),
                                       [put(c, trunk.dtype) for c in conds_for(bw)], m1)
                 cs = conds_for(bw)
-                s_i, z_i = glue.initial_states(bw)
-                s, z = winner(br.up(s_i, ttnn.float32), br.up(z_i, trunk.pair_dtype(m1)),
-                              [br.up(c) for c in cs], m1)
+                if pc and a.win_pair == "card":
+                    # r4t-perf P2: the winner's pair on the card from the candidate pass's constant, its backward too
+                    from tt_bio.rfd4.pair import PairInputs
+                    s_i = glue.init_repr_factory(bw) * bw["padding_mask"][..., None]
+                    gamma, beta = glue.pair_split.modulation(bw)
+                    zw = PairInputs(z0.constant, z0.bins[win:win + 1], z0.scale[win:win + 1], gamma, beta)
+                    z_in = pc.taped(zw, br, bw, trunk.pair_dtype(m1))
+                else:
+                    s_i, z_i = glue.initial_states(bw)
+                    z_in = br.up(z_i, trunk.pair_dtype(m1))
+                s, z = winner(br.up(s_i, ttnn.float32), z_in, [br.up(c) for c in cs], m1)
             return s, z, dict(br=br, bw=bw, win=win, shape=s_i.shape)
 
         def real_loss(s, ctx):

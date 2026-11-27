@@ -155,6 +155,18 @@ class PairSplit:
         proj = torch.cat(parts, dim=-1) @ self.w_const.t()
         return PairConstant(proj, self.scales(proj))
 
+    def features(self, batch: dict) -> torch.Tensor:
+        """`[b, n, n, 107]` fp32: every pair feature in the projection's column order, the step's one-hot included.
+        What a weight gradient of the projection reads (`PairOnCard.taped`)."""
+        n = batch["padding_mask"].shape[-1]
+        parts = []
+        for creator in self.builder.init_repr_factory.feat_creators:
+            f = creator(batch)
+            if f.ndim == 2:
+                f = f.reshape(f.shape[0], 1, 1, -1).expand(-1, n, n, -1)
+            parts.append(f.float())
+        return torch.cat(parts, dim=-1)
+
     def scales(self, proj: torch.Tensor, rows: int = 4096) -> torch.Tensor:
         """`[..., nbins]` fp32: `r1 * r2` of `proj + W_x[k]` for every bin k, in float64.
         `r1 = rsqrt(mean(x^2) + eps1)` is the first RMSNorm's, `r2 = rsqrt(r1^2 mean(x^2 w^2) +
@@ -277,7 +289,7 @@ class PairOnCard:
             ttnn.deallocate(t)
         return z
 
-    def one_program(self, const, bins: torch.Tensor, scale: torch.Tensor, gamma: torch.Tensor, beta: torch.Tensor):
+    def one_program(self, const, bins: torch.Tensor, scale: torch.Tensor, gamma, beta, unit: bool = False):
         """The same z as the ttnn ops below, as one program (`tt_bio.pair_build`), or None where it declines.
         Its gather is exact, so z sits closer to float64 than the one-hot matmul's."""
         import ttnn
@@ -288,13 +300,112 @@ class PairOnCard:
         rm = dict(layout=ttnn.ROW_MAJOR_LAYOUT, device=self.device)
         bins_tt = ttnn.from_torch(bins.reshape(b * n, n).to(torch.int32), dtype=ttnn.uint32, **rm)
         scale_tt = ttnn.from_torch(scale.reshape(b * n, n).float().contiguous(), dtype=ttnn.float32, **rm)
-        wg = (self.split.ln_weight.double() * gamma.double()).float()
-        wg_tt, beta_tt = (ttnn.from_torch(v.float()[:, None, :].expand(b, 32, c).contiguous(), layout=ttnn.TILE_LAYOUT,
-                                          device=self.device, dtype=ttnn.float32) for v in (wg, beta))
+        if unit:  # x itself: unit scale and gain, no shift (`_x`)
+            wg, beta = torch.ones(b, c), torch.zeros(b, c)
+        else:
+            wg = (self.split.ln_weight.double() * gamma.double()).float()
+        wg_tt, beta_tt = (ttnn.from_torch(v.detach().float()[:, None, :].expand(b, 32, c).contiguous(),
+                                          layout=ttnn.TILE_LAYOUT, device=self.device, dtype=ttnn.float32)
+                          for v in (wg, beta))
         z = pair_build(const, self.table, bins_tt, scale_tt, wg_tt, beta_tt)
         for t in (bins_tt, scale_tt, wg_tt, beta_tt):
             ttnn.deallocate(t)
         return z
+
+    def taped(self, p: PairInputs, bridge, batch: dict, dtype=None):
+        """The training winner's z_init: the program `__call__` runs, taped. Its backward stays on the card and hands
+        the builder's projection and norm weights and the AdaLN's gamma and beta their gradients, so neither the
+        pair nor its gradient crosses PCIe and the host never runs a pair-sized backward. `p.gamma`/`p.beta` carry
+        the host graph to the conditioning (`PairSplit.modulation` under grad); `p.constant` is the one the
+        candidate pass already put on the card. The VJP is upstream's, rewritten for the split
+        (`perf/r4t_perf/pair_vjp_ref.py` checks it against torch autograd in float64):
+
+            n1 = x r1,  a = n1 w,  b = a r2,  z = b gamma + beta
+            dgamma = sum g b,  dbeta = sum g,  da = r2 (g gamma - b mean(g gamma b)),  dw = sum da n1
+            dx = r1 (da w - n1 mean(da w n1)),  dW = dx^T F
+        """
+        import ttnn
+
+        from .. import autograd as ag
+
+        b = int(p.bins.shape[0])
+        assert b == 1, "one taped winner a step"
+        z = self(p, 0)
+        if dtype is not None and z.dtype != dtype:
+            z32, z = z, ttnn.typecast(z, dtype)
+            ttnn.deallocate(z32)
+        fac = self.split.builder.init_repr_factory
+        W, lnw = fac.linear_out.weight, fac.ln_out.weight
+        leaves = [bridge.up(t, ttnn.float32) for t in (W, lnw, p.gamma, p.beta)]
+        if not any(t.requires_grad for t in leaves):
+            return ag.Tensor(z)
+        n, c = int(p.bins.shape[1]), int(W.shape[0])
+        e1, e2 = float(fac.ln_out.eps), float(self.split.builder.adaln.norm.eps)
+        feats = self.split.features(batch).reshape(n * n, -1)
+        k = int(feats.shape[-1])
+        exact = torch.equal(feats.bfloat16().float(), feats)
+        kp = -(-k // 32) * 32
+        F = ttnn.from_torch(torch.nn.functional.pad(feats, [0, kp - k]).to(torch.bfloat16 if exact else torch.float32),
+                            dtype=ttnn.bfloat16 if exact else ttnn.float32, layout=ttnn.TILE_LAYOUT, device=self.device)
+        const = self._const[2]
+        bins = p.bins
+        row = lambda v: ttnn.from_torch(v.detach().float().reshape(1, 1, 1, c), dtype=ttnn.float32,
+                                        layout=ttnn.TILE_LAYOUT, device=self.device)
+        w_tt, g_tt = row(lnw), row(p.gamma)
+
+        def make():
+            def bw(g):
+                cfg = ag.precise_config()
+                mean = lambda v: ag._row_mean(v, cfg, c)
+                g = ttnn.typecast(g, ttnn.float32) if g.dtype != ttnn.float32 else g
+                x = self._x(const, bins)
+                r1 = ttnn.rsqrt(ttnn.add(mean(ttnn.multiply(x, x)), e1))
+                n1 = ttnn.multiply(x, r1)
+                ttnn.deallocate(x)
+                a = ttnn.multiply(n1, w_tt)
+                r2 = ttnn.rsqrt(ttnn.add(mean(ttnn.multiply(a, a)), e2))
+                bb = ttnn.multiply(a, r2)
+                ttnn.deallocate(a)
+                Wl, Ll, Gl, Bl = leaves
+                if Bl.requires_grad:
+                    Bl.add_grad(ag._sum_leading(g, Bl.value.shape))
+                if Gl.requires_grad:
+                    Gl.add_grad(ag._sum_leading(ttnn.multiply(g, bb), Gl.value.shape))
+                db = ttnn.multiply(g, g_tt)
+                da = ttnn.multiply(ttnn.subtract(db, ttnn.multiply(bb, mean(ttnn.multiply(db, bb)))), r2)
+                for t in (db, bb, r2):
+                    ttnn.deallocate(t)
+                if Ll.requires_grad:
+                    Ll.add_grad(ag._sum_leading(ttnn.multiply(da, n1), Ll.value.shape))
+                if Wl.requires_grad:
+                    dn1 = ttnn.multiply(da, w_tt)
+                    dx = ttnn.multiply(ttnn.subtract(dn1, ttnn.multiply(n1, mean(ttnn.multiply(dn1, n1)))), r1)
+                    dW = ttnn.matmul(ttnn.reshape(dx, [n * n, c]), F, transpose_a=True, dtype=ttnn.float32,
+                                     compute_kernel_config=cfg)
+                    Wl.add_grad(ttnn.slice(dW, [0, 0], [c, k]) if kp != k else dW)
+                    for t in (dn1, dx):
+                        ttnn.deallocate(t)
+                for t in (da, n1, r1, F, w_tt, g_tt):
+                    ttnn.deallocate(t)
+            return bw
+
+        return ag._tape(z, leaves, make, reads=())
+
+    def _x(self, const, bins: torch.Tensor):
+        """`C + W_x[bins]`, [b, n, n, pair] fp32: the pre-norm projection the forward normalises."""
+        import ttnn
+
+        b, n, c = int(bins.shape[0]), int(bins.shape[1]), int(self.table.shape[1])
+        z = self.one_program(const, bins, torch.ones(b, n, n), None, None, unit=True)
+        if z is not None:
+            return z
+        rows = self.rows(bins)
+        full = const if int(const.shape[0]) == b else ttnn.concat([const] * b, dim=0)
+        x = ttnn.add(rows, full)
+        ttnn.deallocate(rows)
+        if full is not const:
+            ttnn.deallocate(full)
+        return x
 
     def rows(self, bins: torch.Tensor):
         """`W_x[bins]` on the card, [b, n, n, pair] fp32, the fp32 weight rows to ~1e-4."""
