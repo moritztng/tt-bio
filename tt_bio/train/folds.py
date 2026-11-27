@@ -257,6 +257,8 @@ def _dev_slice_f32(x, dim: int, start: int, end: int):
     fin = list(shape)
     beg[d] = int(start)
     fin[d] = int(end)
+    if beg == [0] * rank and fin == list(shape):
+        return _dev_clone_f32(x)
     if _is_aligned_for_tile(shape, d, beg[d], fin[d]):
         return ttnn.slice(x, beg, fin)
     # Non-32-aligned last dim on a 2-D tensor (e.g. bias_ws (384, 24) -> (384, 12)):
@@ -269,10 +271,11 @@ def _dev_slice_f32(x, dim: int, start: int, end: int):
         return out
     rm, rm_owner = _to_row_major_f32(x)
     s_rm = ttnn.slice(rm, beg, fin)
+    tl, _ = _to_tile_f32(s_rm)
+    if s_rm is not rm:
+        ttnn.deallocate(s_rm)
     if rm_owner is not False:
         ttnn.deallocate(rm_owner)
-    tl, _ = _to_tile_f32(s_rm)
-    ttnn.deallocate(s_rm)
     return tl
 
 
@@ -434,23 +437,40 @@ def _ones_row_bf16(k: int, device):
 def _sum_dim0_exact_f32(x2d):
     """Exact fp32 sum along dim 0 of a 2-D ``[K, M]`` TILE tensor -> ``[1, M]``.
 
-    Uses ``ones([1, K]) @ hi + ones([1, K]) @ lo`` in bf16->fp32 HiFi4+fp32_dest_acc so:
+    Uses 3-part bf16 split ``ones([1, K]) @ (hi + mid + lo)`` in bf16->fp32 HiFi4+fp32_dest_acc so:
     (1) padded tile rows ``K..K_pad-1`` are multiplied by exact 0.0 (zero tail leakage), and
-    (2) avoids ``ttnn.sum``'s ~2.7e-4 TF32 unpack truncation (~3e-6 accuracy instead).
+    (2) full 24-bit IEEE fp32 mantissa is preserved (~1e-7 accuracy instead of TF32 ~2.7e-4).
     """
     import ttnn
-    from .device_optim import _ckc, _split2_bf16
+    from .device_optim import _ckc
 
     k = int(x2d.shape[0])
     ones = _ones_row_bf16(k, x2d.device())
     ckc = _ckc(ttnn.MathFidelity.HiFi4)
-    hi, lo = _split2_bf16(x2d)
-    s_hi = ttnn.matmul(ones, hi, dtype=ttnn.float32, compute_kernel_config=ckc)
-    s_lo = ttnn.matmul(ones, lo, dtype=ttnn.float32, compute_kernel_config=ckc)
+    bf16, f32 = ttnn.bfloat16, ttnn.float32
+    hi = ttnn.typecast(x2d, bf16)
+    hi_f = ttnn.typecast(hi, f32)
+    r1 = ttnn.subtract(x2d, hi_f)
+    ttnn.deallocate(hi_f)
+    mid = ttnn.typecast(r1, bf16)
+    mid_f = ttnn.typecast(mid, f32)
+    r2 = ttnn.subtract(r1, mid_f)
+    ttnn.deallocate(r1)
+    ttnn.deallocate(mid_f)
+    lo = ttnn.typecast(r2, bf16)
+    ttnn.deallocate(r2)
+
+    s_hi = ttnn.matmul(ones, hi, dtype=f32, compute_kernel_config=ckc)
+    s_mid = ttnn.matmul(ones, mid, dtype=f32, compute_kernel_config=ckc)
+    s_lo = ttnn.matmul(ones, lo, dtype=f32, compute_kernel_config=ckc)
     ttnn.deallocate(hi)
+    ttnn.deallocate(mid)
     ttnn.deallocate(lo)
-    out = ttnn.add(s_hi, s_lo)
+    s1 = ttnn.add(s_hi, s_mid)
     ttnn.deallocate(s_hi)
+    ttnn.deallocate(s_mid)
+    out = ttnn.add(s1, s_lo)
+    ttnn.deallocate(s1)
     ttnn.deallocate(s_lo)
     return out
 
