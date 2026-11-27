@@ -348,6 +348,26 @@ def tt_bdf_to_index() -> dict[str, int]:
                                                   key=_bdf_sort_key))}
 
 
+def tt_root_complexes() -> dict[int, str]:
+    """UMD device index -> the PCIe root complex (host bridge, ``pci0000:40``) the chip sits on.
+
+    Read from the sysfs device path, whose first ``pciDDDD:BB`` component is the host bridge.
+    A Galaxy puts its 32 chips on four complexes of eight (UMD 0-7, 8-15, 16-23, 24-31), and
+    ranks that share a complex share its host<->device bandwidth: measured on a BH Galaxy,
+    eight data-parallel ranks on one complex step in 10.9 s and the same eight spread over two
+    in 9.1 s, same digests.
+    """
+    by_bdf = tt_bdf_to_index()
+    out: dict[int, str] = {}
+    for entry in glob.glob("/sys/class/tenstorrent/tenstorrent!*/device"):
+        path = os.path.realpath(entry)
+        bdf = os.path.basename(path).lower()
+        bridge = next((part for part in path.split(os.sep) if part.startswith("pci")), "")
+        if bdf in by_bdf:
+            out[by_bdf[bdf]] = bridge
+    return out
+
+
 def umd_index_to_dev_node() -> dict[int, int]:
     """UMD device index -> ``/dev/tenstorrent/N`` node number.
 

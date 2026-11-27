@@ -88,6 +88,33 @@ _KEEP_STEPS = 2
 _RS_BLOCK = 1 << 16
 
 
+def spread(n: int, complexes: Optional[Dict[int, str]] = None) -> tuple:
+    """``n`` chips of this box, taken round-robin across its PCIe root complexes, ascending.
+
+    What ``--chips N`` means. Every rank moves weights and activations over PCIe each step, and
+    ranks on one complex share its bandwidth: on a BH Galaxy eight ranks on chips 0-7 (one
+    complex) step in 10.9 s, the same eight on 0-3 + 8-11 (two) in 9.1 s, with the same digests.
+    A box with one complex (a QuietBox) gets the first ``n``, as before. ``complexes`` maps UMD
+    index -> complex; it is read from sysfs when not given, and a box that lists fewer than
+    ``n`` chips also gets the first ``n``, so the device open is what reports a missing chip.
+    """
+    if complexes is None:
+        from ..runtime import tt_root_complexes
+        complexes = tt_root_complexes()
+    if len(complexes) < n:
+        return tuple(range(n))
+    groups: Dict[str, list] = {}
+    for i in sorted(complexes):
+        groups.setdefault(complexes[i], []).append(i)
+    queues = list(groups.values())
+    picked: list = []
+    while len(picked) < n:
+        for q in queues:
+            if q and len(picked) < n:
+                picked.append(q.pop(0))
+    return tuple(sorted(picked))
+
+
 def host_threads(world: int) -> int:
     """The host's physical cores divided across ``world`` ranks, at least one.
 

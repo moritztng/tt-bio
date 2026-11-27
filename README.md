@@ -1181,7 +1181,7 @@ Global batch is always yours to set and is never derived from how many chips you
 recipe means the same thing on a bigger box.
 
 Training on several chips is one flag, `--chips 2`, or one argument,
-`mesh=train.Mesh({"dp": [0, 1]})`. Under it a launcher runs your program once per chip and sums
+`mesh=train.Mesh({"dp": [0, 1]})`. A count spreads the chips across the box's PCIe root complexes, because ranks on one complex share its bandwidth: eight ranks on a Blackhole Galaxy step in 9.1 s spread over two complexes against 10.9 s on one. Under it a launcher runs your program once per chip and sums
 the gradients between them, the way `torchrun` does, so the program has to be re-runnable and
 must not open a card before the `finetune` call. Both are checked before anything starts. Two
 p150a chips on a QuietBox measured **1.96x** at a 0.33 MB adapter gradient and **1.70x** at 5.24

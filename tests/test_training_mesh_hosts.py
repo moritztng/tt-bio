@@ -58,11 +58,13 @@ def test_one_host_gives_back_the_bare_path():
 
 
 def test_the_chip_cap_is_per_box_and_the_host_count_multiplies_it():
-    assert Mesh({"dp": list(range(8))}, hosts=["a@b"]).chips == 2 * MAX_CHIPS_ONE_BOX
-    with pytest.raises(ValueError, match="beyond 8"):
-        Mesh({"dp": list(range(9))}, hosts=["a@b"])
-    with pytest.raises(ValueError, match="beyond 4"):
-        Mesh({"dp": list(range(5))})
+    cap = MAX_CHIPS_ONE_BOX
+    assert cap == 32
+    assert Mesh({"dp": list(range(2 * cap))}, hosts=["a@b"]).chips == 2 * cap
+    with pytest.raises(ValueError, match=f"beyond {2 * cap}"):
+        Mesh({"dp": list(range(2 * cap + 1))}, hosts=["a@b"])
+    with pytest.raises(ValueError, match=f"beyond {cap}"):
+        Mesh({"dp": list(range(cap + 1))})
 
 
 @pytest.mark.parametrize("peer", ["", "  ", "ttuser@a,ttuser@b", "ttuser@a+b", "tt user@a"])
