@@ -101,12 +101,30 @@ done
 
 # DOCK_DONE is not evidence that the work succeeded: pose_eval.py prints it from the complexes that
 # have a rank1.sdf, so a host where every chunk died (missing weights, dead venv) still writes
-# "DOCK_DONE 108/214" in 10 s. Grade only when the pool actually holds the whole set.
-# Every id on both lists is now either pooled or refused with a reason. The pool itself must still
-# be the whole set minus the refusals: 428 attempted, 4 refused by both sides (state/dfd/evidence/
-# residue-counts.json), so 424 pose directories.
-if [ "$n" -lt 424 ]; then
-  echo "$(date -u +%FT%TZ) lists are clear but the pool holds only $n of 424: not grading" \
+# "DOCK_DONE 108/214" in 10 s. Grade only when the pool actually holds every complex that is not
+# refused with a reason in the chunk logs.
+#
+# The expected count is NOT the constant 424. That number assumed the only refusals are the 4 both
+# sides refuse on receptor size (state/dfd/evidence/residue-counts.json). On 2026-11-27 three more
+# complexes (7AVI_S2Q, 7X5N_5M5, 7ZCC_OGA) ended in `linalg.svd ... non-finite` on the host path,
+# which upstream docked, so the pool tops out at 421 and a hard 424 would have blocked the grade
+# forever while both lists read clear. Every refusal is written to refusals.json with its reason:
+# a run-time failure is a MEASUREMENT (condition 4, nan_or_collapse), not a smaller denominator.
+python3 - "$ROOT/hostlogs" "$ROOT/refusals.json" <<'EOF'
+import json, pathlib, sys
+out = {}
+for lg in pathlib.Path(sys.argv[1]).rglob("dock-*.log"):
+    for ln in lg.read_text(errors="replace").splitlines():
+        if ln.startswith("FAILED ") or ln.startswith("skip "):
+            _, rest = ln.split(None, 1)
+            cid, _, why = rest.partition(":")
+            out.setdefault(cid.strip(), why.strip() or "no reason given")
+json.dump(out, open(sys.argv[2], "w"), indent=1, sort_keys=True)
+print(len(out))
+EOF
+expected=$((428 - $(python3 -c "import json,sys;print(len(json.load(open(sys.argv[1]))))" "$ROOT/refusals.json")))
+if [ "$n" -lt "$expected" ]; then
+  echo "$(date -u +%FT%TZ) lists are clear but the pool holds only $n of $expected: not grading" \
     >>"$ROOT/tick.log"
   exit 0
 fi
