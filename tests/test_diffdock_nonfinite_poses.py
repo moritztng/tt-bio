@@ -238,3 +238,64 @@ def test_the_guard_counts_nothing_bad_in_an_empty_head():
     score = torch.zeros(0)
     repaired, n_bad = sampling.guard_scores(score)
     assert repaired.shape == score.shape and int(n_bad) == 0
+
+
+# ---------------------------------------------------------------------------
+# the real thing: the heads 7ZCC_OGA's own rollout produced (D-dfd-sampling-11)
+# ---------------------------------------------------------------------------
+
+def test_the_dumped_7zcc_heads_run_through_unclamped_and_row_local():
+    """Driven off the dump of the step that killed the complex, not off a synthetic 1e30.
+
+    `tests/fixtures/diffdock/7ZCC_OGA_blowup.npz` carries the ligand and the tr/rot upstream's
+    own network returns at step 17 of this complex (tr 2.449e+15, rot 4.379e+16; the port
+    tracks it to PCC 0.999999997, `tests/test_diffdock_overflow_parity.py`). Those numbers are
+    not a bug and must not be clamped, so what this pins is the other half: the real heads go
+    through the rollout without raising, the sample they carry really does end ~1e18 A out
+    rather than being pulled back, and no other sample's arithmetic moves by a bit.
+
+    The covariance overflow itself needs the atoms *spread* that far, not merely translated --
+    `modify_conformer` centres before Kabsch, so a rigid 1e18 A translation cancels. The
+    spread case is driven directly in `blown_up_rollout` above; this test is the real-number
+    end of the same contract.
+    """
+    np = pytest.importorskip("numpy")
+    from pathlib import Path
+
+    path = Path(__file__).parent / "fixtures/diffdock/7ZCC_OGA_blowup.npz"
+    if not path.exists():
+        pytest.skip(f"no fixture at {path}")
+    d = np.load(path)
+    pos = torch.from_numpy(d["lig_pos"]).float()
+    tr_hot = torch.from_numpy(d["upstream_tr"]).float()
+    rot_hot = torch.from_numpy(d["upstream_rot"]).float()
+    assert torch.isfinite(tr_hot).all() and torch.isfinite(rot_hot).all(), (
+        "the dumped heads are finite -- that is the whole point of this case")
+    assert tr_hot.abs().max() > 1e15 and rot_hot.abs().max() > 1e16
+
+    batch, hot = 10, 4
+    lig_pos = pos.unsqueeze(0).repeat(batch, 1, 1)
+    edge_index = torch.zeros(0, 2, dtype=torch.long)
+    mask_rotate = torch.zeros(0, 3, dtype=torch.bool)
+    quiet = (torch.zeros(batch, 3), torch.zeros(batch, 3), torch.zeros(0))
+
+    def hot_scores(step):
+        tr, rot = torch.zeros(batch, 3), torch.zeros(batch, 3)
+        tr[hot], rot[hot] = tr_hot, rot_hot
+        return tr, rot, torch.zeros(0)
+
+    def run(score_fn):
+        return sampling.sample(score_fn, lig_pos, cfg=config(), bounds=BOUNDS,
+                               noise=sampling.Noise(seed=17), edge_index=edge_index,
+                               mask_rotate=mask_rotate)
+
+    out = run(hot_scores)
+    clean = run(lambda step: quiet)
+
+    assert torch.isfinite(out.poses).all(), "the real heads must not end in a non-finite pose"
+    assert out.poses[hot].abs().max() > 1e15, "the head was clamped: the sample never travelled"
+    for row in range(batch):
+        if row == hot:
+            continue
+        assert torch.equal(out.poses[row], clean.poses[row]), row
+    assert not bool(clean.failed.any())
