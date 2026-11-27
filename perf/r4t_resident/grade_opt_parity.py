@@ -150,7 +150,7 @@ class Float64MuonAdamEMA:
             return k, buf, new_w
 
         if len(self.muon_names) >= 8:
-            with ThreadPoolExecutor(max_workers=8) as ex:
+            with ThreadPoolExecutor(max_workers=16) as ex:
                 for res in ex.map(_muon_one, self.muon_names):
                     if res is not None:
                         k, buf, new_w = res
