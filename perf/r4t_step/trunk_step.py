@@ -126,9 +126,10 @@ def main():
     else:
         PM = None
     mark = (lambda name: PM.phase(name)) if PM else (lambda name: None)
+    sp = lambda name: None
     if not PM and os.environ.get("R4T_SIGNPOST"):   # r4t-ceiling: phase starts as Tracy signposts (device profiler runs only)
         from tracy import signpost
-        mark = lambda name: signpost(header=name)
+        mark = sp = lambda name: signpost(header=name)
     import faulthandler
     import signal
     faulthandler.register(signal.SIGUSR1)   # kill -USR1 <pid> prints every thread stack to the log
@@ -424,7 +425,9 @@ def main():
                 s0, z0 = glue.initial_states(bt, pair_constant=glue.pair_split.constant(bt) if pc else None)
             if a.cand_levers == "serve":
                 with ag.suspended(), cand_scope():
+                    sp("cand_pair")
                     zk0 = pc(z0, 0) if pc else put(z0, trunk.pair_dtype(mk))
+                    sp("cand_trunk")
                     sk, zk = trunk(put(s0), zk0, [put(c, trunk.dtype) for c in ck], mk)
                     sh = ttnn.to_torch(sk).float().reshape(s0.shape)
                 for t in (sk, zk):
@@ -432,7 +435,9 @@ def main():
             with T.lever_scope(levers), ag.tape():
                 if a.cand_levers != "serve":
                     with ag.no_grad(), cand_scope():
+                        sp("cand_pair")
                         zk0 = pc(z0, 0) if pc else put(z0, trunk.pair_dtype(mk))
+                        sp("cand_trunk")
                         sk, zk = trunk(put(s0), zk0, [put(c, trunk.dtype) for c in ck], mk)
                         sh = ttnn.to_torch(getattr(sk, "value", sk)).float().reshape(s0.shape)
                     for t in (sk, zk):
@@ -457,10 +462,13 @@ def main():
                     s_i = glue.init_repr_factory(bw) * bw["padding_mask"][..., None]
                     gamma, beta = glue.pair_split.modulation(bw)
                     zw = PairInputs(z0.constant, z0.bins[win:win + 1], z0.scale[win:win + 1], gamma, beta)
+                    sp("win_pair")
                     z_in = pc.taped(zw, br, bw, trunk.pair_dtype(m1))
                 else:
                     s_i, z_i = glue.initial_states(bw)
+                    sp("win_pair")
                     z_in = br.up(z_i, trunk.pair_dtype(m1))
+                sp("win_trunk")
                 s, z = winner(br.up(s_i, ttnn.float32), z_in, [br.up(c) for c in cs], m1)
             return s, z, dict(br=br, bw=bw, win=win, shape=s_i.shape)
 
@@ -473,6 +481,7 @@ def main():
             total, bd, seeds = RO.rfd4_loss({**npy(bw), "exploration_k": 1},
                                             {k: v.detach().double().numpy() for k, v in o.items()}, RO.WEIGHTS)
             sur = sum((o[k] * torch.from_numpy(np.asarray(g)).to(o[k].dtype)).sum() for k, g in seeds.items())
+            sp("tape_bwd")
             br.backward(sur)
             terms = {k: v.get("value") for k, v in bd.items() if isinstance(v, dict)}
             ref = {k: float(cur["ref"][k][ctx["win"]]) for k in terms if k in cur["ref"]
