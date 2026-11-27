@@ -71,3 +71,18 @@ def test_suspended_refuses_inside_tape():
         with pytest.raises(RuntimeError, match="outside autograd.tape"):
             with ag.suspended():
                 pass
+
+
+def test_suspend_tape_unshims_and_restores_inside_tape():
+    from tt_bio import taped_ttnn as TT
+
+    with ag.tape():
+        assert bool(TT._SHIMMED) is True
+        assert ops.taping() is True
+        with ops.suspend_tape():
+            assert not TT._SHIMMED
+            assert ops.taping() is False
+        assert bool(TT._SHIMMED) is True
+        assert ops.taping() is True
+        wrapped = ops.wrap_untaped("raw_handle")
+        assert isinstance(wrapped, ag.Tensor) and wrapped.requires_grad is False
