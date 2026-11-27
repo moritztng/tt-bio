@@ -350,18 +350,13 @@ def bench_dict_on_mesh(sub, rm, cm, out_path, nl=2, ag_ring=True, force_linear=F
     # uploading 558 shapes across 32 ranks stays fast (~10s) while every rank holds distinct fp32 data.
     t0 = time.time()
     rank_scales = torch.linspace(0.5, 1.5, N, dtype=torch.float32)
-    scale_1d = ttnn.from_torch(
-        rank_scales.reshape(N, 1), dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=sub,
-        mesh_mapper=ttnn.ShardTensorToMesh(sub, dim=0),
-    )
     scale_2d = ttnn.from_torch(
         rank_scales.reshape(N, 1, 1), dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=sub,
         mesh_mapper=ttnn.ShardTensorToMesh(sub, dim=0),
     )
+    scale_11 = ttnn.reshape(scale_2d, [1, 1])
     dev_grads = {}
     ref_base = {}
-    ref_sum_factor = float(rank_scales.sum().item())
-    # Exact rank-order serial sum & floor on a 1D sample per shape (exact match to per-rank scalar * base)
     g_rng = torch.Generator().manual_seed(777)
     for name, shp in shapes.items():
         base = torch.randn(shp, generator=g_rng, dtype=torch.float32)
@@ -369,13 +364,20 @@ def bench_dict_on_mesh(sub, rm, cm, out_path, nl=2, ag_ring=True, force_linear=F
         ref_base[name] = base
         t_rep = ttnn.from_torch(base, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=sub)
         if len(shp) == 1:
-            t_sh = ttnn.multiply(t_rep, ttnn.reshape(scale_1d, [1]))
+            t_2d = ttnn.reshape(t_rep, [1, shp[0]])
+            t_m = ttnn.multiply(t_2d, scale_11)
+            if t_2d is not t_rep and t_2d.buffer_address() != t_rep.buffer_address():
+                t_2d.deallocate()
+            t_sh = ttnn.reshape(t_m, [shp[0]])
+            if t_sh is not t_m and t_sh.buffer_address() != t_m.buffer_address():
+                t_m.deallocate()
         else:
-            t_sh = ttnn.multiply(t_rep, ttnn.reshape(scale_2d, [1, 1]))
+            t_sh = ttnn.multiply(t_rep, scale_11)
         t_rep.deallocate()
         dev_grads[name] = t_sh
     ttnn.synchronize_device(sub)
-    scale_1d.deallocate()
+    if scale_11 is not scale_2d and scale_11.buffer_address() != scale_2d.buffer_address():
+        scale_11.deallocate()
     scale_2d.deallocate()
     print(f"  uploaded 558 distinct-rank device grads in {time.time() - t0:.1f}s", flush=True)
 
@@ -411,10 +413,13 @@ def bench_dict_on_mesh(sub, rm, cm, out_path, nl=2, ag_ring=True, force_linear=F
         for nm in check_names:
             t_out = out_last[nm]
             shp = shapes[nm]
+            v_out = ttnn.reshape(t_out, [1, *shp])
             b = ttnn.to_torch(
-                ttnn.reshape(t_out, [1, *shp]),
+                v_out,
                 mesh_composer=ttnn.ConcatMeshToTensor(sub, dim=0),
             )
+            if v_out is not t_out and v_out.buffer_address() != t_out.buffer_address():
+                v_out.deallocate()
             agree &= all(torch.equal(b[0], b[i]) for i in range(N))
             # Exact per-rank reference tensor [N, *shp]
             ranks = ref_base[nm].unsqueeze(0) * rank_scales.reshape(N, *([1] * len(shp)))
