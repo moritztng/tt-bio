@@ -35,6 +35,8 @@ def transpose_exact_f32(t):
     """
     import ttnn
 
+    if len(t.shape) < 2:
+        return ttnn.clone(t)
     u = ttnn.bitcast(t, ttnn.uint32)
     ut = ttnn.transpose(u, -2, -1)
     return ttnn.bitcast(ut, ttnn.float32)
