@@ -78,8 +78,9 @@ def main():
                           args=(stop, samples, os.environ.get("TT_VISIBLE_DEVICES", "0")))
     th.start()
 
+    in_fixture = int(fx["steps"][sorted(fx["steps"])[0]].lig_pos.shape[0])
     out = {"complex": fx["complex"], "convs_on_device": len(convs),
-           "poses_in_fixture": int(fx["steps"][sorted(fx["steps"])[0]].lig_pos.shape[0]),
+           "poses": args.poses or in_fixture, "poses_in_fixture": in_fixture,
            "dtype": "bfloat16" if args.bf16 else "float32", "steps": {}}
     for k, step in sorted(fx["steps"].items()):
         have = step.lig_pos.shape[0]
