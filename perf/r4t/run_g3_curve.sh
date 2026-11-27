@@ -5,6 +5,7 @@
 # since the last attempt (the CurveLog truncates to the resume step, so the log stays one gap-free run).
 #
 #   run_g3_curve.sh CARD SRC DUMP OUT     SRC = a checkout of the code under test (.sha beside it)
+#   EXTRA="--attn-fp32 on" selects an arm; it is passed to trunk_step unchanged and lands in each checkpoint meta.
 # Waits for booking $OWNER to hold CARD with the node free, re-running `book.py add` while it waits so
 # the window only moves earlier. Done flag: an END or GAVE-UP line in OUT/run.log.
 C=${1:?card}; SRC=${2:?src}; DUMP=${3:?dump}; OUT=${4:?out}; OWNER=${OWNER:-r4t-accuracy-g3}
@@ -26,7 +27,7 @@ for try in 1 2 3 4; do
   env PYTHONPATH=$SRC TT_VISIBLE_DEVICES=$C TT_BIO_LEASE_CARDS=$C TT_BIO_LEASE_HOLDER=worker:r4t-accuracy \
       TT_BIO_SDPA_OWN_FORWARD=1 TT_BIO_SHA=$sha \
       $PY perf/r4t_step/trunk_step.py --n 256 --k 4 --curve-dump "$DUMP" --curve-out "$OUT/ours.jsonl" \
-      --save-every 10 --keep 3 --pin-spike 5 --exempt perf/r4t_step/g2_exempt.tsv --out "$OUT/ck" ${last:+--resume "$last"} \
+      --save-every 10 --keep 3 --pin-spike 5 --exempt perf/r4t_step/g2_exempt.tsv --out "$OUT/ck" ${last:+--resume "$last"} ${EXTRA:-} \
       >> "$OUT/leg.log" 2>&1
   rc=$?
   echo "RC try$try $rc $(date -u +%T) resumed_from=${last:-none}" >> "$OUT/run.log"
