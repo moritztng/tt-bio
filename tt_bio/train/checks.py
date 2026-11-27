@@ -124,7 +124,7 @@ def metrics(got: np.ndarray, ref: np.ndarray) -> dict:
     }
 
 
-def fd_check(loss_fn, params, n_probe=40, h=1e-5, seed=0, mag_floor=1e-6, kinks=None):
+def fd_check(loss_fn, params, n_probe=40, h=1e-5, seed=0, mag_floor=1e-6, kinks=None, kinked=True):
     """Central differences in float64 against torch's float64 analytic gradient.
 
     This validates the REFERENCE, so it runs entirely in float64 and never touches a device.
@@ -152,6 +152,13 @@ def fd_check(loss_fn, params, n_probe=40, h=1e-5, seed=0, mag_floor=1e-6, kinks=
     a coin flip deciding the verdict (net5 fp32 trunk arm: 104 probed, 110 skipped, unverified). If
     fewer than half the requested probes found a smooth coordinate the result is ``inf``: a reference
     that cannot be differenced has not been verified.
+
+    ``kinked=False`` declares a smooth reference (no ReLU; a TrunkBlock is sigmoid, SiLU, rsqrt and
+    softmax) and takes the plain central difference at ``h``. Step-shrinking is wrong there: at a smooth
+    point ``h`` and ``h/10`` differ by the float64 roundoff of ``h/10`` (~1.5e-7 of the gradient scale on a
+    128-token block, against a 1e-8 agreement tolerance), so smooth coordinates read as kinks (898) and a
+    pair of roundoff-dominated small steps that agreed by chance was accepted: 2.1e-6 at
+    ``mhba.adaln.to_gamma.0.bias`` where the difference at ``h`` is 4e-8 from the analytic gradient.
 
     Returns ``(worst relative disagreement, coordinates probed, coordinates eligible)``.
     """
@@ -189,7 +196,8 @@ def fd_check(loss_fn, params, n_probe=40, h=1e-5, seed=0, mag_floor=1e-6, kinks=
             if got == want:
                 break
             i = int(i)
-            num = _smooth_central(loss_fn, flat, i, h, FD_AGREE * FD_BAR * scale)
+            num = (_smooth_central(loss_fn, flat, i, h, FD_AGREE * FD_BAR * scale) if kinked
+                   else _central(loss_fn, flat, i, h))
             if num is None:
                 skipped += 1
                 if kinks is not None:
@@ -284,7 +292,7 @@ def gradcheck(name: str, *, ref_loss, ref_params, tt_grads: Dict[str, np.ndarray
               ref_grads: Optional[Dict[str, np.ndarray]] = None,
               op_class: str = "reduction", dtype: str = "float32",
               gate_mask: Optional[Dict[str, tuple]] = None,
-              n_probe: int = 40, h: float = 1e-5, seed: int = 0) -> GradcheckReport:
+              n_probe: int = 40, h: float = 1e-5, seed: int = 0, kinked: bool = True) -> GradcheckReport:
     """Check a device gradient against a finite-difference-verified float64 reference.
 
     ``ref_loss`` is a zero-argument callable returning a float64 torch scalar built from
@@ -316,7 +324,8 @@ def gradcheck(name: str, *, ref_loss, ref_params, tt_grads: Dict[str, np.ndarray
 
     # Level 1: the reference, before anything else.
     kinks = []
-    worst, probed, eligible = fd_check(ref_loss, ref_params, n_probe=n_probe, h=h, seed=seed, kinks=kinks)
+    worst, probed, eligible = fd_check(ref_loss, ref_params, n_probe=n_probe, h=h, seed=seed, kinks=kinks,
+                                       kinked=kinked)
     rep.fd_worst, rep.fd_probed, rep.fd_eligible, rep.fd_kinked = worst, probed, eligible, len(kinks)
     rep.reference_verified = bool(worst < FD_BAR)
     if not rep.reference_verified:

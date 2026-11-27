@@ -248,7 +248,8 @@ def main():
     rep = CK.gradcheck(f"{a.module}/{a.arm}" + ("/own" if a.sdpa_own else "") + ("/broken" if a.brk else "") + (f"/x1.10:{a.scale_grad}" if a.scale_grad else ""),
                        ref_loss=lambda: (ref_fn(wref, ref) * seed).sum(),
                        ref_params=[ref[k] for k in names], tt_grads={k: got[k] for k in names},
-                       op_class="reduction", dtype=dname, n_probe=a.probe, seed=a.seed)
+                       op_class="reduction", dtype=dname, n_probe=a.probe, seed=a.seed,
+                       kinked=a.module != "trunk_block")  # a TrunkBlock has no ReLU (fd_check kinked=)
     print(rep, flush=True)
     fresh = bf16_floor() if committed is not None else {}
     if any(abs(f["rel"] - committed.get(k, {"rel": -1.0})["rel"]) > 1e-9 * max(f["rel"], 1e-12) for k, f in fresh.items()):
