@@ -24,7 +24,7 @@ Precision (D34 / D89):
 from __future__ import annotations
 
 import math
-from typing import Callable, Dict, Mapping, Optional, Tuple
+from typing import Callable, Collection, Dict, Mapping, Optional, Tuple
 
 from .optim import Muon
 
@@ -38,6 +38,17 @@ __all__ = [
 
 _ONES_COL_CACHE: Dict[Tuple[int, int], object] = {}
 _ONES_ROW_CACHE: Dict[Tuple[int, int], object] = {}
+_ONES_K1M_CACHE: Dict[Tuple[int, int, int], object] = {}
+
+
+def _read_rep0(t):
+    """MeshDevice-safe host readback: reads chip 0's shard on multi-chip SPMD MeshDevice."""
+    import ttnn
+
+    dev = t.device()
+    n_dev = getattr(dev, "get_num_devices", lambda: 1)()
+    src = ttnn.get_device_tensors(t)[0] if n_dev > 1 else t
+    return ttnn.to_torch(src)
 
 
 def _safe_dealloc(t, keep=None) -> None:
@@ -192,6 +203,23 @@ def _ones_row_bf16(m: int, device):
     return t
 
 
+def _ones_k1m_bf16(k: int, m: int, device):
+    """Cached ``[k, 1, m]`` bf16 TILE rows of ones for all-core stage-1 reduction ``[k, 1, m] @ [k, m, n]``."""
+    import torch
+    import ttnn
+
+    key = (id(device), int(k), int(m))
+    hit = _ONES_K1M_CACHE.get(key)
+    if hit is not None and hit.is_allocated():
+        return hit
+    t = ttnn.from_torch(
+        torch.ones(int(k), 1, int(m), dtype=torch.bfloat16),
+        dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=device,
+    )
+    _ONES_K1M_CACHE[key] = t
+    return t
+
+
 def _assign_shards(
     shapes: Mapping[str, Tuple[int, ...]],
     muon_names: frozenset,
@@ -235,19 +263,45 @@ def _sum_sq_last2_exact_f32(x):
     """Exact per-slice sum of squares over the last two dims of ``[k, m, n]`` -> ``[k, 1, 1]`` fp32.
 
     Uses 2-part bf16 matmuls against exact ``ones`` vectors (0.0 in padded tile tails) with
-    HiFi2 + fp32_dest_acc (bit-exact for bf16 x bf16): eliminates ``ttnn.sum``'s ~2.7e-4 TF32
+    HiFi2 + fp32_dest_acc (bit-exact for bf16 x {0, 1}): eliminates ``ttnn.sum``'s ~2.7e-4 TF32
     unpack truncation AND masks out padded rows/cols on non-32-aligned shapes.
+
+    When ``m > 1`` and ``n >= 32``, reduces along ``m`` first via ``[k, 1, m] @ [k, m, n] ->
+    [k, 1, n]`` so stage 1 spreads ``k * ceil(n/32)`` output tiles across all Tensix cores
+    instead of ``Nt = 1`` (10 cores), then finishes ``[k, 1, n] @ [n, 1] -> [k, 1, 1]``.
     """
     import ttnn
 
     dev = x.device()
-    m, n = int(x.shape[-2]), int(x.shape[-1])
+    k, m, n = int(x.shape[0]), int(x.shape[-2]), int(x.shape[-1])
     ckc = _ckc(ttnn.MathFidelity.HiFi2)
     f32 = ttnn.float32
 
     x2 = ttnn.multiply(x, x)
     hi, lo = _split2_bf16(x2)
     ttnn.deallocate(x2)
+
+    if m > 1 and n >= 32:
+        ones_m = _ones_k1m_bf16(k, m, dev)
+        c_hi = ttnn.matmul(ones_m, hi, dtype=f32, compute_kernel_config=ckc)
+        c_lo = ttnn.matmul(ones_m, lo, dtype=f32, compute_kernel_config=ckc)
+        ttnn.deallocate(hi)
+        ttnn.deallocate(lo)
+        col_sum = ttnn.add(c_hi, c_lo)      # [k, 1, n]
+        ttnn.deallocate(c_hi)
+        ttnn.deallocate(c_lo)
+
+        c2_hi, c2_lo = _split2_bf16(col_sum)
+        ttnn.deallocate(col_sum)
+        ones_n = _ones_col_bf16(n, dev)
+        s_hi = ttnn.matmul(c2_hi, ones_n, dtype=f32, compute_kernel_config=ckc)
+        s_lo = ttnn.matmul(c2_lo, ones_n, dtype=f32, compute_kernel_config=ckc)
+        ttnn.deallocate(c2_hi)
+        ttnn.deallocate(c2_lo)
+        out = ttnn.add(s_hi, s_lo)          # [k, 1, 1]
+        ttnn.deallocate(s_hi)
+        ttnn.deallocate(s_lo)
+        return out
 
     ones_n = _ones_col_bf16(n, dev)
     r_hi = ttnn.matmul(hi, ones_n, dtype=f32, compute_kernel_config=ckc)
@@ -365,9 +419,11 @@ def newton_schulz_device(x, *, steps: int = 5, coeffs: Tuple[float, float, float
             - ``"split2"``: baseline 2-part bf16 split (HiFi4 main + HiFi2 cross, exact p1 transpose),
             - ``"split2_sym"``: same fidelities, fast 1-op cross-term transpose,
             - ``"split2_hifi2"``: HiFi2 on all bf16xbf16 terms + fast 1-op cross-term transpose,
-            - ``"split2_fast"``: ``split2_hifi2`` + tall-native NS (caller passes ``tall=flipped``),
+            - ``"split2_fast"``: ``split2_sym`` (HiFi4 main + HiFi2 cross, 1-op p1t) + tall-native NS,
+            - ``"split2_hyb1"``: iter 0 ``split2_fast``, iters 1..4 direct ``fp32`` HiFi4 (tall-native),
+            - ``"split2_hyb2"``: iters 0..1 ``split2_fast``, iters 2..4 direct ``fp32`` HiFi4 (tall-native),
             - ``"split2_hifi4"``: HiFi4 on all 3 terms,
-            - ``"fp32"``: direct fp32 matmul.
+            - ``"fp32"``: direct fp32 matmul (tall-native).
     """
     import ttnn
 
@@ -375,13 +431,14 @@ def newton_schulz_device(x, *, steps: int = 5, coeffs: Tuple[float, float, float
         raise ValueError("Muon ns_steps must be below 100")
     a, b, c = (float(v) for v in coeffs)
     f32 = ttnn.float32
-    if mode in ("split2_hifi2", "split2_fast"):
+    if mode == "split2_hifi2":
         ckc_hi = _ckc(ttnn.MathFidelity.HiFi2)
         ckc_lo = ckc_hi
     else:
         ckc_hi = _ckc(ttnn.MathFidelity.HiFi4)
         ckc_lo = ckc_hi if mode == "split2_hifi4" else _ckc(ttnn.MathFidelity.HiFi2)
     exact_p1_t = mode in ("split2", "split2_hifi4")
+    split2_prefix = {"split2_hyb1": 1, "split2_hyb2": 2}.get(mode)
 
     ss = _sum_sq_last2_exact_f32(x)
     nrm = ttnn.sqrt(ss)
@@ -393,8 +450,9 @@ def newton_schulz_device(x, *, steps: int = 5, coeffs: Tuple[float, float, float
     cur = ttnn.multiply(x, inv)
     ttnn.deallocate(inv)
 
-    for _ in range(steps):
-        if mode == "fp32":
+    for it in range(steps):
+        use_fp32 = (mode == "fp32") or (split2_prefix is not None and it >= split2_prefix)
+        if use_fp32:
             g = ttnn.matmul(cur, cur, transpose_a=tall, transpose_b=not tall,
                             dtype=f32, compute_kernel_config=ckc_hi)
             gg = ttnn.matmul(g, g, dtype=f32, compute_kernel_config=ckc_hi)
@@ -408,7 +466,8 @@ def newton_schulz_device(x, *, steps: int = 5, coeffs: Tuple[float, float, float
             px = (ttnn.matmul(cur, p, dtype=f32, compute_kernel_config=ckc_hi)
                   if tall else ttnn.matmul(p, cur, dtype=f32, compute_kernel_config=ckc_hi))
             ttnn.deallocate(p)
-        elif mode in ("split2", "split2_sym", "split2_hifi2", "split2_fast", "split2_hifi4"):
+        elif mode in ("split2", "split2_sym", "split2_hifi2", "split2_fast", "split2_hifi4",
+                      "split2_hyb1", "split2_hyb2"):
             xh, xl = _split2_bf16(cur)
             g = _mm_sym_split2(xh, xl, transpose_a=tall, transpose_b=not tall,
                                ckc_hi=ckc_hi, ckc_lo=ckc_lo, exact_p1_t=exact_p1_t)
@@ -556,13 +615,13 @@ class DeviceEMA:
             for bk in self._buckets:
                 if bk.ema_b is None:
                     continue
-                arr = ttnn.to_torch(bk.ema_b).float().numpy()
+                arr = _read_rep0(bk.ema_b).float().numpy()
                 s0, m, n = bk.canon
                 for i, name in enumerate(bk.names):
                     sl = arr[i * s0:(i + 1) * s0, :m, :n]
                     out[name] = np.ascontiguousarray(sl.reshape(bk.shape), dtype=np.float32)
             return out
-        return {n: ttnn.to_torch(v).float().numpy().astype(np.float32, copy=False)
+        return {n: _read_rep0(v).float().numpy().astype(np.float32, copy=False)
                 for n, v in self.shadow.items()}
 
     def deallocate(self) -> None:
@@ -609,6 +668,7 @@ class DeviceOptimizer:
         ns_mode: str = "split2",
         shard_rank: int = 0,
         shard_world: int = 1,
+        shard_mask: Optional[Collection[str]] = None,
     ):
         import ttnn
 
@@ -647,7 +707,10 @@ class DeviceOptimizer:
         # ZeRO-1 sharding: every rank holds full self.master (for refold/fwd) but allocates
         # optimizer buckets, moments, and EMA shadows only for its owned parameter slice.
         self.owner_of: Dict[str, int] = _assign_shards(self.shapes, self.muon_names, self.shard_world)
-        self.owned_names = frozenset(n for n, r in self.owner_of.items() if r == self.shard_rank)
+        if shard_mask is not None:
+            self.owned_names = frozenset(n for n in shard_mask if n in self.master)
+        else:
+            self.owned_names = frozenset(n for n, r in self.owner_of.items() if r == self.shard_rank)
 
         # Build exact-shape buckets only for parameters owned by this rank.
         muon_by_shp: Dict[Tuple[int, ...], list] = {}
@@ -781,7 +844,7 @@ class DeviceOptimizer:
             for s in per_slice:
                 ttnn.deallocate(s)
         acc = _reduce_dim0_sum_exact_f32(joined)
-        val = float(ttnn.to_torch(acc).float().reshape(-1)[0].item())
+        val = float(_read_rep0(acc).float().reshape(-1)[0].item())
         ttnn.deallocate(acc)
         return val
 
@@ -833,7 +896,7 @@ class DeviceOptimizer:
             ttnn.deallocate(g_eff)
 
         flipped = bk.shape[0] > bk.shape[1]
-        tall_native = flipped and self.ns_mode == "split2_fast"
+        tall_native = flipped and self.ns_mode in ("split2_fast", "split2_hyb1", "split2_hyb2", "fp32")
         if flipped and not tall_native:
             u_ns = transpose_exact_f32(u_b)
             ttnn.deallocate(u_b)
@@ -1089,15 +1152,15 @@ class DeviceOptimizer:
 
         out: Dict[str, np.ndarray] = {}
         for bk in self._all_buckets:
-            arr = ttnn.to_torch(bk.master_b).float().numpy()
+            arr = _read_rep0(bk.master_b).float().numpy()
             s0, m, n = bk.canon
             for i, name in enumerate(bk.names):
                 sl = arr[i * s0:(i + 1) * s0, :m, :n]
                 out[name] = np.ascontiguousarray(sl.reshape(bk.shape), dtype=np.float32)
-        if not owned_only and self.shard_world > 1:
+        if not owned_only and (self.shard_world > 1 or len(out) < len(self.master)):
             for name, t in self.master.items():
                 if name not in out:
-                    arr = ttnn.to_torch(t).float().numpy()
+                    arr = _read_rep0(t).float().numpy()
                     out[name] = np.ascontiguousarray(arr.reshape(self.shapes[name]), dtype=np.float32)
         return out
 
@@ -1140,6 +1203,7 @@ def rfd4_device_optimizer(
     betas: Tuple[float, float] = (0.9, 0.999),
     shard_rank: int = 0,
     shard_world: int = 1,
+    shard_mask: Optional[Collection[str]] = None,
 ) -> DeviceOptimizer:
     """Construct :class:`DeviceOptimizer` matching :func:`tt_bio.train.rfd4_objective.update_rule`."""
     from .rfd4_objective import MUON_EXCLUDE, UPDATE_RULE
@@ -1157,4 +1221,5 @@ def rfd4_device_optimizer(
         ns_mode=ns_mode,
         shard_rank=shard_rank,
         shard_world=shard_world,
+        shard_mask=shard_mask,
     )

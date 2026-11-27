@@ -84,6 +84,15 @@ def pair_taped(pc: PairOnCard, p: PairInputs, bridge, batch: dict, dtype=None):
     return ag._tape(z, leaves, make, reads=())
 
 
+def _ckc_hifi4():
+    return ttnn.types.BlackholeComputeKernelConfig(
+        math_fidelity=ttnn.MathFidelity.HiFi4,
+        math_approx_mode=False,
+        fp32_dest_acc_en=True,
+        packer_l1_acc=True,
+    )
+
+
 def _ckc_hifi2():
     return ttnn.types.BlackholeComputeKernelConfig(
         math_fidelity=ttnn.MathFidelity.HiFi2,
@@ -202,9 +211,16 @@ class DeviceTrainPair:
         return hit
 
     def _exact_row_mean(self, v):
-        """Exact fp32 row mean over last dim ``c`` via split2 bf16 matmul (immune to TF32 sum)."""
+        """Exact fp32 row mean over last dim ``c`` via 2-D split2 bf16 matmul (immune to TF32 sum)."""
         ckc = _ckc_hifi2()
-        hi, lo = _split2_bf16(v)
+        shp = [int(d) for d in v.shape]
+        rows = 1
+        for d in shp[:-1]:
+            rows *= d
+        v2d = ttnn.reshape(v, [rows, shp[-1]]) if len(shp) > 2 else v
+        hi, lo = _split2_bf16(v2d)
+        if v2d is not v and v2d.buffer_address() != v.buffer_address():
+            ttnn.deallocate(v2d)
         s0 = ttnn.matmul(hi, self._ones_c, dtype=ttnn.float32, compute_kernel_config=ckc)
         s1 = ttnn.matmul(lo, self._ones_c, dtype=ttnn.float32, compute_kernel_config=ckc)
         ttnn.deallocate(hi)
@@ -212,19 +228,40 @@ class DeviceTrainPair:
         s = ttnn.add(s0, s1)
         ttnn.deallocate(s0)
         ttnn.deallocate(s1)
+        m2d = ttnn.multiply(s, 1.0 / float(self.c))
+        ttnn.deallocate(s)
+        if len(shp) > 2:
+            out_shp = shp[:-1] + [1]
+            out = ttnn.reshape(m2d, out_shp)
+            if out.buffer_address() != m2d.buffer_address():
+                ttnn.deallocate(m2d)
+            return out
+        return m2d
+
+    @staticmethod
+    def _exact_rsqrt(v):
+        """Exact fp32 rsqrt (avoids ttnn.rsqrt's ~2.5e-3 default fast-approx LUT error)."""
+        sq = ttnn.sqrt(v)
+        out = ttnn.reciprocal(sq)
+        ttnn.deallocate(sq)
+        return out
+
+    def _fast_row_mean(self, v):
+        """All-core fp32 row mean over last dim ``c`` (~0.5 ms vs 8 ms 1-col matmul)."""
+        s = ttnn.sum(v, dim=-1, keepdim=True, compute_kernel_config=_ckc_hifi4())
         out = ttnn.multiply(s, 1.0 / float(self.c))
         ttnn.deallocate(s)
         return out
 
-    def _exact_row_mean_sq(self, x):
+    def _fast_row_mean_sq(self, x):
         x2 = ttnn.multiply(x, x)
-        out = self._exact_row_mean(x2)
+        out = self._fast_row_mean(x2)
         ttnn.deallocate(x2)
         return out
 
-    def _exact_row_mean_prod(self, a, b):
+    def _fast_row_mean_prod(self, a, b):
         ab = ttnn.multiply(a, b)
-        out = self._exact_row_mean(ab)
+        out = self._fast_row_mean(ab)
         ttnn.deallocate(ab)
         return out
 
@@ -322,19 +359,20 @@ class DeviceTrainPair:
         ttnn.deallocate(w_const_pad)
         w0, w1, w2 = _split3_bf16(w_const_tl)
         ttnn.deallocate(w_const_tl)
-        ckc = _ckc_hifi2()
+        ckc4 = _ckc_hifi4()
+        ckc2 = _ckc_hifi2()
         wt0 = ttnn.transpose(w0, -2, -1); ttnn.deallocate(w0)
         wt1 = ttnn.transpose(w1, -2, -1); ttnn.deallocate(w1)
         wt2 = ttnn.transpose(w2, -2, -1); ttnn.deallocate(w2)
 
-        p0 = ttnn.matmul(f_const_hi, wt0, dtype=ttnn.float32, compute_kernel_config=ckc)
-        p1 = ttnn.matmul(f_const_hi, wt1, dtype=ttnn.float32, compute_kernel_config=ckc)
+        p0 = ttnn.matmul(f_const_hi, wt0, dtype=ttnn.float32, compute_kernel_config=ckc4)
+        p1 = ttnn.matmul(f_const_hi, wt1, dtype=ttnn.float32, compute_kernel_config=ckc2)
         s01 = ttnn.add(p0, p1); ttnn.deallocate(p0); ttnn.deallocate(p1)
-        p2 = ttnn.matmul(f_const_hi, wt2, dtype=ttnn.float32, compute_kernel_config=ckc)
+        p2 = ttnn.matmul(f_const_hi, wt2, dtype=ttnn.float32, compute_kernel_config=ckc2)
         proj_2d = ttnn.add(s01, p2); ttnn.deallocate(s01); ttnn.deallocate(p2)
         if f_const_lo is not None:
-            q0 = ttnn.matmul(f_const_lo, wt0, dtype=ttnn.float32, compute_kernel_config=ckc)
-            q1 = ttnn.matmul(f_const_lo, wt1, dtype=ttnn.float32, compute_kernel_config=ckc)
+            q0 = ttnn.matmul(f_const_lo, wt0, dtype=ttnn.float32, compute_kernel_config=ckc2)
+            q1 = ttnn.matmul(f_const_lo, wt1, dtype=ttnn.float32, compute_kernel_config=ckc2)
             qs = ttnn.add(q0, q1); ttnn.deallocate(q0); ttnn.deallocate(q1)
             nxt = ttnn.add(proj_2d, qs); ttnn.deallocate(proj_2d); ttnn.deallocate(qs)
             proj_2d = nxt
@@ -371,22 +409,16 @@ class DeviceTrainPair:
         st = self._step_state
         assert st is not None, "call prepare_batch() first"
         b, n, c = st["k"], st["n"], self.c
+        ckc4 = _ckc_hifi4()
         x = self._gather_x(st["proj"], st["table"], st["bins_tt"], b, n)
-        ln_w_row = ttnn.reshape(st["ln_w"], [1, 1, 1, c])
         g_tt = ttnn.from_torch(gamma.detach().float().reshape(b, 1, 1, c).contiguous(),
                                dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=self.device)
         b_tt = ttnn.from_torch(beta.detach().float().reshape(b, 1, 1, c).contiguous(),
                                dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=self.device)
-        r1 = ttnn.rsqrt(ttnn.add(self._exact_row_mean_sq(x), self.e1))
-        n1 = ttnn.multiply(x, r1)
-        ttnn.deallocate(x); ttnn.deallocate(r1)
-        a = ttnn.multiply(n1, ln_w_row)
-        ttnn.deallocate(n1)
-        if ln_w_row.buffer_address() != st["ln_w"].buffer_address():
-            ttnn.deallocate(ln_w_row)
-        r2 = ttnn.rsqrt(ttnn.add(self._exact_row_mean_sq(a), self.e2))
-        bb = ttnn.multiply(a, r2)
-        ttnn.deallocate(a); ttnn.deallocate(r2)
+        a = ttnn.rms_norm(x, weight=st["ln_w"], epsilon=self.e1, compute_kernel_config=ckc4)
+        ttnn.deallocate(x)
+        bb = ttnn.rms_norm(a, epsilon=self.e2, compute_kernel_config=ckc4)
+        ttnn.deallocate(a)
         scaled = ttnn.multiply(bb, g_tt)
         ttnn.deallocate(bb); ttnn.deallocate(g_tt)
         z = ttnn.add(scaled, b_tt)
@@ -402,24 +434,18 @@ class DeviceTrainPair:
         st = self._step_state
         assert st is not None, "call prepare_batch() first"
         n, c = st["n"], self.c
+        ckc4 = _ckc_hifi4()
         bins_win = ttnn.slice(st["bins_tt"], [win_idx * n, 0], [(win_idx + 1) * n, n])
         x = self._gather_x(st["proj"], st["table"], bins_win, 1, n)
         ln_w_master = st["ln_w"]
-        ln_w_row = ttnn.reshape(ln_w_master, [1, 1, 1, c])
         g_tt = ttnn.from_torch(gamma.detach().float().reshape(1, 1, 1, c).contiguous(),
                                dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=self.device)
         b_tt = ttnn.from_torch(beta.detach().float().reshape(1, 1, 1, c).contiguous(),
                                dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=self.device)
-        r1 = ttnn.rsqrt(ttnn.add(self._exact_row_mean_sq(x), self.e1))
-        n1 = ttnn.multiply(x, r1)
-        ttnn.deallocate(x); ttnn.deallocate(r1)
-        a = ttnn.multiply(n1, ln_w_row)
-        ttnn.deallocate(n1)
-        if ln_w_row.buffer_address() != ln_w_master.buffer_address():
-            ttnn.deallocate(ln_w_row)
-        r2 = ttnn.rsqrt(ttnn.add(self._exact_row_mean_sq(a), self.e2))
-        bb = ttnn.multiply(a, r2)
-        ttnn.deallocate(a); ttnn.deallocate(r2)
+        a = ttnn.rms_norm(x, weight=ln_w_master, epsilon=self.e1, compute_kernel_config=ckc4)
+        ttnn.deallocate(x)
+        bb = ttnn.rms_norm(a, epsilon=self.e2, compute_kernel_config=ckc4)
+        ttnn.deallocate(a)
         scaled = ttnn.multiply(bb, g_tt)
         ttnn.deallocate(bb)
         z = ttnn.add(scaled, b_tt)
@@ -439,18 +465,23 @@ class DeviceTrainPair:
 
         def make():
             def bw(g):
-                ckc = _ckc_hifi2()
+                ckc4_b = _ckc_hifi4()
+                ckc2_b = _ckc_hifi2()
                 if g.dtype != ttnn.float32:
                     g32 = ttnn.typecast(g, ttnn.float32)
                 else:
                     g32 = g
                 x_b = self._gather_x(proj, table, bins_win, 1, n)
                 w_row = ttnn.reshape(ln_w_master, [1, 1, 1, c])
-                r1_b = ttnn.rsqrt(ttnn.add(self._exact_row_mean_sq(x_b), self.e1))
+                m1_b = self._fast_row_mean_sq(x_b)
+                v1_b = ttnn.add(m1_b, self.e1); ttnn.deallocate(m1_b)
+                r1_b = self._exact_rsqrt(v1_b); ttnn.deallocate(v1_b)
                 n1_b = ttnn.multiply(x_b, r1_b)
                 ttnn.deallocate(x_b)
                 a_b = ttnn.multiply(n1_b, w_row)
-                r2_b = ttnn.rsqrt(ttnn.add(self._exact_row_mean_sq(a_b), self.e2))
+                m2_b = self._fast_row_mean_sq(a_b)
+                v2_b = ttnn.add(m2_b, self.e2); ttnn.deallocate(m2_b)
+                r2_b = self._exact_rsqrt(v2_b); ttnn.deallocate(v2_b)
                 bb_b = ttnn.multiply(a_b, r2_b)
                 ttnn.deallocate(a_b)
 
@@ -464,7 +495,7 @@ class DeviceTrainPair:
                 db = ttnn.multiply(g32, g_tt)
                 if g32 is not g:
                     ttnn.deallocate(g32)
-                m_db = self._exact_row_mean_prod(db, bb_b)
+                m_db = self._fast_row_mean_prod(db, bb_b)
                 bb_m = ttnn.multiply(bb_b, m_db)
                 ttnn.deallocate(m_db)
                 sub_db = ttnn.subtract(db, bb_m)
@@ -483,7 +514,7 @@ class DeviceTrainPair:
                 ttnn.deallocate(da)
                 if w_row.buffer_address() != ln_w_master.buffer_address():
                     ttnn.deallocate(w_row)
-                m_dn = self._exact_row_mean_prod(dn1, n1_b)
+                m_dn = self._fast_row_mean_prod(dn1, n1_b)
                 n1_m = ttnn.multiply(n1_b, m_dn)
                 ttnn.deallocate(m_dn); ttnn.deallocate(n1_b)
                 sub_dn = ttnn.subtract(dn1, n1_m)
@@ -498,11 +529,11 @@ class DeviceTrainPair:
                 ttnn.deallocate(dx)
 
                 # dW_const = dx^T @ F_const [c, const_kpad] -> slice [c, const_dim]
-                c0 = ttnn.matmul(dx_hi, f_hi, transpose_a=True, dtype=ttnn.float32, compute_kernel_config=ckc)
-                c1 = ttnn.matmul(dx_lo, f_hi, transpose_a=True, dtype=ttnn.float32, compute_kernel_config=ckc)
+                c0 = ttnn.matmul(dx_hi, f_hi, transpose_a=True, dtype=ttnn.float32, compute_kernel_config=ckc4_b)
+                c1 = ttnn.matmul(dx_lo, f_hi, transpose_a=True, dtype=ttnn.float32, compute_kernel_config=ckc2_b)
                 dc_pad = ttnn.add(c0, c1); ttnn.deallocate(c0); ttnn.deallocate(c1)
                 if f_lo is not None:
-                    c2 = ttnn.matmul(dx_hi, f_lo, transpose_a=True, dtype=ttnn.float32, compute_kernel_config=ckc)
+                    c2 = ttnn.matmul(dx_hi, f_lo, transpose_a=True, dtype=ttnn.float32, compute_kernel_config=ckc2_b)
                     nxt = ttnn.add(dc_pad, c2); ttnn.deallocate(dc_pad); ttnn.deallocate(c2)
                     dc_pad = nxt
                 dc_rm = ttnn.to_layout(dc_pad, ttnn.ROW_MAJOR_LAYOUT)
@@ -517,8 +548,8 @@ class DeviceTrainPair:
                 if bins_flat.buffer_address() != bins_win.buffer_address():
                     ttnn.deallocate(bins_flat)
                 oh_2d = ttnn.reshape(oh_3d, [n * n, self.nbins_pad])
-                s0 = ttnn.matmul(dx_hi, oh_2d, transpose_a=True, dtype=ttnn.float32, compute_kernel_config=ckc)
-                s1 = ttnn.matmul(dx_lo, oh_2d, transpose_a=True, dtype=ttnn.float32, compute_kernel_config=ckc)
+                s0 = ttnn.matmul(dx_hi, oh_2d, transpose_a=True, dtype=ttnn.float32, compute_kernel_config=ckc4_b)
+                s1 = ttnn.matmul(dx_lo, oh_2d, transpose_a=True, dtype=ttnn.float32, compute_kernel_config=ckc2_b)
                 if oh_2d.buffer_address() != oh_3d.buffer_address():
                     ttnn.deallocate(oh_2d)
                 ttnn.deallocate(oh_3d)

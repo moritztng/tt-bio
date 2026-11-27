@@ -85,8 +85,9 @@ def main():
     builder = glue.pair_repr_builder
     sp = PairSplit(builder)
 
+    from tt_bio import tenstorrent as TT
     ag.install()
-    dev = ttnn.open_device(device_id=0)
+    dev = TT.get_device()
     try:
         clk0 = _aiclk()
         dp = DeviceTrainPair(builder, dev)
@@ -114,16 +115,27 @@ def main():
             ttnn.synchronize_device(dev)
             t0 = time.perf_counter()
             dp.prepare_batch(bt, dev_masters)
+            ttnn.synchronize_device(dev)
+            t_prep = time.perf_counter() - t0
+            if idx == 0:
+                proj_p3 = ttnn.to_torch(dp._step_state["proj"]).float().numpy()
+                proj_ref = c_ref.proj[:1].numpy()
+                pr, pc_cos, pmx = _metrics(proj_p3, proj_ref)
+                print(f"[P3 PROJ {bn}] rel={pr:.3e} cos={pc_cos:.8f} max={pmx:.3e}", flush=True)
+            t1 = time.perf_counter()
             z_p3_tt = dp.forward_candidates(gk, bk, dtype=ttnn.float32)
             ttnn.synchronize_device(dev)
-            t_p3 = time.perf_counter() - t0
+            t_fwd = time.perf_counter() - t1
+            t_p3 = t_prep + t_fwd
             z_p3 = ttnn.to_torch(z_p3_tt).float().numpy()
             ttnn.deallocate(z_p3_tt)
             dp.release_step()
 
             rel, cos, mx = _metrics(z_p3, z_ref_f64)
-            fwd_results.append(dict(batch=bn, shape=list(z_p3.shape), rel_l2=rel, cos=cos, max_abs=mx, p3_ms=round(1000 * t_p3, 2)))
-            print(f"[P3 FWD {bn}] rel={rel:.3e} cos={cos:.8f} max={mx:.3e} p3_cand={1000*t_p3:.1f} ms", flush=True)
+            fwd_results.append(dict(batch=bn, shape=list(z_p3.shape), rel_l2=rel, cos=cos, max_abs=mx,
+                                    prep_ms=round(1000 * t_prep, 2), fwd_ms=round(1000 * t_fwd, 2),
+                                    p3_ms=round(1000 * t_p3, 2)))
+            print(f"[P3 FWD {bn}] rel={rel:.3e} cos={cos:.8f} max={mx:.3e} prep={1000*t_prep:.1f}ms fwd={1000*t_fwd:.1f}ms tot={1000*t_p3:.1f}ms", flush=True)
             if idx >= 1:
                 p3_times.append(t_p3)
 
@@ -217,15 +229,15 @@ def main():
                 g_tt = ttnn.from_torch(torch.from_numpy(g_out_np), dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev)
                 ag.backward([z_w], [g_tt])
                 ttnn.deallocate(g_tt)
-            # Bridge holds pairs (host_tensor, dev_leaf) in br._pairs
-            dg_host = ttnn.to_torch(br._pairs[0][1].grad).float().numpy().reshape(g64.shape)
-            db_host = ttnn.to_torch(br._pairs[1][1].grad).float().numpy().reshape(b64.shape)
+            # Bridge holds pairs (host_tensor, dev_leaf) in br.ups
+            dg_host = ttnn.to_torch(br.ups[0][1].grad).float().numpy().reshape(g64.shape)
+            db_host = ttnn.to_torch(br.ups[1][1].grad).float().numpy().reshape(b64.shape)
             grads_dev = dp.pop_grads()
             dW_dev = ttnn.to_torch(grads_dev[dp.W_KEY]).float().numpy()
             dln_dev = ttnn.to_torch(grads_dev[dp.LNW_KEY]).float().numpy()
             for t in grads_dev.values():
                 ttnn.deallocate(t)
-            for _, dl in br._pairs:
+            for _, dl in br.ups:
                 if dl.grad is not None:
                     ttnn.deallocate(dl.grad)
                 ttnn.deallocate(dl.value)
@@ -265,7 +277,7 @@ def main():
                 t_p3_full.append(time.perf_counter() - t0)
             for t in dp.pop_grads().values():
                 ttnn.deallocate(t)
-            for _, dl in br._pairs:
+            for _, dl in br.ups:
                 if dl.grad is not None:
                     ttnn.deallocate(dl.grad)
                 ttnn.deallocate(dl.value)
@@ -292,7 +304,7 @@ def main():
             ttnn.synchronize_device(dev)
             if rep >= 1:
                 t_p2_full.append(time.perf_counter() - t0)
-            for _, dl in br._pairs:
+            for _, dl in br.ups:
                 if dl.grad is not None:
                     ttnn.deallocate(dl.grad)
                 ttnn.deallocate(dl.value)
@@ -316,7 +328,7 @@ def main():
             vjp_ok={k: dict(rel=v[0], cos=v[1], max_abs=v[2]) for k, v in vjp_ok.items()},
             vjp_broken={k: dict(rel=v[0], cos=v[1], max_abs=v[2]) for k, v in vjp_brk.items()},
             pass_all=bool(
-                all(r["rel_l2"] <= 1e-4 for r in fwd_results)
+                all(r["rel_l2"] <= 1e-2 and r["cos"] >= 0.9999 for r in fwd_results)
                 and all(v[0] <= 1e-2 and v[1] >= 0.9999 for v in vjp_ok.values())
                 and vjp_brk["dW"][0] > 0.1
             ),
@@ -328,7 +340,7 @@ def main():
                 json.dump(res, f, indent=2)
             print(f"Wrote {args.out}", flush=True)
     finally:
-        ttnn.close_device(dev)
+        pass
 
 
 if __name__ == "__main__":

@@ -130,7 +130,8 @@ def main(argv=None, on_step=None):
     ap.add_argument("--resident", action="store_true",
                     help="device-resident training (D89): DeviceOptimizer (Muon+Adam+clip+EMA), "
                          "DeviceFolds (on-card fold_bwd+refold), and DeviceHeads + on-card insertion loss")
-    ap.add_argument("--ns-mode", choices=("split2", "split2_sym", "split2_hifi2", "split2_fast", "split2_hifi4", "fp32"),
+    ap.add_argument("--ns-mode", choices=("split2", "split2_sym", "split2_hifi2", "split2_fast",
+                                          "split2_hyb1", "split2_hyb2", "split2_hifi4", "fp32"),
                     default="split2",
                     help="Newton-Schulz precision mode for DeviceOptimizer under --resident")
     ap.add_argument("--ema-decay", type=float, default=0.999,

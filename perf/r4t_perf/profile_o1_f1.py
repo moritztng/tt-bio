@@ -226,15 +226,17 @@ def profile_subphases(dev, init_np: dict[str, np.ndarray], grads_np: dict[str, n
 
 
 def grade_parity(dev, init_np: dict[str, np.ndarray], step_grads: list[dict[str, np.ndarray]],
-                 ns_mode: str, *, ns_steps: int = 5, betas=(0.9, 0.999)):
+                 ns_mode: str, *, opt_ref=None, ns_steps: int = 5, betas=(0.9, 0.999)):
     opt_dev = rfd4_device_optimizer(init_np, dev, lr=1e-4, ema_decay=0.999,
                                     ns_mode=ns_mode, ns_steps=ns_steps, betas=betas)
-    opt_ref = Float64MuonAdamEMA(init_np, lr=1e-4, betas=(0.9, 0.999), ns_steps=5, ema_decay=0.999)
+    if opt_ref is None:
+        opt_ref = Float64MuonAdamEMA(init_np, lr=1e-4, betas=(0.9, 0.999), ns_steps=5, ema_decay=0.999)
+        for g_np in step_grads:
+            opt_ref.step(g_np)
     for g_np in step_grads:
         dg = {k: ttnn.from_torch(torch.from_numpy(v), dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev)
               for k, v in g_np.items()}
         opt_dev.step(dg, free_grads=True)
-        opt_ref.step(g_np)
     ttnn.synchronize_device(dev)
     hm = opt_dev.host_master()
     he = opt_dev.ema.host_shadow()
@@ -261,7 +263,7 @@ def grade_parity(dev, init_np: dict[str, np.ndarray], step_grads: list[dict[str,
 
 
 def grade_zero1(dev, init_np: dict[str, np.ndarray], step_grads: list[dict[str, np.ndarray]],
-                ns_mode: str, shard_world: int = 4, *, broken_skip_norm_reduce: bool = False):
+                ns_mode: str, shard_world: int = 4, *, opt_ref=None, broken_skip_norm_reduce: bool = False):
     """Simulate shard_world ZeRO-1 ranks on one device and compare against Float64 reference."""
     ranks = [
         rfd4_device_optimizer(init_np, dev, lr=1e-4, ema_decay=0.999, ns_mode=ns_mode,
@@ -275,9 +277,11 @@ def grade_zero1(dev, init_np: dict[str, np.ndarray], step_grads: list[dict[str, 
         all_owned |= o.owned_names
     assert all_owned == set(init_np), f"incomplete ZeRO-1 partition: {len(all_owned)} vs {len(init_np)}"
 
-    opt_ref = Float64MuonAdamEMA(init_np, lr=1e-4, betas=(0.9, 0.999), ns_steps=5, ema_decay=0.999)
+    if opt_ref is None:
+        opt_ref = Float64MuonAdamEMA(init_np, lr=1e-4, betas=(0.9, 0.999), ns_steps=5, ema_decay=0.999)
+        for g_np in step_grads:
+            opt_ref.step(g_np)
     for g_np in step_grads:
-        opt_ref.step(g_np)
         # Compute local norm sq per rank, then global sum (unless broken arm)
         # To simulate collective norm_reduce_fn in-process across ranks on 1 chip, pre-compute exact group sums
         # from local shards via a 2-pass closure? Even simpler: compute exact global sq_muon & sq_adam from
@@ -384,36 +388,52 @@ def main():
                 g[k] = (rng.standard_normal(w.shape).astype(np.float32) * 0.02).astype(np.float32)
         step_grads.append(g)
 
-    dev = ttnn.open_device(device_id=0)
+    from tt_bio import tenstorrent as TT
+    dev = TT.get_device()
     try:
         clk0 = _aiclk()
         print(f"Opened device, aiclk={clk0} MHz, params={len(init_np)}", flush=True)
 
         profs = {}
-        for mode in ("split2", "split2_sym", "split2_hifi2", "split2_fast"):
+        for mode in ("split2", "split2_fast", "split2_hyb2", "split2_hyb1", "fp32"):
             p = profile_subphases(dev, init_np, step_grads[0], mode)
             profs[mode] = p
             print(f"[PROF {mode:13s}] clean={p['clean_ms']:6.1f} ms | phases={p['phases_ms']}", flush=True)
             top4 = list(p["muon_buckets_ms"].items())[:5]
             print(f"    top buckets: {top4}", flush=True)
 
+        # Compute float64 CPU reference ONCE (saves snapshots at step 5 and step args.steps)
+        t_ref = time.perf_counter()
+        ref_full = Float64MuonAdamEMA(init_np, lr=1e-4, betas=(0.9, 0.999), ns_steps=5, ema_decay=0.999)
+        ref_5 = None
+        for idx, g_np in enumerate(step_grads):
+            ref_full.step(g_np)
+            if idx + 1 == min(5, len(step_grads)):
+                ref_5 = type("_RefSnap", (), dict(
+                    master={k: v.copy() for k, v in ref_full.master.items()},
+                    ema={k: v.copy() for k, v in ref_full.ema.items()},
+                ))()
+        print(f"Float64 ref ({args.steps} steps) computed in {time.perf_counter() - t_ref:.1f} s", flush=True)
+
         clk1 = _aiclk()
         parities = {}
-        for mode in ("split2_hifi2", "split2_fast"):
-            r = grade_parity(dev, init_np, step_grads, mode)
+        for mode in ("split2_fast", "split2_hyb2", "split2_hyb1", "fp32"):
+            r = grade_parity(dev, init_np, step_grads, mode, opt_ref=ref_full)
             parities[mode] = r
             print(f"[PARITY {mode:12s} {args.steps}st] muon={r['worst_muon']:.3e} ({r['worst_muon_name']}) "
                   f"adam={r['worst_adam']:.3e} ema={r['worst_ema']:.3e} PASS={r['pass_1e4']}", flush=True)
 
         # Broken arms (must FAIL!)
-        brk_ns = grade_parity(dev, init_np, step_grads[:5], "split2_fast", ns_steps=4)
-        brk_b2 = grade_parity(dev, init_np, step_grads[:5], "split2_fast", betas=(0.9, 0.99))
+        brk_ns = grade_parity(dev, init_np, step_grads[:5], "split2_fast", opt_ref=ref_5, ns_steps=4)
+        brk_b2 = grade_parity(dev, init_np, step_grads[:5], "split2_fast", opt_ref=ref_5, betas=(0.9, 0.99))
         print(f"[BROKEN ns=4] muon={brk_ns['worst_muon']:.3e} PASS={brk_ns['pass_1e4']} (expect False)", flush=True)
         print(f"[BROKEN b2=0.99] adam={brk_b2['worst_adam']:.3e} PASS={brk_b2['pass_1e4']} (expect False)", flush=True)
 
         # ZeRO-1 parity (shard_world=4, 5 steps + broken arm + shard_world=32 timing)
-        z1_ok = grade_zero1(dev, init_np, step_grads[:5], "split2_fast", shard_world=4, broken_skip_norm_reduce=False)
-        z1_brk = grade_zero1(dev, init_np, step_grads[:5], "split2_fast", shard_world=4, broken_skip_norm_reduce=True)
+        z1_ok = grade_zero1(dev, init_np, step_grads[:5], "split2_fast", shard_world=4, opt_ref=ref_5,
+                            broken_skip_norm_reduce=False)
+        z1_brk = grade_zero1(dev, init_np, step_grads[:5], "split2_fast", shard_world=4, opt_ref=ref_5,
+                             broken_skip_norm_reduce=True)
         print(f"[ZERO1 w=4 OK] param={z1_ok['worst_param']:.3e} ema={z1_ok['worst_ema']:.3e} PASS={z1_ok['pass_1e4']} | "
               f"w=32 rank0 ({z1_ok['zero1_32_rank0_owned']} params)={z1_ok['zero1_32_rank0_ms']} ms", flush=True)
         print(f"[ZERO1 w=4 BROKEN] param={z1_brk['worst_param']:.3e} PASS={z1_brk['pass_1e4']} (expect False)", flush=True)
@@ -431,7 +451,7 @@ def main():
                 json.dump(res, f, indent=2)
             print(f"Wrote {args.out}", flush=True)
     finally:
-        ttnn.close_device(dev)
+        pass
 
 
 if __name__ == "__main__":
