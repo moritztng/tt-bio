@@ -4,7 +4,7 @@
 # all-72 warm-up that should close wlt2's 16.9% batch spread. Runs inside this row's own
 # fleet-dfd-perf window on qb2 chip 2 (ends 00:53Z). Clock sampled from sysfs, not tt-smi:
 # wlt2's tt-smi sampler died silently and left the clock record empty.
-OUT=/home/ttuser/scratch/dfd/perf; card=2; name=wls3
+OUT=/home/ttuser/scratch/dfd/perf; card=${1:-1}; name=${2:-wls3}
 log() { echo "$name: $* $(date -u +%FT%TZ)" >> $OUT/$name.log; }
 exec 9>$OUT/$name.runlock; flock -n 9 || exit 0
 free() { flock -n /home/ttuser/spd_qb2_chip$card.lock true 2>/dev/null \
@@ -12,7 +12,9 @@ free() { flock -n /home/ttuser/spd_qb2_chip$card.lock true 2>/dev/null \
 giveup=$(( $(date +%s) + 5400 ))
 log "waiting for chip $card"
 while :; do
-  [ "$(python3 /home/ttuser/spd/feed/book.py active $card)" = fleet-dfd-perf ] && free && break
+  # `active` lists every row booked on the chip right now, so match our name inside it and
+  # let the chip flock below do the serialising: double-booked windows are normal here.
+  python3 /home/ttuser/spd/feed/book.py active $card | grep -qw fleet-dfd-perf && free && break
   [ $(date +%s) -ge $giveup ] && { log "no window in 90 min, giving up"; exit 0; }
   sleep 30
 done
