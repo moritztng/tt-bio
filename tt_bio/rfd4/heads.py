@@ -80,7 +80,7 @@ class DeviceHeads:
             return fallback
 
         def up_norm(w: torch.Tensor):
-            return ttnn.from_torch(w.reshape(1, 1, 1, -1), dtype=self.dtype, layout=ttnn.TILE_LAYOUT, device=device)
+            return ttnn.from_torch(w, dtype=self.dtype, layout=ttnn.TILE_LAYOUT, device=device)
 
         def up_lin(w: torch.Tensor):
             # Linear weight is [out, in]; upload transposed [in, out] for s @ W.
