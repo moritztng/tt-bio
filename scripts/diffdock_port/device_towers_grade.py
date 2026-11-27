@@ -141,6 +141,18 @@ def main():
     out["rec_h"] = stats(cap["rec_h"][:rec_h.shape[0], :rec_h.shape[1]], rec_h)
     out["lig_h_tower"] = stats(cap["lig_h_tower"][:lig_h_tower.shape[0], :lig_h_tower.shape[1]],
                                lig_h_tower)
+    # the main stack's four inputs, in the host's own assembly order
+    ea_h = torch.cat([lig_eattr, cross_eattr, rec_eattr_s, cross_eattr], 0)
+    esh_h = torch.cat([lig_sh, cross_sh, rec_sh, rev_sh], 0)
+    em_h = torch.cat([lig_mask, cross_m, rec_mask, cross_m], 0).reshape(-1)
+    out["main_ea"] = stats(cap["main_ea"][:, :ea_h.shape[1]], ea_h)
+    out["main_esh"] = stats(cap["main_esh"][:, :esh_h.shape[1]], esh_h)
+    out["main_em"] = stats(cap["main_em"].reshape(-1), em_h)
+    out["main_node_in"] = stats(cap["main_node_in"][:node.shape[0], :node.shape[1]], node)
+    out["shapes"] = {k: list(v.shape) for k, v in cap.items()}
+    out["host_shapes"] = {"ea": list(ea_h.shape), "esh": list(esh_h.shape),
+                          "em": list(em_h.shape), "node": list(node.shape)}
+    flush()
     out["node_main"] = stats(cap["node_main"][:node_main.shape[0], :node_main.shape[1]],
                              node_main)
     out["lig_h_main"] = stats(cap["lig_h_main"][:lig_h_main.shape[0], :lig_h_main.shape[1]],

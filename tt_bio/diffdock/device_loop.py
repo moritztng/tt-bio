@@ -1199,6 +1199,9 @@ class DeviceStep:
                                 lig_eattr.shape[1])
         esh = self.main.assemble(dev, [lig_sh, cross_sh, self.rec_sh, rev_sh], lig_sh.shape[1])
         em = self.main.assemble(dev, [lig_mask, cross_m, rec_mask, cross_m], 1)
+        if tap is not None:
+            tap['main_ea'], tap['main_esh'] = ea, esh
+            tap['main_em'], tap['main_node_in'] = em, node
         node = self.main(node, ea, esh, em, self.ns)
         lig_h = ttnn.slice(node, [0, 0], [sg.n_lig_padded, node.shape[1]])
         if tap is not None:
