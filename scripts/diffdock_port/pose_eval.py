@@ -392,6 +392,10 @@ def main():
 
     d = sub.add_parser("dock")
     d.add_argument("--ids", default="all")
+    d.add_argument("--shard", default="0/1",
+                   help="i/n: dock only the complexes whose position in the sorted set is "
+                        "congruent to i mod n. One rented box per shard; the shards are "
+                        "interleaved, not contiguous, so a slow block does not land on one box.")
     d.add_argument("--out", required=True)
     d.add_argument("--workers", type=int, default=4)
     d.add_argument("--chunk", type=int, default=4)
@@ -423,6 +427,10 @@ def main():
         return 0
     ids = ids_all() if args.ids == "all" else json.load(open(args.ids))
     if args.cmd == "dock":
+        i, n = (int(x) for x in args.shard.split("/"))
+        if n > 1:
+            ids = [c for k, c in enumerate(ids) if k % n == i]
+            print(f"shard {i}/{n}: {len(ids)} complexes", flush=True)
         dock(ids, Path(args.out), args.workers, args.chunk, args.seed, args.threads)
     else:
         grade(ids, Path(args.out), Path(args.acc), args.label)
