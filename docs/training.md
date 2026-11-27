@@ -279,6 +279,8 @@ for it and it happens: `tt-bio train ... --chips 2`, or `train.finetune(..., mes
 [0, 1]}))`. The Tier-1 recipe is a single process, so when it sees a wide axis and nothing
 launched it as a rank, it hands the run to `launcher.drive`.
 
+**A count picks the chips for you.** `--chips 8` takes eight chips round-robin across the box's PCIe root complexes (`launcher.spread`): 0,1,8,9,16,17,24,25 on a Galaxy, whose 32 chips sit on four complexes of eight, and the first N on a QuietBox, which has one. Every rank moves weights and activations over PCIe each step and ranks on one complex share its bandwidth; measured on a Blackhole Galaxy, eight ranks step in 10.9 s on chips 0-7 and 9.1 s on 0-3 + 8-11, with identical digests. Name the chips, `--chips 0,2`, to place them yourself.
+
 **It re-runs your program, it does not ship objects to it.** `TT_VISIBLE_DEVICES` is read at
 `import ttnn`, so a fork cannot give a child a different chip than its parent, and an unpinned
 open brings up every visible chip rather than the one being computed on. A rank therefore has to
