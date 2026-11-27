@@ -162,6 +162,8 @@ def cmd_equiv(args):
     clock = Clock(args.net != "host")
     rows, ok = {}, True
     for k, step in sorted(fx["steps"].items()):
+        if args.steps and str(k) not in args.steps:
+            continue
         P, n_lig = step.lig_pos.shape[0], g.ligand["pos"].shape[0]
         base = score_fn(model, static_complex(model, fx, P), n_lig)(step)
         hbase = score_fn(host, static_complex(host, fx, P), n_lig)(step)
@@ -238,6 +240,7 @@ def main():
     e.add_argument("--fixture", required=True)
     e.add_argument("--net", default="tile", choices=["host", "gemm", "tile"])
     e.add_argument("--seeds", type=int, default=4, help="transform seeds; 0 is the identity")
+    e.add_argument("--steps", nargs="*", help="fixture steps to grade (default: all)")
     e.add_argument("--out", required=True)
     e.set_defaults(fn=cmd_equiv)
     c = sub.add_parser("compare")
