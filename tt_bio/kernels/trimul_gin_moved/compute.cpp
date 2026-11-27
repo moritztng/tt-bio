@@ -22,6 +22,9 @@ ALWI void sigmoid_bf16_tile(uint32_t idst) {
 }
 
 #include "sigmoid_poly.hpp"
+#if defined(GIN_PSIG) && defined(TRISC_PACK)
+#include "llk_math_eltwise_unary_sfpu_silu.h"   // the packer-side SFPU init, as trimul_in_t1's T1_PSIG
+#endif
 
 void kernel_main() {
     constexpr uint32_t Kt = get_compile_time_arg_val(0);
@@ -49,6 +52,9 @@ void kernel_main() {
 
     sigmoid_tile_init();
     mm_init(w_cb, x_cb, FUSE ? out_cb : p_cb, 1);
+#ifdef GIN_PSIG
+    PACK((llk_math_eltwise_unary_sfpu_silu_init<true>()));   // the packer thread's SFPU address modes
+#endif
     cb_wait_front(w_cb, 2 * CT2 * Kt);
 
     if constexpr (FUSE) {
@@ -99,7 +105,11 @@ void kernel_main() {
                     for (uint32_t k = 0; k < Kt && !(ABL & 16); ++k, ++i0, i1 += 32) {
                         matmul_block(w_cb, x_cb, i0, i1, 0, true, SBW, 1, Kt);
                     }
+#ifdef GIN_PSIG
+                    if (false) {
+#else
                     if (pass == 1 && !(ABL & 1)) {
+#endif
                         for (uint32_t i = 0; i < SBW; ++i) {
                             if constexpr (SIGPOLY) sigmoid_poly_tile<SIGPOLY>(i);
                             else sigmoid_bf16_tile(i);
@@ -109,7 +119,23 @@ void kernel_main() {
                         for (uint32_t i = 0; i < SBW; ++i) round_bf16_rne_tile(i);
                     }
                     tile_regs_commit();
+#ifdef GIN_PSIG
+                    if (pass == 1) {
+                        // GIN_PSIG (lever trimul_gin_psig): the gate sigmoid on the packer thread's SFPU, on the dest
+                        // half it holds, so the FPU's next matmul block overlaps it (trimul_in_t1's T1_PSIG pattern).
+                        PACK(TTI_SEMWAIT(p_stall::STALL_TDMA | p_stall::STALL_CFG,
+                                         semaphore::t6_sem(semaphore::MATH_PACK), p_stall::STALL_ON_ZERO));
+                        PACK(TT_SETC16(DEST_TARGET_REG_CFG_MATH_Offset_ADDR32, ckernel::packer::get_packer_dest_offset()));
+                        if constexpr (!(ABL & 1)) {
+                            for (uint32_t i = 0; i < SBW; ++i) sigmoid_poly_tile_pack<SIGPOLY>(i);
+                        }
+                        PACK(TTI_STALLWAIT(p_stall::STALL_PACK, p_stall::WAIT_SFPU));
+                    } else {
+                        tile_regs_wait();
+                    }
+#else
                     tile_regs_wait();
+#endif
                     for (uint32_t i = 0; i < SBW; ++i) pack_tile<true>(i, pass_cb, il0 + i);
                     tile_regs_release();
                 }

@@ -638,6 +638,8 @@ _FAST_MODE = False
 #   trimul_gin_fuse gin_moved multiplies value and gate in DST (both side by side, half of DST each) instead of
 #                   packing both to L1 as bf16 and multiplying them back: two 32-tile buffers fewer, so ESMFold2's
 #                   c_z 256 in-projection fits one launch and reads the pair tensor once instead of twice
+#   trimul_gin_psig gin_moved's gate sigmoid on the packer thread's SFPU (trimul_t1_psig's pattern), overlapping the
+#                   next matmul block: same polynomial on the same values, so a and b are bit-identical
 #   trimul_gin_b8   trimul_gin, and the einsum's deferred transpose, also under the bfp8 `_FAST_MODE` (how Wormhole
 #                   ESMFold2 folds). gin writes a and b in bf16, so the deferral's bfp8 re-quantisation does not arise
 #                   where gin serves. ESMFold2's call on Wormhole (1000 MHz, fast set): 512 32.3 -> 18.5 ms, 1024
@@ -982,7 +984,7 @@ LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffus
            "pair_tail_cm", "pair_batch", "pair_block_hifi2", "trimul_t1g8", "trimul_tail_hifi2", "pair_bfp8z",
            "trimul_t1_fgate", "pair_x8", "pair_x8t", "tok_recycle_mm", "tok_w8", "trimul_x8", "ws_ln_resid", "dit_pad_short", "bg_featproc", "ef2_msa_ffn", "ef2_opm_proj", "trimul_t1_part",
            "trimul_t1_3g", "trimul_t1split", "adaln_at", "dit_kl1", "mask_at_mix", "mask_at_mix_z8", "trunk_trace", "dit_qkvf_h4",
-           "ws_ln_t1l1", "dit_gres", "atom_kvw", "trimul_t1_stats", "trimul_t1_stats2", "pair_bias_fuse", "apb_sdpa", "apb_qkvf")
+           "ws_ln_t1l1", "dit_gres", "atom_kvw", "trimul_t1_stats", "trimul_t1_stats2", "pair_bias_fuse", "apb_sdpa", "apb_qkvf", "trimul_gin_psig")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -1016,7 +1018,7 @@ UNGRADED_LEVERS = frozenset({"trunk_trace", "dit_bf16", "atom_kvcat", "bres_ta_h
                              "trimul_tail_hifi2", "pair_bfp8z", "trimul_t1_fgate", "pair_x8", "pair_x8t",
                              "tok_recycle_mm", "tok_w8", "trimul_x8", "ws_ln_resid", "dit_pad_short", "bg_featproc", "ef2_msa_ffn", "ef2_opm_proj", "trimul_t1_part",
                              "trimul_t1_3g", "trimul_t1split", "ws_ln_t1l1", "dit_gres", "atom_kvw",
-                             "trimul_t1_stats", "trimul_t1_stats2", "pair_bias_fuse", "apb_sdpa", "apb_qkvf"})
+                             "trimul_t1_stats", "trimul_t1_stats2", "pair_bias_fuse", "apb_sdpa", "apb_qkvf", "trimul_gin_psig"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands

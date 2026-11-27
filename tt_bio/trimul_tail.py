@@ -571,6 +571,14 @@ def _gin_fuse(masked):
     return not masked and _sigpoly() != 0 and _lever("trimul_gin_fuse")
 
 
+def _gin_psig(masked):
+    """gin_moved's gate sigmoid on the packer thread's SFPU (lever trimul_gin_psig), T1_PSIG's pattern on the unfused
+    gate pass: the same sigmoid_poly on the same values, so a and b are bit-identical, but it overlaps the FPU's next
+    matmul block instead of following it. Needs the polynomial sigmoid; off under RNE bit 1 (rounds DST on the math
+    thread first) and under the fused gate, which has no separate gate pass."""
+    return bool(_lever("trimul_gin_psig") and _sigpoly() and not RNE & 2 and not _gin_fuse(masked))
+
+
 def _gin_out_tiles(kt, ct2, masked):
     """The output buffer: two channel tiles' worth (compute runs one ahead of the writer's gather), or one when
     the fused gate gets the call into a single launch only that way (ESMFold2's c_z 256 on Wormhole)."""
@@ -675,7 +683,7 @@ def _build_gin_move(x, wpT, wgT, outs, grid, ckc, mask, cto=0, ctt=None):
     compute = ttnn.KernelDescriptor(
         kernel_source=str(d / "compute.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[kt, ct2, sbw, int(mask is not None), GIN_MOVE_ABL, _sigpoly(), RNE, int(fuse)],
-        runtime_args=cp,
+        runtime_args=cp, defines=[("GIN_PSIG", "1")] if _gin_psig(mask is not None) else [],
         config=ttnn.ComputeConfigDescriptor(
             math_fidelity=fid, math_approx_mode=approx, fp32_dest_acc_en=fp32,
             dst_full_sync_en=full))
@@ -715,7 +723,7 @@ def gin_moved(x, wpT, wgT, ckc, grid, mask=None):
     for s_, (wp, wg) in enumerate(zip(wps, wgs)):
         key = ("gin_move", str(x.padded_shape), str(wp.padded_shape), str(wp.dtype), tuple(grid),
                tuple(str(c) for c in ckc), mask is not None, GIN_MOVE_ABL, GIN_MOVE_NB, _sigpoly(), RNE,
-               s_, n, _gin_fuse(mask is not None))
+               s_, n, _gin_fuse(mask is not None), _gin_psig(mask is not None))
         entry = _CACHE.get(key)
         if entry is None:
             entry = _CACHE[key] = _build_gin_move(x, wp, wg, outs, grid, ckc, mask,
