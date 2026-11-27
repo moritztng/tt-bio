@@ -63,8 +63,14 @@ cd ~ && ~/dfd/venv/bin/python -c "import tt_bio.diffdock.run; print('tt_bio ok')
 REMOTE
 
 echo "== dock, detached"
-$SSH "cd ~/dfd/tt-bio && DFD_PB=~/dfd/pb/posebusters_benchmark_set PYTHONHASHSEED=0 \
+# `timeout`, because this ssh does not come back: the remote launch writes its pid and exits, but
+# sshd on these images holds the channel open and the launcher blocked for 55 min on 2026-11-27,
+# so nothing pulled poses and nothing watched the cap. The dock is detached by construction, so
+# the launch does not need its channel back; it needs the pid, which a second ssh reads.
+timeout 120 $SSH "cd ~/dfd/tt-bio && DFD_PB=~/dfd/pb/posebusters_benchmark_set PYTHONHASHSEED=0 \
       PYTHONUNBUFFERED=1 setsid nohup ~/dfd/venv/bin/python scripts/diffdock_port/pose_eval.py dock \
       --ids all --out ~/dfd/poses --workers $WORKERS --threads $THREADS --seed 42 \
-      > ~/dfd/dock.log 2>&1 < /dev/null & echo \$! > ~/dfd/dock.pid; cat ~/dfd/dock.pid"
+      > ~/dfd/dock.log 2>&1 < /dev/null & echo \$! > ~/dfd/dock.pid"
+timeout 60 $SSH 'kill -0 $(cat ~/dfd/dock.pid) && echo "dock pid $(cat ~/dfd/dock.pid) alive"' \
+  || { echo "dock did not start"; exit 1; }
 echo "== log: $RT:~/dfd/dock.log  poses: $RT:~/dfd/poses"

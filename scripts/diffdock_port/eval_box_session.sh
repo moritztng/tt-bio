@@ -39,21 +39,7 @@ for _ in $(seq "${NMAX:-6}"); do
   SSH_CMD="$S" bash "$P/eval_box_setup.sh" - "$WORKERS" "$THREADS" || { vl_destroy "$I" "setup failed"; continue; }
   log "$I docking: $(timeout 30 $S 'nproc') cores, \$$ODPH/h"
 
-  END=""
-  while :; do
-    sleep 300
-    rsync -a -e "${S% *}" "${S##* }:dfd/poses/" "$OUT/poses/" 2>/dev/null
-    timeout 60 $S 'tail -3 ~/dfd/dock.log' > "$OUT/dock-remote.log" 2>/dev/null
-    grep -q DOCK_DONE "$OUT/dock-remote.log" 2>/dev/null && END=done
-    timeout 30 $S 'kill -0 $(cat ~/dfd/dock.pid)' >/dev/null 2>&1 || [ -n "$END" ] || END="driver gone, $(tail -1 "$OUT/dock-remote.log")"
-    [ -n "$END" ] && break
-    [ $(( $(date +%s) - T0 )) -ge $(python3 -c "print(int($CAP_H*3600))") ] && { END="cap $CAP_H h"; break; }
-    log "$I $(find "$OUT/poses" -name rank1.sdf -size +0 | wc -l)/428 docked"
-  done
-  rsync -a -e "${S% *}" "${S##* }:dfd/poses/" "$OUT/poses/" 2>/dev/null
-  n=$(find "$OUT/poses" -name rank1.sdf -size +0 | wc -l)
-  log "$I END=$END, $n/428 complexes have a non-empty rank1.sdf"
-  vl_destroy "$I" "$END ($n/428 docked)"
+  bash "$P/eval_box_watch.sh" "$L" "$CAP_H" $(( T0 + $(python3 -c "print(int($CAP_H*3600))") ))
   break
 done
 log "session $L over"
