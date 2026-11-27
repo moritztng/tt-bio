@@ -301,3 +301,95 @@ def test_a_shorter_run_docks(tmp_path):
               "--diffusion_samples", "2", "--out_dir", str(tmp_path))
     assert out.exit_code == 0, out.output
     assert (tmp_path / "complex_0" / "rank1.sdf").exists()
+
+
+def test_dock_runs_on_the_card_it_picked(tmp_path, monkeypatch):
+    """A card on the host means the score network runs on it, not on the CPU.
+
+    `dock` detected the host's cards and pinned one, then handed the run a DockOptions that
+    still said ``cpu``, so the shipped command stayed on the CPU and only the grade harnesses
+    reached a chip (D-dfd-orch-73). The card is faked here: what is under test is which device
+    the options carry into `dock_run.dock`, which is the one thing that decision changes.
+    """
+    from tt_bio import main as tt_main
+    from tt_bio.diffdock import run as dock_run
+
+    seen = {}
+
+    def fake_dock(jobs, options, out_dir, **kw):
+        seen["device"] = options.device
+        return {"docked": [], "failed": [], "out_dir": str(out_dir)}
+
+    monkeypatch.setattr(tt_main, "_local_cards", lambda ids, n: [0])
+    monkeypatch.setattr(tt_main, "_pin_one_card", lambda devices, model: None)
+    monkeypatch.setattr(dock_run, "dock", fake_dock)
+    rec = tmp_path / "rec.pdb"
+    rec.write_text("ATOM      1  CA  ALA A   1       0.000   0.000   0.000  1.00  0.00\n")
+    res = run(str(rec), "--ligand", ASPIRIN, "--out_dir", str(tmp_path / "out"))
+    assert res.exit_code == 0, res.output
+    assert seen["device"] == "tt"
+
+
+def test_dock_without_a_card_stays_on_the_cpu(tmp_path, monkeypatch):
+    """The other half of the same decision: no card, no device path, no import of ttnn."""
+    from tt_bio import main as tt_main
+    from tt_bio.diffdock import run as dock_run
+
+    seen = {}
+    monkeypatch.setattr(tt_main, "_local_cards", lambda ids, n: [])
+    monkeypatch.setattr(dock_run, "dock",
+                        lambda jobs, options, out_dir, **kw: seen.update(device=options.device)
+                        or {"docked": [], "failed": [], "out_dir": str(out_dir)})
+    rec = tmp_path / "rec.pdb"
+    rec.write_text("ATOM      1  CA  ALA A   1       0.000   0.000   0.000  1.00  0.00\n")
+    res = run(str(rec), "--ligand", ASPIRIN, "--out_dir", str(tmp_path / "out"))
+    assert res.exit_code == 0, res.output
+    assert seen["device"] == "cpu"
+
+
+
+def test_the_device_branch_of_load_is_reachable(monkeypatch):
+    """`DockOptions(device="tt")` takes `load`'s device branch and returns that network.
+
+    The seam breaks in one specific way: landed without the `device` field, or without this
+    branch, every `tt-bio dock` on a host with a card dies before it docks. The checkpoints
+    and the card are faked here -- neither exists in CI -- so what is under test is the
+    branch and the names it uses, which is exactly the part that cannot be checked on a
+    machine with no chip.
+    """
+    import tt_bio.diffdock.network as network
+    from tt_bio.diffdock.job import DockOptions
+
+    host = object()
+    # `load` imports these inside the function, so they are patched where they are defined.
+    monkeypatch.setattr("tt_bio.diffdock.checkpoints.resolve",
+                        lambda *a, **k: (Path("score.pt"), Path("params/x.yaml")))
+    monkeypatch.setattr("tt_bio.diffdock.config.load", lambda *a, **k: object())
+    monkeypatch.setattr("tt_bio.diffdock.score_model.load_released", lambda *a, **k: object())
+    monkeypatch.setattr("tt_bio.diffdock.score_model.HostScoreNetwork",
+                        lambda *a, **k: host)
+    monkeypatch.setattr("torch.load", lambda *a, **k: {})
+    monkeypatch.setattr("tt_bio.main.ensure_p300_mesh_descriptor", lambda *a, **k: None)
+    monkeypatch.setattr("tt_bio.tenstorrent.get_device", lambda *a, **k: "a-card")
+    seen = {}
+    monkeypatch.setattr("tt_bio.diffdock.device.DeviceScoreNetwork",
+                        lambda h, d: seen.update(host=h, device=d) or "device-network")
+
+    assert network.load(DockOptions(no_confidence=True)) is host
+    assert network.load(DockOptions(device="tt", no_confidence=True)) == "device-network"
+    assert seen == {"host": host, "device": "a-card"}
+
+
+def test_device_score_network_has_the_rollout_interface():
+    """`DeviceScoreNetwork` is a drop-in for `HostScoreNetwork`: same three members.
+
+    The rollout reaches the network through `config`, `score_fn` and `confidence` and must
+    not know a card is involved; a missing member would only show up on a chip.
+    """
+    from tt_bio.diffdock.device import DeviceScoreNetwork
+    from tt_bio.diffdock.score_model import HostScoreNetwork
+
+    for name in ("config", "score_fn", "confidence"):
+        assert hasattr(HostScoreNetwork, name) or name == "config"
+        assert hasattr(DeviceScoreNetwork, name) or name == "config"
+    assert DeviceScoreNetwork.on_device is True
