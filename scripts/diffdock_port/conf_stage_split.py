@@ -76,6 +76,12 @@ def main():
     ap.add_argument("--n", type=int, default=3)
     ap.add_argument("--edge-tp", default="gemm")
     ap.add_argument("--ckpt", help="directory holding score_model/ and confidence_model/")
+    ap.add_argument("--replay", action="store_true",
+                    help="also capture one pose's 45 convolutions as a trace and time its replay "
+                         "against the eager body: the ceiling of a capture/replay lever")
+    ap.add_argument("--each-pose", action="store_true",
+                    help="run the first layer's receptor convolutions on every pose (the form "
+                         "before they were kept per receptor), for a same-chip A/B")
     args = ap.parse_args()
 
     import sys
@@ -92,8 +98,13 @@ def main():
           dict(checkpoint=f"{args.ckpt}/score_model",
                confidence_checkpoint=f"{args.ckpt}/confidence_model"))
     options = DockOptions(device="tt", edge_tp=args.edge_tp, seed=0, **ck)
+    if args.replay:                       # the trace region is fixed when the device opens
+        from tt_bio.tenstorrent import get_device
+        get_device(trace="bc2")
     host = network.load(DockOptions(device="cpu", **ck))
     dev = network.load(options)
+    if args.each_pose:
+        dev._confidence.first_layer = 0
     work = Path(args.work)
     work.mkdir(parents=True, exist_ok=True)
 
@@ -121,7 +132,7 @@ def main():
         st.s["read-back"] += time.perf_counter() - t0
         return out
 
-    res = dict(chip=os.environ.get("TT_VISIBLE_DEVICES"), edge_tp=args.edge_tp, n=args.n,
+    res = dict(chip=os.environ.get("TT_VISIBLE_DEVICES"), edge_tp=args.edge_tp, n=args.n, each_pose=args.each_pose,
                torch_threads=torch.get_num_threads(), loadavg_start=os.getloadavg(),
                complexes={})
     for cid in args.ids:
@@ -201,6 +212,9 @@ def main():
             == np.argsort(-ref, kind="stable").tolist(),
             spearman=_spearman(got, ref), max_abs=float(np.max(np.abs(got - ref))))
         c = res["complexes"][cid]
+        if args.replay:
+            c["replay"] = _replay(dev._confidence, g, args.n)
+            print(cid, "replay", c["replay"], flush=True)
         print(cid, "first", c["first_call_s"], "new shapes", c["new_shapes_s"], c["runs_s"],
               c["clock_line"], "top1", c["top1_same"], "rho", c["spearman"],
               flush=True)
@@ -210,6 +224,43 @@ def main():
     res["loadavg_end"] = os.getloadavg()
     Path(args.out).write_text(json.dumps(res, indent=1))
     print("wrote", args.out, flush=True)
+
+
+def _replay(dc, g, n: int) -> dict:
+    """Pose *g*'s convolutions issued from Python against the same work replayed from a trace.
+
+    Both are timed to an empty card queue with every input already on the card, so the
+    difference is what Python dispatch costs and what a capture could give back per pose.
+    """
+    import ttnn
+    from tt_bio.tenstorrent import capture_trace
+    dc(g)                                 # uploads this pose's tables, edges and graphs
+    nodes = {s: dc._held[("node", s)][1] for s in g["nodes"]}
+    edges = {es: dc._held[("edge", es)][1] for es in g["edges"]}
+    device = dc.device
+
+    def body():
+        return dc.model.convolve(nodes, edges, conv=dc._conv, combine=dc._combine)
+
+    def timed(run):
+        secs = []
+        for _ in range(n):
+            ttnn.synchronize_device(device)
+            t0 = time.perf_counter()
+            out = run()
+            ttnn.synchronize_device(device)
+            secs.append(round(time.perf_counter() - t0, 4))
+        return secs, out
+
+    eager_s, eager = timed(body)
+    want = ttnn.to_torch(eager)
+    tid, out = capture_trace(device, body)
+    try:
+        replay_s, _ = timed(lambda: ttnn.execute_trace(device, tid, cq_id=0, blocking=True))
+        gap = float((ttnn.to_torch(out) - want).abs().max())
+    finally:
+        ttnn.release_trace(device, tid)
+    return dict(eager_s=eager_s, replay_s=replay_s, replay_vs_eager_max_abs=gap)
 
 
 def _receptor_args(graph, dev):

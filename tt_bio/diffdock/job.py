@@ -82,7 +82,8 @@ class DockOptions:
     #: pinned). `tt_bio.main._dock_on_card` sets it; `network.load` reads it.
     device: str = "cpu"
     #: The card's per-edge tensor product: "gemm" (fp32, the default) or "tile" (the fused
-    #: Blackhole kernel, torsion head on gemm). Not the default until the PoseBusters grade.
+    #: Blackhole kernel, torsion head on gemm), for the rollout and the confidence pass alike.
+    #: Not the default until the PoseBusters grade.
     edge_tp: str = "gemm"
     pocket: tuple[float, float, float] | None = None
     pocket_radius: float = 5.0              # evaluate.py --pocket_cutoff
