@@ -22,6 +22,10 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   compiled: an unseen pose set took 7.5 to 130 s on three test ligands and now takes 0.9 to 1.4 s (one Galaxy
   chip at 1350 MHz). The receptor's all-atom graph is also built once per structure file instead of once per
   ligand. Ranking is unchanged on those ligands.
+- **Ranking docked poses on the card is about 14 % faster per pose.** The receptor-only convolutions of the
+  confidence network's first layer run once per receptor instead of once per pose: 0.047 / 0.090 / 0.086 s ->
+  0.040 / 0.078 / 0.074 s of card time per pose on three test ligands (one Galaxy chip at 1350 MHz). Scores are
+  bit-identical.
 - **ESMFold2 and ESMFold2-Fast fold about 4 % faster on Wormhole**, in both normal and `--fast` mode. A 512-residue
   fold on a Galaxy chip at 1000 MHz: ESMFold2 22.9 -> 21.8 s (normal) and 22.2 -> 21.3 s (`--fast`), ESMFold2-Fast
   13.5 -> 13.0 s and 13.4 -> 12.9 s. The triangle update keeps one pair tensor in 8-bit block floating point across
