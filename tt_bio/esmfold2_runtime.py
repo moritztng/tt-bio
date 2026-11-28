@@ -1164,6 +1164,7 @@ def _install_resident_trunk_loop(model):
             real = torch.zeros(1, Lp + pad, Lp + pad)
             real[:, :Lp, :Lp] = 1.0
             mask = ftw._from_torch(real)
+            real4 = ftw._from_torch(real.unsqueeze(-1))  # zeroes the pad of a pair built at the bucket
         # A per-loop MSA draw is encoded on the device each loop (overwrite: the MSA pair IS the base).
         msa_dev = msa_loops is not None and msa_fixed is None
         on_dev = (_DEVICE_INJECTION and per_loop and isinstance(lm_z, _DevPair)
@@ -1187,7 +1188,7 @@ def _install_resident_trunk_loop(model):
                 base = ttnn.pad(src, [(0, 0), (0, pad), (0, pad), (0, 0)], value=0.0)
                 ttnn.deallocate(src)
             elif isinstance(base, _DevPair):
-                base = base.t
+                base = ttnn.multiply_(base.t, real4) if pad else base.t
             else:
                 base = up(padz(base).float())
             norm = self.parcae_input_norm
@@ -1222,7 +1223,9 @@ def _install_resident_trunk_loop(model):
             ttnn.deallocate(s)
             out = ttnn.linear(n, b_t, compute_kernel_config=ck)
             ttnn.deallocate(n)
-            return out  # its pad is not zero (LN(0) @ b is not): the trunk masks it, as it does z's own
+            # The host path pads the projection with zeros and LN(0) @ b is not zero. One multiply at the bucket
+            # zeroes it; the slice and pad it replaces compiled for every length.
+            return ttnn.multiply_(out, real4) if pad else out
 
         for _step in range(total_steps):
             E.report_progress("trunk", _step, total_steps)
@@ -1248,7 +1251,7 @@ def _install_resident_trunk_loop(model):
             z_out, zt = _DevPair(zt, Lp), None  # still at the bucket: the readout is per position, the coda masks
         else:
             z_out = (T.download(zt) if DEVICE_UPLOAD else ftw._to_torch(zt))[:, :Lp, :Lp, :].to(z.dtype)
-        for t in (zt, ipt, at, mask) + ((base, ln_w, ln_b, b_t) if on_dev else ()):
+        for t in (zt, ipt, at, mask, real4 if pad else None) + ((base, ln_w, ln_b, b_t) if on_dev else ()):
             if t is not None:
                 try:
                     ttnn.deallocate(t)
