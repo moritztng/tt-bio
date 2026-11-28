@@ -23,8 +23,9 @@ OUT = sys.argv[1]
 SHAPES = [tuple(int(v) for v in s.split("x")) for s in sys.argv[2:]] or [(1, 224, 224, 128), (1, 2, 224, 256)]
 REPS = 20
 dev = T.get_device()
-chip = int(__import__("os").environ["TT_VISIBLE_DEVICES"])
-aiclk = lambda: int(open(f"/sys/class/tenstorrent/tenstorrent!{chip}/tt_aiclk").read())  # noqa: E731
+# the node this process opened: TT_VISIBLE_DEVICES is an index, not the /dev/tenstorrent number
+NODE = sorted({ln.rsplit("/", 1)[1].strip() for ln in open("/proc/self/maps") if "/dev/tenstorrent/" in ln})[0]
+aiclk = lambda: int(open(f"/sys/class/tenstorrent/tenstorrent!{NODE}/tt_aiclk").read().split()[0])  # noqa: E731
 
 
 def rel(a, ref):
@@ -63,7 +64,7 @@ def run(shape):
         assert out is not None, "TRANSITION_RES declined"
         return out
 
-    rec = {"shape": list(shape)}
+    rec = {"shape": list(shape), "node": NODE}
     A.TRANSITION_RES = True
     with B.fast_round():
         for name, fn in (("composed", composed), ("fused", fused)):
