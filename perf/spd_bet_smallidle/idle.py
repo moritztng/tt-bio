@@ -12,7 +12,7 @@ processes, because the device profiler slows the fold it measures:
 
 RFD4 takes --spec DESIGN.yaml instead of --yaml/--a3m and times one design.
 """
-import argparse, collections, ctypes, json, os, signal, subprocess, sys, threading, time
+import argparse, collections, ctypes, json, os, shutil, signal, subprocess, sys, threading, time
 from pathlib import Path
 
 ap = argparse.ArgumentParser()
@@ -48,7 +48,8 @@ if a.model == "rfd4":
     def run(i):
         tok = []
         t = time.perf_counter()
-        R.design(a.spec, a.out / f"r{i}", num_designs=1, seed=42, engine=engine,
+        d = a.out / f"r{'p' if a.profile else ''}{i}"; shutil.rmtree(d, ignore_errors=True)   # the writer refuses an existing cif
+        R.design(a.spec, d, num_designs=1, seed=42, engine=engine,
                  on_design=lambda _id, n, _cif: tok.append(n))
         return time.perf_counter() - t, {"n_token": tok[-1] if tok else None}
 else:
@@ -147,6 +148,7 @@ for i in range(a.reps):
     reps.append(row)
 res["reps"] = reps
 res["fold_s_median"] = sorted(r["fold_s"] for r in reps)[len(reps) // 2]
+(a.out / "timed.json").write_text(json.dumps(res, indent=1))     # the timed folds survive a failed sampler
 
 if a.spy:
     ctypes.CDLL(None).prctl(0x59616D61, ctypes.c_ulong(-1).value, 0, 0, 0)   # PR_SET_PTRACER_ANY: let our child attach
