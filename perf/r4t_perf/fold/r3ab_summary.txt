@@ -1,0 +1,17 @@
+START 2026-11-26T11:14:00Z card 2 cpus 6,7 B=4cfd67b01 dirty 0
+RC_A1 0 11:14:50 load 10.28
+RC_B1 0 11:15:36 load 10.99
+RC_A2 0 11:16:23 load 13.34
+RC_B2 0 11:17:06 load 14.93
+RC_A3 0 11:17:52 load 15.22
+RC_B3 0 11:18:37 load 13.53
+END 2026-11-26T11:18:37Z
+A 1 ['fb06ed76', '7b26cd3e', 'd184d041'] aiclk 1300 1350
+A 2 ['fb06ed76', '7b26cd3e', 'd184d041'] aiclk 1300 1350
+A 3 ['fb06ed76', '7b26cd3e', 'd184d041'] aiclk 1312 1350
+A {'step_s': 8.649, 'fwd_s': 3.368, 'bwd_s': 1.458, 'fold_bwd_s': 0.917, 'opt_s': 1.91, 'rebuild_s': 1.033} load_s 1.018 {0: 0}
+B 1 ['fb06ed76', '7b26cd3e', 'd184d041'] aiclk 1312 1350
+B 2 ['fb06ed76', '7b26cd3e', 'd184d041'] aiclk 1325 1350
+B 3 ['fb06ed76', '7b26cd3e', 'd184d041'] aiclk 1300 1350
+B {'step_s': 8.146, 'fwd_s': 3.408, 'bwd_s': 1.433, 'fold_bwd_s': 0.897, 'opt_s': 1.834, 'rebuild_s': 0.437} load_s 0.426 {0: 0}
+DIGESTS IDENTICAL

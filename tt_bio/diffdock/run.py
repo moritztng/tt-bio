@@ -192,6 +192,8 @@ def _sample_one(job: DockJob, options: DockOptions, write_dir: Path, receptor: P
                                   torch.full_like(confidences, confidence_model.UNSCORABLE))
         order = torch.argsort(confidences, descending=True).tolist()
         poses, confidences = poses[order], confidences[order].tolist()
+        log.info("%s: ranked %d poses, best confidence %.3f",
+                 job.name, len(confidences), confidences[0])
 
     trajectories = None
     if options.save_trajectory and rollout.trajectory:

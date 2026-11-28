@@ -41,6 +41,18 @@ def pad32(n: int) -> int:
     return ((n + TILE - 1) // TILE) * TILE
 
 
+def exact01_dtype(device, working):
+    """The dtype of a 0/1 matrix that multiplies a *working*-dtype operand on *device*.
+
+    0/1 is exact in bf16, and Blackhole keeps the other operand of an fp32 x bf16 matmul at full
+    width, so bf16 is free there. Wormhole runs that operand at bf16 width: the tensor product's
+    error went from Blackhole's 4e-3 to 1.1e-2 (state/dfd/WH.md), so there the matrix carries the
+    working dtype.
+    """
+    import ttnn
+    return ttnn.bfloat16 if device.arch() == ttnn.Arch.BLACKHOLE else working
+
+
 class _Path:
     """The host-side float64 constants of one tensor-product path."""
 
@@ -150,9 +162,10 @@ class DeviceEdgeTP:
         self.w1 = up(_pad2(fc[0].weight.detach().T, fp, hp))
         self.b1 = up(_pad2(fc[0].bias.detach().reshape(1, -1), 1, hp))
         # The 0/1 placement matrices are exact in bf16; the 3j values and the FC weights are not.
+        pdt = exact01_dtype(device, self.dtype)
         self.paths = [
-            dict(G=up(p.G), E=up(p.E, ttnn.bfloat16), Q=up(p.Q, ttnn.bfloat16),
-                 S=up(p.S, ttnn.bfloat16), W2d=up(_pad2(p.W2d, hp, p.W2d.shape[1])),
+            dict(G=up(p.G), E=up(p.E, pdt), Q=up(p.Q, pdt),
+                 S=up(p.S, pdt), W2d=up(_pad2(p.W2d, hp, p.W2d.shape[1])),
                  b2d=up(p.b2d))
             for p in path_constants(tp, fc)
         ]
@@ -250,9 +263,9 @@ class DeviceConvLayer:
     ``0 / eps = 0`` rather than NaN, which is the all-masked rule of D-dfd-orch-10.
 
     *edge_tp* picks the per-edge FC + tensor product: ``"gemm"`` (:class:`DeviceEdgeTP`) or
-    ``"tile"`` (:class:`~tt_bio.diffdock.edge_tile.DeviceEdgeTile`, one fused kernel). The tile
-    kernel writes its own column order; the 0/1 permutation back to e3nn's commutes with the
-    scatter, so it is applied on node rows after it.
+    ``"tile"`` (:class:`~tt_bio.diffdock.edge_tile.DeviceEdgeTile`, one fused Blackhole kernel).
+    The tile kernel writes its own column order; the 0/1 permutation back to e3nn's commutes
+    with the scatter, so it is applied on node rows after it.
     """
 
     def __init__(self, device, layer, *, dtype=None, edge_tp: str = "gemm"):
@@ -264,14 +277,14 @@ class DeviceConvLayer:
         self.fcs = fcs = list(layer.fc) if layer.edge_groups > 1 else [layer.fc]
         self.in_dim, self.out_dim = layer.in_irreps.dim, layer.out_irreps.dim
         self.out_pad = pad32(self.out_dim)
-        self.ckc = ttnn.types.BlackholeComputeKernelConfig(
-            math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,
-            fp32_dest_acc_en=True, packer_l1_acc=True)
         self.perm = None
         if edge_tp == "gemm":
             self.tps = [DeviceEdgeTP(device, layer.tp, fc, dtype=self.dtype) for fc in fcs]
+            self.ckc = self.tps[0].ckc
         elif edge_tp == "tile":
             from tt_bio.diffdock.edge_tile import DeviceEdgeTile
+            if device.arch() != ttnn.Arch.BLACKHOLE:
+                raise NotImplementedError("the fused edge-tile kernel is Blackhole only")
             self.tps = [DeviceEdgeTile(device, layer.tp, fc) for fc in fcs]
             perm = self.tps[0].plan.perm
             if any(not torch.equal(t.plan.perm, perm) for t in self.tps[1:]):
@@ -279,6 +292,9 @@ class DeviceConvLayer:
             self.perm = ttnn.from_torch(_pad2(perm, perm.shape[0], self.out_pad).float(),
                                         dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT,
                                         device=device)
+            self.ckc = ttnn.types.BlackholeComputeKernelConfig(
+                math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,
+                fp32_dest_acc_en=True, packer_l1_acc=True)
         else:
             raise ValueError(f"edge_tp must be gemm or tile, not {edge_tp!r}")
         bn = layer.batch_norm
@@ -313,8 +329,9 @@ class DeviceConvLayer:
         S[src, torch.arange(E)] = 1.0
         idx = ttnn.from_torch(dst.to(torch.int32).reshape(1, E), dtype=ttnn.uint32,
                               layout=ttnn.ROW_MAJOR_LAYOUT, device=self.device)
-        # 0/1 is exact in bf16, and the scatter is a sum of exact products.
-        S = ttnn.from_torch(S, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=self.device)
+        # 0/1, and the scatter is a sum of exact products.
+        S = ttnn.from_torch(S, dtype=exact01_dtype(self.device, self.dtype),
+                            layout=ttnn.TILE_LAYOUT, device=self.device)
         return dict(idx=idx, S=S, E=E, n_out=n_out, edge_index=edge_index)
 
     def fc1_split(self, ns: int):
@@ -350,13 +367,16 @@ class DeviceConvLayer:
             g[key] = idx
         return g[key]
 
-    def __call__(self, node_attr, g, edge_attr_groups, edge_sh, edge_mask, ns=None):
+    def __call__(self, node_attr, g, edge_attr_groups, edge_sh, edge_mask, ns=None,
+                 out_attr=None):
         """*node_attr* is ``[N, pad32(in_dim)]`` TILE.
 
         *edge_attr_groups* are TILE ``[E_g, pad32(F)]`` blocks partitioning the edges in order,
         *edge_sh* ``[E, pad32(sh)]`` TILE and *edge_mask* ``[E, 1]`` TILE. With *ns* set they
         are the bare edge attributes instead, and the node halves of the edge input are built
         here from *node_attr* (:meth:`fc1_split`), so a stack of layers never leaves the card.
+        *out_attr* is the table the messages land in when it is not *node_attr* (a cross group
+        of the confidence model): the ``x[src]`` half of the edge input is read from it.
         """
         ttnn = self.ttnn
         ckc = self.ckc
@@ -373,7 +393,8 @@ class DeviceConvLayer:
                 w1a, w1s, w1d, b1 = self.fc1_split(ns)[gi]
                 src, dst = index[gi]
                 h = ttnn.linear(ea, w1a, bias=b1, compute_kernel_config=ckc, dtype=self.dtype)
-                h = ttnn.add(h, gather_rows(mm(node_attr, w1s), src, n))
+                out_t = node_attr if out_attr is None else out_attr
+                h = ttnn.add(h, gather_rows(mm(out_t, w1s), src, n))
                 h = ttnn.relu(ttnn.add(h, gather_rows(mm(node_attr, w1d), dst, n)))
             msgs.append(tp(ea, x1[lo:lo + n, :], edge_sh[lo:lo + n, :], h=h))
             lo += n
@@ -425,6 +446,49 @@ def stack_layout(edge_index: Tensor, n_p: int, plan, n_in_p: int | None = None):
         at += n + extra
     pos[E] = at
     return torch.cat(cols, 1), pos, blocks
+class GraphCache:
+    """Uploaded static graphs (gather index + dense ``[n_out, E]`` bf16 scatter), keyed by shape
+    and checked by content, least recently used out first.
+
+    The static network reuses one edge index across layers and steps (masks carry what moves),
+    so the conv modules of one network share a cache and each graph crosses to the card once
+    per rollout instead of once per call. A rollout touches six: the receptor, ligand and main
+    stacks, the main stack's last layer and the two heads. A screening run brings new shapes
+    with every complex, so past *size* entries the oldest is freed on the card.
+    """
+
+    def __init__(self, size: int = 8):
+        from collections import OrderedDict
+        self.size, self.entries = size, OrderedDict()
+
+    def get(self, key, edge_index: Tensor, build) -> dict:
+        hit = self.entries.get(key)
+        if hit is None or not torch.equal(hit[0], edge_index):
+            if hit is not None:
+                _free(hit[1])
+            hit = self.entries[key] = (edge_index, build())
+        self.entries.move_to_end(key)
+        while len(self.entries) > self.size:
+            _free(self.entries.popitem(last=False)[1][1])
+        return hit[1]
+
+    def nbytes(self) -> int:
+        """Card bytes held: per graph the bf16 scatter, its uint32 index and any per-group
+        ``(src, dst)`` indices :meth:`DeviceConvLayer._group_index` added."""
+        total = 0
+        for _, g in self.entries.values():
+            groups = sum(1 for k in g if isinstance(k, tuple))
+            total += g["n_out"] * g["E"] * 2 + g["E"] * 4 * (1 + 2 * groups)
+        return total
+
+
+def _free(g: dict) -> None:
+    import ttnn
+    for v in g.values():
+        for t in (v if isinstance(v, list) else [v]):
+            for u in (t if isinstance(t, list) else [t]):
+                if isinstance(u, ttnn.Tensor):
+                    ttnn.deallocate(u)
 
 
 class DeviceConvModule(torch.nn.Module):
@@ -440,15 +504,12 @@ class DeviceConvModule(torch.nn.Module):
     """
 
     def __init__(self, device, layer, *, dtype=None, grade: bool = False, name: str = "",
-                 edge_tp: str = "gemm", graphs: dict | None = None):
+                 graphs: GraphCache | None = None, edge_tp: str = "gemm"):
         super().__init__()
         import copy
         self.name, self.log = name, []
-        #: uploaded static graphs (gather index + dense scatter), keyed by shape and checked by
-        #: content. The static network reuses one edge index across layers and steps (masks
-        #: carry what moves), so modules built together share this and each graph crosses to
-        #: the card once instead of once per call.
-        self.graphs = {} if graphs is None else graphs
+        #: uploaded static graphs, shared by the modules built together (:class:`GraphCache`)
+        self.graphs = GraphCache() if graphs is None else graphs
         #: wall seconds spent inside :meth:, summed over calls. Upload, the device ops
         #: and the read-back: everything this module owns. The rest of a step is host glue, so
         #: 1 - sum(secs) / step is the card's idle fraction in the untraced form.
@@ -461,11 +522,8 @@ class DeviceConvModule(torch.nn.Module):
                                    edge_tp=edge_tp)
 
     def _graph(self, ei: Tensor, n_out_p: int, n_in_p: int) -> dict:
-        key = (tuple(ei.shape), n_out_p, n_in_p)
-        hit = self.graphs.get(key)
-        if hit is None or not torch.equal(hit[0], ei):
-            hit = self.graphs[key] = (ei, self.dev.graph(ei, n_out_p, n_in_p))
-        return hit[1]
+        return self.graphs.get((tuple(ei.shape), n_out_p, n_in_p), ei,
+                               lambda: self.dev.graph(ei, n_out_p, n_in_p))
 
     @staticmethod
     def run_stack(mods, node_attr, edge_index, edge_attr, edge_sh, edge_mask, ns, plan):
@@ -567,15 +625,16 @@ class DeviceConvModule(torch.nn.Module):
 
 
 def convs_on_device(model, device, *, dtype=None, grade: bool = False,
-                    edge_tp: str = "gemm", gemm_modules=()) -> dict:
+                    edge_tp: str = "gemm", gemm_modules=(), graphs: int = 8) -> dict:
     """Swap every convolution in *model* for a :class:`DeviceConvModule`, in place.
 
     *edge_tp* is the edge tensor-product form of every convolution except those whose path ends
     in one of *gemm_modules*, which keep the fp32 GEMM form. Returns ``{module path:
-    DeviceConvModule}`` so a caller can read each one's grade log.
+    DeviceConvModule}`` so a caller can read each one's grade log. *graphs* sizes the shared
+    :class:`GraphCache`.
     """
     from tt_bio.diffdock.conv import TensorProductConvLayer
-    swapped, graphs = {}, {}
+    swapped, graphs = {}, GraphCache(graphs)
     for path, mod in list(model.named_modules()):
         for name, child in list(mod._modules.items()):
             if isinstance(child, TensorProductConvLayer):
@@ -586,23 +645,38 @@ def convs_on_device(model, device, *, dtype=None, grade: bool = False,
     return swapped
 
 
+#: Convolutions that keep the fp32 GEMM form when the rest run the edge-tile kernel. The torsion
+#: head's bf16 kernel error broke the SE(3) check at step 18 (2 of 51 legs against a float64
+#: reference); on GEMM every leg passes (state/dfd/PERF.md, D-dfd-orch-19).
+TILE_GEMM_MODULES = ("tor_bond_conv",)
+
+
 class DeviceScoreNetwork:
     """The score network with its 19 convolutions on a card, every pose of a step in one forward.
 
     Same interface as :class:`tt_bio.diffdock.score_model.HostScoreNetwork` (``config``,
     ``score_fn``, ``confidence``), so the rollout does not know a card is involved. Two things
-    differ from the host class: the convolutions run through :class:`DeviceConvModule` with the
-    fused edge-tile kernel, and a step is one :func:`~tt_bio.diffdock.static_net.static_forward`
+    differ from the host class: the convolutions run through :class:`DeviceConvModule`, as one
+    device-resident stack per edge set, and a step is one :func:`~tt_bio.diffdock.static_net.static_forward`
     over fixed-shape graphs instead of a loop over poses, which is what makes the shapes the same
-    every step. The confidence pass stays on the host.
+    every step. The confidence model's 45 convolutions are swapped the same way, so the ranking
+    pass runs the same device layers; its host glue (graph build, encoders, head) is unchanged.
     """
 
     on_device = True
 
-    def __init__(self, host, device, *, edge_tp: str = "tile"):
+    def __init__(self, host, device, *, edge_tp: str = "gemm"):
         self.host, self.device = host, device
         self.model, self.config = host.model, host.config
-        self.convs = convs_on_device(host.model, device, edge_tp=edge_tp)
+        self.convs = convs_on_device(host.model, device, edge_tp=edge_tp,
+                                     gemm_modules=TILE_GEMM_MODULES if edge_tp == "tile" else ())
+        # The confidence model keeps the GEMM form: the tile kernel was graded on the score
+        # network only, and the ranking pass is 0.54 s, not the bottleneck.
+        self.confidence_convs = ({} if host.confidence_model is None
+                                 else convs_on_device(host.confidence_model, device,
+                                                      graphs=CONFIDENCE_GRAPHS))
+        self._confidence = (None if host.confidence_model is None
+                            else DeviceConfidence(host.confidence_model, self.confidence_convs))
 
     def score_fn(self, graph):
         from tt_bio.diffdock.conv import pad_nodes
@@ -647,4 +721,97 @@ class DeviceScoreNetwork:
         return r.body, r.read_poses
 
     def confidence(self, graph, poses: Tensor):
-        return self.host.confidence(graph, poses)
+        """The host ranking pass with its interaction layers in :class:`DeviceConfidence`."""
+        return self.host.confidence(graph, poses, convolve=self._confidence)
+
+
+#: A confidence pose touches nine graphs per layer, four of them the receptor's; an LRU of 8
+#: would evict each one just before it is needed again.
+CONFIDENCE_GRAPHS = 16
+
+
+class DeviceConfidence:
+    """The confidence model's interaction layers with every node table on the card.
+
+    :meth:`ConfidenceModel.convolve <tt_bio.diffdock.confidence_model.ConfidenceModel.convolve>`
+    walks the wiring; this object is its executor. Per pose the ligand's node table and its
+    three edge sets cross to the card once, the receptor's two node tables and three edge sets
+    once per pose set (they are the same host tensors for every pose), and one read-back of the
+    ligand features ends the pass. The 41 convolutions are the :class:`DeviceConvModule`
+    layers :func:`convs_on_device` put on the model, so nothing here is a second implementation.
+
+    A group with no edges contributes zeros, as the host layer does (D-dfd-orch-10).
+    """
+
+    def __init__(self, model, convs: dict):
+        from tt_bio.diffdock.confidence_model import WIRING
+        self.model = model
+        self.mods = [convs[f"conv_layers.{i}"] for i in range(len(model.conv_layers))]
+        self.device = self.mods[0].dev.device
+        #: edge set -> (out set, source set) in its stored direction
+        self.ends = {es: (out, src) for out, src, es, flip in WIRING if not flip}
+        self._held = {}
+
+    def _keep(self, key, src: Tensor, build):
+        """*build()*'s upload for *key*, rebuilt only when *src* is a different host tensor."""
+        hit = self._held.get(key)
+        if hit is None or hit[0] is not src:
+            if hit is not None and hit[1] is not None:
+                _free(hit[1] if isinstance(hit[1], dict) else {"t": hit[1]})
+            hit = self._held[key] = (src, build())
+        return hit[1]
+
+    def _edges(self, es, edges, rows):
+        import ttnn
+        ei, attr, sh = edges
+        E = ei.shape[1]
+        if E == 0:
+            return None
+        a, b = self.ends[es]
+        extra = pad32(E) - E
+        pad = lambda t: torch.nn.functional.pad(t.float(), (0, 0, 0, extra))
+        return dict(
+            ei=torch.cat([ei, torch.tensor([[rows[a] - 1], [rows[b] - 1]]).expand(2, extra)], 1),
+            attr=to_device(self.device, pad(attr)), sh=to_device(self.device, pad(sh)),
+            mask=ttnn.from_torch(pad(torch.ones(E, 1)), dtype=ttnn.float32,
+                                 layout=ttnn.TILE_LAYOUT, device=self.device))
+
+    def _conv(self, i, out, src, e, flip):
+        import ttnn
+        mod = self.mods[i]
+        if e is None:
+            return ttnn.zeros((int(out.shape[0]), mod.dev.out_pad), dtype=ttnn.float32,
+                              layout=ttnn.TILE_LAYOUT, device=self.device)
+        ei = torch.flip(e["ei"], dims=[0]) if flip else e["ei"]
+        g = mod._graph(ei, int(out.shape[0]), int(src.shape[0]))
+        return mod.dev(src, g, [e["attr"]], e["sh"], e["mask"], ns=self.model.ns, out_attr=out)
+
+    @staticmethod
+    def _combine(x, updates):
+        import ttnn
+        width = int(updates[0].shape[-1])
+        if int(x.shape[-1]) < width:
+            x = ttnn.pad(x, [(0, 0), (0, width - int(x.shape[-1]))], value=0.0)
+        for u in updates:
+            x = ttnn.add(x, u)
+        return x
+
+    def __call__(self, g: dict) -> Tensor:
+        """Final ligand features ``[n_lig, width]`` on the host for one pose's graph *g*
+        (:meth:`ConfidenceModel.ligand_side`)."""
+        import time
+        import ttnn
+        from tt_bio.diffdock.graph import pad_count
+        t0 = time.perf_counter()
+        rows = {s: pad_count(x.shape[0]) for s, x in g["nodes"].items()}
+        nodes = {s: self._keep(("node", s), x, lambda x=x, s=s: to_device(
+                     self.device, torch.nn.functional.pad(x, (0, 0, 0, rows[s] - x.shape[0]))))
+                 for s, x in g["nodes"].items()}
+        edges = {es: self._keep(("edge", es), e[1], lambda es=es, e=e: self._edges(es, e, rows))
+                 for es, e in g["edges"].items()}
+        lig = self.model.convolve(nodes, edges, conv=self._conv, combine=self._combine)
+        n_lig = g["nodes"]["lig"].shape[0]
+        width = self.mods[-1].layer.out_irreps.dim
+        out = ttnn.to_torch(lig)[:n_lig, :width].to(g["nodes"]["lig"].dtype)
+        self.mods[0].secs += time.perf_counter() - t0
+        return out

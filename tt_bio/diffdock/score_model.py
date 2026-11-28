@@ -432,8 +432,11 @@ class HostScoreNetwork:
 
         return score
 
-    def confidence(self, graph, poses: Tensor):
+    def confidence(self, graph, poses: Tensor, *, convolve=None):
         """Confidence of each pose, ``[B]``, or None when no confidence model is loaded.
+
+        *convolve* is :func:`~tt_bio.diffdock.confidence_model.score_poses`' executor hook;
+        the card network passes its own.
 
         *poses* arrive in the score graph's centred frame, which is not the confidence
         graph's: the two centre on their own receptor graphs. They are put back in the input
@@ -463,4 +466,4 @@ class HostScoreNetwork:
         rec["pos"] = rec["pos"] - centre
         rec["atom"]["pos"] = rec["atom"]["pos"] - centre
         pos = torch.as_tensor(poses, dtype=torch.float32) + graph.original_center - centre
-        return cm.score_poses(self.confidence_model, rec, graph.ligand, pos)
+        return cm.score_poses(self.confidence_model, rec, graph.ligand, pos, convolve=convolve)

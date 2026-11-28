@@ -100,10 +100,14 @@ def _masked_copy(x, mask, dtype, alias=False):
         if x.dtype == dtype:
             return x if alias else ttnn.clone(x)
         return ttnn.typecast(x, dtype)
-    xd = _as(x, dtype)
-    out = ttnn.multiply(xd, mask)
-    if xd is not x:
-        ttnn.deallocate(xd)
+    # Operand and mask in one dtype. A float32 trunk keeps a bfloat16 pair stream under `pair_bf16z`, and
+    # ttnn.multiply of a bf16 [b, n, n, c] by an fp32 [b, n, n, 1] mask wrote wrong values into ~0.4 % of the
+    # real entries, different ones each call (r4t net6, `perf/r4t_tape/mask_dtype.py`). Served calls match.
+    xd, md = _as(x, dtype), _as(mask, dtype)
+    out = ttnn.multiply(xd, md)
+    for t, given in ((xd, x), (md, mask)):
+        if t is not given:
+            ttnn.deallocate(t)
     return out
 
 
@@ -262,29 +266,33 @@ class PairBiasAttention(Module):
     -1e4 fill is scaled with it by the caller and stays far below every real score.
     """
 
-    def __init__(self, state_dict, ckc, n_heads: int, dtype=None):
+    def __init__(self, state_dict, ckc, n_heads: int, dtype=None, attn_dtype=None):
         super().__init__(state_dict, ckc)
         self.dtype = dtype or ttnn.bfloat16
+        #: q/k/v, their norms and the attention: `dtype` unless the trunk runs `attn_fp32` (see `Trunk`)
+        self.attn_dtype = attn_dtype or self.dtype
         self.n_heads = n_heads
         inner = self.weights["to_qkv.weight"].shape[0] // 3
         self.inner = inner
         self.head_dim = inner // n_heads
         self.node_norm_w = self.torch_to_tt("node_norm.weight", transform=lambda x: x, dtype=self.dtype)
         wd, self.wckc = _token_weights(self)
-        self.q_w = self.torch_to_tt("to_qkv.weight", transform=lambda w: w[:inner].t(), dtype=wd)
-        self.k_w = self.torch_to_tt("to_qkv.weight", transform=lambda w: w[inner:2 * inner].t(), dtype=wd)
-        self.v_w = self.torch_to_tt("to_qkv.weight", transform=lambda w: w[2 * inner:].t(), dtype=wd)
-        self.q_b = self.torch_to_tt("to_qkv.bias", transform=lambda b: b[:inner], dtype=self.dtype)
-        self.k_b = self.torch_to_tt("to_qkv.bias", transform=lambda b: b[inner:2 * inner], dtype=self.dtype)
-        self.v_b = self.torch_to_tt("to_qkv.bias", transform=lambda b: b[2 * inner:], dtype=self.dtype)
+        ad = self.attn_dtype
+        qd = wd if ad == self.dtype else ad
+        self.q_w = self.torch_to_tt("to_qkv.weight", transform=lambda w: w[:inner].t(), dtype=qd)
+        self.k_w = self.torch_to_tt("to_qkv.weight", transform=lambda w: w[inner:2 * inner].t(), dtype=qd)
+        self.v_w = self.torch_to_tt("to_qkv.weight", transform=lambda w: w[2 * inner:].t(), dtype=qd)
+        self.q_b = self.torch_to_tt("to_qkv.bias", transform=lambda b: b[:inner], dtype=ad)
+        self.k_b = self.torch_to_tt("to_qkv.bias", transform=lambda b: b[inner:2 * inner], dtype=ad)
+        self.v_b = self.torch_to_tt("to_qkv.bias", transform=lambda b: b[2 * inner:], dtype=ad)
         self.g_w = self.torch_to_tt("to_g.weight", dtype=wd)
         self.g_b = self.torch_to_tt("to_g.bias", transform=lambda x: x, dtype=self.dtype)
         self.out_w = self.torch_to_tt("to_out_node.weight", dtype=wd)
         self.out_b = self.torch_to_tt("to_out_node.bias", transform=lambda x: x, dtype=self.dtype)
         self.qk_norm = "q_layer_norm.weight" in self.weights
         if self.qk_norm:
-            self.q_norm_w = self.torch_to_tt("q_layer_norm.weight", transform=lambda x: x, dtype=self.dtype)
-            self.k_norm_w = self.torch_to_tt("k_layer_norm.weight", transform=lambda x: x, dtype=self.dtype)
+            self.q_norm_w = self.torch_to_tt("q_layer_norm.weight", transform=lambda x: x, dtype=ad)
+            self.k_norm_w = self.torch_to_tt("k_layer_norm.weight", transform=lambda x: x, dtype=ad)
         #: [pair, heads] fp32: sqrt(head_dim) * diag(pair_norm.weight) to_bias.weight^T.
         self.bias_w_host = (self.weights["to_bias.weight"].float().t()
                             * self.weights["pair_norm.weight"].float()[:, None] * self.head_dim ** 0.5)
@@ -307,11 +315,14 @@ class PairBiasAttention(Module):
         recomputed nor freed); otherwise it is built from `z` and `pair_bias_mask`."""
         ckc = self.compute_kernel_config
         a = _rms(x, self.node_norm_w, ckc)
-        c = self.wckc
-        q = self._lin(a, self.q_w, bias=self.q_b, dtype=self.dtype, compute_kernel_config=c)
-        k = self._lin(a, self.k_w, bias=self.k_b, dtype=self.dtype, compute_kernel_config=c)
-        v = self._lin(a, self.v_w, bias=self.v_b, dtype=self.dtype, compute_kernel_config=c)
+        c, ad = self.wckc, self.attn_dtype
+        aq = _as(a, ad)
+        q = self._lin(aq, self.q_w, bias=self.q_b, dtype=ad, compute_kernel_config=c)
+        k = self._lin(aq, self.k_w, bias=self.k_b, dtype=ad, compute_kernel_config=c)
+        v = self._lin(aq, self.v_w, bias=self.v_b, dtype=ad, compute_kernel_config=c)
         g = self._lin(a, self.g_w, bias=self.g_b, dtype=self.dtype, activation="sigmoid", compute_kernel_config=c)
+        if aq is not a:
+            ttnn.deallocate(aq)
         ttnn.deallocate(a)
         if self.qk_norm:
             qn, kn = _rms(q, self.q_norm_w, ckc), _rms(k, self.k_norm_w, ckc)
@@ -340,6 +351,9 @@ class PairBiasAttention(Module):
             ttnn.deallocate(t)
         om = self._merge_heads(o)
         ttnn.deallocate(o)
+        if om.dtype != self.dtype:
+            o32, om = om, ttnn.typecast(om, self.dtype)
+            ttnn.deallocate(o32)
         gated = ttnn.multiply(om, g)
         ttnn.deallocate(om)
         ttnn.deallocate(g)
@@ -352,11 +366,11 @@ class AttnADALN(Module):
     """`MultiHeadBiasedAttentionADALN_MM`: adaptive norm, pair-bias attention, adaptive scale. The
     scale masks the output, so upstream's second mask is not repeated."""
 
-    def __init__(self, state_dict, ckc, n_heads: int, dtype=None):
+    def __init__(self, state_dict, ckc, n_heads: int, dtype=None, attn_dtype=None):
         super().__init__(state_dict, ckc)
         self.dtype = dtype or ttnn.bfloat16
         self.adaln = AdaptiveNorm(self.scope("adaln"), ckc, dtype=self.dtype)
-        self.mha = PairBiasAttention(self.scope("mha"), ckc, n_heads, dtype=self.dtype)
+        self.mha = PairBiasAttention(self.scope("mha"), ckc, n_heads, dtype=self.dtype, attn_dtype=attn_dtype)
         self.scale_output = AdaptiveScale(self.scope("scale_output"), ckc, dtype=self.dtype)
 
     def __call__(self, x, z, cond, mask, pair_bias_mask, cn=None, bias=None):
@@ -373,11 +387,11 @@ class TrunkBlock(Module):
     """`MultiheadAttnAndTransition` with the release settings: sequential (not parallel) attention
     and transition, both residual, both masked."""
 
-    def __init__(self, state_dict, ckc, n_heads: int = 16, dtype=None, residual_dtype=None):
+    def __init__(self, state_dict, ckc, n_heads: int = 16, dtype=None, residual_dtype=None, attn_dtype=None):
         super().__init__(state_dict, ckc)
         self.dtype = dtype or ttnn.bfloat16
         self.residual_dtype = residual_dtype or self.dtype
-        self.mhba = AttnADALN(self.scope("mhba"), ckc, n_heads, dtype=self.dtype)
+        self.mhba = AttnADALN(self.scope("mhba"), ckc, n_heads, dtype=self.dtype, attn_dtype=attn_dtype)
         self.transition = TransitionADALN(self.scope("transition"), ckc, dtype=self.dtype)
 
     def __call__(self, x, z, cond, mask, pair_bias_mask, res_mask=None, cn=None, bias=None):
@@ -809,11 +823,26 @@ WH_FAST_LEVERS = NORMAL_LEVERS | {"mask_at_mix_z8"}
 WH_NORMAL_LEVERS = NORMAL_LEVERS | {"trimul_t1_stats", "pair_bias_fuse"}
 
 
-def mode_levers() -> frozenset:
-    """This process's RFD4 trunk lever set: the mode's set for this card's arch, or TT_BIO_LEVERS."""
+#: Levers training leaves out (D43, state/r4t/rows/perf.md): every lever that serves at crop 256. With all on, the
+#: no-update loss-parity arm put bb_ca over its D37 allowance on batches 00 and 07. Over 9 batches, every single
+#: serving lever off and every pair with `transition_b8` still misses bb_ca or sequence_prediction somewhere; only
+#: all five off passes both terms on all 9. The other 28 are digest-neutral at crop 256 and stay. Inference keeps
+#: the full set: its grade is the design RMSD above.
+#: B1 (r4t-bwd, default off): run non-final recycle cycles under `ops.suspend_tape()` ("fp32" or "bf16").
+RECYCLE_SERVE = ""
+
+TRAIN_DROPS = frozenset({"dit_sigf32", "pair_bf16z", "tok_recycle_mm", "tok_w8", "transition_b8"})
+
+
+def mode_levers(training: bool = False) -> frozenset:
+    """This process's RFD4 trunk lever set: the mode's set for this card's arch (less TRAIN_DROPS when
+    `training`), or TT_BIO_LEVERS."""
     from ..tenstorrent import is_wormhole
     wh = is_wormhole()
-    return model_levers(normal=WH_NORMAL_LEVERS if wh else NORMAL_LEVERS, fast=WH_FAST_LEVERS if wh else FAST_LEVERS)
+    normal, fast = (WH_NORMAL_LEVERS, WH_FAST_LEVERS) if wh else (NORMAL_LEVERS, FAST_LEVERS)
+    if training:
+        normal, fast = normal - TRAIN_DROPS, fast - TRAIN_DROPS
+    return model_levers(normal=normal, fast=fast)
 
 
 class Trunk(Module):
@@ -829,6 +858,10 @@ class Trunk(Module):
     inference config's `precision: bf16-mixed` does on a GPU (autocast runs the matmuls in bf16
     and leaves the residual adds in fp32). Over 6 recycles x 12 pair updates an all-bf16 pair stream
     drifts far from float64 even when every op is at its bf16 floor; see the parity test.
+
+    `attn_fp32` is a training precision option (r4t D59): every block's q/k/v projections, q/k norms and
+    attention run in float32 on float32 weights, and the attention output returns to `dtype` before the
+    gate. Off, the build is the served one bit for bit.
     """
 
     #: What ran, counted rather than derived from the recycle schedule: per design, the trunk passes and
@@ -839,18 +872,20 @@ class Trunk(Module):
     _ran = (0, 0)
 
     def __init__(self, state_dict, ckc, nlayers: int = 24, n_heads: int = 16, every_n: int = 2,
-                 dtype=None, residual_dtype=None, pair_residual_dtype=None):
+                 dtype=None, residual_dtype=None, pair_residual_dtype=None, training: bool = False,
+                 attn_fp32: bool = False):
         super().__init__(state_dict, ckc)
         self.dtype = dtype or ttnn.bfloat16
         self.residual_dtype = residual_dtype or self.dtype
         self.nlayers = nlayers
-        self._levers = mode_levers()
+        self._levers = mode_levers(training)
         self.pair_residual_dtype = pair_residual_dtype or (
             (ttnn.bfloat8_b if "pair_bfp8z" in self._levers else ttnn.bfloat16) if "pair_bf16z" in self._levers
             else self.residual_dtype)
         with lever_scope(self._levers):   # a lever that picks a stored dtype is read at build
             self.blocks = [TrunkBlock(self.scope(f"transformer_layers.{i}"), ckc, n_heads, dtype=self.dtype,
-                                      residual_dtype=self.residual_dtype)
+                                      residual_dtype=self.residual_dtype,
+                                      attn_dtype=ttnn.float32 if attn_fp32 else None)
                            for i in range(nlayers)]
             self.pair_updates = {i: PairUpdate(self.scope(f"pair_update_layers.{i}"), ckc, dtype=self.dtype,
                                                residual_dtype=self.pair_residual_dtype)
@@ -907,7 +942,10 @@ class Trunk(Module):
     def _recycle(self, init, prev, norm_w, proj_w, res_dtype, low=None):
         """init + proj(norm(prev)) in `res_dtype`. With `low` (a float32 stream) it returns `(out, out in low)`
         from one residual write, the copy the next pass's pair bias reads, instead of an add and a cast."""
-        h = _rms(prev, norm_w, self.compute_kernel_config)
+        pv = ttnn.typecast(prev, self.dtype) if (ops.taping() and prev.dtype == ttnn.bfloat8_b) else prev
+        h = _rms(pv, norm_w, self.compute_kernel_config)
+        if pv is not prev:
+            ttnn.deallocate(pv)
         hb = _as(h, self.dtype)
         if hb is not h:
             ttnn.deallocate(h)
@@ -989,10 +1027,14 @@ class Trunk(Module):
         return ttnn.bfloat16 if zd == ttnn.bfloat8_b and masks[0] is not None and not padded_ok else zd
 
     @under_lever_scope
-    def __call__(self, s_init, z_init, conds, masks):
+    def __call__(self, s_init, z_init, conds, masks, *, prev=None, return_penultimate=False):
         """`conds[k]` is cycle k's conditioning ([b, n, dim_cond]); upstream recomputes it each cycle
         because it carries the remaining-pass count. `masks` is `trunk_masks(...)` built with this
-        trunk's residual dtype. Returns the final (s, z) in the residual dtype; the inputs survive."""
+        trunk's residual dtype. Returns the final (s, z) in the residual dtype; the inputs survive.
+
+        `prev=(s_prev, z_prev)`: detached state entering `conds[0]` (caller retains ownership).
+        `return_penultimate=True`: returns `(s, z, (s_prev, z_prev))` with the state entering the
+        final cycle (`(None, None)` when `len(conds) == 1`). Both default off so inference is untouched."""
         res_mask = masks[4]
         zd = self.pair_dtype(masks)
         res_pair_mask_c = masks[5] if zd == self.residual_dtype else masks[3]
@@ -1003,30 +1045,99 @@ class Trunk(Module):
         z_init = _masked_copy(z_init, res_pair_mask_c, zd, alias=True)
         # a float32 pair stream takes its recycle as one dual write, which also gives the next pass its bf16 copy
         low = self.dtype if zd == ttnn.float32 and self.dtype == ttnn.bfloat16 else None
-        s = z = None
+        borrowed = prev if prev is not None else (None, None)
+        s, z = borrowed
+        penult = (None, None)
         self._ran = (0, 0)
-        for c in conds:
-            zb = None
-            if s is None:
-                s_in, z_in = ttnn.clone(s_init), ttnn.clone(z_init)
-            else:
-                s_in = self._recycle(s_init, s, self.s_norm, self.s_proj, self.residual_dtype)
-                z_in = self._recycle(z_init, z, self.z_norm, self.z_proj, zd, low=low)
-                if low is not None:
-                    z_in, zb = z_in
-                ttnn.deallocate(s)
-                ttnn.deallocate(z)
-            s, z = self.run_pass(s_in, z_in, c, masks, zb=zb)
+        # Under a tape every cycle but the last runs under no_grad, as upstream trains it (only the last
+        # pass is differentiated); all cycles still run. With no tape `recycle_region` is a null context.
+        # B1 (`RECYCLE_SERVE` = "fp32" or "bf16"): suspend the tape on non-final cycles so shipped serving
+        # fused kernels (trimul_t1, pair_tail_cm, outer_residual, pair_relu, rms_pair_bias) serve cycle 0..d-2.
+        last = len(conds) - 1
+        for cyc, c in enumerate(conds):
+            if cyc < last and RECYCLE_SERVE and ops.taping():
+                raw = lambda t: getattr(t, "value", t)  # noqa: E731
+                rmasks = tuple(None if m is None else raw(m) for m in masks)
+                rc = raw(c)
+                rs_init, rz_init = raw(s_init), raw(z_init)
+                bf16_cyc = RECYCLE_SERVE == "bf16"
+                mods = [self] + list(self.pair_updates.values()) if bf16_cyc else ()
+                saved_d = [(m, m.pair_residual_dtype if m is self else m.residual_dtype) for m in mods]
+                saved_levs = self._levers
+                zd_c = ttnn.bfloat16 if bf16_cyc else zd
+                low_c = self.dtype if zd_c == ttnn.float32 and self.dtype == ttnn.bfloat16 else None
+                try:
+                    if bf16_cyc:
+                        self.pair_residual_dtype = ttnn.bfloat16
+                        for m in mods[1:]:
+                            m.residual_dtype = ttnn.bfloat16
+                        self._levers = saved_levs | {"pair_bf16z", "dit_sigf32", "tok_recycle_mm"}
+                    with ops.suspend_tape(), lever_scope(self._levers):
+                        zb = None
+                        if s is None:
+                            s_in = ttnn.clone(rs_init)
+                            z_in = ttnn.typecast(rz_init, zd_c) if rz_init.dtype != zd_c else ttnn.clone(rz_init)
+                        else:
+                            rs, rz = raw(s), raw(z)
+                            s_in = self._recycle(rs_init, rs, self.s_norm, self.s_proj, self.residual_dtype)
+                            rz_init_c = ttnn.typecast(rz_init, zd_c) if rz_init.dtype != zd_c else rz_init
+                            z_in = self._recycle(rz_init_c, rz, self.z_norm, self.z_proj, zd_c, low=low_c)
+                            if rz_init_c is not rz_init:
+                                ttnn.deallocate(rz_init_c)
+                            if low_c is not None:
+                                z_in, zb = z_in
+                            if s is not borrowed[0]:
+                                ttnn.deallocate(rs)
+                            if z is not borrowed[1]:
+                                ttnn.deallocate(rz)
+                        s_raw, z_raw = self.run_pass(s_in, z_in, rc, rmasks, zb=zb)
+                        if bf16_cyc and cyc + 1 == last and z_raw.dtype != zd:
+                            z_up = ttnn.typecast(z_raw, zd)
+                            ttnn.deallocate(z_raw)
+                            z_raw = z_up
+                finally:
+                    self._levers = saved_levs
+                    for m, d in saved_d:
+                        setattr(m, "pair_residual_dtype" if m is self else "residual_dtype", d)
+                s = ops.wrap_untaped(s_raw) if cyc + 1 == last else s_raw
+                z = ops.wrap_untaped(z_raw) if cyc + 1 == last else z_raw
+                continue
+            with ops.recycle_region(cyc, last):
+                zb = None
+                if s is None:
+                    s_in, z_in = ttnn.clone(s_init), ttnn.clone(z_init)
+                else:
+                    s_in = self._recycle(s_init, s, self.s_norm, self.s_proj, self.residual_dtype)
+                    z_in = self._recycle(z_init, z, self.z_norm, self.z_proj, zd, low=low)
+                    if low is not None:
+                        z_in, zb = z_in
+                    if return_penultimate and cyc == last:
+                        penult = (s, z)
+                    else:
+                        if s is not borrowed[0]:
+                            ttnn.deallocate(s)
+                        if z is not borrowed[1]:
+                            ttnn.deallocate(z)
+                s, z = self.run_pass(s_in, z_in, c, masks, zb=zb)
         if res_mask is not None and lever("mask_at_mix"):
             # the passes left the padded tokens unmasked; the call hands them back as zeros, as upstream does
             ms, mz = _masked_copy(s, res_mask, self.residual_dtype), _masked_copy(z, res_pair_mask_c, zd)
             ttnn.deallocate(s)
             ttnn.deallocate(z)
             s, z = ms, mz
+            if penult[0] is not None:
+                pm = masks[5] if penult[1].dtype == self.residual_dtype else masks[3]
+                ps = _masked_copy(penult[0], res_mask, penult[0].dtype)
+                pz = _masked_copy(penult[1], pm, penult[1].dtype)
+                if penult[0] is not borrowed[0]:
+                    ttnn.deallocate(penult[0])
+                if penult[1] is not borrowed[1]:
+                    ttnn.deallocate(penult[1])
+                penult = (ps, pz)
         for t, given in zip((s_init, z_init), inputs):
             if t is not given:
                 ttnn.deallocate(t)
-        return s, z
+        return (s, z, penult) if return_penultimate else (s, z)
 
     def masks_for(self, mask, device):
         """`trunk_masks` for a padded host [b, n] mask, kept on the device while the mask stays the
@@ -1122,7 +1233,9 @@ class Trunk(Module):
         and a run that reserved none simply stays eager."""
         # A trunk a caller built without `__init__` (a stand-in in the work-counting tests, a subclass
         # that never resolved a lever set) has no `_levers` and simply does not replay.
-        return "trunk_trace" in getattr(self, "_levers", ()) and trace_region_size() > 0
+        # Never under a tape: a replay hands back raw outputs of a program the tape never saw, so the
+        # graph would end at the trunk with no error, and a capture would record the tape's own verbs.
+        return "trunk_trace" in getattr(self, "_levers", ()) and trace_region_size() > 0 and not ops.taping()
 
     @staticmethod
     def trace_key(s, z, cs):

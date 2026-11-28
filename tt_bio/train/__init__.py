@@ -54,6 +54,7 @@ TIER2 = (
     "install", "uninstall", "backward", "release_pins", "no_grad", "Tensor",
     "UnreducedGradients",
     "exact_training", "exact_training_ops", "UNMEASURED", "launcher",
+    "GradientCoverage", "zero_or_missing",
 )
 
 # name -> the submodule it lives in. A module of its own is listed as itself.
@@ -72,6 +73,8 @@ _WHERE = {
     "load_adapter": "checkpoint",
     "to_host": "tensors", "to_device": "tensors",
     "gradcheck": "checks", "GradcheckReport": "checks", "BARS": "checks",
+    "GradientCoverage": "parity", "zero_or_missing": "parity", "loss_parity": "parity",
+    "curve_match": "parity",
     "Objective": "objectives",
 }
 # Submodules exposed as attributes. No entry here shares a name with a public FUNCTION, which
@@ -82,7 +85,7 @@ _WHERE = {
 # permanent.
 _SUBMODULES = ("losses", "objectives", "provenance", "recipes", "mesh", "optim", "lora",
                "checkpoint", "tensors", "loop", "cli", "dryrun", "sharding", "checks",
-               "catalogue", "launcher")
+               "catalogue", "launcher", "parity")
 # `release_pins` is Tier 2 rather than an engine detail because a Tier-2 user owns the `for`
 # statement, and owning the loop means owning this: `checkpoint` pins each segment's input
 # across its untaped forward and only the loop knows when the backward that needs it has run.

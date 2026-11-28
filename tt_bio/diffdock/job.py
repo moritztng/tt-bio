@@ -78,6 +78,12 @@ class DockOptions:
     checkpoint: Path | None = None
     confidence_checkpoint: Path | None = None
     no_confidence: bool = False
+    #: Where the score network runs: "cpu" (host torch) or "tt" (the card this run
+    #: pinned). `tt_bio.main._dock_on_card` sets it; `network.load` reads it.
+    device: str = "cpu"
+    #: The card's per-edge tensor product: "gemm" (fp32, the default) or "tile" (the fused
+    #: Blackhole kernel, torsion head on gemm). Not the default until the PoseBusters grade.
+    edge_tp: str = "gemm"
     pocket: tuple[float, float, float] | None = None
     pocket_radius: float = 5.0              # evaluate.py --pocket_cutoff
     save_trajectory: bool = False

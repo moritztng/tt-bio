@@ -28,16 +28,6 @@ needs_receptor = pytest.mark.skipif(not RECEPTOR.exists(),
 
 
 
-@pytest.fixture(autouse=True)
-def _restore_tt_bio_log_level():
-    """`tt-bio dock` sets the tt_bio logger's level, which is right for a process and wrong for
-    a test session: left at WARNING it hides the INFO records a later file's caplog reads
-    (test_tfg_features::test_1a14_pocket_resolves_epitope_and_paratope, gate rel-4eddd643f)."""
-    log = logging.getLogger("tt_bio")
-    level = log.level
-    yield
-    log.setLevel(level)
-
 
 def run(*args):
     return CliRunner().invoke(cli, ["dock", *args], catch_exceptions=False)
@@ -345,3 +335,85 @@ def test_dock_without_a_card_stays_on_the_cpu(tmp_path, monkeypatch):
     res = run(str(rec), "--ligand", ASPIRIN, "--out_dir", str(tmp_path / "out"))
     assert res.exit_code == 0, res.output
     assert seen["device"] == "cpu"
+
+
+
+def test_the_device_branch_of_load_is_reachable(monkeypatch):
+    """`DockOptions(device="tt")` takes `load`'s device branch and returns that network.
+
+    The seam breaks in one specific way: landed without the `device` field, or without this
+    branch, every `tt-bio dock` on a host with a card dies before it docks. The checkpoints
+    and the card are faked here -- neither exists in CI -- so what is under test is the
+    branch and the names it uses, which is exactly the part that cannot be checked on a
+    machine with no chip.
+    """
+    import tt_bio.diffdock.network as network
+    from tt_bio.diffdock.job import DockOptions
+
+    host = object()
+    # `load` imports these inside the function, so they are patched where they are defined.
+    monkeypatch.setattr("tt_bio.diffdock.checkpoints.resolve",
+                        lambda *a, **k: (Path("score.pt"), Path("params/x.yaml")))
+    monkeypatch.setattr("tt_bio.diffdock.config.load", lambda *a, **k: object())
+    monkeypatch.setattr("tt_bio.diffdock.score_model.load_released", lambda *a, **k: object())
+    monkeypatch.setattr("tt_bio.diffdock.score_model.HostScoreNetwork",
+                        lambda *a, **k: host)
+    monkeypatch.setattr("torch.load", lambda *a, **k: {})
+    monkeypatch.setattr("tt_bio.main.ensure_p300_mesh_descriptor", lambda *a, **k: None)
+    monkeypatch.setattr("tt_bio.tenstorrent.get_device", lambda *a, **k: "a-card")
+    seen = {}
+    monkeypatch.setattr("tt_bio.diffdock.device.DeviceScoreNetwork",
+                        lambda h, d, edge_tp: seen.update(host=h, device=d, edge_tp=edge_tp)
+                        or "device-network")
+
+    assert network.load(DockOptions(no_confidence=True)) is host
+    assert network.load(DockOptions(device="tt", no_confidence=True)) == "device-network"
+    assert seen == {"host": host, "device": "a-card", "edge_tp": "gemm"}
+    network.load(DockOptions(device="tt", edge_tp="tile", no_confidence=True))
+    assert seen["edge_tp"] == "tile"
+
+
+def test_the_tile_form_keeps_the_torsion_head_on_gemm(monkeypatch):
+    """`edge_tp="tile"` puts every convolution on the fused kernel except the torsion head,
+    whose bf16 kernel error failed the SE(3) check; the default puts all of them on GEMM."""
+    import torch
+    import tt_bio.diffdock.device as device
+    from tt_bio.diffdock.conv import TensorProductConvLayer
+
+    made = {}
+
+    class Recorder(torch.nn.Module):
+        def __init__(self, dev, layer, *, name, edge_tp, **kw):
+            super().__init__()
+            made[name] = edge_tp
+
+    monkeypatch.setattr(device, "DeviceConvModule", Recorder)
+    layer = lambda: TensorProductConvLayer("4x0e", "1x0e + 1x1o", "4x0e", 6)
+
+    def model():
+        m = torch.nn.Module()
+        m.conv_layers = torch.nn.ModuleList([layer(), layer()])
+        m.tor_bond_conv = layer()
+        return m
+
+    for edge_tp, want in (("gemm", ["gemm"] * 3), ("tile", ["tile", "tile", "gemm"])):
+        made.clear()
+        host = type("H", (), {"model": model(), "config": None,
+                              "confidence_model": None})()
+        device.DeviceScoreNetwork(host, "a-card", edge_tp=edge_tp)
+        assert [made[k] for k in ("conv_layers.0", "conv_layers.1", "tor_bond_conv")] == want
+
+
+def test_device_score_network_has_the_rollout_interface():
+    """`DeviceScoreNetwork` is a drop-in for `HostScoreNetwork`: same three members.
+
+    The rollout reaches the network through `config`, `score_fn` and `confidence` and must
+    not know a card is involved; a missing member would only show up on a chip.
+    """
+    from tt_bio.diffdock.device import DeviceScoreNetwork
+    from tt_bio.diffdock.score_model import HostScoreNetwork
+
+    for name in ("config", "score_fn", "confidence"):
+        assert hasattr(HostScoreNetwork, name) or name == "config"
+        assert hasattr(DeviceScoreNetwork, name) or name == "config"
+    assert DeviceScoreNetwork.on_device is True

@@ -1,0 +1,16 @@
+{
+ "PASS": false,
+ "params": 24,
+ "global_rel_L2": 0.6005612095830148,
+ "global_cos": 0.8324155144028997,
+ "worst": {
+  "param": "tri_in.g_out_weight",
+  "rel_L2": 0.6986338092425496,
+  "cos": 0.7156888398314151
+ },
+ "bar": {
+  "rel_L2": 0.01,
+  "cos": 0.9999
+ },
+ "acc_digest": "da730f211f2227d7"
+}

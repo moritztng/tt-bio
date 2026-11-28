@@ -1,0 +1,2 @@
+{"step": 4, "loss": -0.004280813038349152, "fwd_s": 0.0202, "bwd_s": 0.2301, "opt_s": 0.0405, "step_s": 0.2908, "retained_B": 787267584, "after_bwd_B": 34324480, "dead": 0, "params": 48, "master_digest": "1aa88ba49764860a", "aiclk": [1350, 1350], "host_maxrss_GiB": 2.11}
+{"step": 5, "loss": -0.00599219324067235, "fwd_s": 0.0119, "bwd_s": 0.0594, "opt_s": 0.0639, "step_s": 0.1351, "retained_B": 787218432, "after_bwd_B": 33325056, "dead": 0, "params": 48, "master_digest": "125dfdd494e57f23", "aiclk": [1343, 1343], "host_maxrss_GiB": 2.171}

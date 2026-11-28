@@ -442,7 +442,16 @@ def _score_stub():
 def _confidence_stub():
     """Returns a fixed `[1, 2]` per pose: this test grades the graph, not the values."""
     class _Stub:
-        def __call__(self, *a, **kw):
+        def receptor_side(self, *a, **kw):
+            return {}
+
+        def ligand_side(self, *a, **kw):
+            return dict(nodes=None, edges=None)
+
+        def convolve(self, *a, **kw):
+            return None
+
+        def head(self, *a, **kw):
             return torch.zeros(1, 2)
 
         def eval(self):

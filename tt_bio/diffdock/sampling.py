@@ -42,6 +42,7 @@ from torch import Tensor
 
 from tt_bio.diffdock.harmonics import unit
 from tt_bio.diffdock.job import RECIPE
+from tt_bio.diffdock.kabsch import finite_correlation
 
 
 def recipe() -> dict:
@@ -251,19 +252,24 @@ def axis_angle_to_matrix(axis_angle: Tensor) -> Tensor:
 def kabsch_batch(a: Tensor, b: Tensor) -> tuple[Tensor, Tensor]:
     """Upstream's batched Kabsch: the rigid map taking ``a`` onto ``b``, both ``[B, N, 3]``.
 
-    Returns ``(R [B,3,3], t [B,3,1])`` with ``b ~ a @ R.T + t.T``. ``tt_bio.align`` is the
-    shipped fp64 single-pair implementation and stays the one for scoring and output; this one
-    is batched, fp32 and inside the step loop, where it must be upstream's arithmetic.
+    Returns ``(R [B,3,3], t [B,3,1], bad [B])`` with ``b ~ a @ R.T + t.T``. ``tt_bio.align``
+    is the shipped fp64 single-pair implementation and stays the one for scoring and output;
+    this one is batched, fp32 and inside the step loop, where it must be upstream's arithmetic.
+
+    ``bad`` is :func:`~tt_bio.diffdock.kabsch.finite_correlation`'s mask of poses whose
+    correlation matrix overflowed fp32. The SVD is batched and raises on a non-finite input,
+    so those rows are sanitised before the call and reported instead; the rotation returned
+    for them is meaningless and the rollout freezes the pose.
     """
     a, b = a.permute(0, 2, 1), b.permute(0, 2, 1)
     ca, cb = a.mean(dim=2, keepdim=True), b.mean(dim=2, keepdim=True)
-    h = torch.bmm(a - ca, (b - cb).transpose(1, 2))
+    h, bad = finite_correlation(torch.bmm(a - ca, (b - cb).transpose(1, 2)))
     u, _, vt = torch.linalg.svd(h)
     rot = torch.bmm(vt.transpose(1, 2), u.transpose(1, 2))
     flip = torch.diag(torch.tensor([1.0, 1.0, -1.0], dtype=a.dtype, device=a.device))
     mirrored = torch.bmm(vt.transpose(1, 2) @ flip, u.transpose(1, 2))
     rot = torch.where(torch.linalg.det(rot)[:, None, None] < 0, mirrored, rot)
-    return rot, torch.bmm(-rot, ca) + cb
+    return rot, torch.bmm(-rot, ca) + cb, bad
 
 
 def torsion_update_batch(pos: Tensor, edge_index: Tensor, mask_rotate, updates: Tensor) -> Tensor:
@@ -326,16 +332,20 @@ def modify_conformer(pos: Tensor, tr_update: Tensor, rot_update: Tensor,
     the rigid pose, so the rigid-body part of the update is exactly the tr/rot heads' and the
     torsion head only changes the internal geometry. That alignment is upstream's, and it is
     why the three heads do not fight each other.
+
+    Returns ``(pos, bad [B])``: ``bad`` names the poses whose Kabsch correlation matrix
+    overflowed fp32, whose returned coordinates are therefore meaningless. On a step where
+    nothing overflows it is all false and the coordinates are upstream's, value for value.
     """
     centre = pos.mean(dim=1, keepdim=True)
     rot_mat = axis_angle_to_matrix(rot_update)
     rigid = torch.bmm(pos - centre, rot_mat.permute(0, 2, 1)) + tr_update.unsqueeze(1) + centre
     if torsion_updates is None:
-        return rigid
+        return rigid, torch.zeros(pos.shape[0], dtype=torch.bool, device=pos.device)
     flexible = torsion_update_batch(rigid, edge_index, mask_rotate,
                                     torsion_updates.reshape(rigid.shape[0], -1))
-    rot, t = kabsch_batch(flexible, rigid)
-    return torch.bmm(flexible, rot.transpose(1, 2)) + t.transpose(1, 2)
+    rot, t, bad = kabsch_batch(flexible, rigid)
+    return torch.bmm(flexible, rot.transpose(1, 2)) + t.transpose(1, 2), bad
 
 
 # ---------------------------------------------------------------------------
@@ -597,6 +607,13 @@ def _move(pos: Tensor, tr_perturb: Tensor, rot_perturb: Tensor, tor_perturb: Ten
     for every pose at once ("input matrix contained non-finite values") and the complex is
     lost. Zeroing that row's update first keeps the batch finite, and reverting its position
     afterwards keeps it at the last coordinates it actually had.
+
+    A finite update is not enough on its own. The score heads reach ~1e15 on real complexes
+    (upstream's own network does too, `state/dfd/BLOWUP-2026-11-27.md`), and a pose displaced
+    that far is still finite while its Kabsch *covariance* is not. That case is caught inside
+    the SVD's input, by :func:`~tt_bio.diffdock.kabsch.finite_correlation`, and comes back as
+    ``modify_conformer``'s second return value; it is frozen and recorded exactly like the
+    rest (D-dfd-sampling-10).
     """
     batch = pos.shape[0]
     bad = _nonfinite_rows(pos, batch)
@@ -606,9 +623,9 @@ def _move(pos: Tensor, tr_perturb: Tensor, rot_perturb: Tensor, tor_perturb: Ten
     if bool(bad.any()):
         tr_perturb, rot_perturb, tor_perturb = (
             _zero_rows(p, bad) for p in (tr_perturb, rot_perturb, tor_perturb))
-    moved = modify_conformer(pos, tr_perturb, rot_perturb, tor_perturb,
-                             edge_index=edge_index, mask_rotate=mask_rotate)
-    bad = bad | _nonfinite_rows(moved, batch)
+    moved, overflowed = modify_conformer(pos, tr_perturb, rot_perturb, tor_perturb,
+                                         edge_index=edge_index, mask_rotate=mask_rotate)
+    bad = bad | overflowed | _nonfinite_rows(moved, batch)
     if not bool(bad.any()):
         return moved, failed
     return torch.where(bad[:, None, None], pos, moved), failed | bad
@@ -642,7 +659,13 @@ def guard_scores(score: Tensor) -> tuple[Tensor, Tensor]:
     The repair is computed unconditionally and selected with a ``where``: no host branch, so
     the device path keeps its shapes static, and on a run with finite numbers the result is
     the input tensor value for value.
+
+    A rigid ligand has no rotatable bond, so its torsion head is ``[0]`` and there is nothing
+    to repair. That is a property of the shape, not of the numbers, so returning early keeps
+    the device path's shapes as static as the ``where`` does.
     """
+    if score.numel() == 0:
+        return score, score.new_zeros((), dtype=torch.long)
     finite = torch.isfinite(score)
     eps = 0.01 * torch.where(finite, score.abs(), torch.zeros_like(score)).sum() \
         / finite.sum().clamp_min(1)

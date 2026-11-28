@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Config Dashboard - r4t_gpu_baseline_local</title><style>
+:root {
+  --bg: #f7f8fa; --bg-grad-a: #f4f5f8; --bg-grad-b: #eef0f5; --surface: #ffffff;
+  --surface-2: #f3f4f7; --surface-3: #eceef3; --border: #e4e6eb; --border-strong: #d4d7df;
+  --text: #1a1d24; --text-muted: #626774; --text-subtle: #8f95a3; --accent: #5b6cff;
+  --accent-soft: rgba(91, 108, 255, 0.10); --accent-border: rgba(91, 108, 255, 0.30);
+  --shadow-sm: 0 1px 2px rgba(18, 22, 35, 0.04);
+  --shadow: 0 2px 4px rgba(18, 22, 35, 0.05), 0 1px 2px rgba(18, 22, 35, 0.04);
+  --shadow-lg: 0 8px 24px rgba(18, 22, 35, 0.07), 0 2px 4px rgba(18, 22, 35, 0.04);
+  --radius: 12px; --radius-sm: 8px; --radius-xs: 5px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0c0e13; --bg-grad-a: #0f1218; --bg-grad-b: #0b0d12; --surface: #16191f;
+    --surface-2: #1b1e26; --surface-3: #22252e; --border: #262a33; --border-strong: #353945;
+    --text: #e9ebef; --text-muted: #a0a5b2; --text-subtle: #6c7280; --accent: #8b95ff;
+    --accent-soft: rgba(139, 149, 255, 0.14); --accent-border: rgba(139, 149, 255, 0.35);
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.30);
+    --shadow: 0 2px 4px rgba(0, 0, 0, 0.30), 0 1px 2px rgba(0, 0, 0, 0.35);
+    --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.45), 0 2px 4px rgba(0, 0, 0, 0.30);
+  }
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  min-height: 100vh; padding: 10px 12px 24px; font-size: 12.5px; line-height: 1.45;
+  color: var(--text); -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
+               Arial, "Inter", sans-serif;
+  background: radial-gradient(circle at 15% 0%, var(--bg-grad-a) 0%, transparent 40%),
+              radial-gradient(circle at 85% 100%, var(--bg-grad-b) 0%, transparent 50%), var(--bg);
+}
+code, .mono, pre {
+  font-family: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Monaco, Consolas,
+               "Liberation Mono", monospace;
+  font-variant-ligatures: none;
+}
+.container { max-width: 1600px; margin: 0 auto; }
+
+/* ---- Header ---- */
+.top-header {
+  display: flex; align-items: flex-end; justify-content: space-between; gap: 12px;
+  flex-wrap: wrap; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--border);
+}
+.top-header .title-group { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 10px; }
+.top-header .title-group h1 {
+  margin: 0; font-size: 18px; font-weight: 700; letter-spacing: -0.015em;
+  background: linear-gradient(135deg, var(--text) 0%, var(--text-muted) 100%);
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+}
+.top-header .subtitle { color: var(--text-muted); font-size: 12px; margin-top: 3px; }
+.top-header .badge-row { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+
+/* ---- Main grid + cards ---- */
+.grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 10px; }
+.card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: var(--shadow); padding: 12px 14px; grid-column: span 6; min-width: 0;
+}
+.card:hover { box-shadow: var(--shadow-lg); }
+.card.span-12 { grid-column: span 12; }
+.card.span-8 { grid-column: span 8; }
+.card.span-6 { grid-column: span 6; }
+.card.span-4 { grid-column: span 4; }
+.card.span-3 { grid-column: span 3; }
+.card-title {
+  font-size: 10.5px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--text-muted); margin: 0 0 8px; display: flex; align-items: center; gap: 8px;
+}
+.card-title::before {
+  content: ""; width: 3px; height: 12px; border-radius: 2px; background: var(--accent);
+  display: inline-block;
+}
+.card-title .count {
+  margin-left: auto; font-size: 10.5px; color: var(--text-subtle); font-weight: 500;
+  letter-spacing: 0.04em;
+}
+.section-label {
+  font-size: 10.5px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--text-subtle); margin: 18px 0 8px;
+}
+
+/* ---- Chips / pills ---- */
+.chip {
+  display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 999px;
+  background: var(--surface-2); color: var(--text); font-size: 11.5px; font-weight: 500;
+  border: 1px solid var(--border); white-space: nowrap;
+}
+.chip.accent { background: var(--accent-soft); color: var(--accent); border-color: var(--accent-border); }
+.chip.muted { color: var(--text-muted); }
+.chip .k { color: var(--text-muted); font-weight: 400; }
+
+/* ---- KV tables ---- */
+dl.kv {
+  display: grid; grid-template-columns: max-content 1fr; gap: 6px 20px; margin: 0; font-size: 13px;
+}
+dl.kv dt { color: var(--text-muted); font-weight: 500; font-size: 12.5px; }
+dl.kv dd {
+  margin: 0; color: var(--text); font-family: ui-monospace, monospace; font-size: 12.5px;
+  overflow-wrap: anywhere;
+}
+
+/* ---- Stats (hardware) ---- */
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(95px, 1fr)); gap: 8px; }
+.stat {
+  padding: 8px 10px 7px; border-radius: var(--radius-sm); background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+.stat .value {
+  font-size: 20px; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em; line-height: 1.1;
+}
+.stat .value .unit { font-size: 11px; color: var(--text-muted); font-weight: 500; margin-left: 3px; }
+.stat .label {
+  font-size: 9.5px; color: var(--text-subtle); margin-top: 3px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.06em;
+}
+.stat.accent { border-color: var(--accent-border); }
+.stat.accent .value { color: var(--accent); }
+
+/* ---- Train mix bar ---- */
+.mix-bar {
+  display: flex; width: 100%; height: 34px; border-radius: var(--radius-xs); overflow: hidden;
+  background: var(--surface-2); border: 1px solid var(--border);
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.04);
+}
+.mix-bar > .seg {
+  display: flex; align-items: center; padding: 0 10px; color: #ffffff; font-size: 11.5px;
+  font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+.mix-bar > .seg + .seg { border-left: 1px solid rgba(255, 255, 255, 0.18); }
+.mix-bar > .seg:hover { filter: brightness(1.08); }
+.mix-legend { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 10px; font-size: 12px; }
+.mix-legend .item { display: inline-flex; align-items: center; gap: 7px; color: var(--text-muted); }
+.mix-legend .item .swatch { width: 10px; height: 10px; border-radius: 2px; }
+.mix-legend .item .val { color: var(--text); font-variant-numeric: tabular-nums; font-weight: 500; }
+
+/* ---- Shared-preset banners ---- */
+.preset-banners { margin: 14px 0 4px; display: flex; flex-direction: column; gap: 8px; }
+.preset-banner {
+  padding: 10px 12px; background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); font-size: 12.5px; display: flex; flex-wrap: wrap;
+  align-items: center; gap: 8px 10px; border-left: 3px solid var(--accent);
+}
+.preset-banner .pb-label {
+  font-size: 10.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--text-subtle);
+}
+.preset-banner .pb-name {
+  font-family: ui-monospace, monospace; font-size: 12.5px; color: var(--text); font-weight: 600;
+}
+.preset-banner .pb-arrow { color: var(--text-subtle); }
+.preset-banner .pb-datasets { display: flex; flex-wrap: wrap; gap: 5px; }
+
+/* ---- Dataset panels ---- */
+.dataset-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px;
+  margin-top: 10px;
+}
+.dataset-panel {
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-left: 3px solid var(--border-strong); border-radius: var(--radius-sm);
+  padding: 9px 10px 8px; display: flex; flex-direction: column; gap: 6px;
+}
+.dataset-panel:hover { box-shadow: var(--shadow); }
+.dataset-panel .panel-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+}
+.dataset-panel .panel-name-wrap { min-width: 0; flex: 1; }
+.dataset-panel .panel-name {
+  font-weight: 600; font-size: 14px; color: var(--text); letter-spacing: -0.005em;
+}
+.dataset-panel .panel-sub {
+  color: var(--text-muted); font-size: 11px; margin-left: 6px; font-weight: 400;
+}
+.dataset-panel .prob-pill {
+  padding: 3px 10px; border-radius: 999px; font-size: 11.5px; font-weight: 700; color: #ffffff;
+  font-variant-numeric: tabular-nums; letter-spacing: -0.01em;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.10);
+}
+.dataset-panel .panel-preset {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-muted);
+}
+.dataset-panel .panel-preset .swatch { width: 8px; height: 8px; border-radius: 2px; }
+.dataset-panel .panel-preset .name { font-family: ui-monospace, monospace; color: var(--text); }
+.dataset-panel .panel-facts { display: flex; flex-wrap: wrap; gap: 4px; font-size: 11.5px; }
+.dataset-panel .path {
+  font-family: ui-monospace, monospace; font-size: 10.5px; color: var(--text-muted);
+  word-break: break-all; line-height: 1.4;
+}
+
+/* ---- Task distribution (chips + mini bar) ---- */
+.task-block { margin-top: 2px; }
+.task-block .tb-heading {
+  display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px;
+  font-size: 10.5px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;
+  color: var(--text-subtle);
+}
+.task-bar {
+  display: flex; width: 100%; height: 5px; border-radius: 3px; overflow: hidden;
+  margin-bottom: 7px; background: var(--surface-3);
+}
+.task-bar > span:hover { filter: brightness(1.15); }
+.task-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.task-chip {
+  padding: 4px 9px; border-radius: 5px; font-size: 11.5px; background: var(--surface);
+  border: 1px solid var(--border); display: inline-flex; align-items: baseline; gap: 7px;
+  min-width: 0;
+}
+.task-chip:hover { border-color: var(--border-strong); }
+.task-chip .name { font-weight: 500; color: var(--text); }
+.task-chip .freq {
+  color: var(--text-subtle); font-family: ui-monospace, monospace; font-size: 10px;
+}
+.task-chip .pct {
+  color: var(--text); font-size: 12.5px; font-weight: 700; font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+.hidden-note { margin-top: 6px; color: var(--text-subtle); font-size: 11px; font-style: italic; }
+
+/* ---- Task modifiers + per-task kwargs ---- */
+.modifiers-strip {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px;
+  padding: 6px 8px; background: var(--surface); border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-xs);
+}
+.modifiers-strip .mod-label {
+  font-size: 9.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--text-subtle); margin-right: 2px;
+}
+.mod-pill {
+  display: inline-flex; align-items: baseline; gap: 5px; padding: 2px 8px; border-radius: 999px;
+  background: var(--accent-soft); border: 1px solid var(--accent-border); font-size: 11px;
+}
+.mod-pill .mod-name {
+  color: var(--text-muted); font-family: ui-monospace, monospace; font-size: 10.5px;
+}
+.mod-pill .mod-val { color: var(--accent); font-weight: 700; font-variant-numeric: tabular-nums; }
+/* ---- Per-task modifiers list (inside dataset panel) ---- */
+.task-mods-list { margin-top: 6px; display: flex; flex-direction: column; gap: 3px; }
+.mod-row {
+  display: flex; align-items: center; gap: 8px; padding: 2px 0; min-width: 0;
+}
+.mod-row .mod-row-name {
+  font-family: ui-monospace, monospace; font-size: 11px; color: var(--text);
+  flex: 0 0 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  max-width: 50%;
+}
+.mod-row .mod-row-pills { display: flex; flex-wrap: wrap; gap: 4px; min-width: 0; }
+.task-kwargs-expander { margin-top: 8px; }
+.task-details-body {
+  display: flex; flex-direction: column; gap: 8px; background: var(--bg); padding: 10px 12px;
+  min-width: 0; overflow-x: hidden;
+}
+.task-detail {
+  min-width: 0; display: flex; flex-direction: column; gap: 3px; padding-bottom: 7px;
+  border-bottom: 1px dashed var(--border);
+}
+.task-detail:last-child { border-bottom: none; padding-bottom: 0; }
+.td-head {
+  display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; min-width: 0;
+}
+.td-name {
+  font-family: ui-monospace, monospace; font-weight: 600; color: var(--text); font-size: 12px;
+  overflow-wrap: anywhere; min-width: 0;
+}
+.td-pct { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--accent); font-size: 11px; }
+.td-kwargs { display: flex; flex-wrap: wrap; gap: 4px 7px; padding-left: 8px; min-width: 0; }
+.td-kwargs .kw {
+  display: inline-flex; align-items: baseline; gap: 4px; font-size: 11px; padding: 1px 6px;
+  background: var(--surface-2); border-radius: 3px; max-width: 100%; overflow-wrap: anywhere;
+  min-width: 0;
+}
+.td-kwargs .kw .k {
+  color: var(--text-muted); font-family: ui-monospace, monospace; overflow-wrap: anywhere;
+}
+.td-kwargs .kw .v {
+  color: var(--text); font-family: ui-monospace, monospace; font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.td-kwargs .kw-none {
+  font-size: 11px; color: var(--text-subtle); font-style: italic; padding-left: 8px;
+}
+
+/* ---- Header run-name label ---- */
+.run-badge {
+  display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 999px;
+  border: 1px solid var(--accent-border);
+  background: linear-gradient(135deg, rgba(91, 108, 255, 0.12) 0%, rgba(91, 108, 255, 0.05) 100%);
+}
+.run-badge, .run-badge * { -webkit-text-fill-color: initial; }
+.run-badge::before {
+  content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.run-badge .run-label {
+  font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted);
+  font-weight: 700;
+}
+.run-badge .run-name {
+  font-family: ui-monospace, "SF Mono", monospace; font-weight: 600; color: var(--text);
+  font-size: 13px; letter-spacing: -0.005em;
+}
+@media (prefers-color-scheme: dark) {
+  .run-badge {
+    background: linear-gradient(135deg, rgba(139, 149, 255, 0.14) 0%, rgba(139, 149, 255, 0.06) 100%);
+  }
+}
+
+/* ---- Expand toggles ---- */
+details.expander { margin-top: 2px; }
+details.expander > summary {
+  cursor: pointer; font-size: 11.5px; color: var(--text-muted); padding: 4px 0; list-style: none;
+  user-select: none; display: inline-flex; align-items: center; gap: 4px;
+}
+details.expander > summary::-webkit-details-marker { display: none; }
+details.expander > summary::before {
+  content: "\25b8"; display: inline-block; font-size: 10px; color: var(--text-subtle);
+}
+details.expander[open] > summary::before { transform: rotate(90deg); }
+details.expander > summary:hover { color: var(--text); }
+details.expander > .body {
+  margin-top: 8px; padding: 12px 14px; background: var(--bg); border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+pre.yaml {
+  margin: 0; font-family: ui-monospace, "SF Mono", monospace; font-size: 12px; line-height: 1.55;
+  white-space: pre; overflow-x: auto; color: var(--text); max-height: 440px; overflow-y: auto;
+}
+pre.yaml::-webkit-scrollbar { width: 8px; height: 8px; }
+pre.yaml::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
+pre.yaml::-webkit-scrollbar-track { background: transparent; }
+
+/* ---- Val datasets ---- */
+.val-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px;
+  margin-top: 10px;
+}
+.val-item {
+  padding: 10px 12px; background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); font-size: 12.5px; display: flex; flex-direction: column;
+  gap: 6px;
+}
+.val-item .val-name { font-weight: 600; color: var(--text); font-size: 13px; }
+.val-item .val-row {
+  display: flex; flex-wrap: wrap; gap: 5px; color: var(--text-muted); font-size: 11px;
+}
+.val-item .metric-tag {
+  padding: 1px 7px; border-radius: 4px; background: var(--surface-3); color: var(--text-subtle);
+  font-size: 10.5px; font-weight: 500;
+}
+.val-item .val-metrics { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
+.val-item .val-metrics .metrics-label {
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-subtle);
+  font-weight: 600; align-self: center; margin-right: 4px;
+}
+.val-item .val-metrics .metric-chip {
+  padding: 2px 8px; border-radius: 4px; background: var(--accent-soft); color: var(--accent);
+  border: 1px solid var(--accent-border); font-size: 10.5px; font-weight: 500;
+  font-family: ui-monospace, monospace;
+}
+.val-item .val-metrics .metric-chip.universal { opacity: 0.75; }
+.val-item .no-metrics { font-size: 10.5px; color: var(--text-subtle); font-style: italic; }
+
+/* ---- Feature pills + system card ---- */
+.feat-pills { display: flex; flex-wrap: wrap; gap: 5px; }
+.feat-pill {
+  padding: 3px 9px; border-radius: 5px; background: var(--surface-2); border: 1px solid var(--border);
+  font-size: 11.5px; font-family: ui-monospace, monospace; color: var(--text);
+}
+.system-card .stats { gap: 10px; }
+.system-card .stat { padding: 14px 14px 12px; }
+.system-card .stat .sub {
+  font-size: 10.5px; color: var(--text-subtle); margin-top: 2px; font-family: ui-monospace, monospace;
+}
+.feature-row {
+  display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.feature-chip {
+  display: inline-flex; align-items: baseline; gap: 7px; padding: 5px 11px;
+  background: var(--surface-2); border-radius: 6px; font-size: 12px; border: 1px solid var(--border);
+}
+.feature-chip .label {
+  color: var(--text-muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em;
+  font-weight: 600;
+}
+.feature-chip .value { font-family: ui-monospace, monospace; font-weight: 500; color: var(--text); }
+.feature-chip .value.on { color: #54a24b; }
+.feature-chip .value.off { color: var(--text-subtle); }
+.ckpt-row {
+  display: flex; align-items: center; gap: 14px; margin-top: 14px; padding: 12px 14px;
+  background: var(--surface-2); border-radius: var(--radius-sm); border: 1px solid var(--border);
+  border-left: 3px solid var(--accent); flex-wrap: wrap;
+}
+.ckpt-row .ckpt-label {
+  font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--accent);
+}
+.ckpt-row .ckpt-file {
+  font-family: ui-monospace, monospace; font-weight: 600; color: var(--text); font-size: 13px;
+}
+.ckpt-row .ckpt-dir {
+  font-family: ui-monospace, monospace; color: var(--text-subtle); font-size: 11px;
+  overflow-wrap: anywhere;
+}
+</style></head><body><div class="container"><main class="grid"><section class="card span-12 system-card"><h2 class="card-title">System</h2><div class="stats"><div class="stat accent"><div class="value">1<span class="unit">GPUs</span></div><div class="sub">1 × 1 nodes</div><div class="label">Compute</div></div><div class="stat"><div class="value">4</div><div class="label">Per-GPU batch</div></div><div class="stat accent"><div class="value">1</div><div class="sub">1</div><div class="label">Effective batch</div></div><div class="stat"><div class="value">25</div><div class="label">Steps / epoch</div></div><div class="stat"><div class="value">25</div><div class="label">Examples / epoch</div></div><div class="stat"><div class="value">every 10<span class="unit">epochs</span></div><div class="label">Validation</div></div><div class="stat"><div class="value">16</div><div class="label">CPUs / task</div></div></div><div class="feature-row"><span class="feature-chip"><span class="label">attention</span><span class="value ">torch</span></span><span class="feature-chip"><span class="label">fixed dims</span><span class="value ">I=256</span></span><span class="feature-chip"><span class="label">workers</span><span class="value ">16</span></span><span class="feature-chip"><span class="label">prefetch</span><span class="value ">8</span></span><span class="feature-chip"><span class="label">strategy</span><span class="value ">ddp</span></span></div></section><section class="card span-12"><h2 class="card-title">Datasets <span class="count">1 train &middot; 11 val</span></h2><div class="mix-bar"><div class="seg" style="background:#4C78A8;flex:1.0 0 0" title="test_dataset &middot; 100% (1)">test_dataset  100%</div></div><div class="mix-legend"><span class="item"><span class="swatch" style="background:#4C78A8"></span><span>test_dataset</span><span class="val">100%</span></span></div><div class="dataset-grid"><div class="dataset-panel" style="border-left-color:#4C78A8"><div class="panel-head"><div class="panel-name-wrap"><span class="panel-name">test_dataset</span></div><span class="prob-pill" style="background:#4C78A8" title="probability">100%</span></div><div class="panel-preset"><span class="swatch" style="background:#4C78A8"></span><span>inline design_tasks</span></div><div class="path" title="/root/data_path/test_dataset/test_systems.parquet">/root/data_path/test_dataset/test_systems.parquet</div><div class="panel-facts"><span class="chip"><span class="k">crop</span>256</span><span class="chip"><span class="k">max_atoms_in_crop</span>10000</span></div><div class="task-block"><div class="tb-heading"><span>Design tasks</span><span>6 active</span></div><div class="task-bar"><span style="flex:30.0 0 0;background:rgba(76, 120, 168, 1.0)"></span><span style="flex:30.0 0 0;background:rgba(76, 120, 168, 0.87)"></span><span style="flex:20.0 0 0;background:rgba(76, 120, 168, 0.74)"></span><span style="flex:10.0 0 0;background:rgba(76, 120, 168, 0.61)"></span><span style="flex:5.0 0 0;background:rgba(76, 120, 168, 0.48)"></span><span style="flex:5.0 0 0;background:rgba(76, 120, 168, 0.35)"></span></div><div class="task-chips"><span class="task-chip" style="border-color:rgba(76, 120, 168, 0.35);background:rgba(76, 120, 168, 0.07)" title="frequency: 30"><span class="pct">30.0%</span><span class="name">tip_atom_partial_ligand</span></span><span class="task-chip" style="border-color:rgba(76, 120, 168, 0.35);background:rgba(76, 120, 168, 0.07)" title="frequency: 30"><span class="pct">30.0%</span><span class="name">tip_atom_pocket</span></span><span class="task-chip" style="border-color:rgba(76, 120, 168, 0.35);background:rgba(76, 120, 168, 0.07)" title="frequency: 20"><span class="pct">20.0%</span><span class="name">partial_ligand</span></span><span class="task-chip" style="border-color:rgba(76, 120, 168, 0.35);background:rgba(76, 120, 168, 0.07)" title="frequency: 10"><span class="pct">10.0%</span><span class="name">unconditional</span></span><span class="task-chip" style="border-color:rgba(76, 120, 168, 0.35);background:rgba(76, 120, 168, 0.07)" title="frequency: 5"><span class="pct">5.0%</span><span class="name">folding</span></span><span class="task-chip" style="border-color:rgba(76, 120, 168, 0.35);background:rgba(76, 120, 168, 0.07)" title="frequency: 5"><span class="pct">5.0%</span><span class="name">inverse_folding</span></span></div><div class="task-mods-list"><div class="tb-heading"><span>Modifiers (per task)</span></div><div class="mod-row"><span class="mod-row-name">tip_atom_partial_ligand</span><div class="mod-row-pills"><span class="mod-pill"><span class="mod-name">rasa</span><span class="mod-val">60.0%</span></span><span class="mod-pill"><span class="mod-name">hbond</span><span class="mod-val">20.0%</span></span><span class="mod-pill"><span class="mod-name">pistack</span><span class="mod-val">20.0%</span></span><span class="mod-pill"><span class="mod-name">pication</span><span class="mod-val">20.0%</span></span><span class="mod-pill"><span class="mod-name">salt</span><span class="mod-val">20.0%</span></span><span class="mod-pill"><span class="mod-name">hydrophobic</span><span class="mod-val">20.0%</span></span><span class="mod-pill"><span class="mod-name">metal</span><span class="mod-val">20.0%</span></span><span class="mod-pill"><span class="mod-name">ss</span><span class="mod-val">10.0%</span></span><span class="mod-pill"><span class="mod-name">cath-cat</span><span class="mod-val">90.0%</span></span></div></div><div class="mod-row"><span class="mod-row-name">tip_atom_pocket</span><div class="mod-row-pills"><span class="mod-pill"><span class="mod-name">rasa</span><span class="mod-val">60.0%</span></span><span class="mod-pill"><span class="mod-name">hbond</span><span class="mod-val">20.0%</span></span><span class="mod-pill"><span class="mod-name">pistack</span><span class="mod-val">20.0%</span></span><span class="mod-pill"><span class="mod-name">pication</span><span class="mod-val">20.0%</span></span><span class="mod-pill"><span class="mod-name">salt</span><span class="mod-val">20.0%</span></span><span class="mod-pill"><span class="mod-name">hydrophobic</span><span class="mod-val">20.0%</span></span><span class="mod-pill"><span class="mod-name">metal</span><span class="mod-val">20.0%</span></span><span class="mod-pill"><span class="mod-name">ss</span><span class="mod-val">10.0%</span></span><span class="mod-pill"><span class="mod-name">cath-cat</span><span class="mod-val">90.0%</span></span></div></div><div class="mod-row"><span class="mod-row-name">partial_ligand</span><div class="mod-row-pills"><span class="mod-pill"><span class="mod-name">rasa</span><span class="mod-val">60.0%</span></span><span class="mod-pill"><span class="mod-name">hbond</span><span class="mod-val">20.0%</span></span><span class="mod-pill"><span class="mod-name">pistack</span><span class="mod-val">20.0%</span></span><span class="mod-pill"><span class="mod-name">pication</span><span class="mod-val">20.0%</span></span><span class="mod-pill"><span class="mod-name">salt</span><span class="mod-val">20.0%</span></span><span class="mod-pill"><span class="mod-name">hydrophobic</span><span class="mod-val">20.0%</span></span><span class="mod-pill"><span class="mod-name">metal</span><span class="mod-val">20.0%</span></span><span class="mod-pill"><span class="mod-name">ss</span><span class="mod-val">10.0%</span></span><span class="mod-pill"><span class="mod-name">cath-cat</span><span class="mod-val">90.0%</span></span></div></div><div class="mod-row"><span class="mod-row-name">unconditional</span><div class="mod-row-pills"><span class="mod-pill"><span class="mod-name">rasa</span><span class="mod-val">60.0%</span></span><span class="mod-pill"><span class="mod-name">hbond</span><span class="mod-val">20.0%</span></span><span class="mod-pill"><span class="mod-name">pistack</span><span class="mod-val">20.0%</span></span><span class="mod-pill"><span class="mod-name">pication</span><span class="mod-val">20.0%</span></span><span class="mod-pill"><span class="mod-name">salt</span><span class="mod-val">20.0%</span></span><span class="mod-pill"><span class="mod-name">hydrophobic</span><span class="mod-val">20.0%</span></span><span class="mod-pill"><span class="mod-name">metal</span><span class="mod-val">20.0%</span></span><span class="mod-pill"><span class="mod-name">ss</span><span class="mod-val">10.0%</span></span><span class="mod-pill"><span class="mod-name">cath-cat</span><span class="mod-val">90.0%</span></span></div></div><div class="mod-row"><span class="mod-row-name">folding</span><div class="mod-row-pills"><span class="mod-pill"><span class="mod-name">rasa</span><span class="mod-val">60.0%</span></span><span class="mod-pill"><span class="mod-name">hbond</span><span class="mod-val">20.0%</span></span><span class="mod-pill"><span class="mod-name">pistack</span><span class="mod-val">20.0%</span></span><span class="mod-pill"><span class="mod-name">pication</span><span class="mod-val">20.0%</span></span><span class="mod-pill"><span class="mod-name">salt</span><span class="mod-val">20.0%</span></span><span class="mod-pill"><span class="mod-name">hydrophobic</span><span class="mod-val">20.0%</span></span><span class="mod-pill"><span class="mod-name">metal</span><span class="mod-val">20.0%</span></span><span class="mod-pill"><span class="mod-name">ss</span><span class="mod-val">10.0%</span></span><span class="mod-pill"><span class="mod-name">cath-cat</span><span class="mod-val">90.0%</span></span></div></div><div class="mod-row"><span class="mod-row-name">inverse_folding</span><div class="mod-row-pills"><span class="mod-pill"><span class="mod-name">rasa</span><span class="mod-val">60.0%</span></span><span class="mod-pill"><span class="mod-name">hbond</span><span class="mod-val">20.0%</span></span><span class="mod-pill"><span class="mod-name">pistack</span><span class="mod-val">20.0%</span></span><span class="mod-pill"><span class="mod-name">pication</span><span class="mod-val">20.0%</span></span><span class="mod-pill"><span class="mod-name">salt</span><span class="mod-val">20.0%</span></span><span class="mod-pill"><span class="mod-name">hydrophobic</span><span class="mod-val">20.0%</span></span><span class="mod-pill"><span class="mod-name">metal</span><span class="mod-val">20.0%</span></span><span class="mod-pill"><span class="mod-name">ss</span><span class="mod-val">10.0%</span></span><span class="mod-pill"><span class="mod-name">cath-cat</span><span class="mod-val">90.0%</span></span></div></div></div><details class="expander task-kwargs-expander"><summary>Show per-task kwargs &middot; 6 tasks</summary><div class="body task-details-body"><div class="task-detail"><div class="td-head"><span class="td-name">tip_atom_partial_ligand</span><span class="td-pct">30.0%</span></div><div class="td-kwargs"><span class="kw"><span class="k">n_max_ligands</span><span class="v">3</span></span><span class="kw"><span class="k">n_hops_expected_ligand</span><span class="v">5</span></span><span class="kw"><span class="k">n_max_residues</span><span class="v">8</span></span><span class="kw"><span class="k">n_hops_expected_tip_atom</span><span class="v">1</span></span><span class="kw"><span class="k">p_seq_conditioned</span><span class="v">1</span></span><span class="kw"><span class="k">p_merge_unindexed_groups</span><span class="v">0.1</span></span><span class="kw"><span class="k">p_split_unindexed_groups</span><span class="v">0.01</span></span><span class="kw"><span class="k">p_increase_group_id_gap</span><span class="v">0.1</span></span></div></div><div class="task-detail"><div class="td-head"><span class="td-name">tip_atom_pocket</span><span class="td-pct">30.0%</span></div><div class="td-kwargs"><span class="kw"><span class="k">tip_atom_rasa_threshold</span><span class="v">0.2</span></span><span class="kw"><span class="k">min_tip_atoms</span><span class="v">2</span></span><span class="kw"><span class="k">max_tip_atoms</span><span class="v">15</span></span><span class="kw"><span class="k">p_seq_conditioned</span><span class="v">1</span></span><span class="kw"><span class="k">p_unindex_all</span><span class="v">0.8</span></span><span class="kw"><span class="k">p_unindex_any</span><span class="v">0.05</span></span><span class="kw"><span class="k">p_merge_unindexed_groups</span><span class="v">0.1</span></span><span class="kw"><span class="k">p_split_unindexed_groups</span><span class="v">0.01</span></span><span class="kw"><span class="k">p_increase_group_id_gap</span><span class="v">0.1</span></span></div></div><div class="task-detail"><div class="td-head"><span class="td-name">partial_ligand</span><span class="td-pct">20.0%</span></div><div class="td-kwargs"><span class="kw"><span class="k">max_coverage_fraction</span><span class="v">1</span></span></div></div><div class="task-detail"><div class="td-head"><span class="td-name">unconditional</span><span class="td-pct">10.0%</span></div><div class="td-kwargs"><span class="kw-none">no extra kwargs</span></div></div><div class="task-detail"><div class="td-head"><span class="td-name">folding</span><span class="td-pct">5.0%</span></div><div class="td-kwargs"><span class="kw-none">no extra kwargs</span></div></div><div class="task-detail"><div class="td-head"><span class="td-name">inverse_folding</span><span class="td-pct">5.0%</span></div><div class="td-kwargs"><span class="kw-none">no extra kwargs</span></div></div></div></details><div class="hidden-note">+ 6 tasks @ frequency 0.0</div></div><details class="expander"><summary>Show full transform</summary><div class="body"><pre class="yaml">_target_: rfproteina.datapipes.pipeline.build_design_train_pipeline
+crop_size: 256
+crop_spatial_probability: 1.0
+crop_center_cutoff_distance: 15.0
+max_atoms_in_crop: 10000
+p_random_rotation: 1.0
+path_length_search_cutoff: 64
+loss_weight_cfg:
+  non_standard: 2.5
+  unindexed: 2.5
+centroid_kwargs:
+  p_add_centroid_condition: 0.2
+  noise_std_angstrom: 5.0
+</pre></div></details></div></div><h3 class="section-label">Validation &mdash; metrics per dataset</h3><div class="val-grid"><div class="val-item"><div class="val-name">unconditional</div><div class="val-row">x50 &middot; <span class="metric-tag">design</span> &middot; <span class="metric-tag">unconditional_refolding</span></div><div class="val-metrics"><span class="metrics-label">metrics</span><span class="metric-chip universal" title="  (universal)">inline_metrics</span><span class="metric-chip universal" title="  (universal)">refolding_metrics</span><span class="metric-chip universal" title="  (universal)">pass_criteria</span></div><details class="expander"><summary>Show transform</summary><div class="body"><pre class="yaml">_target_: rfproteina.datapipes.pipeline.build_design_validation_pipeline
+metrics_tags:
+- design
+- unconditional_refolding
+</pre></div></details></div><div class="val-item"><div class="val-name">unindexed_motif_scaffold_subset</div><div class="val-row">6 keys &middot; x100 &middot; <span class="metric-tag">design</span> &middot; <span class="metric-tag">unindexed</span> &middot; <span class="metric-tag">3d_coordinate_conditioning</span> &middot; <span class="metric-tag">motif_scaffold_refolding</span></div><div class="val-metrics"><span class="metrics-label">metrics</span><span class="metric-chip universal" title="  (universal)">inline_metrics</span><span class="metric-chip universal" title="  (universal)">refolding_metrics</span><span class="metric-chip universal" title="  (universal)">pass_criteria</span></div><details class="expander"><summary>Show transform</summary><div class="body"><pre class="yaml">_target_: rfproteina.datapipes.pipeline.build_design_validation_pipeline
+metrics_tags:
+- design
+- unindexed
+- 3d_coordinate_conditioning
+- motif_scaffold_refolding
+</pre></div></details></div><div class="val-item"><div class="val-name">indexed_motif_scaffold_subset</div><div class="val-row">6 keys &middot; x100 &middot; <span class="metric-tag">design</span> &middot; <span class="metric-tag">3d_coordinate_conditioning</span> &middot; <span class="metric-tag">motif_scaffold_refolding</span></div><div class="val-metrics"><span class="metrics-label">metrics</span><span class="metric-chip universal" title="  (universal)">inline_metrics</span><span class="metric-chip universal" title="  (universal)">refolding_metrics</span><span class="metric-chip universal" title="  (universal)">pass_criteria</span></div><details class="expander"><summary>Show transform</summary><div class="body"><pre class="yaml">_target_: rfproteina.datapipes.pipeline.build_design_validation_pipeline
+metrics_tags:
+- design
+- 3d_coordinate_conditioning
+- motif_scaffold_refolding
+</pre></div></details></div><div class="val-item"><div class="val-name">mcsa_subset</div><div class="val-row">15 keys &middot; x100 &middot; <span class="metric-tag">design</span> &middot; <span class="metric-tag">unindexed</span> &middot; <span class="metric-tag">ame_refolding</span></div><div class="val-metrics"><span class="metrics-label">metrics</span><span class="metric-chip universal" title="  (universal)">inline_metrics</span><span class="metric-chip universal" title="  (universal)">refolding_metrics</span><span class="metric-chip universal" title="  (universal)">pass_criteria</span></div><details class="expander"><summary>Show transform</summary><div class="body"><pre class="yaml">_target_: rfproteina.datapipes.pipeline.build_design_validation_pipeline
+metrics_tags:
+- design
+- unindexed
+- ame_refolding
+</pre></div></details></div><div class="val-item"><div class="val-name">mcsa_subset_fixed_ligand</div><div class="val-row">15 keys &middot; x100 &middot; <span class="metric-tag">design</span> &middot; <span class="metric-tag">unindexed</span> &middot; <span class="metric-tag">ame_refolding</span></div><div class="val-metrics"><span class="metrics-label">metrics</span><span class="metric-chip universal" title="  (universal)">inline_metrics</span><span class="metric-chip universal" title="  (universal)">refolding_metrics</span><span class="metric-chip universal" title="  (universal)">pass_criteria</span></div><details class="expander"><summary>Show transform</summary><div class="body"><pre class="yaml">_target_: rfproteina.datapipes.pipeline.build_design_validation_pipeline
+metrics_tags:
+- design
+- unindexed
+- ame_refolding
+</pre></div></details></div><div class="val-item"><div class="val-name">mcsa_subset_no_ligand</div><div class="val-row">15 keys &middot; x100 &middot; <span class="metric-tag">design</span> &middot; <span class="metric-tag">unindexed</span> &middot; <span class="metric-tag">ame_refolding</span> &middot; <span class="metric-tag">no_ligand</span></div><div class="val-metrics"><span class="metrics-label">metrics</span><span class="metric-chip universal" title="  (universal)">inline_metrics</span><span class="metric-chip universal" title="  (universal)">refolding_metrics</span><span class="metric-chip universal" title="  (universal)">pass_criteria</span></div><details class="expander"><summary>Show transform</summary><div class="body"><pre class="yaml">_target_: rfproteina.datapipes.pipeline.build_design_validation_pipeline
+metrics_tags:
+- design
+- unindexed
+- ame_refolding
+- no_ligand
+</pre></div></details></div><div class="val-item"><div class="val-name">ppi_bb_only_subset_12</div><div class="val-row">x100 &middot; <span class="metric-tag">design</span> &middot; <span class="metric-tag">3d_coordinate_conditioning</span> &middot; <span class="metric-tag">hotspot_conditioning</span> &middot; <span class="metric-tag">ppi_refolding</span></div><div class="val-metrics"><span class="metrics-label">metrics</span><span class="metric-chip universal" title="  (universal)">inline_metrics</span><span class="metric-chip universal" title="  (universal)">refolding_metrics</span><span class="metric-chip universal" title="  (universal)">pass_criteria</span></div><details class="expander"><summary>Show transform</summary><div class="body"><pre class="yaml">_target_: rfproteina.datapipes.pipeline.build_design_validation_pipeline
+metrics_tags:
+- design
+- 3d_coordinate_conditioning
+- hotspot_conditioning
+- ppi_refolding
+</pre></div></details></div><div class="val-item"><div class="val-name">dna_binder_structure_context</div><div class="val-row">3 keys &middot; x25 &middot; <span class="metric-tag">design</span> &middot; <span class="metric-tag">dna_refolding</span> &middot; <span class="metric-tag">interchain_interactions</span></div><div class="val-metrics"><span class="metrics-label">metrics</span><span class="metric-chip universal" title="  (universal)">inline_metrics</span><span class="metric-chip universal" title="  (universal)">refolding_metrics</span><span class="metric-chip universal" title="  (universal)">pass_criteria</span></div><details class="expander"><summary>Show transform</summary><div class="body"><pre class="yaml">_target_: rfproteina.datapipes.pipeline.build_design_validation_pipeline
+metrics_tags:
+- design
+- dna_refolding
+- interchain_interactions
+</pre></div></details></div><div class="val-item"><div class="val-name">dna_binder_sequence_context</div><div class="val-row">3 keys &middot; x25 &middot; <span class="metric-tag">design</span> &middot; <span class="metric-tag">dna_refolding</span> &middot; <span class="metric-tag">interchain_interactions</span></div><div class="val-metrics"><span class="metrics-label">metrics</span><span class="metric-chip universal" title="  (universal)">inline_metrics</span><span class="metric-chip universal" title="  (universal)">refolding_metrics</span><span class="metric-chip universal" title="  (universal)">pass_criteria</span></div><details class="expander"><summary>Show transform</summary><div class="body"><pre class="yaml">_target_: rfproteina.datapipes.pipeline.build_design_validation_pipeline
+metrics_tags:
+- design
+- dna_refolding
+- interchain_interactions
+</pre></div></details></div><div class="val-item"><div class="val-name">disco_subset</div><div class="val-row">12 keys &middot; x100 &middot; <span class="metric-tag">has_small_molecule</span> &middot; <span class="metric-tag">design</span> &middot; <span class="metric-tag">sm_binder_refolding</span> &middot; <span class="metric-tag">disco_refolding</span></div><div class="val-metrics"><span class="metrics-label">metrics</span><span class="metric-chip universal" title="  (universal)">inline_metrics</span><span class="metric-chip universal" title="  (universal)">refolding_metrics</span><span class="metric-chip universal" title="  (universal)">pass_criteria</span></div><details class="expander"><summary>Show transform</summary><div class="body"><pre class="yaml">_target_: rfproteina.datapipes.pipeline.build_design_validation_pipeline
+metrics_tags:
+- has_small_molecule
+- design
+- sm_binder_refolding
+- disco_refolding
+</pre></div></details></div><div class="val-item"><div class="val-name">sequence_bias</div><div class="val-row">x20</div><div class="val-metrics"><span class="metrics-label">metrics</span><span class="metric-chip universal" title="  (universal)">inline_metrics</span><span class="metric-chip universal" title="  (universal)">refolding_metrics</span><span class="metric-chip universal" title="  (universal)">pass_criteria</span></div><details class="expander"><summary>Show transform</summary><div class="body"><pre class="yaml">_target_: rfproteina.datapipes.pipeline.build_design_validation_pipeline
+</pre></div></details></div></div></section><section class="card span-6"><h2 class="card-title">Model (nn)</h2><dl class="kv"><dt>name</dt><dd>local_latents_transformer</dd><dt>nlayers</dt><dd>14</dd><dt>token_dim</dt><dd>768</dd><dt>nheads</dt><dd>12</dd><dt>token_type_emb_dim</dt><dd>32</dd><dt>cath_emb_dim</dt><dd>32</dd><dt>noise_align_chirality</dt><dd>True</dd><dt>use_atom37_factory</dt><dd>True</dd><dt>dim_cond</dt><dd>256</dd><dt>idx_emb_dim</dt><dd>256</dd><dt>t_emb_dim</dt><dd>256</dd><dt>xt_pair_dist_dim</dt><dd>30</dd><dt>xt_pair_dist_min</dt><dd>0.1</dd><dt>xt_pair_dist_max</dt><dd>3</dd><dt>seq_sep_dim</dt><dd>64</dd><dt>pair_repr_dim</dt><dd>384</dd><dt>update_pair_repr</dt><dd>True</dd><dt>update_pair_repr_every_n</dt><dd>2</dd><dt>use_tri_mult</dt><dd>True</dd><dt>tri_mult_c</dt><dd>256</dd><dt>tri_mult_backend</dt><dd>cuequivariance</dd><dt>checkpointing</dt><dd>none</dd><dt>pair_write</dt><dd>hadamard</dd><dt>use_qkln</dt><dd>True</dd><dt>attention_type</dt><dd>torch</dd><dt>norm_type</dt><dd>rmsnorm_torch_fused</dd></dl><h4 class="section-label">feats_seq</h4><div class="feat-pills"><span class="feat-pill">xt_bb_ca</span><span class="feat-pill">xt_local_latents</span><span class="feat-pill">token_type</span><span class="feat-pill">sequence_probabilities</span><span class="feat-pill">cond_a37coors_nm</span><span class="feat-pill">cond_a37coors_internal_nm</span><span class="feat-pill">rasa_binned</span><span class="feat-pill">secondary_structure</span><span class="feat-pill">hbond_modernized</span><span class="feat-pill">pistack</span><span class="feat-pill">pication</span><span class="feat-pill">saltbridge</span><span class="feat-pill">hydrophobic</span><span class="feat-pill">metal_coord</span><span class="feat-pill">na_ss_state</span><span class="feat-pill">hotspot</span><span class="feat-pill">atom_charge</span><span class="feat-pill">atomic_element</span><span class="feat-pill">coord_group_seq</span><span class="feat-pill">chirality</span><span class="feat-pill">chain_centroid_xyz</span></div><h4 class="section-label">feats_cond_seq</h4><div class="feat-pills"><span class="feat-pill">time_emb_bb_ca</span><span class="feat-pill">time_emb_local_latents</span><span class="feat-pill">cath_code</span><span class="feat-pill">recycle_remaining</span></div><h4 class="section-label">feats_pair_repr</h4><div class="feat-pills"><span class="feat-pill">xt_bb_ca_pair_dists</span><span class="feat-pill">bond_mask</span><span class="feat-pill">bond_order</span><span class="feat-pill">is_aromatic</span><span class="feat-pill">index_group_pair</span><span class="feat-pill">molecule_idx_pair</span><span class="feat-pill">molecule_entity_pair</span><span class="feat-pill">token_bond_path_length</span><span class="feat-pill">canonical_polymer_ordering</span><span class="feat-pill">na_ss_pair</span></div><h4 class="section-label">feats_pair_cond</h4><div class="feat-pills"><span class="feat-pill">time_emb_bb_ca</span><span class="feat-pill">time_emb_local_latents</span></div><details class="expander"><summary>Show nested config</summary><div class="body"><pre class="yaml">output_parameterization:
+  bb_ca: v
+  local_latents: v
+sequence_readout:
+  enabled: true
+  detach: true
+  num_classes: 147
+recycle:
+  enabled: true
+  grad: last
+  training_max_recycles: 9
+  condition_probability: 0.5
+</pre></div></details></section><section class="card span-6"><h2 class="card-title">generation</h2><details class="expander" open><summary>Show</summary><div class="body"><pre class="yaml">n_recycle_schedule:
+- - 5
+  - 6
+- - 10
+  - 5
+- - 5
+  - 4
+- - 10
+  - 3
+- - 20
+  - 2
+- - 10
+  - 1
+condition_on_recycle_remaining: true
+args:
+  nsteps: 60
+  condition_decoder_on_sequence_prediction: true
+  guidance_w: 1.0
+  inverse_folding_method: resampled_forward_marginal
+  bb_ca_only_trajectories: true
+model:
+  bb_ca:
+    schedule:
+      mode: log
+      p: 2.0
+      tail_steps: 10
+      tail_step_multiplier: 2
+    gt:
+      mode: 1/t
+      p: 1.0
+    simulation_step_params:
+      sampling_mode: vf_tsr
+      sc_scale_noise: 1.0
+      t_lim_ode: 0.95
+      t_lim_ode_below: 0.02
+      tsr_k: 16.0
+      tsr_sigma: 3.0
+  local_latents:
+    schedule:
+      mode: power
+      p: 2.0
+      tail_steps: 10
+      tail_step_multiplier: 2
+    gt:
+      mode: tan
+      p: 1.0
+    simulation_step_params:
+      sampling_mode: vf_tsr
+      sc_scale_noise: 1.0
+      t_lim_ode: 0.95
+      t_lim_ode_below: 0.02
+      tsr_k: 4.0
+      tsr_sigma: 12.0
+compile_lengths:
+- 256
+- 320
+- 384
+- 448
+- 512
+- 560
+- 608
+</pre></div></details></section><section class="card span-6"><h2 class="card-title">callbacks</h2><details class="expander" open><summary>Show</summary><div class="body"><pre class="yaml">set_sampler_epoch_callback:
+  _target_: rfproteina.callbacks.sampler_epoch.SetSamplerEpochCallback
+skip_nan_grad_callback:
+  _target_: rfproteina.utils.training_analysis.SkipNanGradCallback
+lightning_timing_callback:
+  _target_: rfproteina.callbacks.timing.LightningTimingCallback
+  log_every_n: 500
+ema_callback:
+  _target_: rfproteina.utils.simple_ema.SimpleEMA
+  decay: 0.999
+  update_every_n: 1
+coordinated_gc:
+  _target_: rfproteina.callbacks.coordinated_gc.CoordinatedGC
+  interval_batches: 128
+dataset_task_stats_callback:
+  _target_: rfproteina.callbacks.dataset_task_logging.DatasetTaskStatsCallback
+  log_every_n: 1000
+r4t_timer:
+  _target_: r4t_step_timer.StepTimer
+  out: /root/kc/rfd4/r4t/eager/steps.jsonl
+</pre></div></details></section><section class="card span-6"><h2 class="card-title">verbose</h2><details class="expander" open><summary>Show</summary><div class="body"><pre class="yaml">True</pre></div></details></section><section class="card span-6"><h2 class="card-title">compress_outputs</h2><details class="expander" open><summary>Show</summary><div class="body"><pre class="yaml">True</pre></div></details></section><section class="card span-6"><h2 class="card-title">hf_ckpt_path</h2><details class="expander" open><summary>Show</summary><div class="body"><pre class="yaml">nvidia/RFD4-Proteina</pre></div></details></section><section class="card span-6"><h2 class="card-title">hf_ckpt_revision</h2><details class="expander" open><summary>Show</summary><div class="body"><pre class="yaml">a06e2509c7033b010fc43614e9fd840303588502</pre></div></details></section><section class="card span-6"><h2 class="card-title">delete_failing_pre_oracle</h2><details class="expander" open><summary>Show</summary><div class="body"><pre class="yaml">True</pre></div></details></section><section class="card span-6"><h2 class="card-title">product_flowmatcher</h2><details class="expander" open><summary>Show</summary><div class="body"><pre class="yaml">bb_ca:
+  zero_com_noise: true
+  guidance_enabled: true
+  dim: 3
+  stochastic_centering_mode: x_0
+  stochastic_centering_scale: 0.2
+  stochastic_centering_scope: per_group
+  stochastic_centering_group_keys:
+  - molecule_iid
+local_latents:
+  guidance_enabled: true
+  dim: 32
+  stochastic_centering_mode: none
+</pre></div></details></section><section class="card span-6"><h2 class="card-title">loss</h2><details class="expander" open><summary>Show</summary><div class="body"><pre class="yaml">signed_volume_weight: 2.5
+sequence_prediction:
+  enabled: true
+  t_max: 1.0
+t_distribution:
+  bb_ca:
+    name: mix_unif_beta
+    p1: 1.9
+    p2: 1.0
+    p3: 0.02
+  local_latents:
+    name: mix_unif_beta
+    p1: 1.0
+    p2: 1.5
+    p3: 0.2
+</pre></div></details></section><section class="card span-6"><h2 class="card-title">training</h2><details class="expander" open><summary>Show</summary><div class="body"><pre class="yaml">exploration_k: 4
+exploration_losses:
+- bb_ca
+- local_latents
+n_recycle_max: 9
+n_recycle_sampler: poisson
+n_recycle_lambda: 3.0
+n_recycle_sync: true
+n_recycle_val_loss: 3
+</pre></div></details></section><section class="card span-6"><h2 class="card-title">lora</h2><details class="expander" open><summary>Show</summary><div class="body"><pre class="yaml">lora_alpha: 64.0
+train_bias: none
+target_modules:
+- to_qkv
+- to_out_node
+</pre></div></details></section><section class="card span-6"><h2 class="card-title">opt</h2><details class="expander" open><summary>Show</summary><div class="body"><pre class="yaml">lr: 0.0001
+adam_warmup_steps: 10000
+gradient_clip_val: 1.0
+max_epochs: 1
+accumulate_grad_batches: 1
+dist_strategy: ddp
+steps_per_epoch: 25
+val_every_n_epochs: 10
+foldseek_timeout_minutes: 25
+muon_exclude_param_patterns:
+- _factory\.
+- ^nn\.(local_latents_linear|ca_linear|insertion_q_proj|insertion_k_proj)\.
+- ^nn\.sequence_readout\.
+muon_adjust_lr_fn: match_rms_adamw
+muon_grouped: true
+</pre></div></details></section><section class="card span-6"><h2 class="card-title">log</h2><details class="expander" open><summary>Show</summary><div class="body"><pre class="yaml">wandb_project: latent_training
+tags:
+- sota
+log_every_n_steps: 10
+checkpoint_every_n_epochs: 10
+last_ckpt_every_n_epochs: 5
+</pre></div></details></section><section class="card span-6"><h2 class="card-title">use_unified_ae_encoding</h2><details class="expander" open><summary>Show</summary><div class="body"><pre class="yaml">True</pre></div></details></section><section class="card span-6"><h2 class="card-title">single</h2><details class="expander" open><summary>Show</summary><div class="body"><pre class="yaml">True</pre></div></details></section><section class="card span-6"><h2 class="card-title">nolog</h2><details class="expander" open><summary>Show</summary><div class="body"><pre class="yaml">True</pre></div></details></section><section class="card span-6"><h2 class="card-title">autoencoder_config</h2><details class="expander" open><summary>Show</summary><div class="body"><pre class="yaml">nn_ae:
+  name: transformer_ae_aa_rna_dna_glycan_ncaa
+  latent_z_dim: 32
+  allow_oxt: true
+  n_residue_types: 147
+  encoder:
+    nlayers: 12
+    token_dim: 768
+    nheads: 12
+    token_type_emb_dim: 32
+    feats_seq:
+    - token_type
+    - x1_a37coors_nm
+    - x1_a37coors_nm_rel
+    - chain_idx_seq
+    - incident_bond_type_counts
+    - atom37_element_charge_embedding
+    dim_cond: 128
+    idx_emb_dim: 128
+    feats_pair_repr:
+    - token_bond_path_length
+    - canonical_polymer_ordering
+    - molecule_idx_pair
+    - x1_bb_pair_dists_nm
+    seq_sep_dim: 64
+    pair_repr_dim: 256
+    update_pair_repr_every_n: 3
+    use_qkln: true
+    latent_z_dim: 32
+    n_residue_types: 147
+    charge_emb_dim: 16
+  decoder:
+    nlayers: 12
+    token_dim: 768
+    nheads: 12
+    token_type_emb_dim: 32
+    feats_seq:
+    - ca_coors_nm
+    - z_latent_seq
+    - token_type
+    - cond_residue_type
+    dim_cond: 128
+    idx_emb_dim: 128
+    feats_pair_repr:
+    - token_bond_path_length
+    - canonical_polymer_ordering
+    - molecule_idx_pair
+    - ca_coors_nm_pair_dists
+    seq_sep_dim: 64
+    pair_repr_dim: 256
+    update_pair_repr_every_n: 3
+    use_qkln: true
+    latent_z_dim: 32
+    n_residue_types: 147
+</pre></div></details></section><section class="card span-6"><h2 class="card-title">path_length_search_cutoffs</h2><details class="expander" open><summary>Show</summary><div class="body"><pre class="yaml">- 64
+</pre></div></details></section></main></div></body></html>

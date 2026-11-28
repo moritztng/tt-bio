@@ -157,7 +157,7 @@ def test_each_job_reports_the_lease_it_held_before_its_clock(monkeypatch):
     from types import SimpleNamespace
 
     def slow_load(self, cfg):
-        time.sleep(0.6)
+        time.sleep(2.0)   # far above a loaded host's stub-job overhead (qb2 read runtime_s 1.1)
         _stub_load(self, cfg)
 
     with tempfile.TemporaryDirectory() as td:
@@ -184,7 +184,7 @@ def test_each_job_reports_the_lease_it_held_before_its_clock(monkeypatch):
                 {"plddt": 1.0}, None, {"record": SimpleNamespace(affinity=None)}))
             rows = {r["id"]: r for r in client.results(run_id)}
             assert rows["t1"]["status"] == rows["t2"]["status"] == "ok"
-            assert rows["t1"]["load_s"] >= 0.6 > rows["t1"]["runtime_s"], rows["t1"]
+            assert rows["t1"]["load_s"] >= 2.0 > rows["t1"]["runtime_s"], rows["t1"]
             assert rows["t2"]["load_s"] < 0.2, rows["t2"]
         finally:
             server.shutdown()

@@ -39,6 +39,7 @@ from .checkpoint import Checkpointer, load_adapter
 from .lora import LoraConfig, attach, trainable
 from .mesh import Mesh
 from .optim import AdamW, af3_lr
+from .parity import GradientCoverage, zero_or_missing
 from .dryrun import plan
 from .tensors import to_device, to_host
 
@@ -49,7 +50,7 @@ def train_loop(forward, dataset, *, out_dir, global_batch, steps, objective="af3
                train="adapters", mesh=None, lora=None, seed=0, lr=3e-4, warmup_steps=1000,
                betas=(0.9, 0.95), weight_decay=0.0, plateau_until=50000, checkpoint_every=100,
                tokens=None, weights=None, model=None, on_step=None,
-               displacement_band=None, resume=False):
+               displacement_band=None, resume=False, coverage_steps=5):
     """Fine-tune or pre-train a shipped forward. The Tier-1 default, and a Tier-2 program.
 
     ``train`` is what the optimizer owns, and it is a NAME for the same reason ``objective``
@@ -70,6 +71,11 @@ def train_loop(forward, dataset, *, out_dir, global_batch, steps, objective="af3
     weights its routed ``ops.linear`` call sites pass. Leave it out and discovery is the
     call-site census, which cannot see a weight a module fused in its own ``__init__`` --
     measured at 2119 of 2531 on OpenFold3's trunk.
+
+    ``coverage_steps`` is how many of a run's first steps the every-parameter-trains guard
+    intersects before it decides. Five is the floor the guard enforces, and the reason it is
+    not one is upstream's zero-initialised residual branches: they make a first-step reading
+    name parameters that are training normally by step 2.
 
     ``betas``, ``weight_decay`` and ``plateau_until`` are where the AlphaFold-family recipes
     disagree with each other and with the optimizer's own library defaults, so they are
@@ -169,7 +175,7 @@ def train_loop(forward, dataset, *, out_dir, global_batch, steps, objective="af3
         # bit-identical across ranks, so one copy is the run's checkpoint; the reason not to
         # let them share the path is that two writers make a truncated safetensors file.
         ckpt = Checkpointer(launcher.out_dir(out_dir), every=checkpoint_every, metric="loss")
-        history, last, start = [], None, 0
+        history, last, start, coverage = [], None, 0, None
         if resume and (latest := ckpt.latest()) is not None:
             start = load_adapter(latest, params, dataset.device, opt=opt)["step"] + 1
             params.rebind()
@@ -243,6 +249,21 @@ def train_loop(forward, dataset, *, out_dir, global_batch, steps, objective="af3
                                     acc[k] = v
                                 else:
                                     acc[k] = acc.get(k, 0.0) + v / len(shard)
+                    # EVERY PARAMETER MUST TRAIN, and the accumulator is where that is
+                    # knowable: a name missing from it, or carrying an identically zero
+                    # gradient, received nothing from any sample of this step. The set is
+                    # intersected across the first steps rather than read at step 1, because
+                    # upstream initialisations zero each residual branch's output projection
+                    # and the weights behind it are legitimately zero until one update
+                    # switches the branch on (measured on RFD4's own blocks: 36 of 174 at
+                    # step 1, all alive at step 2). Nothing aggregate sees a dead parameter --
+                    # ABB3 ran 1,388 steps with 356 of 436 of them dead behind a healthy loss,
+                    # a plausible grad_norm and a digest that changed every step -- so the
+                    # check is per parameter, and it refuses rather than warns.
+                    if coverage is None:
+                        coverage = GradientCoverage(sorted(opt.master), steps=coverage_steps)
+                    coverage.observe(zero_or_missing(
+                        {name: opt.accum.get(name) for name in opt.master}))
                     # The accumulated, per-sample-clipped gradient, summed across the axis
                     # inside step() together with the participation counts it divides by.
                     opt.step(replicas=launcher.replicas(params))

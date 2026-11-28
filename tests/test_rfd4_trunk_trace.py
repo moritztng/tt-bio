@@ -111,3 +111,12 @@ def test_a_replay_copies_the_step_into_the_captures_buffers_and_restores_the_cou
     assert copied == [(s, bufs[0]), (z, bufs[1]), (cs[0], bufs[2][0])]
     assert executed == [("dev", 7, 0, False)]
     assert tuple(tr._ran) == (3, 72), "the captured call's work, counted once for this call"
+
+
+def test_a_trunk_never_replays_under_a_tape(monkeypatch):
+    """A replay returns raw outputs the tape never saw, so a taped pass would end its graph at the trunk."""
+    monkeypatch.setattr(T, "trace_region_size", lambda: 1 << 20)
+    monkeypatch.setattr(T.ops, "taping", lambda: True)
+    assert _trunk().traces_wanted() is False
+    monkeypatch.setattr(T.ops, "taping", lambda: False)
+    assert _trunk().traces_wanted() is True

@@ -1,0 +1,1 @@
+{"step": 6, "loss": -0.01699042320251465, "fwd_s": 0.1459, "bwd_s": 0.6857, "opt_s": 0.1166, "step_s": 0.9482, "retained_B": 10971611136, "after_bwd_B": 124715008, "dead": 0, "params": 168, "master_digest": "3c6ce594dfc37f3d", "aiclk": [1281, 1350], "host_maxrss_GiB": 2.86}

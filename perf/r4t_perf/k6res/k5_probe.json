@@ -1,0 +1,10 @@
+{
+ "{\"x\": [4, 256, 256, 384], \"mask\": null, \"taping\": true, \"nogi\": false, \"fast\": false, \"raw\": false, \"gm\": false, \"mam\": true}": 28,
+ "eligible_gated=False [4, 256, 256, 1024]": 84,
+ "{\"x\": [1, 256, 256, 384], \"mask\": null, \"taping\": true, \"nogi\": false, \"fast\": false, \"raw\": false, \"gm\": false, \"mam\": true}": 28,
+ "eligible_gated=False [1, 256, 256, 1024]": 168,
+ "{\"x\": [4, 256, 256, 384], \"mask\": [4, 256, 256], \"taping\": true, \"nogi\": true, \"fast\": false, \"raw\": false, \"gm\": false, \"mam\": true}": 28,
+ "{\"x\": [1, 256, 256, 384], \"mask\": [1, 256, 256], \"taping\": true, \"nogi\": false, \"fast\": false, \"raw\": false, \"gm\": false, \"mam\": true}": 28,
+ "{\"x\": [4, 256, 256, 384], \"mask\": null, \"taping\": true, \"nogi\": true, \"fast\": false, \"raw\": false, \"gm\": false, \"mam\": true}": 28,
+ "{\"x\": [1, 256, 256, 384], \"mask\": null, \"taping\": true, \"nogi\": true, \"fast\": false, \"raw\": false, \"gm\": false, \"mam\": true}": 112
+}

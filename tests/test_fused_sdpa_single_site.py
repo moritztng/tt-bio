@@ -14,6 +14,14 @@ import pytest
 PKG = Path(__file__).resolve().parents[1] / "tt_bio"
 OP = "scaled_dot_product_attention"
 
+# Functions that swap the op on `ttnn.transformer` for a stretch of code and put it back. They
+# never call it: `fused_sdpa` still makes the one call, mask attached, and reaches the swapped
+# version. Each entry says why it swaps.
+SWAPS = {
+    ("tt_bio/train/exact_fp32.py", "exact_fp32"):
+        "gradcheck control: replaces the op with a float64-exact host version inside the `with`",
+}
+
 
 def _is_ttnn_transformer(node):
     return (isinstance(node, ast.Attribute) and node.attr == "transformer"
@@ -51,7 +59,7 @@ def _references():
 
 
 def test_every_fused_sdpa_call_goes_through_the_wrapper():
-    refs = _references()
+    refs = [r for r in _references() if (r[0], r[2]) not in SWAPS]
     bypass = [r for r in refs if r[0] != "tt_bio/tenstorrent.py" or r[2] != "fused_sdpa"]
     assert not bypass, (
         "these reach ttnn.transformer.scaled_dot_product_attention without "
@@ -76,6 +84,8 @@ def test_the_wrapper_never_forwards_none(monkeypatch):
     seen, uploads = [], []
 
     class T:
+        dtype = ttnn.bfloat16  # float32 operands take `_sdpa_fp32`, not the fused op
+
         def __init__(self, shape):
             self.shape = shape
 
@@ -162,7 +172,8 @@ def test_the_generic_op_route_is_only_reached_masked(monkeypatch):
               and n.func.attr == "sdpa" and isinstance(n.func.value, ast.Name) and n.func.value.id == "SG"]
     assert len(ecalls) == 1 and ast.unparse(ecalls[0].args[4]) == "bias"
     att = next(n for n in ast.walk(ef2) if isinstance(n, ast.FunctionDef) and n.name == "attend")
-    assert ecalls[0] in list(ast.walk(att)) and "bias, zero = self._frame(B)" in ast.unparse(att)
+    att_src = ast.unparse(att).replace("(bias, zero)", "bias, zero")  # 3.10 parenthesises the target
+    assert ecalls[0] in list(ast.walk(att)) and "bias, zero = self._frame(B)" in att_src
     of3 = ast.parse((PKG / "openfold3_atom_transformer.py").read_text())
     sup = next(n for n in ast.walk(of3) if isinstance(n, ast.FunctionDef) and n.name == "_attend_superset")
     ocalls = [n for n in ast.walk(of3) if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)

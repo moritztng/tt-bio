@@ -202,7 +202,10 @@ def build_receptor_graph(
     """
     n = receptor.n_residues
     if n > MAX_RECEPTOR_RESIDUES:
-        raise ValueError(f"The receptor is too large {n}")
+        raise ValueError(
+            f"The receptor is too large for diffdock: {n} residues against a limit of "
+            f"{MAX_RECEPTOR_RESIDUES}. No other model docks a ligand; fold the complex with "
+            f"boltz2, openfold3 or protenix-v2 instead.")
 
     sequences, chain_ids = receptor.chain_sequences()
     pos = torch.tensor(receptor.coords[:, 1, :], dtype=torch.float)

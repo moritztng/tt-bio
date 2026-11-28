@@ -92,14 +92,26 @@ def mcnemar_exact(b, c):
 
 
 def docked(out_dir: Path, i: str) -> bool:
-    """A complex counts as docked only if rank1.sdf has CONTENT.
+    """A complex counts as docked only if rank1.sdf holds a READABLE molecule.
 
     A dock that raises while RDKit is already writing leaves a 0-byte rank1.sdf behind
     (seen on 5S8I_2LY: "Can't kekulize mol"). Treating that file as a result would both
     skip the complex on resume and feed an empty molecule to the grader.
+
+    Size alone is not enough once the pool can be stopped and restarted: killing a worker
+    mid-SDWriter leaves a non-empty but truncated file, which a size check reads as a result
+    and the resume then never redocks. So parse it. 428 parses cost about a second in all,
+    paid once per resume, and the alternative is a silently missing complex in the grade.
     """
     f = out_dir / i / "rank1.sdf"
-    return f.exists() and f.stat().st_size > 0
+    if not f.exists() or f.stat().st_size == 0:
+        return False
+    from rdkit import Chem, RDLogger
+    RDLogger.DisableLog("rdApp.*")
+    try:
+        return next(Chem.SDMolSupplier(str(f), sanitize=False, removeHs=False), None) is not None
+    except Exception:
+        return False
 
 
 def ids_all():

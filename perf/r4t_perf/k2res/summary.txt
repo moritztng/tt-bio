@@ -1,0 +1,4 @@
+K2: grad-off K-candidate pass with the run-time serving levers (pair_bf16z, dit_sigf32, tok_recycle_mm), qb2 card 2 p300c, sha 969309eec.
+(a)+(b) 9 batches x 1 step: winner == training arm == upstream_winner and step-1 master digest identical on 9/9; step-1 fwd lower on 9/9 (2.32-2.61 -> 2.03-2.41 s). AICLK 1300-1350 during.
+(c) gX (serving + --gate-bw off) digest 0beba56b differs from gB_00 9cf01842: the compare can fail.
+(d) timing x3 interleaved, batch00, 3 steps, 2 pinned CPUs 6,7, load 5-6, AICLK 1300-1350: fwd median steps 2-3 2.470 -> 2.180 s (A 2.25-2.50, B 1.97-2.42); bwd 0.874 / 0.861; step 4.85 / 4.83 (host noise in opt). Master digests identical in all 6 runs x 3 steps.

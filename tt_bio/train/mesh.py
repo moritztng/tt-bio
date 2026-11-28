@@ -26,7 +26,7 @@ The 7.8 % that does not scale is host torch and not the exchange, which moves 12
 0.293 s. It is conditional on ``launcher.host_threads`` dividing the host's cores across the
 ranks: at torch's own width four ranks take 64 threads on 16 cores and the step is 931 s.
 
-Up to 4 chips a box, and more than one box. ``Mesh({"dp": [0, 1]}, hosts=["ttuser@tt-quietbox2"])``
+Up to 32 chips a box (a Galaxy), and more than one box. ``Mesh({"dp": [0, 1]}, hosts=["ttuser@tt-quietbox2"])``
 names the other hosts, and :meth:`Mesh.rendezvous` turns that into the spec
 ``tt_bio/train/hostreduce.py`` already takes -- ``/dev/shm/abb3-dp+ttuser@tt-quietbox2``. The peer
 list rides in an argument that was being passed anyway, so the host axis adds no second transport
@@ -54,10 +54,9 @@ from .xhost import PEER_SEP
 __all__ = ["Mesh", "Axis", "UnreducedGradients", "MAX_CHIPS_ONE_BOX"]
 
 
-# Per box, and not a hardware limit: a QuietBox holds four chips and that is how many one
-# process can be given. The host count multiplies it, because a rank on another box is another
-# process on another four.
-MAX_CHIPS_ONE_BOX = 4
+# Per box: a Galaxy holds 32 chips (a QuietBox four). The host count multiplies it, because a
+# rank on another box is another process on another box's chips.
+MAX_CHIPS_ONE_BOX = 32
 
 #: Separates peer destinations inside the rendezvous spec, the way ``PEER_SEP`` separates the
 #: directory from the peers. Both belong to ``tt_bio/train/xhost.py``'s format; only the first

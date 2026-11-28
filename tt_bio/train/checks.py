@@ -47,18 +47,28 @@ from __future__ import annotations
 
 import math
 import zlib
+import re
 from dataclasses import dataclass, field
 from typing import Callable, Dict, Optional, Sequence
 
 import numpy as np
 
 __all__ = ["gradcheck", "GradcheckReport", "BARS", "MASK_BAR", "FD_BAR", "OP_CLASSES",
-           "metrics", "fd_check", "WeightCoverage", "weight_coverage"]
+           "metrics", "fd_check", "WeightCoverage", "weight_coverage", "COMPOSED_BAR", "composed_verdict", "FLOOR_SITES", "floor_site"]
 
 
 # The reference's own bar against central differences. It is not a device number: this is
 # float64 against float64 and a disagreement above it means the reference is wrong.
 FD_BAR = 2e-6
+# Two steps must agree to this fraction of FD_BAR before the larger one is taken as smooth. At 0.5 a
+# pair that straddled ReLU kinks with a shared error passed a value 3e-5 off (PairUpdate bf16,
+# pugc3): agreement within half the bar says nothing about an error the size of the bar.
+FD_AGREE = 0.05
+
+# A composed block or the whole network (D28, OF3T section 3d): per-tensor rel_L2 max, median of the
+# per-tensor rel_L2, worst cosine. G1 (BARS) stays the bar for a single VJP; a composition stacks
+# several device floors, so it is graded on the spread across tensors, not on any one op's floor.
+COMPOSED_BAR = (5.0e-02, 2.0e-02, 0.9999)
 
 # fraction of gate coordinates a kinked op's device gradient and reference must agree on
 MASK_BAR = 0.99
@@ -114,7 +124,7 @@ def metrics(got: np.ndarray, ref: np.ndarray) -> dict:
     }
 
 
-def fd_check(loss_fn, params, n_probe=40, h=1e-5, seed=0, mag_floor=1e-6):
+def fd_check(loss_fn, params, n_probe=40, h=1e-5, seed=0, mag_floor=1e-6, kinks=None, kinked=True):
     """Central differences in float64 against torch's float64 analytic gradient.
 
     This validates the REFERENCE, so it runs entirely in float64 and never touches a device.
@@ -127,6 +137,28 @@ def fd_check(loss_fn, params, n_probe=40, h=1e-5, seed=0, mag_floor=1e-6):
     Coordinates under ``mag_floor`` times the largest analytic component are skipped and the
     eligible count is returned, so the skipping is visible in the output rather than buried in
     a tolerance.
+
+    A kink (ReLU) in the reference breaks the difference without the gradient being wrong: a
+    step that moves any pre-activation across zero adds an O(1) error, and the chance of that
+    grows with the step and with the number of units (PairUpdate's transition has ~3M at n=64,
+    and every probe of an upstream weight moves all of them: at h=1e-5 a large share of probes
+    cross one). So each coordinate is differenced at ``h`` and ``h/10``; on a smooth point the
+    two agree to roundoff. When they disagree with EACH OTHER a boundary sits inside a step, and
+    the pair moves down a decade (``h/10`` and ``h/100``); a coordinate still disagreeing there
+    is skipped. That test never
+    reads the analytic gradient, so it cannot hide a wrong one. Skipped coordinate indices are appended
+    to ``kinks`` when a list is given. A skipped coordinate is replaced by another eligible one, up to
+    ``4 * n_probe`` draws per tensor, so a heavily kinked tensor still gets its smooth probes instead of
+    a coin flip deciding the verdict (net5 fp32 trunk arm: 104 probed, 110 skipped, unverified). If
+    fewer than half the requested probes found a smooth coordinate the result is ``inf``: a reference
+    that cannot be differenced has not been verified.
+
+    ``kinked=False`` declares a smooth reference (no ReLU; a TrunkBlock is sigmoid, SiLU, rsqrt and
+    softmax) and takes the plain central difference at ``h``. Step-shrinking is wrong there: at a smooth
+    point ``h`` and ``h/10`` differ by the float64 roundoff of ``h/10`` (~1.5e-7 of the gradient scale on a
+    128-token block, against a 1e-8 agreement tolerance), so smooth coordinates read as kinks (898) and a
+    pair of roundoff-dominated small steps that agreed by chance was accepted: 2.1e-6 at
+    ``mhba.adaln.to_gamma.0.bias`` where the difference at ``h`` is 4e-8 from the analytic gradient.
 
     Returns ``(worst relative disagreement, coordinates probed, coordinates eligible)``.
     """
@@ -145,7 +177,7 @@ def fd_check(loss_fn, params, n_probe=40, h=1e-5, seed=0, mag_floor=1e-6):
         loss = loss_fn()
         loss.backward()
     resolution_floor = 1.0e4 * 2.22e-16 * abs(loss.item()) / (2.0 * h)
-    worst, probed, eligible = 0.0, 0, 0
+    worst, probed, eligible, skipped, wanted = 0.0, 0, 0, 0, 0
     for p in params:
         flat = p.detach().reshape(-1)
         ana = p.grad.detach().reshape(-1).clone()
@@ -157,25 +189,57 @@ def fd_check(loss_fn, params, n_probe=40, h=1e-5, seed=0, mag_floor=1e-6):
         eligible += int(ok.size)
         if ok.size == 0:
             continue
-        idx = rng.choice(ok, size=min(n_probe, ok.size), replace=False)
-        for i in idx:
+        want = min(n_probe, ok.size)
+        wanted += want
+        got = 0
+        for i in rng.permutation(ok)[:4 * want]:
+            if got == want:
+                break
             i = int(i)
-            orig = flat[i].item()
-            with torch.no_grad():
-                flat[i] = orig + h
-            lp = loss_fn().item()
-            with torch.no_grad():
-                flat[i] = orig - h
-            lm = loss_fn().item()
-            with torch.no_grad():
-                flat[i] = orig
-            num = (lp - lm) / (2.0 * h)
+            num = (_smooth_central(loss_fn, flat, i, h, FD_AGREE * FD_BAR * scale) if kinked
+                   else _central(loss_fn, flat, i, h))
+            if num is None:
+                skipped += 1
+                if kinks is not None:
+                    kinks.append(i)
+                continue
             # Scaled by the gradient's own magnitude, not by this element's: a per-element
             # ratio is dominated by whichever probed coordinate is smallest, whose finite
             # difference is a difference of two nearly equal float64 losses.
             worst = max(worst, abs(num - ana[i].item()) / scale)
             probed += 1
+            got += 1
+    if 2 * probed < wanted:
+        worst = float("inf")
     return worst, probed, eligible
+
+
+def _smooth_central(loss_fn, flat, i, h, tol, decades=2):
+    """The central difference at the largest step in ``h, h/10, ...`` that agrees within ``tol`` with
+    the next step down, or None if no pair within ``decades`` shrinks does (a kink inside every step)."""
+    prev = _central(loss_fn, flat, i, h)
+    for _ in range(decades):
+        h /= 10.0
+        cur = _central(loss_fn, flat, i, h)
+        if abs(prev - cur) <= tol:
+            return prev
+        prev = cur
+    return None
+
+
+def _central(loss_fn, flat, i, h):
+    """One central difference of ``loss_fn`` in coordinate ``i`` of ``flat``, restored after."""
+    import torch
+    orig = flat[i].item()
+    with torch.no_grad():
+        flat[i] = orig + h
+    lp = loss_fn().item()
+    with torch.no_grad():
+        flat[i] = orig - h
+    lm = loss_fn().item()
+    with torch.no_grad():
+        flat[i] = orig
+    return (lp - lm) / (2.0 * h)
 
 
 @dataclass
@@ -194,6 +258,7 @@ class GradcheckReport:
     fd_worst: float = float("nan")
     fd_probed: int = 0
     fd_eligible: int = 0
+    fd_kinked: int = 0
     grads: Dict[str, dict] = field(default_factory=dict)
     bar_why: str = ""
     notes: list = field(default_factory=list)
@@ -209,7 +274,8 @@ class GradcheckReport:
         verdict = ("ok" if self.reference_verified else
                    "FAILED -- the reference is wrong, not the device")
         ref = (f"reference vs central differences: {self.fd_worst:.2e} against {FD_BAR:.0e} "
-               f"({self.fd_probed}/{self.fd_eligible} coords probed) {verdict}")
+               f"({self.fd_probed}/{self.fd_eligible} coords probed"
+               + (f", {self.fd_kinked} skipped on a kink" if self.fd_kinked else "") + f") {verdict}")
         rows = []
         for k, g in self.grads.items():
             bits = [f"rel_l2 {g['rel_l2']:.3e}" if g["rel_l2_bar"] is not None
@@ -226,7 +292,7 @@ def gradcheck(name: str, *, ref_loss, ref_params, tt_grads: Dict[str, np.ndarray
               ref_grads: Optional[Dict[str, np.ndarray]] = None,
               op_class: str = "reduction", dtype: str = "float32",
               gate_mask: Optional[Dict[str, tuple]] = None,
-              n_probe: int = 40, h: float = 1e-5, seed: int = 0) -> GradcheckReport:
+              n_probe: int = 40, h: float = 1e-5, seed: int = 0, kinked: bool = True) -> GradcheckReport:
     """Check a device gradient against a finite-difference-verified float64 reference.
 
     ``ref_loss`` is a zero-argument callable returning a float64 torch scalar built from
@@ -257,8 +323,10 @@ def gradcheck(name: str, *, ref_loss, ref_params, tt_grads: Dict[str, np.ndarray
     rep = GradcheckReport(name=name, op_class=op_class, dtype=dtype, bar_why=why)
 
     # Level 1: the reference, before anything else.
-    worst, probed, eligible = fd_check(ref_loss, ref_params, n_probe=n_probe, h=h, seed=seed)
-    rep.fd_worst, rep.fd_probed, rep.fd_eligible = worst, probed, eligible
+    kinks = []
+    worst, probed, eligible = fd_check(ref_loss, ref_params, n_probe=n_probe, h=h, seed=seed, kinks=kinks,
+                                       kinked=kinked)
+    rep.fd_worst, rep.fd_probed, rep.fd_eligible, rep.fd_kinked = worst, probed, eligible, len(kinks)
     rep.reference_verified = bool(worst < FD_BAR)
     if not rep.reference_verified:
         rep.notes.append(
@@ -362,3 +430,42 @@ def weight_coverage(model) -> WeightCoverage:
     return WeightCoverage(total=len(found), registered=len(found) - len(unregistered),
                           with_grad=with_grad, unregistered=unregistered,
                           without_grad=without_grad)
+
+
+# D39: the only tensors whose composed bar may widen to the bf16-forward floor. Every gradient here flows
+# through PairUpdate's transition ReLU, whose mask a bf16 forward flips; linear_2 and everything else keep D28.
+FLOOR_SITES = (r"(^|\.)transition_out\.layer_norm\.", r"(^|\.)transition_out\.linear_1\.")
+FLOOR_FACTOR = 1.5
+
+
+def floor_site(name: str) -> bool:
+    return any(re.search(p, name) for p in FLOOR_SITES)
+
+
+def composed_verdict(rep: "GradcheckReport", floor: dict | None = None) -> dict:
+    """Grade a composed block's report on ``COMPOSED_BAR``. Needs a verified reference.
+
+    ``floor`` maps a tensor to {"rel", "cos"} of a bf16-emulated float64 reference against the float64
+    one (D39). At ``FLOOR_SITES`` only, the tensor's bars widen to ``FLOOR_FACTOR`` times that distance:
+    rel_l2 <= max(D28, 1.5 rel) and 1 - cos <= max(D28, 1.5^2 (1 - cos)), the same factor on the
+    difference vector. The median bar never moves."""
+    mx_bar, med_bar, cos_bar = COMPOSED_BAR
+    if not (rep.reference_verified and rep.grads):
+        return {"pass": False, "why": "reference not verified" if rep.grads else "no gradients"}
+    rel = {k: g["rel_l2"] for k, g in rep.grads.items()}
+    cos = {k: g["cos"] for k, g in rep.grads.items()}
+    bars = {}
+    for k in rel:
+        f = (floor or {}).get(k)
+        if f is not None and floor_site(k):
+            bars[k] = (max(mx_bar, FLOOR_FACTOR * f["rel"]),
+                       min(cos_bar, 1.0 - FLOOR_FACTOR ** 2 * (1.0 - f["cos"])))
+    worst = max(rel, key=rel.get)
+    low = min(cos, key=cos.get)
+    med = float(np.median(list(rel.values())))
+    fails = sorted(k for k in rel if rel[k] > bars.get(k, (mx_bar, cos_bar))[0]
+                   or cos[k] < bars.get(k, (mx_bar, cos_bar))[1])
+    out = {"max": [worst, rel[worst]], "median": med, "min_cos": [low, cos[low]], "fails": fails,
+           "floored": {k: list(b) for k, b in bars.items()}}
+    out["pass"] = bool(not fails and med <= med_bar)
+    return out

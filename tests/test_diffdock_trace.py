@@ -85,9 +85,9 @@ def _step_fn(s, rec_pos, bonds, mask_rotate, table):
         tr_z, rot_z, tor_z = noise
         sc, nz = table.row(t_idx)
         pos = lig_pos.reshape(N_POSES, s.n_lig_padded, 3)
-        pos, _ = fixed_update(pos, sc[0] * tr_score + nz[0] * tr_z,
-                              sc[1] * rot_score + nz[1] * rot_z,
-                              sc[2] * tor_score + nz[2] * tor_z, bonds, mask_rotate)
+        pos, _, _ = fixed_update(pos, sc[0] * tr_score + nz[0] * tr_z,
+                                 sc[1] * rot_score + nz[1] * rot_z,
+                                 sc[2] * tor_score + nz[2] * tor_z, bonds, mask_rotate)
         return pos.reshape(-1, 3)
 
     return step
@@ -184,13 +184,15 @@ def test_traced_rollout_matches_untraced():
     """
     pytest.importorskip("ttnn")
 
-    from tt_bio.diffdock import network, sampling
+    from tt_bio.diffdock import checkpoints, network, sampling
     from tt_bio.diffdock.capture import capture_loop
 
     try:
         model = network.load(_device_options())
     except network.ScoreNetworkUnavailable as e:
         pytest.skip(f"no device score network yet: {e}")
+    except checkpoints.CheckpointMissing as e:
+        pytest.skip(str(e))   # 124 MiB, not in the repo: a host without them skips
     if not hasattr(model, "trace_body"):
         pytest.skip("the score network does not offer trace_body: nothing to capture yet")
 
