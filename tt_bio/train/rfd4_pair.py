@@ -489,26 +489,9 @@ class ResidentPairBuilder:
 
     def _bins_step(self, batch: dict) -> torch.Tensor:
         x = batch["x_t"]["bb_ca"]
-        d = torch.cdist(x, x, compute_mode="donot_use_mm_for_euclid_dist")
+        d = torch.norm(x[:, :, None, :] - x[:, None, :, :], dim=-1)
         grid = self._bins_grid.to(device=x.device, dtype=d.dtype)
         return torch.bucketize(d, grid).to(torch.int32)
-
-    @staticmethod
-    def _try_direct_onehot_idx(fc, cb: dict, d_cls: int, b_c: int, n: int) -> torch.Tensor | None:
-        """Direct integer index extraction for known discrete one-hot pair creators (bit-exact)."""
-        cls_name = type(fc).__name__
-        if cls_name == "TokenBondPathLengthPairFeat" and "token_bond_path_length" in cb:
-            pl = cb["token_bond_path_length"].clamp(max=d_cls - 1)
-            if bool((pl >= 0).all()):
-                return pl.to(torch.int32).reshape(b_c, n * n).contiguous()
-        elif cls_name == "BondOrderPairFeat":
-            if "bond_order" in cb:
-                bo = cb["bond_order"]
-                if bool(((bo >= 0) & (bo < d_cls)).all()):
-                    return bo.to(torch.int32).reshape(b_c, n * n).contiguous()
-            else:
-                return torch.full((b_c, n * n), d_cls, dtype=torch.int32)
-        return None
 
     @staticmethod
     def _slice_b1(batch: dict) -> dict:
@@ -561,35 +544,23 @@ class ResidentPairBuilder:
             compact_ok = True
             raw_large = []
             for fc, cols, _boff, bw in self.large_oh:
-                d_cls = len(cols)
-                idx_t = self._try_direct_onehot_idx(fc, cb, d_cls, b_c, n)
+                f = _eval_fc(fc)
+                idx_t = _fast_onehot_idx(f, len(cols))
                 if idx_t is not None:
                     idx_oh.append(("large", idx_t))
-                    raw_large.append((fc, None, bw))
                 else:
-                    f = _eval_fc(fc)
-                    idx_t = _fast_onehot_idx(f, d_cls)
-                    if idx_t is not None:
-                        idx_oh.append(("large", idx_t))
-                    else:
-                        compact_ok = False
-                    raw_large.append((fc, f, bw))
+                    compact_ok = False
+                raw_large.append((f, bw))
 
             raw_small = []
             for fc, cols, moff in self.small_oh:
-                d_cls = len(cols)
-                idx_t = self._try_direct_onehot_idx(fc, cb, d_cls, b_c, n)
+                f = _eval_fc(fc)
+                idx_t = _fast_onehot_idx(f, len(cols))
                 if idx_t is not None:
                     idx_oh.append(("small", idx_t))
-                    raw_small.append((fc, None, moff))
                 else:
-                    f = _eval_fc(fc)
-                    idx_t = _fast_onehot_idx(f, d_cls)
-                    if idx_t is not None:
-                        idx_oh.append(("small", idx_t))
-                    else:
-                        compact_ok = False
-                    raw_small.append((fc, f, moff))
+                    compact_ok = False
+                raw_small.append((f, moff))
 
             idx_s = torch.zeros(b_c, n, n, dtype=torch.int32)
             bit_i = 0
@@ -604,26 +575,22 @@ class ResidentPairBuilder:
                             compact_ok = False
                         else:
                             tv = torch.where(ch > 0.5, 1, torch.where(ch < -0.5, 2, 0)).to(torch.int32)
-                            idx_s.add_(tv << self._n_bin)
+                            idx_s = idx_s + (tv << self._n_bin)
                     else:
                         if not bool(((ch == 0) | (ch == 1)).all()):
                             compact_ok = False
                         else:
-                            idx_s.add_((ch > 0.5).to(torch.int32) << bit_i)
+                            idx_s = idx_s + ((ch > 0.5).to(torch.int32) << bit_i)
                         bit_i += 1
 
             fallback_const = None
             if not compact_ok:
                 fb = torch.zeros(b_c, n, n, self.const_w, dtype=torch.float32)
                 off_c = 0
-                for fc, f, bw in raw_large:
-                    if f is None:
-                        f = _eval_fc(fc)
+                for f, bw in raw_large:
                     fb[..., off_c:off_c + f.shape[-1]] = f
                     off_c += bw
-                for fc, f, moff in raw_small:
-                    if f is None:
-                        f = _eval_fc(fc)
+                for f, moff in raw_small:
                     fb[..., off_c + moff:off_c + moff + f.shape[-1]] = f
                 for f, moff in raw_scalar:
                     fb[..., off_c + moff:off_c + moff + f.shape[-1]] = f
