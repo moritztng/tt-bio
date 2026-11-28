@@ -423,6 +423,13 @@ def write(partial=False):
     ag = sys.modules.get("tt_bio.autograd")
     if ag is not None:
         doc.update(rtrace_stats=dict(ag.RTRACE_STATS), rtrace_checks=list(ag.RTRACE_CHECKS))
+        # Which backward levers the iteration reached, so an A/B arm that arms a lever with no
+        # call site reads as zero reach instead of as a null timing.
+        lnbw = sys.modules.get("tt_bio.lnbw")
+        doc.update(reach=dict(lnbw=dict(lnbw.REACH) if lnbw else None,
+                              sum_leading=dict(getattr(ag, "SUM_LEADING_STATS", {})),
+                              mmvjp=dict(getattr(ag, "MMVJP_STATS", {})),
+                              split_k=dict(getattr(ag, "SPLIT_K_STATS", {}))))
     (a.out / "census.json").write_text(json.dumps(doc, indent=1))
 
     warm = [u["s"] for u in state["uninstrumented"]]
