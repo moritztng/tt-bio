@@ -96,3 +96,35 @@ def test_the_shape_does_not_move_when_the_poses_do():
             out = static_forward(m, c, flat * scale, T_TR, *SIGMAS, crop_cutoff=40.0)
         shapes.append(tuple(t.shape for t in out))
     assert len(set(shapes)) == 1, shapes
+
+
+@pytest.mark.parametrize("dtype", [torch.float32, torch.float64])
+@pytest.mark.parametrize("ls", [(0, 1, 2), (2,), (1,)])
+def test_reversed_harmonics_are_the_harmonics_of_the_reversed_vector(dtype, ls):
+    """Y_l(-v) = (-1)^l Y_l(v), bit for bit, zero vectors included."""
+    from tt_bio.diffdock.harmonics import reversed_harmonics, spherical_harmonics
+    g = torch.Generator().manual_seed(3)
+    v = torch.randn(4096, 3, generator=g, dtype=torch.float64).to(dtype) * 20
+    v[::97] = 0
+    assert torch.equal(reversed_harmonics(spherical_harmonics(v, ls), ls),
+                       spherical_harmonics(-v, ls))
+
+
+def test_the_held_receptor_features_change_nothing_across_steps():
+    """A complex that has already run steps gives the bits a fresh one gives.
+
+    The receptor's node embedding, edge embedding and harmonics are computed once and held on
+    the complex; the crop and the sigma term differ per step and must not leak into them.
+    """
+    m, lig, rec_x, rec_pos, rec_ei, poses, c, flat = _case(2, dtype=torch.float32)
+    steps = [(1.0, 0.9, (9.0, 1.2, 2.0), 30.0), (0.7, 0.4, SIGMAS, 8.0), (1.3, 0.1, (0.3, 0.1, 0.2), 6.0)]
+    with torch.no_grad():
+        used = [static_forward(m, c, flat * k, t, *sig, crop_cutoff=crop)
+                for k, t, sig, crop in steps]
+        held = [h.clone() for h in c.receptor_base(m)]
+        for (k, t, sig, crop), got in zip(steps, used):
+            fresh = StaticComplex.build(lig, rec_x, rec_pos, rec_ei, 2)
+            for a, b in zip(got, static_forward(m, fresh, flat * k, t, *sig, crop_cutoff=crop)):
+                assert torch.equal(a, b)
+    for a, b in zip(held, StaticComplex.build(lig, rec_x, rec_pos, rec_ei, 2).receptor_base(m)):
+        assert torch.equal(a, b)

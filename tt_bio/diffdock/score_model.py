@@ -52,7 +52,7 @@ from tt_bio.diffdock.config import DiffDockConfig
 from tt_bio.diffdock.constants import lig_feature_dims, rec_residue_feature_dims
 from tt_bio.diffdock.conv import TensorProductConvLayer
 from tt_bio.diffdock.features import GaussianSmearing, timestep_embedding
-from tt_bio.diffdock.harmonics import spherical_harmonics
+from tt_bio.diffdock.harmonics import reversed_harmonics, spherical_harmonics
 from tt_bio.diffdock.heads import CenterHead, TorsionHead, _degrees, _mlp
 
 
@@ -273,7 +273,7 @@ class ScoreModel(nn.Module):
         lr_attr = self.cross_edge_embedding(torch.cat(
             [node_sigma_emb[lr[0]], self.cross_distance_expansion(lr_vec.norm(dim=-1))], dim=1))
         lr_sh = spherical_harmonics(lr_vec, self.sh_ls)
-        rev_lr_sh = spherical_harmonics(-lr_vec, self.sh_ls)
+        rev_lr_sh = reversed_harmonics(lr_sh, self.sh_ls)
 
         node_attr = torch.cat([lig_node_attr, rec_node_attr], dim=0)
         lr_shifted = torch.stack([lr[0], lr[1] + n_lig])

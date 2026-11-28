@@ -16,7 +16,7 @@ zero harmonics, so no NaN can ride a masked edge into the sum.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import torch
 from torch import Tensor
@@ -24,7 +24,7 @@ from torch import Tensor
 from tt_bio.diffdock.conv import pad_nodes
 from tt_bio.diffdock.features import timestep_embedding
 from tt_bio.diffdock.graph import StaticGraphs, pad_edge_index, tile_disjoint
-from tt_bio.diffdock.harmonics import spherical_harmonics
+from tt_bio.diffdock.harmonics import reversed_harmonics, spherical_harmonics
 from tt_bio.diffdock.schedules import so3_score_norm
 
 
@@ -45,6 +45,23 @@ class StaticComplex:
     rec_edge_index: Tensor   # [2, E_rec] receptor-local, tiled, padded
     rot_bonds: Tensor        # [2, n_bond_padded] atom indices of rotatable bonds, tiled
     lig_valid: Tensor        # [n_lig_padded] 1 on real atoms
+    _receptor_base: tuple | None = field(default=None, repr=False)
+
+    def receptor_base(self, model):
+        """``(node embedding, edge embedding before sigma, harmonics)`` of the receptor graph.
+
+        The receptor does not move, so these are the same for every pose and every step: they
+        are computed on the first step and held. The crop is a mask and the sigma term is added
+        afterwards, so neither is in here.
+        """
+        if self._receptor_base is None or self._receptor_base[0] is not model:
+            rei = self.rec_edge_index
+            rvec = self.rec_pos[rei[1]] - self.rec_pos[rei[0]]
+            self._receptor_base = (model, (
+                model.rec_node_embedding(self.rec_x),
+                model.rec_edge_embedding(model.rec_distance_expansion(rvec.norm(dim=-1))),
+                spherical_harmonics(rvec, model.sh_ls)))
+        return self._receptor_base[1]
 
     @classmethod
     def build(cls, lig: dict, rec_x: Tensor, rec_pos: Tensor, rec_edges: Tensor,
@@ -136,15 +153,12 @@ def static_forward(model, c: StaticComplex, lig_pos: Tensor, t_tr: float, tr_sig
 
     # The receptor tower. Its graph never moves, but the crop is per pose, so the tower runs
     # per step as soon as a crop is on -- which is upstream's behaviour too (its cache is only
-    # used on an uncropped step).
+    # used on an uncropped step). The features going into it are held: the crop is a mask.
     rei = c.rec_edge_index
     keep = (sg.rec_keep(lig_pos, c.rec_pos, crop_cutoff) if crop_cutoff is not None else
             pad_nodes(torch.ones(sg.n_rec_total, 1, dtype=dt), sg.n_rec_padded)[:, 0])
     rec_mask = sg.rec_edge_mask(keep, rei)
-    rvec = c.rec_pos[rei[1]] - c.rec_pos[rei[0]]
-    rec_eattr = model.rec_edge_embedding(model.rec_distance_expansion(rvec.norm(dim=-1)))
-    rec_sh = spherical_harmonics(rvec, model.sh_ls)
-    rec_h = model.rec_node_embedding(c.rec_x)
+    rec_h, rec_eattr, rec_sh = c.receptor_base(model)
     rec_h = run_stack(model.rec_emb_layers, rec_h, rei, rec_eattr, rec_sh, rec_mask, ns)
     rec_sig = model.rec_sigma_embedding(sigma_emb)
     rec_h = rec_h + 0
@@ -171,7 +185,7 @@ def static_forward(model, c: StaticComplex, lig_pos: Tensor, t_tr: float, tr_sig
     cross_eattr = model.cross_edge_embedding(torch.cat(
         [lig_sig[cei[0]], model.cross_distance_expansion(cvec.norm(dim=-1))], 1))
     cross_sh = spherical_harmonics(cvec, model.sh_ls)
-    rev_sh = spherical_harmonics(-cvec, model.sh_ls)
+    rev_sh = reversed_harmonics(cross_sh, model.sh_ls)
     off = sg.rec_offset
     cg = sg.cross_edge_index_global()
     node = torch.cat([pad_width(lig_h, rec_h.shape[1]), rec_h], 0)

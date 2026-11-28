@@ -77,3 +77,13 @@ def spherical_harmonics(vec: Tensor, ls=(0, 1, 2), normalize: bool = True) -> Te
                 0.5 * math.sqrt(15) * (z * z - x * x),
             ], dim=-1))
     return torch.cat(blocks, dim=-1).to(vec.dtype)
+
+
+def reversed_harmonics(sh: Tensor, ls=(0, 1, 2)) -> Tensor:
+    """The harmonics of ``-vec`` from those of ``vec``: ``Y_l(-v) = (-1)^l Y_l(v)``.
+
+    Each block is a homogeneous polynomial of degree ``l`` in the unit vector, and negating a
+    float is exact, so this equals ``spherical_harmonics(-vec, ls)`` bit for bit.
+    """
+    sign = torch.cat([torch.full((2 * l + 1,), float((-1) ** l)) for l in ls])
+    return sh * sign.to(sh)
