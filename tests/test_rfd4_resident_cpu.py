@@ -126,6 +126,15 @@ def _make_fake_ttnn():
     def transpose(t, d0, d1):
         return _FakeTensor(t._data.transpose(d0, d1), dtype=t.dtype, device=t._device)
 
+    def permute(t, dims):
+        return _FakeTensor(t._data.permute(*dims).contiguous(), dtype=t.dtype, device=t._device)
+
+    def to_layout(t, layout):
+        return _FakeTensor(t._data, dtype=t.dtype, device=t._device)
+
+    def rsqrt(x, fast_and_approximate_mode=True):
+        return _FakeTensor(torch.rsqrt(x._data.float()).to(_td(x.dtype)), dtype=x.dtype, device=x._device)
+
     def rms_norm(x, weight=None, epsilon=1e-5, **kw):
         v = x._data.float()
         inv = torch.rsqrt((v * v).mean(dim=-1, keepdim=True) + epsilon)
@@ -161,6 +170,9 @@ def _make_fake_ttnn():
     m.reciprocal = lambda x: _FakeTensor((1.0 / x._data.float()).to(_td(x.dtype)), dtype=x.dtype, device=x._device)
     m.matmul = matmul
     m.transpose = transpose
+    m.permute = permute
+    m.to_layout = to_layout
+    m.rsqrt = rsqrt
     m.rms_norm = rms_norm
     m.linear = linear
     return m
@@ -598,6 +610,107 @@ def test_device_heads_split2_mm_precision_and_dealloc(monkeypatch):
     live = [t for t in created if t.is_allocated()]
     assert set(live) == {q_s, k_s, ins_s}, f"leaked intermediates: {len(live)} live tensors"
     assert s_t.is_allocated() and wq_t.is_allocated() and wk_t.is_allocated()
+
+
+def test_device_insertion_loss_active_row_fast_path_edge_cases(monkeypatch):
+    """Active-row fast path in device_insertion_loss must match RO.insertion_loss bit-exactly
+    across inactive batch items, masked-key targets, and all-masked keys."""
+    fake = _install_fake_ttnn(monkeypatch, preload=("tt_bio.train.rfd4_heads",))
+    import tt_bio.train.rfd4_heads as RH
+    import tt_bio.train.rfd4_objective as RO
+    import tt_bio.train.mesh_dp as mdp
+    monkeypatch.setattr(RH, "ttnn", fake)
+    monkeypatch.setattr(mdp, "mesh_world", lambda d: 1)
+
+    rng = np.random.default_rng(99)
+    b, n_tok, n_pad = 4, 10, 16
+    z_np = rng.standard_normal((b, n_pad, n_pad)).astype(np.float32) * 2.0
+    target = np.full((b, n_tok), -1, dtype=np.int64)
+    pad = np.ones((b, n_tok), dtype=bool)
+    # b=0: inactive (all -1)
+    # b=1: normal active rows
+    target[1, [6, 7]] = [1, 3]
+    pad[1, 9] = False
+    # b=2: active row whose target points to a masked key (pad=False or target>=0)
+    target[2, [4, 5]] = [9, 5]
+    pad[2, 9] = False
+    # b=3: all keys masked (pad=False everywhere) with an active row
+    pad[3, :] = False
+    target[3, 2] = 0
+
+    z_tt = fake.from_torch(torch.from_numpy(z_np))
+    loss_got, dz_tt = RH.device_insertion_loss(
+        z_tt, {"insertion_source_idx": target, "padding_mask": pad}, weight=0.75,
+    )
+    loss_ref, dz_ref = RO.insertion_loss(
+        z_np[:, :n_tok, :n_tok].astype(np.float64),
+        {"insertion_source_idx": target, "padding_mask": pad},
+    )
+    assert np.array_equal(loss_got, loss_ref), f"loss diff={np.max(np.abs(loss_got - loss_ref))}"
+    dz_got = dz_tt._data.numpy()
+    dz_want = np.zeros((b, n_pad, n_pad), dtype=np.float32)
+    dz_want[:, :n_tok, :n_tok] = (dz_ref * 0.75).astype(np.float32)
+    assert np.array_equal(dz_got, dz_want), f"dz diff={np.max(np.abs(dz_got - dz_want))}"
+
+
+def test_exact_fp32_norm_adaln_on_card(monkeypatch):
+    """_exact_fp32_row_mean + _rsqrt_exact_f32 + _norm_adaln_on_card match float64 and leak zero tensors."""
+    import contextlib
+    fake = _install_fake_ttnn(monkeypatch, preload=("tt_bio.train.rfd4_pair", "tt_bio.train.device_optim"))
+    if "tt_bio.autograd" not in sys.modules:
+        import tt_bio
+        fake_ag = types.ModuleType("tt_bio.autograd")
+        fake_ag.no_grad = contextlib.nullcontext
+        monkeypatch.setitem(sys.modules, "tt_bio.autograd", fake_ag)
+        monkeypatch.setattr(tt_bio, "autograd", fake_ag, raising=False)
+    import tt_bio.train.rfd4_pair as RP
+    monkeypatch.setattr(RP, "ttnn", fake)
+
+    rng = np.random.default_rng(7)
+    b, n, c = 2, 4, 384
+    x_np = rng.standard_normal((b, n, n, c)).astype(np.float32)
+    # Include 400x dynamic range across channels (matching trained RFD4 ln_out weights).
+    lnw_np = (1.0 + 0.1 * rng.standard_normal((1, 1, 1, c))).astype(np.float32)
+    lnw_np[..., 0] = 20.0
+    gam_np = rng.standard_normal((b, 1, 1, c)).astype(np.float32)
+    bet_np = rng.standard_normal((b, 1, 1, c)).astype(np.float32)
+    e1, e2 = 1e-5, 1e-5
+
+    x64 = x_np.astype(np.float64)
+    r1 = 1.0 / np.sqrt(np.mean(x64 * x64, axis=-1, keepdims=True) + e1)
+    a64 = x64 * r1 * lnw_np.astype(np.float64)
+    r2 = 1.0 / np.sqrt(np.mean(a64 * a64, axis=-1, keepdims=True) + e2)
+    z64 = a64 * r2 * gam_np.astype(np.float64) + bet_np.astype(np.float64)
+
+    x_tt = fake.from_torch(torch.from_numpy(x_np))
+    lnw_tt = fake.from_torch(torch.from_numpy(lnw_np))
+    gam_tt = fake.from_torch(torch.from_numpy(gam_np))
+    bet_tt = fake.from_torch(torch.from_numpy(bet_np))
+
+    # Simulate inaccurate SFPU rsqrt seed (~2e-4 rel error) AND BH fp32 permute truncation
+    # so any regression back to raw fp32 permute or unrefined rsqrt fails this gate.
+    def approx_rsqrt(s, fast_and_approximate_mode=True):
+        exact = torch.rsqrt(s._data.float())
+        return _FakeTensor((exact * (1.0 + 2e-4)).to(torch.float32), dtype=fake.float32, device=s._device)
+
+    orig_permute = fake.permute
+
+    def bh_permute(t, dims):
+        out = orig_permute(t, dims)
+        if t.dtype == fake.float32:
+            # Real BH float32 permute truncates mantissa bits (~5.9e-4 rel_l2).
+            out._data = out._data.to(torch.bfloat16).to(torch.float32)
+        return out
+
+    monkeypatch.setattr(fake, "rsqrt", approx_rsqrt)
+    monkeypatch.setattr(fake, "permute", bh_permute)
+
+    z_tt = RP._norm_adaln_on_card(x_tt, lnw_tt, gam_tt, bet_tt, e1, e2, c, {}, cg=None)
+    z_got = z_tt._data.numpy().astype(np.float64)
+    rel = float(np.linalg.norm(z_got - z64) / np.linalg.norm(z64))
+    assert rel < 1e-6, f"_norm_adaln_on_card rel_l2={rel:.3e} >= 1e-6"
+    assert x_tt.is_allocated() and lnw_tt.is_allocated() and gam_tt.is_allocated() and bet_tt.is_allocated()
+
 
 
 

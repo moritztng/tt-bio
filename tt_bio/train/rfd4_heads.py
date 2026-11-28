@@ -92,14 +92,25 @@ def device_insertion_loss(
 
     with ag.no_grad():
         z_t = read_sharded(z, dev) if world > 1 else ttnn.to_torch(z)
-        z_np = z_t.detach().cpu().float().numpy()[:, :n_tok, :n_tok].astype(np.float64)
-        loss_np, dz_np = RO.insertion_loss(
-            z_np,
-            {"insertion_source_idx": target_raw, "padding_mask": pad_raw},
-        )
-        dz_scaled = dz_np * (keep * float(weight))[:, None, None]
+        z_cpu = z_t.detach().cpu()
+        loss_np = np.zeros(b, dtype=np.float64)
         dz_buf = np.zeros((b, n_pad, n_pad), dtype=np.float32)
-        dz_buf[:, :n_tok, :n_tok] = dz_scaled.astype(np.float32)
+        key_ok = pad_raw & (target_raw < 0)
+        scale_b = keep * float(weight)
+        for bi in np.flatnonzero(row.any(-1)):
+            q = np.flatnonzero(row[bi])
+            nv = float(len(q))
+            kok = key_ok[bi]
+            zb = z_cpu[bi, q, :n_tok].float().numpy().astype(np.float64)
+            zm = np.where(kok[None, :], zb, -1e9)
+            logp, p = RO._log_softmax(zm)
+            tgt_q = target_raw[bi, q]
+            idx_q = np.arange(len(q))
+            loss_np[bi] = float((-logp[idx_q, tgt_q]).sum()) / nv
+            if scale_b[bi] != 0.0:
+                p[idx_q, tgt_q] -= 1.0
+                dz_q = (p * (scale_b[bi] / nv)) * kok[None, :]
+                dz_buf[bi, q, :n_tok] = dz_q.astype(np.float32)
         dz_t = torch.from_numpy(np.ascontiguousarray(dz_buf))
         if world > 1:
             dz = put_sharded(dz_t, dev, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT)
