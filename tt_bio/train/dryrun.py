@@ -31,11 +31,19 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 __all__ = ["plan", "Plan", "UNMEASURED", "CARD_DRAM_BYTES", "MEASURED", "needs_exact",
-           "FORWARD_OOM_BY_MODEL", "WEIGHTS_STEP_S", "FORWARD_FITS_BY_MODEL",
-           "TRAINED_TRUNK_BOUND_BY_MODEL", "provenance_gap"]
+           "FORWARD_OOM_BY_MODEL", "WEIGHTS_STEP_S", "WEIGHTS_SPMD_STEP_S",
+           "FORWARD_FITS_BY_MODEL", "TRAINED_TRUNK_BOUND_BY_MODEL", "provenance_gap"]
 
 
 UNMEASURED = "UNMEASURED"
+
+_ARCH_ALIASES = {
+    "bh": "blackhole",
+    "blackhole": "blackhole",
+    "wh": "wormhole",
+    "wormhole": "wormhole",
+    "wormhole_b0": "wormhole",
+}
 
 # Card DRAM, read live off a qb1 Blackhole chip as 8 banks x 4,278,190,016 B
 # (train-r5-distributed-tt, REPLICA-FITS). Not the board spec, the allocator's own budget.
@@ -113,6 +121,17 @@ FORWARD_FITS_BY_MODEL = {
         768: (1.614, "ptx-crop, 1,614,217,216 B on qb1 card 1, wk/ptx-crop 9c567b590, "
                      "state/concluded/ptx-crop. Not re-measured by train-x-cropunblock"),
     },
+    # RFD4-Proteina (178,448,304 params across 558 tensors): measured taped forward + resident
+    # base at crop 256, k=4, depth 2 on Blackhole. Crops above 256 and Wormhole are unmeasured.
+    "rfd4": {
+        256: (15.833, "r4t-land measured 15.833 GB (14.75 GiB: 3.497 GB resident base + "
+                      "12.336 GB retained tape) at crop 256, k=4, depth 2 on anx-glx "
+                      "BH-Galaxy-120c chip 12 (origin/main 4e31c35c74, AICLK 1312-1350 "
+                      "med 1350 MHz, state/r4t/rows/land.md); host-optim baseline "
+                      "11.700 GB (10.90 GiB: 0.384 GB base + 11.316 GB tape) on qb2 "
+                      "p300c chip 1 (wk/r4t-step 2e3380ec0, AICLK 1350 MHz med / 1281 "
+                      "min, state/r4t/rows/step.md)"),
+    },
 }
 
 # What a TRAINED Protenix-v2 trunk RETAINS at a crop under per-block checkpointing, and an upper bound
@@ -133,6 +152,18 @@ TRAINED_TRUNK_BOUND_BY_MODEL = {
                      "during. Replaces the 27.58 GB projection this module used to refuse on"),
         512: (13.047, "6.461 GB boundaries + 4.745 GB inner set, both measured; ptx-crop on qb1 "
                       "card 1, wk/ptx-crop 4ab2aad2a, state/concluded/ptx-crop"),
+    },
+    # RFD4-Proteina's crop-256 entry IS a full-step peak (resident weights + fp32 masters +
+    # Muon/Adam/EMA moments + retained tape), measured on Blackhole during real backward steps.
+    # Crops > 256 and Wormhole have no device measurement yet.
+    "rfd4": {
+        256: (15.833, "3.497 GB resident base (178,448,304 params + fp32 masters + "
+                      "Muon/Adam/EMA moments) + 12.336 GB retained tape = 15.833 GB "
+                      "(14.75 GiB) measured on anx-glx BH-Galaxy-120c chip 12 "
+                      "(origin/main 4e31c35c74, AICLK 1312-1350 med 1350 MHz, "
+                      "state/r4t/rows/land.md); 32-chip SPMD MeshTrace peak 17.850 GB "
+                      "(16.62 GiB) per chip on anx-glx chips 0-31 (wk/r4t-scale "
+                      "24ad49b68a, AICLK 1350 MHz, state/r4t/rows/scale.md)"),
     },
 }
 
@@ -187,6 +218,9 @@ FORWARD_OOM_BY_MODEL = {
                           "levered fit puts 768 at 1.558x the card and the fit UNDER-predicts, "
                           "so that is a floor on the overshoot"),
     },
+    # Empty: crop 256 fits at 15.833 GB (14.75 GiB) resident peak on Blackhole. Crops above 256
+    # have no device OOM measurement yet, so plan() answers UNMEASURED rather than guessing.
+    "rfd4": {},
 }
 
 # The largest crop a model's forward+backward is measured to COMPLETE, per model. This is a
@@ -200,6 +234,11 @@ LARGEST_MEASURED_TO_FIT = {
                        "split_576_fix2_card3.json, and again at 63b51514d in split_576_post"
                        ".json. 640 still refuses. 544 is unmeasured post-fix -- it sits below "
                        "a crop that runs, so it is not claimed as a refusal either"),
+    "rfd4": (256, "r4t-land -- 256 is the largest RFD4 crop measured to complete a full "
+                  "558-parameter training step on Blackhole (15.833 GB / 14.75 GiB resident "
+                  "peak on anx-glx BH-Galaxy-120c chip 12, origin/main 4e31c35c74, AICLK "
+                  "1312-1350 med 1350 MHz, state/r4t/rows/land.md); crops above 256 and "
+                  "Wormhole are not yet measured"),
 }
 
 # The largest crop the DEVICE path (float64 instrument off, the default) is measured to complete,
@@ -210,6 +249,12 @@ LARGEST_MEASURED_TO_FIT = {
 # instrument fits, so `needs_exact` turns it on there rather than refusing a crop that runs.
 DEVICE_PATH_LARGEST_FIT = {
     "openfold3": (512, "of3t-p10default -- 512 completes, backward DRAM high-water 25,983,800,320 B of 34,225,520,128 B (75.9 %), qb1 p150a card 0, median 1350 MHz polled DURING: perf/of3t_p10default/out/split_512_default.json. 576 runs out of memory on a 3,057,647,616 B request: split_576_default.json, split_576_fp32off.json"),
+    "rfd4": (256, "r4t-land -- 256 completes device-resident on one Blackhole chip, peak "
+                  "15.833 GB (14.75 GiB) of 34.23 GB (46.3 %), anx-glx BH-Galaxy-120c chip 12, "
+                  "origin/main 4e31c35c74, AICLK 1312-1350 med 1350 MHz "
+                  "(state/r4t/rows/land.md); host-optim baseline completes at 11.700 GB "
+                  "(10.90 GiB) on qb2 p300c chip 1, wk/r4t-step 2e3380ec0, AICLK 1350 MHz "
+                  "(state/r4t/rows/step.md). Crops above 256 and Wormhole are not yet measured"),
 }
 
 
@@ -219,26 +264,100 @@ WEIGHTS_STEP_S = {
         384: (42.27, "of3t-p10land -- 42.272 and 42.234 s on the merged tree, qb2 p300c card 3, "
                      "1350 MHz sampled DURING; 54.2 s on qb1's p150a (of3t-p10default)"),
     },
+    "rfd4": {
+        256: (2.00, "r4t-land -- 2.0010 s/step warm median (n=8, steps 2-9) on landed "
+                    "origin/main 4e31c35c74, crop 256, k=4, depth 2, --resident --win-pre "
+                    "suspend, anx-glx BH-Galaxy-120c chip 12, AICLK 1312-1350 med 1350 MHz "
+                    "(state/r4t/rows/land.md); provisional wk/r4t-perf 3c9f25e60a measures "
+                    "1.59 s/step on exact Poisson(3) mean_depth=2.75 and 1.35 s/step at "
+                    "depth 2 on anx-glx chip 10 at 1350 MHz (state/r4t/rows/perf.md)"),
+    },
+}
+
+#: Multi-chip Galaxy SPMD MeshTrace step time (s) and per-chip peak DRAM (GB), measured on
+#: Blackhole (anx-glx 120c, AICLK 1350 MHz). Keyed by model -> crop -> chip count.
+WEIGHTS_SPMD_STEP_S = {
+    "rfd4": {
+        256: {
+            4: (2.04, 19.409, "r4t-scale -- 2.0425 s/step (0.951 eff, sync 49.7 ms, "
+                              "19.409 GB / 18.08 GiB peak per chip) on 1x4 BH Galaxy SPMD "
+                              "MeshTrace, anx-glx chips 0-3, wk/r4t-scale 24ad49b68a, "
+                              "AICLK 1350 MHz, crop 256, k=4, depth 2 (state/r4t/rows/scale.md)"),
+            8: (1.91, 19.079, "r4t-scale -- 1.9078 s/step (1.019 eff, sync 76.9 ms, "
+                              "19.079 GB / 17.77 GiB peak per chip) on 2x4 BH Galaxy SPMD "
+                              "MeshTrace, anx-glx chips 0-7, wk/r4t-scale 24ad49b68a, "
+                              "AICLK 1350 MHz, crop 256, k=4, depth 2 (state/r4t/rows/scale.md)"),
+            16: (2.06, 18.322, "r4t-scale -- 2.0619 s/step (0.943 eff, sync 92.3 ms, "
+                               "18.322 GB / 17.06 GiB peak per chip) on 4x4 BH Galaxy SPMD "
+                               "MeshTrace, anx-glx chips 0-15, wk/r4t-scale 24ad49b68a, "
+                               "AICLK 1350 MHz, crop 256, k=4, depth 2 (state/r4t/rows/scale.md)"),
+            32: (2.58, 17.850, "r4t-scale -- 2.5777 s/step (0.754 eff, 12.41 ex/s, "
+                               "sync 72.9 ms, 17.850 GB / 16.62 GiB peak per chip) on 8x4 "
+                               "BH Galaxy SPMD MeshTrace, anx-glx chips 0-31, "
+                               "wk/r4t-scale 24ad49b68a, AICLK 1350 MHz, crop 256, "
+                               "k=4, depth 2 (state/r4t/rows/scale.md)"),
+        },
+    },
 }
 
 
-def _weights_plan(model: str, tokens: int, chips: int, global_batch: Optional[int]) -> Plan:
+def _weights_plan(model: str, tokens: int, chips: int, global_batch: Optional[int],
+                  card_gb: float = CARD_DRAM_GB) -> Plan:
     """Training the weights themselves, answered from this model's own measurements."""
     device_fit, device_src = DEVICE_PATH_LARGEST_FIT[model]
     exact_fit, exact_src = LARGEST_MEASURED_TO_FIT.get(model, (device_fit, device_src))
     per_chip = (global_batch or chips) / chips
-    common = dict(tokens=tokens, chips=chips, global_batch=global_batch)
+    common = dict(tokens=tokens, chips=chips, global_batch=global_batch, card_gb=card_gb)
     if tokens <= device_fit:
-        step, step_src = WEIGHTS_STEP_S.get(model, {}).get(tokens, (None, None))
+        spmd_by_crop = WEIGHTS_SPMD_STEP_S.get(model, {})
+        spmd_entry = spmd_by_crop.get(tokens, {}).get(chips) if chips > 1 else None
+        bounds = TRAINED_TRUNK_BOUND_BY_MODEL.get(model, {})
+        bound_entry = bounds.get(tokens) or bounds.get(device_fit)
+        if spmd_entry is not None:
+            step, peak_gb, step_src = spmd_entry
+            peak_src = step_src
+        else:
+            step, step_src = WEIGHTS_STEP_S.get(model, {}).get(tokens, (None, None))
+            if chips > 1 and spmd_by_crop:
+                step, step_src = None, None
+            peak_gb, peak_src = bound_entry if bound_entry is not None else (None, None)
+
+        if peak_gb is not None and peak_gb > card_gb:
+            sources = [device_src]
+            if peak_src and peak_src not in sources:
+                sources.append(peak_src)
+            return Plan(
+                verdict="refused", fits=False, replica_gb=peak_gb,
+                occupancy=peak_gb / card_gb, seconds_per_step=None,
+                why=(f"{model} at {tokens} tokens on {chips} chip(s) requires {peak_gb:.2f} GB "
+                     f"peak device DRAM (measured), which exceeds the {card_gb:.2f} GB card "
+                     f"DRAM budget."),
+                sources=sources, **common)
+
         secs = None if step is None else step * per_chip
-        timing = (f" A step takes about {secs:.1f} s: {per_chip:g} sample(s) per chip at "
-                  f"{step:.2f} s each on one Blackhole chip." if secs else
-                  f" The step time is measured at {sorted(WEIGHTS_STEP_S.get(model, {}))} "
-                  f"tokens only.")
-        return Plan(verdict="fits", fits=True, seconds_per_step=secs,
+        occ = None if peak_gb is None else peak_gb / card_gb
+        if spmd_entry is not None:
+            timing = (f" A step takes about {secs:.2f} s: {per_chip:g} sample(s) per chip at "
+                      f"{step:.2f} s each across {chips} Blackhole Galaxy chips (SPMD).")
+        elif secs is not None:
+            timing = (f" A step takes about {secs:.1f} s: {per_chip:g} sample(s) per chip at "
+                      f"{step:.2f} s each on one Blackhole chip.")
+        elif chips > 1 and spmd_by_crop and tokens in spmd_by_crop:
+            widths = [1, *sorted(spmd_by_crop[tokens])]
+            timing = (f" {chips}-chip step time is {UNMEASURED}: measured at {widths} "
+                      f"Blackhole chips only.")
+        else:
+            timing = (f" The step time is measured at {sorted(WEIGHTS_STEP_S.get(model, {}))} "
+                      f"tokens only.")
+        sources = [device_src]
+        for extra in (step_src,):
+            if extra and extra not in sources:
+                sources.append(extra)
+        return Plan(verdict="fits", fits=True, replica_gb=peak_gb, occupancy=occ,
+                    seconds_per_step=secs,
                     why=f"training {model}'s weights fits one chip up to {device_fit} tokens, "
                         f"measured." + timing,
-                    sources=[device_src] + ([step_src] if step_src else []), **common)
+                    sources=sources, **common)
     if tokens <= exact_fit:
         return Plan(verdict="fits", fits=True,
                     why=f"{tokens} tokens fits {model} only with --exact, which turns itself "
@@ -301,7 +420,8 @@ class Plan:
 def plan(*, tokens: int, model: Optional[str] = None, chips: int = 1,
          global_batch: Optional[int] = None, frozen_trunk: bool = True,
          optimizer_resident: bool = False,
-         seconds_per_step_1chip: Optional[float] = None) -> Plan:
+         seconds_per_step_1chip: Optional[float] = None,
+         card_gb: float = CARD_DRAM_GB, arch: str = "blackhole") -> Plan:
     """Will a run of this shape fit, and how long is a step.
 
     ``frozen_trunk=False`` means full fine-tuning. A model with its own weights-training
@@ -315,11 +435,29 @@ def plan(*, tokens: int, model: Optional[str] = None, chips: int = 1,
     one, the multi-chip step time is that number divided by the MEASURED two-chip speedup;
     without one there is no step time to report, because we have not measured a Protenix-v2
     training step on this hardware and dividing a projection by 1.87 keeps it a projection.
+
+    ``card_gb`` overrides the per-chip DRAM budget (defaults to ``CARD_DRAM_GB`` = 34.23 GB,
+    Blackhole's allocator budget). ``arch`` names the target Tenstorrent architecture
+    (``"blackhole"``/``"bh"`` or ``"wormhole"``/``"wh"``); architectures with no device
+    measurement return ``UNMEASURED``.
     """
     if chips < 1:
         raise ValueError(f"chips must be at least 1, got {chips}")
     if global_batch is not None and global_batch < 1:
         raise ValueError(f"global_batch must be at least 1, got {global_batch}")
+    if card_gb <= 0:
+        raise ValueError(f"card_gb must be positive, got {card_gb}")
+    norm_arch = _ARCH_ALIASES.get(arch.lower()) if isinstance(arch, str) else None
+    if norm_arch is None:
+        raise ValueError(f"unknown arch {arch!r}; expected 'blackhole' ('bh') or "
+                         f"'wormhole' ('wh')")
+    if norm_arch != "blackhole":
+        return Plan(
+            verdict=UNMEASURED, tokens=tokens, chips=chips, global_batch=global_batch,
+            card_gb=card_gb,
+            why=(f"{model or 'training'} has Blackhole measurements only; {norm_arch} has no "
+                 f"device measurement yet."),
+            sources=[f"no {norm_arch} training measurement recorded for {model or 'this model'}"])
 
     # Only this model's own table. A model we have not measured gets UNMEASURED, never a
     # neighbour's wall -- see FORWARD_OOM_BY_MODEL.
@@ -334,7 +472,7 @@ def plan(*, tokens: int, model: Optional[str] = None, chips: int = 1,
         measured = f": {' and '.join(detail)}" if detail else ""
         return Plan(
             verdict="refused", tokens=tokens, chips=chips, global_batch=global_batch,
-            fits=False,
+            card_gb=card_gb, fits=False,
             why=f"{model} is measured to run out of memory at {tokens} aa{measured}. "
                 f"Distribution does not fix it -- each chip OOMs at {tokens} aa exactly as one "
                 f"does. This is a refusal, not an estimate, and it is {model}'s own "
@@ -342,7 +480,7 @@ def plan(*, tokens: int, model: Optional[str] = None, chips: int = 1,
             sources=[source])
 
     if not frozen_trunk and model in DEVICE_PATH_LARGEST_FIT:
-        return _weights_plan(model, tokens, chips, global_batch)
+        return _weights_plan(model, tokens, chips, global_batch, card_gb=card_gb)
 
     if not frozen_trunk:
         bounds = TRAINED_TRUNK_BOUND_BY_MODEL.get(model, {})
@@ -415,8 +553,16 @@ def plan(*, tokens: int, model: Optional[str] = None, chips: int = 1,
     else:
         why = f"fits, at the measured {MEASURED_CROP} aa replica size."
 
-    occupancy = replica_gb / CARD_DRAM_GB
+    occupancy = replica_gb / card_gb
     sources = [f"replica: {replica_src}"]
+    if replica_gb > card_gb:
+        return Plan(
+            verdict="refused", tokens=tokens, chips=chips, global_batch=global_batch,
+            card_gb=card_gb, fits=False, replica_gb=replica_gb, occupancy=occupancy,
+            why=(f"{model or 'training'} at {tokens} tokens requires {replica_gb:.2f} GB "
+                 f"replica DRAM (measured), which exceeds the {card_gb:.2f} GB card DRAM "
+                 f"budget."),
+            sources=sources)
 
     sps = None
     if seconds_per_step_1chip is not None:
@@ -433,7 +579,7 @@ def plan(*, tokens: int, model: Optional[str] = None, chips: int = 1,
                        "We have not measured a Protenix-v2 training step on this hardware")
 
     return Plan(verdict="fits", why=why, tokens=tokens, chips=chips,
-                global_batch=global_batch, fits=True, replica_gb=replica_gb,
+                global_batch=global_batch, card_gb=card_gb, fits=True, replica_gb=replica_gb,
                 occupancy=occupancy, seconds_per_step=sps, sources=sources)
 
 

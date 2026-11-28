@@ -201,8 +201,8 @@ def _expert(*a, **kw):
 @click.option("--checkpoint-every", default=100, show_default=True, type=int,
               help="Steps between checkpoints. The last step is always saved.")
 @click.option("--tokens", default=None, type=int,
-              help="Crop size in tokens. Default: the model's first training stage, 384 for "
-                   "OpenFold3.")
+              help="Crop size in tokens. Default: the model's first training stage (384 for "
+                   "OpenFold3, 256 for RFD4).")
 @click.option("--seed", default=0, show_default=True, type=int,
               help="Fixes the sample order and the crops.")
 @click.option("--help-all", is_flag=True, is_eager=True, expose_value=False,
@@ -212,6 +212,16 @@ def _expert(*a, **kw):
               "reference many times slower. --device-ops keeps them on the device, which "
               "clears the same accuracy bar. Neither: the device path, unless the crop fits "
               "only with --exact.")
+@_expert("--resident/--no-resident", default=None,
+         help="Keep weights, masters and optimizer state on device (RFD4). Default: on on "
+              "Blackhole with Muon; --no-resident uses the host optimizer.")
+@_expert("--optimizer", "optimizer", type=click.Choice(("muon", "adamw")), default=None,
+         help="Optimizer for RFD4 (default: muon). Passing adamw falls back to the host "
+              "optimizer without --resident.")
+@_expert("--mesh", default=None,
+         help="Blackhole Galaxy Ethernet SPMD mesh for RFD4: 1x4, 2x4, 4x4 or 8x4 "
+              "(implies --resident). Auto-selected on a Blackhole Galaxy when --chips matches "
+              "a Galaxy mesh.")
 @_expert("--objective", default="af3", show_default=True,
          help="A named objective row. `--list-objectives` prints them.")
 @_expert("--recipe", default="default", show_default=True,
@@ -232,8 +242,8 @@ def _expert(*a, **kw):
          callback=_echo_objectives, help="Print the objective rows and exit.")
 @click.pass_context
 def train(ctx, data, model, out_dir, steps, chip_ids, dry_run, global_batch, lr, warmup_steps,
-          checkpoint_every, tokens, seed, train_mode, exact, objective, recipe, rank, alpha,
-          targets):
+          checkpoint_every, tokens, seed, train_mode, exact, resident, optimizer, mesh,
+          objective, recipe, rank, alpha, targets):
     """Train a model on the chips of this machine.
 
     \b
@@ -257,6 +267,29 @@ def train(ctx, data, model, out_dir, steps, chip_ids, dry_run, global_batch, lr,
                                "openfold3`")
     if train_mode == "adapters" and model in WEIGHTS_ONLY:
         raise click.UsageError(WEIGHTS_ONLY[model])
+
+    typed = {n for n in ctx.params
+             if (src := ctx.get_parameter_source(n)) is not None
+             and src.name != "DEFAULT"}
+
+    rfd4_opt, rfd4_resident, rfd4_mesh = None, None, None
+    if model in OWN_STEP:
+        from .rfd4_tier0 import refuse_unhonoured, resolve_execution
+        # Before dry-run and before anything is written: a flag the step does not honour or an
+        # invalid mesh/chip combination is refused even on `--dry-run`, leaving no run dir.
+        refuse_unhonoured(typed)
+        chip_ids, rfd4_opt, rfd4_resident, rfd4_mesh = resolve_execution(
+            chip_ids=chip_ids, chips_typed="chip_ids" in typed,
+            resident=resident, optimizer=optimizer, mesh=mesh)
+    else:
+        for name, flag in (("resident", "--resident/--no-resident"),
+                           ("optimizer", "--optimizer"),
+                           ("mesh", "--mesh")):
+            if name in typed:
+                raise click.UsageError(
+                    f"{flag} is only supported for --model rfd4, not --model {model}. "
+                    f"Drop the flag.")
+
     chips = len(chip_ids)
     global_batch = chips if global_batch is None else global_batch
     out_dir = Path(out_dir or Path("runs") / model)
@@ -274,14 +307,6 @@ def train(ctx, data, model, out_dir, steps, chip_ids, dry_run, global_batch, lr,
         if value is not None and value < 1:
             raise click.BadParameter("must be at least 1", param_hint=name)
 
-    if model in OWN_STEP:
-        from .rfd4_tier0 import refuse_unhonoured
-        # Before dry-run and before anything is written: a flag the step does not honour is
-        # refused even on `--dry-run`, and never leaves a claimed run directory behind.
-        refuse_unhonoured({n for n in ctx.params
-                           if (src := ctx.get_parameter_source(n)) is not None
-                           and src.name != "DEFAULT"})
-
     crop = tokens or _DEFAULT_CROP[model]
     fit = plan(tokens=crop, model=model, chips=chips, global_batch=global_batch,
                frozen_trunk=train_mode == "adapters")
@@ -296,22 +321,25 @@ def train(ctx, data, model, out_dir, steps, chip_ids, dry_run, global_batch, lr,
         import os
         from .rfd4_tier0 import batches, train_rfd4
         files = batches(data)
-        if len(chip_ids) == 1 and chip_ids[0] != 0:
+        if rfd4_mesh is None and len(chip_ids) == 1 and chip_ids[0] != 0:
             os.environ["TT_VISIBLE_DEVICES"] = str(chip_ids[0])
         out_dir.mkdir(parents=True, exist_ok=True)
         status = _Status(out_dir)
         config = {"model": model, "data": str(Path(data).resolve()),
-                  "train": train_mode, "global_batch": global_batch, "tokens": crop}
+                  "train": train_mode, "global_batch": global_batch, "tokens": crop,
+                  "optimizer": rfd4_opt, "resident": rfd4_resident, "mesh": rfd4_mesh}
         status.claim(config, chips=list(chip_ids))
         try:
             train_rfd4(files=files, out_dir=out_dir, steps=steps, chip_ids=chip_ids,
-                       checkpoint_every=checkpoint_every, tokens=tokens, status=status)
+                       checkpoint_every=checkpoint_every, tokens=tokens, status=status,
+                       resident=rfd4_resident, optimizer=rfd4_opt, mesh=rfd4_mesh)
         except Exception as exc:                                       # noqa: BLE001
             status.fail(exc)
             raise
         last = status.read()
         click.echo(f"trained {last.get('step')} steps, loss {last.get('loss')}")
-        status.update(status="succeeded", latest=str(_latest_file(out_dir, chip_ids) or ""))
+        status.update(status="succeeded",
+                      latest=str(_latest_file(out_dir, chip_ids, mesh=rfd4_mesh) or ""))
         click.echo(f"wrote {status.path}")
         return
 
@@ -464,9 +492,9 @@ class _Status:
                     latest=str(latest) if latest else None, record=str(self.dir / "run.json"))
 
 
-def _latest_file(out_dir, chip_ids):
+def _latest_file(out_dir, chip_ids, mesh=None):
     from .rfd4_tier0 import latest_checkpoint
-    return latest_checkpoint(out_dir, chip_ids)
+    return latest_checkpoint(out_dir, chip_ids, mesh=mesh)
 
 
 def _dp_summary(dp):

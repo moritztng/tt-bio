@@ -7,9 +7,10 @@ around it is the shared stack: the same `Folds`, `AdamW`, `Checkpointer`, `Proce
 `GradientCoverage` an OpenFold3 run uses (G6).
 
 What this module owns is the Tier-0 contract over that body: flag legality decided before a
-device opens, DATA refused by name when it is missing or empty, ``status.json`` /
-``progress.jsonl`` in ``--out``, and resume from the newest checkpoint in the run directory
-when the same command is run again.
+device opens, device-resident default on Blackhole (with opt-out and AdamW fallback), Galaxy
+Ethernet SPMD ``--mesh`` dispatch (with ``--dp-cards`` fallback on non-Galaxy boxes), DATA
+refused by name when it is missing or empty, ``status.json`` / ``progress.jsonl`` in ``--out``,
+and resume from the newest checkpoint in the run directory when the same command is run again.
 
 A flag the RFD4 step does not honour is REFUSED rather than ignored. `--lr` is the example that
 forced it: the step takes upstream's rule at 1e-4, and silently accepting `--lr 3e-4` would
@@ -21,11 +22,13 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+from typing import Optional
 
 import click
 
-__all__ = ["train_rfd4", "refuse_unhonoured", "latest_checkpoint", "batches",
-           "last_row", "NOT_HONOURED", "DATA_SUFFIX", "NO_DATA"]
+__all__ = ["train_rfd4", "refuse_unhonoured", "resolve_execution", "host_topology",
+           "latest_checkpoint", "batches", "last_row", "NOT_HONOURED", "DATA_SUFFIX",
+           "NO_DATA", "GALAXY_MESHES", "CHIPS_TO_GALAXY_MESH", "RFD4_OPTIMIZERS"]
 
 #: Tier-0 flags the RFD4 step does not honour, and what to do instead. Checked against the
 #: parameter SOURCE, so a default never trips one: only a flag the user actually typed.
@@ -45,6 +48,22 @@ NOT_HONOURED = {
             "index, so a run is reproducible without one. Drop the flag.",
 }
 
+#: Valid Blackhole Galaxy Ethernet SPMD mesh shapes and their chip counts, matching
+#: ``tt_bio.train.spmd_rfd4`` and ``rfd4_run.py --mesh``.
+GALAXY_MESHES = {
+    "1x4": 4,
+    "2x4": 8,
+    "4x4": 16,
+    "8x4": 32,
+}
+CHIPS_TO_GALAXY_MESH = {chips: shape for shape, chips in GALAXY_MESHES.items()}
+
+#: Optimizers accepted by ``rfd4_run.py`` via Tier 0.
+RFD4_OPTIMIZERS = ("muon", "adamw")
+
+_GALAXY_MIN_CHIPS = 32
+_ARCH_BY_PCI_ID = {"0xb140": "blackhole", "0x401e": "wormhole_b0"}
+
 #: The batch files a DATA directory holds, as `perf/r4t/loss_parity_reference.py` dumps them.
 DATA_SUFFIX = ".npz"
 
@@ -56,6 +75,31 @@ NO_DATA = ("--model rfd4 needs DATA: a directory of training batches, one .npz p
            "Dump them from upstream's pipeline with perf/r4t/loss_parity_reference.py, which "
            "writes the features, x_1/x_t/t, the candidate noise and upstream's own winners "
            "and losses. docs/training.md has the recipe.")
+
+
+def host_topology(sysfs: str = "/sys/class/tenstorrent") -> tuple[Optional[str], int]:
+    """Detect ``(arch, n_chips)`` from Tenstorrent sysfs PCI IDs without opening any device.
+
+    Returns ``(None, 0)`` on hosts without Tenstorrent sysfs entries. Imports no ``ttnn``.
+    """
+    root = Path(sysfs)
+    if not root.is_dir():
+        return None, 0
+    arches: set[str] = set()
+    count = 0
+    for entry in sorted(root.iterdir()):
+        dev_id = entry / "device" / "device"
+        try:
+            pci_id = dev_id.read_text().strip().lower()
+        except OSError:
+            continue
+        count += 1
+        arch = _ARCH_BY_PCI_ID.get(pci_id)
+        if arch is not None:
+            arches.add(arch)
+    if count == 0:
+        return None, 0
+    return (next(iter(arches)) if len(arches) == 1 else None), count
 
 
 def batches(data: Path) -> list:
@@ -79,14 +123,97 @@ def refuse_unhonoured(typed) -> None:
         raise click.UsageError(NOT_HONOURED[name])
 
 
+def resolve_execution(*, chip_ids, chips_typed: bool = False,
+                      resident: Optional[bool] = None,
+                      optimizer: Optional[str] = None,
+                      mesh: Optional[str] = None,
+                      topology: Optional[tuple[Optional[str], int]] = None
+                      ) -> tuple[tuple[int, ...], str, bool, Optional[str]]:
+    """Resolve ``(chip_ids, optimizer, use_resident, spmd_mesh)`` and refuse invalid combos.
+
+    Pure decision logic (no device open, no ttnn import), so invalid flags and chip/mesh
+    mismatches fail loudly before ``--dry-run`` returns or a run directory is claimed.
+    """
+    ids = tuple(int(c) for c in chip_ids)
+    if not ids or any(c < 0 for c in ids) or len(set(ids)) != len(ids):
+        raise click.BadParameter(f"invalid chip ids: {chip_ids!r}", param_hint="--chips")
+
+    opt = "muon" if optimizer is None else str(optimizer).strip().lower()
+    if opt not in RFD4_OPTIMIZERS:
+        raise click.BadParameter(
+            f"{optimizer!r}; RFD4 optimizers are {', '.join(RFD4_OPTIMIZERS)}",
+            param_hint="--optimizer")
+
+    arch, n_host_chips = host_topology() if topology is None else topology
+
+    if mesh is not None:
+        mesh_str = str(mesh).strip().lower()
+        if mesh_str not in GALAXY_MESHES:
+            raise click.BadParameter(
+                f"{mesh!r}; Galaxy SPMD meshes are {', '.join(GALAXY_MESHES)}",
+                param_hint="--mesh")
+        want_chips = GALAXY_MESHES[mesh_str]
+        if resident is False:
+            raise click.UsageError(
+                "--mesh runs device-resident SPMD and cannot be combined with --no-resident. "
+                "Drop --no-resident or drop --mesh.")
+        if opt == "adamw":
+            raise click.UsageError(
+                "--mesh runs device-resident Muon SPMD and cannot be combined with "
+                "--optimizer adamw. Drop --optimizer adamw or drop --mesh.")
+        if arch == "wormhole_b0":
+            raise click.UsageError(
+                "--mesh is supported on Blackhole Galaxy only (detected Wormhole host).")
+        if chips_typed and len(ids) != want_chips:
+            raise click.BadParameter(
+                f"--mesh {mesh_str} requires {want_chips} chips, got {len(ids)} from --chips",
+                param_hint="--chips")
+        if not chips_typed:
+            ids = tuple(range(want_chips))
+        return ids, opt, True, mesh_str
+
+    if resident is True:
+        if opt == "adamw":
+            raise click.UsageError(
+                "--resident cannot be combined with --optimizer adamw; drop --resident to use "
+                "the host AdamW path.")
+        if arch == "wormhole_b0":
+            raise click.UsageError(
+                "--resident is supported on Blackhole only (detected Wormhole host); pass "
+                "--no-resident on Wormhole.")
+        use_resident = True
+    elif resident is False:
+        use_resident = False
+    else:
+        use_resident = arch == "blackhole" and opt == "muon"
+
+    spmd_mesh: Optional[str] = None
+    if (len(ids) > 1 and use_resident and arch == "blackhole"
+            and n_host_chips >= _GALAXY_MIN_CHIPS and len(ids) in CHIPS_TO_GALAXY_MESH):
+        spmd_mesh = CHIPS_TO_GALAXY_MESH[len(ids)]
+
+    return ids, opt, use_resident, spmd_mesh
+
+
 def train_rfd4(*, files, out_dir: Path, steps, chip_ids, checkpoint_every, tokens,
-               status) -> None:
+               status, resident: Optional[bool] = None, optimizer: Optional[str] = None,
+               mesh: Optional[str] = None,
+               topology: Optional[tuple[Optional[str], int]] = None) -> None:
     """Run the RFD4 step loop on ``files`` under the Tier-0 contract."""
+    chip_ids, opt, use_resident, spmd_mesh = resolve_execution(
+        chip_ids=chip_ids, chips_typed=len(chip_ids) > 1,
+        resident=resident, optimizer=optimizer, mesh=mesh, topology=topology)
+    is_dp_procs = spmd_mesh is None and len(chip_ids) > 1
+
     argv = ["--batch", ",".join(str(f) for f in files), "--out", str(out_dir),
-            "--steps", str(steps or len(files)), "--optimizer", "muon", "--exempt", "default"]
+            "--steps", str(steps or len(files)), "--optimizer", opt, "--exempt", "default"]
+    if use_resident:
+        argv.append("--resident")
     if checkpoint_every:
         argv += ["--save-every", str(checkpoint_every)]
-    if len(chip_ids) > 1:
+    if spmd_mesh is not None:
+        argv += ["--mesh", spmd_mesh]
+    elif len(chip_ids) > 1:
         argv += ["--dp-cards", ",".join(str(c) for c in chip_ids)]
     elif chip_ids[0] != 0:
         os.environ["TT_VISIBLE_DEVICES"] = str(chip_ids[0])
@@ -94,33 +221,34 @@ def train_rfd4(*, files, out_dir: Path, steps, chip_ids, checkpoint_every, token
         os.environ.setdefault("TT_VISIBLE_DEVICES", "0")
     if tokens:
         argv += ["--n", str(tokens)]
-    resume = latest_checkpoint(out_dir, chip_ids)
+    resume = latest_checkpoint(out_dir, chip_ids, mesh=spmd_mesh)
     if resume is not None:
         argv += ["--resume", str(resume)]
         click.echo(f"resuming from {resume}")
 
     from . import rfd4_run
-    # A data-parallel run spawns one process per chip and the driver sees no step: the ranks
-    # print theirs to OUT/rank<r>.log. Rank 0's last row is the run's, and it is read back
-    # rather than guessed, so a DP status file says the same thing a one-chip one does.
-    rc = rfd4_run.main(argv, on_step=None if len(chip_ids) > 1 else status.step)
+    # Multi-process --dp-cards spawns one process per chip and the driver sees no step: ranks
+    # write OUT/rank<r>.log, and rank 0's last row is read back. Single-process SPMD (--mesh)
+    # and 1-chip runs invoke on_step directly.
+    rc = rfd4_run.main(argv, on_step=None if is_dp_procs else status.step)
     if rc:
         raise click.ClickException(f"the RFD4 step loop exited {rc}; its JSON rows are above "
                                    f"and in {out_dir}")
-    if len(chip_ids) > 1:
+    if is_dp_procs:
         last = last_row(Path(out_dir) / "rank0.log")
         if last:
             status.step({**last, "s": last.get("step_s")})
 
 
-def latest_checkpoint(out_dir: Path, chip_ids):
+def latest_checkpoint(out_dir: Path, chip_ids, mesh: Optional[str] = None):
     """The newest checkpoint a previous run of this command left, or None.
 
-    A data-parallel run checkpoints under ``rank0/``; every rank holds the same masters, so
-    rank 0's file is the run's.
+    Multi-process ``--dp-cards`` runs checkpoint under ``rank0/``; every rank holds the same
+    masters, so rank 0's file is the run's. Single-process SPMD (``--mesh``) and 1-chip runs
+    checkpoint directly under ``out_dir``.
     """
     from .checkpoint import Checkpointer
-    d = Path(out_dir) / "rank0" if len(chip_ids) > 1 else Path(out_dir)
+    d = Path(out_dir) / "rank0" if (mesh is None and len(chip_ids) > 1) else Path(out_dir)
     return Checkpointer(d, every=10**9).latest() if d.is_dir() else None
 
 
