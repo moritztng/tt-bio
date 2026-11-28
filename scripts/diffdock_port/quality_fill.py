@@ -194,6 +194,9 @@ def main():
     ap.add_argument("--failures", default=None,
                     help="json map id -> reason, from dock_failures.sh; the per-complex refusal "
                          "reasons live in the dock hosts' chunk logs, which are not pooled")
+    ap.add_argument("--redock", default=None,
+                    help="json describing the re-dock that replaced earlier failures: tree, host, "
+                         "venv and the per-complex count of samples frozen non-finite")
     ap.add_argument("--dry-run", action="store_true",
                     help="print the verdict block without writing QUALITY.json or the row")
     ap.add_argument("--min-attempted", type=int, default=428,
@@ -217,6 +220,12 @@ def main():
     # complexes went non-finite mid-rollout and wrote no pose, so the graded set is 421 of the
     # 428 the run started: reading n_attempted off the graded rows would have both hidden the
     # three failures and let a 421-complex set pass a 428-complex guard by redefining the set.
+    # A failure the fixed tree has since docked is no longer a failure: the re-dock replaced it
+    # in the pool and the grader scored it. It stays on record under `redocked_after_fix` with
+    # its old reason, so the history is visible and the count is the pool's, not the log's.
+    scored = {r["id"] for r in per if r.get("rmsd") and r["rmsd"][0] is not None}
+    redocked = {i: why for i, why in fails.items() if i in scored}
+    fails = {i: why for i, why in fails.items() if i not in scored}
     attempted = sorted(set(ids) | set(fails))
     if len(attempted) < a.min_attempted and not a.dry_run:
         sys.exit(f"refusing to write: {len(attempted)} complexes attempted ({len(ids)} graded, "
@@ -249,6 +258,9 @@ def main():
         "nan_failed_before_writing": nans,
         "network": "host torch HostScoreNetwork, released v1.1 checkpoints",
     }
+    if redocked:
+        redock = json.load(open(a.redock)) if a.redock else {}
+        pbs["tt"]["redocked_after_fix"] = dict(redock, complexes=redocked)
     pbs["upstream"] = ref_summary
     pbs["paired"] = {
         "n_common_graded": comp["n_common_graded"],
