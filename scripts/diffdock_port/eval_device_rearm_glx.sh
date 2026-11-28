@@ -20,7 +20,7 @@ mkdir -p "$L"
 now=$(date +%s) inwin=0
 while read -r _ a b _; do
   s=$(date -d "$a" +%s 2>/dev/null) && e=$(date -d "$b" +%s 2>/dev/null) || continue
-  [ "$now" -ge $((s - 120)) ] && [ "$now" -le "$e" ] && inwin=1
+  [ "$now" -ge $((s - 660)) ] && [ "$now" -le "$e" ] && inwin=1
   [ "$s" -gt "$now" ] && [ "$s" -lt "$stop" ] && stop=$s
 done < <(grep -v '^#' "${ANX_WINDOWS:-/home/moritz/.coworker/state/anx-glx/HOLDER.windows}" 2>/dev/null)
 if ! timeout 60 $SSH anx-glx "[ -e $R/device/$name.tree ]" </dev/null; then
