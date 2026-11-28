@@ -41,6 +41,17 @@ def pad32(n: int) -> int:
     return ((n + TILE - 1) // TILE) * TILE
 
 
+def edge_bucket(n: int) -> int:
+    """Padded length of a pose-dependent edge set: the next power of two, at least a tile.
+
+    A radius or cross edge set has a different size on every pose, and at a multiple of 32
+    nearly every pose is a new shape, so a new set of device programs. On this ladder the
+    poses of one ligand, and ligands of similar size, share them. The padding is masked
+    edges, at most as many as the real ones.
+    """
+    return max(TILE, 1 << (n - 1).bit_length())
+
+
 def exact01_dtype(device, working):
     """The dtype of a 0/1 matrix that multiplies a *working*-dtype operand on *device*.
 
@@ -684,6 +695,10 @@ class DeviceScoreNetwork:
         return self.host.confidence(graph, poses, convolve=self._confidence)
 
 
+#: The confidence edge sets a pose changes: the ligand's radius graph and its two cross sets.
+#: The receptor's three are the same for every pose and keep their exact padded size.
+POSE_EDGES = ("lig", "lr", "la")
+
 #: A confidence pose touches nine graphs per layer, four of them the receptor's; an LRU of 8
 #: would evict each one just before it is needed again.
 CONFIDENCE_GRAPHS = 16
@@ -727,7 +742,7 @@ class DeviceConfidence:
         if E == 0:
             return None
         a, b = self.ends[es]
-        extra = pad32(E) - E
+        extra = (edge_bucket(E) if es in POSE_EDGES else pad32(E)) - E
         pad = lambda t: torch.nn.functional.pad(t.float(), (0, 0, 0, extra))
         return dict(
             ei=torch.cat([ei, torch.tensor([[rows[a] - 1], [rows[b] - 1]]).expand(2, extra)], 1),
