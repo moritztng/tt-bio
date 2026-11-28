@@ -35,10 +35,10 @@ args = ap.parse_args()
 
 from tt_bio.diffdock import graph as dfd_graph
 from tt_bio.diffdock import run as dock_run
+from tt_bio.diffdock.job import DockOptions, read_csv_jobs
 
 if args.grid_ratio is not None:
     dfd_graph.GRID_RATIO = args.grid_ratio
-from tt_bio.diffdock.job import DockOptions, read_csv_jobs
 
 by_name = {j.name: j for j in read_csv_jobs(Path(args.csv))}
 jobs = [by_name[n] for n in args.names.split(",")]
