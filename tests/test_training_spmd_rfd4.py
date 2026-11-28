@@ -466,7 +466,7 @@ def _install_mock_device_optim(monkeypatch):
         if t.is_allocated():
             ttnn.deallocate(t)
 
-    def _ns_dev(u, *, steps, coeffs, eps, mode, tall):
+    def _ns_dev(u, *, steps, coeffs, eps, mode):
         assert u.is_allocated()
         return u.device().make_tensor([_mock_ns_torch(s, steps, coeffs, eps) for s in u._buf.shards])
 
@@ -579,18 +579,23 @@ def test_spmd_zero1_step_matches_serial_reference_and_broken_fails(monkeypatch, 
     assert len(dev_ref.live_bufs) == 0, f"leaked {len(dev_ref.live_bufs)} device buffers on ref!"
 
 
-def test_spmd_zero1_works_without_tall_kwarg_in_ns(monkeypatch):
-    """SPMDZero1Step works identically when newton_schulz_device has no tall= parameter (r4t-resident)."""
+def test_spmd_zero1_uses_native_tall_ns_without_transpose(monkeypatch):
+    """SPMDZero1Step passes tall matrices directly to native newton_schulz_device (0 transpose calls)."""
     _install_mock_ttnn(monkeypatch)
     _install_mock_device_optim(monkeypatch)
     orig_mod = sys.modules["tt_bio.train.device_optim"]
     orig_ns = orig_mod.newton_schulz_device
+    seen_shapes = []
 
-    def _ns_no_tall(u, *, steps, coeffs, eps, mode):
-        assert u.shape[-2] <= u.shape[-1], "caller must transpose tall matrices when tall= is absent"
-        return orig_ns(u, steps=steps, coeffs=coeffs, eps=eps, mode=mode, tall=False)
+    def _ns_native(u, *, steps, coeffs, eps, mode):
+        seen_shapes.append(tuple(u.shape))
+        return orig_ns(u, steps=steps, coeffs=coeffs, eps=eps, mode=mode)
 
-    monkeypatch.setattr(orig_mod, "newton_schulz_device", _ns_no_tall)
+    def _forbid_transpose(_t):
+        raise AssertionError("SPMDZero1Step must not transpose tall matrices; newton_schulz_device handles tall natively")
+
+    monkeypatch.setattr(orig_mod, "newton_schulz_device", _ns_native)
+    monkeypatch.setattr(orig_mod, "transpose_exact_f32", _forbid_transpose)
     dev = _FakeMeshDevice(2, 4)
     rng = np.random.default_rng(7)
     weights = {
@@ -605,6 +610,7 @@ def test_spmd_zero1_works_without_tall_kwarg_in_ns(monkeypatch):
     }
     st = spmd.step(grads, free_grads=True)
     assert st["dead_grads"] == set()
+    assert seen_shapes and all(s[-2] == 64 and s[-1] == 32 for s in seen_shapes)
     master_consensus_digest(spmd.master, dev)
     spmd.deallocate()
     base.deallocate()
@@ -1313,4 +1319,340 @@ def test_rfd4_run_spmd_trace_region_size_at_least_512mib():
     assert "trace_region_size=(512 << 20)" in src
 
 
+def test_make_rfd4_refold_hook_in_place_refreshes_t1_wgo16(monkeypatch):
+    """make_rfd4_refold_hook(in_place=True, sync_host=False) refreshes _t1_w[True] in place using wgo16."""
+    import tt_bio.train.folds as F
+
+    mod = _install_mock_ttnn(monkeypatch)
+    mod.bfloat8_b = "bfloat8_b"
+    mod.bfloat16 = "bfloat16"
+
+    def _tc_inplace(t, dt, *, output_tensor=None):
+        shards = [s.to(torch.bfloat16).float() if dt == "bfloat16" else s.clone() for s in t._buf.shards]
+        if output_tensor is not None:
+            for i in range(len(output_tensor._buf.shards)):
+                output_tensor._buf.shards[i].copy_(shards[i])
+            return output_tensor
+        return t.device().make_tensor(shards)
+
+    def _transpose(t, d0, d1):
+        return t.device().make_tensor([s.transpose(d0, d1).contiguous() for s in t._buf.shards])
+
+    monkeypatch.setattr(mod, "typecast", _tc_inplace, raising=False)
+    monkeypatch.setattr(mod, "transpose", _transpose, raising=False)
+    monkeypatch.setattr(F, "_dev_concat_f32", lambda xs, dim: mod.concat(xs, dim=dim))
+
+    dev = _FakeMeshDevice(1, 2)
+    tri = SimpleNamespace(_t1_w={})
+    pu = SimpleNamespace(tri_out=tri, tri_in=None)
+    trunk = SimpleNamespace(pair_updates={0: pu}, blocks=(), _levers=frozenset({"trimul_t1", "trimul_t1w8"}))
+    pfx = "nn.pair_update_layers.0.tri_mult_out."
+
+    def _masters(val):
+        return {
+            pfx + "linear_a_p.weight": dev.make_tensor([torch.full((4, 4), val) for _ in range(2)]),
+            pfx + "linear_b_p.weight": dev.make_tensor([torch.full((4, 4), val + 1.0) for _ in range(2)]),
+            pfx + "linear_a_g.weight": dev.make_tensor([torch.full((4, 4), val + 2.0) for _ in range(2)]),
+            pfx + "linear_b_g.weight": dev.make_tensor([torch.full((4, 4), val + 3.0) for _ in range(2)]),
+            pfx + "linear_g.weight": dev.make_tensor([torch.arange(16, dtype=torch.float32).reshape(4, 4) + val for _ in range(2)]),
+        }
+
+    host_p = torch.zeros(4, 4)
+    hook = F.make_rfd4_refold_hook(trunk, host_glue_params={"glue.x": host_p}, in_place=True, sync_host=False)
+    m1 = _masters(1.0)
+    hook(m1)
+    wp0, wg0, wgo0 = tri._t1_w[True]
+    assert torch.allclose(wgo0._buf.shards[0], (torch.arange(16, dtype=torch.float32).reshape(4, 4) + 1.0).t())
+    assert torch.equal(host_p, torch.zeros(4, 4)), "sync_host=False must not sync host_glue_params"
+
+    m2 = _masters(5.0)
+    hook(m2)
+    wp1, wg1, wgo1 = tri._t1_w[True]
+    assert wp1 is wp0 and wg1 is wg0 and wgo1 is wgo0, "in_place=True must preserve _t1_w tensor buffers"
+    assert torch.allclose(wp1._buf.shards[0][:4], torch.full((4, 4), 5.0))
+    assert torch.allclose(wgo1._buf.shards[0], (torch.arange(16, dtype=torch.float32).reshape(4, 4) + 5.0).t())
+    for t in (*m1.values(), *m2.values(), wp0, wg0, wgo0):
+        mod.deallocate(t)
+    assert len(dev.live_bufs) == 0
+
+
+def test_rfd4_pair_spmd_candidates_and_winner_three_part_weights(monkeypatch):
+    """ResidentPairBuilder.candidates_spmd (bf16 fast + fp32 paths) & winner_taped_spmd match PyTorch ref."""
+    mod = _install_mock_ttnn(monkeypatch)
+    mod.uint32 = "uint32"
+    mod.bfloat16 = "bfloat16"
+    mod.bfloat8_b = "bfloat8_b"
+    mod.TILE_LAYOUT = "TILE"
+    mod.ROW_MAJOR_LAYOUT = "ROW_MAJOR"
+    mod.DRAM_MEMORY_CONFIG = "DRAM"
+    mod.Tensor = object
+
+    def _mock_emb(idx_tt, tbl_tt, *, layout=None, memory_config=None):
+        tbl_s = tbl_tt._buf.shards[0].float()
+        return idx_tt.device().make_tensor([tbl_s[s.long()] for s in idx_tt._buf.shards])
+
+    def _mock_rmsnorm(x, *, epsilon=1e-5, weight=None, compute_kernel_config=None):
+        w = None if weight is None else weight._buf.shards[0].float()
+        shards = []
+        for s in x._buf.shards:
+            sf = s.float()
+            r = torch.rsqrt((sf * sf).mean(dim=-1, keepdim=True) + epsilon)
+            y = sf * r
+            if w is not None:
+                y = y * w
+            shards.append(y.to(s.dtype))
+        return x.device().make_tensor(shards)
+
+    def _mock_rsqrt(x, *, fast_and_approximate_mode=False):
+        return x.device().make_tensor([torch.rsqrt(s.float()) for s in x._buf.shards])
+
+    def _mock_tc(t, dt, *, output_tensor=None):
+        shards = [s.to(torch.bfloat16).float() if dt == "bfloat16" else s.float().clone() for s in t._buf.shards]
+        if output_tensor is not None:
+            for i in range(len(output_tensor._buf.shards)):
+                output_tensor._buf.shards[i].copy_(shards[i])
+            return output_tensor
+        out = t.device().make_tensor(shards)
+        out.dtype = dt
+        return out
+
+    def _mock_mm(a, b, *, transpose_a=False, transpose_b=False, dtype=None, compute_kernel_config=None, core_grid=None):
+        shards = []
+        for sa, sb in zip(a._buf.shards, b._buf.shards):
+            xa = sa.float().transpose(-2, -1) if transpose_a else sa.float()
+            xb = sb.float().transpose(-2, -1) if transpose_b else sb.float()
+            shards.append(xa @ xb)
+        out = a.device().make_tensor(shards)
+        out.dtype = dtype or mod.float32
+        return out
+
+    def _mock_from_torch(t, *, dtype=None, layout=None, device=None, memory_config=None, mesh_mapper=None):
+        w = device.get_num_devices()
+        tf = t.to(torch.bfloat16).float() if dtype == mod.bfloat16 else t.float()
+        if mesh_mapper is not None:
+            chunks = [c.contiguous() for c in tf.chunk(w, dim=0)]
+            out = device.make_tensor(chunks)
+        else:
+            out = device.make_tensor([tf.clone() for _ in range(w)])
+        out.dtype = dtype or mod.float32
+        return out
+
+    orig_add = mod.add
+
+    def _mock_add(a, b):
+        if isinstance(b, (int, float)):
+            return a.device().make_tensor([s.float() + float(b) for s in a._buf.shards])
+        return orig_add(a, b)
+
+    monkeypatch.setattr(mod, "add", _mock_add, raising=False)
+    monkeypatch.setattr(mod, "rsub", lambda a, s: a.device().make_tensor([float(s) - x.float() for x in a._buf.shards]), raising=False)
+    monkeypatch.setattr(mod, "embedding", _mock_emb, raising=False)
+    monkeypatch.setattr(mod, "rms_norm", _mock_rmsnorm, raising=False)
+    monkeypatch.setattr(mod, "rsqrt", _mock_rsqrt, raising=False)
+    monkeypatch.setattr(mod, "typecast", _mock_tc, raising=False)
+    monkeypatch.setattr(mod, "matmul", _mock_mm, raising=False)
+    monkeypatch.setattr(mod, "from_torch", _mock_from_torch, raising=False)
+    monkeypatch.setattr(mod, "bitcast", lambda t, dt: t.device().make_tensor([s.clone() for s in t._buf.shards]), raising=False)
+    monkeypatch.setattr(mod, "permute", lambda t, dims: t.device().make_tensor([s.permute(*dims).contiguous() for s in t._buf.shards]), raising=False)
+    monkeypatch.setattr(mod, "ShardTensorToMesh", lambda dev, dim=0: ("shard", dim), raising=False)
+    monkeypatch.setattr(mod, "ReplicateTensorToMesh", lambda dev: ("rep",), raising=False)
+    monkeypatch.setattr(mod, "MeshMapperConfig", lambda *a, **k: ("cfg",), raising=False)
+    monkeypatch.setattr(mod, "PlacementShard", lambda dim=0: ("ps", dim), raising=False)
+
+    # Provide a minimal fake tt_bio.autograd so rfd4_pair binds cleanly without real ttnn/tenstorrent.
+    import contextlib
+    import types
+    import tt_bio
+
+    fake_ag = types.ModuleType("tt_bio.autograd")
+    fake_ag.no_grad = contextlib.nullcontext
+    fake_ag.precise_config = lambda: None
+    fake_ag._row_mean = lambda v, cfg, c: v.device().make_tensor(
+        [s.float().mean(dim=-1, keepdim=True) for s in v._buf.shards]
+    )
+    fake_ag._sum_leading = lambda v, shp: v.device().make_tensor(
+        [s.float().reshape(-1, shp[-1]).sum(dim=0).reshape(shp) for s in v._buf.shards]
+    )
+
+    class _FakeAgTensor:
+        def __init__(self, value, requires_grad=False):
+            self.value = value
+            self.requires_grad = requires_grad
+            self.grad = None
+            self._bw = None
+
+        def add_grad(self, g):
+            if self.grad is None:
+                self.grad = g
+            else:
+                nxt = mod.add(self.grad, g)
+                mod.deallocate(self.grad)
+                mod.deallocate(g)
+                self.grad = nxt
+
+    def _fake_tape(val, leaves, make_fn, reads=()):
+        t = _FakeAgTensor(val, requires_grad=True)
+        t._bw = make_fn()
+        return t
+
+    fake_ag.Tensor = _FakeAgTensor
+    fake_ag._tape = _fake_tape
+    monkeypatch.setitem(sys.modules, "tt_bio.autograd", fake_ag)
+    monkeypatch.setattr(tt_bio, "autograd", fake_ag, raising=False)
+    monkeypatch.delitem(sys.modules, "tt_bio.train.rfd4_pair", raising=False)
+    import tt_bio.train.rfd4_pair as RP
+    monkeypatch.setattr(RP, "ttnn", mod)
+    monkeypatch.setattr(RP, "ag", fake_ag)
+    EncodedPair = RP.EncodedPair
+    ResidentPairBuilder = RP.ResidentPairBuilder
+    _PairStepCache = RP._PairStepCache
+
+    dev = _FakeMeshDevice(1, 2)
+    world, k, n, c = 2, 2, 4, 32
+    nn2 = n * n
+    torch.manual_seed(17)
+    W = torch.nn.Parameter(torch.randn(c, 16) * 0.2)
+    lnw = torch.nn.Parameter(torch.ones(c) + 0.1 * torch.randn(c))
+
+    rb = ResidentPairBuilder.__new__(ResidentPairBuilder)
+    rb.device = dev
+    rb.c = c
+    rb.e1 = 1e-5
+    rb.e2 = 1e-5
+    rb.step_w = 8
+    rb.const_w = 8
+    rb.k_pack = 16
+    rb.k_orig = 16
+    rb._k_orig_pad = 16
+    rb._pack_cols = list(range(16))
+    rb._orig_cols = list(range(16))
+    rb.misc_w = 0
+    rb.large_oh = []
+    rb.small_oh = []
+    rb.scalar_meta = []
+    rb._tbl_large_oh = []
+    rb._tbl_small_oh = []
+    rb._tbl_scalar = None
+    step_tbl = torch.eye(8, dtype=torch.float32)
+    rb._tbl_step = dev.make_tensor([step_tbl.clone() for _ in range(world)])
+    rb._P_pack_to_orig = dev.make_tensor([torch.eye(16, dtype=torch.float32) for _ in range(world)])
+    rb.builder = SimpleNamespace(
+        init_repr_factory=SimpleNamespace(
+            linear_out=SimpleNamespace(weight=W),
+            ln_out=SimpleNamespace(weight=lnw),
+        )
+    )
+
+    encs = []
+    for _r in range(world):
+        encs.append(EncodedPair(
+            k=k, n=n,
+            bins_step=torch.randint(0, 8, (k, nn2), dtype=torch.int32),
+            idx_onehot=[],
+            idx_scalar=torch.zeros((1, nn2), dtype=torch.int32),
+            dedup=True,
+            gamma=torch.randn(k, c) * 0.5 + 1.0,
+            beta=torch.randn(k, c) * 0.1,
+            fallback_const=torch.randint(0, 2, (1, nn2, 8)).float(),
+        ))
+
+    def _ref_forward(f_all, w_t, l_t, g_t, b_t):
+        x = (f_all @ w_t.t()).reshape(-1, n, n, c)
+        n1 = x * torch.rsqrt((x * x).mean(dim=-1, keepdim=True) + rb.e1)
+        a = n1 * l_t
+        bb = a * torch.rsqrt((a * a).mean(dim=-1, keepdim=True) + rb.e2)
+        return bb * g_t.reshape(-1, 1, 1, c) + b_t.reshape(-1, 1, 1, c)
+
+    for dt in (mod.bfloat16, mod.float32):
+        z_cand, cache = rb.candidates_spmd(encs, dtype=dt)
+        assert isinstance(cache, _PairStepCache)
+        assert len(cache.ws_parts) == 3
+        assert tuple(z_cand.shape) == (k, n, n, c)
+        # Verify forward output parity per rank.
+        for r in range(world):
+            f_step_r = step_tbl[encs[r].bins_step.long()]  # [k, nn2, 8]
+            f_const_r = encs[r].fallback_const.expand(k, nn2, 8)
+            f_all_r = torch.cat([f_step_r, f_const_r], dim=-1)
+            z_ref_r = _ref_forward(f_all_r, W.detach(), lnw.detach(), encs[r].gamma, encs[r].beta)
+            tol = 3e-2 if dt == mod.bfloat16 else 1e-4
+            assert torch.allclose(z_cand._buf.shards[r].float(), z_ref_r, atol=tol, rtol=tol)
+        mod.deallocate(z_cand)
+
+        win_idx = [0, 1]
+        gamma_w = torch.stack([encs[r].gamma[win_idx[r]] for r in range(world)], dim=0).detach().requires_grad_(True)
+        beta_w = torch.stack([encs[r].beta[win_idx[r]] for r in range(world)], dim=0).detach().requires_grad_(True)
+        dz_shards = [torch.randn(1, n, n, c) for _ in range(world)]
+
+        # Reference PyTorch autograd grads for winner.
+        W_ref = W.detach().clone().requires_grad_(True)
+        lnw_ref = lnw.detach().clone().requires_grad_(True)
+        gw_ref = gamma_w.detach().clone().requires_grad_(True)
+        bw_ref = beta_w.detach().clone().requires_grad_(True)
+        ref_loss = 0.0
+        for r in range(world):
+            fs_w = step_tbl[encs[r].bins_step[win_idx[r]:win_idx[r] + 1].long()]
+            fc_w = encs[r].fallback_const
+            fa_w = torch.cat([fs_w, fc_w], dim=-1)
+            zw_r = _ref_forward(fa_w, W_ref, lnw_ref, gw_ref[r:r + 1], bw_ref[r:r + 1])
+            ref_loss = ref_loss + (zw_r * dz_shards[r]).sum()
+        ref_loss.backward()
+
+        leaf_holders = []
+
+        class _MiniBridge:
+            def up_replicated(self, t, dtype=None):
+                ag_t = fake_ag.Tensor(dev.make_tensor([t.detach().clone() for _ in range(world)]), requires_grad=t.requires_grad)
+                leaf_holders.append(ag_t)
+                return ag_t
+
+            def up(self, t, dtype=None):
+                ag_t = fake_ag.Tensor(dev.make_tensor([t[r:r + 1].detach().clone() for r in range(world)]), requires_grad=t.requires_grad)
+                leaf_holders.append(ag_t)
+                return ag_t
+
+        z_win = rb.winner_taped_spmd(cache, encs, win_idx, gamma_w, beta_w, _MiniBridge(), dtype=mod.float32)
+        assert tuple(z_win.value.shape) == (1, n, n, c)
+        dz = dev.make_tensor([d.clone() for d in dz_shards])
+        z_win._bw(dz)
+        mod.deallocate(dz)
+        mod.deallocate(z_win.value)
+
+        w_l, l_l, g_l, b_l = leaf_holders
+        dW_got = sum(w_l.grad._buf.shards)
+        dL_got = sum(l_l.grad._buf.shards).reshape(c)
+        dG_got = torch.cat(g_l.grad._buf.shards, dim=0)
+        dB_got = torch.cat(b_l.grad._buf.shards, dim=0)
+        assert torch.allclose(dW_got, W_ref.grad, atol=5e-4, rtol=5e-4)
+        assert torch.allclose(dL_got, lnw_ref.grad, atol=5e-4, rtol=5e-4)
+        assert torch.allclose(dG_got, gw_ref.grad, atol=5e-4, rtol=5e-4)
+        assert torch.allclose(dB_got, bw_ref.grad, atol=5e-4, rtol=5e-4)
+        for lh in leaf_holders:
+            mod.deallocate(lh.value)
+            if lh.grad is not None:
+                mod.deallocate(lh.grad)
+
+    rb.deallocate()
+    assert len(dev.live_bufs) == 0
+
+
+def test_rfd4_run_cli_depths_flags_no_conflict(tmp_path):
+    """rfd4_run.py argparse registers --depths, --depths-from, --depth-override, --mesh without conflict."""
+    import ast
+
+    src = Path("tt_bio/train/rfd4_run.py").read_text()
+    tree = ast.parse(src)
+    # Count add_argument("--depths-from", ...) calls: must be exactly 1.
+    depths_from_calls = 0
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "add_argument":
+            for arg in node.args:
+                if isinstance(arg, ast.Constant) and arg.value == "--depths-from":
+                    depths_from_calls += 1
+    assert depths_from_calls == 1, f"expected 1 --depths-from arg, found {depths_from_calls}"
+
+    from tt_bio.train.rfd4_run import _load_depths
+    jf = tmp_path / "steps.jsonl"
+    jf.write_text('{"n_recycle": 2}\n{"depth": 1}\n{"n_recycle": 3}\n')
+    assert _load_depths("", str(jf)) == [2, 1, 3]
+    assert _load_depths("3,1,2", "") == [3, 1, 2]
 

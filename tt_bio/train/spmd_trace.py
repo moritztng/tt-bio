@@ -127,7 +127,7 @@ def _accurate_sigmoid(g):
 def _exact_f32_mm(a, b, *, transpose_a: bool = False, transpose_b: bool = False, cfg=None):
     """Exact fp32 matmul via bf16 hi+lo split (eliminates BH TF32 10-bit input truncation)."""
     import ttnn
-    from .device_optim import _split2_bf16
+    from .device_optim import _core_grid, _mm_cg, _split2_bf16
 
     ah, al = _split2_bf16(a)
     bh, bl = _split2_bf16(b)
@@ -136,6 +136,7 @@ def _exact_f32_mm(a, b, *, transpose_a: bool = False, transpose_b: bool = False,
         transpose_b=transpose_b,
         dtype=ttnn.float32,
         compute_kernel_config=cfg,
+        **_mm_cg(_core_grid(a.device())),
     )
     p0 = ttnn.matmul(ah, bh, **kw)
     p1 = ttnn.matmul(ah, bl, **kw)

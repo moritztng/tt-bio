@@ -32,6 +32,7 @@ from typing import Optional, Sequence
 import ttnn
 
 from tt_bio.envflags import env_flag
+from tt_bio import lead_sum as _lead_sum
 from tt_bio import mm_layout as _mm_layout
 from tt_bio import fanin_l1 as _fanin_l1
 from tt_bio import mm_generic as _mm_generic
@@ -1161,6 +1162,7 @@ SPLIT_K_MIN_KT = 64
 # the bits, are the same on every card.
 SPLIT_K_CHUNKS = int(os.environ.get("TT_BIO_SPLIT_K_CHUNKS", "64"))
 SPLIT_K_BROKEN = env_flag("TT_BIO_SPLIT_K_BROKEN", False)  # grader broken arm: drops upper K half
+SPLIT_K_SUM_FUSED = env_flag("TT_BIO_SPLIT_K_SUM_FUSED", True)  # the partials' sum tree as one kernel
 SPLIT_K_STATS = {"served": 0}
 
 
@@ -1372,7 +1374,14 @@ def _split_k(a, b, kw):
                         compute_kernel_config=cfg)
     # Halve with fp32 adds, not ttnn.sum: a reduction feeds the FPU, which reads fp32 as tf32, and
     # took rel L2 against float64 from the partials' 4.1e-4 to 1.0e-3 (stock 4.9e-4). P is a power of two.
-    out = parts
+    # `lead_sum`'s pairwise form is that tree in one program, same adds in the same order; the
+    # loop below is 3 log2(P) programs and stays for what the kernel declines.
+    if SPLIT_K_SUM_FUSED and not SPLIT_K_BROKEN and _lead_sum.pair_eligible(parts):
+        out = _lead_sum.lead_sum(parts, pairwise=True)
+        ttnn.deallocate(parts)
+        P = 1
+    else:
+        out = parts
     while P > 1:
         P //= 2
         lo = ttnn.slice(out, [0, 0, 0], [P, M, N])

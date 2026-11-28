@@ -379,10 +379,46 @@ def test_heads(dev, glue, batch8_path: str, pcie_meter_mod):
 
     assert worst_rel <= 1e-2 and min_cos >= 0.9999, f"Heads VJP D28 failed: worst_rel={worst_rel}, min_cos={min_cos}"
     assert gross_worst > 1e-2 and sub_worst > 1e-2, f"Broken arms failed to fail: {gross_worst}, {sub_worst}"
+
+    # Peaked small-loss (~4e-3) and near-zero (<1e-6) insertion CE unit gate (D104):
+    # random logits (loss ~5.5) hide -5e-4 SFPU exp/log bias and p-onehot cancellation.
+    ins_small = {}
+    target_np = b1["insertion_source_idx"].numpy()
+    pad_np = b1["padding_mask"].numpy().astype(bool)
+    active_rows = np.where(target_np[0] >= 0)[0]
+    valid_keys = np.where(pad_np[0] & (target_np[0] < 0))[0]
+    for label, runner_up in (("small_4e-3", -5.47), ("near_zero_1e-7", -16.1)):
+        z_case = np.full((b, n_pad, n_pad), -30.0, dtype=np.float32)
+        for r in active_rows:
+            tgt = int(target_np[0, r])
+            other = int(valid_keys[0] if valid_keys[0] != tgt else valid_keys[1])
+            z_case[0, r, tgt] = 0.0
+            z_case[0, r, other] = runner_up
+        z_tt = ttnn.from_torch(torch.from_numpy(z_case), dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev)
+        loss_got, dz_tt = device_insertion_loss(z_tt, b1, weight=1.0)
+        loss_ref, dz_ref = OBJ.insertion_loss(z_case[:, :n, :n].astype(np.float64), {
+            "insertion_source_idx": target_np, "padding_mask": pad_np,
+        })
+        dz_got = ttnn.to_torch(dz_tt).float().numpy()[:, :n, :n].astype(np.float64)
+        ttnn.deallocate(z_tt)
+        ttnn.deallocate(dz_tt)
+        l_got, l_ref = float(loss_got[0]), float(loss_ref[0])
+        l_rel = abs(l_got - l_ref) / max(abs(l_ref), 1e-12)
+        dz_rel = _rel_l2(dz_got, dz_ref)
+        ins_small[label] = {"loss_got": l_got, "loss_ref": l_ref, "loss_rel": l_rel, "dz_rel": dz_rel}
+        print(f"  Insertion {label:14s}: loss={l_got:.8f} ref={l_ref:.8f} rel={l_rel:.2e} dz_rel={dz_rel:.2e}", flush=True)
+        assert l_got >= 0.0, f"{label}: negative insertion CE {l_got}"
+        assert l_rel < 1e-6 and dz_rel < 1e-5, f"{label}: insertion parity failed ({l_rel:.2e}, {dz_rel:.2e})"
+    # Broken arm on small_4e-3 must fail loudly (>1e-2).
+    brk_small = abs((ins_small["small_4e-3"]["loss_got"] - 5e-4) - ins_small["small_4e-3"]["loss_ref"]) / ins_small["small_4e-3"]["loss_ref"]
+    assert brk_small > 1e-2, f"small_4e-3 broken arm did not fail: {brk_small}"
+    ins_small["broken_bias_rel"] = brk_small
+
     return {
         "fd_max": max_fd, "aa_max_abs": max(d[0] for d in aa_diffs.values()),
         "loss_rel": loss_rel, "worst_rel": worst_rel, "min_cos": min_cos,
-        "broken_gross": gross_worst, "broken_subtle_110": sub_worst, "pcie": pcie_heads,
+        "broken_gross": gross_worst, "broken_subtle_110": sub_worst,
+        "ins_small": ins_small, "pcie": pcie_heads,
     }
 
 

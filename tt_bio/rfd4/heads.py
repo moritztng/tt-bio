@@ -48,6 +48,56 @@ def _as_np(x) -> np.ndarray:
     return np.asarray(x)
 
 
+def _split2_mm(a, b, dtype, ckc, *, transpose_b: bool = False):
+    """Exact fp32 matmul via bf16 hi+lo split using production ``ttnn`` verbs.
+
+    Blackhole ``ttnn.matmul`` unpacks ``float32`` operands as ``bfloat16``
+    (~4e-3 rel_l2 over the 3-matmul insertion head chain, shifting small ~4e-3
+    CE losses by >1.5%). Splitting ``a = a_hi + a_lo`` and ``b = b_hi + b_lo``
+    into bf16 pairs recovers ~15-bit mantissa accuracy (~1e-5 rel_l2). Under an
+    active tape, ``a_lo`` and ``b_lo`` are computed with the tape suspended so
+    they stay detached constants and backward accumulates
+    ``g @ (b_hi + b_lo)^T`` and ``(a_hi + a_lo)^T @ g`` cleanly in fp32 without
+    bf16 cancellation.
+    """
+    if dtype != ttnn.float32:
+        return ttnn.matmul(
+            a, b, transpose_b=transpose_b, dtype=dtype, compute_kernel_config=ckc,
+        )
+    a_hi = ttnn.typecast(a, ttnn.bfloat16)
+    b_hi = ttnn.typecast(b, ttnn.bfloat16)
+    with ops.suspend_tape():
+        a_raw = getattr(a, "value", a)
+        b_raw = getattr(b, "value", b)
+        a_hi_raw = getattr(a_hi, "value", a_hi)
+        b_hi_raw = getattr(b_hi, "value", b_hi)
+        a_hi32 = ttnn.typecast(a_hi_raw, ttnn.float32)
+        a_lo32 = ttnn.subtract(a_raw, a_hi32)
+        ttnn.deallocate(a_hi32)
+        a_lo = ttnn.typecast(a_lo32, ttnn.bfloat16)
+        ttnn.deallocate(a_lo32)
+        b_hi32 = ttnn.typecast(b_hi_raw, ttnn.float32)
+        b_lo32 = ttnn.subtract(b_raw, b_hi32)
+        ttnn.deallocate(b_hi32)
+        b_lo = ttnn.typecast(b_lo32, ttnn.bfloat16)
+        ttnn.deallocate(b_lo32)
+    m0 = ttnn.matmul(
+        a_hi, b_hi, transpose_b=transpose_b, dtype=dtype, compute_kernel_config=ckc,
+    )
+    m1 = ttnn.matmul(
+        a_hi, b_lo, transpose_b=transpose_b, dtype=dtype, compute_kernel_config=ckc,
+    )
+    m2 = ttnn.matmul(
+        a_lo, b_hi, transpose_b=transpose_b, dtype=dtype, compute_kernel_config=ckc,
+    )
+    m01 = ttnn.add(m0, m1)
+    out = ttnn.add(m01, m2)
+    if not ops.taping():
+        for t in (a_hi, b_hi, a_lo, b_lo, m0, m1, m2, m01):
+            ttnn.deallocate(t)
+    return out
+
+
 class DeviceHeads:
     """On-card FlowGlue heads in float32.
 
@@ -147,13 +197,13 @@ class DeviceHeads:
         # 1. bb_ca: RMSNorm(768) -> Linear(768, 3) -> * emit_ca
         ca_h = ttnn.rms_norm(
             s32, weight=self.ca_norm_w, epsilon=EPS, compute_kernel_config=self.ckc)
-        ca_v = ttnn.matmul(ca_h, self.ca_w, dtype=self.dtype, compute_kernel_config=self.ckc)
+        ca_v = _split2_mm(ca_h, self.ca_w, self.dtype, self.ckc)
         bb_ca = ttnn.multiply(ca_v, emit_ca)
 
         # 2. local_latents: RMSNorm(768) -> Linear(768, 32) -> * emit_ll
         ll_h = ttnn.rms_norm(
             s32, weight=self.ll_norm_w, epsilon=EPS, compute_kernel_config=self.ckc)
-        ll_v = ttnn.matmul(ll_h, self.ll_w, dtype=self.dtype, compute_kernel_config=self.ckc)
+        ll_v = _split2_mm(ll_h, self.ll_w, self.dtype, self.ckc)
         local_latents = ttnn.multiply(ll_v, emit_ll)
 
         out: dict[str, dict[str, object]] = {
@@ -165,16 +215,14 @@ class DeviceHeads:
         if run_seq:
             seq_h = ttnn.rms_norm(
                 s32, weight=self.seq_norm_w, epsilon=EPS, compute_kernel_config=self.ckc)
-            seq_v = ttnn.matmul(
-                seq_h, self.seq_w, dtype=self.dtype, compute_kernel_config=self.ckc)
+            seq_v = _split2_mm(seq_h, self.seq_w, self.dtype, self.ckc)
             out["sequence"] = {"logits": ttnn.multiply(seq_v, pad_m)}
 
         # 4. insertion: q = s @ Wq, k = s @ Wk, logits = (q @ k^T) * (768 ** -0.5)
         if insertion:
-            q = ttnn.matmul(s32, self.ins_q_w, dtype=self.dtype, compute_kernel_config=self.ckc)
-            k = ttnn.matmul(s32, self.ins_k_w, dtype=self.dtype, compute_kernel_config=self.ckc)
-            ins_raw = ttnn.matmul(
-                q, k, transpose_b=True, dtype=self.dtype, compute_kernel_config=self.ckc)
+            q = _split2_mm(s32, self.ins_q_w, self.dtype, self.ckc)
+            k = _split2_mm(s32, self.ins_k_w, self.dtype, self.ckc)
+            ins_raw = _split2_mm(q, k, self.dtype, self.ckc, transpose_b=True)
             out["insertion"] = {
                 "logits": ttnn.multiply(ins_raw, self._insertion_head_scale)
             }

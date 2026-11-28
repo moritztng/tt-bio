@@ -57,6 +57,393 @@ def _checkpoint_due(step: int, total_steps: int, save_every: int, save_at: int) 
     return (last or step % save_every == 0), last
 
 
+def _load_depths(depths_csv: str, depths_from: str) -> list[int]:
+    """Parse an explicit per-step recycle-depth schedule from ``--depths`` or ``--depths-from``."""
+    if depths_csv:
+        return [max(1, int(x.strip())) for x in depths_csv.split(",") if x.strip()]
+    if not depths_from:
+        return []
+    out: list[int] = []
+    with open(os.path.expanduser(depths_from)) as fh:
+        for raw in fh:
+            line = raw.strip()
+            if not line:
+                continue
+            if line.startswith("{"):
+                rec = json.loads(line)
+                val = rec.get("n_recycle", rec.get("depth"))
+                if val is None:
+                    raise ValueError(f"{depths_from}: JSON line missing n_recycle/depth: {line[:80]}")
+                out.append(max(1, int(val)))
+            else:
+                for tok in line.replace(",", " ").split():
+                    out.append(max(1, int(tok)))
+    if not out:
+        raise ValueError(f"{depths_from}: no depths parsed")
+    return out
+
+
+def _dealloc_unique(tensors) -> None:
+    """Deallocate each distinct allocated ttnn.Tensor in ``tensors`` once."""
+    import ttnn
+    seen: set[int] = set()
+    for t in tensors:
+        if t is None:
+            continue
+        tid = id(t)
+        if tid in seen:
+            continue
+        seen.add(tid)
+        if t.is_allocated():
+            ttnn.deallocate(t)
+
+
+def _device_trunk_masks(mask_cpu, dev, dtype, residual_dtype=None, elide=None):
+    """Build the 6-tuple of trunk device masks on card from a tiny ``[b, n]`` mask upload.
+
+    Bit-exact (0.0 max abs diff) with :func:`tt_bio.rfd4.trunk.trunk_masks`, while avoiding
+    building and uploading ``[b, n, n]`` pair masks on host CPU (~60 ms & ~16 MB/step saved).
+    """
+    import torch
+    import ttnn
+    from tt_bio.rfd4 import trunk as TR
+
+    m = mask_cpu.to(torch.float32)
+    all_one = bool((m == 1).all())
+    if (TR.ELIDE_FULL_MASKS if elide is None else elide) and all_one:
+        return None, None, None, None, None, None
+    b, n = int(m.shape[0]), int(m.shape[1])
+
+    def _up(t):
+        return ttnn.from_torch(
+            t.contiguous(), dtype=dtype, layout=ttnn.TILE_LAYOUT,
+            device=dev, memory_config=ttnn.DRAM_MEMORY_CONFIG,
+        )
+
+    tok = _up(m[..., None])                        # [b, n, 1]
+    m_row = _up(m[:, None, :])                     # [b, 1, n]
+    pair_3d = ttnn.multiply(tok, m_row)            # [b, n, n]
+    ttnn.deallocate(m_row)
+    pair_1nn = ttnn.reshape(pair_3d, (b, 1, n, n))
+    inv = ttnn.subtract(pair_1nn, 1.0)
+    if pair_1nn is not pair_3d and pair_1nn.is_allocated():
+        try:
+            if pair_1nn.buffer_address() != pair_3d.buffer_address():
+                ttnn.deallocate(pair_1nn)
+        except Exception:
+            pass
+    attn_bias = ttnn.multiply(inv, -TR.NEG_INF)    # [b, 1, n, n]: 0 where valid, NEG_INF where masked
+    ttnn.deallocate(inv)
+    if bool(m.all()):
+        ttnn.deallocate(pair_3d)
+        pair_out = None
+    else:
+        pair_out = pair_3d
+    m_col4 = _up(m[:, :, None, None])              # [b, n, 1, 1]
+    m_row4 = _up(m[:, None, :, None])              # [b, 1, n, 1]
+    pair_c = ttnn.multiply(m_col4, m_row4)         # [b, n, n, 1]
+    ttnn.deallocate(m_col4)
+    ttnn.deallocate(m_row4)
+    res = residual_dtype or dtype
+    if res == dtype:
+        res_tok, res_pair_c = tok, pair_c
+    else:
+        res_tok, res_pair_c = ttnn.typecast(tok, res), ttnn.typecast(pair_c, res)
+    return (tok, attn_bias, pair_out, pair_c, res_tok, res_pair_c)
+
+
+def _device_transition_f32(x_dev, w_sw_f32, w_out_f32, mask_dev, ckc, cg):
+    """Grad-off SwiGLU Transition on device in fp32 (matches upstream ``Transition.forward``)."""
+    import ttnn
+    from .device_optim import _split2_bf16
+
+    def _mm2(a_f32, b_f32):
+        # 2-part split-bf16 exact fp32 matmul (BH single-pass fp32 matmul truncates inputs).
+        a_hi, a_lo = _split2_bf16(a_f32)
+        b_hi, b_lo = _split2_bf16(b_f32)
+        y = ttnn.matmul(a_hi, b_hi, transpose_b=True, dtype=ttnn.float32,
+                        compute_kernel_config=ckc, core_grid=cg)
+        p1 = ttnn.matmul(a_hi, b_lo, transpose_b=True, dtype=ttnn.float32,
+                         compute_kernel_config=ckc, core_grid=cg)
+        p2 = ttnn.matmul(a_lo, b_hi, transpose_b=True, dtype=ttnn.float32,
+                         compute_kernel_config=ckc, core_grid=cg)
+        ttnn.deallocate(a_hi)
+        ttnn.deallocate(a_lo)
+        ttnn.deallocate(b_hi)
+        ttnn.deallocate(b_lo)
+        y1 = ttnn.add(y, p1)
+        ttnn.deallocate(y)
+        ttnn.deallocate(p1)
+        y2 = ttnn.add(y1, p2)
+        ttnn.deallocate(y1)
+        ttnn.deallocate(p2)
+        return y2
+
+    sh = [int(d) for d in x_dev.shape]
+    h = _mm2(x_dev, w_sw_f32)
+    d_inner = int(h.shape[-1]) // 2
+    a = ttnn.slice(h, [0] * len(sh), sh[:-1] + [d_inner])
+    g = ttnn.slice(h, [0] * (len(sh) - 1) + [d_inner], sh[:-1] + [2 * d_inner])
+    ttnn.deallocate(h)
+    # Exact SiLU: BH ttnn.silu LUT (~2e-3) is amplified ~13x by transition_c_2.
+    sig = ttnn.sigmoid(g, mode=ttnn.SigmoidMode.Accurate)
+    sg = ttnn.multiply(g, sig)
+    ttnn.deallocate(g)
+    ttnn.deallocate(sig)
+    ag = ttnn.multiply(a, sg)
+    ttnn.deallocate(a)
+    ttnn.deallocate(sg)
+    out = _mm2(ag, w_out_f32)
+    ttnn.deallocate(ag)
+    if mask_dev is not None:
+        out2 = ttnn.multiply(out, mask_dev)
+        ttnn.deallocate(out)
+        out = out2
+    return out
+
+
+def _device_cand_conds(glue, bt, depth: int, master: dict, mk, dev, out_dtype):
+    """Build grad-off candidate conditioning ``[depth]`` of ``[K, N, dim_cond]`` on device.
+
+    Hoists the recycle-invariant ``cond_factory`` creators once across cycles, then runs
+    ``transition_c_1`` + ``transition_c_2`` either on ``[K, 1, dim]`` host (0.0 bit-exact when all
+    conditioning features are 2D per-example) or batched ``[U, K, N, dim]`` in fp32 on device.
+    """
+    import torch
+    import ttnn
+
+    cf = glue.cond_factory
+    mask = bt["padding_mask"]
+    K, n = int(mask.shape[0]), int(mask.shape[1])
+    if getattr(cf, "ret_zero", False):
+        return [
+            ttnn.from_torch(
+                glue.conditioning(bt, None if cyc == 0 else (depth - cyc - 1 if glue.condition_on_recycle_remaining else None))
+                .detach().contiguous(),
+                dtype=out_dtype, layout=ttnn.TILE_LAYOUT, device=dev,
+            )
+            for cyc in range(depth)
+        ]
+
+    # Precompute recycle-invariant features once across all `depth` cycles.
+    inv_feats = []
+    rec_idx = None
+    for idx, fc in enumerate(cf.feat_creators):
+        if type(fc).__name__ == "RecycleRemainingBatchFeat":
+            rec_idx = idx
+            inv_feats.append(None)
+        else:
+            inv_feats.append(fc(bt))
+
+    rems: list[int | None] = [None]
+    for cyc in range(1, depth):
+        rems.append(depth - cyc - 1 if glue.condition_on_recycle_remaining else None)
+    # Deduplicate identical `rem` values (e.g. recycle_remaining saturates at dim - 1).
+    uniq_rems: list[int | None] = []
+    cyc_to_u: list[int] = []
+    rec_dim = cf.feat_creators[rec_idx].get_dim() if rec_idx is not None else 1
+    seen_key: dict[int | None, int] = {}
+    for r in rems:
+        key = None if (r is None or rec_idx is None) else min(r, rec_dim - 1)
+        if key not in seen_key:
+            seen_key[key] = len(uniq_rems)
+            uniq_rems.append(r)
+        cyc_to_u.append(seen_key[key])
+
+    # Check whether every 3D feature is constant across valid tokens per example (e.g. FoldEmbeddingSeqFeat).
+    m_bool = mask > 0.5
+    first_idx = m_bool.to(torch.int64).argmax(dim=-1)
+    k_idx = torch.arange(K, device=mask.device)
+    inv_2d = []
+    row_const = True
+    for f in inv_feats:
+        if f is None or f.ndim == 2:
+            inv_2d.append(f)
+        elif f.ndim == 3:
+            f0 = f[k_idx, first_idx]
+            if bool(((f == f0.unsqueeze(1)) | (~m_bool.unsqueeze(-1))).all()):
+                inv_2d.append(f0)
+            else:
+                row_const = False
+                break
+        else:
+            row_const = False
+            break
+    if (row_const and isinstance(cf.ln_out, torch.nn.Identity)
+            and not glue.transition_c_1.use_layer_norm
+            and not glue.transition_c_2.use_layer_norm):
+        # Every feature is constant across valid tokens per example: evaluate transitions on [K, 1, d]
+        # in exact host fp32 (~0.5 ms, bit-identical to glue.conditioning), then tile-broadcast on card.
+        ones_m = mask.any(dim=-1, keepdim=True).to(mask.dtype)  # [K, 1]
+        u_devs = []
+        tok_m = mk[0]
+        for r in uniq_rems:
+            parts = []
+            for idx, f in enumerate(inv_2d):
+                if idx == rec_idx:
+                    f = cf.feat_creators[idx]({**bt, "recycle_remaining": r})
+                parts.append(f)
+            f2 = torch.cat(parts, dim=-1) * ones_m              # [K, D_in]
+            c2 = cf.linear_out(f2).unsqueeze(1)                 # [K, 1, dim_cond]
+            c2 = glue.transition_c_2(glue.transition_c_1(c2, ones_m), ones_m)
+            if n % 32 == 0:
+                c_t = ttnn.from_torch(
+                    c2.expand(K, 32, -1).to(torch.float32).contiguous(),
+                    dtype=out_dtype, layout=ttnn.TILE_LAYOUT,
+                    device=dev, memory_config=ttnn.DRAM_MEMORY_CONFIG,
+                )
+                c_rep = ttnn.repeat(c_t, (1, n // 32, 1)) if n > 32 else c_t
+                if c_rep is not c_t:
+                    ttnn.deallocate(c_t)
+                if tok_m is not None:
+                    c_full = ttnn.multiply(c_rep, tok_m)
+                    ttnn.deallocate(c_rep)
+                else:
+                    c_full = c_rep
+            else:
+                c_host = (c2.expand(K, n, -1) * mask.unsqueeze(-1)).to(torch.float32).contiguous()
+                c_full = ttnn.from_torch(
+                    c_host, dtype=out_dtype, layout=ttnn.TILE_LAYOUT,
+                    device=dev, memory_config=ttnn.DRAM_MEMORY_CONFIG,
+                )
+            u_devs.append(c_full)
+        return [u_devs[ui] for ui in cyc_to_u]
+
+    # General 3D feature path: batched fp32 transition_c_1 + transition_c_2 on device.
+    k_sw1 = "glue.transition_c_1.swish_linear.0.weight"
+    k_lo1 = "glue.transition_c_1.linear_out.weight"
+    k_sw2 = "glue.transition_c_2.swish_linear.0.weight"
+    k_lo2 = "glue.transition_c_2.linear_out.weight"
+    can_dev = (
+        not glue.transition_c_1.use_layer_norm
+        and not glue.transition_c_2.use_layer_norm
+        and glue.transition_c_1.swish_linear[0].bias is None
+        and glue.transition_c_1.linear_out.bias is None
+        and glue.transition_c_2.swish_linear[0].bias is None
+        and glue.transition_c_2.linear_out.bias is None
+        and all(k in master for k in (k_sw1, k_lo1, k_sw2, k_lo2))
+    )
+    raw_u = []
+    for r in uniq_rems:
+        parts = []
+        for idx, f in enumerate(inv_feats):
+            if idx == rec_idx:
+                f = cf.feat_creators[idx]({**bt, "recycle_remaining": r})
+            if f.ndim == 2:
+                f = f.reshape(K, 1, -1).expand(K, n, -1)
+            parts.append(f)
+        feats = cf.apply_padding_mask(torch.cat(parts, dim=-1), mask)
+        proj = cf.linear_out(feats)
+        c_raw = cf.apply_padding_mask(cf.ln_out(proj).to(proj.dtype), mask)
+        raw_u.append(c_raw)
+    if not can_dev:
+        u_devs = [
+            ttnn.from_torch(
+                glue.transition_c_2(glue.transition_c_1(c, mask), mask).contiguous(),
+                dtype=out_dtype, layout=ttnn.TILE_LAYOUT, device=dev,
+            )
+            for c in raw_u
+        ]
+        return [u_devs[ui] for ui in cyc_to_u]
+
+    U = len(raw_u)
+    x_stack = torch.cat(raw_u, dim=0).to(torch.float32).contiguous()  # [U*K, N, 256]
+    x_dev = ttnn.from_torch(
+        x_stack, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT,
+        device=dev, memory_config=ttnn.DRAM_MEMORY_CONFIG,
+    )
+    g = dev.compute_with_storage_grid_size()
+    cg = ttnn.CoreGrid(y=g.y, x=g.x)
+    ckc = ttnn.WormholeComputeKernelConfig(
+        math_fidelity=ttnn.MathFidelity.HiFi4,
+        math_approx_mode=False,
+        fp32_dest_acc_en=True,
+        packer_l1_acc=True,
+    )
+    m3_owned = False
+    if mk[4] is not None:
+        m_base = mk[4] if mk[4].dtype == ttnn.float32 else ttnn.typecast(mk[4], ttnn.float32)
+        m_base_owned = (m_base is not mk[4])
+        if U > 1:
+            m3 = ttnn.repeat(m_base, (U, 1, 1))
+            if m_base_owned:
+                ttnn.deallocate(m_base)
+            m3_owned = True
+        else:
+            m3 = m_base
+            m3_owned = m_base_owned
+    else:
+        m3 = None
+    y1 = _device_transition_f32(x_dev, master[k_sw1], master[k_lo1], m3, ckc, cg)
+    ttnn.deallocate(x_dev)
+    y2 = _device_transition_f32(y1, master[k_sw2], master[k_lo2], m3, ckc, cg)
+    ttnn.deallocate(y1)
+    if m3_owned:
+        ttnn.deallocate(m3)
+    if out_dtype != ttnn.float32:
+        y_out = ttnn.typecast(y2, out_dtype)
+        ttnn.deallocate(y2)
+    else:
+        y_out = y2
+    d_c = int(y_out.shape[-1])
+    if U == 1:
+        u_devs = [y_out]
+    else:
+        u_devs = [ttnn.slice(y_out, [ui * K, 0, 0], [(ui + 1) * K, n, d_c]) for ui in range(U)]
+        ttnn.deallocate(y_out)
+    return [u_devs[ui] for ui in cyc_to_u]
+
+
+def _device_cand_init_repr(glue, bt, master: dict, mk, dev):
+    """Build grad-off candidate ``s0`` (``[K, N, token_dim]`` fp32) on device via ``opt.master``."""
+    import torch
+    import ttnn
+
+    irf = glue.init_repr_factory
+    w_key = "glue.init_repr_factory.linear_out.weight"
+    if (getattr(irf, "ret_zero", False)
+            or not isinstance(irf.ln_out, torch.nn.Identity)
+            or irf.linear_out.bias is not None
+            or w_key not in master):
+        s0 = irf(bt) * bt["padding_mask"][..., None]
+        return ttnn.from_torch(
+            s0.detach().to(torch.float32).contiguous(),
+            dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT,
+            device=dev, memory_config=ttnn.DRAM_MEMORY_CONFIG,
+        )
+    mask = bt["padding_mask"]
+    K, n = int(mask.shape[0]), int(mask.shape[1])
+    parts = []
+    for fc in irf.feat_creators:
+        f = fc(bt)
+        if f.ndim == 2:
+            f = f.reshape(K, 1, -1).expand(K, n, -1)
+        parts.append(f)
+    feats = torch.cat(parts, dim=-1).to(torch.float32).contiguous()
+    f_dev = ttnn.from_torch(
+        feats, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT,
+        device=dev, memory_config=ttnn.DRAM_MEMORY_CONFIG,
+    )
+    if mk[4] is not None:
+        m4 = mk[4] if mk[4].dtype == ttnn.float32 else ttnn.typecast(mk[4], ttnn.float32)
+        fm = ttnn.multiply(f_dev, m4)
+        if m4 is not mk[4]:
+            ttnn.deallocate(m4)
+        ttnn.deallocate(f_dev)
+        f_dev = fm
+    g = dev.compute_with_storage_grid_size()
+    cg = ttnn.CoreGrid(y=g.y, x=g.x)
+    ckc = ttnn.WormholeComputeKernelConfig(
+        math_fidelity=ttnn.MathFidelity.HiFi4,
+        math_approx_mode=False,
+        fp32_dest_acc_en=True,
+        packer_l1_acc=True,
+    )
+    s0_dev = ttnn.matmul(f_dev, master[w_key], transpose_b=True, compute_kernel_config=ckc, core_grid=cg)
+    ttnn.deallocate(f_dev)
+    return s0_dev
+
+
 def main(argv=None, on_step=None):
     """``on_step(row)`` is called with each step's row, the same dict that is printed. Tier 0
     (`rfd4_tier0`) hands it the status writer; a bare run hands nothing and only prints."""
@@ -64,6 +451,10 @@ def main(argv=None, on_step=None):
     ap.add_argument("--n", type=int, default=256, help="token length; taken from --batch when one is given")
     ap.add_argument("--k", type=int, default=4)
     ap.add_argument("--depth", type=int, default=2)
+    ap.add_argument("--depths", default="",
+                    help="comma-separated per-step recycle depths (overrides batch metadata depth)")
+    ap.add_argument("--depths-from", default="",
+                    help="path to JSONL (n_recycle/depth per line, e.g. final-mat-nocg/steps.jsonl) or integer list")
     ap.add_argument("--steps", type=int, default=6)
     ap.add_argument("--save-at", type=int, default=0)
     ap.add_argument("--resume", default="")
@@ -137,7 +528,7 @@ def main(argv=None, on_step=None):
     ap.add_argument("--resident", action="store_true",
                     help="device-resident training (D89): DeviceOptimizer (Muon+Adam+clip+EMA), "
                          "DeviceFolds (on-card fold_bwd+refold), and DeviceHeads + on-card insertion loss")
-    ap.add_argument("--ns-mode", choices=("split2", "split2_hifi4", "fp32"), default="split2",
+    ap.add_argument("--ns-mode", choices=("fp32", "hyb_e1", "split2_fast", "split2", "split2_hifi4"), default="fp32",
                     help="Newton-Schulz precision mode for DeviceOptimizer under --resident")
     ap.add_argument("--ema-decay", type=float, default=0.999,
                     help="EMA decay for DeviceOptimizer under --resident (<0 disables EMA)")
@@ -160,8 +551,6 @@ def main(argv=None, on_step=None):
                     help="run candidate cond_factory/transition_c/init_repr on host CPU under --mesh")
     ap.add_argument("--eth-dispatch", choices=("auto", "on", "off"), default="auto",
                     help="ETH dispatch cores under --mesh (auto=ETH on BH Galaxy for 12x10=120 Tensix cores)")
-    ap.add_argument("--depths-from", default="",
-                    help="JSONL path whose n_recycle column overrides per-step recycle depth (e.g. B200 steps.jsonl)")
     ap.add_argument("--depth-override", type=int, default=0,
                     help="override per-step recycle depth to a fixed positive integer on real batches")
     ap.add_argument("--break-spmd-reduce", action="store_true",
@@ -190,10 +579,7 @@ def main(argv=None, on_step=None):
         raise SystemExit("--serial-accum must be >= 1")
     if a.serial_accum > 1 and not a.resident:
         raise SystemExit("--serial-accum > 1 requires --resident")
-    depth_seq = None
-    if a.depths_from:
-        from tt_bio.train.spmd_rfd4 import load_depths_jsonl
-        depth_seq = load_depths_jsonl(a.depths_from)
+    depths_seq = _load_depths(a.depths, a.depths_from)
     if a.arm == "fp32-exact":
         os.environ["TT_BIO_LEVERS"] = "none"   # Trunk builds on mode_levers(), which reads this, not lever_scope
         a.lnbw_weights = "off"   # the fused LN-backward kernel is a perf lever; the control arm verified by r4t-tape has none
@@ -451,7 +837,7 @@ def main(argv=None, on_step=None):
         return trunk(s_init, z_init, conds, masks, prev=prev)
 
     def one_example(step, taped):
-        step_d = int(depth_seq[step % len(depth_seq)]) if depth_seq is not None else (
+        step_d = int(depths_seq[step % len(depths_seq)]) if depths_seq else (
             int(a.depth_override) if a.depth_override > 0 else a.depth
         )
         if spmd_mesh_shape is not None:
@@ -493,6 +879,7 @@ def main(argv=None, on_step=None):
                     return winner(s_init, z_init, [cond1] * step_d)
             return winner(s_init, z_init, [cond1] * step_d)
 
+    opt = None
     real = None
     if a.batch:
         import numpy as np
@@ -505,8 +892,8 @@ def main(argv=None, on_step=None):
         def use(step, *, depth_step=None):
             nm, b, m, _rec, rl = batches[step if a.curve_dump else step % len(batches)]
             ds = step if depth_step is None else depth_step
-            if depth_seq is not None:
-                d_use = int(depth_seq[ds % len(depth_seq)])
+            if depths_seq:
+                d_use = int(depths_seq[ds % len(depths_seq)])
             elif a.depth_override > 0:
                 d_use = int(a.depth_override)
             else:
@@ -541,6 +928,8 @@ def main(argv=None, on_step=None):
             return out
 
         def tmask(b):
+            if a.arm != "fp32-exact":
+                return _device_trunk_masks(b["padding_mask"].float(), dev, dtype=trunk.dtype, residual_dtype=trunk.residual_dtype)
             return TR.trunk_masks(b["padding_mask"].float(), dev, dtype=trunk.dtype, residual_dtype=trunk.residual_dtype)
 
         @contextlib.contextmanager
@@ -586,20 +975,38 @@ def main(argv=None, on_step=None):
             bt, K = cur["bt"], cur["K"]
             mk = tmask(bt)
             use_res_pair = (res_pair is not None)
+            use_dev_glue = (a.resident and a.arm != "fp32-exact" and opt is not None)
             pc = None if use_res_pair else pair_card()
             pair_cache = None
             phase = {}
             want_penult = a.win_pre == "reuse" and cur["depth"] > 1
+            s0 = None
+            z0 = None
+            ck = None
+            s0_in = None
+            ck_in = None
             with torch.no_grad():
-                ck = conds_for(bt)
-                if use_res_pair:
-                    enc_p = res_pair.encode_step(bt)
-                    s0 = glue.init_repr_factory(bt) * bt["padding_mask"][..., None]
+                if use_dev_glue:
+                    ck_in = _device_cand_conds(glue, bt, cur["depth"], opt.master, mk, dev, trunk.dtype)
+                    if use_res_pair:
+                        enc_p = res_pair.encode_step(bt)
+                        s0_in = _device_cand_init_repr(glue, bt, opt.master, mk, dev)
+                    else:
+                        s0, z0 = glue.initial_states(bt, pair_constant=glue.pair_split.constant(bt) if pc else None)
                 else:
-                    s0, z0 = glue.initial_states(bt, pair_constant=glue.pair_split.constant(bt) if pc else None)
+                    ck = conds_for(bt)
+                    if use_res_pair:
+                        enc_p = res_pair.encode_step(bt)
+                        s0 = glue.init_repr_factory(bt) * bt["padding_mask"][..., None]
+                    else:
+                        s0, z0 = glue.initial_states(bt, pair_constant=glue.pair_split.constant(bt) if pc else None)
             win = None
             penult_k = (None, None)
             cand_outside = a.cand_levers in ("serve", "serve_train")
+            if s0_in is None:
+                s0_in = put(s0)
+            if ck_in is None:
+                ck_in = [put(c, trunk.dtype) for c in ck]
             if cand_outside:
                 if a.phase_timing:
                     ttnn.synchronize_device(dev)
@@ -610,10 +1017,9 @@ def main(argv=None, on_step=None):
                     else:
                         zk0 = pc(z0, 0) if pc else put(z0, trunk.pair_dtype(mk))
                     if want_penult:
-                        sk, zk, penult_k = trunk(put(s0), zk0, [put(c, trunk.dtype) for c in ck], mk,
-                                                 return_penultimate=True)
+                        sk, zk, penult_k = trunk(s0_in, zk0, ck_in, mk, return_penultimate=True)
                     else:
-                        sk, zk = trunk(put(s0), zk0, [put(c, trunk.dtype) for c in ck], mk)
+                        sk, zk = trunk(s0_in, zk0, ck_in, mk)
                     if a.resident:
                         from tt_bio.train.rfd4_heads import device_candidate_scores
                         win = device_candidate_scores(glue, sk, bt, K)
@@ -634,10 +1040,9 @@ def main(argv=None, on_step=None):
                     else:
                         zk0 = pc(z0, 0) if pc else put(z0, trunk.pair_dtype(mk))
                     if want_penult:
-                        sk, zk, penult_k = trunk(put(s0), zk0, [put(c, trunk.dtype) for c in ck], mk,
-                                                 return_penultimate=True)
+                        sk, zk, penult_k = trunk(s0_in, zk0, ck_in, mk, return_penultimate=True)
                     else:
-                        sk, zk = trunk(put(s0), zk0, [put(c, trunk.dtype) for c in ck], mk)
+                        sk, zk = trunk(s0_in, zk0, ck_in, mk)
                     if a.resident:
                         from tt_bio.train.rfd4_heads import device_candidate_scores
                         win = device_candidate_scores(glue, getattr(sk, "value", sk), bt, K)
@@ -649,6 +1054,11 @@ def main(argv=None, on_step=None):
                 if a.phase_timing:
                     ttnn.synchronize_device(dev)
                     phase["cand_trunk_s"] = round(time.time() - _tc0, 5)
+            _dealloc_unique([s0_in, *mk])
+            keep_ck_for_pre = bool(taped and use_dev_glue and a.win_pre == "suspend" and cur["depth"] > 1)
+            if not keep_ck_for_pre:
+                _dealloc_unique(ck_in)
+                ck_in = None
             if win is None:
                 with torch.no_grad():
                     ok = {k: v.double().numpy() for k, v in flat(glue.heads(sh, bt)).items()}
@@ -663,12 +1073,20 @@ def main(argv=None, on_step=None):
                         ttnn.deallocate(t)
                 if pair_cache is not None:
                     pair_cache.release()
+                if ck_in is not None:
+                    _dealloc_unique(ck_in)
                 with T.lever_scope(levers), ag.tape(), torch.no_grad(), ag.no_grad():
                     walk_register()
                     s_i, z_i = glue.initial_states(bw)
                     return winner(put(s_i), put(z_i, trunk.pair_dtype(m1)),
                                   [put(c, trunk.dtype) for c in conds_for(bw)], m1)
-            cs = conds_for(bw)
+            # When pre-final cycles are reused or run grad-off via ck_in, only the final taped cycle
+            # needs host autograd conditioning (earlier cycles were detached and carried zero grad).
+            if keep_ck_for_pre or (want_penult and penult_k[0] is not None):
+                last_rem = 0 if (cur["depth"] > 1 and glue.condition_on_recycle_remaining) else None
+                cs = [glue.conditioning(bw, last_rem)]
+            else:
+                cs = conds_for(bw)
             use_card_pair = bool(pc and a.win_pair == "card")
             z_in_pre = None
             if use_res_pair:
@@ -720,10 +1138,14 @@ def main(argv=None, on_step=None):
                     else:
                         zp_in = put(z_i.detach(), trunk.pair_dtype(m1))
                         zp_owned = True
-                    cp_in = [put(c.detach(), trunk.dtype) for c in cs[:-1]]
+                    if keep_ck_for_pre and ck_in is not None:
+                        cp_in = [_slice_win(c, win) for c in ck_in[:-1]]
+                        _dealloc_unique(ck_in)
+                        ck_in = None
+                    else:
+                        cp_in = [put(c.detach(), trunk.dtype) for c in cs[:-1]]
                     s_prev, z_prev = trunk(sp_in, zp_in, cp_in, m1)
-                    for t in (sp_in, *cp_in):
-                        ttnn.deallocate(t)
+                    _dealloc_unique([sp_in, *cp_in])
                     if zp_owned:
                         ttnn.deallocate(zp_in)
                 if a.break_win_pre:
@@ -732,6 +1154,9 @@ def main(argv=None, on_step=None):
                     s_prev = bad
                 prev = (s_prev, z_prev)
                 keep = prev
+            if ck_in is not None:
+                _dealloc_unique(ck_in)
+                ck_in = None
             with T.lever_scope(levers), ag.tape():
                 walk_register()
                 if use_res_pair:
@@ -745,21 +1170,19 @@ def main(argv=None, on_step=None):
             if a.phase_timing:
                 ttnn.synchronize_device(dev)
                 phase["win_trunk_s"] = round(time.time() - _tw0, 5)
-            return s, z, dict(br=br, bw=bw, win=win, shape=s_i.shape, keep=keep, phase=phase)
+            return s, z, dict(br=br, bw=bw, win=win, shape=s_i.shape, keep=(*keep, *m1), phase=phase)
 
         def real_loss(s, ctx):
             """rfd4_loss on our heads; under --resident runs DeviceHeads + on-card insertion loss."""
             br, bw = ctx["br"], ctx["bw"]
             if a.resident:
                 from tt_bio.train.rfd4_heads import device_winner_loss
-                res = device_winner_loss(
+                out = device_winner_loss(
                     glue, s if isinstance(s, ag.Tensor) else ag.Tensor(s, requires_grad=True),
                     bw, bridge=br, ref_terms=cur["ref"], win_idx=ctx["win"],
                 )
-                for t in ctx.get("keep", ()):
-                    if t is not None and t.is_allocated():
-                        ttnn.deallocate(t)
-                return res
+                _dealloc_unique(ctx.get("keep", ()))
+                return out
             sh = br.down(s if isinstance(s, ag.Tensor) else ag.Tensor(s, requires_grad=True)).reshape(ctx["shape"])
             o = flat(glue.heads(sh, bw))
             total, bd, seeds = RO.rfd4_loss({**npy(bw), "exploration_k": 1},
@@ -788,9 +1211,7 @@ def main(argv=None, on_step=None):
                 ctx["phase"]["win_plus_bwd_s"] = round(ctx["phase"].get("win_trunk_s", 0.0) + tb, 5)
             else:
                 br.backward(sur)
-            for t in ctx.get("keep", ()):
-                if t is not None and t.is_allocated():
-                    ttnn.deallocate(t)
+            _dealloc_unique(ctx.get("keep", ()))
             terms = {k: v.get("value") for k, v in bd.items() if isinstance(v, dict)}
             ref = {k: float(cur["ref"][k][ctx["win"]]) for k in terms if k in cur["ref"]
                    and ctx["win"] < len(cur["ref"][k])}
@@ -804,18 +1225,6 @@ def main(argv=None, on_step=None):
                 from concurrent.futures import ThreadPoolExecutor
                 _spmd_pool = ThreadPoolExecutor(max_workers=min(32, max(1, world)))
             return _spmd_pool
-
-        def _dealloc_unique(tensors):
-            seen = set()
-            for t in tensors:
-                if t is None or id(t) in seen:
-                    continue
-                seen.add(id(t))
-                try:
-                    if t.is_allocated():
-                        ttnn.deallocate(t)
-                except Exception:
-                    pass
 
         def _trunk_masks_spmd(mask_2d: torch.Tensor):
             """Build exact sharded trunk masks on card from 1-D [world*B, n] mask (zero [world*B, n, n] CPU/PCIe)."""
@@ -879,8 +1288,8 @@ def main(argv=None, on_step=None):
             rank_metas = [it[2] for it in rank_items]
             rank_refs = [it[4] for it in rank_items]
             K = int(rank_bts[0]["padding_mask"].shape[0])
-            if depth_seq is not None:
-                step_depth = int(depth_seq[step % len(depth_seq)])
+            if depths_seq:
+                step_depth = int(depths_seq[step % len(depths_seq)])
             elif a.depth_override > 0:
                 step_depth = int(a.depth_override)
             else:
@@ -1392,8 +1801,11 @@ def main(argv=None, on_step=None):
             for w_nm in DEVICE_GLUE_WEIGHTS:
                 host_glue_params.pop(w_nm, None)
         names = list(params)
+        max_depth = (max(depths_seq) if depths_seq else
+                     (a.depth_override if a.depth_override > 0 else
+                      (max(int(b[2]["depth"]) for b in batches) if a.batch else a.depth)))
         cyc = {nm: "depth-1 draws feed a zero state into the cycle projection; trains at depth >= 2"
-               for nm in names if "cycle" in nm and a.depth < 2}
+               for nm in names if "cycle" in nm and max_depth < 2}
         ax = None
         if world > 1 and spmd_mesh_shape is None:
             from tt_bio.train.launcher import ProcessAxis
@@ -1466,8 +1878,11 @@ def main(argv=None, on_step=None):
             build()
             print(json.dumps(dict(frozen=fz)), flush=True)
         names = list(params)
+        max_depth = (max(depths_seq) if depths_seq else
+                     (a.depth_override if a.depth_override > 0 else
+                      (max(int(b[2]["depth"]) for b in batches) if a.batch else a.depth)))
         cyc = {nm: "depth-1 draws feed a zero state into the cycle projection; trains at depth >= 2"
-               for nm in names if "cycle" in nm and a.depth < 2}
+               for nm in names if "cycle" in nm and max_depth < 2}
         ax = None
         if world > 1:
             from tt_bio.train.launcher import ProcessAxis
@@ -1746,6 +2161,9 @@ def main(argv=None, on_step=None):
                         grad_norm_adam=float(opt.last_grad_norm),
                         grad_norm_muon=float(getattr(opt, "last_grad_norm_muon", 0.0)),
                     )
+                step_d_log = (cur["depth"] if real else
+                              (int(depths_seq[step % len(depths_seq)]) if depths_seq else
+                               (int(a.depth_override) if a.depth_override > 0 else a.depth)))
                 row = dict(step=step + 1, rank=rank, world=world, resident=True, ns_mode=a.ns_mode,
                            loss=loss, lr=opt_info["lr"], grad_norm=gnorm,
                            fwd_s=round(t1 - t0, 4), bwd_s=round(t2 - t1, 4),
@@ -1757,7 +2175,7 @@ def main(argv=None, on_step=None):
                            params=len(params), n_elems=n_elems,
                            master_digest=md, aiclk=[min(sm or [0]), max(sm or [0])],
                            aiclk_med=sorted(sm)[len(sm) // 2] if sm else 0,
-                           k=a.k, depth=cur["depth"] if real else a.depth, n=n,
+                           k=a.k, depth=step_d_log, n=n,
                            lnbw_reach=dict(lnbw.REACH), gate_bw=list(gate_bw.STATS),
                            mmvjp=dict(ag.MMVJP_STATS), dw_2d=dict(ag._mm_layout.DW_2D_REACH),
                            split_k=dict(ag.SPLIT_K_STATS), sum_leading=dict(ag.SUM_LEADING_STATS),
@@ -1808,12 +2226,15 @@ def main(argv=None, on_step=None):
                 md = hashlib.sha256(b"".join(opt.master[k].tobytes() for k in sorted(opt.master))).hexdigest()[:16]
                 sm = clk[c0:] or clk[-1:]
                 gnorm = math.hypot(opt.last_grad_norm, getattr(opt, "last_grad_norm_muon", 0.0))
+                step_d_log = (cur["depth"] if real else
+                              (int(depths_seq[step % len(depths_seq)]) if depths_seq else
+                               (int(a.depth_override) if a.depth_override > 0 else a.depth)))
                 row = dict(step=step + 1, rank=rank, world=world, loss=loss, lr=opt.last_lr, grad_norm=gnorm,
                            fwd_s=round(t1 - t0, 4), bwd_s=round(t2 - t1, 4),
                            fold_bwd_s=round(t2b - t2, 4), opt_s=round(t2c - t2b, 4), rebuild_s=round(t3 - t2c, 4), rebuild_split=dict(RB), idle_dev_w=len(idle), step_s=round(t3 - t0, 4), retained_B=retained,
                            dead=len(dead), dead_names=sorted(dead)[:20], dev_base_B=base, dev_after_bwd_B=after_bwd, params=len(params), n_elems=int(sum(v.size for v in opt.master.values())),
                            master_digest=md, aiclk=[min(sm or [0]), max(sm or [0])], aiclk_med=sorted(sm)[len(sm) // 2] if sm else 0,
-                           k=a.k, depth=a.depth, n=n, lnbw_reach=dict(lnbw.REACH), gate_bw=list(gate_bw.STATS), mmvjp=dict(ag.MMVJP_STATS), dw_2d=dict(ag._mm_layout.DW_2D_REACH), split_k=dict(ag.SPLIT_K_STATS), sum_leading=dict(ag.SUM_LEADING_STATS), widen_reach=dict(ag._rne_add.WIDEN_REACH), kernels={k: list(v) for k, v in __import__("tt_bio.taped_ttnn", fromlist=["x"]).KERNEL_STATS.items()}, **extra,
+                           k=a.k, depth=step_d_log, n=n, lnbw_reach=dict(lnbw.REACH), gate_bw=list(gate_bw.STATS), mmvjp=dict(ag.MMVJP_STATS), dw_2d=dict(ag._mm_layout.DW_2D_REACH), split_k=dict(ag.SPLIT_K_STATS), sum_leading=dict(ag.SUM_LEADING_STATS), widen_reach=dict(ag._rne_add.WIDEN_REACH), kernels={k: list(v) for k, v in __import__("tt_bio.taped_ttnn", fromlist=["x"]).KERNEL_STATS.items()}, **extra,
                            **({"pcie": PM.take()} if PM else {}), host_maxrss_GiB=round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 2**20, 3))
             print(json.dumps(row), flush=True)
             if on_step is not None:

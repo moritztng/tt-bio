@@ -4,16 +4,19 @@ Lives under ``tt_bio/train/`` so inference module ``tt_bio/rfd4/heads.py`` never
 imports ``autograd``.
 
 ``device_insertion_loss`` evaluates the ``[b, n, n]`` insertion cross-entropy and
-its gradient ``dL/dlogits`` strictly on card in float32 from 1-D index/mask
-vectors (~3 KB PCIe total), eliminating pair-sized PCIe traffic in heads bwd.
+its gradient ``dL/dlogits`` via exact float64 :func:`rfd4_objective.insertion_loss`
+only on batches with active query rows (``target >= 0``; zero ops and zero PCIe
+bytes when no insertions are active, ~262 KB each way at ``n=256`` when active),
+avoiding Tenstorrent SFPU ``exp``/``log`` cancellation that produces negative
+cross-entropy and >6% gradient error when the loss is small (~4e-3 or below).
 
 ``device_candidate_scores`` runs the grad-off K-candidate exploration scoring
 through ``FlowGlue.heads`` on card (only reading back tiny ``[K, n, 3]`` +
 ``[K, n, 32]`` = ~0.14 MB instead of ``[K, n, 768]`` = 3.15 MB).
 
-``device_winner_loss`` runs taped ``FlowGlue.heads`` on card, computes the
-insertion loss on card and the token-sized terms in exact float64 numpy, uploads
-the tiny token-sized seeds (~0.19 MB), and runs a single ``ag.backward`` on card.
+``device_winner_loss`` runs taped ``FlowGlue.heads`` on card, computes the loss
+terms in exact float64 numpy (only transferring insertion logits on batches with
+active insertions), uploads the seeds, and runs a single ``ag.backward`` on card.
 """
 from __future__ import annotations
 
@@ -26,8 +29,6 @@ import ttnn
 from .. import autograd as ag
 from . import rfd4_objective as RO
 
-_NEG_INF = -1e9
-
 __all__ = [
     "device_insertion_loss",
     "device_candidate_scores",
@@ -36,15 +37,6 @@ __all__ = [
     "device_candidate_scores_spmd",
     "device_winner_loss_spmd",
 ]
-
-
-def _pad_1d(arr: np.ndarray, n_pad: int, fill: float = 0.0) -> np.ndarray:
-    b, n = arr.shape
-    if n == n_pad:
-        return arr
-    out = np.full((b, n_pad), fill, dtype=arr.dtype)
-    out[:, :n] = arr
-    return out
 
 
 def _as_np(x) -> np.ndarray:
@@ -66,15 +58,15 @@ def device_insertion_loss(
     win: np.ndarray | None = None,
     weight: float = 1.0,
 ) -> tuple[np.ndarray, object | None]:
-    """On-card insertion cross-entropy loss and ``[b, n_pad, n_pad]`` gradient.
+    """Exact float64 insertion cross-entropy loss and ``[b, n_pad, n_pad]`` gradient.
 
-    Matches :func:`tt_bio.train.rfd4_objective.insertion_loss` (and the
-    ``keep[win] * weight`` scaling from :func:`rfd4_loss`) while keeping the
-    pair-sized logits and gradient strictly on device. Only 1-D index/mask
-    vectors (~3 KB) are uploaded and ``b`` loss scalars (``4*b`` bytes) are
-    downloaded.
+    Delegates to :func:`tt_bio.train.rfd4_objective.insertion_loss` (and applies
+    the ``keep[win] * weight`` scaling from :func:`rfd4_loss`) so small and
+    near-zero cross-entropy losses never suffer SFPU ``exp``/``log`` bias or
+    ``p - onehot`` cancellation. Works on both single-chip devices and multi-chip
+    SPMD ``MeshDevice``s.
 
-    Returns ``(per_example_loss_np [b], dL_dlogits_tt [b, n_pad, n_pad] or None)``.
+    Returns ``(per_example_loss_np [b], dL_dlogits_tt [b_local, n_pad, n_pad] or None)``.
     When no query rows are active (``target < 0`` everywhere), returns
     ``(zeros(b), None)`` with zero device ops and zero PCIe bytes.
     """
@@ -87,24 +79,19 @@ def device_insertion_loss(
 
     target_raw = _as_np(batch["insertion_source_idx"]).astype(np.int64)
     pad_raw = _as_np(batch["padding_mask"]).astype(bool)
-    b = int(target_raw.shape[0])
+    b, n_tok = (int(x) for x in target_raw.shape)
     if world > 1 and b != world * b_local:
         raise ValueError(
             f"device_insertion_loss: batch leading dim {b} != world ({world}) * per-chip ({b_local})"
         )
+    if world == 1 and b != b_local:
+        raise ValueError(
+            f"device_insertion_loss: batch leading dim {b} != logits leading dim ({b_local})"
+        )
 
-    target = _pad_1d(target_raw, n_pad, -1)
-    pad = _pad_1d(pad_raw, n_pad, False)
-
-    row = target >= 0
-    has = row.any(-1)
-    if not has.any():
+    row = target_raw >= 0
+    if not row.any():
         return np.zeros(b, dtype=np.float64), None
-
-    key_ok = pad & (target < 0)
-    nv = row.sum(-1).astype(np.float64)
-    snv = np.where(nv > 0, nv, 1.0)
-    has_f = has.astype(np.float64)
 
     if win is None:
         keep = np.ones(b, dtype=np.float64)
@@ -112,83 +99,34 @@ def device_insertion_loss(
         keep = np.zeros(b, dtype=np.float64)
         keep[np.asarray(win, np.int64)] = 1.0 / len(win)
 
-    loss_row_scale = (row * (has_f / snv)[:, None]).astype(np.float32)
-    dz_row_scale = (loss_row_scale * (keep * float(weight))[:, None]).astype(np.float32)
-    safe_idx = np.where(row, target, -1).astype(np.float32)
-    key_ok_f = key_ok.astype(np.float32)
-    key_neg_f = np.where(key_ok, 0.0, _NEG_INF).astype(np.float32)
-    arange_f = np.arange(n_pad, dtype=np.float32).reshape(1, 1, n_pad)
-
     with ag.no_grad():
-        def up3_sharded(arr: np.ndarray):
-            t = torch.from_numpy(np.ascontiguousarray(arr))
-            if world > 1:
-                return put_sharded(t, dev, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT)
-            return ttnn.from_torch(
-                t, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev,
+        z_t = read_sharded(z, dev) if world > 1 else ttnn.to_torch(z)
+        z_cpu = z_t.detach().cpu()
+        loss_np = np.zeros(b, dtype=np.float64)
+        dz_buf = np.zeros((b, n_pad, n_pad), dtype=np.float32)
+        key_ok = pad_raw & (target_raw < 0)
+        scale_b = keep * float(weight)
+        for bi in np.flatnonzero(row.any(-1)):
+            q = np.flatnonzero(row[bi])
+            nv = float(len(q))
+            kok = key_ok[bi]
+            zb = z_cpu[bi, q, :n_tok].float().numpy().astype(np.float64)
+            zm = np.where(kok[None, :], zb, -1e9)
+            logp, p = RO._log_softmax(zm)
+            tgt_q = target_raw[bi, q]
+            idx_q = np.arange(len(q))
+            loss_np[bi] = float((-logp[idx_q, tgt_q]).sum()) / nv
+            if scale_b[bi] != 0.0:
+                p[idx_q, tgt_q] -= 1.0
+                dz_q = (p * (scale_b[bi] / nv)) * kok[None, :]
+                dz_buf[bi, q, :n_tok] = dz_q.astype(np.float32)
+        dz_t = torch.from_numpy(np.ascontiguousarray(dz_buf))
+        if world > 1:
+            dz = put_sharded(dz_t, dev, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT)
+        else:
+            dz = ttnn.from_torch(
+                dz_t, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev,
             )
-
-        def up3_rep(arr: np.ndarray):
-            return ttnn.from_torch(
-                torch.from_numpy(np.ascontiguousarray(arr)),
-                dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev,
-            )
-
-        key_ok_tt = up3_sharded(key_ok_f[:, None, :])
-        key_neg_tt = up3_sharded(key_neg_f[:, None, :])
-        loss_scale_tt = up3_sharded(loss_row_scale[:, :, None])
-        dz_scale_tt = up3_sharded(dz_row_scale[:, :, None])
-        safe_tt = up3_sharded(safe_idx[:, :, None])
-        arange_tt = up3_rep(arange_f)
-
-        onehot_raw = ttnn.eq(arange_tt, safe_tt)
-        onehot = (onehot_raw if onehot_raw.dtype == ttnn.float32
-                  else ttnn.typecast(onehot_raw, ttnn.float32))
-        if onehot is not onehot_raw:
-            ttnn.deallocate(onehot_raw)
-
-        z_masked = ttnn.multiply(z, key_ok_tt)
-        zm = ttnn.add(z_masked, key_neg_tt)
-        ttnn.deallocate(z_masked)
-
-        m = ttnn.max(zm, dim=-1, keepdim=True)
-        shift = ttnn.subtract(zm, m)
-        ttnn.deallocate(zm)
-        ttnn.deallocate(m)
-        ex = ttnn.exp(shift)
-        sum_ex = ttnn.sum(ex, dim=-1, keepdim=True)
-        lse = ttnn.log(sum_ex)
-        logp = ttnn.subtract(shift, lse)
-        p = ttnn.divide(ex, sum_ex)
-        ttnn.deallocate(shift)
-        ttnn.deallocate(ex)
-        ttnn.deallocate(sum_ex)
-        ttnn.deallocate(lse)
-
-        sel_logp = ttnn.multiply(onehot, logp)
-        ttnn.deallocate(logp)
-        row_logp = ttnn.sum(sel_logp, dim=-1, keepdim=True)
-        ttnn.deallocate(sel_logp)
-        neg_row = ttnn.multiply(row_logp, -1.0)
-        ttnn.deallocate(row_logp)
-        w_row = ttnn.multiply(neg_row, loss_scale_tt)
-        ttnn.deallocate(neg_row)
-        loss_tt = ttnn.sum(w_row, dim=1, keepdim=False)
-        ttnn.deallocate(w_row)
-        loss_t = read_sharded(loss_tt, dev) if world > 1 else ttnn.to_torch(loss_tt)
-        loss_np = loss_t.detach().cpu().numpy().reshape(b).astype(np.float64)
-        ttnn.deallocate(loss_tt)
-
-        diff = ttnn.subtract(p, onehot)
-        ttnn.deallocate(p)
-        ttnn.deallocate(onehot)
-        dz_r = ttnn.multiply(diff, dz_scale_tt)
-        ttnn.deallocate(diff)
-        dz = ttnn.multiply(dz_r, key_ok_tt)
-        ttnn.deallocate(dz_r)
-
-        for t in (key_ok_tt, key_neg_tt, loss_scale_tt, dz_scale_tt, safe_tt, arange_tt):
-            ttnn.deallocate(t)
 
     return loss_np, dz
 

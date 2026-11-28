@@ -15,7 +15,6 @@ Zero ``ttnn`` import at module load (preserves ``tests/test_training_opt_in.py``
 from __future__ import annotations
 
 import hashlib
-import inspect
 import json
 import math
 from pathlib import Path
@@ -407,14 +406,12 @@ class SPMDZero1Step:
             _safe_dealloc,
             _sum_sq_last2_exact_f32,
             newton_schulz_device,
-            transpose_exact_f32,
         )
 
         assert self.muon_sharder is not None and self.muon_plan is not None
         opt = self.base_opt
         dis = set(disabled)
         sh_names = self.muon_plan.sharded_names
-        ns_has_tall = "tall" in inspect.signature(newton_schulz_device).parameters
         sync_s = 0.0
 
         # 1. Phase A: RS_2D -> AG_ax1 for sharded Muon + exact 2D all-reduce for remaining params.
@@ -563,8 +560,6 @@ class SPMDZero1Step:
         masks = self.muon_sharder.active_masks_for_step(dev_grads, dis, self.device)
         sh_slots = [slot for wg in self.muon_plan.width_groups for slot in wg.buckets]
         u_list = []
-        flipped_flags = []
-        tall_flags = []
         for slot in sh_slots:
             shp = slot.shape
             g_sh = grad_shards[shp]
@@ -606,37 +601,16 @@ class SPMDZero1Step:
                 ttnn.deallocate(g_eff)
             ttnn.deallocate(g_sh)
 
-            flipped = slot.m > slot.cols
-            tall_native = (
-                ns_has_tall
-                and flipped
-                and opt.ns_mode in ("split2_fast", "split2_hyb1", "split2_hyb2", "fp32")
-            )
             u_list.append(u_b)
-            flipped_flags.append(flipped)
-            tall_flags.append(tall_native)
 
         def _run_ns_all(us):
-            outs = []
-            for u_cur, flipped, tall_native in zip(us, flipped_flags, tall_flags):
-                if flipped and not tall_native:
-                    u_ns = transpose_exact_f32(u_cur)
-                else:
-                    u_ns = u_cur
-                ns_kw = {"tall": tall_native} if ns_has_tall else {}
-                o_ns = newton_schulz_device(
-                    u_ns, steps=mu.ns_steps, coeffs=mu.ns_coefficients, eps=mu.eps,
-                    mode=opt.ns_mode, **ns_kw,
+            return [
+                newton_schulz_device(
+                    u_cur, steps=mu.ns_steps, coeffs=mu.ns_coefficients, eps=mu.eps,
+                    mode=opt.ns_mode,
                 )
-                if u_ns is not u_cur:
-                    ttnn.deallocate(u_ns)
-                if flipped and not tall_native:
-                    o_b = transpose_exact_f32(o_ns)
-                    ttnn.deallocate(o_ns)
-                else:
-                    o_b = o_ns
-                outs.append(o_b)
-            return outs
+                for u_cur in us
+            ]
 
         if tracer is not None and sh_slots:
             ns_key = (

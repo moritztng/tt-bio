@@ -347,18 +347,35 @@ def _dev_zeros_f32(shape: tuple[int, ...], device, layout=None):
     return ttnn.clone(hit)
 
 
+def _strip_lead1(s: tuple[int, ...]) -> tuple[int, ...]:
+    i = 0
+    while i < len(s) - 1 and s[i] == 1:
+        i += 1
+    return s[i:]
+
+
 def _dev_reshape_f32(x, target_shape: tuple[int, ...]):
     """Bit-exact fp32 reshape on card without ever creating a width-1 ROW_MAJOR tensor.
 
-    ``ttnn.to_layout`` on width-1 ROW_MAJOR tensors (e.g. ``(384, 1)``) corrupts data or wedges
-    on Blackhole. Any ``(M, 1)`` source or target is routed through ``(1, M)`` + bit-exact 2-D
-    TILE transpose instead.
+    Leading-1 rank changes on tile-aligned TILE tensors (e.g. ``(256,) <-> (1, 256)``,
+    ``(32, 384) <-> (1, 1, 32, 384)``) run directly in TILE layout without ROW_MAJOR round-trips.
+    Any ``(M, 1)`` source or target is routed through ``(1, M)`` + bit-exact 2-D TILE transpose.
     """
     import ttnn
     cur = tuple(int(s) for s in x.shape)
     tgt = tuple(int(s) for s in target_shape)
     if cur == tgt:
         return _dev_clone_f32(x)
+
+    # Direct TILE reshape for pure leading-1 rank changes on tile-aligned trailing axes.
+    if (x.layout == ttnn.TILE_LAYOUT and _strip_lead1(cur) == _strip_lead1(tgt)
+            and tgt[-1] % 32 == 0 and (len(tgt) < 2 or tgt[-2] == 1 or tgt[-2] % 32 == 0)):
+        r = ttnn.reshape(x, list(tgt))
+        try:
+            same = (r is x) or (r.buffer_address() == x.buffer_address())
+        except Exception:
+            same = (r is x)
+        return _dev_clone_f32(r) if same else r
 
     # Avoid reading a width-1 (M, 1) tensor via ROW_MAJOR: transpose to (1, M) first.
     src = x
@@ -446,6 +463,21 @@ def _ones_row_bf16(k: int, device):
         return hit
     t = ttnn.from_torch(
         torch.ones(1, int(k), dtype=torch.bfloat16),
+        dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=device,
+    )
+    _ONES_BF16_CACHE[key] = t
+    return t
+
+
+def _ones_batch_row_bf16(b: int, k: int, device):
+    """Cached ``[b, 1, k]`` bf16 TILE batched row of ones for rank-3 batched matmul."""
+    import ttnn
+    key = (_dev_key(device), int(b), int(k))
+    hit = _ONES_BF16_CACHE.get(key)
+    if hit is not None and hit.is_allocated():
+        return hit
+    t = ttnn.from_torch(
+        torch.ones(int(b), 1, int(k), dtype=torch.bfloat16),
         dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=device,
     )
     _ONES_BF16_CACHE[key] = t
@@ -585,6 +617,136 @@ def _dev_reduce_to_f32(g, target_shape: tuple[int, ...]):
     if not owned:
         cur = _dev_clone_f32(cur)
     return cur
+
+
+def _pow2_chunks(seq: list) -> list[list]:
+    """Partition ``seq`` into power-of-two slices (32, 16, 8, 4, 2, 1) so dynamic active sets
+    in ``tape_backward`` never JIT-compile a new batch size mid-run (e.g. d=1 vs batch08)."""
+    out: list[list] = []
+    off = 0
+    n = len(seq)
+    while off < n:
+        rem = n - off
+        c = 1 << min(5, rem.bit_length() - 1)
+        out.append(seq[off:off + c])
+        off += c
+    return out
+
+
+def _dev_batch_transpose_2d(xs: list, *, fast_dtype=None, pow2: bool = False) -> list:
+    """Batch-transpose same-shape 2-D float32 TILE tensors ``[(M, N), ...] -> [(N, M), ...]``.
+
+    When ``fast_dtype`` is ``bfloat16`` or ``bfloat8_b``, casts to ``bfloat16`` before a single
+    batched ``ttnn.transpose`` (0.0 bit-exact to fp32 transpose + cast, 5x faster). Otherwise
+    runs one batched 3-part bit-exact ``transpose_exact_f32``.
+    """
+    import ttnn
+    from .device_optim import _concat_dim0_exact_f32, _safe_dealloc, transpose_exact_f32
+
+    if not xs:
+        return []
+    if pow2 and len(xs) > 1:
+        out_p: list = []
+        for chunk in _pow2_chunks(xs):
+            out_p.extend(_dev_batch_transpose_2d(chunk, fast_dtype=fast_dtype, pow2=False))
+        return out_p
+    m, n = int(xs[0].shape[0]), int(xs[0].shape[1])
+    k = len(xs)
+    if k == 1 or (m % 32 != 0) or (n % 32 != 0):
+        out_single = []
+        for x in xs:
+            if fast_dtype in (ttnn.bfloat16, ttnn.bfloat8_b):
+                x16 = ttnn.typecast(x, ttnn.bfloat16)
+                xt = ttnn.transpose(x16, -2, -1)
+                ttnn.deallocate(x16)
+                if fast_dtype == ttnn.bfloat8_b:
+                    x8 = ttnn.typecast(xt, ttnn.bfloat8_b)
+                    ttnn.deallocate(xt)
+                    out_single.append(x8)
+                else:
+                    out_single.append(xt)
+            else:
+                out_single.append(_dev_transpose_2d(x))
+        return out_single
+
+    views = [ttnn.reshape(x, [1, m, n]) for x in xs]
+    stacked = _concat_dim0_exact_f32(views)
+    for v, orig in zip(views, xs):
+        _safe_dealloc(v, keep=orig)
+
+    if fast_dtype in (ttnn.bfloat16, ttnn.bfloat8_b):
+        s16 = ttnn.typecast(stacked, ttnn.bfloat16)
+        ttnn.deallocate(stacked)
+        st = ttnn.transpose(s16, -2, -1)
+        ttnn.deallocate(s16)
+        if fast_dtype == ttnn.bfloat8_b:
+            s8 = ttnn.typecast(st, ttnn.bfloat8_b)
+            ttnn.deallocate(st)
+            st = s8
+    else:
+        st = transpose_exact_f32(stacked)
+        ttnn.deallocate(stacked)
+
+    out = []
+    for i in range(k):
+        sl = ttnn.slice(st, [i, 0, 0], [i + 1, n, m])
+        r = ttnn.reshape(sl, [n, m])
+        _safe_dealloc(sl, keep=r)
+        out.append(r)
+    ttnn.deallocate(st)
+    return out
+
+
+def _sum_dim1_batch3d_exact_f32(x3d):
+    """Exact IEEE fp32 sum along dim 1 of 3-D ``[K, M, N]`` (``M % 32 == 0, N % 32 == 0``) -> ``[K, 1, N]``.
+
+    Halves tile-aligned ``M`` via IEEE float32 ``ttnn.add`` down to ``<= 32`` rows (one tile),
+    then sums the final single tile via split-bf16 HiFi4 ``[1, m] @ [K, m, N]`` (zero multi-tile
+    L1 packer drift, ``~1e-7`` exact).
+    """
+    import ttnn
+    from .device_optim import _ckc, _core_grid, _mm_cg, _ones_row_bf16, _split2_bf16
+
+    k, m, n = (int(d) for d in x3d.shape)
+    cur = x3d
+    owned = False
+    while m >= 64:
+        half = ((m // 32) // 2) * 32
+        left = ttnn.slice(cur, [0, 0, 0], [k, half, n])
+        right = ttnn.slice(cur, [0, half, 0], [k, 2 * half, n])
+        s = ttnn.add(left, right)
+        ttnn.deallocate(left)
+        ttnn.deallocate(right)
+        if 2 * half < m:
+            tail = ttnn.slice(cur, [0, 2 * half, 0], [k, m, n])
+            nxt = ttnn.concat([s, tail], dim=1)
+            ttnn.deallocate(s)
+            ttnn.deallocate(tail)
+        else:
+            nxt = s
+        if owned:
+            ttnn.deallocate(cur)
+        cur, owned = nxt, True
+        m = int(cur.shape[1])
+
+    if m == 1:
+        return cur if owned else _dev_clone_f32(cur)
+
+    dev = cur.device()
+    cg_kw = _mm_cg(_core_grid(dev))
+    ckc = _ckc(ttnn.MathFidelity.HiFi4)
+    ones = _ones_batch_row_bf16(k, m, dev)
+    hi, lo = _split2_bf16(cur)
+    if owned:
+        ttnn.deallocate(cur)
+    p0 = ttnn.matmul(ones, hi, dtype=ttnn.float32, compute_kernel_config=ckc, **cg_kw)
+    p1 = ttnn.matmul(ones, lo, dtype=ttnn.float32, compute_kernel_config=ckc, **cg_kw)
+    ttnn.deallocate(hi)
+    ttnn.deallocate(lo)
+    out = ttnn.add(p0, p1)
+    ttnn.deallocate(p0)
+    ttnn.deallocate(p1)
+    return out
 
 
 class _FoldNode:
@@ -1038,6 +1200,57 @@ class DeviceFolds:
             return out
         raise NotImplementedError(f"DeviceFolds._eval_node: unknown op {op}")
 
+    def _eval_batch_muls(self, mul_nids: list[int], vals: dict[int, object]) -> None:
+        """Batch same-shape 2-D ``(M, N) * (N,)/(1, N)`` ``mul`` nodes into one 3-D multiply."""
+        import ttnn
+        from .device_optim import _concat_dim0_exact_f32, _safe_dealloc
+
+        groups: dict[tuple, list[tuple[int, int, int]]] = {}
+        fallback: list[int] = []
+        for nid in mul_nids:
+            node = self.nodes[nid]
+            aid, bid = node.inputs
+            ash, bsh, osh = self.nodes[aid].shape, self.nodes[bid].shape, node.shape
+            if len(osh) == 2 and osh[0] % 32 == 0 and osh[1] % 32 == 0:
+                m, n = osh
+                if ash == (m, n) and bsh in ((n,), (1, n)):
+                    groups.setdefault((m, n), []).append((nid, aid, bid))
+                    continue
+                if bsh == (m, n) and ash in ((n,), (1, n)):
+                    groups.setdefault((m, n), []).append((nid, bid, aid))
+                    continue
+            fallback.append(nid)
+
+        for (m, n), items in groups.items():
+            if len(items) < 2:
+                for nid, _, _ in items:
+                    fallback.append(nid)
+                continue
+            k = len(items)
+            a_views, b_views = [], []
+            for _nid, fid, vid in items:
+                a_views.append(ttnn.reshape(vals[fid], [1, m, n]))
+                b_views.append(ttnn.reshape(vals[vid], [1, 1, n]))
+            a_b = _concat_dim0_exact_f32(a_views)
+            b_b = _concat_dim0_exact_f32(b_views)
+            for v, (_nid, fid, _vid) in zip(a_views, items):
+                _safe_dealloc(v, keep=vals[fid])
+            for v, (_nid, _fid, vid) in zip(b_views, items):
+                _safe_dealloc(v, keep=vals[vid])
+            p_b = ttnn.multiply(a_b, b_b)
+            ttnn.deallocate(a_b)
+            ttnn.deallocate(b_b)
+            for i, (nid, _, _) in enumerate(items):
+                sl = ttnn.slice(p_b, [i, 0, 0], [i + 1, m, n])
+                r = ttnn.reshape(sl, [m, n])
+                _safe_dealloc(sl, keep=r)
+                vals[nid] = r
+            ttnn.deallocate(p_b)
+
+        for nid in fallback:
+            node = self.nodes[nid]
+            vals[nid] = _dev_mul_f32(vals[node.inputs[0]], vals[node.inputs[1]], node.shape)
+
     def refold(self, dev_masters: Mapping[str, object], *, on_refold=None, in_place: bool = False) -> None:
         """Recompute every bound serving weight on card from ``dev_masters`` (0 PCIe bytes).
 
@@ -1064,40 +1277,91 @@ class DeviceFolds:
             needed.add(nid)
             stack.extend(self.nodes[nid].inputs)
 
+        op_consumers: dict[int, int] = {nid: 0 for nid in needed}
         rem: dict[int, int] = {nid: 0 for nid in needed}
         for nid in needed:
             for inp in self.nodes[nid].inputs:
                 rem[inp] += 1
+                op_consumers[inp] += 1
         specs_by_nid: dict[int, list[_OutputSpec]] = {}
         for spec in self.specs:
             specs_by_nid.setdefault(spec.nid, []).append(spec)
             rem[spec.nid] += 1
 
+        # Compute forward topological depth so independent same-shape ops execute in batches.
+        depth_of: dict[int, int] = {}
+        by_level: dict[int, list[int]] = {}
+        for nid in sorted(needed):
+            inps = self.nodes[nid].inputs
+            lv = 0 if not inps else 1 + max(depth_of[i] for i in inps)
+            depth_of[nid] = lv
+            by_level.setdefault(lv, []).append(nid)
+
         vals: dict[int, object] = {}
         owned_val: set[int] = set()
 
-        for nid in sorted(needed):
-            node = self.nodes[nid]
-            v = self._eval_node(node, vals, dev_masters)
-            vals[nid] = v
-            if node.op != "leaf":
-                owned_val.add(nid)
-            for inp in node.inputs:
-                rem[inp] -= 1
-                if rem[inp] == 0 and inp in owned_val:
-                    ttnn.deallocate(vals.pop(inp))
-                    owned_val.discard(inp)
+        for lv in sorted(by_level):
+            level_nids = by_level[lv]
+            t_groups: dict[tuple, list[int]] = {}
+            mul_nids: list[int] = []
+            other_nids: list[int] = []
 
-            if nid in specs_by_nid:
+            for nid in level_nids:
+                node = self.nodes[nid]
+                if node.op == "t" and len(node.shape) == 2:
+                    in_shp = self.nodes[node.inputs[0]].shape
+                    fast_dt = None
+                    if op_consumers[nid] == 0 and nid in specs_by_nid:
+                        dts = {sp.dtype for sp in specs_by_nid[nid]}
+                        if len(dts) == 1:
+                            dt0 = next(iter(dts))
+                            if dt0 in (ttnn.bfloat16, ttnn.bfloat8_b):
+                                fast_dt = dt0
+                    t_groups.setdefault((in_shp, fast_dt), []).append(nid)
+                elif node.op == "mul":
+                    mul_nids.append(nid)
+                else:
+                    other_nids.append(nid)
+
+            for (_in_shp, fast_dt), nids in t_groups.items():
+                xs = [vals[self.nodes[nid].inputs[0]] for nid in nids]
+                outs = _dev_batch_transpose_2d(xs, fast_dtype=fast_dt)
+                for nid, out_t in zip(nids, outs):
+                    vals[nid] = out_t
+                    owned_val.add(nid)
+
+            if mul_nids:
+                self._eval_batch_muls(mul_nids, vals)
+                for nid in mul_nids:
+                    owned_val.add(nid)
+
+            for nid in other_nids:
+                node = self.nodes[nid]
+                vals[nid] = self._eval_node(node, vals, dev_masters)
+                if node.op != "leaf":
+                    owned_val.add(nid)
+
+            # Release inputs whose remaining consumer count hit 0.
+            for nid in level_nids:
+                for inp in self.nodes[nid].inputs:
+                    rem[inp] -= 1
+                    if rem[inp] == 0 and inp in owned_val:
+                        ttnn.deallocate(vals.pop(inp))
+                        owned_val.discard(inp)
+
+            # Bind output specs produced at this level.
+            for nid in level_nids:
+                if nid not in specs_by_nid:
+                    continue
+                v = vals[nid]
                 sp_list = specs_by_nid[nid]
                 for spec in sp_list:
                     rem[nid] -= 1
-                    # Transfer ownership directly if this is the final consumer of an owned fp32 intermediate.
-                    if spec.dtype == ttnn.float32 and rem[nid] == 0 and nid in owned_val:
+                    if v.dtype == spec.dtype and rem[nid] == 0 and nid in owned_val:
                         new_h = vals.pop(nid)
                         owned_val.discard(nid)
-                    elif spec.dtype == ttnn.float32:
-                        new_h = _dev_clone_f32(v)
+                    elif v.dtype == spec.dtype:
+                        new_h = ttnn.clone(v)
                     else:
                         new_h = ttnn.typecast(v, spec.dtype)
                     if spec.memory_config is not None:
@@ -1148,6 +1412,7 @@ class DeviceFolds:
         """
         import ttnn
         from .. import autograd as ag
+        from .device_optim import _concat_dim0_exact_f32, _safe_dealloc
 
         grads: dict[int, object] = {}
         idle: list = []
@@ -1201,11 +1466,40 @@ class DeviceFolds:
 
         fvals: dict[int, object] = {}
         owned_fval: set[int] = set()
-        for nid in sorted(need_fwd):
-            node = self.nodes[nid]
-            fvals[nid] = self._eval_node(node, fvals, dev_masters)
-            if node.op != "leaf":
-                owned_fval.add(nid)
+        if need_fwd:
+            fdepth: dict[int, int] = {}
+            flevels: dict[int, list[int]] = {}
+            for nid in sorted(need_fwd):
+                inps = self.nodes[nid].inputs
+                lv = 0 if not inps else 1 + max(fdepth[i] for i in inps)
+                fdepth[nid] = lv
+                flevels.setdefault(lv, []).append(nid)
+            for lv in sorted(flevels):
+                t_grp: dict[tuple, list[int]] = {}
+                m_nids: list[int] = []
+                o_nids: list[int] = []
+                for nid in flevels[lv]:
+                    nd = self.nodes[nid]
+                    if nd.op == "t" and len(nd.shape) == 2:
+                        t_grp.setdefault(self.nodes[nd.inputs[0]].shape, []).append(nid)
+                    elif nd.op == "mul":
+                        m_nids.append(nid)
+                    else:
+                        o_nids.append(nid)
+                for _shp, nids in t_grp.items():
+                    xs = [fvals[self.nodes[nid].inputs[0]] for nid in nids]
+                    for nid, out_t in zip(nids, _dev_batch_transpose_2d(xs, pow2=True)):
+                        fvals[nid] = out_t
+                        owned_fval.add(nid)
+                if m_nids:
+                    self._eval_batch_muls(m_nids, fvals)
+                    for nid in m_nids:
+                        owned_fval.add(nid)
+                for nid in o_nids:
+                    nd = self.nodes[nid]
+                    fvals[nid] = self._eval_node(nd, fvals, dev_masters)
+                    if nd.op != "leaf":
+                        owned_fval.add(nid)
 
         slice_consumers: dict[int, list[_FoldNode]] = {}
         for nid in active:
@@ -1236,112 +1530,198 @@ class DeviceFolds:
 
         pending_slices: dict[int, dict[int, object]] = {pid: {} for pid in fused_slice_parents}
 
+        # Reverse topological depth: process rlevel 0, 1, 2... so all consumers finish before parents.
+        children: dict[int, list[int]] = {nid: [] for nid in active}
+        for nid in active:
+            for inp in self.nodes[nid].inputs:
+                if inp in active:
+                    children[inp].append(nid)
+        rdepth: dict[int, int] = {}
+        rlevels: dict[int, list[int]] = {}
         for nid in sorted(active, reverse=True):
-            g = grads.pop(nid, None)
-            if g is None:
-                continue
-            node = self.nodes[nid]
-            op = node.op
+            ch = children[nid]
+            rlv = 0 if not ch else 1 + max(rdepth[c] for c in ch)
+            rdepth[nid] = rlv
+            rlevels.setdefault(rlv, []).append(nid)
 
-            if op == "leaf":
-                grads[nid] = g
-                continue
+        for rlv in sorted(rlevels):
+            t_batch: dict[tuple, list[tuple[int, object]]] = {}
+            mul_batch: dict[tuple, list[tuple[int, int, int, tuple, object]]] = {}
+            others: list[tuple[int, object]] = []
 
-            if op == "clone":
-                add_grad(node.inputs[0], g)
-                continue
-
-            if op == "t":
-                dt = _dev_transpose_2d(g)
-                ttnn.deallocate(g)
-                add_grad(node.inputs[0], dt)
-                continue
-
-            if op == "view":
-                dv = _dev_reshape_f32(g, self.nodes[node.inputs[0]].shape)
-                ttnn.deallocate(g)
-                add_grad(node.inputs[0], dv)
-                continue
-
-            if op == "expand":
-                de = _dev_reduce_to_f32(g, self.nodes[node.inputs[0]].shape)
-                ttnn.deallocate(g)
-                add_grad(node.inputs[0], de)
-                continue
-
-            if op == "mul_scalar":
-                ds = ttnn.multiply(g, float(node.attrs["scalar"]))
-                ttnn.deallocate(g)
-                add_grad(node.inputs[0], ds)
-                continue
-
-            if op == "mul":
-                aid, bid = node.inputs
-                av, bv = fvals[aid], fvals[bid]
-                ga_full = _dev_mul_f32(g, bv, node.shape)
-                gb_full = _dev_mul_f32(g, av, node.shape)
-                ttnn.deallocate(g)
-                da = _dev_reduce_to_f32(ga_full, self.nodes[aid].shape)
-                ttnn.deallocate(ga_full)
-                db = _dev_reduce_to_f32(gb_full, self.nodes[bid].shape)
-                ttnn.deallocate(gb_full)
-                add_grad(aid, da)
-                add_grad(bid, db)
-                continue
-
-            if op == "cat":
-                dim = node.attrs["dim"]
-                off = 0
-                for inp in node.inputs:
-                    w = self.nodes[inp].shape[dim]
-                    gi = _dev_slice_f32(g, dim, off, off + w)
-                    add_grad(inp, gi)
-                    off += w
-                ttnn.deallocate(g)
-                continue
-
-            if op == "slice":
-                pid = node.inputs[0]
-                if nid in fused_slice_nids:
-                    bucket = pending_slices[pid]
-                    bucket[nid] = g
-                    dim, ordered = fused_slice_parents[pid]
-                    if len(bucket) == len(ordered):
-                        pieces = [bucket.pop(sn.nid) for sn in ordered]
-                        joined = _dev_concat_f32(pieces, dim)
-                        for p in pieces:
-                            ttnn.deallocate(p)
-                        add_grad(pid, joined)
+            for nid in rlevels[rlv]:
+                g = grads.pop(nid, None)
+                if g is None:
+                    continue
+                node = self.nodes[nid]
+                op = node.op
+                if op == "leaf":
+                    grads[nid] = g
+                elif op == "t" and len(node.shape) == 2:
+                    t_batch.setdefault(node.shape, []).append((nid, g))
+                elif op == "mul" and len(node.shape) == 2 and node.shape[0] % 32 == 0 and node.shape[1] % 32 == 0:
+                    aid, bid = node.inputs
+                    ash, bsh = self.nodes[aid].shape, self.nodes[bid].shape
+                    m, n = node.shape
+                    if ash == (m, n) and bsh in ((n,), (1, n)):
+                        mul_batch.setdefault((m, n), []).append((nid, aid, bid, bsh, g))
+                    elif bsh == (m, n) and ash in ((n,), (1, n)):
+                        mul_batch.setdefault((m, n), []).append((nid, bid, aid, ash, g))
+                    else:
+                        others.append((nid, g))
                 else:
-                    dim = node.attrs["dim"]
-                    start, end = node.attrs["start"], node.attrs["end"]
-                    pshape = self.nodes[pid].shape
-                    parts = []
-                    owned_z = []
-                    if start > 0:
-                        zs = list(pshape); zs[dim] = start
-                        z = _dev_zeros_f32(tuple(zs), self.device)
-                        parts.append(z); owned_z.append(z)
-                    parts.append(g)
-                    if end < pshape[dim]:
-                        zs = list(pshape); zs[dim] = pshape[dim] - end
-                        z = _dev_zeros_f32(tuple(zs), self.device)
-                        parts.append(z); owned_z.append(z)
-                    padded = _dev_concat_f32(parts, dim)
+                    others.append((nid, g))
+
+            # 1. Batched exact 2-D transposes at this reverse level (pow2 chunks avoid mid-run JIT spikes).
+            for _shp, items in t_batch.items():
+                gs = [g for _, g in items]
+                dts = _dev_batch_transpose_2d(gs, pow2=True)
+                for (nid, g), dt in zip(items, dts):
                     ttnn.deallocate(g)
-                    for z in owned_z:
-                        ttnn.deallocate(z)
-                    add_grad(pid, padded)
-                continue
+                    add_grad(self.nodes[nid].inputs[0], dt)
 
-            if op == "scatter_slices":
-                for dim, start, end, src_nid in node.attrs["writes"]:
-                    gi = _dev_slice_f32(g, dim, start, end)
-                    add_grad(src_nid, gi)
-                ttnn.deallocate(g)
-                continue
+            # 2. Batched 2-D (M, N) * (N,)/(1, N) mul VJPs (e.g. 56x (768, 256) AdaLN gain folds).
+            for (m, n), items in mul_batch.items():
+                if len(items) < 2:
+                    for nid, _, _, _, g in items:
+                        others.append((nid, g))
+                    continue
+                k = len(items)
+                g_vs, f_vs, v_vs = [], [], []
+                for _nid, fid, vid, _vsh, g in items:
+                    g_vs.append(ttnn.reshape(g, [1, m, n]))
+                    f_vs.append(ttnn.reshape(fvals[fid], [1, m, n]))
+                    v_vs.append(ttnn.reshape(fvals[vid], [1, 1, n]))
+                g_b = _concat_dim0_exact_f32(g_vs)
+                f_b = _concat_dim0_exact_f32(f_vs)
+                v_b = _concat_dim0_exact_f32(v_vs)
+                for gv, fv, vv, (_nid, fid, vid, _vsh, g) in zip(g_vs, f_vs, v_vs, items):
+                    _safe_dealloc(gv, keep=g)
+                    _safe_dealloc(fv, keep=fvals[fid])
+                    _safe_dealloc(vv, keep=fvals[vid])
+                    ttnn.deallocate(g)
 
-            raise NotImplementedError(f"DeviceFolds.tape_backward: unknown op {op}")
+                df_b = ttnn.multiply(g_b, v_b)
+                ttnn.deallocate(v_b)
+                dv_full = ttnn.multiply(g_b, f_b)
+                ttnn.deallocate(g_b)
+                ttnn.deallocate(f_b)
+                dv_b = _sum_dim1_batch3d_exact_f32(dv_full)  # [k, 1, n]
+                ttnn.deallocate(dv_full)
+
+                for i, (_nid, fid, vid, vsh, _g) in enumerate(items):
+                    slf = ttnn.slice(df_b, [i, 0, 0], [i + 1, m, n])
+                    df_i = ttnn.reshape(slf, [m, n])
+                    _safe_dealloc(slf, keep=df_i)
+                    add_grad(fid, df_i)
+
+                    slv = ttnn.slice(dv_b, [i, 0, 0], [i + 1, 1, n])
+                    dv_i = ttnn.reshape(slv, list(vsh))
+                    _safe_dealloc(slv, keep=dv_i)
+                    add_grad(vid, dv_i)
+                ttnn.deallocate(df_b)
+                ttnn.deallocate(dv_b)
+
+            # 3. Remaining ops at this level.
+            for nid, g in others:
+                node = self.nodes[nid]
+                op = node.op
+
+                if op == "clone":
+                    add_grad(node.inputs[0], g)
+                    continue
+
+                if op == "t":
+                    dt = _dev_transpose_2d(g)
+                    ttnn.deallocate(g)
+                    add_grad(node.inputs[0], dt)
+                    continue
+
+                if op == "view":
+                    dv = _dev_reshape_f32(g, self.nodes[node.inputs[0]].shape)
+                    ttnn.deallocate(g)
+                    add_grad(node.inputs[0], dv)
+                    continue
+
+                if op == "expand":
+                    de = _dev_reduce_to_f32(g, self.nodes[node.inputs[0]].shape)
+                    ttnn.deallocate(g)
+                    add_grad(node.inputs[0], de)
+                    continue
+
+                if op == "mul_scalar":
+                    ds = ttnn.multiply(g, float(node.attrs["scalar"]))
+                    ttnn.deallocate(g)
+                    add_grad(node.inputs[0], ds)
+                    continue
+
+                if op == "mul":
+                    aid, bid = node.inputs
+                    av, bv = fvals[aid], fvals[bid]
+                    ga_full = _dev_mul_f32(g, bv, node.shape)
+                    gb_full = _dev_mul_f32(g, av, node.shape)
+                    ttnn.deallocate(g)
+                    da = _dev_reduce_to_f32(ga_full, self.nodes[aid].shape)
+                    ttnn.deallocate(ga_full)
+                    db = _dev_reduce_to_f32(gb_full, self.nodes[bid].shape)
+                    ttnn.deallocate(gb_full)
+                    add_grad(aid, da)
+                    add_grad(bid, db)
+                    continue
+
+                if op == "cat":
+                    dim = node.attrs["dim"]
+                    off = 0
+                    for inp in node.inputs:
+                        w = self.nodes[inp].shape[dim]
+                        gi = _dev_slice_f32(g, dim, off, off + w)
+                        add_grad(inp, gi)
+                        off += w
+                    ttnn.deallocate(g)
+                    continue
+
+                if op == "slice":
+                    pid = node.inputs[0]
+                    if nid in fused_slice_nids:
+                        bucket = pending_slices[pid]
+                        bucket[nid] = g
+                        dim, ordered = fused_slice_parents[pid]
+                        if len(bucket) == len(ordered):
+                            pieces = [bucket.pop(sn.nid) for sn in ordered]
+                            joined = _dev_concat_f32(pieces, dim)
+                            for p in pieces:
+                                ttnn.deallocate(p)
+                            add_grad(pid, joined)
+                    else:
+                        dim = node.attrs["dim"]
+                        start, end = node.attrs["start"], node.attrs["end"]
+                        pshape = self.nodes[pid].shape
+                        parts = []
+                        owned_z = []
+                        if start > 0:
+                            zs = list(pshape); zs[dim] = start
+                            z = _dev_zeros_f32(tuple(zs), self.device)
+                            parts.append(z); owned_z.append(z)
+                        parts.append(g)
+                        if end < pshape[dim]:
+                            zs = list(pshape); zs[dim] = pshape[dim] - end
+                            z = _dev_zeros_f32(tuple(zs), self.device)
+                            parts.append(z); owned_z.append(z)
+                        padded = _dev_concat_f32(parts, dim)
+                        ttnn.deallocate(g)
+                        for z in owned_z:
+                            ttnn.deallocate(z)
+                        add_grad(pid, padded)
+                    continue
+
+                if op == "scatter_slices":
+                    for dim, start, end, src_nid in node.attrs["writes"]:
+                        gi = _dev_slice_f32(g, dim, start, end)
+                        add_grad(src_nid, gi)
+                    ttnn.deallocate(g)
+                    continue
+
+                raise NotImplementedError(f"DeviceFolds.tape_backward: unknown op {op}")
 
         for pid, bucket in pending_slices.items():
             if not bucket:
@@ -1417,7 +1797,9 @@ def make_rfd4_refold_hook(trunk, glue=None, *, host_glue_params: Mapping[str, to
                     continue
                 wp_f32 = _dev_concat_f32([pa, pb], 0)
                 wg_f32 = _dev_concat_f32([ga, gb], 0)
-                wgo_f32 = _dev_transpose_2d(go)
+                go16 = ttnn.typecast(go, ttnn.bfloat16)
+                wgo16 = ttnn.transpose(go16, -2, -1)
+                ttnn.deallocate(go16)
                 for w8 in keys:
                     old_triple = t1_map.get(w8)
                     dt = ttnn.bfloat8_b if w8 else ttnn.bfloat16
@@ -1425,11 +1807,11 @@ def make_rfd4_refold_hook(trunk, glue=None, *, host_glue_params: Mapping[str, to
                         ttnn.typecast(wp_f32, dt, output_tensor=old_triple[0])
                         ttnn.typecast(wg_f32, dt, output_tensor=old_triple[1])
                         if w8 and old_triple[2] is not None:
-                            ttnn.typecast(wgo_f32, ttnn.bfloat8_b, output_tensor=old_triple[2])
+                            ttnn.typecast(wgo16, ttnn.bfloat8_b, output_tensor=old_triple[2])
                     else:
                         wp_new = ttnn.typecast(wp_f32, dt)
                         wg_new = ttnn.typecast(wg_f32, dt)
-                        wgo_new = ttnn.typecast(wgo_f32, ttnn.bfloat8_b) if w8 else None
+                        wgo_new = ttnn.typecast(wgo16, ttnn.bfloat8_b) if w8 else None
                         t1_map[w8] = (wp_new, wg_new, wgo_new)
                         if old_triple is not None:
                             for old_t in old_triple:
@@ -1437,7 +1819,7 @@ def make_rfd4_refold_hook(trunk, glue=None, *, host_glue_params: Mapping[str, to
                                     ttnn.deallocate(old_t)
                 ttnn.deallocate(wp_f32)
                 ttnn.deallocate(wg_f32)
-                ttnn.deallocate(wgo_f32)
+                ttnn.deallocate(wgo16)
 
         # 2. Clear lazy TokenAttention._bias_w fallback if ever created
         for blk in getattr(trunk, "blocks", ()):

@@ -43,6 +43,8 @@ the same edge set wherever the cap does not bind and a superset where it does; s
 
 from __future__ import annotations
 
+import os
+
 import torch
 from torch import Tensor, nn
 
@@ -384,6 +386,8 @@ class HostScoreNetwork:
         self.config = model.config
         self.lm_embeddings = lm_embeddings
         self.confidence_model = confidence_model
+        #: (structure file identity, centre, embedded receptor) of the last :meth:`confidence`
+        self._confidence_receptor = (None, None, None)
         #: host torch: the ESM-2 pass runs on the CPU so the whole dock does.
         self.on_device = False
 
@@ -445,7 +449,9 @@ class HostScoreNetwork:
         The confidence network reads an all-atom receptor graph
         (:data:`tt_bio.diffdock.input.CONFIDENCE_GRAPH`), which the score graph is not, so
         the graph is rebuilt from the structure -- with the ESM-2 embedding the complex
-        already carries, not a second pass over the same sequence.
+        already carries, not a second pass over the same sequence. It and its embedding are
+        the receptor's alone, so they are kept while consecutive calls name the same
+        structure file: a screen builds them once, not once per ligand.
         """
         if self.confidence_model is None:
             return None
@@ -459,11 +465,18 @@ class HostScoreNetwork:
             raise ValueError(
                 f"{graph.name}: the confidence network needs the receptor structure the "
                 "graph was built from; build the graph with input.build_complex_graph")
-        rec = build_receptor_graph(parse_receptor(graph.receptor_path),
-                                   lm_embeddings=graph.lm_embeddings,
-                                   **dfd_input.CONFIDENCE_GRAPH)
-        centre = rec["pos"].mean(dim=0, keepdim=True)
-        rec["pos"] = rec["pos"] - centre
-        rec["atom"]["pos"] = rec["atom"]["pos"] - centre
+        stat = os.stat(graph.receptor_path)
+        key = (str(graph.receptor_path), stat.st_mtime_ns, stat.st_size)
+        if self._confidence_receptor[0] != key:
+            rec = build_receptor_graph(parse_receptor(graph.receptor_path),
+                                       lm_embeddings=graph.lm_embeddings,
+                                       **dfd_input.CONFIDENCE_GRAPH)
+            centre = rec["pos"].mean(dim=0, keepdim=True)
+            rec["pos"] = rec["pos"] - centre
+            rec["atom"]["pos"] = rec["atom"]["pos"] - centre
+            self._confidence_receptor = (key, centre,
+                                         cm.embed_receptor(self.confidence_model, rec))
+        _, centre, rec = self._confidence_receptor
         pos = torch.as_tensor(poses, dtype=torch.float32) + graph.original_center - centre
-        return cm.score_poses(self.confidence_model, rec, graph.ligand, pos, convolve=convolve)
+        return cm.score_poses(self.confidence_model, None, graph.ligand, pos,
+                              convolve=convolve, embedded=rec)
