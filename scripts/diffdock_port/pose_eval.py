@@ -161,8 +161,20 @@ def dock_chunk(ids, out_dir: Path, seed: int, device: str = "cpu", edge_tp: str 
     return summary
 
 
+def _sample_sysfs(stop, out: list, path: str, period: float = 2.0):
+    """AICLK from the driver's sysfs node. On a Galaxy `tt-smi -s` walks all 32 chips per poll
+    and indexes them by a different numbering than TT_VISIBLE_DEVICES, so the caller names the
+    node of its own chip instead."""
+    while not stop.is_set():
+        try:
+            out.append(int(Path(path).read_text().split()[0]))
+        except (OSError, ValueError, IndexError):
+            pass
+        stop.wait(period)
+
+
 def dock(ids, out_dir: Path, workers: int, chunk: int, seed: int, threads: int,
-         device: str = "cpu", edge_tp: str = "gemm"):
+         device: str = "cpu", edge_tp: str = "gemm", clk_sysfs: str | None = None):
     out_dir.mkdir(parents=True, exist_ok=True)
     if device != "cpu":
         # One chip, one process: the card is the serial resource, so the pool is a pool of one
@@ -184,9 +196,13 @@ def dock(ids, out_dir: Path, workers: int, chunk: int, seed: int, threads: int,
         sys.path.insert(0, str(REPO))
         from tt_bio.diffdock.capture import sample_aiclk
         clk_stop = threading.Event()
-        clk_thread = threading.Thread(
-            target=sample_aiclk, daemon=True,
-            args=(clk_stop, clk_samples, os.environ.get("TT_VISIBLE_DEVICES", "0")))
+        if clk_sysfs:
+            clk_thread = threading.Thread(target=_sample_sysfs, daemon=True,
+                                          args=(clk_stop, clk_samples, clk_sysfs))
+        else:
+            clk_thread = threading.Thread(
+                target=sample_aiclk, daemon=True,
+                args=(clk_stop, clk_samples, os.environ.get("TT_VISIBLE_DEVICES", "0")))
         clk_thread.start()
     t0 = time.time()
     while chunks or running:
@@ -480,6 +496,9 @@ def main():
                         "On a card the pool is one process on one chip.")
     d.add_argument("--edge-tp", default="gemm", choices=("gemm", "tile"),
                    help="device only: the edge tensor-product form of the score network.")
+    d.add_argument("--clk-sysfs", default=None,
+                   help="device only: read AICLK from this sysfs tt_aiclk file instead of "
+                        "tt-smi (a Galaxy, where the chip id is not the device node).")
 
     w = sub.add_parser("worker")
     w.add_argument("--out", required=True)
@@ -514,7 +533,7 @@ def main():
             ids = [c for k, c in enumerate(ids) if k % n == i]
             print(f"shard {i}/{n}: {len(ids)} complexes", flush=True)
         dock(ids, Path(args.out), args.workers, args.chunk, args.seed, args.threads,
-             args.device, args.edge_tp)
+             args.device, args.edge_tp, args.clk_sysfs)
     else:
         grade(ids, Path(args.out), Path(args.acc), args.label)
     return 0
