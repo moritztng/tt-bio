@@ -360,14 +360,14 @@ def main():
     tor_d = dl.upload(dev, toru.reshape(-1).float())
     real = lambda t: ttnn.to_torch(t)[:n_poses * n_lig, :3].reshape(n_poses, n_lig, 3)
 
-    ref_rigid, _ = L.fixed_update(pos64, tr, rotu, None, [], None)
+    ref_rigid, *_ = L.fixed_update(pos64, tr, rotu, None, [], None)
     got_rigid = pu.rigid(buf, tr_d, rot_d)
     record("pose_rigid", real(got_rigid), ref_rigid)
 
     ref_flex = L.apply_torsions(ref_rigid, pairs, mask_rot.double(), toru)
     record("pose_torsions", real(pu.torsions(got_rigid, tor_d)), ref_flex)
 
-    ref_full, _ = L.fixed_update(pos64, tr, rotu, toru, pairs, mask_rot.double())
+    ref_full, *_ = L.fixed_update(pos64, tr, rotu, toru, pairs, mask_rot.double())
     record("pose_update", real(pu(buf, tr_d, rot_d, tor_d)), ref_full)
     flush_json()
 
