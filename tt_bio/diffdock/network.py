@@ -35,12 +35,10 @@ network does not implement it and is run step by step;
 `tests/test_diffdock_trace.py::test_traced_rollout_matches_untraced` is what says the two
 agree, and it skips until a device network offers this member.
 
-`tt-bio dock` itself runs the same body eagerly, through
-
-    network.rollout(graph, start, cfg, bounds, noise) -> sampling.Rollout
-
-which is every step of `trace_body` and one read. `run._roll_out` takes it whenever the pose
-batch goes in one piece and no trajectory was asked for, and steps `score_fn` otherwise.
+`network.rollout(graph, start, cfg, bounds, noise) -> sampling.Rollout` runs that body eagerly
+and reads once. `tt-bio dock` does not call it yet: on a 287k-edge complex its poses came back
+12 A from the stepped rollout at the same seed, so the dock path steps `score_fn` until the
+resident step is graded against `static_forward` on a card.
 
 `load` returns the host implementation, `score_model.HostScoreNetwork`, around the released
 v1.1 weights, or with ``DockOptions(device="tt")`` `device.DeviceScoreNetwork`, the same
