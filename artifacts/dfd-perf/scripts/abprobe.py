@@ -1,12 +1,13 @@
 """A/B of two layer-level levers on the stepped gated rollout, one process, arms interleaved.
 
 base : the scatter divisor recomputed in every layer (the path before the lever)
-inv  : layers over the same cut share it (head)
-g2   : inv, and the fp32 row gather carries 2 bf16 slices (16 mantissa bits) instead of 3
-g1   : inv, and the gather carries 1 bf16 slice
+inv  : layers over the same cut share it
+x1   : inv, and the tile kernel's node rows are gathered from a bf16 table, one slice (head)
+g2   : x1, and the fp32 row gather carries 2 bf16 slices (16 mantissa bits) instead of 3
+g1   : x1, and the gather carries 1 bf16 slice
 
 Per arm: one warm rollout, then timed rollouts at the same seed. Poses are compared with base:
-inv must be bit-identical, g2/g1 report per-pose RMSD in Angstrom.
+inv and x1 must be bit-identical, g2/g1 report per-pose RMSD in Angstrom.
 """
 import argparse, json, statistics, time
 from pathlib import Path
@@ -14,7 +15,7 @@ ap = argparse.ArgumentParser()
 ap.add_argument("--edge-tp", default="tile")
 ap.add_argument("--ligand", type=int, default=9)
 ap.add_argument("--reps", type=int, default=2)
-ap.add_argument("--arms", default="base,inv,g2,g1")
+ap.add_argument("--arms", default="base,inv,x1,g2,g1")
 ap.add_argument("--workload", default="/home/ttuser/scratch/dfd/wl/workload")
 ap.add_argument("--out", required=True)
 a = ap.parse_args()
@@ -80,6 +81,8 @@ def gather_k(k):
 def arm(name):
     Layer.__call__ = base_call if name == "base" else head_call
     ddev.gather_rows = {"g2": gather_k(2), "g1": gather_k(1)}.get(name, head_gather)
+    for m in model.convs.values():
+        m.dev.x1_bf16 = m.dev.perm is not None and name not in ("base", "inv")
 
 
 arms = a.arms.split(",")

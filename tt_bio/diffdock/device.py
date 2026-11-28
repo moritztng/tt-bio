@@ -289,6 +289,7 @@ class DeviceConvLayer:
         self.in_dim, self.out_dim = layer.in_irreps.dim, layer.out_irreps.dim
         self.out_pad = pad32(self.out_dim)
         self.perm = None
+        self.x1_bf16 = edge_tp == "tile"
         if edge_tp == "gemm":
             self.tps = [DeviceEdgeTP(device, layer.tp, fc, dtype=self.dtype) for fc in fcs]
             self.ckc = self.tps[0].ckc
@@ -401,7 +402,10 @@ class DeviceConvLayer:
         """
         ttnn = self.ttnn
         ckc = self.ckc
-        x1 = gather_rows(node_attr, g["idx"], g["E"])
+        # The tile kernel reads x1 at bf16, so the table is rounded before the gather: the same
+        # bits the kernel gets from rounding an exact fp32 copy, for one slice instead of three.
+        x1 = gather_rows(ttnn.typecast(node_attr, ttnn.bfloat16) if self.x1_bf16 else node_attr,
+                         g["idx"], g["E"])
         if ns is not None:
             sizes = tuple(int(ea.shape[0]) for ea in edge_attr_groups)
             index = self._group_index(g, sizes)
