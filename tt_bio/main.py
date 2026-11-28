@@ -2495,7 +2495,10 @@ def install_deps():
 @click.option("--download", is_flag=True, help="Fetch whatever the named models are missing.")
 @click.option("--cache", default=None, type=click.Path(),
               help="Weight cache directory (default: $TT_BIO_CACHE, $BOLTZ_CACHE, or ~/.boltz).")
-def preflight_cmd(models, download, cache):
+@click.option("--warm", is_flag=True,
+              help="Compile the card kernels now, so the first job does not wait for them. "
+                   "diffdock: every kernel a dock of any complex needs, once per machine.")
+def preflight_cmd(models, download, cache, warm):
     """Can this machine run these models right now? Answer before submitting a job.
 
     \b
@@ -2577,6 +2580,16 @@ def preflight_cmd(models, download, cache):
             click.echo(f"fetching {model} ...")
             weights.fetch_models(model, root=root)
         missing_models = [m for m in missing_models if not weights.model_ready(m, root)[0]]
+
+    if warm and "diffdock" in names and "diffdock" not in missing_models:
+        import time
+        from tt_bio.diffdock import run as dock_run
+        from tt_bio.diffdock.job import DockOptions
+        click.echo()
+        click.echo("compiling diffdock's card kernels ...")
+        t0 = time.perf_counter()
+        dock_run.load_model(DockOptions(device="tt"), cache=root).warm()
+        click.echo(f"  done in {time.perf_counter() - t0:.0f} s; they are cached on this machine")
 
     click.echo()
     # A bare `tt-bio preflight` asks "is this machine ready", and a checkpoint whose licence
