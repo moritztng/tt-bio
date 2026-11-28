@@ -23,6 +23,7 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_AF2_TRANSITION_WS`](#bindcraft-2-round-kernels) | on | AF2-IG, BindCraft 2 | within 0.03 A for AF2-IG |
 | [`TT_BIO_AF2_COL_DEPTH2`](#bindcraft-2-round-kernels) | on | AF2-IG, BindCraft 2 | within 0.30 A for AF2-IG; BindCraft 2 design metrics not worse |
 | [`TT_BIO_AF2_T2CM`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round on Blackhole | BindCraft 2 on Blackhole | moves, design metrics not worse |
+| [`TT_BIO_COL_MIX`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round, Blackhole only | BindCraft 2 | moves, inside the design-outcome bar |
 | [`TT_BIO_TRIMUL_GIN_BIASED`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round on Blackhole | BindCraft 2 on Blackhole | moves, design metrics not worse |
 | [`TT_BIO_ATOM_AXIS_BUCKET`](#tt_bio_atom_axis_bucket) | on | | identical at 298 residues, not guaranteed at 512 |
 | [`TT_BIO_ATOM_SHIFT_GATHER`](#tt_bio_atom_shift_gather) | on | | identical |
@@ -163,6 +164,7 @@ and pLDDT 0.897 against 0.901. AF2-IG structures are bit-identical with it on.
 | `TT_BIO_PAIR_TRANSPOSE_FUSED` | The pair tensor's i/j swap as one move kernel, forward and backward. |
 | `TT_BIO_PAIR_MM` | Pair-track linears and their input gradients on `minimal_matmul` with a per-shape block table, ReLU fused at pack. |
 | `TT_BIO_PAIR_LINEAR` | On Wormhole, the bias-free pair linears and their input gradients, including the pair-bias projection to the head count, run on a kernel that keeps the whole weight in L1 on every core, so all cores work instead of the 32 of 72 `minimal_matmul` uses at 128 output channels. |
+| `TT_BIO_COL_MIX` | The MSA column attention over a round's two MSA rows runs its 13 elementwise programs between the projections as one kernel, and their gradients as one more (`col_mix` in `TT_BIO_TAPED_KERNELS`). About 2,600 fewer programs a gradient iteration. Blackhole only until it has a Wormhole round. Over 30 PD-L1 trajectories it accepted 9 designs against 8 without it and completed 16 against 16. |
 | `TT_BIO_AF2_OPM_ROWS_IN_K` | The outer product mean sums its MSA rows inside one contraction instead of one product per row. Acts only with more than one MSA row, which a BindCraft 2 round has. Both boards. |
 | `TT_BIO_RNE_MASK` | The dropout keep-mask multiply and the residual add after it as one kernel, so the masked update is never written. On by default, not only in the round: only a round draws dropout masks. |
 | `TT_BIO_AF2_TRANSITION_WS` | AF2's pair Transition (LayerNorm, fc1, ReLU, fc2) as one program with both weights in L1, so the normed input and the 4x-wide hidden never reach DRAM. In a round its backward is two programs (`pair_relu` in `TT_BIO_TAPED_KERNELS`). On for every AF2 fold, not only in the round. |
