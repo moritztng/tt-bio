@@ -432,6 +432,7 @@ def test_confidence_graph_is_all_atom(monkeypatch):
            dfd_input.CONFIDENCE_GRAPH
 
 
+@pytest.mark.skipif(not RECEPTOR.exists(), reason="no local receptor structure")
 def test_confidence_receptor_is_built_once_per_structure_file(monkeypatch, tmp_path):
     """A screen ranks many ligands against one receptor: its all-atom graph and embedding
     are built on the first ligand and kept, and a different structure file drops them."""
