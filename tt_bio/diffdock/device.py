@@ -240,13 +240,14 @@ def to_device(device, x: Tensor, dtype=None):
                            device=device)
 
 
-def gather_rows(table, idx, n: int):
+def gather_rows(table, idx, n: int, slices: int = 3):
     """``table[idx]`` for a TILE ``[N, d]`` table and a ``[1, n]`` uint32 row index.
 
     ``ttnn.embedding`` only takes a bf16 table. A bf16 table goes straight through; a float32
-    one is split into three bf16 slices, ``hi + mid + lo``, each the rounding of what the ones
-    before it left, so 3 x 8 mantissa bits carry all 24 of float32 and the gather stays an exact
-    copy. The split runs on the card, so a table the previous layer produced never leaves it.
+    one is split into bf16 *slices*, ``hi + mid + lo``, each the rounding of what the ones
+    before it left. Three carry all 24 mantissa bits of float32 and the gather is an exact
+    copy; one is the table rounded to bf16, for a third of the embeddings. The split runs on
+    the card, so a table the previous layer produced never leaves it.
     """
     import ttnn
     bf, rm = ttnn.bfloat16, ttnn.ROW_MAJOR_LAYOUT
@@ -254,9 +255,9 @@ def gather_rows(table, idx, n: int):
         return ttnn.reshape(ttnn.embedding(idx, ttnn.to_layout(table, rm), layout=ttnn.TILE_LAYOUT),
                             (n, table.shape[-1]))
     out, rest = None, table
-    for k in range(3):
+    for k in range(slices):
         part = ttnn.typecast(rest, bf)
-        if k < 2:
+        if k < slices - 1:
             rest = ttnn.subtract(rest, ttnn.typecast(part, ttnn.float32))
         got = ttnn.embedding(idx, ttnn.to_layout(part, rm), layout=ttnn.TILE_LAYOUT)
         got = ttnn.typecast(ttnn.reshape(got, (n, table.shape[-1])), ttnn.float32)
@@ -289,7 +290,9 @@ class DeviceConvLayer:
         self.in_dim, self.out_dim = layer.in_irreps.dim, layer.out_irreps.dim
         self.out_pad = pad32(self.out_dim)
         self.perm = None
-        self.x1_bf16 = edge_tp == "tile"
+        # The tile kernel reads its node rows and its FC activations at bf16, so a tile layer
+        # gathers both from tables rounded to it. gemm layers keep the exact three-slice gather.
+        self.slices = 1 if edge_tp == "tile" else 3
         if edge_tp == "gemm":
             self.tps = [DeviceEdgeTP(device, layer.tp, fc, dtype=self.dtype) for fc in fcs]
             self.ckc = self.tps[0].ckc
@@ -402,9 +405,8 @@ class DeviceConvLayer:
         """
         ttnn = self.ttnn
         ckc = self.ckc
-        # The tile kernel reads x1 at bf16, so the table is rounded before the gather: the same
-        # bits the kernel gets from rounding an exact fp32 copy, for one slice instead of three.
-        x1 = gather_rows(ttnn.typecast(node_attr, ttnn.bfloat16) if self.x1_bf16 else node_attr,
+        # Rounding the table first gives the kernel the bits it would round an exact copy to.
+        x1 = gather_rows(ttnn.typecast(node_attr, ttnn.bfloat16) if self.slices == 1 else node_attr,
                          g["idx"], g["E"])
         if ns is not None:
             sizes = tuple(int(ea.shape[0]) for ea in edge_attr_groups)
@@ -419,8 +421,8 @@ class DeviceConvLayer:
                 src, dst = index[gi]
                 h = ttnn.linear(ea, w1a, bias=b1, compute_kernel_config=ckc, dtype=self.dtype)
                 out_t = node_attr if out_attr is None else out_attr
-                h = ttnn.add(h, gather_rows(mm(out_t, w1s), src, n))
-                h = ttnn.relu(ttnn.add(h, gather_rows(mm(node_attr, w1d), dst, n)))
+                h = ttnn.add(h, gather_rows(mm(out_t, w1s), src, n, self.slices))
+                h = ttnn.relu(ttnn.add(h, gather_rows(mm(node_attr, w1d), dst, n, self.slices)))
             msgs.append(tp(ea, x1[lo:lo + n, :], edge_sh[lo:lo + n, :], h=h))
             lo += n
         msg = msgs[0] if len(msgs) == 1 else ttnn.concat(msgs, dim=0)
