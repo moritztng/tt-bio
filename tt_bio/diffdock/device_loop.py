@@ -1019,12 +1019,19 @@ def pad_rows(device, x, rows: int, width: int):
 
 
 def pad_width(device, x, width: int):
-    """Zero-pad a device tensor's column axis out to *width*: `static_net.pad_width`."""
+    """Zero-pad a device tensor's column axis out to *width*: `static_net.pad_width`.
+
+    `ttnn.pad`, not a concat with zeros. Measured on a card (ttnn 0.68, fp32 tile tensors):
+    a column concat whose widths are not all multiples of 16 comes back rounded to about
+    bf16 (4e-3 on unit normals) and its circular buffers grow with the row count, so it
+    throws past ~190k rows. A 30-atom ligand on a 330-residue receptor is 287k edge rows.
+    `pad` is exact and has no row limit.
+    """
     import ttnn
     w = x.shape[1]
     if w == width:
         return x
-    return ttnn.concat([x, zeros(device, [x.shape[0], width - w])], dim=1)
+    return ttnn.pad(x, [(0, 0), (0, width - w)], value=0.0)
 
 
 class DeviceStep:
