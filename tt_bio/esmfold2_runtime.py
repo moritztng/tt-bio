@@ -289,6 +289,11 @@ def set_device_lm_handoff(on: bool) -> None:
 class _DevPair:
     """A pair tensor left on the device, carried through code that only stores it.
 
+    `t` holds `seq_len` real rows and columns and may be padded behind them to the trunk's
+    bucket (`_bucket_len`). The pad is never read as data: the trunks mask it, everything else
+    is per position, and `_unpad` cuts it. A pair built at the bucket (`_ShimAdapter`,
+    `_pair_init`) runs the same device programs for every length of that bucket.
+
     The device tail (`_device_tail()`) also runs the vendored forward's own pair glue on it:
     `.float()` / `.detach()` are no-ops, `z + z.transpose(-2, -3)` is a device permute and add,
     and `host` keeps the one download the confidence head still needs."""
@@ -345,6 +350,18 @@ def _aliases(a, b) -> bool:
     """True when two device tensors share one buffer. Under `ws_resid` every op of a PairUpdateBlock writes into its
     input, so a trunk can return the very tensor it was given; whoever frees the input must not free the output."""
     return a is b or (a.is_allocated() and b.is_allocated() and a.buffer_address() == b.buffer_address())
+
+
+def _bucket_len(seq_len):
+    return seq_len + pad_amount(seq_len, E.PAD_MULTIPLE)
+
+
+def _pad_tokens(t, dims, n):
+    """A host tensor zero-padded along each token axis in `dims` to `n`."""
+    pad = [0, 0] * t.dim()
+    for d in dims:
+        pad[2 * (t.dim() - 1 - d) + 1] = n - t.shape[d]
+    return F.pad(t, pad) if any(pad) else t
 
 
 def _unpad(t, seq_len):
@@ -540,11 +557,12 @@ def _trunk_on_device(ftw, dev, to_host=True):
     import ttnn
 
     seq_len = dev.seq_len
-    pad = pad_amount(seq_len, E.PAD_MULTIPLE)
+    n = _bucket_len(seq_len)
+    pad = n - int(dev.t.shape[1])  # 0 for a pair already at the bucket: the trunk takes it as it is
     z, mask = dev.t, None
     if pad:
-        n = seq_len + pad
         z = ttnn.pad(dev.t, [(0, 0), (0, pad), (0, pad), (0, 0)], value=0.0)
+    if n != seq_len:
         real = torch.zeros(1, n, n)
         real[:, :seq_len, :seq_len] = 1.0
         mask = ftw._from_torch(real)
@@ -573,8 +591,9 @@ class _ShimAdapter(_Adapter):
         pre = m.is_precombined(hs)
         if pre:
             hs = m.fill_absent(hs)
-        return _DevPair(m.module(m._from_torch(E.flat_layers(hs)), torch.softmax(m._combine, 0), precombined=pre),
-                        int(hs.shape[1]))
+        L = int(hs.shape[1])
+        hs = _pad_tokens(hs, (1,), _bucket_len(L))
+        return _DevPair(m.module(m._from_torch(E.flat_layers(hs)), torch.softmax(m._combine, 0), precombined=pre), L)
 
 
 # reference attribute -> (ttnn wrapper, state-dict prefix, reference kwarg order).
@@ -738,8 +757,9 @@ def _packed_keep(keep):
     return _fold_words(_pack_keep(keep))
 
 
-def _unpack_keep_dev(w, device, rows):
+def _unpack_keep_dev(w, device, rows, drawn=None):
     """`_pack_keep`'s words (or `_fold_words`' pairs of them) to the bf16 0/1 mask of `rows` rows on the device.
+    `drawn` is the row count the words were packed for when `rows` asks for more: the rows past the words are 0.
 
     Slab i is bit j + 16 k of every word (j, k = divmod(i, halves)), rows i * W to (i + 1) * W of the mask for W word
     rows: in row order, so `_keep_rows`' padding is the tail of the last slabs and is never built."""
@@ -748,7 +768,7 @@ def _unpack_keep_dev(w, device, rows):
 
     wt = upload(w, dtype=ttnn.int32, device=device)
     W = int(w.shape[1])
-    halves = _keep_rows(rows) // (_KEEP_BITS * W)
+    halves = _keep_rows(drawn or rows) // (_KEEP_BITS * W)
     out = []
     for i in range(-(-rows // W)):
         j, k = divmod(i, halves)
@@ -791,14 +811,16 @@ def _lm_dropout(lm_z, p, keep=None):
         return lm_z * torch.empty(lm_z.shape).bernoulli_(1.0 - p).to(lm_z.dtype) / (1.0 - p)
     import ttnn
 
-    t = lm_z.t
+    t, n = lm_z.t, int(lm_z.t.shape[1])
     if keep is None:
-        keep = torch.empty(tuple(t.shape)).bernoulli_(1.0 - p).to(torch.bfloat16)
+        keep = torch.empty(lm_z.shape).bernoulli_(1.0 - p).to(torch.bfloat16)
         if _packable(keep.shape):
             keep = _packed_keep(keep.bool())
+    # The mask is drawn for the real pair and padded to the resident one: the draw does not depend on the bucket.
     if keep.dtype == torch.int32:
-        m = _unpack_keep_dev(keep, t.device(), int(t.shape[1]))
+        m = _unpack_keep_dev(_pad_tokens(keep, (2,), n), t.device(), n, lm_z.seq_len)
     else:
+        keep = _pad_tokens(keep, (1, 2), n)
         # Uploaded row-major and tiled on the device: a tile-layout from_torch tilizes the pair-sized
         # mask on the host, 0.24 s a loop at 512 aa (cProfile, p300c), with the device waiting.
         rm = ttnn.from_torch(keep, device=t.device(), layout=ttnn.ROW_MAJOR_LAYOUT, dtype=ttnn.bfloat16)
@@ -953,21 +975,28 @@ def _install_pair_init(model):
         PAIR_INIT_STATS[0] += 1
         relpos = rel.rows(residue_index, asym_id, sym_id, entity_id, token_index)
         bonds = self.token_bonds(token_bonds.float()) if bool(token_bonds.any()) else None
-        zi, zj = (ftw._from_torch(t.float()) for t in (self.z_init_1(x).unsqueeze(2), self.z_init_2(x).unsqueeze(1)))
-        z = ttnn.add(zi, zj)  # [1,L,1,c] + [1,1,L,c] -> [1,L,L,c]
+        L = x.shape[1]
+        n = _bucket_len(L)
+        zi, zj = (ftw._from_torch(_pad_tokens(t.float(), (d,), n))
+                  for t, d in ((self.z_init_1(x).unsqueeze(2), 1), (self.z_init_2(x).unsqueeze(1), 2)))
+        z = ttnn.add(zi, zj)  # [1,n,1,c] + [1,1,n,c] -> [1,n,n,c]
         ttnn.deallocate(zi)
         ttnn.deallocate(zj)
         for t in (relpos, bonds):
             if t is not None:
-                z = _add_pair(z, t, ftw)
-        return _DevPair(z, x.shape[1]), relpos, bonds
+                z = _add_pair(z, t, ftw, n)
+        return _DevPair(z, L), relpos, bonds
 
     model._pair_init = types.MethodType(_pair_init, model)
 
 
-def _add_pair(z, t, ftw):
-    """`z + t` on the device for a host pair or a PairLookup; frees `z`'s old buffer and the upload."""
+def _add_pair(z, t, ftw, n=None):
+    """`z + t` on the device for a host pair or a PairLookup; frees `z`'s old buffer and the upload.
+    `n` pads `t` to a `z` held at the bucket."""
     import ttnn
+    if n is not None:
+        t = (E.PairLookup(_pad_tokens(t.codes, (1, 2), n), t.rows) if isinstance(t, E.PairLookup)
+             else _pad_tokens(t, (1, 2), n))
     tt = t.device(ftw.tt_device) if isinstance(t, E.PairLookup) else ftw._from_torch(t.float())
     out = ttnn.add(z, tt)
     ttnn.deallocate(z)
@@ -1077,6 +1106,8 @@ def _install_resident_trunk_loop(model):
         msa_loops = None
         if self.msa_encoder is not None and _msa_kwargs is not None:
             msa_loops = _msa_per_loop(_msa_kwargs, total_steps, max_depth, col_rate)
+            if isinstance(z_init, _DevPair):  # the MSA encoder reads the pair at its own length
+                z_init.t = _unpad(z_init.t, z_init.seq_len)
 
         def msa_inject(msa_kw):
             # reference passes x_pair (the current pair state) separately from _msa_kwargs
@@ -1138,7 +1169,7 @@ def _install_resident_trunk_loop(model):
         on_dev = (_DEVICE_INJECTION and per_loop and isinstance(lm_z, _DevPair)
                   and (not msa_dev or overwrite))
         # The first keep mask draws on its thread while the uploads below run (no RNG use in between).
-        draws = _KeepDraws(tuple(lm_z.t.shape), lm_p, total_steps) if on_dev else None
+        draws = _KeepDraws(lm_z.shape, lm_p, total_steps) if on_dev else None
         zt = up(padz(z).float())
         ipt = None if per_loop else up(
             padz(inject_proj(msa_loops[0] if msa_loops else None)).float())
@@ -1148,7 +1179,7 @@ def _install_resident_trunk_loop(model):
             base = None if msa_dev else msa_fixed if msa_fixed is not None else z_init
             if base is None:
                 pass
-            elif isinstance(base, _DevPair) and pad:
+            elif isinstance(base, _DevPair) and int(base.t.shape[1]) != Lp + pad:
                 # Nothing reads the unpadded pair past this point (the caller drops z_init after the loop), and
                 # keeping it beside the padded copy is a second [L,L,c] for the whole trunk: on a 12 GiB Wormhole
                 # chip that OOMed ESMFold2-Fast --fast at ~800 tokens.
@@ -1191,12 +1222,7 @@ def _install_resident_trunk_loop(model):
             ttnn.deallocate(s)
             out = ttnn.linear(n, b_t, compute_kernel_config=ck)
             ttnn.deallocate(n)
-            if pad:  # the host path pads the projection with zeros; LN(0) @ b is not zero
-                real = ttnn.slice(out, [0, 0, 0, 0], [1, Lp, Lp, out.shape[-1]])
-                ttnn.deallocate(out)
-                out = ttnn.pad(real, [(0, 0), (0, pad), (0, pad), (0, 0)], value=0.0)
-                ttnn.deallocate(real)
-            return out
+            return out  # its pad is not zero (LN(0) @ b is not): the trunk masks it, as it does z's own
 
         for _step in range(total_steps):
             E.report_progress("trunk", _step, total_steps)
@@ -1219,7 +1245,7 @@ def _install_resident_trunk_loop(model):
         tail = _device_tail()
         DEVICE_TAIL_STATS[not tail] += 1
         if tail:
-            z_out, zt = _DevPair(_unpad(zt, Lp), Lp), None
+            z_out, zt = _DevPair(zt, Lp), None  # still at the bucket: the readout is per position, the coda masks
         else:
             z_out = (T.download(zt) if DEVICE_UPLOAD else ftw._to_torch(zt))[:, :Lp, :Lp, :].to(z.dtype)
         for t in (zt, ipt, at, mask) + ((base, ln_w, ln_b, b_t) if on_dev else ()):
