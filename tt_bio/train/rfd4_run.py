@@ -155,19 +155,45 @@ def _device_trunk_masks(mask_cpu, dev, dtype, residual_dtype=None, elide=None):
 def _device_transition_f32(x_dev, w_sw_f32, w_out_f32, mask_dev, ckc, cg):
     """Grad-off SwiGLU Transition on device in fp32 (matches upstream ``Transition.forward``)."""
     import ttnn
+    from .device_optim import _split2_bf16
+
+    def _mm2(a_f32, b_f32):
+        # 2-part split-bf16 exact fp32 matmul (BH single-pass fp32 matmul truncates inputs).
+        a_hi, a_lo = _split2_bf16(a_f32)
+        b_hi, b_lo = _split2_bf16(b_f32)
+        y = ttnn.matmul(a_hi, b_hi, transpose_b=True, dtype=ttnn.float32,
+                        compute_kernel_config=ckc, core_grid=cg)
+        p1 = ttnn.matmul(a_hi, b_lo, transpose_b=True, dtype=ttnn.float32,
+                         compute_kernel_config=ckc, core_grid=cg)
+        p2 = ttnn.matmul(a_lo, b_hi, transpose_b=True, dtype=ttnn.float32,
+                         compute_kernel_config=ckc, core_grid=cg)
+        ttnn.deallocate(a_hi)
+        ttnn.deallocate(a_lo)
+        ttnn.deallocate(b_hi)
+        ttnn.deallocate(b_lo)
+        y1 = ttnn.add(y, p1)
+        ttnn.deallocate(y)
+        ttnn.deallocate(p1)
+        y2 = ttnn.add(y1, p2)
+        ttnn.deallocate(y1)
+        ttnn.deallocate(p2)
+        return y2
 
     sh = [int(d) for d in x_dev.shape]
-    h = ttnn.matmul(x_dev, w_sw_f32, transpose_b=True, compute_kernel_config=ckc, core_grid=cg)
+    h = _mm2(x_dev, w_sw_f32)
     d_inner = int(h.shape[-1]) // 2
     a = ttnn.slice(h, [0] * len(sh), sh[:-1] + [d_inner])
     g = ttnn.slice(h, [0] * (len(sh) - 1) + [d_inner], sh[:-1] + [2 * d_inner])
     ttnn.deallocate(h)
-    sg = ttnn.silu(g)
+    # Exact SiLU: BH ttnn.silu LUT (~2e-3) is amplified ~13x by transition_c_2.
+    sig = ttnn.sigmoid(g, mode=ttnn.SigmoidMode.Accurate)
+    sg = ttnn.multiply(g, sig)
     ttnn.deallocate(g)
+    ttnn.deallocate(sig)
     ag = ttnn.multiply(a, sg)
     ttnn.deallocate(a)
     ttnn.deallocate(sg)
-    out = ttnn.matmul(ag, w_out_f32, transpose_b=True, compute_kernel_config=ckc, core_grid=cg)
+    out = _mm2(ag, w_out_f32)
     ttnn.deallocate(ag)
     if mask_dev is not None:
         out2 = ttnn.multiply(out, mask_dev)
@@ -224,34 +250,62 @@ def _device_cand_conds(glue, bt, depth: int, master: dict, mk, dev, out_dtype):
             uniq_rems.append(r)
         cyc_to_u.append(seen_key[key])
 
-    all_2d = all((f is None or f.ndim == 2) for f in inv_feats)
-    if (all_2d and isinstance(cf.ln_out, torch.nn.Identity)
+    # Check whether every 3D feature is constant across valid tokens per example (e.g. FoldEmbeddingSeqFeat).
+    m_bool = mask > 0.5
+    first_idx = m_bool.to(torch.int64).argmax(dim=-1)
+    k_idx = torch.arange(K, device=mask.device)
+    inv_2d = []
+    row_const = True
+    for f in inv_feats:
+        if f is None or f.ndim == 2:
+            inv_2d.append(f)
+        elif f.ndim == 3:
+            f0 = f[k_idx, first_idx]
+            if bool(((f == f0.unsqueeze(1)) | (~m_bool.unsqueeze(-1))).all()):
+                inv_2d.append(f0)
+            else:
+                row_const = False
+                break
+        else:
+            row_const = False
+            break
+    if (row_const and isinstance(cf.ln_out, torch.nn.Identity)
             and not glue.transition_c_1.use_layer_norm
             and not glue.transition_c_2.use_layer_norm):
-        # Every feature is [K, d] (identical across valid tokens): evaluate transitions on [K, 1, d].
+        # Every feature is constant across valid tokens per example: evaluate transitions on [K, 1, d]
+        # in exact host fp32 (~0.5 ms, bit-identical to glue.conditioning), then tile-broadcast on card.
         ones_m = mask.any(dim=-1, keepdim=True).to(mask.dtype)  # [K, 1]
         u_devs = []
         tok_m = mk[0]
         for r in uniq_rems:
             parts = []
-            for idx, f in enumerate(inv_feats):
+            for idx, f in enumerate(inv_2d):
                 if idx == rec_idx:
                     f = cf.feat_creators[idx]({**bt, "recycle_remaining": r})
                 parts.append(f)
             f2 = torch.cat(parts, dim=-1) * ones_m              # [K, D_in]
             c2 = cf.linear_out(f2).unsqueeze(1)                 # [K, 1, dim_cond]
             c2 = glue.transition_c_2(glue.transition_c_1(c2, ones_m), ones_m)
-            c_t = ttnn.from_torch(
-                c2.contiguous(), dtype=out_dtype, layout=ttnn.TILE_LAYOUT,
-                device=dev, memory_config=ttnn.DRAM_MEMORY_CONFIG,
-            )
-            c_rep = ttnn.repeat(c_t, (1, n, 1))
-            ttnn.deallocate(c_t)
-            if tok_m is not None:
-                c_full = ttnn.multiply(c_rep, tok_m)
-                ttnn.deallocate(c_rep)
+            if n % 32 == 0:
+                c_t = ttnn.from_torch(
+                    c2.expand(K, 32, -1).to(torch.float32).contiguous(),
+                    dtype=out_dtype, layout=ttnn.TILE_LAYOUT,
+                    device=dev, memory_config=ttnn.DRAM_MEMORY_CONFIG,
+                )
+                c_rep = ttnn.repeat(c_t, (1, n // 32, 1)) if n > 32 else c_t
+                if c_rep is not c_t:
+                    ttnn.deallocate(c_t)
+                if tok_m is not None:
+                    c_full = ttnn.multiply(c_rep, tok_m)
+                    ttnn.deallocate(c_rep)
+                else:
+                    c_full = c_rep
             else:
-                c_full = c_rep
+                c_host = (c2.expand(K, n, -1) * mask.unsqueeze(-1)).to(torch.float32).contiguous()
+                c_full = ttnn.from_torch(
+                    c_host, dtype=out_dtype, layout=ttnn.TILE_LAYOUT,
+                    device=dev, memory_config=ttnn.DRAM_MEMORY_CONFIG,
+                )
             u_devs.append(c_full)
         return [u_devs[ui] for ui in cyc_to_u]
 

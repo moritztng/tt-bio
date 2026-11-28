@@ -231,3 +231,176 @@ def test_device_optimizer_free_grads_frees_orig_and_reduced(monkeypatch):
     assert set(freed) == {"orig", "reduced"}
     assert not g_orig.alive and not g_red.alive
 
+
+def test_device_transition_f32_uses_split2_and_accurate_sigmoid(monkeypatch):
+    """_device_transition_f32 must avoid BH ttnn.silu LUT (~2e-3) and fp32-matmul bf16 truncation."""
+    import sys
+    import types
+    import torch
+    from tt_bio.train.rfd4_run import _device_transition_f32
+
+    torch.manual_seed(0)
+    x = torch.randn(2, 8, 16, dtype=torch.float32) * 3.0
+    w_sw = torch.randn(32, 16, dtype=torch.float32) * 0.5
+    w_out = torch.randn(16, 16, dtype=torch.float32) * 0.5
+    mask = torch.ones(2, 8, 1, dtype=torch.float32)
+
+    saw = {"silu": 0, "accurate_sig": 0, "f32_mm": 0}
+
+    def _typecast(t, dt):
+        return t.to(torch.bfloat16 if dt == "bf16" else torch.float32)
+
+    def _matmul(a, b, transpose_b=False, dtype=None, compute_kernel_config=None, core_grid=None):
+        if a.dtype == torch.float32 or b.dtype == torch.float32:
+            saw["f32_mm"] += 1
+            a, b = a.to(torch.bfloat16), b.to(torch.bfloat16)
+        b2 = b.transpose(-1, -2) if transpose_b else b
+        return torch.matmul(a.float(), b2.float())
+
+    def _sigmoid(g, mode=None):
+        assert mode == "Accurate"
+        saw["accurate_sig"] += 1
+        return torch.sigmoid(g)
+
+    def _silu(g):
+        saw["silu"] += 1
+        return torch.nn.functional.silu(g) * 1.002
+
+    fake_ttnn = types.SimpleNamespace(
+        bfloat16="bf16",
+        float32="f32",
+        SigmoidMode=types.SimpleNamespace(Accurate="Accurate"),
+        typecast=_typecast,
+        subtract=lambda a, b, dtype=None: (a - b).to(torch.bfloat16 if dtype == "bf16" else torch.float32),
+        add=lambda a, b: a + b,
+        multiply=lambda a, b: a * b,
+        matmul=_matmul,
+        slice=lambda t, s, e: t[tuple(slice(a, b) for a, b in zip(s, e))],
+        sigmoid=_sigmoid,
+        silu=_silu,
+        deallocate=lambda t: None,
+    )
+    monkeypatch.setitem(sys.modules, "ttnn", fake_ttnn)
+
+    got = _device_transition_f32(x, w_sw, w_out, mask, None, None)
+    # Float64 reference
+    h_ref = x.double() @ w_sw.double().T
+    a_ref, g_ref = h_ref.chunk(2, dim=-1)
+    ref = ((a_ref * torch.nn.functional.silu(g_ref)) @ w_out.double().T) * mask.double()
+    rel = float((got.double() - ref).norm() / ref.norm())
+    assert saw["silu"] == 0, "must not call inaccurate ttnn.silu LUT"
+    assert saw["f32_mm"] == 0, "must not call single-pass fp32 ttnn.matmul"
+    assert saw["accurate_sig"] == 1
+    assert rel < 1e-5, f"expected exact fp32 transition (<1e-5), got {rel:.3e}"
+
+
+def test_device_cand_conds_row_const_bit_exact_and_varying_fallback(monkeypatch):
+    """Row-constant 3D cond features take the bit-exact [K, 1, d] fast path; varying 3D falls back."""
+    import sys
+    import types
+    import torch
+    from tt_bio.train.rfd4_run import _device_cand_conds
+
+    torch.manual_seed(1)
+    K, N = 2, 64
+    mask = torch.zeros(K, N, dtype=torch.float32)
+    mask[0, :19] = 1.0
+    mask[1, :37] = 1.0
+
+    class _Const3D:
+        def __init__(self, vary: bool):
+            self.vary = vary
+            self.v = torch.randn(K, 1, 8)
+            self.v_var = torch.randn(K, N, 8)
+        def __call__(self, bt):
+            return self.v_var if self.vary else self.v.expand(K, N, 8).clone()
+
+    class _Feat2D:
+        def __init__(self):
+            self.v = torch.randn(K, 8)
+        def __call__(self, bt):
+            return self.v
+
+    class _Trans(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.use_layer_norm = False
+            self.swish_linear = torch.nn.Sequential(torch.nn.Linear(16, 32, bias=False))
+            self.linear_out = torch.nn.Linear(16, 16, bias=False)
+        def forward(self, x, m):
+            h = self.swish_linear[0](x)
+            a, g = h.chunk(2, dim=-1)
+            return self.linear_out(a * torch.nn.functional.silu(g)) * m.unsqueeze(-1)
+
+    calls = {"repeat": 0, "matmul": 0}
+    fake_ttnn = types.SimpleNamespace(
+        bfloat16="bf16",
+        float32="f32",
+        TILE_LAYOUT="tile",
+        DRAM_MEMORY_CONFIG="dram",
+        MathFidelity=types.SimpleNamespace(HiFi4="hifi4"),
+        SigmoidMode=types.SimpleNamespace(Accurate="Accurate"),
+        WormholeComputeKernelConfig=lambda **kw: kw,
+        CoreGrid=lambda **kw: kw,
+        from_torch=lambda t, dtype=None, **kw: t.to(torch.bfloat16 if dtype == "bf16" else torch.float32),
+        repeat=lambda t, r: (calls.__setitem__("repeat", calls["repeat"] + 1), t.repeat(*r))[1],
+        typecast=lambda t, dt: t.to(torch.bfloat16 if dt == "bf16" else torch.float32),
+        subtract=lambda a, b, dtype=None: (a - b).to(torch.bfloat16 if dtype == "bf16" else torch.float32),
+        add=lambda a, b: a + b,
+        multiply=lambda a, b: a * b,
+        matmul=lambda a, b, transpose_b=False, **kw: (
+            calls.__setitem__("matmul", calls["matmul"] + 1),
+            torch.matmul(a.float(), (b.transpose(-1, -2) if transpose_b else b).float()),
+        )[1],
+        slice=lambda t, s, e: t[tuple(slice(a, b) for a, b in zip(s, e))],
+        sigmoid=lambda g, mode=None: torch.sigmoid(g),
+        deallocate=lambda t: None,
+    )
+    monkeypatch.setitem(sys.modules, "ttnn", fake_ttnn)
+    fake_dev = types.SimpleNamespace(compute_with_storage_grid_size=lambda: types.SimpleNamespace(x=10, y=12))
+
+    for vary in (False, True):
+        calls["repeat"] = 0
+        calls["matmul"] = 0
+        f2d = _Feat2D()
+        f3d = _Const3D(vary)
+        t1, t2 = _Trans(), _Trans()
+        lin = torch.nn.Linear(16, 16, bias=False)
+        cf = types.SimpleNamespace(
+            ret_zero=False,
+            feat_creators=[f2d, f3d],
+            linear_out=lin,
+            ln_out=torch.nn.Identity(),
+            apply_padding_mask=lambda x, m: x * m.unsqueeze(-1),
+        )
+        glue = types.SimpleNamespace(
+            cond_factory=cf,
+            transition_c_1=t1,
+            transition_c_2=t2,
+            condition_on_recycle_remaining=False,
+        )
+        master = {
+            "glue.transition_c_1.swish_linear.0.weight": t1.swish_linear[0].weight.detach().float(),
+            "glue.transition_c_1.linear_out.weight": t1.linear_out.weight.detach().float(),
+            "glue.transition_c_2.swish_linear.0.weight": t2.swish_linear[0].weight.detach().float(),
+            "glue.transition_c_2.linear_out.weight": t2.linear_out.weight.detach().float(),
+        }
+        bt = {"padding_mask": mask}
+        tok_bf16 = mask.unsqueeze(-1).to(torch.bfloat16)
+        tok_f32 = mask.unsqueeze(-1).float()
+        mk = (tok_bf16, None, None, None, tok_f32, None)
+        with torch.no_grad():
+            out = _device_cand_conds(glue, bt, 2, master, mk, fake_dev, "bf16")
+            feats = torch.cat([f2d(bt).unsqueeze(1).expand(K, N, -1), f3d(bt)], dim=-1) * mask.unsqueeze(-1)
+            ref = t2(t1(lin(feats) * mask.unsqueeze(-1), mask), mask)
+        assert len(out) == 2
+        if not vary:
+            assert calls["repeat"] == 1 and calls["matmul"] == 0
+            assert float((out[0].float() - ref.to(torch.bfloat16).float()).abs().max()) == 0.0
+        else:
+            assert calls["matmul"] > 0
+            rel = float((out[0].float() - ref.to(torch.bfloat16).float()).norm() / ref.norm())
+            assert rel < 1e-4, f"varying 3D fallback rel={rel:.3e}"
+
+
+
