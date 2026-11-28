@@ -410,17 +410,110 @@ class _FakeDeviceOptimizer:
                     ttnn.deallocate(g)
         return {"step": self.steps, "lr": lr, "lr_muon": lr_muon, "grad_norm": gn_a, "grad_norm_muon": gn_m, "clip": ca, "clip_muon": cm}
 
+    def _pack_host_arrays(self, bk, arrays, *, fill_zero=False):
+        import ttnn
+
+        s0, m, n = bk.canon
+        zero = np.zeros((s0, m, n), dtype=np.float32) if fill_zero else None
+        pieces = []
+        for nm in bk.names:
+            if nm in arrays:
+                pieces.append(np.asarray(arrays[nm], dtype=np.float32).reshape(s0, m, n))
+            elif fill_zero:
+                pieces.append(zero)
+            else:
+                raise KeyError(nm)
+        arr = torch.from_numpy(np.ascontiguousarray(np.concatenate(pieces, axis=0), dtype=np.float32))
+        return ttnn.from_torch(arr, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=self.device)
+
+    def _unpack_bucket_host(self, bk, dev_t):
+        if dev_t is None:
+            return {nm: np.zeros(bk.shape, dtype=np.float32) for nm in bk.names}
+        arr = dev_t._buf.shards[0].float().numpy()
+        s0, m, n = bk.canon
+        return {
+            nm: np.ascontiguousarray(arr[i * s0:(i + 1) * s0, :m, :n].reshape(bk.shape), dtype=np.float32)
+            for i, nm in enumerate(bk.names)
+        }
+
     def host_master(self):
         out = {}
         for bk in self._all_buckets:
-            arr = bk.master_b._buf.shards[0].float().numpy()
-            s0, m, n = bk.canon
-            for i, nm in enumerate(bk.names):
-                out[nm] = np.ascontiguousarray(arr[i * s0:(i + 1) * s0, :m, :n].reshape(bk.shape), dtype=np.float32)
-        for nm, t in self.master.items():
-            if nm not in out:
-                out[nm] = np.ascontiguousarray(t._buf.shards[0].float().numpy().reshape(self.shapes[nm]), dtype=np.float32)
+            out.update(self._unpack_bucket_host(bk, bk.master_b))
+        if self.shard_world > 1:
+            for nm, t in self.master.items():
+                if nm not in out:
+                    out[nm] = np.ascontiguousarray(t._buf.shards[0].float().numpy().reshape(self.shapes[nm]), dtype=np.float32)
         return out
+
+    def state_families(self):
+        exp_avg, exp_avg_sq = {}, {}
+        for bk in self._adam_buckets:
+            exp_avg.update(self._unpack_bucket_host(bk, bk.state1_b))
+            exp_avg_sq.update(self._unpack_bucket_host(bk, bk.state2_b))
+        fams = {"exp_avg": exp_avg, "exp_avg_sq": exp_avg_sq}
+        if self._muon_buckets:
+            mom = {}
+            for bk in self._muon_buckets:
+                mom.update(self._unpack_bucket_host(bk, bk.state1_b))
+            fams["momentum_buffer"] = mom
+        if self.ema is not None and self.ema.n_averaged > 0:
+            fams["ema_shadow"] = self.ema.host_shadow()
+        return fams
+
+    def state_dict(self):
+        d = {
+            "steps": self.steps, "lr": self.lr, "beta1": self.beta1, "beta2": self.beta2,
+            "eps": self.eps, "weight_decay": self.weight_decay, "clip_norm": self.clip_norm,
+            "beta1_pow": self.beta1_pow, "beta2_pow": self.beta2_pow,
+        }
+        if self.ema is not None:
+            d["ema_decay"] = self.ema.decay
+            d["ema_n_averaged"] = self.ema.n_averaged
+        return d
+
+    def load_state_dict(self, d):
+        for k in ("steps", "lr", "beta1", "beta2", "eps", "weight_decay", "clip_norm", "beta1_pow", "beta2_pow"):
+            if k in d:
+                setattr(self, k, d[k])
+        if self.ema is not None and "ema_n_averaged" in d:
+            self.ema.n_averaged = int(d["ema_n_averaged"])
+
+    def load_host_state(self, masters, families=()):
+        import ttnn
+
+        fams = dict(families) if families else {}
+        have, want = set(masters), set(self.master)
+        if have != want:
+            raise ValueError(f"mismatch: missing {sorted(want - have)}, unexpected {sorted(have - want)}")
+        for bk in self._all_buckets:
+            new_m = self._pack_host_arrays(bk, masters)
+            if bk.master_b is not None and bk.master_b.is_allocated():
+                ttnn.deallocate(bk.master_b)
+            bk.master_b = new_m
+            self._unpack_master(bk)
+            if bk.kind == "muon":
+                mom = fams.get("momentum_buffer")
+                if bk.state1_b is not None and bk.state1_b.is_allocated():
+                    ttnn.deallocate(bk.state1_b)
+                bk.state1_b = self._pack_host_arrays(bk, mom, fill_zero=True) if (mom and any(nm in mom for nm in bk.names)) else None
+            else:
+                ea = fams.get("exp_avg")
+                if bk.state1_b is not None and bk.state1_b.is_allocated():
+                    ttnn.deallocate(bk.state1_b)
+                bk.state1_b = self._pack_host_arrays(bk, ea, fill_zero=True) if (ea and any(nm in ea for nm in bk.names)) else None
+                eas = fams.get("exp_avg_sq")
+                if bk.state2_b is not None and bk.state2_b.is_allocated():
+                    ttnn.deallocate(bk.state2_b)
+                bk.state2_b = self._pack_host_arrays(bk, eas, fill_zero=True) if (eas and any(nm in eas for nm in bk.names)) else None
+            if self.ema is not None:
+                es = fams.get("ema_shadow")
+                if bk.ema_b is not None and bk.ema_b.is_allocated():
+                    ttnn.deallocate(bk.ema_b)
+                bk.ema_b = self._pack_host_arrays(bk, es, fill_zero=True) if (es and any(nm in es for nm in bk.names)) else None
+
+    def drop_unowned(self):
+        return
 
     def deallocate(self):
         import ttnn
@@ -550,7 +643,7 @@ def test_spmd_zero1_step_matches_serial_reference_and_broken_fails(monkeypatch, 
         digest, n_chk = master_consensus_digest(spmd.master, dev)
         assert n_chk == len(weights) and len(digest) == 16
 
-        hm_spmd = base_spmd.host_master()
+        hm_spmd = spmd.host_master()
         hm_ref = ref_opt.host_master()
         for nm in weights:
             err = float(np.max(np.abs(hm_spmd[nm] - hm_ref[nm])))
@@ -1656,3 +1749,237 @@ def test_rfd4_run_cli_depths_flags_no_conflict(tmp_path):
     assert _load_depths("", str(jf)) == [2, 1, 3]
     assert _load_depths("3,1,2", "") == [3, 1, 2]
 
+
+def _make_ckpt_weights(seed: int = 123):
+    rng = np.random.default_rng(seed)
+    weights = {
+        # 4 sharded Muon matrices (shape 32x64 -> 2 per axis-0 row on 2x4)
+        "mu_sh_0": rng.standard_normal((32, 64)).astype(np.float32) * 0.2,
+        "mu_sh_1": rng.standard_normal((32, 64)).astype(np.float32) * 0.2,
+        "mu_sh_2": rng.standard_normal((32, 64)).astype(np.float32) * 0.2,
+        "mu_sh_3": rng.standard_normal((32, 64)).astype(np.float32) * 0.2,
+        # 2 sharded tall Muon matrices (shape 64x32 -> 1 per axis-0 row on 2x4)
+        "mu_tall_0": rng.standard_normal((64, 32)).astype(np.float32) * 0.2,
+        "mu_tall_1": rng.standard_normal((64, 32)).astype(np.float32) * 0.2,
+        # 1 tiny unsharded non-tile-aligned Muon matrix (stays in base_opt._muon_buckets)
+        "mu_tiny": rng.standard_normal((16, 16)).astype(np.float32) * 0.2,
+        # AdamW params (1D and 2D)
+        "adam_norm": rng.standard_normal((64,)).astype(np.float32) * 0.5,
+        "adam_head": rng.standard_normal((32, 32)).astype(np.float32) * 0.2,
+    }
+    muon_names = {k for k in weights if k.startswith("mu_")}
+    return weights, muon_names
+
+
+def _install_spmd_step_mocks(monkeypatch):
+    mod = _install_mock_ttnn(monkeypatch)
+    import tt_bio.train.device_optim as dopt
+
+    monkeypatch.setattr(dopt, "_clone_exact_f32", lambda t: mod.clone(t))
+    monkeypatch.setattr(dopt, "_concat_dim0_exact_f32", lambda ts: mod.concat(ts, dim=0))
+    monkeypatch.setattr(
+        dopt,
+        "_sum_sq_last2_exact_f32",
+        lambda t: t.device().make_tensor(
+            [torch.sum(s.float() * s.float(), dim=(-2, -1)) for s in t._buf.shards]
+        ),
+    )
+    monkeypatch.setattr(
+        dopt,
+        "newton_schulz_device",
+        lambda u, steps=5, coeffs=(3.4445, -4.7750, 2.0315), eps=1e-7, mode="fp32": u.device().make_tensor(
+            [_mock_ns_torch(s.float(), steps, coeffs, eps) for s in u._buf.shards]
+        ),
+    )
+    return mod
+
+
+def test_spmd_zero1_checkpoint_save_resume_exact_and_broken_arms(monkeypatch, tmp_path):
+    """SPMDZero1Step save_adapter/load_adapter round-trips all sharded+unsharded state bit-exact; broken arms FAIL."""
+    _install_spmd_step_mocks(monkeypatch)
+    from safetensors.numpy import load_file, save_file
+    from tt_bio.train.checkpoint import Checkpointer, load_adapter, save_adapter
+
+    weights, muon_names = _make_ckpt_weights(seed=77)
+    rng = np.random.default_rng(78)
+
+    # Continuous run on 2x4 (rm=2, cm=4) with ZeRO-1 Muon + EMA.
+    dev_cont = _FakeMeshDevice(2, 4)
+    base_cont = _FakeDeviceOptimizer(weights, muon_names, dev_cont, ema_decay=0.95)
+    spmd_cont = SPMDZero1Step(base_cont, weights, dev_cont, full_shape=(2, 4), use_zero1_muon=True)
+    assert len(spmd_cont.sharded_names()) == 6
+    assert spmd_cont.muon_names == frozenset(muon_names)
+
+    # Step 0 and Step 1 per-rank gradients (identical across continuous and resumed runs).
+    step_grads_np = [
+        {nm: [rng.standard_normal(arr.shape).astype(np.float32) * 0.25 for _ in range(8)] for nm, arr in weights.items()}
+        for _ in range(2)
+    ]
+
+    def _to_mesh(dev, g_dict):
+        return {nm: dev.make_tensor([torch.from_numpy(a.copy()) for a in shards]) for nm, shards in g_dict.items()}
+
+    # Step 1 (index 0) on continuous run.
+    spmd_cont.step(_to_mesh(dev_cont, step_grads_np[0]), free_grads=True)
+    ck = Checkpointer(tmp_path / "ckpt_spmd", every=1, keep=2)
+    ckpt_path = ck.save(1, spmd_cont, metrics={"loss": 12.5}, force=True)
+    assert ckpt_path is not None and ckpt_path.exists()
+
+    # Negative check 1: passing raw base_opt (the pre-fix bug) silently drops all 6 sharded Muon masters!
+    bad_path = tmp_path / "bad_base_opt.safetensors"
+    save_adapter(bad_path, base_cont, meta={"step": 1})
+    bad_blob = load_file(str(bad_path))
+    assert len([k for k in bad_blob if k.startswith("master|")]) == len(weights) - len(spmd_cont.sharded_names())
+
+    # Resumed run on fresh 2x4 device.
+    dev_res = _FakeMeshDevice(2, 4)
+    base_res = _FakeDeviceOptimizer(weights, muon_names, dev_res, ema_decay=0.95)
+    spmd_res = SPMDZero1Step(base_res, weights, dev_res, full_shape=(2, 4), use_zero1_muon=True)
+    with pytest.raises(ValueError, match="adapter/parameter mismatch"):
+        load_adapter(bad_path, weights, dev_res, opt=spmd_res)
+
+    # Negative check 2: removing one sharded Muon momentum_buffer key MUST be refused on load.
+    blob_nomom = dict(load_file(str(ckpt_path)))
+    blob_nomom.pop("momentum_buffer|mu_sh_0")
+    nomom_path = tmp_path / "nomom.safetensors"
+    save_file(blob_nomom, str(nomom_path), metadata={"tt_bio_adapter": "1"})
+    with pytest.raises(ValueError, match="no Muon momentum"):
+        load_adapter(nomom_path, weights, dev_res, opt=spmd_res)
+
+    # Positive check: load_adapter into spmd_res restores ALL masters, moments, EMA, and scalars bit-exact.
+    meta = load_adapter(ckpt_path, weights, dev_res, opt=spmd_res)
+    assert meta["step"] == 1
+    assert spmd_res.state_dict() == spmd_cont.state_dict()
+    d_cont_1, n1 = master_consensus_digest(spmd_cont.master, dev_cont)
+    d_res_1, n2 = master_consensus_digest(spmd_res.master, dev_res)
+    assert n1 == n2 == len(weights) and d_res_1 == d_cont_1
+    for nm in weights:
+        assert np.array_equal(spmd_res.host_master()[nm], spmd_cont.host_master()[nm]), f"master {nm}"
+        assert np.array_equal(spmd_res.host_ema_shadow()[nm], spmd_cont.host_ema_shadow()[nm]), f"ema {nm}"
+    fams_cont = spmd_cont.state_families()
+    fams_res = spmd_res.state_families()
+    assert set(fams_cont) == set(fams_res) == {"exp_avg", "exp_avg_sq", "momentum_buffer", "ema_shadow"}
+    for fam, d_c in fams_cont.items():
+        assert set(d_c) == set(fams_res[fam])
+        for nm in d_c:
+            assert np.array_equal(fams_res[fam][nm], d_c[nm]), f"{fam}|{nm}"
+
+    # Step 2 (index 1) on BOTH continuous and resumed runs -> must remain bit-identical!
+    spmd_cont.step(_to_mesh(dev_cont, step_grads_np[1]), free_grads=True)
+    spmd_res.step(_to_mesh(dev_res, step_grads_np[1]), free_grads=True)
+    d_cont_2, _ = master_consensus_digest(spmd_cont.master, dev_cont)
+    d_res_2, _ = master_consensus_digest(spmd_res.master, dev_res)
+    assert d_res_2 == d_cont_2, f"step-2 resume digest diverged: {d_res_2} vs {d_cont_2}"
+    for nm in weights:
+        assert float(np.max(np.abs(spmd_res.host_master()[nm] - spmd_cont.host_master()[nm]))) == 0.0
+        assert float(np.max(np.abs(spmd_res.host_ema_shadow()[nm] - spmd_cont.host_ema_shadow()[nm]))) == 0.0
+
+    # Negative check 3 (broken arm): perturbing a sharded Muon momentum buffer MUST diverge step-2 digest!
+    blob_brk = dict(load_file(str(ckpt_path)))
+    blob_brk["momentum_buffer|mu_sh_2"] = blob_brk["momentum_buffer|mu_sh_2"] * 0.0
+    brk_path = tmp_path / "broken_mom.safetensors"
+    with open(ckpt_path, "rb") as fh:
+        n_hdr = int.from_bytes(fh.read(8), "little")
+        hdr = __import__("json").loads(fh.read(n_hdr))
+    save_file(blob_brk, str(brk_path), metadata=hdr.get("__metadata__", {}))
+    dev_brk = _FakeMeshDevice(2, 4)
+    base_brk = _FakeDeviceOptimizer(weights, muon_names, dev_brk, ema_decay=0.95)
+    spmd_brk = SPMDZero1Step(base_brk, weights, dev_brk, full_shape=(2, 4), use_zero1_muon=True)
+    load_adapter(brk_path, weights, dev_brk, opt=spmd_brk)
+    spmd_brk.step(_to_mesh(dev_brk, step_grads_np[1]), free_grads=True)
+    d_brk_2, _ = master_consensus_digest(spmd_brk.master, dev_brk)
+    assert d_brk_2 != d_cont_2
+    assert float(np.max(np.abs(spmd_brk.host_master()["mu_sh_2"] - spmd_cont.host_master()["mu_sh_2"]))) > 1e-4
+
+    spmd_cont.deallocate()
+    base_cont.deallocate()
+    spmd_res.deallocate()
+    base_res.deallocate()
+    spmd_brk.deallocate()
+    base_brk.deallocate()
+    assert len(dev_cont.live_bufs) == 0
+    assert len(dev_res.live_bufs) == 0
+    assert len(dev_brk.live_bufs) == 0
+
+
+def test_spmd_zero1_checkpoint_cross_world_and_step0(monkeypatch, tmp_path):
+    """Checkpoints saved on 2x4 ZeRO-1 resume cleanly on 1x4 unsharded (and vice versa), plus step-0 zero mom."""
+    _install_spmd_step_mocks(monkeypatch)
+    from tt_bio.train.checkpoint import load_adapter, save_adapter
+
+    weights, muon_names = _make_ckpt_weights(seed=91)
+    rng = np.random.default_rng(92)
+
+    # Step-0 save before any optimizer step (empty sh_mom, ema.n_averaged == 0).
+    dev_0 = _FakeMeshDevice(2, 4)
+    base_0 = _FakeDeviceOptimizer(weights, muon_names, dev_0, ema_decay=0.9)
+    spmd_0 = SPMDZero1Step(base_0, weights, dev_0, full_shape=(2, 4), use_zero1_muon=True)
+    p0 = tmp_path / "step0.safetensors"
+    save_adapter(p0, spmd_0, meta={"step": 0})
+    fams0 = spmd_0.state_families()
+    assert set(fams0["momentum_buffer"]) == muon_names
+    assert "ema_shadow" not in fams0
+    for nm in muon_names:
+        assert float(np.max(np.abs(fams0["momentum_buffer"][nm]))) == 0.0
+
+    # Step 1 on 2x4 -> save -> resume on 1x4 (unsharded) -> save -> resume on 2x4 (sharded).
+    g0 = {nm: dev_0.make_tensor([torch.from_numpy(rng.standard_normal(arr.shape).astype(np.float32) * 0.2) for _ in range(8)])
+          for nm, arr in weights.items()}
+    spmd_0.step(g0, free_grads=True)
+    p1 = tmp_path / "from_2x4.safetensors"
+    save_adapter(p1, spmd_0, meta={"step": 1})
+
+    dev_1x4 = _FakeMeshDevice(1, 4)
+    base_1x4 = _FakeDeviceOptimizer(weights, muon_names, dev_1x4, ema_decay=0.9)
+    spmd_1x4 = SPMDZero1Step(base_1x4, weights, dev_1x4, full_shape=(1, 4), use_zero1_muon=True)
+    assert spmd_1x4.use_zero1_muon is False
+    load_adapter(p1, weights, dev_1x4, opt=spmd_1x4)
+    assert spmd_1x4.master_digest() == spmd_0.master_digest()
+    p2 = tmp_path / "from_1x4.safetensors"
+    save_adapter(p2, spmd_1x4, meta={"step": 1})
+
+    dev_2x4_b = _FakeMeshDevice(2, 4)
+    base_2x4_b = _FakeDeviceOptimizer(weights, muon_names, dev_2x4_b, ema_decay=0.9)
+    spmd_2x4_b = SPMDZero1Step(base_2x4_b, weights, dev_2x4_b, full_shape=(2, 4), use_zero1_muon=True)
+    load_adapter(p2, weights, dev_2x4_b, opt=spmd_2x4_b)
+    assert spmd_2x4_b.master_digest() == spmd_0.master_digest()
+    d_0, _ = master_consensus_digest(spmd_0.master, dev_0)
+    d_b, n_b = master_consensus_digest(spmd_2x4_b.master, dev_2x4_b)
+    assert n_b == len(weights) and d_b == d_0
+    fams_0 = spmd_0.state_families()
+    fams_b = spmd_2x4_b.state_families()
+    assert set(fams_b) == set(fams_0)
+    for fam, d_c in fams_0.items():
+        for nm in d_c:
+            assert np.array_equal(fams_b[fam][nm], d_c[nm]), f"cross-world {fam}|{nm}"
+
+    for sp, ba in ((spmd_0, base_0), (spmd_1x4, base_1x4), (spmd_2x4_b, base_2x4_b)):
+        sp.deallocate()
+        ba.deallocate()
+    assert len(dev_0.live_bufs) == 0 and len(dev_1x4.live_bufs) == 0 and len(dev_2x4_b.live_bufs) == 0
+
+
+def test_rfd4_run_uses_ckpt_opt_for_all_checkpoint_calls():
+    """rfd4_run.py must pass ckpt_opt (SPMDZero1Step when --mesh active) to load_adapter and ck.save."""
+    import ast
+
+    src = Path("tt_bio/train/rfd4_run.py").read_text()
+    tree = ast.parse(src)
+    load_calls = []
+    save_calls = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        if isinstance(node.func, ast.Name) and node.func.id == "load_adapter":
+            opt_kw = [kw.value for kw in node.keywords if kw.arg == "opt"]
+            assert len(opt_kw) == 1 and isinstance(opt_kw[0], ast.Name) and opt_kw[0].id == "ckpt_opt"
+            load_calls.append(node.lineno)
+        if (
+            isinstance(node.func, ast.Attribute)
+            and isinstance(node.func.value, ast.Name)
+            and node.func.value.id == "ck"
+            and node.func.attr == "save"
+        ):
+            assert len(node.args) >= 2 and isinstance(node.args[1], ast.Name) and node.args[1].id == "ckpt_opt"
+            save_calls.append(node.lineno)
+    assert len(load_calls) == 1 and len(save_calls) == 2

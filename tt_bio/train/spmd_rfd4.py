@@ -351,6 +351,10 @@ class SPMDZero1Step:
     def master(self) -> Dict[str, object]:
         return self.base_opt.master
 
+    @property
+    def muon_names(self) -> frozenset[str]:
+        return self.base_opt.muon_names
+
     def sharded_names(self) -> frozenset[str]:
         if self.use_zero1_muon and self.muon_plan is not None:
             return self.muon_plan.sharded_names
@@ -750,6 +754,96 @@ class SPMDZero1Step:
         if self.use_zero1_muon and self.muon_sharder is not None and self.sh_ema:
             out.update(self.muon_sharder.gather_host_shards(self.sh_ema))
         return out
+
+    def state_dict(self) -> dict:
+        return self.base_opt.state_dict()
+
+    def load_state_dict(self, d: dict) -> None:
+        self.base_opt.load_state_dict(d)
+
+    def drop_unowned(self) -> None:
+        self.base_opt.drop_unowned()
+
+    def state_families(self) -> Dict[str, Dict[str, "np.ndarray"]]:
+        """Per-parameter host fp32 optimizer and EMA state dicts across replicated and sharded buckets."""
+        import numpy as np
+
+        fams = self.base_opt.state_families()
+        if self.use_zero1_muon and self.muon_sharder is not None and self.muon_plan is not None:
+            mom = dict(fams.get("momentum_buffer", {}))
+            if self.sh_mom:
+                mom.update(self.muon_sharder.gather_host_shards(self.sh_mom))
+            else:
+                for wg in self.muon_plan.width_groups:
+                    for slot in wg.buckets:
+                        for nm in slot.names:
+                            mom[nm] = np.zeros(slot.shape, dtype=np.float32)
+            fams["momentum_buffer"] = mom
+            if self.base_opt.ema is not None and self.base_opt.ema.n_averaged > 0:
+                ema = dict(fams.get("ema_shadow", {}))
+                if self.sh_ema:
+                    ema.update(self.muon_sharder.gather_host_shards(self.sh_ema))
+                else:
+                    ema.update(self.muon_sharder.gather_host_shards(self.sh_master))
+                fams["ema_shadow"] = ema
+        return fams
+
+    def load_host_state(
+        self,
+        masters: Mapping[str, object],
+        families: Mapping[str, Mapping[str, object]] = (),
+    ) -> None:
+        """Reload checkpoint masters, moments, and EMA across replicated and axis-0 sharded buckets."""
+        import numpy as np
+        from .device_optim import _safe_dealloc
+
+        fams = dict(families) if families else {}
+        self.base_opt.load_host_state(masters, fams)
+        if not (self.use_zero1_muon and self.muon_sharder is not None and self.muon_plan is not None):
+            return
+
+        sh_names = self.muon_plan.sharded_names
+
+        def _replace_shards(
+            dst: Dict[Tuple[int, int], object],
+            src_map: Optional[Mapping[str, object]],
+        ) -> None:
+            new_map = (
+                self.muon_sharder.shard_initial_masters(src_map, self.device)
+                if src_map is not None else {}
+            )
+            for shp, old_t in list(dst.items()):
+                _safe_dealloc(old_t, keep=new_map.get(shp))
+            dst.clear()
+            dst.update(new_map)
+
+        _replace_shards(self.sh_master, masters)
+
+        mom = fams.get("momentum_buffer")
+        if mom and any(nm in mom for nm in sh_names):
+            mom_full = {
+                nm: (mom[nm] if nm in mom else np.zeros(self.base_opt.shapes[nm], dtype=np.float32))
+                for nm in sh_names
+            }
+            _replace_shards(self.sh_mom, mom_full)
+        else:
+            _replace_shards(self.sh_mom, None)
+
+        if self.base_opt.ema is not None:
+            es = fams.get("ema_shadow")
+            if es and any(nm in es for nm in sh_names):
+                ema_full = {nm: (es[nm] if nm in es else masters[nm]) for nm in sh_names}
+                _replace_shards(self.sh_ema, ema_full)
+            else:
+                _replace_shards(self.sh_ema, None)
+        else:
+            _replace_shards(self.sh_ema, None)
+
+        gathered = self.muon_sharder.all_gather_masters(self.sh_master, self.device)
+        for nm, new_m in gathered.items():
+            old_m = self.base_opt.master.get(nm)
+            self.base_opt.master[nm] = new_m
+            _safe_dealloc(old_m, keep=new_m)
 
     def deallocate(self) -> None:
         import ttnn

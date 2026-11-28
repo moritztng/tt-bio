@@ -1736,6 +1736,7 @@ def main(argv=None, on_step=None):
     host_glue_params = {}
     refold_hook = None
     refold_dev_hook = None
+    spmd_opt = None
     spmd_tracer = None
     factory_split = None
     dev_win_glue = None
@@ -1895,9 +1896,10 @@ def main(argv=None, on_step=None):
             opt = update_rule(dict(params), data_parallel=ax, shard=a.shard)
         else:
             opt = AdamW(dict(params), lr=1e-4, clip_norm=1.0, weight_decay=0.0, data_parallel=ax, shard=a.shard)
+    ckpt_opt = spmd_opt if (a.resident and spmd_opt is not None) else opt
     start = 0
     if a.resume:
-        start = int(load_adapter(a.resume, dict(params), dev, opt=opt)["step"])
+        start = int(load_adapter(a.resume, dict(params), dev, opt=ckpt_opt)["step"])
         if a.resident:
             dfolds.refold(opt.master, on_refold=refold_hook)
         else:
@@ -2245,7 +2247,7 @@ def main(argv=None, on_step=None):
                     raise RuntimeError(f"SPMD master consensus mismatch at step {step + 1}: {cons_err}")
                 break
             if a.save_at and step + 1 == a.save_at:   # before the guard, so a refusal still leaves the resume test its input
-                print(json.dumps(dict(saved=str(ck.save(step + 1, opt, metrics={"loss": loss}, force=True)))), flush=True)
+                print(json.dumps(dict(saved=str(ck.save(step + 1, ckpt_opt, metrics={"loss": loss}, force=True)))), flush=True)
             if a.pin_spike:
                 ref = sorted(seen[-100:])[len(seen[-100:]) // 2] if len(seen) >= 20 else None
                 if ref is not None and loss > a.pin_spike * ref:
@@ -2254,7 +2256,7 @@ def main(argv=None, on_step=None):
                 seen.append(loss)
             due_save, force_save = _checkpoint_due(step + 1, a.steps, a.save_every, a.save_at)
             if due_save:   # --keep: a ring by step, so no metric to rank by
-                print(json.dumps(dict(saved=str(ck.save(step + 1, opt, metrics=None if a.keep else {"loss": loss},
+                print(json.dumps(dict(saved=str(ck.save(step + 1, ckpt_opt, metrics=None if a.keep else {"loss": loss},
                                                         force=force_save)))), flush=True)
             if clog is not None:
                 clog.record(step, loss, terms=extra.get("terms"), n_recycle=cur["depth"],
