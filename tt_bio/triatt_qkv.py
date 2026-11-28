@@ -381,6 +381,8 @@ TAIL_KB1 = int(os.environ.get("TT_BIO_TRIATT_TAIL_KB1", "1"))
 # Wormhole +0.31 ms with a bfp8 gate at 512 (the unit's shuffle does not overlap its matmul), so Blackhole only.
 TAIL_T = os.environ.get("TT_BIO_TRIATT_TAIL_T")   # "1" / "0" overrides the per-arch default
 TAIL_T_GRAN = 4   # sums per DEST batch, as pair_transpose_add
+# EXPERIMENT (off): the ending form's row shuffle as L1 word copies instead of loopback NOC reads, same bytes.
+TAIL_T_CPY = int(os.environ.get("TT_BIO_TRIATT_TAIL_T_CPY", "0"))
 TAIL_FORCE = os.environ.get("TT_BIO_TRIATT_TAIL")   # "1" / "0" overrides the `triatt_tail` lever
 # INSTRUMENT, never a shipped knob (as triatt_sdpa's TT_BIO_TRIATT_ABLATE): TT_BIO_TRIATT_TAIL_ABLATE=READ,WRITE,SIG,MM,SHUF
 # compiles gated_out_proj without the named stage (o, g and z reads after a core's first unit; the output writes;
@@ -500,7 +502,7 @@ def _build_tail(o, g, w, out, ckc, grid, resid, brows=None, trans=0):
         u0 += n
     acc = lambda t: list(ttnn.TensorAccessorArgs(t).get_compile_time_args())
     src = ttnn.KernelDescriptor.SourceType.FILE_PATH
-    abl = [(f"ABL_{a}", "1") for a in TAIL_ABLATE]
+    abl = [(f"ABL_{a}", "1") for a in TAIL_ABLATE] + ([("T_CPY", "1")] if TAIL_T_CPY else [])
     reader = ttnn.KernelDescriptor(
         kernel_source=str(_TAIL_DIR / "reader.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[kt, nt, St, int(_g3d(o, g)), int(brows is not None), int(trans)]
@@ -580,7 +582,7 @@ def gated_out_proj(o, g, w, ckc, resid=None, bias=None, resid_t=None):
     brows = _bias_rows(bias) if bias is not None else None
     key = (str(o.padded_shape), str(g.padded_shape), str(g.dtype), str(w.padded_shape), str(out.padded_shape), grid,
            G.ckc_args(ckc), resid is not None, bias is not None, TAIL_SIGPOLY, TAIL_RNE, TAIL_KB1,
-           trans)
+           trans, TAIL_T_CPY)
     entry = _TAIL_CACHE.get(key)
     if entry is None:
         entry = _TAIL_CACHE[key] = _build_tail(o, g, w, out, ckc, grid, resid is not None, brows,

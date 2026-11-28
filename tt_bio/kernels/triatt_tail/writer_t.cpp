@@ -67,8 +67,17 @@ void kernel_main() {
                 for (uint32_t q = 0; q < 32; ++q) {
                     const uint32_t src = src_tile + ((q >> 4) * 2) * FACE + (q & 15) * ROW;
                     const uint32_t dst = slot + q * tb + dst_row;
+#ifdef T_CPY   // the two face rows as word copies in L1 instead of two loopback NOC reads
+                    const uint32_t* a = reinterpret_cast<const uint32_t*>(src);
+                    uint32_t* d = reinterpret_cast<uint32_t*>(dst);
+                    for (uint32_t w = 0; w < ROW / 4; ++w) {
+                        d[w] = a[w];
+                        d[FACE / 4 + w] = a[FACE / 4 + w];
+                    }
+#else
                     noc_async_read(get_noc_addr(src), dst, ROW);
                     noc_async_read(get_noc_addr(src + FACE), dst + FACE, ROW);
+#endif
                 }
             }
 #endif

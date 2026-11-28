@@ -9,7 +9,7 @@ room() { local now s e r=99999 n a b _; now=$(date +%s); while read -r n a b _; 
   s=$(( $(date -u -d "${a%Z}:00Z" +%s) - 240 )); e=$(date -u -d "${b%Z}:00Z" +%s)
   [ $now -ge $e ] && continue; [ $now -ge $s ] && { echo 0; return; }; [ $((s - now)) -lt $r ] && r=$((s - now)); done < $HOME/fleet/HOLDER.windows; echo $r; }
 for a in ${ARMS:-base READ WRITE READ,WRITE SIG MM SIG,MM READ,WRITE,SIG,MM base2}; do
-  n=$(echo $a | tr , - | tr A-Z a-z); [ -e $O/$n.done ] && continue
+  n=$(echo $a | tr , - | tr A-Z a-z)${TAG:-}; [ -e $O/$n.done ] && continue
   for try in 1 2 3 4 5 6 7 8; do
     [ -e $HOME/fleet/HANDBACK ] || [ -e $O/STOP ] && { say "stop file"; exit 0; }
     while [ $(room) -lt 420 ]; do sleep 120; done
