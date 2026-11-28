@@ -181,7 +181,8 @@ void kernel_main() {
         tile_regs_wait();
         pack_reconfig_data_format(cb_out);
         if constexpr (BW) {
-            for (uint32_t slot : {1, 0, 2, 3, 6, 7}) {
+            constexpr uint32_t slots[6] = {1, 0, 2, 3, 6, 7};   // dq0 dq1 dk0 dk1 dv0 dv1
+            for (uint32_t slot : slots) {
                 pack_tile(slot, cb_out);
             }
         } else {

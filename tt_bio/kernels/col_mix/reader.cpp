@@ -46,7 +46,8 @@ void kernel_main() {
         const uint32_t r = u / H, h = u % H;
         cb_reserve_back(cb_in, 6);
         w = get_write_ptr(cb_in);
-        for (uint32_t part : {H + h, h, 2 * H + h}) {       // k, q, v
+        const uint32_t parts[3] = {H + h, h, 2 * H + h};    // k, q, v
+        for (uint32_t part : parts) {
             for (uint32_t s = 0; s < 2; ++s) {
                 noc_async_read_page(s * SLAB + r * ROW + part, sx, w);
                 w += tile;
