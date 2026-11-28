@@ -42,7 +42,7 @@ def test_graph_cache_reuses_rebuilds_and_evicts():
     cache = GraphCache(size=2)
 
     def build(n):
-        return lambda: built.append(n) or dict(n_out=32, E=n, tag=n)
+        return lambda: built.append(n) or dict(n_out=32, E=n, tag=n, **{("groups", (n,)): []})
 
     ei = {n: torch.arange(2 * n).reshape(2, n) for n in (32, 64, 96)}
     assert cache.get(32, ei[32], build(32))["tag"] == 32
@@ -53,4 +53,4 @@ def test_graph_cache_reuses_rebuilds_and_evicts():
     cache.get(32, ei[32].flip(1), build(32))                  # 32 most recent
     cache.get(96, ei[96], build(96))                          # evicts 64, not 32
     assert list(cache.entries) == [32, 96] and built == [32, 32, 64, 96]
-    assert cache.nbytes() == sum(32 * n * 2 + n * 4 for n in (32, 96))
+    assert cache.nbytes() == sum(32 * n * 2 + n * 8 for n in (32, 96))

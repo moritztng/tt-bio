@@ -320,20 +320,11 @@ class DeviceConvLayer:
         self._split = {}
 
     def graph(self, edge_index: Tensor, n_out: int, n_in: int):
-        """Upload the loop-invariant half of a static graph: the gather index and the scatter."""
-        ttnn = self.ttnn
-        src, dst = edge_index
+        """A static graph; its card half is uploaded per edge group by :meth:`_groups`."""
         E = edge_index.shape[1]
         if E % TILE or n_out % TILE:
             raise ValueError(f"edges {E} and nodes {n_out} must be multiples of {TILE}")
-        S = torch.zeros(n_out, E)
-        S[src, torch.arange(E)] = 1.0
-        idx = ttnn.from_torch(dst.to(torch.int32).reshape(1, E), dtype=ttnn.uint32,
-                              layout=ttnn.ROW_MAJOR_LAYOUT, device=self.device)
-        # 0/1, and the scatter is a sum of exact products.
-        S = ttnn.from_torch(S, dtype=exact01_dtype(self.device, self.dtype),
-                            layout=ttnn.TILE_LAYOUT, device=self.device)
-        return dict(idx=idx, S=S, E=E, n_out=n_out, edge_index=edge_index)
+        return dict(E=E, n_out=n_out, edge_index=edge_index)
 
     def fc1_split(self, ns: int):
         """The first FC layer of every edge group cut into its three input blocks.
@@ -353,19 +344,31 @@ class DeviceConvLayer:
                 for fc, tp in zip(self.fcs, self.tps)]
         return self._split[ns]
 
-    def _group_index(self, g, sizes):
-        """Per edge group ``(src, dst)`` uint32 gather indices, uploaded once per graph."""
+    def _groups(self, g, sizes):
+        """Per edge group the ``(src, dst)`` uint32 gather indices and the dense ``[n_out, E_g]``
+        scatter, uploaded once per graph.
+
+        One scatter over the whole edge axis would be a matmul keyed on the sum of the group
+        sizes, which is on no grid even when every group is (:func:`bucket`). The groups
+        partition the edges, so the sum of the per-group scatters is the same reduction and
+        every matmul is keyed on a grid size.
+        """
         key = ("groups", sizes)
         if key not in g:
-            ttnn, idx, lo = self.ttnn, [], 0
+            ttnn, out, lo = self.ttnn, [], 0
             for n in sizes:
-                pair = [ttnn.from_torch(r[lo:lo + n].to(torch.int32).reshape(1, n),
-                                        dtype=ttnn.uint32, layout=ttnn.ROW_MAJOR_LAYOUT,
-                                        device=self.device)
-                        for r in g["edge_index"]]
-                idx.append(pair)
+                src, dst = (r[lo:lo + n] for r in g["edge_index"])
+                S = torch.zeros(g["n_out"], n)
+                S[src, torch.arange(n)] = 1.0
+                out.append([
+                    *(ttnn.from_torch(r.to(torch.int32).reshape(1, n), dtype=ttnn.uint32,
+                                      layout=ttnn.ROW_MAJOR_LAYOUT, device=self.device)
+                      for r in (src, dst)),
+                    # 0/1, and the scatter is a sum of exact products.
+                    ttnn.from_torch(S, dtype=exact01_dtype(self.device, self.dtype),
+                                    layout=ttnn.TILE_LAYOUT, device=self.device)])
                 lo += n
-            g[key] = idx
+            g[key] = out
         return g[key]
 
     def __call__(self, node_attr, g, edge_attr_groups, edge_sh, edge_mask, ns=None,
@@ -381,30 +384,28 @@ class DeviceConvLayer:
         """
         ttnn = self.ttnn
         ckc = self.ckc
-        x1 = gather_rows(node_attr, g["idx"], g["E"])
-        if ns is not None:
-            sizes = tuple(int(ea.shape[0]) for ea in edge_attr_groups)
-            index = self._group_index(g, sizes)
-            mm = lambda x, w: ttnn.matmul(x, w, compute_kernel_config=ckc, dtype=self.dtype)
-        msgs, lo = [], 0
-        for gi, (tp, ea) in enumerate(zip(self.tps, edge_attr_groups)):
-            n = ea.shape[0]
+        mm = lambda x, w: ttnn.matmul(x, w, compute_kernel_config=ckc, dtype=self.dtype)
+        sizes = tuple(int(ea.shape[0]) for ea in edge_attr_groups)
+        s = div = None
+        lo = 0
+        for gi, (tp, ea, (src, dst, S)) in enumerate(zip(self.tps, edge_attr_groups,
+                                                         self._groups(g, sizes))):
+            n = sizes[gi]
+            rows = lambda t: t if n == g["E"] else t[lo:lo + n, :]
             h = None
             if ns is not None:
                 w1a, w1s, w1d, b1 = self.fc1_split(ns)[gi]
-                src, dst = index[gi]
                 h = ttnn.linear(ea, w1a, bias=b1, compute_kernel_config=ckc, dtype=self.dtype)
                 out_t = node_attr if out_attr is None else out_attr
                 h = ttnn.add(h, gather_rows(mm(out_t, w1s), src, n))
                 h = ttnn.relu(ttnn.add(h, gather_rows(mm(node_attr, w1d), dst, n)))
-            msgs.append(tp(ea, x1[lo:lo + n, :], edge_sh[lo:lo + n, :], h=h))
+            mask = rows(edge_mask)
+            msg = ttnn.multiply(tp(ea, gather_rows(node_attr, dst, n), rows(edge_sh), h=h), mask)
+            part, count = mm(S, msg), mm(S, mask)
+            s, div = (part, count) if s is None else (ttnn.add(s, part), ttnn.add(div, count))
             lo += n
-        msg = msgs[0] if len(msgs) == 1 else ttnn.concat(msgs, dim=0)
-        msg = ttnn.multiply(msg, edge_mask)
-        s = ttnn.matmul(g["S"], msg, compute_kernel_config=ckc, dtype=self.dtype)
         if self.perm is not None:
             s = ttnn.matmul(s, self.perm, compute_kernel_config=ckc, dtype=self.dtype)
-        div = ttnn.matmul(g["S"], edge_mask, compute_kernel_config=ckc, dtype=self.dtype)
         div = ttnn.reciprocal(ttnn.clamp(div, min=float(torch.finfo(torch.float32).eps)))
         out = ttnn.multiply(s, div)
         if self.layer.batch_norm is not None:
@@ -444,13 +445,10 @@ class GraphCache:
         return hit[1]
 
     def nbytes(self) -> int:
-        """Card bytes held: per graph the bf16 scatter, its uint32 index and any per-group
-        ``(src, dst)`` indices :meth:`DeviceConvLayer._group_index` added."""
-        total = 0
-        for _, g in self.entries.values():
-            groups = sum(1 for k in g if isinstance(k, tuple))
-            total += g["n_out"] * g["E"] * 2 + g["E"] * 4 * (1 + 2 * groups)
-        return total
+        """Card bytes held: per edge group the bf16 scatter and its two uint32 indices."""
+        return sum(g["n_out"] * n * 2 + n * 8
+                   for _, g in self.entries.values()
+                   for k in g if isinstance(k, tuple) for n in k[1])
 
 
 def _free(g: dict) -> None:
