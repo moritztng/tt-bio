@@ -5,14 +5,6 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
-### Added
-- **`tt-bio train batches/ --model rfd4` trains RFD4-Proteina's release trunk weights on Tenstorrent cards.** Each
-  step runs `k` noise candidates through the production trunk with gradients off, picks the winner on upstream's
-  flow-matching objective, and tapes the winner's last recycle using upstream's Muon + Adam update rule. Supports
-  single-chip and multi-chip data parallel (`--chips`), checkpoint and bit-identical resume from the same `--out`,
-  `status.json` / `progress.jsonl`, and refuses unhonoured flags by name. Inference and design outputs are
-  byte-identical when gradients are off. See [`docs/training.md`](docs/training.md#rfd4-proteina-a-model-whose-step-is-its-own).
-
 ### Changed
 - **`tt-bio dock` runs on the card.** On a host with a Tenstorrent card the convolutions of both the score and the
   confidence network run on the card, otherwise on CPU. The card's confidence network ranks poses exactly as
@@ -22,10 +14,13 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   compiled: an unseen pose set took 7.5 to 130 s on three test ligands and now takes 0.9 to 1.4 s (one Galaxy
   chip at 1350 MHz). The receptor's all-atom graph is also built once per structure file instead of once per
   ligand. Ranking is unchanged on those ligands.
-- **ESMFold2 and ESMFold2-Fast fold about 4 % faster on Wormhole**, in both normal and `--fast` mode. A 512-residue
-  fold on a Galaxy chip at 1000 MHz: ESMFold2 22.9 -> 21.8 s (normal) and 22.2 -> 21.3 s (`--fast`), ESMFold2-Fast
-  13.5 -> 13.0 s and 13.4 -> 12.9 s. The triangle update keeps one pair tensor in 8-bit block floating point across
-  two kernels; structures change slightly and pass each mode's accuracy bar on 11 complexes x 4 seeds.
+- **Ranking docked poses on the card is about 14 % faster per pose.** The receptor-only convolutions of the
+  confidence network's first layer run once per receptor instead of once per pose: 0.047 / 0.090 / 0.086 s ->
+  0.040 / 0.078 / 0.074 s of card time per pose on three test ligands (one Galaxy chip at 1350 MHz). Scores are
+  bit-identical.
+- **Protenix-v2 `--fast` is about 1 s faster on Blackhole.** It takes the attention read Wormhole got in 0.46.0. A warm
+  512-token fold is a median 1.0 s faster at 1312-1343 MHz, faster on 11 of 11 complexes. Graded on 11 complexes x 4
+  seeds inside the fast-mode accuracy bar (CA-lDDT -0.002, docking success 37 -> 36 of 44).
 
 ### Fixed
 - **`tt-bio dock` no longer writes a pose far outside the receptor.** On a few inputs the score network returns a
@@ -33,6 +28,37 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   ranked first. Such a sample is now stopped and left out, so a complex can return fewer than
   `--samples_per_complex` poses. The count is printed on stderr and reported as `failed_samples` in the JSON.
   The other samples are unchanged. See [`docs/docking.md`](docs/docking.md).
+- **Writing a result no longer stalls on a host that has been serving for a day.** numpy asks the kernel for huge
+  pages behind every large array, and once the host has no free 2 MB block each such write waits on memory
+  compaction: filling four 127 MB arrays took 4.5 to 5.8 s on a Galaxy up 26 hours and 0.24 s without the request.
+  tt-bio now turns the request off at import. Set `NUMPY_MADVISE_HUGEPAGE=1` to keep it. Results are unchanged.
+
+## [0.47.0] - 2026-11-28
+
+### Added
+- **`tt-bio train batches/ --model rfd4` trains RFD4-Proteina's release trunk weights on Tenstorrent cards.** Each
+  step runs `k` noise candidates through the production trunk with gradients off, picks the winner on upstream's
+  flow-matching objective, and tapes the winner's last recycle using upstream's Muon + Adam update rule. Supports
+  single-chip and multi-chip data parallel (`--chips`), checkpoint and bit-identical resume from the same `--out`,
+  `status.json` / `progress.jsonl`, and refuses unhonoured flags by name. Inference and design outputs are
+  byte-identical when gradients are off. See [`docs/training.md`](docs/training.md#rfd4-proteina-a-model-whose-step-is-its-own).
+- **`tt-bio dock --model diffdock` places a ligand in a receptor and ranks the poses.** DiffDock-L, end to end:
+  upstream's four-column CSV or a tt-bio job YAML in, upstream's `rank1.sdf` / `rank1_confidence-0.42.sdf` layout
+  out, plus a `confidence.json` with the ranking. Defaults are the published inference recipe, so a plain command
+  reproduces the paper's settings, and `tt-bio weights --download diffdock` fetches the v1.1 release. The score
+  network is graded against upstream's own at PCC 0.9999999999984 or better across three complexes at five points
+  of the schedule. On a host with a Tenstorrent card the convolutions of both the score and the confidence network
+  run on the card, otherwise on CPU; the card's confidence network ranks poses exactly as upstream's does. Every
+  upstream inference option has a flag: `--ligand`, `--name`, `--weights`, `--confidence_checkpoint`, `--no_confidence`, `--actual_steps`,
+  `--initial_noise_std`, `--init_at_residue`, `--sampler`, `--deterministic`, `--no_model`, `--pocket`,
+  `--pocket_radius`, `--minimize`, `--gnina_path` and `--limit_failures`. See
+  [`docs/docking.md`](docs/docking.md).
+
+### Changed
+- **ESMFold2 and ESMFold2-Fast fold about 4 % faster on Wormhole**, in both normal and `--fast` mode. A 512-residue
+  fold on a Galaxy chip at 1000 MHz: ESMFold2 22.9 -> 21.8 s (normal) and 22.2 -> 21.3 s (`--fast`), ESMFold2-Fast
+  13.5 -> 13.0 s and 13.4 -> 12.9 s. The triangle update keeps one pair tensor in 8-bit block floating point across
+  two kernels; structures change slightly and pass each mode's accuracy bar on 11 complexes x 4 seeds.
 
 ## [0.46.0] - 2026-11-27
 

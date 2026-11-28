@@ -1508,6 +1508,8 @@ def _k_pair_relu(shipped, args, kwargs):
     the cotangent of xn, then `lnbw.layer_norm_bw` takes it back through the norm. The weights and the norm's affine
     take no gradient (BindCraft 2 differentiates the sequence, not the model), so the entry declines a call where any
     of them is a tracked parameter, and one with no `bw_weights`, `ln` or a shape the LayerNorm kernel does not serve.
+    With `keep_x` the node is `x + f(x)` and the cotangent also goes to x as it is. The in-place residual forms
+    overwrite the x this backward reads, so they decline.
 
     Not bit-identical to the composed backward: the cotangent enters as bf16 where the composed matmul VJPs read it as
     it comes, and the norm's backward is the bf16 kernel. So this is graded on BindCraft 2's own design metrics.
@@ -1517,7 +1519,9 @@ def _k_pair_relu(shipped, args, kwargs):
     ra, rk = _raw(args, kwargs)
     ln, bww = rk.get("ln"), rk.get("bw_weights")
     tracked = list(args[1:5]) + [kwargs.get(k) for k in ("w1", "b1", "w2", "b2")] + list((kwargs.get("ln") or ())[:2])
-    if ln is None or bww is None or any(isinstance(t, Tensor) and t.requires_grad for t in tracked):
+    keep = rk.get("keep_x", False)
+    if ln is None or bww is None or any(isinstance(t, Tensor) and t.requires_grad for t in tracked) \
+            or rk.get("pb") is not None or (rk.get("resid") is not None and not keep):
         return None
     x = _wrap(args[0])
     if not lnbw.eligible(ra[0], ra[0], ln[0]):
@@ -1532,12 +1536,43 @@ def _k_pair_relu(shipped, args, kwargs):
     def make():
         def bw(g):
             xv = x.value
+            if keep:
+                x.add_grad(g)
             dy = g if g.dtype == ttnn.bfloat16 else ttnn.typecast(g, ttnn.bfloat16)
             dxn = W.pair_relu_bw(xv, dy, bww[0], b1, bww[1], fidelity=fid, ln=ln)
             x.add_grad(lnbw.layer_norm_bw(xv, dxn, gamma, eps))
             ttnn.deallocate(dxn)
             if dy is not g:
                 ttnn.deallocate(dy)
+        return bw
+
+    return _tape(out_v, [x], make, reads=(0,))
+
+
+@_kernel("col_mix")
+def _k_col_mix(shipped, args, kwargs):
+    """`col_mix.col_mix`'s entry: the depth-2 column attention between its projections as one node.
+
+    The composed chain tapes thirteen nodes and holds their operands; this one holds the `[2, n, 3c]` projection
+    alone and its backward is one program, `col_mix_bw`, which recomputes the key and value differences and the
+    sigmoid. The bias is the MSA mask's and takes no gradient, so a tracked one declines.
+    """
+    from . import col_mix as C
+    ra, rk = _raw(args, kwargs)
+    bias_t = args[2] if len(args) > 2 else kwargs.get("bias")
+    if isinstance(bias_t, Tensor) and bias_t.requires_grad:
+        return None
+    x = _wrap(args[0])
+    out_v = shipped(*ra, **rk)
+    scale = ra[1] if len(ra) > 1 else rk["scale"]
+    bias = ra[2] if len(ra) > 2 else rk.get("bias")
+
+    def make():
+        def bw(g):
+            d = g if g.dtype == ttnn.bfloat16 else ttnn.typecast(g, ttnn.bfloat16)
+            x.add_grad(C.col_mix_bw(x.value, d, scale, bias))
+            if d is not g:
+                ttnn.deallocate(d)
         return bw
 
     return _tape(out_v, [x], make, reads=(0,))

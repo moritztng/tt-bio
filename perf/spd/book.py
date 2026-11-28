@@ -7,7 +7,7 @@ Release-gate legs keep absolute priority and book through `take`, so the booker 
     book.py add OWNER CARDS SECONDS [--now] [--note TEXT]   book a window, print "START END"
     book.py take OWNER CARDS SECONDS [--note TEXT]          book from now ahead of everything (a release leg)
     book.py rm OWNER                                        drop OWNER's booking
-    book.py next CARD [--except OWNER]                      earliest start of a booking on CARD not yet over
+    book.py next CARD [--except OWNER] [--pull]             earliest start of a booking on CARD not yet over
     book.py active CARD [--except OWNER]                    who holds CARD now (rc 1 if nobody)
     book.py list
 
@@ -38,6 +38,14 @@ windows started under a foreign holder, gave them up and rebooked by hand up to 
 Why: on 10-24 the rfd4-bh-scaling chain read qb2 cards 0-1 as free in such a gap and took them, and two ladder legs of
 gate a06d92c6d FAILed on DeviceInUseError.
 
+`next CARD --pull` is the feed's question before it starts a job: it answers "now" while a later booking on CARD would
+fit from now (every card it names clear for its whole length), so the freed card goes to that booking's owner, who
+re-runs `add` within the minute and lands on it. An owner that has not moved PULL_S after the first such answer does
+not re-run `add`, and its booking stops holding the feed off (windows.tsv.pull remembers who was asked when).
+Why: on 11-28 an 80 min window on qb2 card 3 waited behind a feed job's worst-case end, the job ended early, and the
+feed started the next 90 min job at once; four bookings read 5 h late while the feed back-filled the cards they waited
+for.
+
 `active` prints the owners of the bookings started on CARD; with none, the feed jobs running on it as feed:<job>; with
 neither, held:unbooked if its flock is held or its node open, unless the caller's own booking (--except) covers CARD.
 Why: on 11-05 it printed nothing for qb1 cards 1-3 and qb2 cards 1-2 while feed jobs ran on them, so a caller probing
@@ -64,6 +72,7 @@ J = os.environ.get("SPD_FEED_JOBS", H + "/spd/feed/jobs")
 NEVER = 9999999999
 LAPSE_S = 1800
 GAP_S = 300
+PULL_S = 180
 LOCKS = os.environ.get("SPD_CARD_LOCKS", H + "/spd_*.lock")
 PROC_LOCKS = os.environ.get("SPD_PROC_LOCKS", "/proc/locks")
 BLOCKS = os.environ.get("SPD_CARDBLOCKS", H + "/.coworker/state")
@@ -220,6 +229,31 @@ def earliest(rows, cards, dur, start):
         start = max(hit)
 
 
+def pull(rows, card, now, x=None, feed_end=feed_end):
+    """True while a booking on `card` that starts later would fit from now (see the module doc)."""
+    try:
+        seen = dict(l.rsplit(" ", 1) for l in open(F + ".pull").read().splitlines())
+    except (OSError, ValueError):
+        seen = {}
+    live = {"%s %d" % (r[2], r[0]) for r in rows}
+    keep, hit = {k: int(v) for k, v in seen.items() if k in live}, False
+    for r in rows:
+        s, e, o, cs, _ = r
+        if card not in cs or o == x or s <= now:
+            continue
+        rest = [q for q in rows if q is not r]
+        if earliest(rest, cs, e - s, max(now, feed_end(cs))) > now:
+            continue
+        k = "%s %d" % (o, s)
+        keep.setdefault(k, now)
+        hit = hit or now - keep[k] < PULL_S
+    if keep != {k: int(v) for k, v in seen.items()}:
+        with open(F + ".pull.tmp", "w") as f:
+            f.writelines("%s %d\n" % kv for kv in keep.items())
+        os.replace(F + ".pull.tmp", F + ".pull")
+    return hit
+
+
 def take(rows, owner, cards, dur, now, note, log=None):
     """`rows` with OWNER booked on `cards` for [now, now + dur) and the queue behind it pushed later, order kept.
 
@@ -273,7 +307,8 @@ def main(a):
         elif a[0] in ("next", "active"):
             c, x = int(a[1]), opt("--except")
             if a[0] == "next":
-                print(now if blocked(c) else min([r[0] for r in rows if c in r[3] and r[2] != x], default=NEVER))
+                print(now if blocked(c) or "--pull" in a and pull(rows, c, now, x) else
+                      min([r[0] for r in rows if c in r[3] and r[2] != x], default=NEVER))
             else:
                 on = ["blocked:" + blocked(c)] if blocked(c) else holders(rows, c, now, x)
                 print(" ".join(on))

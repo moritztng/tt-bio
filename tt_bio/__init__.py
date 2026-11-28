@@ -24,6 +24,12 @@ from tt_bio.runtime import cap_malloc_arenas as _cap_malloc_arenas  # noqa: E402
 
 _cap_malloc_arenas(_env_int("TT_BIO_MALLOC_ARENAS", 2))
 
+# numpy hints huge pages for every large array, and on a host short of free 2 MB blocks each hinted
+# fault stalls in kernel compaction. Off before numpy is imported; see tt_bio.runtime.
+from tt_bio.runtime import drop_numpy_hugepage_hint as _drop_numpy_hugepage_hint  # noqa: E402
+
+_drop_numpy_hugepage_hint()
+
 # Every process that opens a device starts tt-metal's bundled OpenMPI, whose tcp BTL would otherwise
 # listen on the LAN for the whole fold. Spawned workers inherit the default from here.
 from tt_bio.runtime import keep_mpi_local as _keep_mpi_local  # noqa: E402

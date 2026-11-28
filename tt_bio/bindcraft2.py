@@ -2956,8 +2956,15 @@ _FAST_ROUND = (
     # 0.005 bar), so they are armed here only, where BindCraft 2's designs grade them.
     ("af2", None, "_AF2_T2CM", "TT_BIO_AF2_T2CM", True),
     ("tenstorrent", None, "_TRIMUL_GIN_BIASED", "TT_BIO_TRIMUL_GIN_BIASED", True),
+    # The Transition's residual add inside pair_relu. It rounds once where the update and its add round twice,
+    # so it is armed where 30 PD-L1 trajectories graded it, not for every AF2 fold.
+    ("af2", None, "TRANSITION_RES", "TT_BIO_AF2_TRANSITION_RES", True),
+    # The two-row MSA column attention between its projections as one kernel each way. Moves the gradient
+    # (not bit-exact), graded on 30 PD-L1 trajectories: 9 accepted against stock Tenstorrent's 8.
+    ("col_mix", None, "COL_MIX", "TT_BIO_COL_MIX", True),
     ("taped_ttnn", None, "TAPED_KERNELS_DEFAULT", None,
-     "tri_att_sdpa_hifi,rne_add,rne_add_masked,reblock_permute_gated,pair_transpose,triatt_qkv_heads,pair_relu"),
+     "tri_att_sdpa_hifi,rne_add,rne_add_masked,reblock_permute_gated,pair_transpose,triatt_qkv_heads,pair_relu,"
+     "col_mix"),
     # OpenFold3 training turned the fp32 softmax backward on by default; the round above was
     # measured and graded (1.051x of the bf16 control) with it off, so it stays off here.
     ("autograd", None, "SOFTMAX_BW_FP32", "TT_BIO_SOFTMAX_BW_FP32", False),
@@ -2971,7 +2978,7 @@ _FAST_ROUND = (
 #: six campaign seeds on one Wormhole chip it accepted 11 designs of 30 trajectories against the
 #: composed path's 12 (Fisher p=1.00), with mean pLDDT 0.893 against 0.885 and last-iteration ipTM
 #: 0.624 against 0.571, at 7.45 against 7.81 s per iteration.
-_BLACKHOLE_ONLY = frozenset({"tri_att_g_in_matmul", "_AF2_T2CM", "_TRIMUL_GIN_BIASED"})
+_BLACKHOLE_ONLY = frozenset({"tri_att_g_in_matmul", "_AF2_T2CM", "_TRIMUL_GIN_BIASED", "TRANSITION_RES", "COL_MIX"})
 
 
 @contextlib.contextmanager

@@ -1,0 +1,18 @@
+2026-11-28T03:46:23Z credit $3.712506225575453 at start, cap 2.4 h
+2026-11-28T03:46:26Z created 62960740 on offer 62624776 (machine 157779, $0.3761/h, cap 2.4 h, expect $0.90)
+2026-11-28T03:47:03Z 62960740 up at 154.64.231.142:32563 after 37s
+2026-11-28T03:47:07Z 62960740 power limit 450 W
+Welcome to vast.ai. If authentication fails, try again after a few seconds, and double check your ssh key.
+Have fun!
+Welcome to vast.ai. If authentication fails, try again after a few seconds, and double check your ssh key.
+Have fun!
+Welcome to vast.ai. If authentication fails, try again after a few seconds, and double check your ssh key.
+Have fun!
+Welcome to vast.ai. If authentication fails, try again after a few seconds, and double check your ssh key.
+Have fun!
+Welcome to vast.ai. If authentication fails, try again after a few seconds, and double check your ssh key.
+Have fun!
+2026-11-28T03:47:41Z 62960740 running box_bc4_pack.sh
+2026-11-28T06:07:12Z 62960740 ended: cap
+2026-11-28T06:07:24Z DESTROYED 62960740 (session end: cap); instances left: 0
+2026-11-28T06:07:25Z credit $2.6053036695748233 at end

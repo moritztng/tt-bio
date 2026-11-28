@@ -261,7 +261,7 @@ NODE = ('node() { for s in "${TT_SYSFS:-/sys/class/tenstorrent}"/*; do echo "$(b
         'held() { local n=$(node $1); [ -n "$n" ] && fuser -s "${TT_DEV:-/dev/tenstorrent}/$n" 2>/dev/null; }; '
         'gate() { local p n=$(($(date +%s) + $1 + 600)) b; for p in $(pgrep -f "$G"); do '
         '[ "$(cat /proc/$p/comm 2>/dev/null)" = sleep ] && [ "$(ps -o etimes= -p $p | tr -d " ")" -ge "${SENT_S:-600}" ] 2>/dev/null && continue; '
-        'return 0; done; b=$(python3 "${SPD_BOOK:-$HOME/spd/feed/book.py}" next $c 2>/dev/null) || b=; '
+        'return 0; done; b=$(python3 "${SPD_BOOK:-$HOME/spd/feed/book.py}" next $c --pull 2>/dev/null) || b=; '
         '[ $n -le "${b:-9999999999}" ] && return 1; W="$W $c"; return 0; }; ')
 
 

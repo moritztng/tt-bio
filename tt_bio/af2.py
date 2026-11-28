@@ -128,6 +128,11 @@ TRANSITION_L1 = env_flag("TT_BIO_AF2_TRANSITION_L1", False)
 # alone and its backward is `pair_relu_bw` (pre-activation recomputed in L1) then `lnbw.layer_norm_bw`. AF2-IG at 195
 # tokens: Evoformer -0.12 s on Wormhole, -0.10 s on p150a, structure within 0.03 A of the composed path.
 TRANSITION_WS = env_flag("TT_BIO_AF2_TRANSITION_WS", True)
+# The transition's residual add inside that program (`pair_relu(resid=x, keep_x=True)`): `x + f(x)` summed in float32
+# and rounded once, so the update is never written and the residual add is not a pass of its own. Not bit-identical
+# to the update rounded to bfloat16 and then added, so `bindcraft2.fast_round` arms it on Blackhole and a plain
+# AF2 fold leaves it off.
+TRANSITION_RES = env_flag("TT_BIO_AF2_TRANSITION_RES", False)
 # Hand the pair representation from the extra-MSA stack straight to the Evoformer stack as a
 # device tensor, instead of downloading it and uploading the same bytes back. `AF2Model.forward`
 # does not touch `pair` between the two calls -- it only concatenates the template torsion rows
@@ -269,7 +274,11 @@ class ReluTransition(Module):
         self.fc2_bias = self.torch_to_tt("fc2.bias")
         self._ws_weights = self._ws_bw = None
 
-    def _ws(self, x: ttnn.Tensor) -> ttnn.Tensor | None:
+    def residual(self, x: ttnn.Tensor) -> ttnn.Tensor | None:
+        """`x + self(x)` as one program in a new tensor (`TRANSITION_RES`), or None where it does not serve."""
+        return self._ws(x, residual=True) if TRANSITION_WS and TRANSITION_RES else None
+
+    def _ws(self, x: ttnn.Tensor, residual: bool = False) -> ttnn.Tensor | None:
         """The transition as one `pair_relu` program, or None where it does not serve."""
         from . import ops
         from . import pair_swiglu_ws as W
@@ -283,10 +292,10 @@ class ReluTransition(Module):
             self._ws_bw = W.relu_bw_weights(w["fc1.weight"].t(), w["fc2.weight"].t(), self.device)
         w1, b1, w2, b2 = self._ws_weights
         ln = (self.norm_weight, self.norm_bias)
-        if not W.relu_eligible(x, w1, w2, ln):
+        if not W.relu_eligible(x, w1, w2, ln, resid=x if residual else None):
             return None
         return W.pair_relu(x, w1, b1, w2, b2, fidelity=self.compute_kernel_config.math_fidelity,
-                           ln=ln + (1e-5,), bw_weights=self._ws_bw)
+                           ln=ln + (1e-5,), bw_weights=self._ws_bw, **({"resid": x, "keep_x": True} if residual else {}))
 
     def _rows(self, x: ttnn.Tensor) -> ttnn.Tensor:
         if TRANSITION_L1:
@@ -610,9 +619,17 @@ class AF2PairBlock(Module):
                  ("tri_att_end", lambda t: self.tri_att_end(t, attn_mask))]
         if not self.evoformer_order:
             order = order[2:] + order[:2]
-        for name, device in order + [("pair_transition", self.pair_transition)]:
+        for name, device in order:
             z = self._step(lambda t, name=name, device=device: self._pair_op(t, name, device, drop), z)
-        return z
+        return self._step(lambda t: self._transition("pair_transition", self.pair_transition, t, drop), z)
+
+    def _transition(self, name: str, transition: ReluTransition, x, drop=None):
+        """`x + transition(x)`: one program where `ReluTransition.residual` serves it, else the update and its add."""
+        plain = name not in self.skip and name not in self.substitute and (drop is None or drop.get(name) is None)
+        if plain and (out := transition.residual(x)) is not None:
+            ttnn.deallocate(x)
+            return out
+        return self._residual_dropped(x, name, self._update(name, transition, x), drop)
 
     def _pair_op(self, x, name: str, device, drop):
         """One pair op and its dropped residual. Under `TT_BIO_AF2_T2CM` a triangle multiplication is
@@ -803,29 +820,35 @@ class AF2Attention(Module):
             memory_config=ttnn.DRAM_MEMORY_CONFIG,
         )
         qkv = self._lin(x, self.qkv_weight, memory_config=ttnn.DRAM_MEMORY_CONFIG)
-        w = self.n_heads * self.head_dim
-        part = lambda r0, r1, j: ttnn.slice(qkv, (r0, 0, j * w), (r1, n, (j + 1) * w))
-        q = part(0, rows, 0)
-        k0, k1 = part(0, 1, 1), part(1, 2, 1)
-        v0, v1 = part(0, 1, 2), part(1, 2, 2)
-        ttnn.deallocate(qkv)
-        kd = ttnn.subtract(k0, k1)
-        vd = ttnn.subtract(v0, v1)
-        for t in (k0, k1, v0):
-            ttnn.deallocate(t)
-        qk = ttnn.multiply(q, kd)
-        ttnn.deallocate(q)
-        ttnn.deallocate(kd)
-        gap = self._lin(qk, self.head_sum, memory_config=ttnn.DRAM_MEMORY_CONFIG)
-        ttnn.deallocate(qk)
-        if mask_bias is not None:
-            gap = ttnn.add(gap, mask_bias)
-        mixed = ttnn.multiply(gap, vd, input_tensor_a_activations=[ttnn.UnaryOpType.SIGMOID])
-        ttnn.deallocate(vd)
-        ttnn.deallocate(gap)
-        out = ttnn.add(mixed, v1)
-        ttnn.deallocate(mixed)
-        ttnn.deallocate(v1)
+        from . import col_mix as _cm
+        if _cm.eligible(qkv, self.head_dim, mask_bias):
+            # Everything between the projection and the gate as one program.
+            out = _cm.col_mix(qkv, self.scale_inv, mask_bias)
+            ttnn.deallocate(qkv)
+        else:
+            w = self.n_heads * self.head_dim
+            part = lambda r0, r1, j: ttnn.slice(qkv, (r0, 0, j * w), (r1, n, (j + 1) * w))
+            q = part(0, rows, 0)
+            k0, k1 = part(0, 1, 1), part(1, 2, 1)
+            v0, v1 = part(0, 1, 2), part(1, 2, 2)
+            ttnn.deallocate(qkv)
+            kd = ttnn.subtract(k0, k1)
+            vd = ttnn.subtract(v0, v1)
+            for t in (k0, k1, v0):
+                ttnn.deallocate(t)
+            qk = ttnn.multiply(q, kd)
+            ttnn.deallocate(q)
+            ttnn.deallocate(kd)
+            gap = self._lin(qk, self.head_sum, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+            ttnn.deallocate(qk)
+            if mask_bias is not None:
+                gap = ttnn.add(gap, mask_bias)
+            mixed = ttnn.multiply(gap, vd, input_tensor_a_activations=[ttnn.UnaryOpType.SIGMOID])
+            ttnn.deallocate(vd)
+            ttnn.deallocate(gap)
+            out = ttnn.add(mixed, v1)
+            ttnn.deallocate(mixed)
+            ttnn.deallocate(v1)
         gate = self._lin(x, self.g_weight, bias=self.g_bias,
                          memory_config=ttnn.DRAM_MEMORY_CONFIG)
         ttnn.deallocate(x)
@@ -1167,6 +1190,10 @@ class AF2EvoformerBlock(AF2PairBlock):
             # `_column_depth2` adds the gap between the two keys' biases, per column.
             gap = ttnn.subtract(ttnn.slice(flat, (0, 0), (1, n)), ttnn.slice(flat, (1, 0), (2, n)))
             col_bias = ttnn.reshape(ttnn.permute(gap, (1, 0)), (1, n, 1))
+            from . import col_mix as _cm
+            if _cm.COL_MIX:
+                # Its kernel spreads the column with a matmul, which reads the tile padding too.
+                col_bias = ttnn.fill_implicit_tile_padding(col_bias, 0.0)
         else:
             transposed = ttnn.permute(flat, (1, 0))
             col_bias = ttnn.fill_implicit_tile_padding(
@@ -1187,8 +1214,7 @@ class AF2EvoformerBlock(AF2PairBlock):
                              drop)), msa, pair)
         msa = self._step(lambda m: self._residual(
             m, self._update("msa_col_attn", self.msa_col_attn, m, None, col_bias)), msa)
-        msa = self._step(lambda m: self._residual(
-            m, self._update("msa_transition", self.msa_transition, m)), msa)
+        msa = self._step(lambda m: self._transition("msa_transition", self.msa_transition, m), msa)
         return msa
 
     def _opm_update(self, msa: ttnn.Tensor, msa_mask: ttnn.Tensor | None) -> ttnn.Tensor:
