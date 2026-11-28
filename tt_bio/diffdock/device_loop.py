@@ -142,41 +142,57 @@ class MLP:
     Called with a list of tensors it is the MLP of their column concatenation, without the
     concatenation: the first ``Linear`` is ``sum_i part_i @ W[rows of part i] + b``. A
     ``ttnn.concat(dim=1)`` of parts that are not each a multiple of 16 wide comes back rounded
-    to about bf16 (7.5e-4 relative, `anx-glx:~/dfd/out/cat3.log`), and with that rounding in
-    the torsion head's inputs the resident step failed the SE(3) rule on a torsion score.
+    to about bf16 (7.5e-4 relative, `anx-glx:~/dfd/out/cat3.log`).
+
+    Every ``Linear`` is a sum of GEMMs whose inner dimension is at most :attr:`BLOCK` columns,
+    at HiFi4 with fp32 accumulation, added with fp32 adds. One ``ttnn.linear`` over the whole
+    input left each embedding 2 to 3e-3 from float64 (`anx-glx:~/dfd/out/dlg.log`), because a
+    GEMM is exact inside one 32-wide inner tile and truncates when it accumulates across
+    tiles; the stepped form builds these embeddings on the host, so the resident step was
+    1.4 to 2x further from float64 at steps 0 and 9.
     """
 
     _ACTS = {torch.nn.ReLU: "relu", torch.nn.Tanh: "tanh"}
+    BLOCK = 32
 
     def __init__(self, device, seq: torch.nn.Sequential):
         self.ops, self.device, self._split = [], device, {}
-        self.first = next((m.weight.detach().t().contiguous() for m in seq
-                           if isinstance(m, torch.nn.Linear)), None)
         for m in seq:
             if isinstance(m, torch.nn.Linear):
                 bias = (None if m.bias is None else
                         upload(device, m.bias.detach().reshape(1, -1)))
-                self.ops.append((upload(device, m.weight.detach().t().contiguous()), bias))
+                self.ops.append((m.weight.detach().t().contiguous(), bias))
             elif type(m) in self._ACTS:
                 self.ops.append(self._ACTS[type(m)])
             elif not isinstance(m, (torch.nn.Identity, torch.nn.Dropout)):
                 raise NotImplementedError(f"no card form for {type(m).__name__}")
 
-    def _first(self, parts, bias):
-        """The first ``Linear`` on the columns *parts* would make side by side."""
+    def _linear(self, at: int, parts):
+        """Linear *at* on the columns *parts* would make side by side."""
         import ttnn
+        weight, bias = self.ops[at]
         widths = tuple(int(p.shape[1]) for p in parts)
-        if sum(widths) != self.first.shape[0]:
-            raise ValueError(f"parts {widths} do not make the {self.first.shape[0]} input columns")
-        if widths not in self._split:
-            ends = torch.tensor(widths).cumsum(0).tolist()
-            self._split[widths] = [upload(self.device, self.first[e - w:e])
-                                   for w, e in zip(widths, ends)]
+        if sum(widths) != weight.shape[0]:
+            raise ValueError(f"parts {widths} do not make the {weight.shape[0]} input columns")
+        if (at, widths) not in self._split:
+            blocks, start = [], 0
+            for w in widths:
+                blocks.append([(c, min(c + self.BLOCK, w),
+                                upload(self.device, weight[start + c:start + min(c + self.BLOCK, w)]))
+                               for c in range(0, w, self.BLOCK)])
+                start += w
+            self._split[(at, widths)] = blocks
+        ckc = ttnn.types.BlackholeComputeKernelConfig(
+            math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,
+            fp32_dest_acc_en=True, packer_l1_acc=True)
         out = None
-        for part, weight in zip(parts, self._split[widths]):
-            y = ttnn.linear(part, weight, bias=bias if out is None else None)
-            out = y if out is None else ttnn.add(out, y)
-        return out
+        for part, blocks in zip(parts, self._split[(at, widths)]):
+            rows = part.shape[0]
+            for lo, hi, w in blocks:
+                cols = part if len(blocks) == 1 else ttnn.slice(part, [0, lo], [rows, hi])
+                y = ttnn.matmul(cols, w, compute_kernel_config=ckc)
+                out = y if out is None else ttnn.add(out, y)
+        return out if bias is None else ttnn.add(out, bias)
 
     def __call__(self, x):
         import ttnn
@@ -188,10 +204,8 @@ class MLP:
                 x = ttnn.relu(x)
             elif op == "tanh":
                 x = ttnn.tanh(x)
-            elif at == 0 and parts is not None:
-                x = self._first(parts, op[1])
             else:
-                x = ttnn.linear(x, op[0], bias=op[1])
+                x = self._linear(at, parts if at == 0 and parts is not None else [x])
         return x
 
 
