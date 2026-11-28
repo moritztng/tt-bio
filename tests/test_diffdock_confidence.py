@@ -432,6 +432,38 @@ def test_confidence_graph_is_all_atom(monkeypatch):
            dfd_input.CONFIDENCE_GRAPH
 
 
+def test_confidence_receptor_is_built_once_per_structure_file(monkeypatch, tmp_path):
+    """A screen ranks many ligands against one receptor: its all-atom graph and embedding
+    are built on the first ligand and kept, and a different structure file drops them."""
+    import shutil
+
+    from tt_bio.diffdock import input as dfd_input
+    from tt_bio.diffdock import receptor as dfd_receptor
+    from tt_bio.diffdock import score_model as sm
+
+    builds: list = []
+    real = dfd_receptor.build_receptor_graph
+    monkeypatch.setattr(dfd_receptor, "build_receptor_graph",
+                        lambda struct, **kw: builds.append(1) or real(struct, **kw))
+    embeddings = [torch.zeros(len(c), 1280)
+                  for c in dfd_input.chain_sequences_for_embedding(RECEPTOR)]
+
+    def graph(path):
+        spec = dfd_input.ComplexSpec(name="cx", protein_path=str(path),
+                                     ligand_description=ASPIRIN)
+        return dfd_input.build_complex_graph(spec, lm_embeddings=embeddings, all_atoms=False)
+
+    first, other = graph(RECEPTOR), graph(shutil.copy(RECEPTOR, tmp_path / "other.pdb"))
+    builds.clear()
+    net = sm.HostScoreNetwork(_score_stub(), confidence_model=_confidence_stub())
+    poses = torch.zeros(2, first.ligand["pos"].shape[0], 3)
+    net.confidence(first, poses)
+    net.confidence(first, poses)
+    assert len(builds) == 1, "the second ligand on the same receptor rebuilt its graph"
+    net.confidence(other, poses)
+    assert len(builds) == 2, "a different structure file must not reuse the kept receptor"
+
+
 def _score_stub():
     """A stand-in with the one attribute `HostScoreNetwork.__init__` reads."""
     class _Stub:
