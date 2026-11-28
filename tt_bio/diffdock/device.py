@@ -727,7 +727,8 @@ class DeviceConfidence:
         if E == 0:
             return None
         a, b = self.ends[es]
-        extra = pad32(E) - E
+        from tt_bio.diffdock.graph import grid
+        extra = grid(E) - E
         pad = lambda t: torch.nn.functional.pad(t.float(), (0, 0, 0, extra))
         return dict(
             ei=torch.cat([ei, torch.tensor([[rows[a] - 1], [rows[b] - 1]]).expand(2, extra)], 1),
@@ -760,9 +761,9 @@ class DeviceConfidence:
         (:meth:`ConfidenceModel.ligand_side`)."""
         import time
         import ttnn
-        from tt_bio.diffdock.graph import pad_count
+        from tt_bio.diffdock.graph import grid_count
         t0 = time.perf_counter()
-        rows = {s: pad_count(x.shape[0]) for s, x in g["nodes"].items()}
+        rows = {s: grid_count(x.shape[0]) for s, x in g["nodes"].items()}
         nodes = {s: self._keep(("node", s), x, lambda x=x, s=s: to_device(
                      self.device, torch.nn.functional.pad(x, (0, 0, 0, rows[s] - x.shape[0]))))
                  for s, x in g["nodes"].items()}

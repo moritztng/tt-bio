@@ -49,6 +49,34 @@ def pad_count(n: int, multiple: int = 32) -> int:
     return bucket(n + 1, multiple)
 
 
+#: How much longer than its contents a gridded axis may be. 1.10 keeps the grid at every 32 rows
+#: below 320 -- exactly today's padding for a small ligand -- and geometric above it.
+GRID_RATIO = 1.10
+
+
+def grid(n: int, multiple: int = 32, ratio: float = GRID_RATIO) -> int:
+    """The smallest grid row count at or above *n*: a fixed ladder, not *n* rounded up.
+
+    A device program is compiled per tensor shape, so an axis whose length is a per-ligand or
+    per-pose count makes every complex a cache miss. The score network avoids this by holding
+    one edge set for the whole rollout (:class:`StaticGraphs`); the confidence network cannot,
+    because it runs one graph per pose. Rounding those axes onto a ladder that grows by *ratio*
+    instead of by 32 turns an unbounded set of shapes into a handful, at the cost of carrying at
+    most ``ratio - 1`` dead rows. The dead rows are masked, so they add arithmetic and change no
+    result -- the convolution's mean divides by the mask sum, not the row count.
+    """
+    v = multiple
+    while v < n:
+        v = max(bucket(int(v * ratio) + 1, multiple), v + multiple)
+    return v
+
+
+def grid_count(n: int, multiple: int = 32, ratio: float = GRID_RATIO) -> int:
+    """:func:`grid` for a node axis: at least one spare row for the pad node, as
+    :func:`pad_count` leaves one."""
+    return grid(n + 1, multiple, ratio)
+
+
 def complete_pairs(n_src: int, n_dst: int, *, exclude_diagonal: bool = False,
                    device=None) -> Tensor:
     """``[2, n_src*n_dst]`` (one fewer per row when *exclude_diagonal*), source-major.
