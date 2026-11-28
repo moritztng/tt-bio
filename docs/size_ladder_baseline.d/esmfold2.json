@@ -2,26 +2,26 @@
   "assembled_by": "scripts/release_gate.py --model size-ladder",
   "cards": {
     "tt-galaxy-wh-l": {
-      "recorded": "2026-11-22",
+      "recorded": "2026-11-28",
       "host": "UF-EV-A4-GWH01",
-      "commit": "6e3551ebe",
+      "commit": "e3c3a56c7",
       "host_threads": 2,
       "models": {
         "esmfold2": {
           "grid": "8x9",
-          "recorded": "2026-11-22",
+          "recorded": "2026-11-28",
           "host": "UF-EV-A4-GWH01",
-          "commit": "6e3551ebe",
+          "commit": "e3c3a56c7",
           "host_threads": 2,
           "runtime_s": {
             "256": 11.0,
-            "512": 24.3,
-            "640": 34.3,
-            "768": 53.6,
-            "896": 66.2,
-            "1024": 87.5,
-            "1280": 257.1,
-            "1536": 915.5
+            "512": 23.9,
+            "640": 32.7,
+            "768": 51.8,
+            "896": 63.1,
+            "1024": 83.2,
+            "1280": 258.4,
+            "1536": 460.4
           },
           "levers": {
             "256": {
@@ -128,13 +128,10 @@
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
-                "served": 1164,
+                "served": 8,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats",
-                "rejects": {
-                  "t2:g_not_f1": 1156
-                }
+                "how": "stats"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -1668,10 +1665,11 @@
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": 128,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "right shape, wrong dtype \u2014 the same forced --fast as TRIMUL_IN_PROJ_DUAL_NOC. The clause is `dtype:(8,32)`, and that 8 is `k_tiles`, which is exactly what this lever requires (it is scoped to a single K block; boltz-2 is permanently excluded because c_z=128 gives 4). So ESMFold2 is the one model whose pair projection fits this lever and it is refused only because Wormhole forces bf8 weights. Widening the guard is a PARITY decision, not an engineering one \u2014 the tuned config and the fallback accumulate K in different block orders, so it will not be torch.equal. Predicted from the code in wh-perf-esmfold2.md 4.2 on 2026-08-16 and left unmeasured; this clause count is the measurement it was missing. [carried from rung 896]"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -1682,10 +1680,11 @@
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 128,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung \u2014 `_qkv_mm_config` is not reached by ESMFold2's attention, which builds its own padded q/kv projections (tt_bio/esmfold2.py:254-280). [carried from rung 896]"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "True",
@@ -1711,17 +1710,19 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 256,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site at any rung: 0 served and 0 declined at all six. The gated variant is not on ESMFold2's path (the same reading boltz-2's baseline records for this lever). [carried from tt-galaxy-wh-l] [carried from p300c]"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 256,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: it unlocks the gated channel move, which is only offered once the trimul's pair tensors are in DRAM. At 256 aa they are L1-resident -- REBLOCK_PERMUTE refuses every call here on window_BufferType.L1 -- so nothing is offered at this rung; it serves every call from 512 up. Default on since 7bfa4ad19 [carried from p300c] [carried from p150a] [carried from rung 256] [carried from tt-galaxy-wh-l] [carried from p300c]"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -1973,10 +1974,13 @@
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": 23280,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
+                "served": 11640,
+                "declined": 11640,
+                "frac": 0.5,
+                "how": "wrap",
+                "rejects": {
+                  "dtype:(8,8)": 11640
+                }
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -1988,7 +1992,7 @@
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 23280,
+                "served": 11640,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -2188,15 +2192,15 @@
             "1536": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
-                "served": 160,
-                "declined": 296,
+                "served": 80,
+                "declined": 148,
                 "frac": 0.3508771929824561,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
-                "served": 160,
-                "declined": 296,
+                "served": 80,
+                "declined": 148,
                 "frac": 0.3508771929824561,
                 "how": "stats-shared"
               },
@@ -2281,10 +2285,13 @@
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": 55728,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
+                "served": 13968,
+                "declined": 13968,
+                "frac": 0.5,
+                "how": "wrap",
+                "rejects": {
+                  "dtype:(8,8)": 13968
+                }
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -2296,14 +2303,14 @@
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 55728,
+                "served": 13968,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "True",
-                "served": 2,
+                "served": 1,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -2318,24 +2325,26 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 18576,
+                "served": 9312,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 384,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site at any rung: 0 served and 0 declined at all six. The gated variant is not on ESMFold2's path (the same reading boltz-2's baseline records for this lever). [carried from rung 1024] [carried from tt-galaxy-wh-l] [carried from p150a]"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 384,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: it unlocks the gated channel move, which is only offered once the trimul's pair tensors are in DRAM. At 256 aa they are L1-resident -- REBLOCK_PERMUTE refuses every call here on window_BufferType.L1 -- so nothing is offered at this rung; it serves every call from 512 up. Default on since 7bfa4ad19 [carried from p300c] [carried from p150a] [carried from rung 256] [carried from tt-galaxy-wh-l] [carried from p150a]"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -2494,41 +2503,41 @@
           },
           "runtime_reps_s": {
             "256": [
-              10.6,
-              10.7,
-              11.2,
+              11.4,
+              11.7,
               11.0,
-              11.2
+              9.7,
+              9.8
             ],
             "512": [
-              24.4,
-              24.2,
-              24.3,
-              24.2,
-              24.3
+              24.1,
+              23.9,
+              23.3,
+              23.4,
+              23.9
             ],
             "640": [
-              34.3
+              32.7
             ],
             "768": [
-              53.6
+              51.8
             ],
             "896": [
-              66.2
+              63.1
             ],
             "1024": [
-              87.5
+              83.2
             ],
             "1280": [
-              257.1
+              258.4
             ],
             "1536": [
-              915.5
+              460.4
             ]
           },
           "aiclk": {
             "256": {
-              "card": "19",
+              "card": "0",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -2538,23 +2547,23 @@
                 1000,
                 1000
               ],
-              "n": 30
+              "n": 35
             },
             "512": {
-              "card": "19",
+              "card": "0",
               "min": 500,
               "max": 1000,
               "rep_median": [
-                500,
                 1000,
-                968,
                 1000,
-                1000
+                1000,
+                1000,
+                981
               ],
-              "n": 52
+              "n": 46
             },
             "640": {
-              "card": "19",
+              "card": "0",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -2563,34 +2572,34 @@
               "n": 11
             },
             "768": {
-              "card": "19",
+              "card": "0",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 14
+              "n": 15
             },
             "896": {
-              "card": "19",
+              "card": "0",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 17
+              "n": 16
             },
             "1024": {
-              "card": "19",
+              "card": "0",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 21
+              "n": 20
             },
             "1280": {
-              "card": "19",
+              "card": "0",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -2599,70 +2608,70 @@
               "n": 55
             },
             "1536": {
-              "card": "19",
+              "card": "0",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 186
+              "n": 95
             }
           },
           "load": {
             "256": {
-              "max": 0.07,
+              "max": 0.46,
               "rep_median": [
-                0.07,
-                0.07,
-                0.07,
-                0.06,
-                0.06
+                0.11,
+                0.09,
+                0.16,
+                0.33,
+                0.43
               ]
             },
             "512": {
-              "max": 0.34,
+              "max": 0.71,
               "rep_median": [
-                0.2,
-                0.3,
-                0.32,
-                0.32,
-                0.31
+                0.65,
+                0.62,
+                0.68,
+                0.66,
+                0.6
               ]
             },
             "640": {
-              "max": 0.41,
+              "max": 1.1,
               "rep_median": [
-                0.4
+                1.0
               ]
             },
             "768": {
-              "max": 0.4,
+              "max": 1.26,
               "rep_median": [
-                0.4
+                1.08
               ]
             },
             "896": {
-              "max": 0.37,
+              "max": 0.65,
               "rep_median": [
-                0.33
+                0.55
               ]
             },
             "1024": {
-              "max": 0.39,
+              "max": 0.74,
               "rep_median": [
-                0.37
+                0.58
               ]
             },
             "1280": {
-              "max": 0.38,
+              "max": 0.96,
               "rep_median": [
-                0.36
+                0.59
               ]
             },
             "1536": {
-              "max": 0.38,
+              "max": 0.4,
               "rep_median": [
-                0.34
+                0.12
               ]
             }
           },
@@ -2671,99 +2680,99 @@
               "file": "cdk2x2_256.cif",
               "steps": 6,
               "n_ca": 256,
-              "clash_frac": 0.0,
+              "clash_frac": 0.0156,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 81.4157,
-              "radius_of_gyration_A": 68.036,
-              "plddt_mean": 0.282396,
+              "ca_ca_median_A": 81.2319,
+              "radius_of_gyration_A": 68.071,
+              "plddt_mean": 0.283987,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 81.416 A outside [3.6, 4.0]",
+                "median CA-CA 81.232 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 68.0 A outside [9.0, 45.2]"
+                "radius of gyration 68.1 A outside [9.0, 45.2]"
               ]
             },
             "512": {
               "file": "cdk2x2_512.cif",
               "steps": 6,
               "n_ca": 512,
-              "clash_frac": 0.0156,
+              "clash_frac": 0.0117,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 78.2303,
-              "radius_of_gyration_A": 75.776,
-              "plddt_mean": 0.269027,
+              "ca_ca_median_A": 78.2399,
+              "radius_of_gyration_A": 75.857,
+              "plddt_mean": 0.268377,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 78.230 A outside [3.6, 4.0]",
+                "median CA-CA 78.240 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 75.8 A outside [11.8, 58.9]"
+                "radius of gyration 75.9 A outside [11.8, 58.9]"
               ]
             },
             "640": {
               "file": "cdk2x2_640.cif",
               "steps": 6,
               "n_ca": 640,
-              "clash_frac": 0.0359,
+              "clash_frac": 0.025,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 79.5607,
-              "radius_of_gyration_A": 78.393,
-              "plddt_mean": 0.279982,
+              "ca_ca_median_A": 79.4805,
+              "radius_of_gyration_A": 78.222,
+              "plddt_mean": 0.278985,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 79.561 A outside [3.6, 4.0]",
+                "median CA-CA 79.481 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "3.6% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 78.4 A outside [12.8, 64.1]"
+                "2.5% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 78.2 A outside [12.8, 64.1]"
               ]
             },
             "768": {
               "file": "cdk2x2_768.cif",
               "steps": 6,
               "n_ca": 768,
-              "clash_frac": 0.0417,
+              "clash_frac": 0.0365,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 81.1432,
-              "radius_of_gyration_A": 73.923,
-              "plddt_mean": 0.260641,
+              "ca_ca_median_A": 80.9272,
+              "radius_of_gyration_A": 73.987,
+              "plddt_mean": 0.260594,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 81.143 A outside [3.6, 4.0]",
+                "median CA-CA 80.927 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "4.2% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 73.9 A outside [13.7, 68.7]"
+                "3.6% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 74.0 A outside [13.7, 68.7]"
               ]
             },
             "896": {
               "file": "cdk2x2_896.cif",
               "steps": 6,
               "n_ca": 896,
-              "clash_frac": 0.0424,
+              "clash_frac": 0.0379,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 79.5243,
-              "radius_of_gyration_A": 79.948,
-              "plddt_mean": 0.268898,
+              "ca_ca_median_A": 79.4562,
+              "radius_of_gyration_A": 80.063,
+              "plddt_mean": 0.268696,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 79.524 A outside [3.6, 4.0]",
+                "median CA-CA 79.456 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "4.2% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 79.9 A outside [14.6, 72.8]"
+                "3.8% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 80.1 A outside [14.6, 72.8]"
               ]
             },
             "1024": {
               "file": "cdk2x2_1024.cif",
               "steps": 6,
               "n_ca": 1024,
-              "clash_frac": 0.0254,
+              "clash_frac": 0.0488,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 80.2205,
-              "radius_of_gyration_A": 77.415,
-              "plddt_mean": 0.260229,
+              "ca_ca_median_A": 80.1061,
+              "radius_of_gyration_A": 77.412,
+              "plddt_mean": 0.261694,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 80.220 A outside [3.6, 4.0]",
+                "median CA-CA 80.106 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "2.5% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "4.9% of CA atoms sit under 3.5 A from a non-bonded CA",
                 "radius of gyration 77.4 A outside [15.3, 76.6]"
               ]
             },
@@ -2771,59 +2780,59 @@
               "file": "cdk2x2_1280.cif",
               "steps": 6,
               "n_ca": 1280,
-              "clash_frac": 0.057,
+              "clash_frac": 0.0641,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 78.0975,
-              "radius_of_gyration_A": 79.289,
-              "plddt_mean": 0.261645,
+              "ca_ca_median_A": 78.1895,
+              "radius_of_gyration_A": 79.395,
+              "plddt_mean": 0.261393,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 78.098 A outside [3.6, 4.0]",
+                "median CA-CA 78.190 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "5.7% of CA atoms sit under 3.5 A from a non-bonded CA"
+                "6.4% of CA atoms sit under 3.5 A from a non-bonded CA"
               ]
             },
             "1536": {
               "file": "cdk2x2_1536.cif",
               "steps": 6,
               "n_ca": 1536,
-              "clash_frac": 0.0605,
+              "clash_frac": 0.0553,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 78.9433,
-              "radius_of_gyration_A": 81.833,
-              "plddt_mean": 0.267955,
+              "ca_ca_median_A": 78.8687,
+              "radius_of_gyration_A": 81.773,
+              "plddt_mean": 0.267254,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 78.943 A outside [3.6, 4.0]",
+                "median CA-CA 78.869 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "6.0% of CA atoms sit under 3.5 A from a non-bonded CA"
+                "5.5% of CA atoms sit under 3.5 A from a non-bonded CA"
               ]
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0034,
+          "sigma_runtime_512": 0.0147,
           "exponents": {
             "256->512": {
-              "k": 1.143,
+              "k": 1.12,
               "tol": 0.5
             },
             "512->768": {
-              "k": 1.951,
+              "k": 1.908,
               "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.0255,
-            "512": 0.0034
+            "256": 0.0859,
+            "512": 0.0147
           },
           "exponents_measured": {
-            "256->512": 1.143,
-            "512->640": 1.545,
-            "640->768": 2.448,
-            "768->896": 1.37,
-            "896->1024": 2.089,
-            "1024->1280": 4.83,
-            "1280->1536": 6.966
+            "256->512": 1.12,
+            "512->640": 1.405,
+            "640->768": 2.523,
+            "768->896": 1.28,
+            "896->1024": 2.071,
+            "1024->1280": 5.079,
+            "1280->1536": 3.168
           }
         }
       }
@@ -6382,24 +6391,24 @@
       }
     },
     "p300c": {
-      "recorded": "2026-11-22",
+      "recorded": "2026-11-28",
       "host": "tt-quietbox2",
-      "commit": "6e3551ebe",
+      "commit": "e3c3a56c7",
       "host_threads": 5,
       "models": {
         "esmfold2": {
           "grid": "11x10",
-          "recorded": "2026-11-22",
+          "recorded": "2026-11-28",
           "host": "tt-quietbox2",
-          "commit": "6e3551ebe",
+          "commit": "e3c3a56c7",
           "host_threads": 5,
           "runtime_s": {
-            "256": 5.6,
-            "512": 12.1,
-            "640": 17.4,
-            "768": 26.3,
-            "896": 34.3,
-            "1024": 45.0
+            "256": 6.1,
+            "512": 12.7,
+            "640": 38.6,
+            "768": 62.9,
+            "896": 33.7,
+            "1024": 44.3
           },
           "levers": {
             "256": {
@@ -8277,38 +8286,38 @@
           },
           "runtime_reps_s": {
             "256": [
-              5.8,
-              5.5,
               5.6,
-              5.5,
-              7.2
+              8.5,
+              5.7,
+              6.1,
+              6.2
             ],
             "512": [
-              11.7,
-              11.8,
-              12.2,
               12.1,
-              12.8
+              13.0,
+              11.9,
+              12.7,
+              15.6
             ],
             "640": [
-              17.6,
-              17.4,
-              17.4
+              21.8,
+              41.0,
+              38.6
             ],
             "768": [
-              26.3,
-              26.2,
-              26.6
+              55.5,
+              62.9,
+              77.5
             ],
             "896": [
-              34.3,
-              35.2,
-              34.3
+              33.6,
+              33.7,
+              34.1
             ],
             "1024": [
-              45.0,
               44.3,
-              45.0
+              44.6,
+              44.3
             ]
           },
           "aiclk": {
@@ -8318,56 +8327,56 @@
               "max": 1350,
               "rep_median": [
                 1350,
+                1343,
                 1350,
-                1350,
-                1350,
-                1350
+                1318,
+                800
               ],
-              "n": 20
+              "n": 22
             },
             "512": {
               "card": "0",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1306,
+                1281,
                 1325,
-                1287,
-                1287,
-                1250
+                1275,
+                1306,
+                1306
               ],
-              "n": 26
+              "n": 32
             },
             "640": {
               "card": "0",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1287,
-                1268,
+                1256,
+                1300,
                 1350
               ],
-              "n": 19
+              "n": 45
             },
             "768": {
               "card": "0",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1231,
-                1256,
-                1262
+                1268,
+                1350,
+                1350
               ],
-              "n": 25
+              "n": 62
             },
             "896": {
               "card": "0",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1218,
-                1193,
-                1206
+                1237,
+                1243,
+                1237
               ],
               "n": 30
             },
@@ -8376,64 +8385,64 @@
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1212,
-                1200,
-                1206
+                1225,
+                1231,
+                1243
               ],
-              "n": 36
+              "n": 37
             }
           },
           "load": {
             "256": {
-              "max": 0.51,
+              "max": 1.01,
               "rep_median": [
-                0.48,
-                0.46,
-                0.46,
-                0.41,
-                0.36
+                0.84,
+                0.84,
+                0.96,
+                0.82,
+                0.74
               ]
             },
             "512": {
-              "max": 0.55,
+              "max": 1.0,
               "rep_median": [
-                0.51,
-                0.44,
-                0.39,
-                0.34,
-                0.44
+                0.77,
+                0.95,
+                0.83,
+                0.82,
+                0.86
               ]
             },
             "640": {
-              "max": 0.4,
+              "max": 1.66,
               "rep_median": [
-                0.34,
-                0.39,
-                0.35
+                1.03,
+                1.33,
+                1.61
               ]
             },
             "768": {
-              "max": 0.52,
+              "max": 1.75,
               "rep_median": [
-                0.49,
-                0.29,
-                0.32
+                1.62,
+                1.21,
+                1.23
               ]
             },
             "896": {
-              "max": 0.8,
+              "max": 0.89,
               "rep_median": [
-                0.73,
-                0.41,
-                0.35
+                0.72,
+                0.53,
+                0.44
               ]
             },
             "1024": {
-              "max": 0.57,
+              "max": 1.02,
               "rep_median": [
-                0.48,
-                0.31,
-                0.38
+                0.76,
+                0.52,
+                0.46
               ]
             }
           },
@@ -8540,28 +8549,13 @@
               ]
             }
           },
-          "reps": 3,
-          "sigma_runtime_512": 0.0357,
-          "exponents": {
-            "256->512": {
-              "k": 1.112,
-              "tol": 0.5
-            },
-            "512->768": {
-              "k": 1.915,
-              "tol": 0.5
-            }
-          },
-          "sigma_runtime": {
-            "256": 0.1226,
-            "512": 0.0357
-          },
+          "exponents_skipped": "768 aa was timed at 1.8x nproc, above the 1.5x load ceiling: the runtimes are the host's, re-time on a quiet box",
           "exponents_measured": {
-            "256->512": 1.112,
-            "512->640": 1.628,
-            "640->768": 2.266,
-            "768->896": 1.723,
-            "896->1024": 2.033
+            "256->512": 1.058,
+            "512->640": 4.982,
+            "640->768": 2.678,
+            "768->896": -4.048,
+            "896->1024": 2.048
           }
         }
       }
