@@ -92,12 +92,40 @@ def load_depths_jsonl(path: str | Path) -> List[int]:
     return depths
 
 
-def take_example(batch: Mapping[str, Any], idx: int) -> dict:
+WINNER_SMALL_KEYS = frozenset({
+    "padding_mask",
+    "is_in_context_conditioning",
+    "supports_local_latent",
+    "is_resolved_mask",
+    "loss_weight",
+    "x_1",
+    "x_t",
+    "t",
+    "residue_type",
+    "condition_sequence_1_residue",
+    "tetrahedral_vertices",
+    "insertion_source_idx",
+    "condition_cath-label_1_residue",
+    "condition_secondary-structure_1_residue",
+    "token_type",
+    "charge",
+    "element",
+})
+
+
+def take_example(
+    batch: Mapping[str, Any],
+    idx: int,
+    *,
+    keys: Optional[Collection[str]] = None,
+) -> dict:
     """Slice candidate ``idx`` (preserving leading dim 1) from a single-rank ``[K, ...]`` batch."""
     import torch
 
     out: dict[str, Any] = {}
     for k, v in batch.items():
+        if keys is not None and k not in keys:
+            continue
         if isinstance(v, Mapping):
             out[k] = take_example(v, idx)
         elif torch.is_tensor(v):
@@ -131,13 +159,15 @@ def select_rank_batches(
 def gather_winner_batches(
     per_rank_batches: Sequence[Mapping[str, Any]],
     win_indices: Sequence[int],
+    *,
+    keys: Optional[Collection[str]] = None,
 ) -> Tuple[List[dict], dict]:
     """Slice each rank's chosen exploration winner and stack into ``[world, ...]``."""
     if len(per_rank_batches) != len(win_indices):
         raise ValueError(
             f"per_rank_batches ({len(per_rank_batches)}) != win_indices ({len(win_indices)})"
         )
-    per_rank_w = [take_example(bt, int(w)) for bt, w in zip(per_rank_batches, win_indices)]
+    per_rank_w = [take_example(bt, int(w), keys=keys) for bt, w in zip(per_rank_batches, win_indices)]
     stacked = per_rank_w[0] if len(per_rank_w) == 1 else stack_batches(per_rank_w)
     return per_rank_w, stacked
 

@@ -316,6 +316,34 @@ class ResidentPairBuilder:
         nc = ada.norm_cond(self.builder.cond_factory(batch))
         return ada.to_gamma(nc).float(), ada.to_beta(nc).float()
 
+    def extract_pair_cond_feats(self, batch: dict) -> torch.Tensor | None:
+        """Extract weight-free static features for ``builder.cond_factory`` (returns None if non-static)."""
+        cf = self.builder.cond_factory
+        if cf is None or getattr(cf, "ret_zero", False):
+            return None
+        if any(any(True for _ in fc.parameters()) for fc in cf.feat_creators):
+            return None
+        with torch.no_grad():
+            parts = [fc(batch) for fc in cf.feat_creators]
+            if not (getattr(cf, "compact", False) and all(p.ndim == 2 for p in parts)):
+                return None
+            feats = torch.cat(parts, dim=-1)
+            return cf.apply_padding_mask(feats, batch["padding_mask"])
+
+    def modulation_from_cond_feats(
+        self,
+        cond_feats: torch.Tensor,
+        padding_mask: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Compute AdaLN `(gamma, beta)` [B, c] from pre-extracted static ``cond_feats`` [B, 512]."""
+        cf = self.builder.cond_factory
+        ada = self.builder.adaln
+        projected = cf.linear_out(cond_feats)
+        features_proc = cf.ln_out(projected).to(projected.dtype)
+        c_cond = cf.apply_padding_mask(features_proc, padding_mask)
+        nc = ada.norm_cond(c_cond)
+        return ada.to_gamma(nc).float(), ada.to_beta(nc).float()
+
     def _bins_step(self, batch: dict) -> torch.Tensor:
         x = batch["x_t"]["bb_ca"]
         d = torch.norm(x[:, :, None, :] - x[:, None, :, :], dim=-1)
@@ -344,13 +372,12 @@ class ResidentPairBuilder:
                 return False
         return True
 
-    def encode_step(self, batch: dict) -> EncodedPair:
-        """Encode one training step's batch into compact integer indices (no [N, N, C] floats)."""
+    def encode_static(self, batch: dict) -> EncodedPair:
+        """Encode weight-independent pair indices (safe to run ahead-of-time in a background prefetcher)."""
         n = int(batch["padding_mask"].shape[-1])
         k = int(batch["padding_mask"].shape[0])
         with torch.no_grad():
             bins_step = self._bins_step(batch).reshape(k, n * n).contiguous()
-            gamma, beta = self.modulation(batch)
 
             dedup = self._is_const_dedup(batch, k)
             cb = self._slice_b1(batch) if dedup else batch
@@ -429,8 +456,15 @@ class ResidentPairBuilder:
             return EncodedPair(
                 k=k, n=n, bins_step=bins_step, idx_onehot=idx_oh,
                 idx_scalar=idx_s.reshape(b_c, n * n).contiguous(),
-                dedup=dedup, gamma=gamma, beta=beta, fallback_const=fallback_const,
+                dedup=dedup, gamma=None, beta=None, fallback_const=fallback_const,
             )
+
+    def encode_step(self, batch: dict) -> EncodedPair:
+        """Encode one training step's batch into compact integer indices (no [N, N, C] floats)."""
+        enc = self.encode_static(batch)
+        with torch.no_grad():
+            enc.gamma, enc.beta = self.modulation(batch)
+        return enc
 
     def _pack_weights_on_card(self):
         """Pack current ``linear_out.weight`` [c, k_orig] into split-bf16 step & const weights on card."""

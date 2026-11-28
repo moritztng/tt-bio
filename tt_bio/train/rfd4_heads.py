@@ -17,6 +17,8 @@ the tiny token-sized seeds (~0.19 MB), and runs a single ``ag.backward`` on card
 """
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 import torch
 import ttnn
@@ -30,6 +32,7 @@ __all__ = [
     "device_insertion_loss",
     "device_candidate_scores",
     "device_winner_loss",
+    "extract_cand_score_meta",
     "device_candidate_scores_spmd",
     "device_winner_loss_spmd",
 ]
@@ -318,6 +321,78 @@ def device_winner_loss(
     return total, terms, ref
 
 
+_SPMD_LOSS_KEYS = (
+    "padding_mask",
+    "is_in_context_conditioning",
+    "supports_local_latent",
+    "is_resolved_mask",
+    "loss_weight",
+    "x_1",
+    "x_t",
+    "t",
+    "residue_type",
+    "condition_sequence_1_residue",
+    "tetrahedral_vertices",
+    "insertion_source_idx",
+)
+
+
+def _fm_loss_values_only(x1, xt, v, t, emit, sup, weight=None) -> np.ndarray:
+    """Bit-identical float64 per-example ``RO.fm_loss`` values without allocating gradients."""
+    tt = np.asarray(t, np.float64)[:, None, None]
+    e = emit[..., None].astype(np.float64)
+    s = sup[..., None].astype(np.float64)
+    x1_hat = (xt + (1.0 - tt) * v) * e
+    err = (x1 - x1_hat) * s
+    w = s if weight is None else (np.asarray(weight, np.float64)[..., None] * s)
+    nres = np.maximum(sup.sum(-1), 1).astype(np.float64)
+    tw = 1.0 / ((1.0 - np.asarray(t, np.float64)) ** 2 + RO._T_EPS)
+    return (err ** 2 * w).sum((-1, -2)) / nres * tw
+
+
+def extract_cand_score_meta(rank_batches: list[dict]) -> dict[str, Any]:
+    """Extract only the tiny token-level arrays needed for vectorized float64 candidate scoring.
+
+    Pure input-batch transformation (zero trainable weights), safe to run ahead-of-time in
+    ``SPMDPrefetcher``.
+    """
+    pad = np.concatenate([_as_np(rb["padding_mask"]).astype(bool) for rb in rank_batches], axis=0)
+    in_ctx = np.concatenate([_as_np(rb["is_in_context_conditioning"]).astype(bool) for rb in rank_batches], axis=0)
+    sup_ll_flag = np.concatenate([_as_np(rb["supports_local_latent"]).astype(bool) for rb in rank_batches], axis=0)
+    res = np.concatenate([_as_np(rb["is_resolved_mask"]).astype(bool) for rb in rank_batches], axis=0)
+    emit_ca = pad & ~in_ctx
+    emit_ll = emit_ca & sup_ll_flag
+    sup_ca = emit_ca & res
+    sup_ll = emit_ll & res
+    has_lw = all(rb.get("loss_weight") is not None for rb in rank_batches)
+    lw = (
+        np.concatenate([_as_np(rb["loss_weight"]).astype(np.float64) for rb in rank_batches], axis=0)
+        if has_lw else None
+    )
+    return {
+        "emit_ca": emit_ca,
+        "emit_ll": emit_ll,
+        "sup_ca": sup_ca,
+        "sup_ll": sup_ll,
+        "lw": lw,
+        "x1_ca": np.concatenate([_as_np(rb["x_1"]["bb_ca"]).astype(np.float64) for rb in rank_batches], axis=0),
+        "xt_ca": np.concatenate([_as_np(rb["x_t"]["bb_ca"]).astype(np.float64) for rb in rank_batches], axis=0),
+        "t_ca": np.concatenate([_as_np(rb["t"]["bb_ca"]).astype(np.float64) for rb in rank_batches], axis=0),
+        "x1_ll": np.concatenate([_as_np(rb["x_1"]["local_latents"]).astype(np.float64) for rb in rank_batches], axis=0),
+        "xt_ll": np.concatenate([_as_np(rb["x_t"]["local_latents"]).astype(np.float64) for rb in rank_batches], axis=0),
+        "t_ll": np.concatenate([_as_np(rb["t"]["local_latents"]).astype(np.float64) for rb in rank_batches], axis=0),
+    }
+
+
+def _small_npy_dict(batch: dict) -> dict:
+    """Convert only the tiny token keys read by ``RO.terms`` to numpy (skips pair tensors)."""
+    out = {}
+    for k in _SPMD_LOSS_KEYS:
+        if k in batch and batch[k] is not None:
+            out[k] = _npy_dict(batch[k])
+    return out
+
+
 def device_candidate_scores_spmd(
     glue,
     sk_tt,
@@ -325,12 +400,16 @@ def device_candidate_scores_spmd(
     K: int,
     weights=None,
     pool=None,
+    cand_meta: dict | None = None,
 ) -> list[int]:
-    """Select one exploration winner per chip on a ``MeshDevice`` via ``FlowGlue.heads``."""
-    from tt_bio._vendor.rfd4_prep._cif.model_masks import compute_flow_emit_masks
+    """Select one exploration winner per chip on a ``MeshDevice`` via ``FlowGlue.heads``.
+
+    Evaluates exploration losses (``bb_ca`` + ``local_latents``) in a single vectorized
+    float64 pass over all ``world * K`` candidates without touching pair-sized batch keys
+    or computing gradients (bit-identical to per-rank ``RO.rfd4_loss``).
+    """
     from .mesh_dp import put_sharded, read_sharded
 
-    w = RO.WEIGHTS if weights is None else weights
     world = len(rank_batches)
     n_tok = int(rank_batches[0]["padding_mask"].shape[1])
     dh = getattr(glue, "_device_heads", None)
@@ -340,24 +419,16 @@ def device_candidate_scores_spmd(
     n_pad = int(s_raw.shape[1])
     dev = s_raw.device()
 
-    # Build only the tiny [world*K, n_pad, 1] emit masks (avoids stacking full 40-key rank_batches).
-    if pool is not None and world > 1:
-        emits = list(pool.map(compute_flow_emit_masks, rank_batches))
-    else:
-        emits = [compute_flow_emit_masks(rb) for rb in rank_batches]
+    meta = extract_cand_score_meta(rank_batches) if cand_meta is None else cand_meta
 
-    def _up_emit(key: str):
-        arr = np.concatenate(
-            [(e[key].detach().cpu().numpy() if isinstance(e[key], torch.Tensor) else np.asarray(e[key])).astype(np.float32)
-             for e in emits],
-            axis=0,
-        )
+    def _up_emit_bool(mask_bool: np.ndarray):
+        arr = mask_bool.astype(np.float32)
         if arr.shape[1] < n_pad:
             pad = np.zeros((arr.shape[0], n_pad), dtype=np.float32)
             pad[:, :arr.shape[1]] = arr
             arr = pad
         t_rm = put_sharded(
-            torch.from_numpy(arr[..., None].copy()), dev,
+            torch.from_numpy(np.ascontiguousarray(arr[..., None])), dev,
             dtype=dh.dtype, layout=ttnn.ROW_MAJOR_LAYOUT,
         )
         t_tile = ttnn.to_layout(t_rm, ttnn.TILE_LAYOUT)
@@ -365,8 +436,8 @@ def device_candidate_scores_spmd(
             ttnn.deallocate(t_rm)
         return t_tile
 
-    emit_ca = _up_emit("bb_ca")
-    emit_ll = _up_emit("local_latents")
+    emit_ca = _up_emit_bool(meta["emit_ca"])
+    emit_ll = _up_emit_bool(meta["emit_ll"])
     raw_out = dh(sk_tt, None, insertion=False, sequence=False, masks_dev=(emit_ca, emit_ll, None))
     ttnn.deallocate(emit_ca)
     ttnn.deallocate(emit_ll)
@@ -379,24 +450,16 @@ def device_candidate_scores_spmd(
     ttnn.deallocate(ca_raw)
     ttnn.deallocate(ll_raw)
 
-    def _score_cand(r: int) -> int:
-        ok = {
-            "v_bb_ca": ca_all[r * K:(r + 1) * K],
-            "v_local_latents": ll_all[r * K:(r + 1) * K],
-        }
-        _t, bd, _s = RO.rfd4_loss({**_npy_dict(rank_batches[r]), "exploration_k": K}, ok, w)
-        return int(bd["winners"][0])
-
-    if world > 1:
-        if pool is not None:
-            winners = list(pool.map(_score_cand, range(world)))
-        else:
-            from concurrent.futures import ThreadPoolExecutor
-            with ThreadPoolExecutor(max_workers=min(32, world)) as _p:
-                winners = list(_p.map(_score_cand, range(world)))
-    else:
-        winners = [_score_cand(0)]
-    return winners
+    loss_ca = _fm_loss_values_only(
+        meta["x1_ca"], meta["xt_ca"], ca_all, meta["t_ca"],
+        meta["emit_ca"], meta["sup_ca"], meta["lw"],
+    )
+    loss_ll = _fm_loss_values_only(
+        meta["x1_ll"], meta["xt_ll"], ll_all, meta["t_ll"],
+        meta["emit_ll"], meta["sup_ll"], meta["lw"],
+    )
+    sel = loss_ca + loss_ll
+    return sel.reshape(world, K).argmin(axis=1).tolist()
 
 
 def device_winner_loss_spmd(
@@ -414,6 +477,10 @@ def device_winner_loss_spmd(
 ):
     """Run taped ``FlowGlue.heads`` on a ``MeshDevice`` and backprop all ``world`` chips together.
 
+    Evaluates all ``world`` ranks' non-insertion terms and seeds in a single vectorized float64
+    ``RO.terms`` call over only the ~12 token-sized keys (bit-identical to per-rank
+    ``RO.rfd4_loss``).
+
     When ``stop_at_s=True``, wraps ``s_taped``'s underlying device tensor in a fresh local
     ``ag.Tensor(..., requires_grad=True)`` so ``ag.backward`` runs ONLY through ``DeviceHeads``
     and returns ``(mean_total, per_rank_totals, per_rank_terms, per_rank_refs, ds_out)`` where
@@ -423,9 +490,9 @@ def device_winner_loss_spmd(
 
     w = RO.WEIGHTS if weights is None else weights
     world = len(rank_bws)
-    n_tok = int(rank_bws[0]["padding_mask"].shape[1])
     if stacked_bw is None:
         stacked_bw = stack_batches(rank_bws)
+    n_tok = int(stacked_bw["padding_mask"].shape[1])
     s_raw = getattr(s_taped, "value", s_taped)
     n_pad = int(s_raw.shape[1])
     dev = s_raw.device()
@@ -449,58 +516,56 @@ def device_winner_loss_spmd(
     ins_w = float(w.get("insertion_prediction", 1.0))
     ins_loss_np, dz_ins = device_insertion_loss(ins_t, stacked_bw, weight=ins_w)
 
+    # Single vectorized float64 RO.terms call across all `world` winners (keep=1.0 per rank).
+    ok_all = {"v_bb_ca": ca_all, "v_local_latents": ll_all}
+    if seq_all is not None:
+        ok_all["sequence_logits"] = seq_all
+    bw_np_all = _small_npy_dict(stacked_bw)
+    per = RO.terms(bw_np_all, ok_all, sequence_weight=1.0, signed_volume_weight=1.0)
+
+    seeds_all: dict[str, np.ndarray] = {}
+    totals_non_ins = np.zeros(world, dtype=np.float64)
+    term_vals: dict[str, np.ndarray | None] = {}
+    for name in RO.TERMS:
+        wt = float(w.get(name, 0.0))
+        if name not in per:
+            term_vals[name] = None
+            continue
+        loss_vec, grads = per[name]
+        term_vals[name] = loss_vec
+        totals_non_ins += wt * loss_vec
+        for gk, g_arr in grads.items():
+            sg = wt * g_arr
+            seeds_all[gk] = sg if gk not in seeds_all else (seeds_all[gk] + sg)
+
     ca_seeds = np.zeros((world, n_pad, 3), dtype=np.float32)
     ll_seeds = np.zeros((world, n_pad, 32), dtype=np.float32)
-    seq_seeds = np.zeros((world, n_pad, 147), dtype=np.float32) if seq_t is not None else None
+    ca_seeds[:, :n_tok, :3] = seeds_all["v_bb_ca"].astype(np.float32)
+    ll_seeds[:, :n_tok, :32] = seeds_all["v_local_latents"].astype(np.float32)
+    seq_seeds = None
     have_seq_seed = False
+    if seq_t is not None and "sequence_logits" in seeds_all:
+        seq_seeds = np.zeros((world, n_pad, 147), dtype=np.float32)
+        seq_seeds[:, :n_tok, :147] = seeds_all["sequence_logits"].astype(np.float32)
+        have_seq_seed = True
 
     per_rank_totals: list[float] = []
     per_rank_terms: list[dict] = []
     per_rank_refs: list[dict] = []
-
-    def _eval_rank_win(r: int):
-        ok_r = {
-            "v_bb_ca": ca_all[r:r + 1],
-            "v_local_latents": ll_all[r:r + 1],
-        }
-        if seq_all is not None:
-            ok_r["sequence_logits"] = seq_all[r:r + 1]
-        bw_np = {**_npy_dict(rank_bws[r]), "exploration_k": 1}
-        total_non_ins, bd_r, seeds_r = RO.rfd4_loss(bw_np, ok_r, w)
-        return r, total_non_ins, bd_r, seeds_r
-
-    if world > 1:
-        if pool is not None:
-            eval_results = list(pool.map(_eval_rank_win, range(world)))
-        else:
-            from concurrent.futures import ThreadPoolExecutor
-            with ThreadPoolExecutor(max_workers=min(32, world)) as _p:
-                eval_results = list(_p.map(_eval_rank_win, range(world)))
-    else:
-        eval_results = [_eval_rank_win(0)]
-
-    for r, total_non_ins, bd_r, seeds_r in eval_results:
+    for r in range(world):
         ins_val = float(ins_loss_np[r])
-        total_r = float(total_non_ins) + ins_w * ins_val
-        bd_r["insertion_prediction"] = {
-            "value": ins_val,
-            "weight": ins_w,
-            "weighted": ins_w * ins_val,
-            "per_example": ins_loss_np[r:r + 1],
+        per_rank_totals.append(float(totals_non_ins[r]) + ins_w * ins_val)
+        terms_r = {
+            name: (None if vec is None else float(vec[r]))
+            for name, vec in term_vals.items()
         }
-        ca_seeds[r, :n_tok, :3] = np.asarray(seeds_r["v_bb_ca"], dtype=np.float32)[0]
-        ll_seeds[r, :n_tok, :32] = np.asarray(seeds_r["v_local_latents"], dtype=np.float32)[0]
-        if seq_seeds is not None and "sequence_logits" in seeds_r:
-            seq_seeds[r, :n_tok, :147] = np.asarray(seeds_r["sequence_logits"], dtype=np.float32)[0]
-            have_seq_seed = True
-        terms_r = {k: v.get("value") for k, v in bd_r.items() if isinstance(v, dict)}
+        terms_r["insertion_prediction"] = ins_val
+        per_rank_terms.append(terms_r)
         ref_r = {}
         if ref_terms_list is not None and r < len(ref_terms_list) and ref_terms_list[r] is not None:
             w_r = int(win_indices[r]) if win_indices is not None else 0
             rt = ref_terms_list[r]
             ref_r = {k: float(rt[k][w_r]) for k in terms_r if k in rt and w_r < len(rt[k])}
-        per_rank_totals.append(total_r)
-        per_rank_terms.append(terms_r)
         per_rank_refs.append(ref_r)
 
     outs_bwd = [ca_t, ll_t]

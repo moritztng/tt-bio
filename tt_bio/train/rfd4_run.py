@@ -859,15 +859,21 @@ def main(argv=None, on_step=None):
                 MeshBridge, put_sharded, select_per_rank_candidate,
             )
             from tt_bio.train.rfd4_heads import device_candidate_scores_spmd
-            from tt_bio.train.spmd_rfd4 import gather_winner_batches, select_rank_batches
+            from tt_bio.train.spmd_rfd4 import WINNER_SMALL_KEYS, gather_winner_batches, select_rank_batches
             from tt_bio.train.spmd_trace import can_offload_cond_init, cand_conds_and_s0_device
 
             if res_pair is None:
                 raise RuntimeError("--mesh real-batch path requires ResidentPairBuilder (--cand-pair card --win-pair card)")
             use_dev_prep = bool(a.spmd_dev_prep and can_offload_cond_init(glue))
+            use_dev_win = bool(dev_win_glue is not None)
+            batch_pool = [it[1] for it in batches]
             batch_indices, rank_bts, stacked_bt = select_rank_batches(
-                [it[1] for it in batches], step, world, stack=not use_dev_prep,
+                batch_pool, step, world, stack=not use_dev_prep,
             )
+            pref = spmd_prefetcher.get(step, rank_bts) if spmd_prefetcher is not None else None
+            if spmd_prefetcher is not None and (step + 1) < a.steps:
+                _, next_rank_bts, _ = select_rank_batches(batch_pool, step + 1, world, stack=False)
+                spmd_prefetcher.submit(step + 1, next_rank_bts)
             rank_items = [batches[i] for i in batch_indices]
             rank_names = [it[0] for it in rank_items]
             rank_metas = [it[2] for it in rank_items]
@@ -893,7 +899,19 @@ def main(argv=None, on_step=None):
                 _te0 = time.time()
             if use_dev_prep:
                 with torch.no_grad():
-                    encs = list(pool.map(res_pair.encode_step, rank_bts))
+                    if pref is not None and pref.static_encs is not None:
+                        encs = pref.static_encs
+                        if pref.pair_cond_feats is not None and all(x is not None for x in pref.pair_cond_feats):
+                            pcf_all = torch.cat(pref.pair_cond_feats, dim=0)
+                            g_all, b_all = res_pair.modulation_from_cond_feats(pcf_all, mask_cand)
+                            for r_i, enc in enumerate(encs):
+                                enc.gamma = g_all[r_i * K:(r_i + 1) * K]
+                                enc.beta = b_all[r_i * K:(r_i + 1) * K]
+                        else:
+                            for r_i, enc in enumerate(encs):
+                                enc.gamma, enc.beta = res_pair.modulation(rank_bts[r_i])
+                    else:
+                        encs = list(pool.map(res_pair.encode_step, rank_bts))
                 ck = None
                 s0 = None
             else:
@@ -906,6 +924,7 @@ def main(argv=None, on_step=None):
 
             penult_k = (None, None)
             cand_outside = a.cand_levers in ("serve", "serve_train")
+            cand_meta = pref.cand_meta if pref is not None else None
             if a.phase_timing:
                 ttnn.synchronize_device(dev)
                 _tc0 = time.time()
@@ -920,6 +939,7 @@ def main(argv=None, on_step=None):
                         s0_tt, ck_tt = cand_conds_and_s0_device(
                             glue, rank_bts, mk[0], step_depth, trunk.dtype, dev,
                             pool=pool, dev_masters=opt.master,
+                            prefetched=pref, factory_split=factory_split,
                         )
                     else:
                         s0_tt = put_sharded(s0, dev, dtype=ttnn.float32)
@@ -944,7 +964,9 @@ def main(argv=None, on_step=None):
                         ttnn.synchronize_device(dev)
                         phase["cand_run_s"] = round(time.time() - _tk0, 5)
                         _ts0 = time.time()
-                    win_indices = device_candidate_scores_spmd(glue, sk, rank_bts, K, pool=pool)
+                    win_indices = device_candidate_scores_spmd(
+                        glue, sk, rank_bts, K, pool=pool, cand_meta=cand_meta,
+                    )
                     if a.phase_timing:
                         phase["cand_score_s"] = round(time.time() - _ts0, 5)
                 for t in (sk, zk, s0_tt, zk0):
@@ -958,6 +980,7 @@ def main(argv=None, on_step=None):
                         s0_tt, ck_tt = cand_conds_and_s0_device(
                             glue, rank_bts, mk[0], step_depth, trunk.dtype, dev,
                             pool=pool, dev_masters=opt.master,
+                            prefetched=pref, factory_split=factory_split,
                         )
                     else:
                         s0_tt = put_sharded(s0, dev, dtype=ttnn.float32)
@@ -966,7 +989,9 @@ def main(argv=None, on_step=None):
                         sk, zk, penult_k = trunk(s0_tt, zk0, ck_tt, mk, return_penultimate=True)
                     else:
                         sk, zk = trunk(s0_tt, zk0, ck_tt, mk)
-                    win_indices = device_candidate_scores_spmd(glue, getattr(sk, "value", sk), rank_bts, K, pool=pool)
+                    win_indices = device_candidate_scores_spmd(
+                        glue, getattr(sk, "value", sk), rank_bts, K, pool=pool, cand_meta=cand_meta,
+                    )
                     for t in (sk, zk, s0_tt, zk0):
                         tv = getattr(t, "value", t)
                         if tv is not None and tv.is_allocated():
@@ -979,20 +1004,49 @@ def main(argv=None, on_step=None):
 
             if a.phase_timing:
                 _twp0 = time.time()
-            rank_bws, stacked_bw = gather_winner_batches(rank_bts, win_indices)
+            win_keys = WINNER_SMALL_KEYS if (use_dev_win and pref is not None) else None
+            rank_bws, stacked_bw = gather_winner_batches(rank_bts, win_indices, keys=win_keys)
             br = MeshBridge(dev, trunk.dtype)
             m1 = _trunk_masks_spmd(stacked_bw["padding_mask"])
             slice_pre_conds = bool(use_dev_prep and a.win_pre == "suspend" and step_depth > 1)
             if slice_pre_conds:
                 cp_in_sliced = [select_per_rank_candidate(c, win_indices, dev) for c in ck_tt[:-1]]
                 _dealloc_unique(ck_tt)
-                cs = [glue.conditioning(stacked_bw, 0 if glue.condition_on_recycle_remaining else None)]
             else:
                 _dealloc_unique(ck_tt)
                 cp_in_sliced = None
-                cs = conds_for(stacked_bw, step_depth)
-            s_i = glue.init_repr_factory(stacked_bw) * stacked_bw["padding_mask"][..., None]
-            gamma_w, beta_w = res_pair.modulation(stacked_bw)
+
+            glue_saved = None
+            if use_dev_win:
+                win_rem = 0 if (step_depth > 1 and glue.condition_on_recycle_remaining) else None
+                s_i_dev, c_last_dev, glue_saved = dev_win_glue.forward(
+                    stacked_bw, win_indices, K,
+                    prefetched=pref, m1_tok=m1[0], recycle_remaining=win_rem,
+                    trunk_dtype=trunk.dtype, dev_masters=opt.master,
+                )
+                s_i = None
+                cs = None
+            else:
+                if slice_pre_conds:
+                    cs = [glue.conditioning(stacked_bw, 0 if glue.condition_on_recycle_remaining else None)]
+                else:
+                    cs = conds_for(stacked_bw, step_depth)
+                s_i = glue.init_repr_factory(stacked_bw) * stacked_bw["padding_mask"][..., None]
+                s_i_dev = None
+                c_last_dev = None
+
+            if (
+                pref is not None
+                and pref.pair_cond_feats is not None
+                and all(x is not None for x in pref.pair_cond_feats)
+            ):
+                w_pcf = torch.cat(
+                    [pref.pair_cond_feats[r_i][int(w_r):int(w_r) + 1] for r_i, w_r in enumerate(win_indices)],
+                    dim=0,
+                )
+                gamma_w, beta_w = res_pair.modulation_from_cond_feats(w_pcf, stacked_bw["padding_mask"])
+            else:
+                gamma_w, beta_w = res_pair.modulation(stacked_bw)
             if a.phase_timing:
                 ttnn.synchronize_device(dev)
                 phase["win_prep_s"] = round(time.time() - _twp0, 5)
@@ -1022,7 +1076,8 @@ def main(argv=None, on_step=None):
                 keep = prev
             elif a.win_pre == "suspend" and step_depth > 1:
                 with ag.suspended(), cand_scope():
-                    sp_in = put_sharded(s_i.detach(), dev, dtype=ttnn.float32)
+                    sp_in = s_i_dev if use_dev_win else put_sharded(s_i.detach(), dev, dtype=ttnn.float32)
+                    sp_in_owned = not use_dev_win
                     want_dt = trunk.pair_dtype(m1)
                     zp_in = (z_in_pre.value if z_in_pre.value.dtype == want_dt
                              else ttnn.typecast(z_in_pre.value, want_dt))
@@ -1035,8 +1090,10 @@ def main(argv=None, on_step=None):
                         s_prev, z_prev = spmd_tracer.run_untaped_trunk("win_pre", trunk, sp_in, zp_in, cp_in, m1)
                     else:
                         s_prev, z_prev = trunk(sp_in, zp_in, cp_in, m1)
-                    for t in (sp_in, *cp_in):
+                    for t in cp_in:
                         ttnn.deallocate(t)
+                    if sp_in_owned:
+                        ttnn.deallocate(sp_in)
                     if zp_owned:
                         ttnn.deallocate(zp_in)
                 if a.break_win_pre:
@@ -1046,21 +1103,42 @@ def main(argv=None, on_step=None):
                 prev = (s_prev, z_prev)
                 keep = prev
 
-            s_i_br = br.up(s_i, ttnn.float32)
-            c_br = [br.up(cs[-1])] if prev is not None else [br.up(c) for c in cs]
+            if use_dev_win:
+                s_i_br = ag.Tensor(s_i_dev, requires_grad=True)
+                c_br = [ag.Tensor(c_last_dev, requires_grad=True)]
+            else:
+                s_i_br = br.up(s_i, ttnn.float32)
+                c_br = [br.up(cs[-1])] if prev is not None else [br.up(c) for c in cs]
+            c_vals = [cb.value for cb in c_br]
             win_key = (
-                spmd_tracer.win_pair_key(s_i_br.value, z_in_pre.value, [c.value for c in c_br], m1, prev)
+                spmd_tracer.win_pair_key(s_i_br.value, z_in_pre.value, c_vals, m1, prev)
                 if spmd_tracer is not None else None
             )
             win_extra = {}
+            if spmd_tracer is not None and not spmd_tracer.has_win_pair(win_key):
+                donor = spmd_tracer.find_win_pair_donor(win_key)
+                if donor is not None:
+                    spmd_tracer.capture_win_pair_direct(
+                        win_key,
+                        donor=donor,
+                        levers=levers,
+                        winner=winner,
+                        dfolds=dfolds,
+                        dev_masters=opt.master,
+                        s_i_val=s_i_br.value,
+                        z_in_val=z_in_pre.value,
+                        c_vals=c_vals,
+                        m1=m1,
+                        prev=prev,
+                    )
             if spmd_tracer is not None and spmd_tracer.has_win_pair(win_key):
                 s = spmd_tracer.replay_win_pair_fwd(
-                    win_key, s_i_br.value, z_in_pre.value, [c.value for c in c_br], m1, prev,
+                    win_key, s_i_br.value, z_in_pre.value, c_vals, m1, prev,
                 )
                 z = None
                 win_extra = dict(
                     win_mode="replay", win_key=win_key, s_i_br=s_i_br, z_in_pre=z_in_pre,
-                    c_br=c_br, m1=m1, prev=prev,
+                    c_br=c_br, m1=m1, prev=prev, glue_saved=glue_saved,
                 )
             elif spmd_tracer is not None and spmd_tracer.win_pair_should_capture(win_key):
                 s_leaf = ag.Tensor(s_i_br.value, requires_grad=True)
@@ -1071,12 +1149,14 @@ def main(argv=None, on_step=None):
                 win_extra = dict(
                     win_mode="capture", win_key=win_key, s_leaf=s_leaf, z_leaf=z_leaf,
                     c_leaves=c_leaves, s_i_br=s_i_br, z_in_pre=z_in_pre, c_br=c_br,
-                    m1=m1, prev=prev, z_out=z,
+                    m1=m1, prev=prev, z_out=z, glue_saved=glue_saved,
                 )
             else:
                 with T.lever_scope(levers), ag.tape():
                     s, z = winner(s_i_br, z_in_pre, c_br, m1, prev=prev)
-                win_extra = dict(win_mode="eager", m1=m1)
+                win_extra = dict(
+                    win_mode="eager", m1=m1, s_i_br=s_i_br, c_br=c_br, glue_saved=glue_saved,
+                )
             if a.phase_timing:
                 ttnn.synchronize_device(dev)
                 phase["win_trunk_s"] = round(time.time() - _tw0, 5)
@@ -1094,6 +1174,7 @@ def main(argv=None, on_step=None):
                 ttnn.synchronize_device(dev)
                 _tb0 = time.time()
             win_mode = ctx.get("win_mode", "eager")
+            glue_saved = ctx.get("glue_saved")
 
             def _merge_trunk_head_grads(trunk_g, head_g, skip_init):
                 merged = dict(trunk_g)
@@ -1121,14 +1202,20 @@ def main(argv=None, on_step=None):
                 d_s_i, d_z_in, d_c, trunk_grads, trunk_idle = spmd_tracer.replay_win_pair_bwd_fold(
                     ctx["win_key"], ds_out,
                 )
-                ctx["s_i_br"].add_grad(ttnn.clone(d_s_i))
-                for cb, dcb in zip(ctx["c_br"], d_c):
-                    cb.add_grad(ttnn.clone(dcb))
+                glue_grads = {}
+                if glue_saved is not None and dev_win_glue is not None:
+                    glue_grads = dev_win_glue.backward(d_s_i, d_c[0], glue_saved, opt.master)
+                else:
+                    ctx["s_i_br"].add_grad(ttnn.clone(d_s_i))
+                    for cb, dcb in zip(ctx["c_br"], d_c):
+                        cb.add_grad(ttnn.clone(dcb))
                 dz_c = ttnn.clone(d_z_in)
                 ag.backward([ctx["z_in_pre"]], [dz_c])
                 ttnn.deallocate(dz_c)
                 ctx["br"].backward_ups()
                 merged_g, merged_skip = _merge_trunk_head_grads(trunk_grads, head_grads, set(trunk_grads))
+                if glue_grads:
+                    merged_g, merged_skip = _merge_trunk_head_grads(merged_g, glue_grads, merged_skip)
                 ctx["traced_dev_grads"] = merged_g
                 ctx["traced_free_skip"] = merged_skip
                 ctx["traced_idle"] = trunk_idle
@@ -1181,13 +1268,22 @@ def main(argv=None, on_step=None):
                 )
                 ttnn.deallocate(s_out_ref)
                 ttnn.deallocate(ds_out)
-                ctx["s_i_br"].add_grad(d_s_i)
-                for cb, dcb in zip(ctx["c_br"], d_c):
-                    cb.add_grad(dcb)
+                glue_grads = {}
+                if glue_saved is not None and dev_win_glue is not None:
+                    glue_grads = dev_win_glue.backward(d_s_i, d_c[0], glue_saved, opt.master)
+                    ttnn.deallocate(d_s_i)
+                    for dcb in d_c:
+                        ttnn.deallocate(dcb)
+                else:
+                    ctx["s_i_br"].add_grad(d_s_i)
+                    for cb, dcb in zip(ctx["c_br"], d_c):
+                        cb.add_grad(dcb)
                 ag.backward([ctx["z_in_pre"]], [d_z_in])
                 ttnn.deallocate(d_z_in)
                 ctx["br"].backward_ups()
                 merged_g, merged_skip = _merge_trunk_head_grads(trunk_grads, head_grads, ())
+                if glue_grads:
+                    merged_g, merged_skip = _merge_trunk_head_grads(merged_g, glue_grads, merged_skip)
                 ctx["traced_dev_grads"] = merged_g
                 ctx["traced_free_skip"] = merged_skip
                 ctx["traced_idle"] = trunk_idle
@@ -1207,6 +1303,13 @@ def main(argv=None, on_step=None):
                     stacked_bw=ctx["stacked_bw"],
                     pool=_get_spmd_pool(),
                 )
+                if glue_saved is not None and dev_win_glue is not None:
+                    d_s_i = ctx["s_i_br"].grad
+                    ctx["s_i_br"].grad = None
+                    d_c0 = ctx["c_br"][0].grad
+                    ctx["c_br"][0].grad = None
+                    ctx["extra_dev_grads"] = dev_win_glue.backward(d_s_i, d_c0, glue_saved, opt.master)
+                    _dealloc_unique([d_s_i, d_c0, ctx["s_i_br"].value, *[cb.value for cb in ctx["c_br"]]])
                 _dealloc_unique([*ctx.get("keep", ()), *ctx.get("m1", ())])
             if a.phase_timing:
                 ttnn.synchronize_device(dev)
@@ -1225,10 +1328,17 @@ def main(argv=None, on_step=None):
     refold_hook = None
     refold_dev_hook = None
     spmd_tracer = None
+    factory_split = None
+    dev_win_glue = None
+    spmd_prefetcher = None
     if a.resident:
         from tt_bio.rfd4.heads import DeviceHeads
         from tt_bio.train.device_optim import DeviceOptimizer, rfd4_device_optimizer
         from tt_bio.train.folds import DeviceFolds, make_rfd4_refold_hook
+        from tt_bio.train.spmd_trace import (
+            DEVICE_GLUE_WEIGHTS, DeviceWinnerGlue, FactoryStaticSplit,
+            SPMDPrefetcher, can_offload_cond_init,
+        )
 
         # Free unrecorded dummy trunk from line 229 before building the single persistent trunk.
         if trunk is not None:
@@ -1269,6 +1379,18 @@ def main(argv=None, on_step=None):
             if fz in host_glue_params:
                 host_glue_params[fz].requires_grad_(False)
             print(json.dumps(dict(frozen=fz)), flush=True)
+        # Under SPMD --spmd-dev-prep with suspend/reuse win_pre (1 taped conditioning tensor),
+        # move the 6 dense winner glue projections onto device so their grads are sharded per-chip
+        # (CCL-reduced across all chips) and never synced back to host CPU.
+        use_dev_win_glue = bool(
+            real and spmd_mesh_shape is not None and a.spmd_dev_prep
+            and not a.freeze and a.win_pre in ("suspend", "reuse")
+            and can_offload_cond_init(glue)
+            and all(w in host_glue_params for w in DEVICE_GLUE_WEIGHTS)
+        )
+        if use_dev_win_glue:
+            for w_nm in DEVICE_GLUE_WEIGHTS:
+                host_glue_params.pop(w_nm, None)
         names = list(params)
         cyc = {nm: "depth-1 draws feed a zero state into the cycle projection; trains at depth >= 2"
                for nm in names if "cycle" in nm and a.depth < 2}
@@ -1294,6 +1416,11 @@ def main(argv=None, on_step=None):
         if real and a.cand_pair == "card" and a.win_pair == "card":
             from tt_bio.train.rfd4_pair import ResidentPairBuilder
             res_pair = ResidentPairBuilder(glue.pair_repr_builder, dev)
+        if real and spmd_mesh_shape is not None and a.spmd_dev_prep and can_offload_cond_init(glue):
+            factory_split = FactoryStaticSplit(glue)
+            if use_dev_win_glue:
+                dev_win_glue = DeviceWinnerGlue(glue, factory_split, dev)
+            spmd_prefetcher = SPMDPrefetcher(factory_split, res_pair=res_pair)
         refold_hook = make_rfd4_refold_hook(
             trunk, glue if real else None,
             host_glue_params=host_glue_params,
@@ -1515,6 +1642,16 @@ def main(argv=None, on_step=None):
                 else:
                     dev_grads, idle = dfolds.tape_backward(opt.master)
                     ag.release_pins()
+                    extra_g = ctx.pop("extra_dev_grads", None) if isinstance(ctx, dict) else None
+                    if extra_g:
+                        for kg, gg in extra_g.items():
+                            if kg in dev_grads:
+                                sg = ttnn.add(dev_grads[kg], gg)
+                                ttnn.deallocate(dev_grads[kg])
+                                ttnn.deallocate(gg)
+                                dev_grads[kg] = sg
+                            else:
+                                dev_grads[kg] = gg
                 # Upload only the tiny non-pair host-glue grads (~1.87 M elems = 7.5 MB).
                 # Under --mesh, MeshBridge.backward_ups() already summed host-glue grads across
                 # all `world` chips, and SPMDZero1Step passes `replicated_names=host_glue_params`
@@ -1717,6 +1854,16 @@ def main(argv=None, on_step=None):
         if clog is not None:
             clog.close()
         if spmd_mesh_shape is not None:
+            if locals().get("spmd_prefetcher") is not None:
+                try:
+                    spmd_prefetcher.close()
+                except Exception:
+                    pass
+            if locals().get("dev_win_glue") is not None:
+                try:
+                    dev_win_glue.release()
+                except Exception:
+                    pass
             if spmd_tracer is not None:
                 try:
                     spmd_tracer.release()

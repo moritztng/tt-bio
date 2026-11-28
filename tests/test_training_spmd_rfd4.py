@@ -832,3 +832,157 @@ def test_trunk_masks_sharded_flag(monkeypatch):
             mock_ttnn.deallocate(t)
     assert len(dev4.live_bufs) == 0
 
+
+def test_gather_winner_batches_keys_filter():
+    """gather_winner_batches(..., keys=WINNER_SMALL_KEYS) drops pair tensors and preserves token keys."""
+    from tt_bio.train.spmd_rfd4 import WINNER_SMALL_KEYS, gather_winner_batches
+
+    b0 = {
+        "padding_mask": torch.tensor([[True, False], [True, True]]),
+        "x_1": {"bb_ca": torch.arange(12, dtype=torch.float32).reshape(2, 2, 3)},
+        "huge_pair": torch.zeros((2, 64, 64), dtype=torch.float32),
+        "tensors": {"duplicate_huge_pair": torch.zeros((2, 64, 64), dtype=torch.float32)},
+    }
+    b1 = {
+        "padding_mask": torch.tensor([[True, True], [False, False]]),
+        "x_1": {"bb_ca": torch.arange(12, 24, dtype=torch.float32).reshape(2, 2, 3)},
+        "huge_pair": torch.ones((2, 64, 64), dtype=torch.float32),
+        "tensors": {"duplicate_huge_pair": torch.ones((2, 64, 64), dtype=torch.float32)},
+    }
+    per_w, stacked = gather_winner_batches([b0, b1], [1, 0], keys=WINNER_SMALL_KEYS)
+    assert len(per_w) == 2
+    assert set(stacked.keys()) == {"padding_mask", "x_1"}
+    assert "huge_pair" not in stacked and "tensors" not in stacked
+    assert torch.equal(stacked["padding_mask"][0], b0["padding_mask"][1])
+    assert torch.equal(stacked["padding_mask"][1], b1["padding_mask"][0])
+    assert torch.equal(stacked["x_1"]["bb_ca"][0], b0["x_1"]["bb_ca"][1])
+    assert torch.equal(stacked["x_1"]["bb_ca"][1], b1["x_1"]["bb_ca"][0])
+
+
+def test_transition_bwd_torch_matches_autograd():
+    """Analytical SwiGLU Transition VJP in spmd_trace matches torch.autograd.backward."""
+    from tt_bio.train.spmd_trace import _transition_bwd_torch
+
+    torch.manual_seed(7)
+    b, n, d, h = 3, 16, 32, 64
+    x = torch.randn(b, n, d, requires_grad=True)
+    w1 = (torch.randn(2 * h, d) * 0.1).requires_grad_(True)
+    w2 = (torch.randn(d, h) * 0.1).requires_grad_(True)
+    mask = (torch.rand(b, n, 1) > 0.25).float()
+
+    h_out = x @ w1.T
+    a, g = h_out[..., :h], h_out[..., h:]
+    y = ((torch.nn.functional.silu(g) * a) @ w2.T) * mask
+    dy = torch.randn_like(y)
+    y.backward(dy)
+
+    dx_ref, dw1_ref, dw2_ref = x.grad.clone(), w1.grad.clone(), w2.grad.clone()
+    dx_got, dw1_got, dw2_got = _transition_bwd_torch(dy, x.detach(), w1.detach(), w2.detach(), mask)
+    assert torch.allclose(dx_got, dx_ref, atol=1e-5, rtol=1e-5)
+    assert torch.allclose(dw1_got, dw1_ref, atol=1e-5, rtol=1e-5)
+    assert torch.allclose(dw2_got, dw2_ref, atol=1e-5, rtol=1e-5)
+
+
+def test_factory_static_split_and_gather_matrix():
+    """_OneFactorySplit separates static/dynamic creators, matches full output, and builds exact gather matrix."""
+    from tt_bio.train.spmd_trace import _OneFactorySplit
+
+    class _StaticFeat(torch.nn.Module):
+        def forward(self, batch):
+            return batch["s_val"]
+
+    class _DynEmb(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.emb = torch.nn.Embedding(8, 5)
+
+        def forward(self, batch):
+            return self.emb(batch["tok_id"])
+
+    class _ToyFactory(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.feat_creators = torch.nn.ModuleList([_StaticFeat(), _DynEmb(), _StaticFeat()])
+            self.linear_out = torch.nn.Linear(4 + 5 + 4, 6, bias=False)
+
+        @staticmethod
+        def apply_padding_mask(x, mask):
+            return x * mask[..., None].to(x.dtype)
+
+        def forward(self, batch):
+            feats = torch.cat([fc(batch) for fc in self.feat_creators], dim=-1)
+            feats = self.apply_padding_mask(feats, batch["padding_mask"])
+            return self.apply_padding_mask(self.linear_out(feats), batch["padding_mask"])
+
+    torch.manual_seed(3)
+    fac = _ToyFactory()
+    batch = {
+        "padding_mask": torch.tensor([[True, True, False], [True, False, False]]),
+        "s_val": torch.randn(2, 3, 4),
+        "tok_id": torch.tensor([[1, 2, 3], [4, 5, 6]]),
+    }
+    split = _OneFactorySplit(fac, exclude_last_recycle=False)
+    tpl = split.build_static_template(batch, pad_to=32)
+    assert tpl.shape == (2, 3, 32)
+    assert split.total_dim == 13
+    assert split.dynamic_cols == [4, 5, 6, 7, 8]
+
+    full = split.fill_into(tpl[:, :, :13], batch)
+    got = (full @ fac.linear_out.weight.T) * batch["padding_mask"][..., None].float()
+    ref = fac(batch)
+    assert torch.allclose(got, ref, atol=1e-6)
+
+    p_mat = split.gather_matrix(32)
+    assert p_mat.shape == (32, 32)
+    picked = full @ p_mat[:13, :5]
+    _, dyn_cat = split.eval_dynamic(batch, grad=False)
+    assert torch.equal(picked, dyn_cat)
+
+
+def test_spmd_tracer_find_win_pair_donor():
+    """find_win_pair_donor matches opposite-prev keys with identical shapes/dtypes and rejects mismatches."""
+    from tt_bio.train.spmd_trace import SPMDMeshTracer
+
+    tr = SPMDMeshTracer(device=None, enabled=True)
+    k_no_prev = (False, (True, True, False), (1, 256, 768), "f32", (1, 256, 256, 384), "f32", 1)
+    k_prev = (True, (True, True, False), (1, 256, 768), "f32", (1, 256, 256, 384), "f32", 1)
+    k_diff_shape = (True, (True, True, False), (1, 128, 768), "f32", (1, 128, 128, 384), "f32", 1)
+
+    donor_entry = {"tid_fwd": 1, "tid_bwd": 2}
+    tr._win_traces[k_no_prev] = donor_entry
+    assert tr.find_win_pair_donor(k_prev) is donor_entry
+    assert tr.find_win_pair_donor(k_no_prev) is None
+    assert tr.find_win_pair_donor(k_diff_shape) is None
+
+    tr._win_traces[k_prev] = "eager"
+    assert tr.find_win_pair_donor(k_prev) is None
+
+
+def test_fm_loss_values_only_matches_ro_fm_loss(monkeypatch):
+    """_fm_loss_values_only is 0-ULP identical to RO.fm_loss and _small_npy_dict filters non-loss keys."""
+    _install_mock_ttnn(monkeypatch)
+    from tt_bio.train import rfd4_objective as RO
+    import tt_bio.train.rfd4_heads as r4h
+
+    rng = np.random.default_rng(11)
+    x1 = rng.standard_normal((8, 16, 3))
+    xt = rng.standard_normal((8, 16, 3))
+    v = rng.standard_normal((8, 16, 3))
+    t = rng.uniform(0.05, 0.95, size=(8,))
+    emit = rng.random((8, 16)) > 0.2
+    sup = emit & (rng.random((8, 16)) > 0.1)
+    lw = rng.uniform(0.5, 1.5, size=(8, 16))
+
+    ref_loss, _ = RO.fm_loss(x1, xt, v, t, emit, sup, lw)
+    got_loss = r4h._fm_loss_values_only(x1, xt, v, t, emit, sup, lw)
+    assert np.array_equal(ref_loss, got_loss)
+
+    filt = r4h._small_npy_dict({
+        "padding_mask": torch.ones((2, 4), dtype=torch.bool),
+        "x_1": {"bb_ca": torch.zeros((2, 4, 3))},
+        "huge_pair_tensor": torch.zeros((2, 64, 64)),
+    })
+    assert set(filt.keys()) == {"padding_mask", "x_1"}
+    assert "huge_pair_tensor" not in filt
+
+
