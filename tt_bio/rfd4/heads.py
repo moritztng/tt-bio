@@ -167,14 +167,6 @@ class DeviceHeads:
         def up_m(arr) -> object:
             m = _pad_1d(_as_np(arr).astype(np.float32), n_pad, 0.0)
             t = torch.from_numpy(m[..., None].copy())
-            if multi and hasattr(ttnn, "to_layout") and self.dtype == ttnn.float32:
-                rm = ttnn.from_torch(
-                    t, dtype=self.dtype, layout=ttnn.ROW_MAJOR_LAYOUT,
-                    device=self.device, mesh_mapper=mm)
-                tl = ttnn.to_layout(rm, ttnn.TILE_LAYOUT)
-                if tl is not rm:
-                    ttnn.deallocate(rm)
-                return tl
             return ttnn.from_torch(
                 t, dtype=self.dtype, layout=ttnn.TILE_LAYOUT, device=self.device,
                 **({"mesh_mapper": mm} if mm is not None else {}))
