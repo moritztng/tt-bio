@@ -997,6 +997,40 @@ def _install_pair_state_draw(model):
     model._init_pair_state = types.MethodType(lambda self, ref: draw.take(ref), model)
 
 
+_ATOM_INPUTS = ("ref_pos", "ref_element", "ref_charge", "ref_atom_name_chars", "ref_space_uid",
+                "atom_attention_mask", "atom_to_token")
+_ATOM_OUTPUTS = {"sample_atom_coords": 1, "plddt_logits": 1, "plddt_per_atom": 1, "resolved_logits": 1,
+                 "atom_pad_mask": -1}
+
+
+def _install_atom_bucket(model):
+    """Run the fold at `E.ATOM_BUCKET` atoms: pad every atom input behind the real atoms with the atom mask
+    false, which the reference and the device modules already honour, and cut the atom outputs back."""
+    import functools
+    import inspect
+
+    fwd = model.forward
+    sig = inspect.signature(fwd)
+
+    @functools.wraps(fwd)
+    def forward(*args, **kwargs):
+        b = sig.bind(*args, **kwargs)
+        n = b.arguments["atom_attention_mask"].shape[1]
+        pad = pad_amount(n, E.ATOM_BUCKET) if E.ATOM_BUCKET else 0
+        if not pad:
+            return fwd(*args, **kwargs)
+        for k in _ATOM_INPUTS:
+            t = b.arguments[k]
+            b.arguments[k] = F.pad(t, (0, 0) * (t.dim() - 2) + (0, pad))
+        out = fwd(*b.args, **b.kwargs)
+        for k, dim in _ATOM_OUTPUTS.items():
+            if out.get(k) is not None:
+                out[k] = out[k].narrow(dim, 0, n)
+        return out
+
+    model.forward = forward
+
+
 def _install_resident_trunk_loop(model):
     """Replace the reference `_run_one_loop` with an on-device, resident-z version.
 
@@ -1308,6 +1342,7 @@ def patch_esmfold2(model, esmc_repo: str = "biohub/ESMC-6B", persistent_lm: bool
     _install_resident_trunk_loop(model)
     _install_pair_state_draw(model)
     _install_pair_init(model)
+    _install_atom_bucket(model)
     dram_peak("esmfold2/head-built")
     return model
 

@@ -183,6 +183,11 @@ def _sdpa_bf16(q, k, v, attn_mask, scale):
 C_Z = 256  # pair channels
 from .token_axis import bucket_multiple as _bucket_multiple, pad_amount
 
+# Atom-axis bucket (`esmfold2_runtime._install_atom_bucket`). A kernel is compiled per shape, and the atom count
+# differs between two sequences of one length, so on design traffic nearly every fold was a new shape for its chip.
+# 256 atoms is about one 32-token bucket of protein, at most ~5 % more atom-transformer rows at 600 residues. 0 = off.
+ATOM_BUCKET = int(os.environ.get("TT_BIO_ESMFOLD2_ATOM_BUCKET", "256"))
+
 # token-dim tile bucket for the folding trunk (pads + masks + slices), from the fleet value.
 PAD_MULTIPLE = _bucket_multiple("esmfold2")
 #                    Stays at 32 (not 64): the trimul's matmul contraction size depends on
@@ -1502,12 +1507,13 @@ class InputsEmbedder(TorchWrapper):
         cos, sin = build_3d_rope_tables(ref_pos, ref_space_uid, 32, **ATOM_ROPE)
         band = swa_band(atom_mask, 64, self._from_torch, self.tt_device)
         valid = atom_mask.reshape(1, N, 1).float()
-        oh = F.one_hot(atom_to_token[0].long(), L).float() * atom_mask[0].float()[:, None]
+        # The atom-to-token mean runs at the token bucket: the extra tokens own no atom and are cut on the host.
+        oh = F.one_hot(atom_to_token[0].long(), L + pad_amount(L, PAD_MULTIPLE)).float() * atom_mask[0].float()[:, None]
         scatter_m = (oh / oh.sum(0).clamp(min=1)).t().unsqueeze(0)
         ft = self._from_torch
         a, _q, _c = self.module(ft(atom_feats.float()), ft(cos.float()), ft(sin.float()),
                                 band, ft(scatter_m.float()), valid=ft(valid))
-        a = self._to_torch(a)  # [B,L,384]
+        a = self._to_torch(a)[:, :L]  # [B,L,384]
         return torch.cat([a, aatype, profile, deletion_mean.unsqueeze(-1)], dim=-1)
 
 
@@ -2092,7 +2098,12 @@ def sample_structure(denoise_fn, n_atoms, ref_mask, *, steps=14, sigma_data=16.0
         schedule = F.pad(schedule, (1, 0), value=float(max_inference_sigma))
     lam, eta = noise_scale, step_scale
     B = ref_mask.shape[0]
-    x = schedule[0] * torch.randn(B, n_atoms, 3, generator=gen)
+    # Noise is drawn for the valid atoms only when they lead the axis (the atom bucket pads behind them), so a
+    # padded fold draws exactly what the unpadded one does.
+    n_valid = int(ref_mask[0].sum())
+    n_draw = n_valid if bool(ref_mask[:, :n_valid].all()) else n_atoms
+    randn = lambda: F.pad(torch.randn(B, n_draw, 3, generator=gen), (0, 0, 0, n_atoms - n_draw))
+    x = schedule[0] * randn()
     if _DUMP is not None:
         _DUMP(-1, x, None)
     atom_mask = ref_mask.float()
@@ -2105,7 +2116,7 @@ def sample_structure(denoise_fn, n_atoms, ref_mask, *, steps=14, sigma_data=16.0
         eps = lam * max(t_hat ** 2 - s_tm_v ** 2, 0.0) ** 0.5
         with serial_host():  # atom-sized host math, cheaper on one thread than fanned out
             x, x_prev = _center_random_augmentation(x, atom_mask, gen, x_prev)
-            x_noisy = x + eps * torch.randn(x.shape, generator=gen)
+            x_noisy = x + eps * randn()
         x_den = denoise_fn(x_noisy, torch.full((B,), t_hat))
         with serial_host():
             x_noisy = _weighted_rigid_align(x_noisy.float(), x_den.float(), atom_mask, atom_mask)
