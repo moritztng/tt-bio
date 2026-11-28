@@ -231,7 +231,3 @@ def test_device_optimizer_free_grads_frees_orig_and_reduced(monkeypatch):
     assert set(freed) == {"orig", "reduced"}
     assert not g_orig.alive and not g_red.alive
 
-
-
-
-
