@@ -238,3 +238,12 @@ def test_blocks_cut_a_grid_axis_into_few_powers_of_two():
         assert [a for a, _ in cut] == [sum(k for _, k in cut[:i]) for i in range(len(cut))]
         assert sum(k for _, k in cut) == bucket(n)
         assert all((k // 32) & (k // 32 - 1) == 0 for _, k in cut)
+
+
+def test_a_block_cap_repeats_the_largest_block(monkeypatch):
+    from tt_bio.diffdock import conv
+    monkeypatch.setattr(conv, "BLOCK_CAP", 16)
+    cut = conv.blocks(32 * 0b10110111)
+    assert [a for a, _ in cut] == [sum(k for _, k in cut[:i]) for i in range(len(cut))]
+    assert sum(k for _, k in cut) == 32 * 0b10110111
+    assert {k // 32 for _, k in cut} == {16, 4, 2, 1} and len(cut) == 11 + 3
