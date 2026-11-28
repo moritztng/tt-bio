@@ -119,8 +119,8 @@ def _sample_one(job: DockJob, options: DockOptions, write_dir: Path, receptor: P
     """
     import torch
 
-    from tt_bio.diffdock import (confidence_model, esm, input as dfd_input, neighbour_cap,
-                                 sampling)
+    from tt_bio.diffdock import (chunking, confidence_model, esm, input as dfd_input,
+                                 neighbour_cap, sampling)
 
     spec = dfd_input.ComplexSpec(name=job.name, protein_path=str(receptor),
                                  ligand_description=job.ligand)
@@ -140,21 +140,29 @@ def _sample_one(job: DockJob, options: DockOptions, write_dir: Path, receptor: P
 
     cfg = _sampling_config(options)
     bounds = sampling.SigmaBounds.from_config(model.config)
+    noise = sampling.Noise(seed=options.seed)
     centre = None
     if options.pocket is not None:
         centre = torch.tensor(options.pocket, dtype=torch.float32) - graph.original_center[0]
-    rot_edges = graph.ligand["edge_index"].T[graph.ligand["edge_mask"]]
 
-    def draw():
-        noise = sampling.Noise(seed=options.seed)
-        start = sampling.randomize_position(
-            graph.ligand["pos"], receptor_pos=graph.receptor["pos"],
-            n_samples=options.diffusion_samples, cfg=cfg, bounds=bounds, noise=noise,
-            edge_index=rot_edges, mask_rotate=graph.ligand["mask_rotate"],
-            no_torsion=model.config.no_torsion, centre=centre)
-        return start, noise
-
-    rollout = _roll_out(model, graph, draw, cfg, bounds, options, rot_edges)
+    start = sampling.randomize_position(
+        graph.ligand["pos"], receptor_pos=graph.receptor["pos"],
+        n_samples=options.diffusion_samples, cfg=cfg, bounds=bounds, noise=noise,
+        edge_index=graph.ligand["edge_index"].T[graph.ligand["edge_mask"]],
+        mask_rotate=graph.ligand["mask_rotate"], no_torsion=model.config.no_torsion,
+        centre=centre)
+    # The score function, not the sampler, is what the pose batch is chunked through: the
+    # poses are disjoint graphs there, so the chunking is exact, while the sampler's per-step
+    # noise is one draw over the whole batch and chunking it would be a different trajectory.
+    n_torsions = 0 if model.config.no_torsion else len(graph.ligand["mask_rotate"])
+    score_fn = chunking.chunked_score_fn(model.score_fn(graph), options.max_parallel_samples,
+                                         n_torsions=n_torsions,
+                                         reset=getattr(model, "drop_trace", None))
+    rollout = sampling.sample(
+        score_fn, start, cfg=cfg, bounds=bounds, noise=noise,
+        edge_index=graph.ligand["edge_index"].T[graph.ligand["edge_mask"]],
+        mask_rotate=graph.ligand["mask_rotate"], no_torsion=model.config.no_torsion,
+        crop_beyond_a=model.config.crop_beyond, trajectory=options.save_trajectory)
 
     from rdkit import Chem
 
@@ -193,48 +201,6 @@ def _sample_one(job: DockJob, options: DockOptions, write_dir: Path, receptor: P
         trajectories = [output.trajectory_pdb(mol, [f[b] for f in frames]) for b in order]
     return output.write_poses(write_dir, mol, poses, confidences=confidences,
                               trajectories=trajectories)
-
-
-def _roll_out(model, graph, draw, cfg, bounds, options: DockOptions, rot_edges):
-    """The reverse diffusion, on the card end to end when the network offers that.
-
-    ``network.rollout`` keeps the poses and every edge feature on the card for all the steps
-    and reads once. The stepped form below it calls the score function from the host each
-    step, which on a card means uploading the edge features of every pose each time. The
-    resident form takes the pose batch whole and keeps no intermediate frame, so a
-    ``--batch_size`` under the pose count, ``--save_visualisation`` and a card that refuses
-    the whole batch all run the stepped form. *draw* returns a fresh ``(start, noise)`` from
-    the seed, so the fallback starts where the refused attempt did.
-    """
-    import torch
-
-    from tt_bio.diffdock import chunking, sampling
-    from tt_bio.size_limits import is_alloc_refusal
-
-    start, noise = draw()
-    resident = getattr(model, "rollout", None)
-    if (resident is not None and not options.save_trajectory
-            and options.max_parallel_samples >= start.shape[0]
-            and bool(torch.isfinite(start).all())):
-        try:
-            return resident(graph, start, cfg, bounds, noise)
-        except Exception as exc:  # noqa: BLE001 -- anything but a refusal is re-raised
-            if not is_alloc_refusal(exc):
-                raise
-            log.warning("the card refused the %d-pose rollout in one piece; stepping it "
-                        "from the host instead", start.shape[0])
-            start, noise = draw()
-    # The score function, not the sampler, is what the pose batch is chunked through: the
-    # poses are disjoint graphs there, so the chunking is exact, while the sampler's per-step
-    # noise is one draw over the whole batch and chunking it would be a different trajectory.
-    n_torsions = 0 if model.config.no_torsion else len(graph.ligand["mask_rotate"])
-    score_fn = chunking.chunked_score_fn(model.score_fn(graph), options.max_parallel_samples,
-                                         n_torsions=n_torsions,
-                                         reset=getattr(model, "drop_trace", None))
-    return sampling.sample(
-        score_fn, start, cfg=cfg, bounds=bounds, noise=noise, edge_index=rot_edges,
-        mask_rotate=graph.ligand["mask_rotate"], no_torsion=model.config.no_torsion,
-        crop_beyond_a=model.config.crop_beyond, trajectory=options.save_trajectory)
 
 
 def _sampling_config(options: DockOptions):
