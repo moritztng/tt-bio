@@ -2,7 +2,8 @@
 
     python scripts/diffdock_port/bucket_shapes.py <out.json> <cap> dock <protein.pdb> --ligand ... --seed 0
 
-*cap* is ``conv.BLOCK_CAP`` in tiles for this run, 0 for none.
+*cap* is ``conv.BLOCK_CAP`` in tiles for this run, 0 for none. ``<cap>,<bits>`` also sets
+``conv.GRID_BITS``; 30 bits is plain pad-to-32, the control for what the grid's pad rows do.
 
 Runs ``tt-bio`` with the three shape-keyed ops wrapped. Writes one record per distinct
 (op, input shapes, call site) with its call count, so two complexes can be compared set against
@@ -35,7 +36,8 @@ if __name__ == "__main__":
     out = sys.argv[1]
     from tt_bio.diffdock import conv
     if hasattr(conv, "BLOCK_CAP"):
-        conv.BLOCK_CAP = int(sys.argv[2]) or None
+        cap, _, bits = sys.argv[2].partition(",")
+        conv.BLOCK_CAP, conv.GRID_BITS = int(cap) or None, int(bits or conv.GRID_BITS)
     sys.argv = ["tt-bio"] + sys.argv[3:]
     for op in ("matmul", "linear", "embedding"):
         wrap(op)
