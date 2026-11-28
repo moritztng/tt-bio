@@ -1227,7 +1227,8 @@ def main(argv=None, on_step=None):
             return _spmd_pool
 
         def _trunk_masks_spmd(mask_2d: torch.Tensor):
-            """Build exact sharded trunk masks on card from 1-D [world*B, n] mask (zero [world*B, n, n] CPU/PCIe)."""
+            """Build exact sharded trunk masks on card from one [world*B, 1, n] upload (~0.5 ms)."""
+            from tt_bio.train.device_optim import _safe_dealloc
             from tt_bio.train.mesh_dp import put_sharded
             m = mask_2d.to(torch.float32)
             if TR.ELIDE_FULL_MASKS and bool((m == 1).all()):
@@ -1235,30 +1236,26 @@ def main(argv=None, on_step=None):
             b_local = int(m.shape[0]) // world
             n_tok = int(m.shape[1])
             dt = trunk.dtype
-            tok = put_sharded(m[:, :, None], dev, dtype=dt, layout=ttnn.TILE_LAYOUT,
-                              memory_config=ttnn.DRAM_MEMORY_CONFIG)
+            # Single tiny [world*B, 1, n] upload (n % 32 == 0 -> card-tilized in parallel);
+            # avoids serial host CPU tilizing of [world*B, n, 1, 1] (~99 ms/step on 8x4).
             tok_row = put_sharded(m[:, None, :], dev, dtype=dt, layout=ttnn.TILE_LAYOUT,
                                   memory_config=ttnn.DRAM_MEMORY_CONFIG)
+            tok = ttnn.transpose(tok_row, -2, -1)
             pair_3d = ttnn.multiply(tok, tok_row)
             ttnn.deallocate(tok_row)
-            tok_h = put_sharded(m[:, :, None, None], dev, dtype=dt, layout=ttnn.TILE_LAYOUT,
-                                memory_config=ttnn.DRAM_MEMORY_CONFIG)
-            tok_w = put_sharded(m[:, None, :, None], dev, dtype=dt, layout=ttnn.TILE_LAYOUT,
-                                memory_config=ttnn.DRAM_MEMORY_CONFIG)
-            pair_c = ttnn.multiply(tok_h, tok_w)
-            ttnn.deallocate(tok_h)
-            ttnn.deallocate(tok_w)
+            pair_c = ttnn.unsqueeze(pair_3d, -1)
             one_minus = ttnn.rsub(pair_3d, 1.0)
             neg = ttnn.multiply(one_minus, TR.NEG_INF)
             ttnn.deallocate(one_minus)
             attn = ttnn.reshape(neg, (b_local, 1, n_tok, n_tok))
+            _safe_dealloc(neg, keep=attn)
             res = trunk.residual_dtype or dt
             if res == dt:
                 res_tok, res_pair_c = tok, pair_c
             else:
                 res_tok, res_pair_c = ttnn.typecast(tok, res), ttnn.typecast(pair_c, res)
             if bool(m.all()):
-                ttnn.deallocate(pair_3d)
+                _safe_dealloc(pair_3d, keep=pair_c)
                 pair_3d = None
             return tok, attn, pair_3d, pair_c, res_tok, res_pair_c
 
@@ -1280,9 +1277,15 @@ def main(argv=None, on_step=None):
                 batch_pool, step, world, stack=not use_dev_prep,
             )
             pref = spmd_prefetcher.get(step, rank_bts) if spmd_prefetcher is not None else None
-            if spmd_prefetcher is not None and (step + 1) < a.steps:
-                _, next_rank_bts, _ = select_rank_batches(batch_pool, step + 1, world, stack=False)
-                spmd_prefetcher.submit(step + 1, next_rank_bts)
+            # Defer submitting step+1 prefetch until replay_win_pair_bwd_fold launches (~337 ms pure C++
+            # trace + ~170 ms opt/refold), preventing 4-thread GIL contention against cand_pair / cand_prep.
+            _prefetch_submitted = [False]
+
+            def _submit_next_prefetch():
+                if not _prefetch_submitted[0] and spmd_prefetcher is not None and (step + 1) < a.steps:
+                    _prefetch_submitted[0] = True
+                    _, next_rank_bts, _ = select_rank_batches(batch_pool, step + 1, world, stack=False)
+                    spmd_prefetcher.submit(step + 1, next_rank_bts)
             rank_items = [batches[i] for i in batch_indices]
             rank_names = [it[0] for it in rank_items]
             rank_metas = [it[2] for it in rank_items]
@@ -1337,9 +1340,10 @@ def main(argv=None, on_step=None):
             if a.phase_timing:
                 ttnn.synchronize_device(dev)
                 _tc0 = time.time()
+            pair_st = pref.pair_stacked if pref is not None else None
             if cand_outside:
                 with ag.suspended(), cand_scope():
-                    zk0, pair_cache = res_pair.candidates_spmd(encs, trunk.pair_dtype(mk))
+                    zk0, pair_cache = res_pair.candidates_spmd(encs, trunk.pair_dtype(mk), pair_stacked=pair_st)
                     if a.phase_timing:
                         ttnn.synchronize_device(dev)
                         phase["cand_pair_s"] = round(time.time() - _tc0, 5)
@@ -1384,7 +1388,7 @@ def main(argv=None, on_step=None):
                 _dealloc_unique(mk)
             else:
                 with T.lever_scope(levers), ag.tape(), ag.no_grad(), cand_scope():
-                    zk0, pair_cache = res_pair.candidates_spmd(encs, trunk.pair_dtype(mk))
+                    zk0, pair_cache = res_pair.candidates_spmd(encs, trunk.pair_dtype(mk), pair_stacked=pair_st)
                     if use_dev_prep:
                         s0_tt, ck_tt = cand_conds_and_s0_device(
                             glue, rank_bts, mk[0], step_depth, trunk.dtype, dev,
@@ -1572,7 +1576,8 @@ def main(argv=None, on_step=None):
             return s, z, dict(
                 br=br, rank_bws=rank_bws, stacked_bw=stacked_bw, rank_names=rank_names,
                 rank_metas=rank_metas, rank_refs=rank_refs, win_indices=win_indices,
-                step_depth=step_depth, keep=keep, phase=phase, **win_extra,
+                step_depth=step_depth, keep=keep, phase=phase,
+                submit_next_prefetch=_submit_next_prefetch, **win_extra,
             )
 
         def real_loss_spmd(s, ctx):
@@ -1611,6 +1616,7 @@ def main(argv=None, on_step=None):
                 d_s_i, d_z_in, d_c, trunk_grads, trunk_idle = spmd_tracer.replay_win_pair_bwd_fold(
                     ctx["win_key"], ds_out,
                 )
+                ctx["submit_next_prefetch"]()
                 glue_grads = {}
                 if glue_saved is not None and dev_win_glue is not None:
                     glue_grads = dev_win_glue.backward(d_s_i, d_c[0], glue_saved, opt.master)
@@ -1677,6 +1683,7 @@ def main(argv=None, on_step=None):
                 )
                 ttnn.deallocate(s_out_ref)
                 ttnn.deallocate(ds_out)
+                ctx["submit_next_prefetch"]()
                 glue_grads = {}
                 if glue_saved is not None and dev_win_glue is not None:
                     glue_grads = dev_win_glue.backward(d_s_i, d_c[0], glue_saved, opt.master)
@@ -1720,6 +1727,7 @@ def main(argv=None, on_step=None):
                     ctx["extra_dev_grads"] = dev_win_glue.backward(d_s_i, d_c0, glue_saved, opt.master)
                     _dealloc_unique([d_s_i, d_c0, ctx["s_i_br"].value, *[cb.value for cb in ctx["c_br"]]])
                 _dealloc_unique([*ctx.get("keep", ()), *ctx.get("m1", ())])
+                ctx["submit_next_prefetch"]()
             if a.phase_timing:
                 ttnn.synchronize_device(dev)
                 tb = round(time.time() - _tb0, 5)

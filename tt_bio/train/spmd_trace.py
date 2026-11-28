@@ -242,6 +242,17 @@ class _OneFactorySplit:
         self.total_dim = col
         self._probed = True
 
+    def build_static_template_into(self, batch: Mapping[str, Any], dst: torch.Tensor) -> None:
+        """Write masked static columns directly into pre-allocated ``dst`` ([B, n, width] zeroed)."""
+        self.ensure_probed(batch)
+        mask = batch["padding_mask"]
+        n = int(mask.shape[1])
+        with torch.no_grad():
+            for fc, c0, c1 in self.static_specs:
+                feat = _fc_expand(fc(batch), n).to(torch.float32)
+                dst[:, :, c0:c1] = feat
+            dst[:, :, :self.total_dim] = self.factory.apply_padding_mask(dst[:, :, :self.total_dim], mask)
+
     def build_static_template(self, batch: Mapping[str, Any], *, pad_to: int = 0) -> torch.Tensor:
         """Compute ``[B, n, max(total_dim, pad_to)]`` float32 template with static columns filled and masked."""
         self.ensure_probed(batch)
@@ -249,12 +260,35 @@ class _OneFactorySplit:
         b, n = int(mask.shape[0]), int(mask.shape[1])
         width = max(self.total_dim, int(pad_to))
         buf = torch.zeros((b, n, width), dtype=torch.float32)
+        self.build_static_template_into(batch, buf)
+        return buf
+
+    def try_build_static_2d(self, batch: Mapping[str, Any], *, pad_to: int = 0) -> Optional[torch.Tensor]:
+        """Return ``[B, max(total_dim, pad_to)]`` if every static creator is constant across valid tokens."""
+        self.ensure_probed(batch)
+        mask = batch["padding_mask"]
+        b = int(mask.shape[0])
+        m_bool = mask > 0.5
+        first_idx = m_bool.to(torch.int64).argmax(dim=-1)
+        b_idx = torch.arange(b, device=mask.device)
+        ones_m = m_bool.any(dim=-1, keepdim=True).to(torch.float32)
+        width = max(self.total_dim, int(pad_to))
+        buf2 = torch.zeros((b, width), dtype=torch.float32)
         with torch.no_grad():
             for fc, c0, c1 in self.static_specs:
-                feat = _fc_expand(fc(batch), n).to(torch.float32)
-                buf[:, :, c0:c1] = feat
-            buf[:, :, :self.total_dim] = self.factory.apply_padding_mask(buf[:, :, :self.total_dim], mask)
-        return buf
+                f = fc(batch)
+                if f.ndim == 2:
+                    f2 = f.to(torch.float32)
+                elif f.ndim == 3:
+                    f0 = f[b_idx, first_idx]
+                    if not bool(((f == f0.unsqueeze(1)) | (~m_bool.unsqueeze(-1))).all()):
+                        return None
+                    f2 = f0.to(torch.float32)
+                else:
+                    return None
+                buf2[:, c0:c1] = f2
+            buf2[:, :self.total_dim] *= ones_m
+        return buf2
 
     def eval_dynamic(self, batch: Mapping[str, Any], *, grad: bool = False) -> Tuple[list[Tuple[torch.Tensor, int, int]], torch.Tensor]:
         """Evaluate ONLY the trainable dynamic creators; returns ``([(feat_i, c0, c1), ...], cat_dyn)``."""
@@ -313,19 +347,22 @@ class PrefetchedStep:
     """Weight-free host features prefetched for a single upcoming SPMD step."""
 
     step_idx: int
-    cf_static: torch.Tensor               # [world*K, n, cf_base_dim] float32 (masked, dyn cols=0)
-    ir_static: torch.Tensor               # [world*K, n, ir_dim] float32 (masked, dyn cols=0)
+    cf_static: Optional[torch.Tensor]     # [world*K, n, cf_pad] float32 (None when cf_static_2d holds)
+    ir_static: torch.Tensor               # [world*K, n, ir_pad] float32 (masked, dyn cols=0)
     static_encs: Optional[list[dict]]     # per-rank ResidentPairBuilder.encode_static outputs
     pair_cond_feats: Optional[list[torch.Tensor]]  # per-rank [K, 512] float32 pair cond features
     cand_meta: dict                       # compact candidate scoring metadata (~12 small arrays)
+    cf_static_2d: Optional[torch.Tensor] = None    # [world*K, cf_pad] when cf is row-constant
+    pair_stacked: Optional[dict] = None            # pre-stacked uint32 pair index tensors
 
 
 class SPMDPrefetcher:
     """Single-slot background prefetcher computing step ``t+1``'s weight-free features during step ``t``.
 
     Computes freshly from ``rank_bts`` on every step (zero cross-step batch caching), touches
-    zero trainable weights and zero ``ttnn`` handles, and hides ~300 ms of host feature
-    extraction completely behind the ~1.0 s 32-chip device step.
+    zero trainable weights and zero ``ttnn`` handles, and hides host feature extraction behind
+    the pure-C++ ``replay_win_pair_bwd_fold`` + optimizer trace window (~500 ms) with zero GIL
+    contention against ``cand_pair`` / ``cand_prep``.
     """
 
     def __init__(
@@ -333,7 +370,7 @@ class SPMDPrefetcher:
         factory_split: FactoryStaticSplit,
         *,
         res_pair=None,
-        max_workers: int = 16,
+        max_workers: int = 4,
     ):
         self.factory_split = factory_split
         self.res_pair = res_pair
@@ -352,23 +389,85 @@ class SPMDPrefetcher:
         cf_pad_in = ((cf_full_in + 31) // 32) * 32
         ir_pad_in = ((ir_full_in + 31) // 32) * 32
 
-        def _one_rank(b: Mapping[str, Any]):
+        world = len(rank_bts)
+        k_local = int(rank_bts[0]["padding_mask"].shape[0])
+        n_tok = int(rank_bts[0]["padding_mask"].shape[1])
+        # Pre-allocate one contiguous ir_static buffer (eliminates 122 MB torch.cat copy + page faults).
+        ir_static = torch.zeros((world * k_local, n_tok, ir_pad_in), dtype=torch.float32)
+
+        def _one_rank(item):
+            r_idx, b = item
             with torch.no_grad():
-                cf_s = fs.cf.build_static_template(b, pad_to=cf_pad_in)
-                ir_s = fs.ir.build_static_template(b, pad_to=ir_pad_in)
+                cf_2d = fs.cf.try_build_static_2d(b, pad_to=cf_pad_in)
+                cf_3d = None if cf_2d is not None else fs.cf.build_static_template(b, pad_to=cf_pad_in)
+                fs.ir.build_static_template_into(b, ir_static[r_idx * k_local:(r_idx + 1) * k_local])
                 st_enc = rp.encode_static(b) if rp is not None else None
                 pcf = rp.extract_pair_cond_feats(b) if rp is not None else None
-                return cf_s, ir_s, st_enc, pcf
+                return cf_2d, cf_3d, st_enc, pcf
 
-        if len(rank_bts) > 1:
-            rows = list(self._inner.map(_one_rank, rank_bts))
+        indexed = list(enumerate(rank_bts))
+        if world > 1:
+            rows = list(self._inner.map(_one_rank, indexed))
         else:
-            rows = [_one_rank(rank_bts[0])]
+            rows = [_one_rank(indexed[0])]
 
-        cf_static = torch.cat([r[0] for r in rows], dim=0)
-        ir_static = torch.cat([r[1] for r in rows], dim=0)
+        if all(r[0] is not None for r in rows):
+            cf_static_2d = torch.cat([r[0] for r in rows], dim=0)
+            cf_static = None
+        else:
+            cf_static_2d = None
+            cf_pieces = []
+            for (r_idx, b), r in zip(indexed, rows):
+                if r[1] is not None:
+                    cf_pieces.append(r[1])
+                else:
+                    mask_b = b["padding_mask"]
+                    c3 = r[0].unsqueeze(1).expand(k_local, n_tok, cf_pad_in).clone()
+                    c3[:, :, :fs.cf.total_dim] = fs.glue.cond_factory.apply_padding_mask(
+                        c3[:, :, :fs.cf.total_dim], mask_b,
+                    )
+                    cf_pieces.append(c3)
+            cf_static = torch.cat(cf_pieces, dim=0)
+
         static_encs = [r[2] for r in rows] if rp is not None else None
         pair_cond_feats = [r[3] for r in rows] if rp is not None else None
+
+        # Pre-stack uint32 pair index tensors in background so candidates_spmd does zero host torch.cat.
+        pair_stacked = None
+        if static_encs is not None and all(e is not None for e in static_encs):
+            e0 = static_encs[0]
+            nn2 = e0.n * e0.n
+            dedup_all = all(e.dedup for e in static_encs)
+            b_c = 1 if dedup_all else e0.k
+            if not any(e.fallback_const is not None for e in static_encs):
+                def _exp(t: torch.Tensor, e_dedup: bool) -> torch.Tensor:
+                    if (not dedup_all) and e_dedup:
+                        return t.expand(e0.k, *t.shape[1:]).contiguous()
+                    return t
+
+                oh_stacked = []
+                for idx_pos, (kind, _) in enumerate(e0.idx_onehot):
+                    st = torch.cat(
+                        [_exp(e.idx_onehot[idx_pos][1], e.dedup).reshape(1, b_c * nn2) for e in static_encs],
+                        dim=0,
+                    ).contiguous()
+                    oh_stacked.append((kind, st))
+                sc_stacked = None
+                if rp.misc_w > 0:
+                    sc_stacked = torch.cat(
+                        [_exp(e.idx_scalar, e.dedup).reshape(1, b_c * nn2) for e in static_encs],
+                        dim=0,
+                    ).contiguous()
+                bins_stacked = torch.cat(
+                    [e.bins_step.reshape(1, e0.k * nn2) for e in static_encs], dim=0,
+                ).contiguous()
+                pair_stacked = {
+                    "dedup_all": dedup_all,
+                    "onehot": oh_stacked,
+                    "scalar": sc_stacked,
+                    "bins": bins_stacked,
+                }
+
         cand_meta = extract_cand_score_meta(rank_bts)
         return PrefetchedStep(
             step_idx=step_idx,
@@ -377,6 +476,8 @@ class SPMDPrefetcher:
             static_encs=static_encs,
             pair_cond_feats=pair_cond_feats,
             cand_meta=cand_meta,
+            cf_static_2d=cf_static_2d,
+            pair_stacked=pair_stacked,
         )
 
     def submit(self, step_idx: int, rank_bts: Sequence[Mapping[str, Any]]) -> None:
@@ -485,10 +586,51 @@ def cand_conds_and_s0_device(
     t2 = glue.transition_c_2
     rem_creator = cf.feat_creators[-1]
 
+    cf_full_dim = int(cf.linear_out.weight.shape[1])
+    cf_pad_dim = ((cf_full_dim + 31) // 32) * 32
+    k_local = int(rank_bts[0]["padding_mask"].shape[0])
+    n_tok = int(rank_bts[0]["padding_mask"].shape[1])
+    world = len(rank_bts)
+
+    cf_base_2d: Optional[torch.Tensor] = None
+    cf_base_h: Optional[torch.Tensor] = None
     if prefetched is not None and factory_split is not None:
-        cf_base_h = _eval_dynamic_only(factory_split.cf, rank_bts, prefetched.cf_static, pool=pool, inplace=True)
-        ir_feat_h = _eval_dynamic_only(factory_split.ir, rank_bts, prefetched.ir_static, pool=pool, inplace=True)
         base_dim = factory_split.cf.total_dim
+        ir_feat_h = _eval_dynamic_only(factory_split.ir, rank_bts, prefetched.ir_static, pool=pool, inplace=True)
+        if prefetched.cf_static_2d is not None:
+            # Verify the tiny trainable dynamic cf creator(s) are also row-constant across valid tokens.
+            cf_2d = prefetched.cf_static_2d.clone()
+            if int(cf_2d.shape[-1]) < cf_pad_dim:
+                cf_2d = torch.nn.functional.pad(cf_2d, (0, cf_pad_dim - int(cf_2d.shape[-1])))
+            dyn_row_const = True
+            off = 0
+            for b in rank_bts:
+                k_b = int(b["padding_mask"].shape[0])
+                mask_b = b["padding_mask"]
+                m_bool = mask_b > 0.5
+                first_idx = m_bool.to(torch.int64).argmax(dim=-1)
+                k_idx = torch.arange(k_b, device=mask_b.device)
+                ones_m = m_bool.any(dim=-1, keepdim=True).to(torch.float32)
+                parts, _ = factory_split.cf.eval_dynamic(b, grad=False)
+                for feat, c0, c1 in parts:
+                    f0 = feat[k_idx, first_idx]
+                    if not bool(((feat == f0.unsqueeze(1)) | (~m_bool.unsqueeze(-1))).all()):
+                        dyn_row_const = False
+                        break
+                    cf_2d[off:off + k_b, c0:c1] = f0 * ones_m
+                if not dyn_row_const:
+                    break
+                off += k_b
+            if dyn_row_const:
+                cf_base_2d = cf_2d
+            else:
+                # Rare fallback: materialize 3D cf_base_h from cf_static_2d + dynamic parts.
+                mask_all = torch.cat([b["padding_mask"] for b in rank_bts], dim=0)
+                c3 = prefetched.cf_static_2d.unsqueeze(1).expand(world * k_local, n_tok, int(prefetched.cf_static_2d.shape[-1])).clone()
+                c3[:, :, :base_dim] = cf.apply_padding_mask(c3[:, :, :base_dim], mask_all)
+                cf_base_h = _eval_dynamic_only(factory_split.cf, rank_bts, c3, pool=pool, inplace=True)
+        else:
+            cf_base_h = _eval_dynamic_only(factory_split.cf, rank_bts, prefetched.cf_static, pool=pool, inplace=True)
     else:
         base_creators = list(cf.feat_creators[:-1])
         ir_creators = list(ir.feat_creators)
@@ -508,17 +650,7 @@ def cand_conds_and_s0_device(
         ir_feat_h = torch.cat([x[1] for x in extracted], dim=0)
         base_dim = int(cf_base_h.shape[-1])
 
-    cf_full_dim = int(cf.linear_out.weight.shape[1])
     rem_dim = cf_full_dim - base_dim
-    cf_pad_dim = ((cf_full_dim + 31) // 32) * 32
-    k_local = int(rank_bts[0]["padding_mask"].shape[0])
-    n_tok = int(rank_bts[0]["padding_mask"].shape[1])
-
-    # Pad cf_base_h to cf_pad_dim (no-op when prefetched already padded to cf_pad_dim!).
-    if int(cf_base_h.shape[-1]) < cf_pad_dim:
-        cf_base_pad = torch.nn.functional.pad(cf_base_h, (0, cf_pad_dim - int(cf_base_h.shape[-1])))
-    else:
-        cf_base_pad = cf_base_h
     ir_feat_pad = _pad_last_32(ir_feat_h)
 
     cfg = ag.precise_config()
@@ -555,37 +687,13 @@ def cand_conds_and_s0_device(
             ttnn.deallocate(s0_tt)
             s0_tt = s0_m
 
-        # 2. c_base = cf_base @ W_cf^T (recycle-invariant, computed once for all cycles)
-        cf_tt = put_sharded(cf_base_pad, device, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT)
+        # 2. Conditioning for all recycle cycles
         w_cf_tt, own_w_cf = _w_or_put("glue.cond_factory.linear_out.weight", cf.linear_out.weight, pad32=True)
-        c_base = _exact_f32_mm(cf_tt, w_cf_tt, transpose_b=True, cfg=cfg)
-        ttnn.deallocate(cf_tt)
-
         w_t1_1, own_t1_1 = _w_or_put("glue.transition_c_1.swish_linear.0.weight", t1.swish_linear[0].weight)
         w_t1_2, own_t1_2 = _w_or_put("glue.transition_c_1.linear_out.weight", t1.linear_out.weight)
         w_t2_1, own_t2_1 = _w_or_put("glue.transition_c_2.swish_linear.0.weight", t2.swish_linear[0].weight)
         w_t2_2, own_t2_2 = _w_or_put("glue.transition_c_2.linear_out.weight", t2.linear_out.weight)
         half = int(w_t1_1.shape[0]) // 2
-
-        def _transition(x_in, w1, w2):
-            h = _exact_f32_mm(x_in, w1, transpose_b=True, cfg=cfg)
-            a = ttnn.slice(h, [0, 0, 0], [k_local, n_tok, half])
-            g = ttnn.slice(h, [0, 0, half], [k_local, n_tok, 2 * half])
-            ttnn.deallocate(h)
-            sig = _accurate_sigmoid(g)
-            sg = ttnn.multiply(g, sig)
-            ttnn.deallocate(sig)
-            ttnn.deallocate(g)
-            sw = ttnn.multiply(sg, a)
-            ttnn.deallocate(sg)
-            ttnn.deallocate(a)
-            out = _exact_f32_mm(sw, w2, transpose_b=True, cfg=cfg)
-            ttnn.deallocate(sw)
-            if m_f32 is not None:
-                om = ttnn.multiply(out, m_f32)
-                ttnn.deallocate(out)
-                out = om
-            return out
 
         rem_seq = [None]
         for cyc in range(1, int(step_depth)):
@@ -595,43 +703,169 @@ def cand_conds_and_s0_device(
             "padding_mask": rank_bts[0]["padding_mask"][:1, :1],
             "x_t": {"bb_ca": rank_bts[0]["x_t"]["bb_ca"][:1, :1, :]},
         }
-        cache_by_rem: dict[Optional[int], Any] = {}
-        ck_tt: list[Any] = []
-        for rem in rem_seq:
-            key = None if rem is None else min(int(rem), int(rem_creator.dim) - 1)
-            if key in cache_by_rem:
-                ck_tt.append(ttnn.clone(cache_by_rem[key]))
-                continue
-            if key is None:
-                c_in = ttnn.multiply(c_base, m_f32) if m_f32 is not None else ttnn.clone(c_base)
-            else:
-                with torch.no_grad():
-                    rv = rem_creator({**dummy_b, "recycle_remaining": key}).to(torch.float32).reshape(rem_dim)
-                    e_rem = torch.zeros((1, 1, cf_pad_dim), dtype=torch.float32)
-                    e_rem[0, 0, base_dim:base_dim + rem_dim] = rv
-                e_rem_tt = _put_replicated_f32(e_rem, device)
-                bias_tt = _exact_f32_mm(e_rem_tt, w_cf_tt, transpose_b=True, cfg=cfg)
-                ttnn.deallocate(e_rem_tt)
-                c_sum = ttnn.add(c_base, bias_tt)
-                ttnn.deallocate(bias_tt)
-                if m_f32 is not None:
-                    c_in = ttnn.multiply(c_sum, m_f32)
-                    ttnn.deallocate(c_sum)
-                else:
-                    c_in = c_sum
-            c1 = _transition(c_in, w_t1_1, w_t1_2)
-            ttnn.deallocate(c_in)
-            c2 = _transition(c1, w_t2_1, w_t2_2)
-            ttnn.deallocate(c1)
-            if trunk_dtype != ttnn.float32:
-                c_out = ttnn.typecast(c2, trunk_dtype)
-                ttnn.deallocate(c2)
-            else:
-                c_out = c2
-            cache_by_rem[key] = c_out
-            ck_tt.append(c_out)
 
-        ttnn.deallocate(c_base)
+        if cf_base_2d is not None:
+            # Row-constant fast path: pack all U unique recycle_remaining states into [world*U*K, 1, cf_pad]
+            # -> ONE linear_out + ONE transition_c_1 + ONE transition_c_2 on [U*K, 1, 256] per chip (~5 ms!).
+            uniq_keys: list[Optional[int]] = []
+            cyc_to_u: list[int] = []
+            seen_k: dict[Optional[int], int] = {}
+            for rem in rem_seq:
+                key = None if rem is None else min(int(rem), int(rem_creator.dim) - 1)
+                if key not in seen_k:
+                    seen_k[key] = len(uniq_keys)
+                    uniq_keys.append(key)
+                cyc_to_u.append(seen_k[key])
+            u_cnt = len(uniq_keys)
+            ones_all = torch.cat(
+                [(b["padding_mask"] > 0.5).any(dim=-1, keepdim=True).to(torch.float32) for b in rank_bts],
+                dim=0,
+            ).reshape(world, k_local, 1)  # [world, K, 1]
+            cf_u_h = cf_base_2d.reshape(world, 1, k_local, cf_pad_dim).expand(world, u_cnt, k_local, cf_pad_dim).clone()
+            with torch.no_grad():
+                for ui, key in enumerate(uniq_keys):
+                    if key is not None and rem_dim > 0:
+                        rv = rem_creator({**dummy_b, "recycle_remaining": key}).to(torch.float32).reshape(1, 1, rem_dim)
+                        cf_u_h[:, ui, :, base_dim:base_dim + rem_dim] = rv * ones_all
+            cf_u_flat = cf_u_h.reshape(world * u_cnt * k_local, 1, cf_pad_dim).contiguous()
+            cf_u_tt = put_sharded(cf_u_flat, device, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT)
+            c0_u = _exact_f32_mm(cf_u_tt, w_cf_tt, transpose_b=True, cfg=cfg)
+            ttnn.deallocate(cf_u_tt)
+
+            uk_loc = u_cnt * k_local
+
+            def _transition_1d(x_in, w1, w2):
+                h = _exact_f32_mm(x_in, w1, transpose_b=True, cfg=cfg)
+                a = ttnn.slice(h, [0, 0, 0], [uk_loc, 1, half])
+                g = ttnn.slice(h, [0, 0, half], [uk_loc, 1, 2 * half])
+                ttnn.deallocate(h)
+                sig = _accurate_sigmoid(g)
+                sg = ttnn.multiply(g, sig)
+                ttnn.deallocate(sig)
+                ttnn.deallocate(g)
+                sw = ttnn.multiply(sg, a)
+                ttnn.deallocate(sg)
+                ttnn.deallocate(a)
+                out = _exact_f32_mm(sw, w2, transpose_b=True, cfg=cfg)
+                ttnn.deallocate(sw)
+                return out
+
+            c1_u = _transition_1d(c0_u, w_t1_1, w_t1_2)
+            ttnn.deallocate(c0_u)
+            c2_u = _transition_1d(c1_u, w_t2_1, w_t2_2)
+            ttnn.deallocate(c1_u)
+            if trunk_dtype != ttnn.float32:
+                c2_out = ttnn.typecast(c2_u, trunk_dtype)
+                ttnn.deallocate(c2_u)
+            else:
+                c2_out = c2_u
+
+            d_c = int(c2_out.shape[-1])
+            if mk_tok is not None:
+                if mk_tok.dtype == trunk_dtype:
+                    bcast_m = mk_tok
+                    own_bm = False
+                else:
+                    bcast_m = ttnn.typecast(mk_tok, trunk_dtype)
+                    own_bm = True
+            else:
+                ones_h = torch.ones((1, n_tok, 1), dtype=torch.float32)
+                bcast_m = ttnn.from_torch(
+                    ones_h, dtype=trunk_dtype, layout=ttnn.TILE_LAYOUT,
+                    device=device, memory_config=ttnn.DRAM_MEMORY_CONFIG,
+                )
+                own_bm = True
+
+            u_devs = []
+            for ui in range(u_cnt):
+                if u_cnt == 1:
+                    cu_1 = c2_out
+                else:
+                    cu_1 = ttnn.slice(c2_out, [ui * k_local, 0, 0], [(ui + 1) * k_local, 1, d_c])
+                cu_full = ttnn.multiply(bcast_m, cu_1)
+                if cu_1 is not c2_out:
+                    ttnn.deallocate(cu_1)
+                u_devs.append(cu_full)
+            ttnn.deallocate(c2_out)
+            if own_bm:
+                ttnn.deallocate(bcast_m)
+
+            # Build per-cycle list, cloning any repeated unique rem so caller owns distinct buffers.
+            used_u: set[int] = set()
+            ck_tt = []
+            for ui in cyc_to_u:
+                if ui not in used_u:
+                    used_u.add(ui)
+                    ck_tt.append(u_devs[ui])
+                else:
+                    ck_tt.append(ttnn.clone(u_devs[ui]))
+        else:
+            if int(cf_base_h.shape[-1]) < cf_pad_dim:
+                cf_base_pad = torch.nn.functional.pad(cf_base_h, (0, cf_pad_dim - int(cf_base_h.shape[-1])))
+            else:
+                cf_base_pad = cf_base_h
+            cf_tt = put_sharded(cf_base_pad, device, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT)
+            c_base = _exact_f32_mm(cf_tt, w_cf_tt, transpose_b=True, cfg=cfg)
+            ttnn.deallocate(cf_tt)
+
+            def _transition(x_in, w1, w2):
+                h = _exact_f32_mm(x_in, w1, transpose_b=True, cfg=cfg)
+                a = ttnn.slice(h, [0, 0, 0], [k_local, n_tok, half])
+                g = ttnn.slice(h, [0, 0, half], [k_local, n_tok, 2 * half])
+                ttnn.deallocate(h)
+                sig = _accurate_sigmoid(g)
+                sg = ttnn.multiply(g, sig)
+                ttnn.deallocate(sig)
+                ttnn.deallocate(g)
+                sw = ttnn.multiply(sg, a)
+                ttnn.deallocate(sg)
+                ttnn.deallocate(a)
+                out = _exact_f32_mm(sw, w2, transpose_b=True, cfg=cfg)
+                ttnn.deallocate(sw)
+                if m_f32 is not None:
+                    om = ttnn.multiply(out, m_f32)
+                    ttnn.deallocate(out)
+                    out = om
+                return out
+
+            cache_by_rem: dict[Optional[int], Any] = {}
+            ck_tt = []
+            for rem in rem_seq:
+                key = None if rem is None else min(int(rem), int(rem_creator.dim) - 1)
+                if key in cache_by_rem:
+                    ck_tt.append(ttnn.clone(cache_by_rem[key]))
+                    continue
+                if key is None:
+                    c_in = ttnn.multiply(c_base, m_f32) if m_f32 is not None else ttnn.clone(c_base)
+                else:
+                    with torch.no_grad():
+                        rv = rem_creator({**dummy_b, "recycle_remaining": key}).to(torch.float32).reshape(rem_dim)
+                        e_rem = torch.zeros((1, 1, cf_pad_dim), dtype=torch.float32)
+                        e_rem[0, 0, base_dim:base_dim + rem_dim] = rv
+                    e_rem_tt = _put_replicated_f32(e_rem, device)
+                    bias_tt = _exact_f32_mm(e_rem_tt, w_cf_tt, transpose_b=True, cfg=cfg)
+                    ttnn.deallocate(e_rem_tt)
+                    c_sum = ttnn.add(c_base, bias_tt)
+                    ttnn.deallocate(bias_tt)
+                    if m_f32 is not None:
+                        c_in = ttnn.multiply(c_sum, m_f32)
+                        ttnn.deallocate(c_sum)
+                    else:
+                        c_in = c_sum
+                c1 = _transition(c_in, w_t1_1, w_t1_2)
+                ttnn.deallocate(c_in)
+                c2 = _transition(c1, w_t2_1, w_t2_2)
+                ttnn.deallocate(c1)
+                if trunk_dtype != ttnn.float32:
+                    c_out = ttnn.typecast(c2, trunk_dtype)
+                    ttnn.deallocate(c2)
+                else:
+                    c_out = c2
+                cache_by_rem[key] = c_out
+                ck_tt.append(c_out)
+
+            ttnn.deallocate(c_base)
+
         for wt, owned in (
             (w_cf_tt, own_w_cf),
             (w_t1_1, own_t1_1), (w_t1_2, own_t1_2),
@@ -699,7 +933,14 @@ class DeviceWinnerGlue:
         if prefetched is not None:
             flat_idx = torch.tensor([r * k_local + int(w) for r, w in enumerate(win_indices)], dtype=torch.long)
             ir_pad = prefetched.ir_static.index_select(0, flat_idx)
-            cf_buf = prefetched.cf_static.index_select(0, flat_idx)
+            if prefetched.cf_static is not None:
+                cf_buf = prefetched.cf_static.index_select(0, flat_idx)
+            else:
+                cf_row = prefetched.cf_static_2d.index_select(0, flat_idx)
+                cf_buf = cf_row.unsqueeze(1).expand(world, n_tok, int(cf_row.shape[-1])).clone()
+                cf_buf[:, :, :self.split.cf.total_dim] = self.glue.cond_factory.apply_padding_mask(
+                    cf_buf[:, :, :self.split.cf.total_dim], mask,
+                )
             if int(ir_pad.shape[-1]) < self._ir_pad_in:
                 ir_pad = torch.nn.functional.pad(ir_pad, (0, self._ir_pad_in - int(ir_pad.shape[-1])))
             if int(cf_buf.shape[-1]) < self._cf_pad_in:

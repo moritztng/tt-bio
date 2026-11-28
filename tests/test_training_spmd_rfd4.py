@@ -1983,3 +1983,268 @@ def test_rfd4_run_uses_ckpt_opt_for_all_checkpoint_calls():
             assert len(node.args) >= 2 and isinstance(node.args[1], ast.Name) and node.args[1].id == "ckpt_opt"
             save_calls.append(node.lineno)
     assert len(load_calls) == 1 and len(save_calls) == 2
+
+
+def test_put_sharded_card_tilize_policy(monkeypatch):
+    """put_sharded card-tilizes float32 (>=2D) and bf16 with W%32==0 on multi-chip MeshDevice."""
+    mod = _augment_mock_ttnn_for_glue(_install_mock_ttnn(monkeypatch))
+    from tt_bio.train.mesh_dp import put_sharded
+
+    events = []
+    orig_ft = mod.from_torch
+    orig_tl = mod.to_layout
+
+    def _rec_ft(tensor, **kw):
+        events.append(("from_torch", tuple(tensor.shape), kw.get("dtype"), kw.get("layout")))
+        return orig_ft(tensor, **kw)
+
+    def _rec_tl(t, layout):
+        events.append(("to_layout", tuple(t.shape), layout))
+        return orig_tl(t, layout)
+
+    monkeypatch.setattr(mod, "from_torch", _rec_ft)
+    monkeypatch.setattr(mod, "to_layout", _rec_tl)
+    dev = _FakeMeshDevice(2, 2)
+
+    # 1. float32 arbitrary trailing dim -> card-tilized (ROW_MAJOR then to_layout TILE)
+    events.clear()
+    t1 = put_sharded(torch.randn(4, 32, 3), dev, dtype=mod.float32, layout=mod.TILE_LAYOUT)
+    assert events[0][3] == mod.ROW_MAJOR_LAYOUT and events[1][0] == "to_layout"
+    mod.deallocate(t1)
+
+    # 2. bfloat16 with W % 32 == 0 and H == 1 -> card-tilized
+    events.clear()
+    t2 = put_sharded(torch.randn(4, 1, 64), dev, dtype=mod.bfloat16, layout=mod.TILE_LAYOUT)
+    assert events[0][3] == mod.ROW_MAJOR_LAYOUT and events[1][0] == "to_layout"
+    mod.deallocate(t2)
+
+    # 3. bfloat16 with W % 32 != 0 -> direct TILE_LAYOUT (no unaligned ROW_MAJOR)
+    events.clear()
+    t3 = put_sharded(torch.randn(4, 32, 1), dev, dtype=mod.bfloat16, layout=mod.TILE_LAYOUT)
+    assert len(events) == 1 and events[0][3] == mod.TILE_LAYOUT
+    mod.deallocate(t3)
+
+    assert len(dev.live_bufs) == 0
+
+
+def test_cand_conds_row_constant_and_prefetch_parity(monkeypatch):
+    """Row-constant cf_static_2d fast path in SPMDPrefetcher, cand_conds_and_s0_device & DeviceWinnerGlue matches 3D exact."""
+    import contextlib
+
+    mod = _augment_mock_ttnn_for_glue(_install_mock_ttnn(monkeypatch))
+    fake_ag = types.ModuleType("tt_bio.autograd")
+    fake_ag.precise_config = lambda: None
+    fake_ag.no_grad = contextlib.nullcontext
+    monkeypatch.setitem(sys.modules, "tt_bio.autograd", fake_ag)
+    from tt_bio.train.mesh_dp import put_sharded, read_sharded
+    from tt_bio.train.spmd_trace import (
+        DeviceWinnerGlue,
+        FactoryStaticSplit,
+        SPMDPrefetcher,
+        cand_conds_and_s0_device,
+    )
+
+    class _RowConstStatic(torch.nn.Module):
+        def __init__(self, key):
+            super().__init__()
+            self.key = key
+
+        def forward(self, batch):
+            return batch[self.key]
+
+    class _DynRowConstEmb(torch.nn.Module):
+        def __init__(self, vocab, dim, key):
+            super().__init__()
+            self.key = key
+            self.emb = torch.nn.Embedding(vocab, dim)
+
+        def forward(self, batch):
+            return self.emb(batch[self.key])
+
+    class _RemFeat(torch.nn.Module):
+        def __init__(self, dim=4):
+            super().__init__()
+            self.dim = dim
+
+        def forward(self, batch):
+            rem = batch.get("recycle_remaining", None)
+            n = batch["padding_mask"].shape[0]
+            out = torch.zeros((n, 1, self.dim), dtype=torch.float32)
+            if rem is not None:
+                out[:, :, min(int(rem), self.dim - 1)] = 1.0
+            return out
+
+    class _Factory(torch.nn.Module):
+        def __init__(self, creators, in_dim, out_dim):
+            super().__init__()
+            self.feat_creators = torch.nn.ModuleList(creators)
+            self.linear_out = torch.nn.Linear(in_dim, out_dim, bias=False)
+
+        @staticmethod
+        def apply_padding_mask(x, mask):
+            return x * mask[..., None].to(x.dtype)
+
+    class _SwiGLU(torch.nn.Module):
+        def forward(self, x):
+            a, g = x.chunk(2, dim=-1)
+            return torch.nn.functional.silu(g) * a
+
+    class _Transition(torch.nn.Module):
+        def __init__(self, dim, hidden):
+            super().__init__()
+            self.swish_linear = torch.nn.Sequential(
+                torch.nn.Linear(dim, 2 * hidden, bias=False),
+                _SwiGLU(),
+            )
+            self.linear_out = torch.nn.Linear(hidden, dim, bias=False)
+
+    class _ToyGlue(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.condition_on_recycle_remaining = True
+            self.init_repr_factory = _Factory(
+                [_RowConstStatic("s_ir"), _DynRowConstEmb(10, 6, "tok_ir")], in_dim=26 + 6, out_dim=32
+            )
+            self.cond_factory = _Factory(
+                [_RowConstStatic("s_cf"), _DynRowConstEmb(8, 5, "tok_cf"), _RemFeat(4)], in_dim=23 + 5 + 4, out_dim=32
+            )
+            self.transition_c_1 = _Transition(32, 64)
+            self.transition_c_2 = _Transition(32, 64)
+
+    torch.manual_seed(41)
+    glue = _ToyGlue()
+    world, k_local, n_tok = 4, 2, 32
+    dev = _FakeMeshDevice(2, 2)
+    rank_bts = []
+    for r in range(world):
+        mask = torch.ones((k_local, n_tok), dtype=torch.bool)
+        if r % 2 == 1:
+            mask[0, 20:] = False
+            mask[1, 14:] = False
+        # Row-constant s_cf and tok_cf (like real RFD4); general per-token s_ir / tok_ir.
+        s_cf_row = torch.randn(k_local, 1, 23)
+        tok_cf_row = torch.randint(0, 8, (k_local, 1))
+        rank_bts.append({
+            "padding_mask": mask,
+            "x_t": {"bb_ca": torch.randn(k_local, n_tok, 3)},
+            "s_ir": torch.randn(k_local, n_tok, 26),
+            "tok_ir": torch.randint(0, 10, (k_local, n_tok)),
+            "s_cf": s_cf_row.expand(k_local, n_tok, 23).clone(),
+            "tok_cf": tok_cf_row.expand(k_local, n_tok).clone(),
+            "seq_mask": mask.to(torch.float32),
+            "residue_mask": mask.to(torch.float32),
+        })
+
+    # Stub extract_cand_score_meta since toy batches omit full diffusion fields.
+    monkeypatch.setattr("tt_bio.train.rfd4_heads.extract_cand_score_meta", lambda bts: {"ok": len(bts)})
+
+    dev_masters = {
+        "glue.init_repr_factory.linear_out.weight": dev.make_tensor(
+            [glue.init_repr_factory.linear_out.weight.detach().clone() for _ in range(world)]
+        ),
+        "glue.cond_factory.linear_out.weight": dev.make_tensor(
+            [glue.cond_factory.linear_out.weight.detach().clone() for _ in range(world)]
+        ),
+        "glue.transition_c_1.swish_linear.0.weight": dev.make_tensor(
+            [glue.transition_c_1.swish_linear[0].weight.detach().clone() for _ in range(world)]
+        ),
+        "glue.transition_c_1.linear_out.weight": dev.make_tensor(
+            [glue.transition_c_1.linear_out.weight.detach().clone() for _ in range(world)]
+        ),
+        "glue.transition_c_2.swish_linear.0.weight": dev.make_tensor(
+            [glue.transition_c_2.swish_linear[0].weight.detach().clone() for _ in range(world)]
+        ),
+        "glue.transition_c_2.linear_out.weight": dev.make_tensor(
+            [glue.transition_c_2.linear_out.weight.detach().clone() for _ in range(world)]
+        ),
+    }
+
+    split = FactoryStaticSplit(glue)
+    pref_exec = SPMDPrefetcher(split, res_pair=None, max_workers=2)
+    try:
+        pref = pref_exec.get(0, rank_bts)
+    finally:
+        pref_exec.close()
+
+    assert pref.cf_static_2d is not None and pref.cf_static is None
+    assert tuple(pref.cf_static_2d.shape) == (world * k_local, 32)
+    assert tuple(pref.ir_static.shape) == (world * k_local, n_tok, 32)
+
+    mask_all = torch.cat([b["padding_mask"] for b in rank_bts], dim=0).to(torch.float32)
+    mk_tok = put_sharded(mask_all[..., None], dev, dtype=mod.float32, layout=mod.TILE_LAYOUT)
+
+    for depth in (1, 2, 4):
+        s0_fast, ck_fast = cand_conds_and_s0_device(
+            glue, rank_bts, mk_tok, depth, mod.float32, dev,
+            dev_masters=dev_masters, prefetched=pref, factory_split=split,
+        )
+        s0_ref, ck_ref = cand_conds_and_s0_device(
+            glue, rank_bts, mk_tok, depth, mod.float32, dev,
+            dev_masters=dev_masters, prefetched=None, factory_split=None,
+        )
+        assert float((read_sharded(s0_fast, dev) - read_sharded(s0_ref, dev)).abs().max()) < 1e-6
+        assert len(ck_fast) == len(ck_ref) == depth
+        for cyc in range(depth):
+            diff = float((read_sharded(ck_fast[cyc], dev) - read_sharded(ck_ref[cyc], dev)).abs().max())
+            assert diff < 1e-6, f"depth={depth} cyc={cyc} diff={diff}"
+        for t in (s0_fast, s0_ref, *ck_fast, *ck_ref):
+            mod.deallocate(t)
+
+    # DeviceWinnerGlue.forward consuming cf_static_2d must match 3D cf_static exact.
+    dwg = DeviceWinnerGlue(glue, split, dev)
+    win_indices = [0, 1, 0, 1]
+    rank_bws = [{k: (v[wi:wi + 1] if torch.is_tensor(v) else {kk: vv[wi:wi + 1] for kk, vv in v.items()})
+                 for k, v in b.items()} for b, wi in zip(rank_bts, win_indices)]
+    stacked_bw = {
+        k: (torch.cat([rb[k] for rb in rank_bws], dim=0) if torch.is_tensor(rank_bws[0][k])
+            else {kk: torch.cat([rb[k][kk] for rb in rank_bws], dim=0) for kk in rank_bws[0][k]})
+        for k in rank_bws[0]
+    }
+    w_mask = stacked_bw["padding_mask"].to(torch.float32)
+    w_mk = put_sharded(w_mask[..., None], dev, dtype=mod.float32, layout=mod.TILE_LAYOUT)
+    s_2d, c_2d, sv_2d = dwg.forward(
+        stacked_bw, win_indices, k_local, prefetched=pref, m1_tok=w_mk,
+        recycle_remaining=2, trunk_dtype=mod.float32, dev_masters=dev_masters,
+    )
+    s_3d, c_3d, sv_3d = dwg.forward(
+        stacked_bw, win_indices, k_local, prefetched=None, m1_tok=w_mk,
+        recycle_remaining=2, trunk_dtype=mod.float32, dev_masters=dev_masters,
+    )
+    assert float((read_sharded(s_2d, dev) - read_sharded(s_3d, dev)).abs().max()) < 1e-6
+    assert float((read_sharded(c_2d, dev) - read_sharded(c_3d, dev)).abs().max()) < 1e-6
+    ds_w = put_sharded(torch.randn(world, n_tok, 32), dev, dtype=mod.float32, layout=mod.TILE_LAYOUT)
+    dc_w = put_sharded(torch.randn(world, n_tok, 32), dev, dtype=mod.float32, layout=mod.TILE_LAYOUT)
+    glue.zero_grad(set_to_none=True)
+    g_2d = dwg.backward(ds_w, dc_w, sv_2d, dev_masters)
+    emb_2d = {nm: p.grad.detach().clone() for nm, p in glue.named_parameters() if p.grad is not None}
+    glue.zero_grad(set_to_none=True)
+    g_3d = dwg.backward(ds_w, dc_w, sv_3d, dev_masters)
+    emb_3d = {nm: p.grad.detach().clone() for nm, p in glue.named_parameters() if p.grad is not None}
+    assert set(g_2d) == set(g_3d) and set(emb_2d) == set(emb_3d)
+    for k in g_2d:
+        assert float((read_sharded(g_2d[k], dev) - read_sharded(g_3d[k], dev)).abs().max()) < 1e-5
+        mod.deallocate(g_2d[k])
+        mod.deallocate(g_3d[k])
+    for k in emb_2d:
+        assert float((emb_2d[k] - emb_3d[k]).abs().max()) < 1e-5
+    dwg.release()
+    for t in (s_2d, c_2d, s_3d, c_3d, w_mk, ds_w, dc_w):
+        mod.deallocate(t)
+
+    # Non-row-constant dynamic cf feature must automatically fall back to 3D and still match exact.
+    rank_bts_nonconst = [{**b, "tok_cf": torch.randint(0, 8, (k_local, n_tok))} for b in rank_bts]
+    s0_fb, ck_fb = cand_conds_and_s0_device(
+        glue, rank_bts_nonconst, mk_tok, 2, mod.float32, dev,
+        dev_masters=dev_masters, prefetched=pref, factory_split=split,
+    )
+    s0_fb_ref, ck_fb_ref = cand_conds_and_s0_device(
+        glue, rank_bts_nonconst, mk_tok, 2, mod.float32, dev,
+        dev_masters=dev_masters, prefetched=None, factory_split=None,
+    )
+    assert float((read_sharded(s0_fb, dev) - read_sharded(s0_fb_ref, dev)).abs().max()) < 1e-6
+    for cyc in range(2):
+        assert float((read_sharded(ck_fb[cyc], dev) - read_sharded(ck_fb_ref[cyc], dev)).abs().max()) < 1e-6
+    for t in (s0_fb, s0_fb_ref, *ck_fb, *ck_fb_ref, mk_tok, *dev_masters.values()):
+        mod.deallocate(t)
+    assert len(dev.live_bufs) == 0
+

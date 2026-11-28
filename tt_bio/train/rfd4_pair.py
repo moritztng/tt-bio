@@ -615,14 +615,20 @@ class ResidentPairBuilder:
         w_pack = torch.zeros(self.c, self.k_pack, dtype=torch.float32)
         w_pack[:, self._pack_cols] = w_host[:, self._orig_cols]
 
-        ws_parts = tuple(
-            ttnn.from_torch(p.contiguous(), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=self.device)
-            for p in split_bf16(w_pack[:, :self.step_w].contiguous())
-        )
-        wc_parts = tuple(
-            ttnn.from_torch(p.contiguous(), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=self.device)
-            for p in split_bf16(w_pack[:, self.step_w:].contiguous())
-        )
+        multi = getattr(self.device, "get_num_devices", lambda: 1)() > 1
+
+        def _up_bf16_rep(p: torch.Tensor):
+            pc = p.contiguous()
+            if multi and hasattr(ttnn, "to_layout") and pc.ndim >= 2 and int(pc.shape[-1]) % 32 == 0:
+                rm = ttnn.from_torch(pc, dtype=ttnn.bfloat16, layout=ttnn.ROW_MAJOR_LAYOUT, device=self.device)
+                tl = ttnn.to_layout(rm, ttnn.TILE_LAYOUT)
+                if tl is not rm:
+                    ttnn.deallocate(rm)
+                return tl
+            return ttnn.from_torch(pc, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=self.device)
+
+        ws_parts = tuple(_up_bf16_rep(p) for p in split_bf16(w_pack[:, :self.step_w].contiguous()))
+        wc_parts = tuple(_up_bf16_rep(p) for p in split_bf16(w_pack[:, self.step_w:].contiguous()))
         return ws_parts, wc_parts
 
     def _mm_f_wt(self, F_bf16, w_parts, cfg):
@@ -937,7 +943,7 @@ class ResidentPairBuilder:
 
         return ag._tape(z, leaves, make, reads=())
 
-    def _build_f_const_spmd(self, encs: list[EncodedPair], dedup_all: bool):
+    def _build_f_const_spmd(self, encs: list[EncodedPair], dedup_all: bool, *, pair_stacked: dict | None = None):
         """Reconstruct sharded ``[1, b_c * n*n, const_w]`` bf16 TILE const features across a MeshDevice."""
         from .mesh_dp import put_sharded
 
@@ -956,43 +962,72 @@ class ResidentPairBuilder:
             return put_sharded(torch.cat(pieces, dim=0), self.device,
                                dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT)
 
-        def _embed_spmd(idx_list: list[torch.Tensor], tbl):
-            stacked = torch.cat([t.reshape(1, b_c * nn2) for t in idx_list], dim=0).contiguous()
+        def _embed_stacked(stacked: torch.Tensor, tbl):
             idx_tt = put_sharded(stacked, self.device, dtype=ttnn.uint32, layout=ttnn.ROW_MAJOR_LAYOUT)
             e = ttnn.embedding(idx_tt, tbl, layout=ttnn.TILE_LAYOUT, memory_config=ttnn.DRAM_MEMORY_CONFIG)
             ttnn.deallocate(idx_tt)
             return e
 
+        def _embed_spmd(idx_list: list[torch.Tensor], tbl):
+            stacked = torch.cat([t.reshape(1, b_c * nn2) for t in idx_list], dim=0).contiguous()
+            return _embed_stacked(stacked, tbl)
+
         blocks = []
         li, si = 0, 0
         misc_acc = None
-        for idx_pos, (kind, _) in enumerate(encs[0].idx_onehot):
-            idx_list = [_expand_b(e.idx_onehot[idx_pos][1], e.dedup) for e in encs]
-            if kind == "large":
-                blocks.append(_embed_spmd(idx_list, self._tbl_large_oh[li]))
-                li += 1
-            else:
-                e_t = _embed_spmd(idx_list, self._tbl_small_oh[si])
-                si += 1
-                if misc_acc is None:
-                    misc_acc = e_t
+        if pair_stacked is not None:
+            for kind, stacked in pair_stacked["onehot"]:
+                if kind == "large":
+                    blocks.append(_embed_stacked(stacked, self._tbl_large_oh[li]))
+                    li += 1
                 else:
-                    nxt = ttnn.add(misc_acc, e_t)
+                    e_t = _embed_stacked(stacked, self._tbl_small_oh[si])
+                    si += 1
+                    if misc_acc is None:
+                        misc_acc = e_t
+                    else:
+                        nxt = ttnn.add(misc_acc, e_t)
+                        ttnn.deallocate(misc_acc)
+                        ttnn.deallocate(e_t)
+                        misc_acc = nxt
+            if self.misc_w > 0 and pair_stacked["scalar"] is not None:
+                es = _embed_stacked(pair_stacked["scalar"], self._tbl_scalar)
+                if misc_acc is None:
+                    misc_acc = es
+                else:
+                    nxt = ttnn.add(misc_acc, es)
                     ttnn.deallocate(misc_acc)
-                    ttnn.deallocate(e_t)
+                    ttnn.deallocate(es)
                     misc_acc = nxt
+                blocks.append(misc_acc)
+        else:
+            for idx_pos, (kind, _) in enumerate(encs[0].idx_onehot):
+                idx_list = [_expand_b(e.idx_onehot[idx_pos][1], e.dedup) for e in encs]
+                if kind == "large":
+                    blocks.append(_embed_spmd(idx_list, self._tbl_large_oh[li]))
+                    li += 1
+                else:
+                    e_t = _embed_spmd(idx_list, self._tbl_small_oh[si])
+                    si += 1
+                    if misc_acc is None:
+                        misc_acc = e_t
+                    else:
+                        nxt = ttnn.add(misc_acc, e_t)
+                        ttnn.deallocate(misc_acc)
+                        ttnn.deallocate(e_t)
+                        misc_acc = nxt
 
-        if self.misc_w > 0:
-            sc_list = [_expand_b(e.idx_scalar, e.dedup) for e in encs]
-            es = _embed_spmd(sc_list, self._tbl_scalar)
-            if misc_acc is None:
-                misc_acc = es
-            else:
-                nxt = ttnn.add(misc_acc, es)
-                ttnn.deallocate(misc_acc)
-                ttnn.deallocate(es)
-                misc_acc = nxt
-            blocks.append(misc_acc)
+            if self.misc_w > 0:
+                sc_list = [_expand_b(e.idx_scalar, e.dedup) for e in encs]
+                es = _embed_spmd(sc_list, self._tbl_scalar)
+                if misc_acc is None:
+                    misc_acc = es
+                else:
+                    nxt = ttnn.add(misc_acc, es)
+                    ttnn.deallocate(misc_acc)
+                    ttnn.deallocate(es)
+                    misc_acc = nxt
+                blocks.append(misc_acc)
 
         if len(blocks) == 1:
             f_c = blocks[0]
@@ -1002,7 +1037,13 @@ class ResidentPairBuilder:
                 ttnn.deallocate(bl)
         return f_c  # [1, b_c * n*n, const_w] bf16 TILE per chip
 
-    def candidates_spmd(self, encs: list[EncodedPair], dtype=None) -> tuple[object, _PairStepCache]:
+    def candidates_spmd(
+        self,
+        encs: list[EncodedPair],
+        dtype=None,
+        *,
+        pair_stacked: dict | None = None,
+    ) -> tuple[object, _PairStepCache]:
         """SPMD ``candidates`` across a ``MeshDevice``: builds per-chip ``[K, n, n, c]`` on card."""
         from .device_optim import _core_grid, _mm_cg, _safe_dealloc
         from .mesh_dp import put_sharded
@@ -1012,19 +1053,22 @@ class ResidentPairBuilder:
             cg = _core_grid(self.device)
             cg_kw = _mm_cg(cg)
             k, n, c = encs[0].k, encs[0].n, self.c
-            dedup_all = all(e.dedup for e in encs)
+            dedup_all = pair_stacked["dedup_all"] if pair_stacked is not None else all(e.dedup for e in encs)
             b_c = 1 if dedup_all else k
             nn2 = n * n
 
             ws_parts, wc_parts = self._pack_weights_on_card()
-            F_const = self._build_f_const_spmd(encs, dedup_all)
+            F_const = self._build_f_const_spmd(encs, dedup_all, pair_stacked=pair_stacked)
             C_flat = self._mm_f_wt(F_const, wc_parts, cfg)
             for t in wc_parts:
                 ttnn.deallocate(t)
             C = ttnn.reshape(C_flat, (b_c, n, n, c))
             _safe_dealloc(C_flat, keep=C)
 
-            bins_stacked = torch.cat([e.bins_step.reshape(1, k * nn2) for e in encs], dim=0).contiguous()
+            if pair_stacked is not None:
+                bins_stacked = pair_stacked["bins"]
+            else:
+                bins_stacked = torch.cat([e.bins_step.reshape(1, k * nn2) for e in encs], dim=0).contiguous()
             bins_tt = put_sharded(bins_stacked, self.device, dtype=ttnn.uint32, layout=ttnn.ROW_MAJOR_LAYOUT)
             F_step_k = ttnn.embedding(
                 bins_tt, self._tbl_step, layout=ttnn.TILE_LAYOUT, memory_config=ttnn.DRAM_MEMORY_CONFIG,

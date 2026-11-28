@@ -171,21 +171,27 @@ def put_sharded(tensor, device, *, dtype=None, layout=None, memory_config=None):
         kw["memory_config"] = memory_config
     if w > 1:
         kw["mesh_mapper"] = ttnn.ShardTensorToMesh(device, dim=0)
+    # Tilize on card in parallel across all `w` chips instead of serial host CPU tilizing:
+    # - float32 (4 B/elem) satisfies ROW_MAJOR alignment at any width >= 1
+    # - bfloat16 with width % 32 == 0 is 64-B aligned regardless of height (e.g. [B, 1, 256], [B, 1, 1, 384])
+    eff_f32 = (dtype == ttnn.float32) or (dtype is None and str(getattr(tensor, "dtype", "")) == "torch.float32")
+    eff_bf16 = (dtype == ttnn.bfloat16) or (dtype is None and str(getattr(tensor, "dtype", "")) == "torch.bfloat16")
     card_tilize = (
         w > 1
         and want_layout == ttnn.TILE_LAYOUT
         and hasattr(ttnn, "to_layout")
-        and (dtype is None or dtype in (ttnn.float32, ttnn.bfloat16))
         and tensor.ndim >= 2
-        and int(tensor.shape[-1]) % 32 == 0
-        and int(tensor.shape[-2]) % 32 == 0
-        and int(tensor.numel()) >= 32768
+        and (
+            eff_f32
+            or (eff_bf16 and int(tensor.shape[-1]) % 32 == 0)
+        )
     )
     if card_tilize:
         kw["layout"] = ttnn.ROW_MAJOR_LAYOUT
         rm = ttnn.from_torch(tensor.contiguous(), **kw)
         out = ttnn.to_layout(rm, ttnn.TILE_LAYOUT)
-        ttnn.deallocate(rm)
+        if out is not rm:
+            ttnn.deallocate(rm)
         return out
     return ttnn.from_torch(tensor.contiguous(), **kw)
 
