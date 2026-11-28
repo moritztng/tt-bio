@@ -59,6 +59,7 @@ from .tenstorrent import (
     Weights,
     _fp32_softmax_attention,
     _pair_bias_from_z,
+    _tri_att_sdpa_hifi,
     _PAIR_L1_CONSUMER_RESERVE,
     _l1_fits,
     _padded_bytes,
@@ -144,6 +145,11 @@ _AF2_T2CM = env_flag("TT_BIO_AF2_T2CM", False)
 # [rows, n, c] layout: no permutes, and no 2-row axis padded to a 32-row tile. Depth 2 is every
 # BindCraft 2 round and every AF2-IG fold (the query row plus one template torsion row).
 COL_DEPTH2 = env_flag("TT_BIO_AF2_COL_DEPTH2", True)
+# The MSA row attention through the fused SDPA the triangle attention uses (`AF2Attention._row_sdpa`):
+# scores, bias, softmax and the value product as one program, and under a tape one backward program
+# (`triatt_bw`) where the composed fp32 chain runs about nine and eighteen. Not bit-identical to that
+# chain. Off here; `bindcraft2._FAST_ROUND` arms it, where BindCraft 2's designs grade it.
+ROW_SDPA = env_flag("TT_BIO_AF2_ROW_SDPA", False)
 
 
 #: The op classes `scripts/af2_port/tap_gate.py --substitute` moves to host torch, one class per
@@ -759,7 +765,10 @@ class AF2Attention(Module):
         # MSA row, where the answer is v exactly, the helper misses by rel L2 2.8e-2 and this path
         # by 0.0 (perf/bcx_maskbias/colop.json). That was the whole of the masked block's `mo`
         # error at an all-ones mask (perf/bcx_maskbias/fwd_b0.json).
-        if self.pair_bias:
+        out = self._row_sdpa(q, k, v, bias) if self.pair_bias and ROW_SDPA else None
+        if out is not None:
+            pass
+        elif self.pair_bias:
             out = _fp32_softmax_attention(
                 q, k, v, bias, scale_inv=self.scale_inv,
                 compute_kernel_config=self.compute_kernel_config,
@@ -784,6 +793,26 @@ class AF2Attention(Module):
         for t in (q, k, v):
             ttnn.deallocate(t)
         return out
+
+    def _row_sdpa(self, q: ttnn.Tensor, k: ttnn.Tensor, v: ttnn.Tensor,
+                  bias: ttnn.Tensor) -> ttnn.Tensor | None:
+        """The row attention as the fused triangle-attention SDPA, or None where it declines.
+
+        The MSA rows are independent attention problems that differ only in their mask bias, so
+        they fold into the head axis: [rows, heads, n, d] is read as [1, rows * heads, n, d] and
+        the summed bias as [1, rows * heads, n, n]. That is the one bias form the fused forward
+        and its fused backward both take, and the reshapes move no data. The kernel adds the bias
+        before the scale, so the raw AF2 bias goes in times sqrt(head_dim), as
+        `TriangleAttention` hands a `scale_pair_bias=False` bias to the same kernel.
+        """
+        rows, heads, n, d = (int(x) for x in q.shape)
+        if tuple(int(x) for x in bias.shape) != (rows, heads, n, n):
+            return None
+        fold = lambda t: ttnn.reshape(t, (1, rows * heads, n, int(t.shape[-1])))
+        b = ttnn.multiply(fold(bias), 1.0 / self.scale_inv)
+        out = _tri_att_sdpa_hifi(fold(q), fold(k), fold(v), b, self.scale_inv)
+        ttnn.deallocate(b)
+        return None if out is None else ttnn.reshape(out, (rows, heads, n, d))
 
     def _column_depth2(self, msa: ttnn.Tensor, mask_bias: ttnn.Tensor | None) -> ttnn.Tensor:
         """The column attention over exactly two MSA rows, in the MSA's own [2, n, c] layout.

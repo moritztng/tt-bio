@@ -2959,6 +2959,9 @@ _FAST_ROUND = (
     # The two-row MSA column attention between its projections as one kernel each way. Moves the gradient
     # (not bit-exact), graded on 30 PD-L1 trajectories: 9 accepted against stock Tenstorrent's 8.
     ("col_mix", None, "COL_MIX", "TT_BIO_COL_MIX", True),
+    # The MSA row attention through the triangle attention's fused SDPA and its fused backward
+    # (the `tri_att_sdpa_hifi` entry below serves both). Not bit-exact; off until its n=30 grade.
+    ("af2", None, "ROW_SDPA", "TT_BIO_AF2_ROW_SDPA", False),
     ("taped_ttnn", None, "TAPED_KERNELS_DEFAULT", None,
      "tri_att_sdpa_hifi,rne_add,rne_add_masked,reblock_permute_gated,pair_transpose,triatt_qkv_heads,pair_relu,"
      "col_mix"),
@@ -2975,7 +2978,7 @@ _FAST_ROUND = (
 #: six campaign seeds on one Wormhole chip it accepted 11 designs of 30 trajectories against the
 #: composed path's 12 (Fisher p=1.00), with mean pLDDT 0.893 against 0.885 and last-iteration ipTM
 #: 0.624 against 0.571, at 7.45 against 7.81 s per iteration.
-_BLACKHOLE_ONLY = frozenset({"tri_att_g_in_matmul", "_AF2_T2CM", "_TRIMUL_GIN_BIASED", "COL_MIX"})
+_BLACKHOLE_ONLY = frozenset({"tri_att_g_in_matmul", "_AF2_T2CM", "_TRIMUL_GIN_BIASED", "COL_MIX", "ROW_SDPA"})
 
 
 @contextlib.contextmanager
