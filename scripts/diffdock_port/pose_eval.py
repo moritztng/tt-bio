@@ -322,6 +322,7 @@ def grade(ids, out_dir: Path, acc_dir: Path, label: str):
             rec["nonfinite_coords"] = True
         recs.append(rec)
 
+    acc_dir.mkdir(parents=True, exist_ok=True)
     try:
         from posebusters import PoseBusters
         import pandas as pd
@@ -342,7 +343,6 @@ def grade(ids, out_dir: Path, acc_dir: Path, label: str):
     except Exception as e:
         print(f"PoseBusters validity failed: {e}", flush=True)
 
-    acc_dir.mkdir(parents=True, exist_ok=True)
     json.dump(recs, open(acc_dir / "per_complex.json", "w"), indent=1)
 
     graded = [r for r in recs if r.get("rmsd") and r["rmsd"] and r["rmsd"][0] is not None]
