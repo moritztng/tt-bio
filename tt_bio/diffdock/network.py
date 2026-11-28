@@ -35,6 +35,13 @@ network does not implement it and is run step by step;
 `tests/test_diffdock_trace.py::test_traced_rollout_matches_untraced` is what says the two
 agree, and it skips until a device network offers this member.
 
+`tt-bio dock` itself runs the same body eagerly, through
+
+    network.rollout(graph, start, cfg, bounds, noise) -> sampling.Rollout
+
+which is every step of `trace_body` and one read. `run._roll_out` takes it whenever the pose
+batch goes in one piece and no trajectory was asked for, and steps `score_fn` otherwise.
+
 `load` returns the host implementation, `score_model.HostScoreNetwork`, around the released
 v1.1 weights, or with ``DockOptions(device="tt")`` `device.DeviceScoreNetwork`, the same
 weights with every convolution on the card. The dock path above it (graph, ESM-2 embeddings,

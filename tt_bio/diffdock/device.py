@@ -720,6 +720,24 @@ class DeviceScoreNetwork:
                           cfg, bounds, noise, self.config.crop_beyond)
         return r.body, r.read_poses
 
+    def rollout(self, graph, start: Tensor, cfg, bounds, noise):
+        """`sampling.sample` on the card: every step of :meth:`trace_body`, then one read.
+
+        Poses, edge features and noise stay on the card for the whole rollout, where
+        ``sample(self.score_fn(graph), ...)`` uploads every pose's edge features each step.
+        Same seed, same trajectory. A pose that comes back non-finite is marked failed and
+        handed back at its start coordinates, the last finite ones the host holds.
+        """
+        from tt_bio.diffdock.sampling import Rollout, _nonfinite_rows
+
+        body, read_poses = self.trace_body(graph, start, cfg, bounds, noise)
+        for t in range(cfg.steps):
+            body(t)
+        poses = read_poses()
+        failed = _nonfinite_rows(poses, poses.shape[0])
+        return Rollout(poses=torch.where(failed[:, None, None], start.float(), poses),
+                       failed=failed)
+
     def confidence(self, graph, poses: Tensor):
         """The host ranking pass with its interaction layers in :class:`DeviceConfidence`."""
         return self.host.confidence(graph, poses, convolve=self._confidence)
