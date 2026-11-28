@@ -79,6 +79,9 @@ def main():
     ap.add_argument("--replay", action="store_true",
                     help="also capture one pose's 45 convolutions as a trace and time its replay "
                          "against the eager body: the ceiling of a capture/replay lever")
+    ap.add_argument("--conf-edge-tp", default="gemm",
+                    help="edge tensor-product form of the confidence convolutions (the shipped "
+                         "path keeps them on gemm whatever --edge-tp says)")
     ap.add_argument("--each-pose", action="store_true",
                     help="run the first layer's receptor convolutions on every pose (the form "
                          "before they were kept per receptor), for a same-chip A/B")
@@ -103,6 +106,15 @@ def main():
         get_device(trace="bc2")
     host = network.load(DockOptions(device="cpu", **ck))
     dev = network.load(options)
+    if args.conf_edge_tp != "gemm":       # put the host layers back and swap them again
+        cmod = dev.host.confidence_model
+        for parent in list(cmod.modules()):
+            for name, child in list(parent._modules.items()):
+                if isinstance(child, dev_mod.DeviceConvModule):
+                    parent._modules[name] = child.layer
+        dev.confidence_convs = dev_mod.convs_on_device(
+            cmod, dev.device, graphs=dev_mod.CONFIDENCE_GRAPHS, edge_tp=args.conf_edge_tp)
+        dev._confidence = dev_mod.DeviceConfidence(cmod, dev.confidence_convs)
     if args.each_pose:
         dev._confidence.first_layer = 0
     work = Path(args.work)
@@ -132,7 +144,7 @@ def main():
         st.s["read-back"] += time.perf_counter() - t0
         return out
 
-    res = dict(chip=os.environ.get("TT_VISIBLE_DEVICES"), edge_tp=args.edge_tp, n=args.n, each_pose=args.each_pose,
+    res = dict(chip=os.environ.get("TT_VISIBLE_DEVICES"), edge_tp=args.edge_tp, n=args.n, each_pose=args.each_pose, conf_edge_tp=args.conf_edge_tp,
                torch_threads=torch.get_num_threads(), loadavg_start=os.getloadavg(),
                complexes={})
     for cid in args.ids:
