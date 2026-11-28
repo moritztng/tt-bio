@@ -5,7 +5,8 @@
 // lead_sum reader. A TILE tensor [G, ...] holds G slabs of T tiles each; output tile t is the sum
 // of input pages k*T + t over k. A core owns a contiguous range of output tiles and streams the G
 // pages of each into c_0 one block of GRAN at a time. Addresses are common runtime args, as in
-// rne_add, so the host caches the descriptor.
+// rne_add, so the host caches the descriptor. With PAIR (G a power of two) slab k is read in
+// bit-reversed order, so that compute's adjacent-pair tree adds slab i to slab i + G/2 first.
 #include "api/dataflow/dataflow_api.h"
 
 #include "../genq/genq_split.h"
@@ -22,6 +23,7 @@ void kernel_main() {
 
     constexpr uint32_t C = s_args.next_compile_time_args_offset();
     constexpr uint32_t COMPACT = get_compile_time_arg_val(C);
+    constexpr uint32_t PAIR = get_compile_time_arg_val(C + 8);
     uint32_t first_tile, num_tiles;
     if constexpr (COMPACT) {
         const auto sl = genq::slice<get_compile_time_arg_val(C + 1), get_compile_time_arg_val(C + 2),
@@ -43,7 +45,15 @@ void kernel_main() {
             cb_reserve_back(cb_in, n);
             uint32_t w = get_write_ptr(cb_in);
             for (uint32_t j = 0; j < n; ++j) {
-                noc_async_read_page((k + j) * T + t, s, w);
+                uint32_t slab = k + j;
+                if constexpr (PAIR) {
+                    uint32_t r = 0;
+                    for (uint32_t bit = 1, v = slab; bit < G; bit <<= 1, v >>= 1) {
+                        r = (r << 1) | (v & 1);
+                    }
+                    slab = r;
+                }
+                noc_async_read_page(slab * T + t, s, w);
                 w += tile_bytes;
             }
             noc_async_read_barrier();
