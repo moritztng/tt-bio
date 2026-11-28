@@ -97,6 +97,9 @@ NO_SHARED_INPUT = {
     "rfd4": "`tt-bio design` takes a condition spec, not a fasta; Trunk.run_bucketed is graded on "
             "a ragged 100-token input against float64 by tests/test_rfd4_trunk_parity.py::"
             "test_trunk_run_bucketed_ragged_length",
+    "diffdock": "`tt-bio dock` takes a receptor and a ligand, not a fasta, and its only reduce is "
+                "the masked scatter; censused by tests/test_diffdock_conv.py::"
+                "test_padding_does_not_change_a_real_row, real rows bit-identical to the unpadded layer",
 }
 _RFD3_TARGET = os.path.join(REPO, "perf", "wh-correctness", "results", "payloads",
                             "des_rfd3_binder.json")
