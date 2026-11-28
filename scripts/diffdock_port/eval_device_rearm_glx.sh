@@ -20,7 +20,7 @@ mkdir -p "$L"
 now=$(date +%s) inwin=0
 while read -r _ a b _; do
   s=$(date -d "$a" +%s 2>/dev/null) && e=$(date -d "$b" +%s 2>/dev/null) || continue
-  [ "$now" -ge $((s - 660)) ] && [ "$now" -le "$e" ] && inwin=1
+  [ "$now" -ge $((s - 900)) ] && [ "$now" -le "$e" ] && inwin=1
   [ "$s" -gt "$now" ] && [ "$s" -lt "$stop" ] && stop=$s
 done < <(grep -v '^#' "${ANX_WINDOWS:-/home/moritz/.coworker/state/anx-glx/HOLDER.windows}" 2>/dev/null)
 if ! timeout 60 $SSH anx-glx "[ -e $R/device/$name.tree ]" </dev/null; then
@@ -30,8 +30,8 @@ if ! timeout 60 $SSH anx-glx "[ -e $R/device/$name.tree ]" </dev/null; then
     echo $(git -C "$WT" rev-parse --short=10 HEAD) > $name.tree" </dev/null || exit 1
 fi
 if [ $inwin = 1 ]; then
-  # the arm's own stop signal; [t] keeps pkill from matching the shell that carries this line
-  timeout 30 $SSH anx-glx "pkill -INT -f '[t]imeout -s INT .*pose_eval.py dock .*$R/device/poses-'" </dev/null
+  # stop both the dock parent and any child worker holding the device node
+  timeout 30 $SSH anx-glx "pkill -INT -f '[t]imeout -s INT .*pose_eval.py dock .*$R/device/poses-'; pkill -TERM -f '[p]ose_eval.py worker .*$R/device/poses-'" </dev/null
 else
   # bounded: an sshd that holds the channel open past setsid+nohup must not hang the tick
   timeout 30 $SSH anx-glx "setsid nohup bash $R/wt/scripts/diffdock_port/eval_device_arm_glx.sh \
