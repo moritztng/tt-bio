@@ -49,8 +49,9 @@ the loop it was on one chip.
 
 **Adapters or weights is `train=`, and nothing else moves either.** `adapters` puts a LoRA
 factor pair beside each site and freezes the trunk; `weights` trains the model's own weights at
-those same sites. `tt-bio train` refuses `--train adapters` for OpenFold3, the one model it
-trains today: LoRA has no measured run on it, and `predict` loads full weights only. The loop, the objective, the optimizer, the checkpointer and the data-parallel
+those same sites. `tt-bio train` refuses `--train adapters` for both models it trains today
+(OpenFold3 and RFD4-Proteina): neither has a measured LoRA run, and both train their own
+weights. The loop, the objective, the optimizer, the checkpointer and the data-parallel
 axis are the same code, and the escape-hatch test below compares them instruction for
 instruction rather than taking the claim on trust. What does change is the memory arithmetic, so
 `--train weights` is a name a flag can carry and `plan()` answers differently for it.
@@ -203,6 +204,12 @@ Measured, and each carries its source:
   The 7.8 % that does not scale is host torch; the exchange is 127.87 MB in 0.293 s, 3.8 % of the
   step. It holds only with the host's cores divided across the ranks, which `launcher.py` now does
   by default: at torch's own width the same step takes 931 s.
+- **RFD4-Proteina at 256 tokens on Blackhole**: a full 558-parameter device-resident step peaks at
+  **15.83 GB** (14.75 GiB: 3.50 GB resident state plus 12.34 GB retained tape) of 34.23 GB and
+  runs in **2.00 s/step** warm median on one Blackhole Galaxy chip at 1350 MHz (`k=4`, recycle
+  depth 2). Blackhole Galaxy SPMD (`1x4`, `2x4`, `4x4`, `8x4`) is measured at 2.04, 1.91, 2.06
+  and 2.58 s/step with 17.85 to 19.41 GB per chip. Crops above 256 tokens and Wormhole return
+  `UNMEASURED`.
 
 Refused rather than estimated. **A memory wall belongs to a model, not to a token count**, so
 these are per model and `plan()` applies only the one you asked for:
@@ -389,12 +396,14 @@ winner the way inference does, and tapes only that candidate's LAST recycle; a g
 that taped the whole forward would train a different model. So the step body lives in
 `tt_bio/train/rfd4_run.py` and `tt_bio/train/rfd4_tier0.py` puts the Tier-0 surface over it.
 Everything around the step is the shared stack: `Folds`, `AdamW` (with Muon on the 2-D weights
-outside `MUON_EXCLUDE`), `Checkpointer`, the launcher's `ProcessAxis` for data parallelism and
-`GradientCoverage` for the every-parameter-trains guard.
+outside `MUON_EXCLUDE`), `Checkpointer`, data-parallel gradient sync and `GradientCoverage` for
+the every-parameter-trains guard.
 
 ```bash
+tt-bio train --model rfd4 --dry-run
 tt-bio train batches/ --model rfd4 --steps 2000
 tt-bio train batches/ --model rfd4 --steps 2000 --chips 4
+tt-bio train batches/ --model rfd4 --steps 2000 --mesh 8x4
 ```
 
 DATA is a directory of batches as `perf/r4t/loss_parity_reference.py` dumps them: one `.npz`
@@ -402,28 +411,59 @@ per example carrying the features, `x_1`/`x_t`/`t`, the candidate noise, and ups
 winners and losses beside them. Step `i` trains on batch `i % len(DATA)`. DATA is required: the
 `rfd4_train_16.npz` fixture that ships with the package is upstream's collated features, which
 the objective and the parity tests read, and it carries none of what a step replays, so the
-command refuses by name rather than defaulting to it. All the batch files must agree on token length, because the length fixes the trimul
-prewarm: a crop narrower than `--tokens` leaves the in-projection weights without gradients.
+command refuses by name rather than defaulting to it. All the batch files must agree on token
+length, because the length fixes the trimul prewarm: a crop narrower than `--tokens` leaves
+the in-projection weights without gradients.
+
+**Device-resident training is the default on Blackhole.** With `--optimizer muon` (the default),
+`tt-bio train --model rfd4` passes `--resident`, keeping weights, fp32 masters, Muon and Adam
+moments, and EMA weights on the card. Pass `--no-resident` to keep optimizer state on the host,
+or `--optimizer adamw` to fall back to the host AdamW path automatically.
+
+**Multi-chip Galaxy SPMD uses `--mesh`.** On a 32-chip Blackhole Galaxy, passing `--mesh` with
+`1x4`, `2x4`, `4x4` or `8x4` (or passing `--chips 4|8|16|32` with resident training active) runs
+single-process 2D Ring CCL SPMD data parallelism over the Galaxy Ethernet fabric, sharding the
+Muon optimizer across rows and synchronizing gradients on device. Non-Galaxy multi-chip boxes
+(such as a 4-chip QuietBox), chip counts outside `{4, 8, 16, 32}`, and `--no-resident` runs fall
+back cleanly to `--dp-cards` multi-process data parallelism.
 
 **A flag the step does not honour is refused, not ignored.** `--lr` and `--warmup-steps`
 (upstream's rule is 1e-4 with no warmup), `--train adapters`, `--rank`/`--alpha`/`--target`,
-`--objective` and `--seed` all refuse by name, before the run directory is claimed. They refuse
-only when typed: an untouched default never trips one.
+`--objective` and `--seed` all refuse by name, before the run directory is claimed. Invalid
+`--mesh` shapes, mismatched `--mesh` and `--chips` counts, and `--mesh` combined with
+`--no-resident` or `--optimizer adamw` refuse on `--dry-run` too. Untouched defaults never trip
+a refusal.
 
-Training runs the trunk's attention in float32, the only setting measured to follow upstream's
-loss curve over 2,000 steps; bf16 attention is not validated for training
-([why](#training-runs-on-the-device-float64-is-a-diagnostic)). Inference is unaffected.
+**Accuracy and parity.** The float64 flow-matching objective matches upstream at relative error
+`8.2e-6` across all 5 loss terms and 8/8 candidate winners. Training runs the trunk's attention
+in float32, which tracks upstream's 2,000-step loss curve within 3.2 % running mean (tail-200
+gap 0.507 against the 0.928 bar); bf16 attention is not validated for training
+([why](#training-runs-on-the-device-float64-is-a-diagnostic)). Inference and design outputs are
+bit-identical (`0.000 A`) when gradients are off.
 
-Resume works as it does for OpenFold3 (run the same command again), reading the newest
-checkpoint in `OUT`, or in `OUT/rank0` when `--chips` named more than one. A checkpoint saves
-the fp32 masters together with Adam moments and Muon momentum, so a resumed step matches an
-uninterrupted run bit for bit on the same chip. Under data parallelism each rank writes its own
-JSON rows to `OUT/rank<r>.log`; `status.json` and `progress.jsonl` follow rank 0, whose masters
-every rank matches by digest.
+Resume works as it does for OpenFold3 (run the same command again). Single-chip and `--mesh`
+SPMD runs checkpoint directly under `OUT`; multi-process `--dp-cards` runs checkpoint under
+`OUT/rank0` and write per-rank rows to `OUT/rank<r>.log`, with `status.json` and
+`progress.jsonl` following rank 0. A checkpoint saves the fp32 masters together with Adam
+moments and Muon momentum, so a resumed step matches an uninterrupted run bit for bit on the
+same chip.
 
-On one Blackhole Galaxy chip at 1350 MHz (`DC16-BG-0203-u26-22`, chip 28, 256 tokens, `k=4`,
-recycle depth 2, Muon + Adam over 558 parameters), a warm step from the installed wheel takes
-5.83 s median.
+**Measured Blackhole vs DGX B200 performance** (crop 256, `k=4`, all 558 parameters, 1350 MHz
+sampled during every Blackhole run; list-price basis $160k per 32-chip BH Galaxy vs $562,154 per
+8-GPU DGX B200):
+
+- **Landed device-resident single chip** (depth 2, `anx-glx` BH Galaxy chip 12, 1350 MHz):
+  **2.00 s/step** warm median, **15.83 GB** peak DRAM (14.75 GiB), 28.4 MB/step host transfer.
+- **Fair per-chip comparison vs DGX B200** (identical Poisson(3) recycle schedule, mean depth
+  2.75, 40 timed steps; B200 at its best compiled bf16-mixed mode runs **0.1907 s/step**, 5.24
+  examples/s per GPU at 1965 MHz): provisional optimized single-chip Blackhole reaches
+  **1.59 s/step** (**1.69x throughput per dollar** vs B200; **1.35 s/step** at fixed depth 2,
+  1.82x per dollar) at 1350 MHz.
+- **Full 32-chip Blackhole Galaxy SPMD** (`--mesh 8x4`, fixed depth 2, 1350 MHz, provisional
+  pre-optimizer-speedup sweep): **2.58 s/step** (**12.41 examples/s**, 75.4 % scaling
+  efficiency, 72.9 ms 2D Ring all-reduce, 558/558 bit-identical consensus across all 32 ranks;
+  4, 8 and 16 chips scale at 95.1 %, 101.9 % and 94.3 % efficiency). Final post-merge Galaxy
+  Poisson(3) timing is in progress.
 
 ## What a run writes
 

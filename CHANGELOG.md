@@ -8,10 +8,17 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 ### Added
 - **`tt-bio train batches/ --model rfd4` trains RFD4-Proteina's release trunk weights on Tenstorrent cards.** Each
   step runs `k` noise candidates through the production trunk with gradients off, picks the winner on upstream's
-  flow-matching objective, and tapes the winner's last recycle using upstream's Muon + Adam update rule. Supports
-  single-chip and multi-chip data parallel (`--chips`), checkpoint and bit-identical resume from the same `--out`,
-  `status.json` / `progress.jsonl`, and refuses unhonoured flags by name. Inference and design outputs are
-  byte-identical when gradients are off. See [`docs/training.md`](docs/training.md#rfd4-proteina-a-model-whose-step-is-its-own).
+  flow-matching objective (exact loss parity at `8.2e-6` relative error), and tapes the winner's last recycle using
+  upstream's Muon + Adam update rule. Device-resident training (`--resident`) is on by default on Blackhole with
+  `--optimizer muon` (2.00 s/step warm median and 15.83 GB peak DRAM at crop 256 on one Blackhole Galaxy chip at
+  1350 MHz; opt out with `--no-resident` or fall back to host AdamW with `--optimizer adamw`). Supports
+  `--dry-run` with measured Blackhole memory and timing tables, multi-chip Galaxy 2D Ring CCL SPMD (`--mesh` for
+  `1x4`, `2x4`, `4x4`, `8x4`, auto-selected on a Blackhole Galaxy when `--chips` matches a Galaxy mesh, with
+  `--dp-cards` fallback on non-Galaxy boxes), bit-identical resume from the same `--out`, `status.json` /
+  `progress.jsonl`, and explicit refusal of unhonoured flags or invalid mesh/chip combinations. Tracks upstream's
+  2,000-step loss curve within 3.2 % running mean in float32 attention, and inference/design outputs stay
+  bit-identical (`0.000 A`) when gradients are off. See
+  [`docs/training.md`](docs/training.md#rfd4-proteina-a-model-whose-step-is-its-own).
 - **`tt-bio dock --model diffdock` places a ligand in a receptor and ranks the poses.** DiffDock-L, end to end:
   upstream's four-column CSV or a tt-bio job YAML in, upstream's `rank1.sdf` / `rank1_confidence-0.42.sdf` layout
   out, plus a `confidence.json` with the ranking. Defaults are the published inference recipe, so a plain command

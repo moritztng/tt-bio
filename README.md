@@ -1122,28 +1122,45 @@ Without `--checkpoint`, `predict` folds with the shipped weights exactly as befo
 ### RFD4-Proteina
 
 ```bash
+tt-bio train --model rfd4 --dry-run
 tt-bio train batches/ --model rfd4 --steps 2000
 tt-bio train batches/ --model rfd4 --steps 2000 --chips 4
+tt-bio train batches/ --model rfd4 --steps 2000 --mesh 8x4
 ```
 
-RFD4 trains the release trunk's own weights on upstream's flow-matching objective. Each step
-runs `k` noise candidates through the production trunk with gradients off, picks a winner the
-way upstream does, and trains that candidate's last recycle, so one step costs a fold plus one
-backward. DATA is required and it is a directory of training batches dumped by
-`perf/r4t/loss_parity_reference.py`, one `.npz` per example: the features, `x_1`/`x_t`/`t`, the
-candidate noise and upstream's own winners beside them.
+RFD4 trains the release trunk's own weights on upstream's flow-matching objective (exact loss
+parity against upstream at `8.2e-6` relative error across 5 loss terms and 8/8 candidate
+winners). Each step runs `k` noise candidates through the production trunk with gradients off,
+picks a winner the way upstream does, and trains that candidate's last recycle. DATA is required
+and is a directory of training batches dumped by `perf/r4t/loss_parity_reference.py`, one `.npz`
+per example.
 
-The flags the step does not honour are refused by name rather than ignored: `--lr` and
-`--warmup-steps` (upstream's rule runs at 1e-4 with no warmup), the LoRA flags, `--objective`
-and `--seed`. Everything else works as above, resume included.
+On Blackhole, `--resident` is on by default with `--optimizer muon`, keeping weights, fp32
+masters, optimizer state and EMA on the card (`--no-resident` or `--optimizer adamw` falls back
+to the host optimizer). On a 32-chip Blackhole Galaxy, `--mesh` (`1x4`, `2x4`, `4x4`, `8x4`,
+auto-selected when `--chips` matches a Galaxy mesh) runs 2D Ring CCL SPMD data parallelism over
+the Ethernet fabric; non-Galaxy multi-chip boxes fall back to process-per-chip data parallelism.
+Flags the step does not honour (`--lr`, `--warmup-steps`, LoRA flags, `--objective`, `--seed`)
+and invalid `--mesh`/`--chips` combinations are refused by name before any device opens.
 
-Training runs attention in float32, the setting that follows upstream's loss curve over 2,000 steps; designs and inference are unaffected ([why](docs/training.md#training-runs-on-the-device-float64-is-a-diagnostic)).
+Training runs attention in float32, tracking upstream's 2,000-step loss curve within 3.2 %
+running mean; inference and design outputs stay bit-identical (`0.000 A`) when gradients are
+off ([why](docs/training.md#training-runs-on-the-device-float64-is-a-diagnostic)). On one
+Blackhole Galaxy chip at 1350 MHz (256 tokens, `k=4`, depth 2), the landed device-resident step
+runs in 2.00 s (15.83 GB peak DRAM). Under the fair Poisson(3) schedule (mean depth 2.75)
+against NVIDIA DGX B200 (0.1907 s/step at 1965 MHz, list-price basis), provisional optimized
+single-chip Blackhole reaches 1.59 s/step (1.69x throughput per dollar vs B200; 1.35 s/step at
+depth 2), and a full 32-chip Blackhole Galaxy (`--mesh 8x4`, provisional pre-optimizer-speedup
+sweep at depth 2) runs at 2.58 s/step (12.41 examples/s, 75.4 % efficiency, 558/558
+bit-identical consensus). See
+[`docs/training.md`](docs/training.md#rfd4-proteina-a-model-whose-step-is-its-own) for details.
 
 `--help` lists the next layer: `--steps`, `--chips`, `--global-batch`, `--lr`,
 `--warmup-steps`, `--checkpoint-every`, `--tokens`, `--seed`. `--help-all` adds the expert
-ones: precision (`--exact`), the objective, the recipe, and `--train` with the LoRA shape.
-OpenFold3 trains its own weights only; `--train adapters` is refused for it with what to do
-instead. [`docs/training.md`](docs/training.md#data) has the data layout and the rest.
+ones: precision (`--exact`), RFD4 device placement and mesh (`--resident`/`--no-resident`,
+`--optimizer`, `--mesh`), the objective, the recipe, and `--train` with the LoRA shape.
+OpenFold3 and RFD4 train their own weights only; `--train adapters` is refused for both.
+[`docs/training.md`](docs/training.md#data) has the data layout and the rest.
 
 **For an agent**, everything a run says it also writes, in JapanFold's vocabulary:
 
@@ -1206,8 +1223,7 @@ Four things the API enforces rather than documents, because each is a bug we hit
 
 - `plan()` answers from measured numbers or returns `UNMEASURED`. It refuses a crop size whose
   forward is measured to run out of memory instead of estimating one, and it will not report a
-  4-chip step time from a 2-chip measurement. Protenix's own 384-token crop is one of the
-  refusals.
+  4-chip step time from a 2-chip measurement. OpenFold3's 640-token crop is one of the refusals.
 - The optimizer refuses a bfloat16 master copy of the weights. An update accumulated at
   bfloat16 stops moving the weight while the gradient still looks healthy.
 - `opt.step()` raises if you spread training over several chips and never gave it a way to
