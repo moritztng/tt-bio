@@ -101,6 +101,31 @@ def score_fn(model, c, n_lig: int, dt=torch.float32):
     return score
 
 
+def resident_score_fn(model, c, n_lig: int, convs):
+    """The same call through `device_loop.DeviceStep`, which is what `tt-bio dock` runs on a
+    card: edge vectors, harmonics, embeddings and the heads on the card, not only the convs."""
+    import ttnn
+    from tt_bio.diffdock import device_loop as dl
+    from tt_bio.diffdock.conv import pad_nodes
+    from tt_bio.diffdock.features import timestep_embedding
+    from tt_bio.tenstorrent import get_device
+
+    dev, mc = get_device(), model.config
+    net = dl.DeviceStep(dev, model, c, convs)
+
+    def score(step):
+        P = step.lig_pos.shape[0]
+        lp = pad_nodes(step.lig_pos.reshape(P * n_lig, 3).float(), c.sg.n_lig_padded)
+        row = dl.upload(dev, timestep_embedding(torch.tensor([step.t_tr]), mc.sigma_embed_dim,
+                                                mc.embedding_scale).float())
+        tr, rot, tor = net(dl.upload(dev, lp), row, step.tr_sigma, step.rot_sigma,
+                           step.tor_sigma, crop_cutoff=step.crop_cutoff)
+        n_tor = P * c.sg.n_rot_bonds
+        return (ttnn.to_torch(tr)[:P, :3].float(), ttnn.to_torch(rot)[:P, :3].float(),
+                torch.zeros(0) if tor is None else ttnn.to_torch(tor)[:n_tor, 0].float())
+    return score
+
+
 class Clock:
     """AICLK sampled during the run; a timing without one is not a measurement."""
 
@@ -178,7 +203,10 @@ def cmd_equiv(args):
             continue
         P, n_lig = step.lig_pos.shape[0], g.ligand["pos"].shape[0]
         mstep = type(step)(**{**step.__dict__, "lig_pos": step.lig_pos.to(mdt)})
-        base = score_fn(model, static_complex(model, fx, P, mdt), n_lig, mdt)(mstep)
+        def card(c):
+            return (resident_score_fn(model, c, n_lig, convs) if args.form == "resident"
+                    else score_fn(model, c, n_lig, mdt))
+        base = card(static_complex(model, fx, P, mdt))(mstep)
         hstep = type(step)(**{**step.__dict__, "lig_pos": step.lig_pos.double()})
         hbase = score_fn(host, static_complex(host, fx, P, f64), n_lig, f64)(hstep)
         row = {}
@@ -187,7 +215,7 @@ def cmd_equiv(args):
             moved = fx["graph"].receptor["pos"].double() @ R.T + t
             mstep2 = type(step)(**{**step.__dict__,
                                    "lig_pos": (step.lig_pos.double() @ R.T + t).to(mdt)})
-            got = score_fn(model, static_complex(model, fx, P, mdt, moved), n_lig, mdt)(mstep2)
+            got = card(static_complex(model, fx, P, mdt, moved))(mstep2)
             hstep2 = type(step)(**{**step.__dict__,
                                    "lig_pos": step.lig_pos.double() @ R.T + t})
             hgot = score_fn(host, static_complex(host, fx, P, f64, moved), n_lig, f64)(hstep2)
@@ -210,7 +238,8 @@ def cmd_equiv(args):
                 f"{n} res {v['residual']:.2g} gap_a {v['gap_a']:.2g} gap_b {v['gap_b']:.2g} "
                 f"host {v['host_residual']:.2g}" for n, v in r.items()), flush=True)
         rows[k] = row
-    out = {"net": args.net, "gemm_modules": args.gemm_modules, "complex": fx["complex"], "host_bar": 1e-5, "host_reference": "float64",
+    out = {"net": args.net, "form": args.form, "gemm_modules": args.gemm_modules,
+           "complex": fx["complex"], "host_bar": 1e-5, "host_reference": "float64",
            "rule": "gap_b <= 2*gap_a + 1e-6 on every step/seed/score; host_residual <= 1e-5",
            "pass": ok, "upstream_pinned_floor": {"tr": 1.57e-7, "rot": 1.25e-6, "tor": 9.29e-7},
            "steps": rows, **clock.summary()}
@@ -258,6 +287,9 @@ def main():
     e.add_argument("--gemm-modules", nargs="*", default=[],
                     help="conv paths (suffix) kept on the fp32 GEMM form under --net tile")
     e.add_argument("--seeds", type=int, default=4, help="transform seeds; 0 is the identity")
+    e.add_argument("--form", default="stepped", choices=["stepped", "resident"],
+                   help="stepped: static_forward with the convs on the card. resident: "
+                        "device_loop.DeviceStep, the whole step on the card")
     e.add_argument("--steps", nargs="*", help="fixture steps to grade (default: all)")
     e.add_argument("--out", required=True)
     e.set_defaults(fn=cmd_equiv)
