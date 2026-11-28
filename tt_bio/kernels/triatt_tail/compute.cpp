@@ -54,6 +54,11 @@ void kernel_main() {
     constexpr uint32_t acc_cb = tt::CBIndex::c_6;
     constexpr uint32_t b_cb = tt::CBIndex::c_7;
     constexpr uint32_t out_cb = tt::CBIndex::c_16;
+#ifdef ABL_MM   // INSTRUMENT (triatt_qkv.TAIL_ABLATE): one K tile of the projection instead of Kt
+    constexpr uint32_t KM = 1;
+#else
+    constexpr uint32_t KM = Kt;
+#endif
     constexpr uint32_t mm_cb = KB1 ? acc_cb : RESID ? u_cb : out_cb;
     constexpr uint32_t sum_cb = KB1 ? acc_cb : u_cb;   // the update the residual add reads
 
@@ -76,10 +81,12 @@ void kernel_main() {
             if constexpr (GB8) reconfig_data_format_srca(o_cb, g_cb);
             copy_tile_to_dst_init_short(g_cb);
             for (uint32_t i = 0; i < DW; ++i) copy_tile(g_cb, k0 + i, i);
+#ifndef ABL_SIG   // INSTRUMENT (triatt_qkv.TAIL_ABLATE): no sigmoid
             for (uint32_t i = 0; i < DW; ++i) {
                 if constexpr (SIGPOLY) sigmoid_poly_tile(i);
                 else sigmoid_bf16_tile(i);
             }
+#endif
             if constexpr (GB8) reconfig_data_format_srca(g_cb, o_cb);
             binary_dest_reuse_tiles_init<EltwiseBinaryType::ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(o_cb);
             for (uint32_t i = 0; i < DW; ++i)
@@ -115,7 +122,7 @@ void kernel_main() {
                     tile_regs_release();
                     mm_block_init_short(x_cb, w_cb, false, DW, 1, Kt);
                 }
-                for (uint32_t k = 0; k < Kt; ++k) {
+                for (uint32_t k = 0; k < KM; ++k) {
                     tile_regs_acquire();
                     matmul_block(x_cb, w_cb, k, k * Nt + n0, 0, false, DW, 1, Kt);
                     tile_regs_commit();
@@ -130,7 +137,7 @@ void kernel_main() {
         } else
         for (uint32_t n0 = 0; n0 < Nt; n0 += DW) {
             tile_regs_acquire();
-            for (uint32_t k = 0; k < Kt; ++k) matmul_block(x_cb, w_cb, k, k * Nt + n0, 0, false, DW, 1, Kt);
+            for (uint32_t k = 0; k < KM; ++k) matmul_block(x_cb, w_cb, k, k * Nt + n0, 0, false, DW, 1, Kt);
             if constexpr (!RESID && (RNE & 2)) {
                 for (uint32_t i = 0; i < DW; ++i) round_bf16_rne_tile(i);
             }

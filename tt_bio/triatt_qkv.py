@@ -382,6 +382,14 @@ TAIL_KB1 = int(os.environ.get("TT_BIO_TRIATT_TAIL_KB1", "1"))
 TAIL_T = os.environ.get("TT_BIO_TRIATT_TAIL_T")   # "1" / "0" overrides the per-arch default
 TAIL_T_GRAN = 4   # sums per DEST batch, as pair_transpose_add
 TAIL_FORCE = os.environ.get("TT_BIO_TRIATT_TAIL")   # "1" / "0" overrides the `triatt_tail` lever
+# INSTRUMENT, never a shipped knob (as triatt_sdpa's TT_BIO_TRIATT_ABLATE): TT_BIO_TRIATT_TAIL_ABLATE=READ,WRITE,SIG,MM
+# compiles gated_out_proj without the named stage (o, g and z reads after a core's first unit; the output writes;
+# the gate's sigmoid; all but one K tile of the projection). The output is wrong on purpose, only the time is read.
+TAIL_ABLATE = tuple(x.strip().upper() for x in os.environ.get("TT_BIO_TRIATT_TAIL_ABLATE", "").split(",") if x.strip())
+if TAIL_ABLATE:
+    import warnings
+    warnings.warn(f"TT_BIO_TRIATT_TAIL_ABLATE={','.join(TAIL_ABLATE)}: gated_out_proj is computing WRONG VALUES "
+                  "on purpose. Never set this outside a perf instrument.", stacklevel=2)
 GOP_STATS = [0, 0]   # gated_out_proj served, declined (TAIL_STATS above is the head-major tail's)
 _TAIL_DIR = Path(__file__).resolve().parent / "kernels" / "triatt_tail"
 _TAIL_CACHE: dict = {}
@@ -492,24 +500,25 @@ def _build_tail(o, g, w, out, ckc, grid, resid, brows=None, trans=0):
         u0 += n
     acc = lambda t: list(ttnn.TensorAccessorArgs(t).get_compile_time_args())
     src = ttnn.KernelDescriptor.SourceType.FILE_PATH
+    abl = [(f"ABL_{a}", "1") for a in TAIL_ABLATE]
     reader = ttnn.KernelDescriptor(
         kernel_source=str(_TAIL_DIR / "reader.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[kt, nt, St, int(_g3d(o, g)), int(brows is not None), int(trans)]
         + acc(o) + acc(g) + acc(w) + acc(brows if brows is not None else w),
-        defines=[("GP", "1")] * _gp(o, g),
+        defines=[("GP", "1")] * _gp(o, g) + abl,
         runtime_args=rd, common_runtime_args=[0] * 4, config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(
         kernel_source=str(_TAIL_DIR / ("writer_t.cpp" if trans else "writer.cpp")), source_type=src,
         core_ranges=core_grid,
         compile_time_args=([nt, St, B // TILE, TAIL_T_GRAN, trans] if trans else [nt, int(resid)]) + acc(out),
-        runtime_args=wr, common_runtime_args=[0], config=ttnn.WriterConfigDescriptor())
+        defines=abl, runtime_args=wr, common_runtime_args=[0], config=ttnn.WriterConfigDescriptor())
     fid, approx, fp32, full = G.ckc_args(ckc)
     fid, fp32 = ttnn.MathFidelity.HiFi3, True
     compute = ttnn.KernelDescriptor(
         kernel_source=str(_TAIL_DIR / "compute.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[kt, nt, int(resid), TAIL_SIGPOLY, TAIL_RNE, _tail_dw(kt, nt), TAIL_KB1,
                            int(brows is not None), int(g.dtype == ttnn.bfloat8_b), trans, TAIL_T_GRAN],
-        runtime_args=cp,
+        defines=abl, runtime_args=cp,
         config=ttnn.ComputeConfigDescriptor(math_fidelity=fid, math_approx_mode=approx,
                                             fp32_dest_acc_en=fp32, dst_full_sync_en=full))
     cbs = [_tail_cb(0, core_grid, kt * nt), _tail_cb(1, core_grid, 2 * kt), _tail_cb(2, core_grid, 2 * kt, g.dtype),

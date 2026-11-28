@@ -31,6 +31,12 @@ void kernel_main() {
     // rows r0 .. r0+R-1 of a tile: the whole tile, else one R-row run in each face of the pair holding r0
     constexpr uint32_t SEG = R == 32 ? 0 : R * ROW;
     auto rows = [&](uint64_t far, uint32_t near, uint32_t off, bool write) {
+#ifdef ABL_WRITE   // INSTRUMENT (triatt_qkv.TAIL_ABLATE): z is not written, or (READ) not read
+        if (write) return;
+#endif
+#ifdef ABL_READ
+        if (!write) return;
+#endif
         if constexpr (SEG == 0) {
             if (write) noc_async_write(near, far, 4 * FACE);
             else noc_async_read(far, near, 4 * FACE);

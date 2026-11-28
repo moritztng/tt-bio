@@ -63,11 +63,16 @@ void kernel_main() {
         uint32_t gp = get_write_ptr(g_cb), op = get_write_ptr(o_cb);
         uint32_t page = b * Kt * St + jt;
         uint32_t gpage = b * Kt * (St + GP) + jt;
-        for (uint32_t h = 0; h < Kt; ++h, page += St, gpage += St + GP, gp += tbg, op += tb) {
-            noc_async_read_page(G3D ? u * Kt + h : gpage, g, gp);
-            noc_async_read_page(page, o, op);
+#ifdef ABL_READ   // INSTRUMENT (triatt_qkv.TAIL_ABLATE): only a core's first unit is read
+        if (v == u0)
+#endif
+        {
+            for (uint32_t h = 0; h < Kt; ++h, page += St, gpage += St + GP, gp += tbg, op += tb) {
+                noc_async_read_page(G3D ? u * Kt + h : gpage, g, gp);
+                noc_async_read_page(page, o, op);
+            }
+            noc_async_read_barrier();
         }
-        noc_async_read_barrier();
         cb_push_back(g_cb, Kt);
         cb_push_back(o_cb, Kt);
     }

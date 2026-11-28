@@ -26,13 +26,18 @@ void kernel_main() {
         if constexpr (RESID) {
             cb_reserve_back(z_cb, Nt);
             uint32_t zp = get_write_ptr(z_cb);
+#ifdef ABL_READ   // INSTRUMENT (triatt_qkv.TAIL_ABLATE)
+            if (u == u0)
+#endif
             for (uint32_t n = 0; n < Nt; ++n, zp += tb) noc_async_read_page(u * Nt + n, out, zp);
             noc_async_read_barrier();
             cb_push_back(z_cb, Nt);
         }
         cb_wait_front(out_cb, Nt);
         uint32_t rp = get_read_ptr(out_cb);
+#ifndef ABL_WRITE   // INSTRUMENT (triatt_qkv.TAIL_ABLATE)
         for (uint32_t n = 0; n < Nt; ++n, rp += tb) noc_async_write_page(u * Nt + n, out, rp);
+#endif
         noc_async_writes_flushed();
         cb_pop_front(out_cb, Nt);
     }
