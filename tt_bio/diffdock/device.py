@@ -378,8 +378,17 @@ class DeviceConvLayer:
             g[key] = idx
         return g[key]
 
+    def inv_degree(self, g, edge_mask):
+        """``1 / max(sum of the mask over a node's edges, eps)``, ``[n_out, 1]``.
+
+        It depends on the graph and the mask only, so layers that share both share it.
+        """
+        ttnn = self.ttnn
+        div = ttnn.matmul(g["S"], edge_mask, compute_kernel_config=self.ckc, dtype=self.dtype)
+        return ttnn.reciprocal(ttnn.clamp(div, min=float(torch.finfo(torch.float32).eps)))
+
     def __call__(self, node_attr, g, edge_attr_groups, edge_sh, edge_mask, ns=None,
-                 out_attr=None):
+                 out_attr=None, inv_degree=None):
         """*node_attr* is ``[N, pad32(in_dim)]`` TILE.
 
         *edge_attr_groups* are TILE ``[E_g, pad32(F)]`` blocks partitioning the edges in order,
@@ -388,6 +397,7 @@ class DeviceConvLayer:
         here from *node_attr* (:meth:`fc1_split`), so a stack of layers never leaves the card.
         *out_attr* is the table the messages land in when it is not *node_attr* (a cross group
         of the confidence model): the ``x[src]`` half of the edge input is read from it.
+        *inv_degree* is :meth:`inv_degree` of this graph and mask when the caller already has it.
         """
         ttnn = self.ttnn
         ckc = self.ckc
@@ -414,9 +424,7 @@ class DeviceConvLayer:
         s = ttnn.matmul(g["S"], msg, compute_kernel_config=ckc, dtype=self.dtype)
         if self.perm is not None:
             s = ttnn.matmul(s, self.perm, compute_kernel_config=ckc, dtype=self.dtype)
-        div = ttnn.matmul(g["S"], edge_mask, compute_kernel_config=ckc, dtype=self.dtype)
-        div = ttnn.reciprocal(ttnn.clamp(div, min=float(torch.finfo(torch.float32).eps)))
-        out = ttnn.multiply(s, div)
+        out = ttnn.multiply(s, self.inv_degree(g, edge_mask) if inv_degree is None else inv_degree)
         if self.layer.batch_norm is not None:
             out = ttnn.add(ttnn.multiply(out, self.bn_scale), self.bn_shift)
         if self.layer.residual:
@@ -572,7 +580,7 @@ class DeviceConvModule(torch.nn.Module):
         m = ttnn.from_torch(torch.cat(masks).reshape(-1, 1), dtype=ttnn.float32,
                             layout=ttnn.TILE_LAYOUT, device=d)
         x = to_device(d, torch.nn.functional.pad(node_attr.float(), (0, 0, 0, n_p - N)))
-        rows = {}
+        rows, inv = {}, {}
         rows_of = lambda a, b: rows.setdefault((a, b), (ea[a:b, :], sh[a:b, :], m[a:b, :]))
         for mod, (cut, splits) in zip(mods, plan):
             c = pos[cut]
@@ -582,8 +590,10 @@ class DeviceConvModule(torch.nn.Module):
                                  f"{len(mod.dev.tps)} FC blocks")
             g = mod._graph(ei[:, :c], n_p, n_p)
             t1 = time.perf_counter() if DeviceConvModule.time_layers else None
+            if c not in inv:  # layers over the same cut share the graph and the mask
+                inv[c] = mod.dev.inv_degree(g, rows_of(0, c)[2])
             x = mod.dev(x, g, [rows_of(a, b)[0] for a, b in zip(edges, edges[1:])],
-                        rows_of(0, c)[1], rows_of(0, c)[2], ns=ns)
+                        rows_of(0, c)[1], rows_of(0, c)[2], ns=ns, inv_degree=inv[c])
             if t1 is not None:
                 # attribution only: without the sync a layer is charged for queueing, not work
                 ttnn.synchronize_device(d)

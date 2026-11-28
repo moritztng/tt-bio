@@ -993,9 +993,13 @@ class ResidentStack:
         import ttnn
         rows = lambda t, a, b: ttnn.slice(t, [a, 0], [b, t.shape[1]])
         x, edge_attr, edge_sh = tile_width(x), tile_width(edge_attr), tile_width(edge_sh)
+        inv = {}
         for mod, graph, (cut, edges) in zip(self.mods, self.graphs, self.groups):
+            mask = rows(edge_mask, 0, cut)
+            if cut not in inv:  # layers over the same cut share the graph and the mask
+                inv[cut] = mod.dev.inv_degree(graph, mask)
             x = mod.dev(x, graph, [rows(edge_attr, a, b) for a, b in edges],
-                        rows(edge_sh, 0, cut), rows(edge_mask, 0, cut), ns=ns)
+                        rows(edge_sh, 0, cut), mask, ns=ns, inv_degree=inv[cut])
         return x
 
 
