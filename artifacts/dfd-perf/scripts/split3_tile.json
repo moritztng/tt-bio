@@ -1,0 +1,454 @@
+{
+ "edge_tp": "tile",
+ "name": "5SB2_1K2",
+ "poses": 10,
+ "steps": 19,
+ "n_lig": 30,
+ "n_rec": 330,
+ "rollout_plain_s": 62.164,
+ "median_step_plain_s": 3.4307,
+ "rollout_synced_s": 68.618,
+ "note": "TP:* rows contain the ops booked under their own names inside the tensor product; synchronised per op, so only the split is meaningful",
+ "by_op_s": {
+  "matmul": 7.799,
+  "TP:DeviceEdgeTile": 4.991,
+  "from_torch": 4.715,
+  "typecast": 4.624,
+  "add": 3.438,
+  "embedding": 2.689,
+  "subtract": 0.723,
+  "to_layout": 0.639,
+  "multiply": 0.603,
+  "linear": 0.603,
+  "reshape": 0.447,
+  "relu": 0.398,
+  "TP:DeviceEdgeTP": 0.334,
+  "concat": 0.258,
+  "to_torch": 0.121,
+  "clamp": 0.116,
+  "reciprocal": 0.063,
+  "pad": 0.018
+ },
+ "top": [
+  {
+   "op": "matmul",
+   "shapes": "[(3680, 286624), (286624, 160)]",
+   "s": 3.309,
+   "calls": 190,
+   "ms_per_call": 17.417
+  },
+  {
+   "op": "TP:DeviceEdgeTile",
+   "shapes": "[(99008, 64), (99008, 128), (99008, 32)]",
+   "s": 2.849,
+   "calls": 399,
+   "ms_per_call": 7.141
+  },
+  {
+   "op": "matmul",
+   "shapes": "[(3680, 286624), (286624, 1)]",
+   "s": 2.777,
+   "calls": 190,
+   "ms_per_call": 14.618
+  },
+  {
+   "op": "from_torch",
+   "shapes": "[(286624, 64)]",
+   "s": 1.638,
+   "calls": 19,
+   "ms_per_call": 86.217
+  },
+  {
+   "op": "add",
+   "shapes": "[(99008, 160), (99008, 160)]",
+   "s": 1.539,
+   "calls": 2394,
+   "ms_per_call": 0.643
+  },
+  {
+   "op": "from_torch",
+   "shapes": "[(286624, 1)]",
+   "s": 1.347,
+   "calls": 19,
+   "ms_per_call": 70.881
+  },
+  {
+   "op": "TP:DeviceEdgeTile",
+   "shapes": "[(79200, 64), (79200, 128), (79200, 32)]",
+   "s": 1.277,
+   "calls": 209,
+   "ms_per_call": 6.112
+  },
+  {
+   "op": "typecast",
+   "shapes": "[(99008, 160)]",
+   "s": 1.14,
+   "calls": 2793,
+   "ms_per_call": 0.408
+  },
+  {
+   "op": "embedding",
+   "shapes": "[(1, 99008), (3680, 160)]",
+   "s": 1.038,
+   "calls": 2394,
+   "ms_per_call": 0.434
+  },
+  {
+   "op": "typecast",
+   "shapes": "[(3680, 160)]",
+   "s": 0.952,
+   "calls": 7980,
+   "ms_per_call": 0.119
+  },
+  {
+   "op": "add",
+   "shapes": "[(79200, 160), (79200, 160)]",
+   "s": 0.834,
+   "calls": 1482,
+   "ms_per_call": 0.563
+  },
+  {
+   "op": "from_torch",
+   "shapes": "[(286624, 32)]",
+   "s": 0.785,
+   "calls": 19,
+   "ms_per_call": 41.331
+  },
+  {
+   "op": "embedding",
+   "shapes": "[(1, 286624), (3680, 128)]",
+   "s": 0.758,
+   "calls": 570,
+   "ms_per_call": 1.33
+  },
+  {
+   "op": "typecast",
+   "shapes": "[(79200, 160)]",
+   "s": 0.628,
+   "calls": 1729,
+   "ms_per_call": 0.363
+  },
+  {
+   "op": "TP:DeviceEdgeTile",
+   "shapes": "[(9408, 64), (9408, 128), (9408, 32)]",
+   "s": 0.555,
+   "calls": 228,
+   "ms_per_call": 2.435
+  },
+  {
+   "op": "typecast",
+   "shapes": "[(286624, 128)]",
+   "s": 0.527,
+   "calls": 570,
+   "ms_per_call": 0.924
+  },
+  {
+   "op": "add",
+   "shapes": "[(286624, 128), (286624, 128)]",
+   "s": 0.525,
+   "calls": 380,
+   "ms_per_call": 1.381
+  },
+  {
+   "op": "subtract",
+   "shapes": "[(3680, 160), (3680, 160)]",
+   "s": 0.507,
+   "calls": 3192,
+   "ms_per_call": 0.159
+  },
+  {
+   "op": "to_layout",
+   "shapes": "[(3680, 160)]",
+   "s": 0.437,
+   "calls": 4788,
+   "ms_per_call": 0.091
+  },
+  {
+   "op": "embedding",
+   "shapes": "[(1, 79200), (3680, 160)]",
+   "s": 0.426,
+   "calls": 1140,
+   "ms_per_call": 0.374
+  },
+  {
+   "op": "typecast",
+   "shapes": "[(3680, 128)]",
+   "s": 0.371,
+   "calls": 1045,
+   "ms_per_call": 0.355
+  },
+  {
+   "op": "TP:DeviceEdgeTP",
+   "shapes": "[(2112, 160), (2112, 128), (2112, 64)]",
+   "s": 0.334,
+   "calls": 19,
+   "ms_per_call": 17.597
+  },
+  {
+   "op": "matmul",
+   "shapes": "[(3680, 128), (128, 160)]",
+   "s": 0.32,
+   "calls": 1596,
+   "ms_per_call": 0.201
+  },
+  {
+   "op": "multiply",
+   "shapes": "[(286624, 160), (286624, 1)]",
+   "s": 0.319,
+   "calls": 190,
+   "ms_per_call": 1.678
+  },
+  {
+   "op": "linear",
+   "shapes": "[(99008, 64), (64, 160)]",
+   "s": 0.318,
+   "calls": 399,
+   "ms_per_call": 0.796
+  },
+  {
+   "op": "from_torch",
+   "shapes": "[(79200, 64)]",
+   "s": 0.285,
+   "calls": 19,
+   "ms_per_call": 14.992
+  },
+  {
+   "op": "add",
+   "shapes": "[(9408, 160), (9408, 160)]",
+   "s": 0.282,
+   "calls": 1596,
+   "ms_per_call": 0.177
+  },
+  {
+   "op": "concat",
+   "shapes": "[]",
+   "s": 0.258,
+   "calls": 209,
+   "ms_per_call": 1.234
+  },
+  {
+   "op": "matmul",
+   "shapes": "[(3360, 79200), (79200, 1)]",
+   "s": 0.234,
+   "calls": 57,
+   "ms_per_call": 4.097
+  },
+  {
+   "op": "typecast",
+   "shapes": "[(9408, 160)]",
+   "s": 0.232,
+   "calls": 1862,
+   "ms_per_call": 0.125
+  },
+  {
+   "op": "relu",
+   "shapes": "[(99008, 160)]",
+   "s": 0.22,
+   "calls": 399,
+   "ms_per_call": 0.552
+  },
+  {
+   "op": "matmul",
+   "shapes": "[(99008, 32), (32, 288)]",
+   "s": 0.206,
+   "calls": 399,
+   "ms_per_call": 0.516
+  },
+  {
+   "op": "from_torch",
+   "shapes": "[(79200, 1)]",
+   "s": 0.197,
+   "calls": 19,
+   "ms_per_call": 10.393
+  },
+  {
+   "op": "linear",
+   "shapes": "[(79200, 64), (64, 160)]",
+   "s": 0.162,
+   "calls": 247,
+   "ms_per_call": 0.655
+  },
+  {
+   "op": "embedding",
+   "shapes": "[(1, 9408), (3680, 160)]",
+   "s": 0.161,
+   "calls": 1254,
+   "ms_per_call": 0.129
+  },
+  {
+   "op": "from_torch",
+   "shapes": "[(79200, 32)]",
+   "s": 0.144,
+   "calls": 19,
+   "ms_per_call": 7.6
+  },
+  {
+   "op": "reshape",
+   "shapes": "[(1, 99008, 160)]",
+   "s": 0.13,
+   "calls": 2394,
+   "ms_per_call": 0.054
+  },
+  {
+   "op": "matmul",
+   "shapes": "[(79200, 32), (32, 288)]",
+   "s": 0.129,
+   "calls": 247,
+   "ms_per_call": 0.524
+  },
+  {
+   "op": "typecast",
+   "shapes": "[(99008, 128)]",
+   "s": 0.128,
+   "calls": 399,
+   "ms_per_call": 0.321
+  },
+  {
+   "op": "embedding",
+   "shapes": "[(1, 79200), (3360, 160)]",
+   "s": 0.123,
+   "calls": 342,
+   "ms_per_call": 0.36
+  },
+  {
+   "op": "relu",
+   "shapes": "[(79200, 160)]",
+   "s": 0.112,
+   "calls": 247,
+   "ms_per_call": 0.452
+  },
+  {
+   "op": "matmul",
+   "shapes": "[(3680, 108416), (108416, 160)]",
+   "s": 0.101,
+   "calls": 19,
+   "ms_per_call": 5.306
+  },
+  {
+   "op": "matmul",
+   "shapes": "[(3360, 79200), (79200, 160)]",
+   "s": 0.1,
+   "calls": 19,
+   "ms_per_call": 5.287
+  },
+  {
+   "op": "subtract",
+   "shapes": "[(3680, 128), (3680, 128)]",
+   "s": 0.095,
+   "calls": 418,
+   "ms_per_call": 0.228
+  },
+  {
+   "op": "reshape",
+   "shapes": "[(1, 79200, 160)]",
+   "s": 0.093,
+   "calls": 1482,
+   "ms_per_call": 0.063
+  },
+  {
+   "op": "to_layout",
+   "shapes": "[(3680, 128)]",
+   "s": 0.093,
+   "calls": 627,
+   "ms_per_call": 0.149
+  },
+  {
+   "op": "matmul",
+   "shapes": "[(3360, 79200), (79200, 128)]",
+   "s": 0.092,
+   "calls": 19,
+   "ms_per_call": 4.827
+  },
+  {
+   "op": "TP:DeviceEdgeTile",
+   "shapes": "[(79200, 64), (79200, 96), (79200, 32)]",
+   "s": 0.089,
+   "calls": 19,
+   "ms_per_call": 4.69
+  },
+  {
+   "op": "matmul",
+   "shapes": "[(3680, 160), (160, 128)]",
+   "s": 0.087,
+   "calls": 209,
+   "ms_per_call": 0.416
+  },
+  {
+   "op": "matmul",
+   "shapes": "[(3360, 79200), (79200, 96)]",
+   "s": 0.086,
+   "calls": 19,
+   "ms_per_call": 4.521
+  },
+  {
+   "op": "typecast",
+   "shapes": "[(79200, 128)]",
+   "s": 0.086,
+   "calls": 266,
+   "ms_per_call": 0.324
+  },
+  {
+   "op": "TP:DeviceEdgeTile",
+   "shapes": "[(79200, 64), (79200, 64), (79200, 32)]",
+   "s": 0.083,
+   "calls": 19,
+   "ms_per_call": 4.344
+  },
+  {
+   "op": "reshape",
+   "shapes": "[(1, 286624, 128)]",
+   "s": 0.082,
+   "calls": 570,
+   "ms_per_call": 0.143
+  },
+  {
+   "op": "linear",
+   "shapes": "[(9408, 64), (64, 160)]",
+   "s": 0.078,
+   "calls": 266,
+   "ms_per_call": 0.295
+  },
+  {
+   "op": "clamp",
+   "shapes": "[(3680, 1)]",
+   "s": 0.075,
+   "calls": 209,
+   "ms_per_call": 0.361
+  },
+  {
+   "op": "reshape",
+   "shapes": "[(1, 9408, 160)]",
+   "s": 0.074,
+   "calls": 1596,
+   "ms_per_call": 0.046
+  },
+  {
+   "op": "typecast",
+   "shapes": "[(3360, 160)]",
+   "s": 0.073,
+   "calls": 570,
+   "ms_per_call": 0.128
+  },
+  {
+   "op": "matmul",
+   "shapes": "[(3680, 108416), (108416, 1)]",
+   "s": 0.073,
+   "calls": 19,
+   "ms_per_call": 3.853
+  },
+  {
+   "op": "typecast",
+   "shapes": "[(99008, 32)]",
+   "s": 0.067,
+   "calls": 399,
+   "ms_per_call": 0.168
+  },
+  {
+   "op": "typecast",
+   "shapes": "[(9408, 128)]",
+   "s": 0.064,
+   "calls": 285,
+   "ms_per_call": 0.225
+  }
+ ]
+}
