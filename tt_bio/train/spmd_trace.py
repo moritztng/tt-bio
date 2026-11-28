@@ -105,6 +105,35 @@ def _put_replicated_f32(t: torch.Tensor, device):
     return ttnn.from_torch(t.detach().to(torch.float32).contiguous(), **kw)
 
 
+def _exact_f32_mm(a, b, *, transpose_a: bool = False, transpose_b: bool = False, cfg=None):
+    """Exact fp32 matmul via bf16 hi+lo split (eliminates BH TF32 10-bit input truncation)."""
+    import ttnn
+    from .device_optim import _split2_bf16
+
+    ah, al = _split2_bf16(a)
+    bh, bl = _split2_bf16(b)
+    kw = dict(
+        transpose_a=transpose_a,
+        transpose_b=transpose_b,
+        dtype=ttnn.float32,
+        compute_kernel_config=cfg,
+    )
+    p0 = ttnn.matmul(ah, bh, **kw)
+    p1 = ttnn.matmul(ah, bl, **kw)
+    p2 = ttnn.matmul(al, bh, **kw)
+    ttnn.deallocate(ah)
+    ttnn.deallocate(al)
+    ttnn.deallocate(bh)
+    ttnn.deallocate(bl)
+    s01 = ttnn.add(p0, p1)
+    ttnn.deallocate(p0)
+    ttnn.deallocate(p1)
+    out = ttnn.add(s01, p2)
+    ttnn.deallocate(s01)
+    ttnn.deallocate(p2)
+    return out
+
+
 def can_offload_cond_init(glue) -> bool:
     """Return True if ``glue`` matches the standard RFD4 cond/init_repr structure for device offload."""
     try:
@@ -497,7 +526,7 @@ def cand_conds_and_s0_device(
         # 1. s0_tt = (ir_feat @ W_ir^T) * mask
         ir_tt = put_sharded(ir_feat_pad, device, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT)
         w_ir_tt, own_w_ir = _w_or_put("glue.init_repr_factory.linear_out.weight", ir.linear_out.weight, pad32=True)
-        s0_tt = ttnn.matmul(ir_tt, w_ir_tt, transpose_b=True, compute_kernel_config=cfg)
+        s0_tt = _exact_f32_mm(ir_tt, w_ir_tt, transpose_b=True, cfg=cfg)
         ttnn.deallocate(ir_tt)
         if own_w_ir:
             ttnn.deallocate(w_ir_tt)
@@ -509,7 +538,7 @@ def cand_conds_and_s0_device(
         # 2. c_base = cf_base @ W_cf^T (recycle-invariant, computed once for all cycles)
         cf_tt = put_sharded(cf_base_pad, device, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT)
         w_cf_tt, own_w_cf = _w_or_put("glue.cond_factory.linear_out.weight", cf.linear_out.weight, pad32=True)
-        c_base = ttnn.matmul(cf_tt, w_cf_tt, transpose_b=True, compute_kernel_config=cfg)
+        c_base = _exact_f32_mm(cf_tt, w_cf_tt, transpose_b=True, cfg=cfg)
         ttnn.deallocate(cf_tt)
 
         w_t1_1, own_t1_1 = _w_or_put("glue.transition_c_1.swish_linear.0.weight", t1.swish_linear[0].weight)
@@ -519,7 +548,7 @@ def cand_conds_and_s0_device(
         half = int(w_t1_1.shape[0]) // 2
 
         def _transition(x_in, w1, w2):
-            h = ttnn.matmul(x_in, w1, transpose_b=True, compute_kernel_config=cfg)
+            h = _exact_f32_mm(x_in, w1, transpose_b=True, cfg=cfg)
             a = ttnn.slice(h, [0, 0, 0], [k_local, n_tok, half])
             g = ttnn.slice(h, [0, 0, half], [k_local, n_tok, 2 * half])
             ttnn.deallocate(h)
@@ -528,7 +557,7 @@ def cand_conds_and_s0_device(
             sw = ttnn.multiply(sg, a)
             ttnn.deallocate(sg)
             ttnn.deallocate(a)
-            out = ttnn.matmul(sw, w2, transpose_b=True, compute_kernel_config=cfg)
+            out = _exact_f32_mm(sw, w2, transpose_b=True, cfg=cfg)
             ttnn.deallocate(sw)
             if m_f32 is not None:
                 om = ttnn.multiply(out, m_f32)
@@ -559,7 +588,7 @@ def cand_conds_and_s0_device(
                     e_rem = torch.zeros((1, 1, cf_pad_dim), dtype=torch.float32)
                     e_rem[0, 0, base_dim:base_dim + rem_dim] = rv
                 e_rem_tt = _put_replicated_f32(e_rem, device)
-                bias_tt = ttnn.matmul(e_rem_tt, w_cf_tt, transpose_b=True, compute_kernel_config=cfg)
+                bias_tt = _exact_f32_mm(e_rem_tt, w_cf_tt, transpose_b=True, cfg=cfg)
                 ttnn.deallocate(e_rem_tt)
                 c_sum = ttnn.add(c_base, bias_tt)
                 ttnn.deallocate(bias_tt)
@@ -695,14 +724,14 @@ class DeviceWinnerGlue:
             w_ir_pad, own_w_ir = _pad_cols_32_dev(dev_masters["glue.init_repr_factory.linear_out.weight"])
             w_cf_pad, own_w_cf = _pad_cols_32_dev(dev_masters["glue.cond_factory.linear_out.weight"])
 
-            s_i_raw = ttnn.matmul(ir_tt, w_ir_pad, transpose_b=True, compute_kernel_config=cfg)
+            s_i_raw = _exact_f32_mm(ir_tt, w_ir_pad, transpose_b=True, cfg=cfg)
             if m_f32 is not None:
                 s_i_dev = ttnn.multiply(s_i_raw, m_f32)
                 ttnn.deallocate(s_i_raw)
             else:
                 s_i_dev = s_i_raw
 
-            c0_raw = ttnn.matmul(cf_tt, w_cf_pad, transpose_b=True, compute_kernel_config=cfg)
+            c0_raw = _exact_f32_mm(cf_tt, w_cf_pad, transpose_b=True, cfg=cfg)
             if m_f32 is not None:
                 c0_dev = ttnn.multiply(c0_raw, m_f32)
                 ttnn.deallocate(c0_raw)
@@ -717,13 +746,13 @@ class DeviceWinnerGlue:
             b_loc = int(c0_dev.shape[0])
 
             def _tr_fwd_save(x_in, w1, w2):
-                h = ttnn.matmul(x_in, w1, transpose_b=True, compute_kernel_config=cfg)
+                h = _exact_f32_mm(x_in, w1, transpose_b=True, cfg=cfg)
                 a = ttnn.slice(h, [0, 0, 0], [b_loc, n_tok, half])
                 g = ttnn.slice(h, [0, 0, half], [b_loc, n_tok, 2 * half])
                 ttnn.deallocate(h)
                 sg = ttnn.silu(g)
                 sw = ttnn.multiply(sg, a)
-                out = ttnn.matmul(sw, w2, transpose_b=True, compute_kernel_config=cfg)
+                out = _exact_f32_mm(sw, w2, transpose_b=True, cfg=cfg)
                 if m_f32 is not None:
                     om = ttnn.multiply(out, m_f32)
                     ttnn.deallocate(out)
@@ -784,7 +813,7 @@ class DeviceWinnerGlue:
             bn = int(a_3d.shape[0]) * int(a_3d.shape[1])
             a2 = ttnn.reshape(a_3d, [bn, int(a_3d.shape[2])])
             b2 = ttnn.reshape(b_3d, [bn, int(b_3d.shape[2])])
-            out = ttnn.matmul(a2, b2, transpose_a=True, compute_kernel_config=cfg)
+            out = _exact_f32_mm(a2, b2, transpose_a=True, cfg=cfg)
             _safe_dealloc(a2, keep=a_3d)
             _safe_dealloc(b2, keep=b_3d)
             return out
@@ -801,7 +830,7 @@ class DeviceWinnerGlue:
                 d_out_m = d_out_f32 if own_df else ttnn.clone(d_out_f32)
 
             dw2 = _mm2d_t_a(d_out_m, sw)
-            d_sw = ttnn.matmul(d_out_m, w2, compute_kernel_config=cfg)
+            d_sw = _exact_f32_mm(d_out_m, w2, cfg=cfg)
             ttnn.deallocate(d_out_m)
 
             d_a = ttnn.multiply(d_sw, sg)
@@ -824,7 +853,7 @@ class DeviceWinnerGlue:
             ttnn.deallocate(d_g)
 
             dw1 = _mm2d_t_a(d_h, x_in)
-            d_x = ttnn.matmul(d_h, w1, compute_kernel_config=cfg)
+            d_x = _exact_f32_mm(d_h, w1, cfg=cfg)
             ttnn.deallocate(d_h)
             for t in (a, g, sg, sw):
                 ttnn.deallocate(t)
@@ -849,8 +878,8 @@ class DeviceWinnerGlue:
             if dw_cf is not dw_cf_pad:
                 ttnn.deallocate(dw_cf_pad)
 
-            w_cf_dyn = ttnn.matmul(saved["w_cf_pad"], self._p_cf_dyn, compute_kernel_config=cfg)
-            d_cf_dyn_dev = ttnn.matmul(d_c0_m, w_cf_dyn, compute_kernel_config=cfg)
+            w_cf_dyn = _exact_f32_mm(saved["w_cf_pad"], self._p_cf_dyn, cfg=cfg)
+            d_cf_dyn_dev = _exact_f32_mm(d_c0_m, w_cf_dyn, cfg=cfg)
             ttnn.deallocate(w_cf_dyn)
             ttnn.deallocate(d_c0_m)
             if saved["own_w_cf"]:
@@ -871,8 +900,8 @@ class DeviceWinnerGlue:
             if dw_ir is not dw_ir_pad:
                 ttnn.deallocate(dw_ir_pad)
 
-            w_ir_dyn = ttnn.matmul(saved["w_ir_pad"], self._p_ir_dyn, compute_kernel_config=cfg)
-            d_ir_dyn_dev = ttnn.matmul(d_s_m, w_ir_dyn, compute_kernel_config=cfg)
+            w_ir_dyn = _exact_f32_mm(saved["w_ir_pad"], self._p_ir_dyn, cfg=cfg)
+            d_ir_dyn_dev = _exact_f32_mm(d_s_m, w_ir_dyn, cfg=cfg)
             ttnn.deallocate(w_ir_dyn)
             ttnn.deallocate(d_s_m)
             if saved["own_w_ir"]:

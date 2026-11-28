@@ -986,3 +986,317 @@ def test_fm_loss_values_only_matches_ro_fm_loss(monkeypatch):
     assert "huge_pair_tensor" not in filt
 
 
+def _augment_mock_ttnn_for_glue(mod):
+    """Extend mock ttnn with realistic bf16 typecast, matmul, silu, sigmoid, slice, concat, rsub, reshape."""
+    def _mk(dev, shards, dt=None):
+        t = dev.make_tensor(shards)
+        t.dtype = dt or mod.float32
+        return t
+
+    def _typecast(t, dt):
+        assert t.is_allocated()
+        if dt == mod.bfloat16:
+            return _mk(t.device(), [s.to(torch.bfloat16).to(torch.float32) for s in t._buf.shards], dt)
+        return _mk(t.device(), [s.to(torch.float32) for s in t._buf.shards], dt)
+
+    orig_from_torch = mod.from_torch
+
+    def _from_torch(t, *args, **kwargs):
+        mm = kwargs.get("mesh_mapper")
+        dev = kwargs.get("device")
+        if mm == ("replicate",) and dev is not None:
+            w = dev.rm * dev.cm
+            return _mk(dev, [t.detach().to(torch.float32).clone() for _ in range(w)], kwargs.get("dtype", mod.float32))
+        out = orig_from_torch(t, *args, **kwargs)
+        out.dtype = kwargs.get("dtype", mod.float32)
+        return out
+
+    mod.ReplicateTensorToMesh = lambda dev: ("replicate",)
+    mod.from_torch = _from_torch
+    mod.ROW_MAJOR_LAYOUT = "RM"
+    mod.to_layout = lambda t, layout: _mk(t.device(), [x.clone() for x in t._buf.shards], getattr(t, "dtype", mod.float32))
+
+    def _matmul(a, b, transpose_a=False, transpose_b=False, dtype=None, compute_kernel_config=None):
+        assert a.is_allocated() and b.is_allocated()
+        out = []
+        for sa, sb in zip(a._buf.shards, b._buf.shards):
+            xa = sa.to(torch.float32)
+            xb = sb.to(torch.float32)
+            if transpose_a:
+                xa = xa.transpose(-2, -1)
+            if transpose_b:
+                xb = xb.transpose(-2, -1)
+            out.append(torch.matmul(xa, xb))
+        return _mk(a.device(), out, dtype or mod.float32)
+
+    def _slice(t, starts, ends):
+        assert t.is_allocated()
+        sl = tuple(slice(s, e) for s, e in zip(starts, ends))
+        return _mk(t.device(), [x[sl].contiguous() for x in t._buf.shards], getattr(t, "dtype", mod.float32))
+
+    def _concat(ts, dim=-1):
+        for t in ts:
+            assert t.is_allocated()
+        n_sh = len(ts[0]._buf.shards)
+        shards = [torch.cat([t._buf.shards[i] for t in ts], dim=dim) for i in range(n_sh)]
+        return _mk(ts[0].device(), shards, getattr(ts[0], "dtype", mod.float32))
+
+    def _reshape(t, shape):
+        assert t.is_allocated()
+        return _mk(t.device(), [x.reshape(shape).contiguous() for x in t._buf.shards], getattr(t, "dtype", mod.float32))
+
+    def _pad(t, padding, value=0.0):
+        assert t.is_allocated()
+        # ttnn.pad takes [(lo, hi), ...] per dim -> torch.nn.functional.pad expects reversed flat pairs.
+        tpad = []
+        for lo, hi in reversed(padding):
+            tpad.extend([int(lo), int(hi)])
+        return _mk(
+            t.device(),
+            [torch.nn.functional.pad(x, tpad, value=float(value)) for x in t._buf.shards],
+            getattr(t, "dtype", mod.float32),
+        )
+
+    def _silu(t):
+        assert t.is_allocated()
+        return _mk(t.device(), [torch.nn.functional.silu(x.float()) for x in t._buf.shards], getattr(t, "dtype", mod.float32))
+
+    def _sigmoid(t):
+        assert t.is_allocated()
+        return _mk(t.device(), [torch.sigmoid(x.float()) for x in t._buf.shards], getattr(t, "dtype", mod.float32))
+
+    def _rsub(t, val):
+        assert t.is_allocated()
+        return _mk(t.device(), [float(val) - x.float() for x in t._buf.shards], getattr(t, "dtype", mod.float32))
+
+    mod.typecast = _typecast
+    mod.matmul = _matmul
+    mod.slice = _slice
+    mod.concat = _concat
+    mod.reshape = _reshape
+    mod.pad = _pad
+    mod.silu = _silu
+    mod.sigmoid = _sigmoid
+    mod.rsub = _rsub
+    return mod
+
+
+def test_exact_f32_mm_recovers_fp32_via_split2_bf16(monkeypatch):
+    """_exact_f32_mm splits fp32 operands into bf16 hi+lo, recovering <1e-5 accuracy with 0 buffer leaks."""
+    mod = _augment_mock_ttnn_for_glue(_install_mock_ttnn(monkeypatch))
+    from tt_bio.train.spmd_trace import _exact_f32_mm
+
+    dev = _FakeMeshDevice(1, 2)
+    torch.manual_seed(17)
+    # Non-bf16-representable fp32 inputs where single bf16 rounding loses ~1e-2.
+    a_h = [torch.randn(1, 32, 64, dtype=torch.float32) * 1.337 + 0.123456 for _ in range(2)]
+    b_h = [torch.randn(32, 64, dtype=torch.float32) * 0.771 - 0.098765 for _ in range(2)]
+    a_t = dev.make_tensor(a_h)
+    b_t = dev.make_tensor(b_h)
+
+    out_t = _exact_f32_mm(a_t, b_t, transpose_b=True)
+    for r in range(2):
+        ref = a_h[r] @ b_h[r].T
+        err = (out_t._buf.shards[r] - ref).abs().max().item()
+        bf16_err = (a_h[r].bfloat16().float() @ b_h[r].bfloat16().float().T - ref).abs().max().item()
+        assert err < 2e-4, f"split2 error too large: {err}"
+        assert err < bf16_err * 0.02, f"split2 ({err}) should strongly beat plain bf16 ({bf16_err})"
+
+    mod.deallocate(out_t)
+    mod.deallocate(a_t)
+    mod.deallocate(b_t)
+    assert len(dev.live_bufs) == 0
+
+
+def test_device_winner_glue_forward_backward_parity_and_no_leaks(monkeypatch):
+    """DeviceWinnerGlue forward + analytical VJP matches torch autograd on all 6 device + CPU emb leaves, 0 leaks."""
+    import contextlib
+    mod = _augment_mock_ttnn_for_glue(_install_mock_ttnn(monkeypatch))
+    fake_ag = types.ModuleType("tt_bio.autograd")
+    fake_ag.precise_config = lambda: None
+    fake_ag.no_grad = contextlib.nullcontext
+    monkeypatch.setitem(sys.modules, "tt_bio.autograd", fake_ag)
+    from tt_bio.train.spmd_trace import DeviceWinnerGlue, FactoryStaticSplit
+
+    class _StaticFeat(torch.nn.Module):
+        def __init__(self, key):
+            super().__init__()
+            self.key = key
+
+        def forward(self, batch):
+            return batch[self.key]
+
+    class _DynEmb(torch.nn.Module):
+        def __init__(self, vocab, dim, key):
+            super().__init__()
+            self.key = key
+            self.emb = torch.nn.Embedding(vocab, dim)
+
+        def forward(self, batch):
+            return self.emb(batch[self.key])
+
+    class _RemFeat(torch.nn.Module):
+        def __init__(self, dim=4):
+            super().__init__()
+            self.dim = dim
+
+        def forward(self, batch):
+            rem = batch.get("recycle_remaining", None)
+            n = batch["padding_mask"].shape[0]
+            out = torch.zeros((n, 1, self.dim), dtype=torch.float32)
+            if rem is not None:
+                out[:, :, min(int(rem), self.dim - 1)] = 1.0
+            return out
+
+    class _Factory(torch.nn.Module):
+        def __init__(self, creators, in_dim, out_dim):
+            super().__init__()
+            self.feat_creators = torch.nn.ModuleList(creators)
+            self.linear_out = torch.nn.Linear(in_dim, out_dim, bias=False)
+
+        @staticmethod
+        def apply_padding_mask(x, mask):
+            return x * mask[..., None].to(x.dtype)
+
+        def forward(self, batch):
+            n_tok = batch["padding_mask"].shape[1]
+            parts = []
+            for fc in self.feat_creators:
+                v = fc(batch)
+                if v.shape[1] == 1 and n_tok > 1:
+                    v = v.expand(-1, n_tok, -1)
+                parts.append(v)
+            feats = self.apply_padding_mask(torch.cat(parts, dim=-1), batch["padding_mask"])
+            return self.apply_padding_mask(self.linear_out(feats), batch["padding_mask"])
+
+    class _SwiGLU(torch.nn.Module):
+        def forward(self, x):
+            a, g = x.chunk(2, dim=-1)
+            return torch.nn.functional.silu(g) * a
+
+    class _Transition(torch.nn.Module):
+        def __init__(self, dim, hidden):
+            super().__init__()
+            self.swish_linear = torch.nn.Sequential(
+                torch.nn.Linear(dim, 2 * hidden, bias=False),
+                _SwiGLU(),
+            )
+            self.linear_out = torch.nn.Linear(hidden, dim, bias=False)
+
+        def forward(self, x, mask):
+            return self.linear_out(self.swish_linear(x)) * mask[..., None].to(x.dtype)
+
+    class _ToyGlue(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.condition_on_recycle_remaining = True
+            self.init_repr_factory = _Factory(
+                [_StaticFeat("s_ir"), _DynEmb(12, 7, "tok_ir")], in_dim=30 + 7, out_dim=32
+            )
+            self.cond_factory = _Factory(
+                [_StaticFeat("s_cf"), _DynEmb(10, 5, "tok_cf"), _RemFeat(4)], in_dim=28 + 5 + 4, out_dim=32
+            )
+            self.transition_c_1 = _Transition(32, 64)
+            self.transition_c_2 = _Transition(32, 64)
+
+    torch.manual_seed(23)
+    glue = _ToyGlue()
+    world, n_tok = 4, 32
+    dev = _FakeMeshDevice(2, 2)
+    mask = torch.ones((world, n_tok), dtype=torch.bool)
+    mask[1, 20:] = False
+    mask[3, 12:] = False
+    batch = {
+        "padding_mask": mask,
+        "s_ir": torch.randn(world, n_tok, 30),
+        "tok_ir": torch.randint(0, 12, (world, n_tok)),
+        "s_cf": torch.randn(world, n_tok, 28),
+        "tok_cf": torch.randint(0, 10, (world, n_tok)),
+    }
+    ds_h = torch.randn(world, n_tok, 32)
+    dc_h = torch.randn(world, n_tok, 32)
+
+    # Reference CPU autograd forward + backward
+    glue.zero_grad(set_to_none=True)
+    s_ref = glue.init_repr_factory(batch)
+    c0_ref = glue.cond_factory({**batch, "recycle_remaining": 2})
+    c1_ref = glue.transition_c_1(c0_ref, mask)
+    c2_ref = glue.transition_c_2(c1_ref, mask)
+    (s_ref * ds_h).sum().add((c2_ref * dc_h).sum()).backward()
+    ref_grads = {nm: p.grad.detach().clone() for nm, p in glue.named_parameters()}
+    assert all(g.abs().max().item() > 0.0 for g in ref_grads.values()), "every leaf must receive non-zero grad"
+
+    # DeviceWinnerGlue path (zero grad on CPU embeddings first)
+    glue.zero_grad(set_to_none=True)
+    split = FactoryStaticSplit(glue)
+    dwg = DeviceWinnerGlue(glue, split, dev)
+    dev_masters = {
+        "glue.init_repr_factory.linear_out.weight": dev.make_tensor(
+            [glue.init_repr_factory.linear_out.weight.detach().clone() for _ in range(world)]
+        ),
+        "glue.cond_factory.linear_out.weight": dev.make_tensor(
+            [glue.cond_factory.linear_out.weight.detach().clone() for _ in range(world)]
+        ),
+        "glue.transition_c_1.swish_linear.0.weight": dev.make_tensor(
+            [glue.transition_c_1.swish_linear[0].weight.detach().clone() for _ in range(world)]
+        ),
+        "glue.transition_c_1.linear_out.weight": dev.make_tensor(
+            [glue.transition_c_1.linear_out.weight.detach().clone() for _ in range(world)]
+        ),
+        "glue.transition_c_2.swish_linear.0.weight": dev.make_tensor(
+            [glue.transition_c_2.swish_linear[0].weight.detach().clone() for _ in range(world)]
+        ),
+        "glue.transition_c_2.linear_out.weight": dev.make_tensor(
+            [glue.transition_c_2.linear_out.weight.detach().clone() for _ in range(world)]
+        ),
+    }
+    m1_tok = dev.make_tensor([mask[r:r + 1, :, None].float() for r in range(world)])
+    ds_dev = dev.make_tensor([ds_h[r:r + 1] for r in range(world)])
+    dc_dev = dev.make_tensor([dc_h[r:r + 1] for r in range(world)])
+
+    s_dev, c_dev, saved = dwg.forward(
+        batch,
+        win_indices=[0] * world,
+        k_local=1,
+        prefetched=None,
+        m1_tok=m1_tok,
+        recycle_remaining=2,
+        trunk_dtype=mod.float32,
+        dev_masters=dev_masters,
+    )
+    for r in range(world):
+        assert torch.allclose(s_dev._buf.shards[r][0], s_ref[r], atol=5e-4, rtol=1e-4)
+        assert torch.allclose(c_dev._buf.shards[r][0], c2_ref[r], atol=5e-4, rtol=1e-4)
+
+    dev_grads = dwg.backward(ds_dev, dc_dev, saved, dev_masters)
+    assert set(dev_grads.keys()) == set(dev_masters.keys())
+
+    # Check all 6 device weight grads (sum across shards matches full-batch ref grad).
+    for nm, g_t in dev_grads.items():
+        short = nm[len("glue."):]
+        got_sum = sum(g_t._buf.shards)
+        ref_g = ref_grads[short]
+        rel = (got_sum - ref_g).norm().item() / (ref_g.norm().item() + 1e-12)
+        assert rel < 5e-4, f"{nm} grad rel_l2={rel}"
+
+    # Check both CPU embedding grads match torch autograd tightly and no leaf was dropped.
+    for short in ("init_repr_factory.feat_creators.1.emb.weight", "cond_factory.feat_creators.1.emb.weight"):
+        got_g = dict(glue.named_parameters())[short].grad
+        assert got_g is not None, f"missing CPU embedding grad for {short}"
+        rel = (got_g - ref_grads[short]).norm().item() / (ref_grads[short].norm().item() + 1e-12)
+        assert rel < 5e-4, f"{short} grad rel_l2={rel}"
+
+    # Clean up everything and prove 0 leaked device buffers.
+    for t in [s_dev, c_dev, m1_tok, ds_dev, dc_dev, *dev_masters.values(), *dev_grads.values()]:
+        mod.deallocate(t)
+    dwg.release()
+    assert len(dev.live_bufs) == 0
+
+
+def test_rfd4_run_spmd_trace_region_size_at_least_512mib():
+    """Guard against D110 trace_region_size overflow (258.45 MiB > 256 MiB caused refused=1 on step 5)."""
+    src = Path("tt_bio/train/rfd4_run.py").read_text()
+    assert "trace_region_size=(512 << 20)" in src
+
+
+

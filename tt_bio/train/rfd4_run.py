@@ -266,7 +266,7 @@ def main(argv=None, on_step=None):
                 spmd_mesh_shape,
                 full_shape=full_mesh_shape,
                 eth_dispatch=eth_opt,
-                trace_region_size=(256 << 20) if use_spmd_trace else 0,
+                trace_region_size=(512 << 20) if use_spmd_trace else 0,
             )
         )
         world = mesh_world(dev)
