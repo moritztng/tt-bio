@@ -31,6 +31,41 @@ def upload(device, x: torch.Tensor):
 
 
 _ZEROS: dict = {}
+_ONEHOT: dict = {}
+
+
+def _onehot_row(device, width: int, at: int):
+    """A cached ``[1, width]`` fp32 row that is 1 in column *at*; read, never written."""
+    import ttnn
+    key = (id(device), width, at)
+    if key not in _ONEHOT:
+        t = torch.zeros(1, width)
+        t[0, at] = 1.0
+        _ONEHOT[key] = ttnn.from_torch(t, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT,
+                                       device=device)
+    return _ONEHOT[key]
+
+
+def cat_cols(cols):
+    """Single-column device tensors side by side, exactly and at any row count.
+
+    Not `ttnn.concat(..., dim=1)`. Measured on a card (ttnn 0.68, fp32 tile, chip 21,
+    `anx-glx:~/dfd/catprobe2.log`): a column concat whose parts are not all 16 wide comes back
+    rounded to about bf16 -- 8.4e-4 relative on nine unit-normal columns -- and its circular
+    buffers grow with the row count, so at 286,624 rows it throws instead. Broadcasting each
+    column against a one-hot row and summing is exact (0.0), has no row limit, and at 286,624
+    rows takes 11.9 ms where the concat does not run at all.
+
+    One column in, one column out: with a single part there is nothing to place.
+    """
+    import ttnn
+    if len(cols) == 1:
+        return cols[0]
+    width, dev, out = len(cols), cols[0].device(), None
+    for at, c in enumerate(cols):
+        placed = ttnn.multiply(c, _onehot_row(dev, width, at))
+        out = placed if out is None else ttnn.add(out, placed)
+    return out
 
 
 def zeros(device, shape, layout=None):
@@ -81,7 +116,7 @@ def harmonics(x, y, z, ls=(0, 1, 2)):
                                    0.5 * s15)]
         else:
             raise ValueError(f"harmonics are implemented to l=2, asked for {l}")
-    return ttnn.concat(cols, dim=1)
+    return cat_cols(cols)
 
 
 class Smearing:
