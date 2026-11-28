@@ -27,6 +27,9 @@ ap.add_argument("--edge-tp", default="tile", choices=["gemm", "tile"])
 ap.add_argument("--grid-ratio", type=float, default=None,
                 help="row grid for the confidence shapes (tt_bio.diffdock.graph.GRID_RATIO); "
                      "1.0 is the pad-to-32 the port used before the grid, the A/B's control")
+ap.add_argument("--samples", type=int, default=None,
+                help="poses per complex (default: the recipe's 10). Fewer is a cheaper A/B "
+                     "instrument, not a perf number: the ranking pass is per pose")
 ap.add_argument("--checkpoints", default=None)
 ap.add_argument("--out", required=True)
 ap.add_argument("--profile", default=None,
@@ -43,6 +46,8 @@ if args.grid_ratio is not None:
 by_name = {j.name: j for j in read_csv_jobs(Path(args.csv))}
 jobs = [by_name[n] for n in args.names.split(",")]
 kw = {"device": "tt", "edge_tp": args.edge_tp}
+if args.samples is not None:
+    kw["diffusion_samples"] = args.samples
 if args.checkpoints:
     kw["checkpoint"] = f"{args.checkpoints}/score_model"
     kw["confidence_checkpoint"] = f"{args.checkpoints}/confidence_model"
@@ -113,7 +118,7 @@ for p in range(args.passes):
         shutil.rmtree(d / job.name, ignore_errors=True)
         rows.append({"pass": p, **one(job, d)})
         print(json.dumps({k: v for k, v in rows[-1].items() if k != "steps_s"}), flush=True)
-        out.write_text(json.dumps({"edge_tp": args.edge_tp,
+        out.write_text(json.dumps({"edge_tp": args.edge_tp, "samples": options.diffusion_samples,
                                    "grid_ratio": dfd_graph.GRID_RATIO, "rows": rows}, indent=1))
 
 if args.profile:
