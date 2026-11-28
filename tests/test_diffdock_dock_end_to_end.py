@@ -290,17 +290,17 @@ def broken(monkeypatch, stubbed):
     return install
 
 
-def test_one_unusable_pose_is_ranked_last_and_the_rest_are_written(tmp_path, broken):
+def test_one_failed_sample_is_not_written_and_the_rest_are(tmp_path, broken):
     broken([1])
     job = DockJob(name="c", receptor_path=RECEPTOR, ligand=str(LIGAND))
     summary = run.dock([job], options(), tmp_path)
 
     assert summary["failed"] == []
+    assert summary["docked"][0]["failed_samples"] == 1
     rows = json.loads((tmp_path / "c" / "confidence.json").read_text())
-    assert len(rows) == 3 and [r["rank"] for r in rows] == [1, 2, 3]
-    # The frozen pose carries the confidence model's own answer for a pose it cannot use.
-    assert rows[-1]["confidence"] == pytest.approx(confidence_model.UNSCORABLE)
-    assert all(r["confidence"] > confidence_model.UNSCORABLE for r in rows[:-1])
+    assert len(rows) == 2 and [r["rank"] for r in rows] == [1, 2]
+    assert all(r["confidence"] > confidence_model.UNSCORABLE for r in rows)
+    assert len(list((tmp_path / "c").glob("rank*_confidence*.sdf"))) == 2
 
 
 def test_a_complex_whose_poses_all_fail_is_one_failures_row(tmp_path, broken):
@@ -311,7 +311,7 @@ def test_a_complex_whose_poses_all_fail_is_one_failures_row(tmp_path, broken):
 
     assert [name for name, _ in summary["failed"]] == ["c"]
     assert "PoseRolloutFailed" in summary["failed"][0][1]
-    assert "non-finite" in summary["failed"][0][1]
+    assert "c: all 3 samples failed" in summary["failed"][0][1]
     assert (tmp_path / "failures.csv").exists()
     # The other complex is untouched: one bad complex does not end a screen.
     assert [d["name"] for d in summary["docked"]] == ["d"]
@@ -321,7 +321,7 @@ def test_a_complex_whose_poses_all_fail_is_one_failures_row(tmp_path, broken):
 def test_a_single_complex_losing_every_pose_raises(tmp_path, broken):
     broken([0, 1, 2])
     job = DockJob(name="c", receptor_path=RECEPTOR, ligand=str(LIGAND))
-    with pytest.raises(run.PoseRolloutFailed, match="non-finite"):
+    with pytest.raises(run.PoseRolloutFailed, match="c: all 3 samples failed"):
         run.dock([job], options(), tmp_path)
 
 def test_dock_writes_a_heteroaromatic_ligand(tmp_path, stubbed):

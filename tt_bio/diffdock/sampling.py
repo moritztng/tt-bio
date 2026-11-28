@@ -108,6 +108,22 @@ class SigmaBounds:
         lo, hi = getattr(self, f"{kind}_sigma_min"), getattr(self, f"{kind}_sigma_max")
         return float(sigma * np.sqrt(2 * np.log(hi / lo)))
 
+    def score_limit(self, kind: str, sigma: float) -> float:
+        """The largest score one head can return at ``sigma`` and still be on the schedule.
+
+        A step's drift is ``g^2 dt score`` and ``g^2 = sigma^2 * 2 log(max/min)``, so it moves
+        the pose by ``2 log(max/min) dt * sigma * (score * sigma)``: ``score * sigma`` is how
+        many sigmas the network says the pose is from the data. The forward process puts a
+        pose a few sigmas out; upstream's own rollouts of the four complexes this was written
+        for peak at 3.6 (tr), 2.0 (rot) and 2.9 (tor). The limit is ``max/min`` sigmas, the
+        schedule's whole dynamic range: even at ``sigma_min`` that is a claim to be further
+        from the data than ``sigma_max``, the widest noise the schedule ever applies. That is
+        190, 52 and 100 for the three heads, and the overflow it exists for (a finite 1e8 to
+        1e18 on one call, `tests/test_diffdock_runaway.py`) is 1e5 times past it or more.
+        """
+        lo, hi = getattr(self, f"{kind}_sigma_min"), getattr(self, f"{kind}_sigma_max")
+        return float(hi / lo / sigma)
+
 
 @dataclass(frozen=True)
 class SamplingConfig:
@@ -479,9 +495,10 @@ class StepInput:
 class Rollout:
     """The result: ``poses [B, N, 3]``, and the trajectory when it was asked for.
 
-    ``failed`` is a ``[B]`` bool mask of poses that went non-finite during the rollout and
-    were frozen at their last finite coordinates. Such a pose is a result the caller must
-    not rank, not a reason to lose the complex: see :func:`sample`.
+    ``failed`` is a ``[B]`` bool mask of poses whose update was non-finite or off the
+    schedule at some step and that were frozen where they stood. Such a pose is not a pose
+    the model produced, so the caller must neither rank nor write it; it is also not a
+    reason to lose the complex: see :func:`sample`.
     """
 
     poses: Tensor
@@ -517,10 +534,11 @@ def sample(score_fn, lig_pos: Tensor, *, cfg: SamplingConfig, bounds: SigmaBound
     thing the rollout knows about the model.
 
     One pose going bad does not take the complex down. The scores are repaired by
-    :func:`guard_scores`, and if a pose still goes non-finite -- its update overflows, or the
-    model hands back a number no repair can scale -- that pose is frozen where it last was
-    and recorded in ``Rollout.failed`` for the caller to exclude from the ranking, while the
-    other poses carry on. All of this is a no-op, value for value, on a rollout whose numbers
+    :func:`guard_scores`, and if a pose still cannot be advanced -- its score is finite but
+    :func:`off_schedule`, its update overflows, or the model hands back a number no repair
+    can scale -- that pose is frozen where it last was for the rest of the rollout and
+    recorded in ``Rollout.failed`` for the caller to leave out, while the other poses carry
+    on. All of this is a no-op, value for value, on a rollout whose numbers
     stay finite: the freezing branch is not taken at all.
     """
     noise = Noise() if noise is None else noise
@@ -565,6 +583,10 @@ def sample(score_fn, lig_pos: Tensor, *, cfg: SamplingConfig, bounds: SigmaBound
             )
             tr_score, rot_score, tor_score = score_fn(step)[:3]
             tr_score, rot_score, tor_score = _repair_nans(tr_score, rot_score, tor_score)
+            runaway = off_schedule(
+                (tr_score, rot_score, tor_score if torsion else None),
+                [bounds.score_limit(k, s) for k, s in
+                 (("tr", tr_sigma), ("rot", rot_sigma), ("tor", tor_sigma))])
 
             tr_g, rot_g = bounds.g("tr", tr_sigma), bounds.g("rot", rot_sigma)
             tor_g = bounds.g("tor", tor_sigma) if torsion else None
@@ -592,7 +614,8 @@ def sample(score_fn, lig_pos: Tensor, *, cfg: SamplingConfig, bounds: SigmaBound
                 else:
                     tor_perturb = None
 
-            lig_pos, failed = _move(lig_pos, tr_perturb, rot_perturb, tor_perturb, failed,
+            lig_pos, failed = _move(lig_pos, tr_perturb, rot_perturb, tor_perturb,
+                                    failed | runaway,
                                     edge_index=edge_index, mask_rotate=mask_rotate)
             if trajectory:
                 traj.append(lig_pos.clone())
@@ -614,9 +637,14 @@ def _move(pos: Tensor, tr_perturb: Tensor, rot_perturb: Tensor, tor_perturb: Ten
     the SVD's input, by :func:`~tt_bio.diffdock.kabsch.finite_correlation`, and comes back as
     ``modify_conformer``'s second return value; it is frozen and recorded exactly like the
     rest (D-dfd-sampling-10).
+
+    *failed* comes in carrying this step's :func:`off_schedule` samples as well as every
+    earlier failure, and a failed sample never moves again: its update is zeroed here on
+    every later step, so the pose a caller sees for it is the last one it held in good
+    standing and no later score can bring it back into the ranking.
     """
     batch = pos.shape[0]
-    bad = _nonfinite_rows(pos, batch)
+    bad = failed | _nonfinite_rows(pos, batch)
     for perturb in (tr_perturb, rot_perturb, tor_perturb):
         if perturb is not None:
             bad = bad | _nonfinite_rows(perturb, batch)
@@ -673,6 +701,34 @@ def guard_scores(score: Tensor) -> tuple[Tensor, Tensor]:
     repaired = torch.where(finite, score, eps * sign)
     n_bad = (~torch.isfinite(score.reshape(score.shape[0], -1).sum(dim=-1))).sum()
     return repaired, n_bad
+
+
+def off_schedule(scores, limits) -> Tensor:
+    """``[B]`` bool: the samples whose score no pose on the schedule could have produced.
+
+    *scores* is the ``(tr, rot, tor)`` triple after :func:`guard_scores`, the torsion head
+    ``None`` or empty for a rigid ligand; *limits* the three :meth:`SigmaBounds.score_limit`
+    values for this step. This is the campaign's one runaway check, shared with the traced
+    driver (:func:`tt_bio.diffdock.loop.diffusion_step`).
+
+    The score network returns a finite 1e9 to 1e18 on one isolated call at an ordinary pose,
+    about one sample in ten on four of 428 PoseBusters complexes, and is back at O(0.1) on
+    the next call. Upstream's network returns the same number on the same input
+    (`tests/test_diffdock_overflow_parity.py`), so it is not clamped here either. Upstream
+    has no answer to it: its repair keys on ``isnan`` (``utils/sampling.py:124``), the update
+    goes into ``modify_conformer_batch`` as it is, the Kabsch SVD or the determinant assert
+    behind it raises (``utils/geometry.py:266-273``) and ``inference.py:301`` drops the whole
+    complex. Here the one sample is frozen and marked failed and the others carry on.
+
+    A comparison and a reduction, no host branch, so the traced program keeps its shapes; on
+    a rollout whose scores stay on the schedule it selects nothing and changes no value.
+    """
+    batch = scores[0].shape[0]
+    out = torch.zeros(batch, dtype=torch.bool, device=scores[0].device)
+    for score, limit in zip(scores, limits):
+        if score is not None and score.numel():
+            out = out | (score.reshape(batch, -1).abs() > limit).any(dim=1)
+    return out
 
 
 def _repair_nans(tr_score: Tensor, rot_score: Tensor, tor_score: Tensor):
