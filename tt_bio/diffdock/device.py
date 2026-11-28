@@ -32,6 +32,7 @@ from __future__ import annotations
 import torch
 from torch import Tensor
 
+from tt_bio.diffdock.conv import bucket
 from tt_bio.diffdock.tensor_product import FullyConnectedTensorProduct
 
 TILE = 32
@@ -518,7 +519,7 @@ class DeviceConvModule(torch.nn.Module):
         for lo, hi in zip(bounds, bounds[1:]):
             pos[lo] = at
             n = hi - lo
-            extra = pad32(n) - n
+            extra = bucket(n) - n
             cols.append(torch.cat([edge_index[:, lo:hi],
                                    torch.tensor([[n_p - 1], [n_p - 1]]).expand(2, extra)], 1))
             attrs.append(torch.nn.functional.pad(edge_attr[lo:hi].float(), (0, 0, 0, extra)))
@@ -566,7 +567,7 @@ class DeviceConvModule(torch.nn.Module):
         cols, attrs, shs, masks, lo = [], [], [], [], 0
         for a in groups:
             n = a.shape[0]
-            extra = pad32(n) - n
+            extra = bucket(n) - n
             ei = torch.cat([edge_index[:, lo:lo + n],
                             torch.tensor([[n_out_p - 1], [n_in_p - 1]]).expand(2, extra)], 1)
             cols.append(ei)
@@ -727,7 +728,7 @@ class DeviceConfidence:
         if E == 0:
             return None
         a, b = self.ends[es]
-        extra = pad32(E) - E
+        extra = bucket(E) - E
         pad = lambda t: torch.nn.functional.pad(t.float(), (0, 0, 0, extra))
         return dict(
             ei=torch.cat([ei, torch.tensor([[rows[a] - 1], [rows[b] - 1]]).expand(2, extra)], 1),

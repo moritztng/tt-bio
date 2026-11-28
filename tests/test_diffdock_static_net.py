@@ -96,3 +96,33 @@ def test_the_shape_does_not_move_when_the_poses_do():
             out = static_forward(m, c, flat * scale, T_TR, *SIGMAS, crop_cutoff=40.0)
         shapes.append(tuple(t.shape for t in out))
     assert len(set(shapes)) == 1, shapes
+
+
+def test_the_row_grid_is_tile_aligned_geometric_and_exact_when_small():
+    from tt_bio.diffdock.conv import bucket
+    assert all(bucket(n) == -(-n // 32) * 32 for n in range(1, 1025))
+    sizes = sorted({bucket(n) for n in range(1, 1_500_000, 5)})
+    assert len(sizes) < 210, "the grid has to be small enough to compile once"
+    for n in range(1025, 400_000, 37):
+        b = bucket(n)
+        assert b % 32 == 0 and n <= b <= n * 1.0625 + 32 and bucket(b) == b
+
+
+def test_rows_padded_to_the_grid_contribute_nothing():
+    """A complex whose edge sets sit between grid sizes: the cross set is padded by whole tiles
+    of dead edges, and the float64 result is still the per-pose forward's."""
+    m, lig, rec_x, rec_pos, rec_ei, poses, c, flat = _case(5, n_lig=11, n_rec=21)
+    cross = 5 * 11 * 21
+    assert c.sg.cross_edge_index.shape[1] - cross >= 32, "the case has to exercise the grid"
+    with torch.no_grad():
+        got = static_forward(m, c, flat, T_TR, *SIGMAS)
+    for g, r in zip(got, _per_pose(m, lig, rec_x, rec_pos, rec_ei, poses)):
+        _close(g, r)
+
+
+def test_ligands_in_one_grid_cell_share_every_row_axis():
+    from tt_bio.diffdock.graph import StaticGraphs
+    bonds = torch.zeros(2, 60, dtype=torch.long)
+    shape = lambda sg: (sg.n_lig_padded, sg.lig_edge_index.shape[1], sg.cross_edge_index.shape[1])
+    a, b = (StaticGraphs.build(n, 330, bonds, 4, 10) for n in (30, 31))
+    assert shape(a)[2] == shape(b)[2], "30 and 31 atoms on 330 residues share the cross axis"

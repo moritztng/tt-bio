@@ -127,8 +127,16 @@ class IrrepBatchNorm(nn.Module):
 
 
 def bucket(n: int, multiple: int = 32) -> int:
-    """The next multiple of *multiple* at or above *n*. PLAYBOOKS 2b: tile-aligned axes."""
-    return ((n + multiple - 1) // multiple) * multiple
+    """Padded length of an *n*-row axis: a whole number of tiles, on a geometric grid.
+
+    A matmul kernel is compiled per row-tile count, so an axis padded only to the next tile
+    brings new kernels with every ligand. The grid keeps the top five bits of the tile count:
+    every count up to 32 tiles is on it, above that the step is 1/32 to 1/16 of the length.
+    Pad rows are dead edges or pad nodes (mask 0), so the grid changes no result.
+    """
+    tiles = -(-n // multiple)
+    shift = max(tiles.bit_length() - 5, 0)
+    return (-(-tiles >> shift) << shift) * multiple
 
 
 def pad_nodes(x: Tensor, n_padded: int) -> Tensor:
