@@ -87,9 +87,13 @@ In a screen one bad ligand does not stop the run. The failures land in `failures
 the error for each, and `--limit_failures` (default 5) decides when to give up. A single
 complex on the command line fails immediately instead, with the reason.
 
-A pose whose coordinates go non-finite during sampling is kept at its last finite position,
-logged with a warning and given a confidence of -1000, so it ranks last instead of above a
-real pose. The complex itself only fails if every one of its poses does.
+Occasionally one sample of a complex cannot be advanced: the score network returns a
+non-finite number, or a finite one far beyond anything the noise schedule can produce. That
+sample is stopped where it stood and is not written, so a complex can come back with fewer
+than `--samples_per_complex` poses. The ranks stay contiguous. `tt-bio dock` says so on
+stderr and reports the count per complex under `failed_samples` in the JSON it prints. The
+other samples are unaffected, bit for bit. If every sample of a complex fails, the complex
+fails by name and no pose is written for it.
 
 ## Several cards and the fleet
 

@@ -244,15 +244,16 @@ def test_the_guard_counts_nothing_bad_in_an_empty_head():
 # the real thing: the heads 7ZCC_OGA's own rollout produced (D-dfd-sampling-11)
 # ---------------------------------------------------------------------------
 
-def test_the_dumped_7zcc_heads_run_through_unclamped_and_row_local():
+def test_the_dumped_7zcc_heads_freeze_one_sample_and_are_row_local():
     """Driven off the dump of the step that killed the complex, not off a synthetic 1e30.
 
     `tests/fixtures/diffdock/7ZCC_OGA_blowup.npz` carries the ligand and the tr/rot upstream's
     own network returns at step 17 of this complex (tr 2.449e+15, rot 4.379e+16; the port
     tracks it to PCC 0.999999997, `tests/test_diffdock_overflow_parity.py`). Those numbers are
-    not a bug and must not be clamped, so what this pins is the other half: the real heads go
-    through the rollout without raising, the sample they carry really does end ~1e18 A out
-    rather than being pulled back, and no other sample's arithmetic moves by a bit.
+    not a bug in the network and are not clamped there. What this pins is the sampler's half:
+    the real heads go through the rollout without raising, the sample they carry is frozen
+    where it stood and marked failed instead of travelling ~1e18 A (`sampling.off_schedule`),
+    and no other sample's arithmetic moves by a bit.
 
     The covariance overflow itself needs the atoms *spread* that far, not merely translated --
     `modify_conformer` centres before Kabsch, so a rigid 1e18 A translation cancels. The
@@ -293,7 +294,8 @@ def test_the_dumped_7zcc_heads_run_through_unclamped_and_row_local():
     clean = run(lambda step: quiet)
 
     assert torch.isfinite(out.poses).all(), "the real heads must not end in a non-finite pose"
-    assert out.poses[hot].abs().max() > 1e15, "the head was clamped: the sample never travelled"
+    assert out.failed.tolist() == [row == hot for row in range(batch)]
+    assert torch.equal(out.poses[hot], lig_pos[hot]), "the failed sample moved"
     for row in range(batch):
         if row == hot:
             continue
