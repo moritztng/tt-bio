@@ -1,0 +1,4 @@
+qb2 CPU, load 21, 178,448,304 params, 3 steps
+numpy s/step 1.653 1.725 1.877
+torch (8 threads, in place) 1.300 1.230 1.195
+theta bit-identical 0.995351718 (max rel 6.0e-8), m and v 1.0

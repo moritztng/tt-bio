@@ -1,0 +1,27 @@
+== ON
+LOSS-PARITY: FAIL rel=1.157e-01 tol=1.0e-02 n=9 dtype=bfloat16 worst=batch 3 term 'bb_ca' floor=up_bf16x1.5 margin=2.22@batch 8 term 'insertion_prediction'
+  batch 8 term 'insertion_prediction': ours 0.004289005813230371 ref 0.004195714835077524 rel 2.223e-02 > 1.0e-02
+  provenance: {"dropped": [], "pairs": [{"batch": "batch00.npz", "src": "/home/ttuser/r4t/perf/l2t/ON_batch00.log:step1:batch00.npz", "upstream_winner": 0, "winner": 0}, {"batch": "batch01.npz", "src": "/home/ttuser/r4t/perf/l2t/ON_batch01.log:step1:batch01.npz", "upstream_winner": 2, "winner": 2}, {"batch": "batch02.npz", "src": "/home/ttuser/r4t/perf/l2t/ON_batch02.log:step1:batch02.npz", "upstr
+== OFF
+LOSS-PARITY: FAIL rel=1.157e-01 tol=1.0e-02 n=9 dtype=bfloat16 worst=batch 3 term 'bb_ca' floor=up_bf16x1.5 margin=2.22@batch 8 term 'insertion_prediction'
+  batch 8 term 'insertion_prediction': ours 0.004289005813230371 ref 0.004195714835077524 rel 2.223e-02 > 1.0e-02
+  provenance: {"dropped": [], "pairs": [{"batch": "batch00.npz", "src": "/home/ttuser/r4t/perf/l2t/OFF_batch00.log:step1:batch00.npz", "upstream_winner": 0, "winner": 0}, {"batch": "batch01.npz", "src": "/home/ttuser/r4t/perf/l2t/OFF_batch01.log:step1:batch01.npz", "upstream_winner": 2, "winner": 2}, {"batch": "batch02.npz", "src": "/home/ttuser/r4t/perf/l2t/OFF_batch02.log:step1:batch02.npz", "up
+== drift ON vs OFF
+batch00 up 46.504228 |card-up| 1.121e-03 |host-up| 1.121e-03 ratio 1.00 PASS digest card 0beba56b0eed35c0 host fb06ed76d95e4996
+batch01 up 34.908563 |card-up| 1.164e-02 |host-up| 1.164e-02 ratio 1.00 PASS digest card 9929e278f518e26d host 53aabf809aab2549
+batch02 up 32.587535 |card-up| 2.039e-03 |host-up| 2.039e-03 ratio 1.00 PASS digest card 67fdaafb8f2de619 host b5feb4ba96f33554
+batch03 up 25.496023 |card-up| 3.969e-03 |host-up| 3.969e-03 ratio 1.00 PASS digest card 5149e6884924b71b host 9504c6e283cef642
+batch04 up 43.924318 |card-up| 1.124e-02 |host-up| 1.124e-02 ratio 1.00 PASS digest card ed9bcba9ce30b183 host 11a84a76123017de
+batch05 up 167.032712 |card-up| 1.214e-01 |host-up| 1.214e-01 ratio 1.00 PASS digest card 65c23f045d375069 host 5cd36b7f841f8a29
+batch06 up 49.774454 |card-up| 3.815e-03 |host-up| 3.815e-03 ratio 1.00 PASS digest card 0eab95ed1f0ff0f3 host 74685d0939640b71
+batch07 up 46.272214 |card-up| 1.973e-02 |host-up| 1.973e-02 ratio 1.00 PASS digest card 0c58f54a63e44c47 host 280c9d47c0ca8b1e
+batch08 up 56.941564 |card-up| 3.423e-02 |host-up| 3.423e-02 ratio 1.00 PASS digest card 37776a9bd04c6bdc host 2998a591f8471d56
+R2-DRIFT: PASS
+A 1 ['fb06ed76', '7b26cd3e', 'd184d041'] aiclk 1318 1350 {}
+A 2 ['fb06ed76', '7b26cd3e', 'd184d041'] aiclk 1300 1350 {}
+A 3 ['fb06ed76', '7b26cd3e', 'd184d041'] aiclk 1312 1350 {}
+A medians {'step_s': 6.192, 'fwd_s': 2.978, 'bwd_s': 1.198, 'fold_bwd_s': 0.494, 'opt_s': 1.033, 'rebuild_s': 0.278} n 6
+B 1 ['0beba56b', '2863cd20', '69e0176f'] aiclk 1300 1350 {'served: weights': 105, 'served weights': 105, 'declined: l1': 21}
+B 2 ['0beba56b', '2863cd20', '69e0176f'] aiclk 1300 1350 {'served: weights': 105, 'served weights': 105, 'declined: l1': 21}
+B 3 ['0beba56b', '2863cd20', '69e0176f'] aiclk 1306 1350 {'served: weights': 105, 'served weights': 105, 'declined: l1': 21}
+B medians {'step_s': 6.378, 'fwd_s': 2.7, 'bwd_s': 1.146, 'fold_bwd_s': 0.756, 'opt_s': 1.405, 'rebuild_s': 0.245} n 6

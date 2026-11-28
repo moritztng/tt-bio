@@ -71,3 +71,10 @@ def test_the_fan_ins_dtypes_are_served(gate, da, db):
 def test_every_refusal_is_named(gate, a, b, reason):
     assert not gate.widen_eligible(a, b)
     assert dict(gate.WIDEN_REACH) == {"declined: " + reason: 1}
+
+
+def test_taped_autograd_tensor_is_declined(gate):
+    from tt_bio import autograd as ag
+    t = ag.Tensor(FakeTensor([4, 64]), requires_grad=True)
+    assert not gate.widen_eligible(t, FakeTensor([4, 64]))
+    assert dict(gate.WIDEN_REACH) == {"declined: taped": 1}

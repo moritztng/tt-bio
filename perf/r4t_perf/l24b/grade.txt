@@ -1,0 +1,150 @@
+=== off vs off2
+fwd 0.006251629596473487 0.006251629596473487 digest b5f9cbdf72dddd58 b5f9cbdf72dddd58
+pu.layer_norm_in.weight                       off 2.117e-02 on 2.117e-02 ratio 1.000 cos 0.9997818 0.9997818 ok
+pu.layer_norm_in.bias                         off 2.273e-02 on 2.273e-02 ratio 1.000 cos 0.9997416 0.9997416 ok
+pu.linear_x.weight                            off 2.101e-02 on 2.101e-02 ratio 1.000 cos 0.9997821 0.9997821 ok
+pu.tri_mult_out.linear_a_p.weight             off 2.148e-02 on 2.148e-02 ratio 1.000 cos 0.9997696 0.9997696 ok
+pu.tri_mult_out.linear_a_g.weight             off 2.163e-02 on 2.163e-02 ratio 1.000 cos 0.9997663 0.9997663 ok
+pu.tri_mult_out.linear_b_p.weight             off 2.110e-02 on 2.110e-02 ratio 1.000 cos 0.9997778 0.9997778 ok
+pu.tri_mult_out.linear_b_g.weight             off 2.157e-02 on 2.157e-02 ratio 1.000 cos 0.9997676 0.9997676 ok
+pu.tri_mult_out.linear_g.weight               off 2.151e-02 on 2.151e-02 ratio 1.000 cos 0.9997693 0.9997693 ok
+pu.tri_mult_out.linear_z.weight               off 2.110e-02 on 2.110e-02 ratio 1.000 cos 0.9997782 0.9997782 ok
+pu.tri_mult_out.layer_norm_in.weight          off 2.250e-02 on 2.250e-02 ratio 1.000 cos 0.9997468 0.9997468 ok
+pu.tri_mult_out.layer_norm_out.weight         off 2.127e-02 on 2.127e-02 ratio 1.000 cos 0.9997738 0.9997738 ok
+pu.tri_mult_in.linear_a_p.weight              off 2.135e-02 on 2.135e-02 ratio 1.000 cos 0.9997722 0.9997722 ok
+pu.tri_mult_in.linear_a_g.weight              off 2.215e-02 on 2.215e-02 ratio 1.000 cos 0.9997550 0.9997550 ok
+pu.tri_mult_in.linear_b_p.weight              off 2.147e-02 on 2.147e-02 ratio 1.000 cos 0.9997697 0.9997697 ok
+pu.tri_mult_in.linear_b_g.weight              off 2.205e-02 on 2.205e-02 ratio 1.000 cos 0.9997570 0.9997570 ok
+pu.tri_mult_in.linear_g.weight                off 2.184e-02 on 2.184e-02 ratio 1.000 cos 0.9997622 0.9997622 ok
+pu.tri_mult_in.linear_z.weight                off 2.114e-02 on 2.114e-02 ratio 1.000 cos 0.9997771 0.9997771 ok
+pu.tri_mult_in.layer_norm_in.weight           off 2.095e-02 on 2.095e-02 ratio 1.000 cos 0.9997805 0.9997805 ok
+pu.tri_mult_in.layer_norm_out.weight          off 2.180e-02 on 2.180e-02 ratio 1.000 cos 0.9997628 0.9997628 ok
+pu.transition_out.layer_norm.weight           off 6.116e-02 on 6.116e-02 ratio 1.000 cos 0.9981281 0.9981281 ok
+pu.transition_out.layer_norm.bias             off 5.768e-02 on 5.768e-02 ratio 1.000 cos 0.9983427 0.9983427 ok
+pu.transition_out.linear_1.weight             off 6.162e-02 on 6.162e-02 ratio 1.000 cos 0.9980998 0.9980998 ok
+pu.transition_out.linear_1.bias               off 5.995e-02 on 5.995e-02 ratio 1.000 cos 0.9982069 0.9982069 ok
+pu.transition_out.linear_2.weight             off 6.372e-03 on 6.372e-03 ratio 1.000 cos 0.9999801 0.9999801 ok
+pu.transition_out.linear_2.bias               off 2.435e-03 on 2.435e-03 ratio 1.000 cos 0.9999970 0.9999970 ok
+x                                             off 2.168e-02 on 2.168e-02 ratio 1.000 cos 0.9997672 0.9997672 ok
+z                                             off 2.056e-02 on 2.056e-02 ratio 1.000 cos 0.9997887 0.9997887 ok
+fails 0
+=== off vs on
+fwd 0.006251629596473487 0.006251629596473487 digest b5f9cbdf72dddd58 b5f9cbdf72dddd58
+pu.layer_norm_in.weight                       off 2.117e-02 on 2.098e-02 ratio 0.991 cos 0.9997818 0.9997862 ok
+pu.layer_norm_in.bias                         off 2.273e-02 on 2.132e-02 ratio 0.938 cos 0.9997416 0.9997728 ok
+pu.linear_x.weight                            off 2.101e-02 on 2.066e-02 ratio 0.983 cos 0.9997821 0.9997893 ok
+pu.tri_mult_out.linear_a_p.weight             off 2.148e-02 on 2.106e-02 ratio 0.980 cos 0.9997696 0.9997788 ok
+pu.tri_mult_out.linear_a_g.weight             off 2.163e-02 on 2.121e-02 ratio 0.980 cos 0.9997663 0.9997755 ok
+pu.tri_mult_out.linear_b_p.weight             off 2.110e-02 on 2.069e-02 ratio 0.980 cos 0.9997778 0.9997865 ok
+pu.tri_mult_out.linear_b_g.weight             off 2.157e-02 on 2.121e-02 ratio 0.984 cos 0.9997676 0.9997753 ok
+pu.tri_mult_out.linear_g.weight               off 2.151e-02 on 2.135e-02 ratio 0.992 cos 0.9997693 0.9997729 ok
+pu.tri_mult_out.linear_z.weight               off 2.110e-02 on 2.090e-02 ratio 0.991 cos 0.9997782 0.9997824 ok
+pu.tri_mult_out.layer_norm_in.weight          off 2.250e-02 on 2.192e-02 ratio 0.974 cos 0.9997468 0.9997597 ok
+pu.tri_mult_out.layer_norm_out.weight         off 2.127e-02 on 2.063e-02 ratio 0.970 cos 0.9997738 0.9997875 ok
+pu.tri_mult_in.linear_a_p.weight              off 2.135e-02 on 2.105e-02 ratio 0.986 cos 0.9997722 0.9997785 ok
+pu.tri_mult_in.linear_a_g.weight              off 2.215e-02 on 2.187e-02 ratio 0.988 cos 0.9997550 0.9997611 ok
+pu.tri_mult_in.linear_b_p.weight              off 2.147e-02 on 2.118e-02 ratio 0.986 cos 0.9997697 0.9997760 ok
+pu.tri_mult_in.linear_b_g.weight              off 2.205e-02 on 2.180e-02 ratio 0.989 cos 0.9997570 0.9997626 ok
+pu.tri_mult_in.linear_g.weight                off 2.184e-02 on 2.181e-02 ratio 0.999 cos 0.9997622 0.9997627 ok
+pu.tri_mult_in.linear_z.weight                off 2.114e-02 on 2.112e-02 ratio 0.999 cos 0.9997771 0.9997775 ok
+pu.tri_mult_in.layer_norm_in.weight           off 2.095e-02 on 2.056e-02 ratio 0.981 cos 0.9997805 0.9997892 ok
+pu.tri_mult_in.layer_norm_out.weight          off 2.180e-02 on 2.151e-02 ratio 0.987 cos 0.9997628 0.9997685 ok
+pu.transition_out.layer_norm.weight           off 6.116e-02 on 6.117e-02 ratio 1.000 cos 0.9981281 0.9981278 ok
+pu.transition_out.layer_norm.bias             off 5.768e-02 on 5.791e-02 ratio 1.004 cos 0.9983427 0.9983314 FAIL
+pu.transition_out.linear_1.weight             off 6.162e-02 on 6.162e-02 ratio 1.000 cos 0.9980998 0.9981000 ok
+pu.transition_out.linear_1.bias               off 5.995e-02 on 6.006e-02 ratio 1.002 cos 0.9982069 0.9982013 ok
+pu.transition_out.linear_2.weight             off 6.372e-03 on 6.372e-03 ratio 1.000 cos 0.9999801 0.9999801 ok
+pu.transition_out.linear_2.bias               off 2.435e-03 on 2.435e-03 ratio 1.000 cos 0.9999970 0.9999970 ok
+x                                             off 2.168e-02 on 2.134e-02 ratio 0.984 cos 0.9997672 0.9997747 ok
+z                                             off 2.056e-02 on 2.018e-02 ratio 0.982 cos 0.9997887 0.9997963 ok
+fails 1
+=== off vs l4
+fwd 0.006251629596473487 0.006251629596473487 digest b5f9cbdf72dddd58 b5f9cbdf72dddd58
+pu.layer_norm_in.weight                       off 2.117e-02 on 2.098e-02 ratio 0.991 cos 0.9997818 0.9997843 ok
+pu.layer_norm_in.bias                         off 2.273e-02 on 2.229e-02 ratio 0.981 cos 0.9997416 0.9997518 ok
+pu.linear_x.weight                            off 2.101e-02 on 2.102e-02 ratio 1.001 cos 0.9997821 0.9997808 ok
+pu.tri_mult_out.linear_a_p.weight             off 2.148e-02 on 2.147e-02 ratio 0.999 cos 0.9997696 0.9997696 ok
+pu.tri_mult_out.linear_a_g.weight             off 2.163e-02 on 2.165e-02 ratio 1.001 cos 0.9997663 0.9997655 ok
+pu.tri_mult_out.linear_b_p.weight             off 2.110e-02 on 2.112e-02 ratio 1.001 cos 0.9997778 0.9997771 ok
+pu.tri_mult_out.linear_b_g.weight             off 2.157e-02 on 2.160e-02 ratio 1.002 cos 0.9997676 0.9997666 ok
+pu.tri_mult_out.linear_g.weight               off 2.151e-02 on 2.150e-02 ratio 1.000 cos 0.9997693 0.9997692 ok
+pu.tri_mult_out.linear_z.weight               off 2.110e-02 on 2.108e-02 ratio 0.999 cos 0.9997782 0.9997783 ok
+pu.tri_mult_out.layer_norm_in.weight          off 2.250e-02 on 2.261e-02 ratio 1.005 cos 0.9997468 0.9997454 ok
+pu.tri_mult_out.layer_norm_out.weight         off 2.127e-02 on 2.178e-02 ratio 1.024 cos 0.9997738 0.9997630 FAIL
+pu.tri_mult_in.linear_a_p.weight              off 2.135e-02 on 2.135e-02 ratio 1.000 cos 0.9997722 0.9997722 ok
+pu.tri_mult_in.linear_a_g.weight              off 2.215e-02 on 2.213e-02 ratio 0.999 cos 0.9997550 0.9997552 ok
+pu.tri_mult_in.linear_b_p.weight              off 2.147e-02 on 2.145e-02 ratio 0.999 cos 0.9997697 0.9997699 ok
+pu.tri_mult_in.linear_b_g.weight              off 2.205e-02 on 2.204e-02 ratio 0.999 cos 0.9997570 0.9997572 ok
+pu.tri_mult_in.linear_g.weight                off 2.184e-02 on 2.184e-02 ratio 1.000 cos 0.9997622 0.9997621 ok
+pu.tri_mult_in.linear_z.weight                off 2.114e-02 on 2.114e-02 ratio 1.000 cos 0.9997771 0.9997770 ok
+pu.tri_mult_in.layer_norm_in.weight           off 2.095e-02 on 2.108e-02 ratio 1.006 cos 0.9997805 0.9997778 ok
+pu.tri_mult_in.layer_norm_out.weight          off 2.180e-02 on 2.174e-02 ratio 0.997 cos 0.9997628 0.9997640 ok
+pu.transition_out.layer_norm.weight           off 6.116e-02 on 6.123e-02 ratio 1.001 cos 0.9981281 0.9981239 ok
+pu.transition_out.layer_norm.bias             off 5.768e-02 on 5.796e-02 ratio 1.005 cos 0.9983427 0.9983276 FAIL
+pu.transition_out.linear_1.weight             off 6.162e-02 on 6.162e-02 ratio 1.000 cos 0.9980998 0.9981000 ok
+pu.transition_out.linear_1.bias               off 5.995e-02 on 6.006e-02 ratio 1.002 cos 0.9982069 0.9982013 ok
+pu.transition_out.linear_2.weight             off 6.372e-03 on 6.372e-03 ratio 1.000 cos 0.9999801 0.9999801 ok
+pu.transition_out.linear_2.bias               off 2.435e-03 on 2.435e-03 ratio 1.000 cos 0.9999970 0.9999970 ok
+x                                             off 2.168e-02 on 2.175e-02 ratio 1.003 cos 0.9997672 0.9997649 ok
+z                                             off 2.056e-02 on 2.057e-02 ratio 1.000 cos 0.9997887 0.9997885 ok
+fails 2
+=== off vs l2
+fwd 0.006251629596473487 0.006251629596473487 digest b5f9cbdf72dddd58 b5f9cbdf72dddd58
+pu.layer_norm_in.weight                       off 2.117e-02 on 2.086e-02 ratio 0.985 cos 0.9997818 0.9997900 ok
+pu.layer_norm_in.bias                         off 2.273e-02 on 2.133e-02 ratio 0.938 cos 0.9997416 0.9997725 ok
+pu.linear_x.weight                            off 2.101e-02 on 2.073e-02 ratio 0.987 cos 0.9997821 0.9997890 ok
+pu.tri_mult_out.linear_a_p.weight             off 2.148e-02 on 2.109e-02 ratio 0.982 cos 0.9997696 0.9997786 ok
+pu.tri_mult_out.linear_a_g.weight             off 2.163e-02 on 2.126e-02 ratio 0.983 cos 0.9997663 0.9997750 ok
+pu.tri_mult_out.linear_b_p.weight             off 2.110e-02 on 2.070e-02 ratio 0.981 cos 0.9997778 0.9997870 ok
+pu.tri_mult_out.linear_b_g.weight             off 2.157e-02 on 2.125e-02 ratio 0.985 cos 0.9997676 0.9997751 ok
+pu.tri_mult_out.linear_g.weight               off 2.151e-02 on 2.135e-02 ratio 0.993 cos 0.9997693 0.9997730 ok
+pu.tri_mult_out.linear_z.weight               off 2.110e-02 on 2.092e-02 ratio 0.992 cos 0.9997782 0.9997823 ok
+pu.tri_mult_out.layer_norm_in.weight          off 2.250e-02 on 2.220e-02 ratio 0.986 cos 0.9997468 0.9997538 ok
+pu.tri_mult_out.layer_norm_out.weight         off 2.127e-02 on 2.097e-02 ratio 0.986 cos 0.9997738 0.9997809 ok
+pu.tri_mult_in.linear_a_p.weight              off 2.135e-02 on 2.107e-02 ratio 0.987 cos 0.9997722 0.9997785 ok
+pu.tri_mult_in.linear_a_g.weight              off 2.215e-02 on 2.189e-02 ratio 0.989 cos 0.9997550 0.9997608 ok
+pu.tri_mult_in.linear_b_p.weight              off 2.147e-02 on 2.120e-02 ratio 0.987 cos 0.9997697 0.9997759 ok
+pu.tri_mult_in.linear_b_g.weight              off 2.205e-02 on 2.184e-02 ratio 0.991 cos 0.9997570 0.9997620 ok
+pu.tri_mult_in.linear_g.weight                off 2.184e-02 on 2.181e-02 ratio 0.999 cos 0.9997622 0.9997627 ok
+pu.tri_mult_in.linear_z.weight                off 2.114e-02 on 2.112e-02 ratio 0.999 cos 0.9997771 0.9997776 ok
+pu.tri_mult_in.layer_norm_in.weight           off 2.095e-02 on 2.055e-02 ratio 0.981 cos 0.9997805 0.9997902 ok
+pu.tri_mult_in.layer_norm_out.weight          off 2.180e-02 on 2.153e-02 ratio 0.988 cos 0.9997628 0.9997682 ok
+pu.transition_out.layer_norm.weight           off 6.116e-02 on 6.127e-02 ratio 1.002 cos 0.9981281 0.9981224 ok
+pu.transition_out.layer_norm.bias             off 5.768e-02 on 5.757e-02 ratio 0.998 cos 0.9983427 0.9983487 ok
+pu.transition_out.linear_1.weight             off 6.162e-02 on 6.162e-02 ratio 1.000 cos 0.9980998 0.9980998 ok
+pu.transition_out.linear_1.bias               off 5.995e-02 on 5.995e-02 ratio 1.000 cos 0.9982069 0.9982069 ok
+pu.transition_out.linear_2.weight             off 6.372e-03 on 6.372e-03 ratio 1.000 cos 0.9999801 0.9999801 ok
+pu.transition_out.linear_2.bias               off 2.435e-03 on 2.435e-03 ratio 1.000 cos 0.9999970 0.9999970 ok
+x                                             off 2.168e-02 on 2.135e-02 ratio 0.985 cos 0.9997672 0.9997757 ok
+z                                             off 2.056e-02 on 2.021e-02 ratio 0.983 cos 0.9997887 0.9997960 ok
+fails 0
+=== off vs brk
+fwd 0.006251629596473487 0.006251629596473487 digest b5f9cbdf72dddd58 b5f9cbdf72dddd58
+pu.layer_norm_in.weight                       off 2.117e-02 on 2.098e-02 ratio 0.991 cos 0.9997818 0.9997862 ok
+pu.layer_norm_in.bias                         off 2.273e-02 on 2.132e-02 ratio 0.938 cos 0.9997416 0.9997728 ok
+pu.linear_x.weight                            off 2.101e-02 on 7.074e-01 ratio 33.675 cos 0.9997821 0.7067702 FAIL
+pu.tri_mult_out.linear_a_p.weight             off 2.148e-02 on 2.106e-02 ratio 0.980 cos 0.9997696 0.9997788 ok
+pu.tri_mult_out.linear_a_g.weight             off 2.163e-02 on 2.121e-02 ratio 0.980 cos 0.9997663 0.9997755 ok
+pu.tri_mult_out.linear_b_p.weight             off 2.110e-02 on 2.069e-02 ratio 0.980 cos 0.9997778 0.9997865 ok
+pu.tri_mult_out.linear_b_g.weight             off 2.157e-02 on 2.121e-02 ratio 0.984 cos 0.9997676 0.9997753 ok
+pu.tri_mult_out.linear_g.weight               off 2.151e-02 on 2.135e-02 ratio 0.992 cos 0.9997693 0.9997729 ok
+pu.tri_mult_out.linear_z.weight               off 2.110e-02 on 2.090e-02 ratio 0.991 cos 0.9997782 0.9997824 ok
+pu.tri_mult_out.layer_norm_in.weight          off 2.250e-02 on 2.192e-02 ratio 0.974 cos 0.9997468 0.9997597 ok
+pu.tri_mult_out.layer_norm_out.weight         off 2.127e-02 on 2.063e-02 ratio 0.970 cos 0.9997738 0.9997875 ok
+pu.tri_mult_in.linear_a_p.weight              off 2.135e-02 on 2.105e-02 ratio 0.986 cos 0.9997722 0.9997785 ok
+pu.tri_mult_in.linear_a_g.weight              off 2.215e-02 on 2.187e-02 ratio 0.988 cos 0.9997550 0.9997611 ok
+pu.tri_mult_in.linear_b_p.weight              off 2.147e-02 on 2.118e-02 ratio 0.986 cos 0.9997697 0.9997760 ok
+pu.tri_mult_in.linear_b_g.weight              off 2.205e-02 on 2.180e-02 ratio 0.989 cos 0.9997570 0.9997626 ok
+pu.tri_mult_in.linear_g.weight                off 2.184e-02 on 2.181e-02 ratio 0.999 cos 0.9997622 0.9997627 ok
+pu.tri_mult_in.linear_z.weight                off 2.114e-02 on 2.112e-02 ratio 0.999 cos 0.9997771 0.9997775 ok
+pu.tri_mult_in.layer_norm_in.weight           off 2.095e-02 on 2.056e-02 ratio 0.981 cos 0.9997805 0.9997892 ok
+pu.tri_mult_in.layer_norm_out.weight          off 2.180e-02 on 2.151e-02 ratio 0.987 cos 0.9997628 0.9997685 ok
+pu.transition_out.layer_norm.weight           off 6.116e-02 on 6.117e-02 ratio 1.000 cos 0.9981281 0.9981278 ok
+pu.transition_out.layer_norm.bias             off 5.768e-02 on 5.791e-02 ratio 1.004 cos 0.9983427 0.9983314 FAIL
+pu.transition_out.linear_1.weight             off 6.162e-02 on 6.162e-02 ratio 1.000 cos 0.9980998 0.9981000 ok
+pu.transition_out.linear_1.bias               off 5.995e-02 on 6.006e-02 ratio 1.002 cos 0.9982069 0.9982013 ok
+pu.transition_out.linear_2.weight             off 6.372e-03 on 6.372e-03 ratio 1.000 cos 0.9999801 0.9999801 ok
+pu.transition_out.linear_2.bias               off 2.435e-03 on 2.435e-03 ratio 1.000 cos 0.9999970 0.9999970 ok
+x                                             off 2.168e-02 on 2.134e-02 ratio 0.984 cos 0.9997672 0.9997747 ok
+z                                             off 2.056e-02 on 2.018e-02 ratio 0.982 cos 0.9997887 0.9997963 ok
+fails 2

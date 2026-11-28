@@ -50,6 +50,23 @@ ALLOWED = {
     # one in `ag.Tensor` itself, so they enter the tape as constants. A module-scope import
     # would hand it the shim and change what the gradient-parity result was measured on.
     "train/openfold3.py",
+    # `train/bridge.py` is the same boundary for RFD4's host glue: `up` uploads with the raw
+    # `from_torch` and wraps the handle in `ag.Tensor` itself, `down` reads a trunk output's raw
+    # `.value` back to torch, and `backward` uploads the host cotangents for `ag.backward` and
+    # brings the leaf gradients home. Through the shim the uploads would be taped twice.
+    # `train/folds.py` patches the real `ttnn.from_torch` while the model is built (as `lineage.py`
+    # does) and moves gradients only after the tape replay has finished (as `mesh.py` does).
+    "train/bridge.py", "train/folds.py", "train/device_optim.py",
+    # `train/rfd4_run.py` is the RFD4 step driver, moved verbatim from perf/r4t_step/trunk_step.py
+    # (D56) and pinned by an A/A on master digests. Its own uploads under a tape are the
+    # trunk's inputs and seeds, which it wraps itself; the network's taped work runs in the
+    # trunk's modules, and the host glue crosses through `train/bridge.py`.
+    "train/rfd4_run.py",
+    # `train/ccl.py` all-reduces gradients on device after the backward has closed (same as
+    # `train/mesh.py`), and `train/mesh_dp.py` shards/reads batches and wraps leaves at the
+    # host-mesh boundary (same as `train/bridge.py`). Both defer `import ttnn` so CPU callers
+    # and unit tests import them without loading the wheel.
+    "train/ccl.py", "train/mesh_dp.py",
     # `af2_structure.Card` uploads its leaves with the raw `from_torch` and tapes its own VJPs
     # (`sqrt`, `reciprocal` on `.value`, then `autograd._tape`), so the shim would tape them
     # twice. It defers the import for the same `pin_card()` reason as `bindcraft2.py`, which
@@ -60,6 +77,10 @@ ALLOWED = {
     # host-side `PairSplit` that the ttnn-free `network.py` imports beside the card's
     # `PairOnCard`, so it defers for the same reason.
     "rfd4/engine.py", "rfd4/pair.py",
+    # DiffDock-L is inference only and nothing tapes it either. `device.py`, `capture.py` and
+    # `edge_tile.py` (whose plan the CPU tests build) defer the import so `tt-bio dock` and the
+    # CPU reference path import without the wheel.
+    "diffdock/device.py", "diffdock/capture.py", "diffdock/edge_tile.py",
     # A kernel-source patcher, not a model path.
     "kernels/trimul_tail/patch_trimul_tail.py",
     # `bindcraft2.py` defers the import because `pin_card()` has to set TT_VISIBLE_DEVICES

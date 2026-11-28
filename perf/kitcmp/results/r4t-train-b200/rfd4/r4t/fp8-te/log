@@ -1,0 +1,106 @@
+Environment variable CCD_MIRROR_PATH not set. Will not be able to use function requiring this variable. To set it you may:
+  (1) add the line 'export VAR_NAME=path/to/variable' to your .bashrc or .zshrc file
+  (2) set it in your current shell with 'export VAR_NAME=path/to/variable'
+  (3) write it to a .env file in the root of the atomworks.io repository
+Environment variable PDB_MIRROR_PATH not set. Will not be able to use function requiring this variable. To set it you may:
+  (1) add the line 'export VAR_NAME=path/to/variable' to your .bashrc or .zshrc file
+  (2) set it in your current shell with 'export VAR_NAME=path/to/variable'
+  (3) write it to a .env file in the root of the atomworks.io repository
+/opt/rfd4-venv/lib/python3.12/site-packages/torch/jit/_script.py:1491: FutureWarning: `torch.jit.script` is deprecated. Please switch to `torch.compile` or `torch.export`.
+  warnings.warn(
+[2026-11-26 18:19:06,770][__main__][INFO] - [rank: 0] Running on single GPU
+[2026-11-26 18:19:06,770][__main__][INFO] - [rank: 0] Job name: r4t_gpu_baseline_local
+[2026-11-26 18:19:06,770][__main__][INFO] - [rank: 0] Root run: /root/kc/rfd4/r4t/fp8-te/run
+[2026-11-26 18:19:06,770][__main__][INFO] - [rank: 0] Checkpoints directory: /root/kc/rfd4/r4t/fp8-te/run/checkpoints
+[2026-11-26 18:19:06,777][__main__][INFO] - [rank: 0] Last checkpoint: None
+Fetching 2 files:   0%|          | 0/2 [00:00<?, ?it/s]Fetching 2 files: 100%|██████████| 2/2 [00:00<00:00, 792.20it/s]
+[2026-11-26 18:19:06,878][__main__][INFO] - [rank: 0] Not starting from existing checkpoint; seeding with seed: 145
+Seed set to 145
+[2026-11-26 18:19:07,132][rfproteina.utils.logging][INFO] - [rank: 0] 
+                             Validation Metrics                              
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃                                Name ┃                                Type ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│              amino_acid_composition │          AminoAcidCompositionMetric │
+│                 bond_length_metrics │                    BondLengthMetric │
+│                       clash_metrics │                         ClashMetric │
+│                   hotspot_obedience │                    HotspotObedience │
+│                      rasa_adherence │                 RasaAdherenceMetric │
+│     centroid_conditioning_adherence │ CentroidConditioningAdherenceMetric │
+│             interchain_interactions │         InterchainInteractionMetric │
+│                  sequence_adherence │             SequenceAdherenceMetric │
+│      sequence_probability_adherence │  SequenceProbabilityAdherenceMetric │
+│                    sse_distribution │      SecondaryStructureDistribution │
+│                        sse_accuracy │          SecondaryStructureAccuracy │
+│                 posebusters_metrics │                   PoseBustersMetric │
+│                     chiral_accuracy │                      ChiralAccuracy │
+│           design_motif_allatom_rmsd │           StructureComparisonMetric │
+│ design_unindexed_motif_allatom_rmsd │           StructureComparisonMetric │
+│         unindexed_insertion_mapping │     UnindexedInsertionMappingMetric │
+│           contact_molecular_surface │       ContactMolecularSurfaceMetric │
+│        sequence_similarity_to_input │           SequenceSimilarityToInput │
+│                    ca_rmsd_to_input │           StructureComparisonMetric │
+│                         cath_metric │                          CathMetric │
+│           structure_prediction_lddt │                         AllAtomLDDT │
+│             sequence_developability │        SequenceDevelopabilityMetric │
+│              rosetta_developability │         RosettaDevelopabilityMetric │
+│                   antibody_contacts │                    AntibodyContacts │
+└─────────────────────────────────────┴─────────────────────────────────────┘
+
+[2026-11-26 18:19:07,146][rfproteina.utils.logging][INFO] - [rank: 0] 
+                              Validation Metrics                               
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃                                         Name ┃                         Type ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│                       refolded_backbone_rmsd │    StructureComparisonMetric │
+│          refolded_target_aligned_binder_rmsd │    StructureComparisonMetric │
+│ refolded_target_backbone_aligned_binder_rmsd │    StructureComparisonMetric │
+│                  refolded_motif_allatom_rmsd │    StructureComparisonMetric │
+│                       refolded_motif_ca_rmsd │    StructureComparisonMetric │
+│        refolded_backbone_aligned_ligand_rmsd │    StructureComparisonMetric │
+│                       refolded_apo_holo_rmsd │    StructureComparisonMetric │
+│                 max_ligand_centroid_distance │ LigandCentroidDistanceMetric │
+└──────────────────────────────────────────────┴──────────────────────────────┘
+
+[2026-11-26 18:19:07,169][rfproteina.utils.logging][INFO] - [rank: 0] 
+           Validation Metrics            
+┏━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━┓
+┃            Name ┃                Type ┃
+┡━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━┩
+│   unconditional │ PassCriterionMetric │
+│             ppi │ PassCriterionMetric │
+│        antibody │ PassCriterionMetric │
+│             dna │ PassCriterionMetric │
+│  motif_scaffold │ PassCriterionMetric │
+│ internal_coords │ PassCriterionMetric │
+│       sm_binder │ PassCriterionMetric │
+│             ame │ PassCriterionMetric │
+│   ame_no_ligand │ PassCriterionMetric │
+│           disco │ PassCriterionMetric │
+│  developability │ PassCriterionMetric │
+└─────────────────┴─────────────────────┘
+
+[2026-11-26 18:19:07,178][rfproteina.metrics.utils.metrics_utils][INFO] - [rank: 0] Metrics pool: auto-picked 8 workers (available=192, val_dl=4).
+[2026-11-26 18:19:07,183][rfproteina.nn.modules.norm][INFO] - Score-network norm type: 'layer_norm'
+[2026-11-26 18:19:07,191][rfproteina.nn.feature_factory][INFO] - [rank: 0] No features requested
+[2026-11-26 18:19:07,990][rfproteina.nn.modules.norm][INFO] - Score-network norm type: 'layer_norm'
+[2026-11-26 18:19:07,995][rfproteina.nn.feature_factory][INFO] - [rank: 0] No features requested
+[2026-11-26 18:19:08,651][rfproteina.proteina][INFO] - [rank: 0] cfg_exp.nn: {'name': 'local_latents_transformer', 'output_parameterization': {'bb_ca': 'v', 'local_latents': 'v'}, 'sequence_readout': {'enabled': True, 'detach': True, 'num_classes': 147}, 'nlayers': 14, 'token_dim': 768, 'nheads': 12, 'parallel_mha_transition': False, 'token_type_emb_dim': 32, 'cath_emb_dim': 32, 'strict_feats': False, 'noise_align_chirality': True, 'noise_align_internal_coords': False, 'noise_align_chirality_translate': False, 'noise_align_internal_coords_translate': False, 'use_atom37_factory': True, 'feats_seq': ['xt_bb_ca', 'xt_local_latents', 'token_type', 'sequence_probabilities', 'cond_a37coors_nm', 'cond_a37coors_internal_nm', 'rasa_binned', 'secondary_structure', 'hbond_modernized', 'pistack', 'pication', 'saltbridge', 'hydrophobic', 'metal_coord', 'na_ss_state', 'hotspot', 'atom_charge', 'atomic_element', 'coord_group_seq', 'chirality', 'chain_centroid_xyz'], 'feats_cond_seq': ['time_emb_bb_ca', 'time_emb_local_latents', 'cath_code', 'recycle_remaining'], 'dim_cond': 256, 'idx_emb_dim': 256, 't_emb_dim': 256, 'feats_pair_repr': ['xt_bb_ca_pair_dists', 'bond_mask', 'bond_order', 'is_aromatic', 'index_group_pair', 'molecule_idx_pair', 'molecule_entity_pair', 'token_bond_path_length', 'canonical_polymer_ordering', 'na_ss_pair'], 'feats_pair_cond': ['time_emb_bb_ca', 'time_emb_local_latents'], 'xt_pair_dist_dim': 30, 'xt_pair_dist_min': 0.1, 'xt_pair_dist_max': 3, 'seq_sep_dim': 64, 'pair_repr_dim': 384, 'update_pair_repr': True, 'update_pair_repr_every_n': 2, 'use_tri_mult': True, 'tri_mult_c': 256, 'tri_mult_bias': False, 'tri_mult_backend': 'cuequivariance', 'recycle': {'enabled': True, 'grad': 'last', 'training_max_recycles': 9, 'condition_probability': 0.5}, 'checkpointing': 'none', 'pair_write': 'hadamard', 'use_qkln': True, 'attention_type': 'torch', 'use_torch_compile': True, 'norm_type': 'rmsnorm_torch_fused'}
+[2026-11-26 18:19:08,652][rfproteina.nn.modules.norm][INFO] - Score-network norm type: 'rmsnorm_torch_fused'
+[2026-11-26 18:19:10,830][rfproteina.nn.local_latents_transformer][INFO] - Enabling torch.compile per trunk block.
+Error executing job with overrides: ['experiment=sota', '~datasets.train.afdb_monomer', '~datasets.train.omol', '~datasets.train.plinder', '~datasets.train.pdb_interfaces', '~datasets.train.ted_dimers', '~datasets.train.tcr_interfaces_distill', '~datasets.train.na_complex', '~datasets.train.rna_monomer', '~datasets.train.antibody_interfaces_distill', '~datasets.train.tcr_interfaces_pdb', '~datasets.train.antibody_interfaces_pdb', '~datasets.train.cpsea_pdb', '~datasets.train.cpsea_afdb', '~datasets.train.pdb_dna_interface', '~_hero_streaming', '+datasets/train@datasets.train.test_dataset=test_dataset', 'hf_ckpt_path=nvidia/RFD4-Proteina', 'hf_ckpt_revision=a06e2509c7033b010fc43614e9fd840303588502', 'pretrain_ckpt_path=null', '+single=true', '+nolog=true', 'log.log_wandb=false', 'log.checkpoint=false', 'opt.steps_per_epoch=25', 'opt.max_epochs=1', '++opt.num_sanity_val_steps=0', '++opt.limit_val_batches=0', '~metrics/refolding_oracles', '+callbacks.r4t_timer._target_=r4t_step_timer.StepTimer', '+callbacks.r4t_timer.out=/root/kc/rfd4/r4t/fp8-te/steps.jsonl', '++out_dir=/root/kc/rfd4/r4t/fp8-te/run', 'run_name_=r4t_gpu_baseline', 'precision=fp8']
+Traceback (most recent call last):
+  File "/root/rfd4/src/rfproteina/utils/verbosity.py", line 166, in wrapped
+    return function(cfg, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/rfd4/src/rfproteina/train.py", line 433, in main
+    model, resume_ckpt_path = get_model_n_ckpt_resume(cfg_exp, ckpt_path_store)
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/rfd4/src/rfproteina/train.py", line 260, in get_model_n_ckpt_resume
+    model = Proteina(cfg_exp)
+            ^^^^^^^^^^^^^^^^^
+  File "/root/rfd4/src/rfproteina/proteina.py", line 442, in __init__
+    raise ImportError(
+ImportError: Transformer Engine is required for FP8 precision. Install it via: pip install transformer_engine[pytorch]
+
+Set the environment variable HYDRA_FULL_ERROR=1 for a complete stack trace.

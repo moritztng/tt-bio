@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tt-bio"
-version = "0.45.2"
+version = "0.46.0"
 description = "Boltz-2, ESMFold2, Protenix-v2, OpenFold3, and OpenDDE structure prediction, BoltzGen/RFdiffusion3 design, and ESMC/SaProt protein embeddings for inference on Tenstorrent Blackhole and Wormhole"
 readme = "README.md"
 requires-python = ">=3.10,<3.13,!=3.11.*"
@@ -111,6 +111,9 @@ reference = ["ml_collections"]  # opendde.config.config -> ml_collections.config
 # Without it, `tt-bio --help` and --accelerator cpu/gpu still work; requesting a card
 # fails with a clear message naming this extra.
 tenstorrent = ["ttnn==0.68.0"]
+# Docking pose grading (tt_bio/diffdock/evaluate.py imports these lazily): symmetry-corrected
+# RMSD and the PoseBusters validity rate. `tt-bio dock` itself does not need them.
+eval = ["spyrmsd", "posebusters"]
 # Training: OpenFold3's vendored training featuriser imports these at module load.
 train = ["pytorch_lightning", "ml_collections"]
 
@@ -137,12 +140,17 @@ include = ["tt_bio*"]
 #   - tt_bio/data/protein_ref_conformers.json: protenix-v2 + opendde featurization
 #   - tt_bio/boltzgen/resources/**: every `tt-bio design --model boltzgen` run (config yamls, splits, metrics)
 #   - tt_bio/rfd4/**/*.json: the RFD4 autoencoder's residue tables (ae_fold.py), every design run
+# tt_bio/train/fixtures/rfd4_train_16.npz: 16 crop-256 RFD4 training examples built by
+# upstream's own data pipeline (perf/r4t/build_fixture.py). 0.32 MB, and it is what lets the
+# training path be exercised without the PDB.
+"tt_bio.train" = ["fixtures/*.npz"]
 "tt_bio.data" = ["*.json", "*.json.gz"]
 "tt_bio.rfd4" = ["**/*.json"]
 "tt_bio.boltzgen" = ["LICENSE"]
 "tt_bio.boltzgen.resources" = ["*.json"]
 "tt_bio.boltzgen.resources.config" = ["*.yaml"]
 "tt_bio.boltzgen.resources.splits" = ["*.txt"]
+"tt_bio.diffdock" = ["*.yaml", "*.json"]   # recipe.yaml is read at CLI import: without it `tt-bio` itself crashes
 # kernel sources: tt_bio/reblock_permute.py, tt_bio/mm_generic.py (triatt /
 # triatt_sdpa / trimul fused kernels) and friends load them by path
 # (KERNEL_DIR, ttnn KernelDescriptor FILE_PATH) on the DEFAULT path, so a clean

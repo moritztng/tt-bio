@@ -1769,7 +1769,15 @@ _BH_ONLY = ("trimul_t1", "trimul_t1_c256", "trimul_t2", "trimul_t2cm", "trimul_t
 # ESMFold2 +0.0018 [-0.0017, +0.0068], docking 32 -> 33. Same chip, in-process A/B, repeat 3: ef2_pair_init (wpa)
 # ESMFold2 512 aa 24.55 -> 23.49 s, 748 aa 59.47 -> 57.28 s, ESMFold2-Fast 512 aa 14.66 -> 13.70 s; ef2_msa_ffn (wfab)
 # ESMFold2 512 aa with a 4096-row MSA 36.89 -> 33.33 s.
-_WH_NORMAL_EXTRA = "+ef2_lm_combine+lm_qk_chain+trimul_t2fold+trimul_gin_w8+ef2_msa_ffn"
+# trimul_x8 + pair_x8t (both modes; --fast already carries trimul_x8): pair_x8t keeps the trimul einsum's moved x bfp8
+# into the T2 GATE tail instead of typecasting it back to bf16. In-process A/B, repeat 3, WH Galaxy chips at 1000 MHz
+# every fold (x8s, 512 aa): ESMFold2 normal 22.86 -> 21.84 s, --fast 22.19 -> 21.32 s; -Fast normal 13.53 -> 12.98 s,
+# --fast 13.38 -> 12.88 s. Graded as one stack per mode against the set without both, same chips, 11 complexes x 4
+# seeds, 44 paired folds per cell (gs): ESMFold2 normal CA-lDDT +0.0006 [-0.0006, +0.0024], I-RMSD -0.05 A [-0.30,
+# +0.13], top-pose median 0.63 A vs 1.47 A seed floor, docking 33 -> 33 of 44; -Fast normal CA-lDDT +0.0002 [-0.0012,
+# +0.0015], I-RMSD -0.11 A [-0.92, +0.52], 0.86 A vs 1.36 A, docking 24 -> 24; ESMFold2 --fast -0.0003 [-0.0023,
+# +0.0021], 0.68 A vs 1.34 A, docking 31 -> 32; -Fast --fast +0.0010 [-0.0006, +0.0028], 0.94 A vs 1.43 A, 24 -> 24.
+_WH_NORMAL_EXTRA = "+ef2_lm_combine+lm_qk_chain+trimul_t2fold+trimul_gin_w8+ef2_msa_ffn+trimul_x8+pair_x8t"
 # lm_gate_ng keeps the 6B's SwiGLU gate on binary_ng in both modes (esmc._lm_gate_legacy, on for Wormhole elsewhere):
 # the legacy multiply is graded on ESMC's embeddings (6B pcc vs fp32 -0.00002 / +0.00001), not yet on a fold.
 # ef2_atom_rope is exact (rotate_half as a +-1 permutation matmul): ESMFold2-Fast 512 aa --fast CIF identical with and
@@ -1815,9 +1823,10 @@ _WH_EXTRA = "+lm_gate_ng+ef2_atom_rope+ws_psilu+atom_l1"
 # In-process A/B on 5738bda46, repeat 3, .107 at 1000 MHz (wx8): ESMFold2 --fast 512 22.91 -> 22.59 s, -Fast --fast 512
 # 13.43 -> 13.29 s. Fast-bar grade on the same chip (gx8ef, 11 complexes x 4 seeds): ESMFold2 --fast CA-lDDT +0.0020
 # [+0.0003, +0.0043], top-pose median 0.37 A vs 1.59 A seed floor, docking 31 -> 32 of 44; -Fast --fast (gx8ff) CA-lDDT
-# -0.0000 [-0.0012, +0.0011], top-pose median 0.71 A vs 1.41 A seed floor, docking 24 of 44 both. Not in the normal set: the
-# normal-bar grade gx8en (35 of 44 folds) fails on interface RMSD, +0.72 A [+0.01, +2.12], one binding-mode flip at 35.8 A.
-_WH_FAST_EXTRA = "+dit_shoist+trunk_hifi2+trimul_t2fold+trimul_bres_b8+trimul_gin_w8+trimul_x8"
+# -0.0000 [-0.0012, +0.0011], top-pose median 0.71 A vs 1.41 A seed floor, docking 24 of 44 both. Alone it failed the
+# normal bar (gx8en, 35 of 44 folds: interface RMSD +0.72 A [+0.01, +2.12], one binding-mode flip at 35.8 A); normal mode
+# takes it only with pair_x8t, graded as that stack (notes above _WH_NORMAL_EXTRA).
+_WH_FAST_EXTRA = "+dit_shoist+trunk_hifi2+trimul_t2fold+trimul_bres_b8+trimul_gin_w8+trimul_x8+pair_x8t"
 # lm_sdpa_stock keeps the LM's stock SDPA over the full mask on both arches (esmc._key_lens, shsdpa elsewhere);
 # lm_ln_stock its ttnn.layer_norm where ESMC runs ln_split (esmc._ln).
 _LM_STOCK = "+lm_sdpa_stock+lm_ln_stock"

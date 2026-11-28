@@ -1,0 +1,35 @@
+{
+  "source": "PoseBusters Benchmark Set, Zenodo record 8278563",
+  "upstream": "gcorso/DiffDock @ 85c49b60, released v1.1 checkpoints",
+  "captured_by": "tests/diffdock_input_capture.py",
+  "complexes": [
+    {
+      "id": "6Z5Z_BDF",
+      "residues": 88,
+      "chains": 1,
+      "lig_heavy_atoms": 12,
+      "conformer_seed": 42
+    },
+    {
+      "id": "7BJ6_TVK",
+      "residues": 92,
+      "chains": 1,
+      "lig_heavy_atoms": 37,
+      "conformer_seed": 42
+    },
+    {
+      "id": "7BNH_BEZ",
+      "residues": 192,
+      "chains": 2,
+      "lig_heavy_atoms": 9,
+      "conformer_seed": 42
+    },
+    {
+      "id": "7FT9_4MB",
+      "residues": 771,
+      "chains": 7,
+      "lig_heavy_atoms": 14,
+      "conformer_seed": 42
+    }
+  ]
+}

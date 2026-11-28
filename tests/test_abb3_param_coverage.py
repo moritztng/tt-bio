@@ -18,7 +18,7 @@ import torch
 import tt_bio.abodybuilder3 as abb3
 from tt_bio.abodybuilder3_reference import ABB3Config
 from tt_bio.autograd import Tensor
-from tt_bio.train.abb3_run import _assert_every_parameter_trains
+from tt_bio.train.parity import GradientCoverage
 from tt_bio.train.abodybuilder3_step import _parameters
 
 
@@ -89,32 +89,34 @@ def test_the_angle_resnet_blocks_are_reached(device_free_model):
     assert all(id(t) in found for t in deep)
 
 
+def _gate(per_step_dead, total):
+    """The guard as the run loop drives it: one `observe` per step, intersected over them."""
+    g = GradientCoverage(range(total), steps=len(per_step_dead), where="[rank 0] ")
+    for dead in per_step_dead:
+        g.observe(dead)
+
+
 def test_the_gate_passes_when_every_parameter_has_a_gradient():
-    _assert_every_parameter_trains(set(), 436, gs=10, rank=0)
+    _gate([set()] * 10, 436)
 
 
 def test_the_gate_stops_a_run_whose_parameters_never_get_a_gradient():
     """The first `base-loss` leg's exact state: 356 of 436, on every step."""
     with pytest.raises(RuntimeError, match="356 of 436 parameters received no gradient"):
-        _assert_every_parameter_trains(set(range(356)), 436, gs=10, rank=0)
+        _gate([set(range(356))] * 10, 436)
 
 
 def test_the_gate_fires_on_a_single_frozen_parameter():
     """One frozen tensor is the depth-cap defect's signature and has to fail too, not just 356."""
     with pytest.raises(RuntimeError, match="1 of 500 parameters"):
-        _assert_every_parameter_trains({499}, 500, gs=10, rank=0)
+        _gate([{499}] * 10, 500)
 
 
 def test_the_gate_does_not_fire_on_upstreams_zero_initialised_residual_branches():
     """The transient that a first-step check misread as 218 dead parameters.
 
     Upstream's `final` init zeroes each residual branch's output projection, so the weights
-    behind it have an exactly zero gradient on step 1 and a nonzero one from step 2. The run
-    loop intersects the zero set across steps, so a parameter that is zero once and moves after
-    is not in it. Modelled here as the intersection the loop builds.
+    behind it have an exactly zero gradient on step 1 and a nonzero one from step 2. A
+    parameter that is zero once and moves after is not in the intersection.
     """
-    per_step = [{0, 1, 4, 5, 6, 7}, {0, 1}, set(), set()]
-    never = None
-    for dead in per_step:
-        never = dead if never is None else (never & dead)
-    _assert_every_parameter_trains(never, 500, gs=10, rank=0)
+    _gate([{0, 1, 4, 5, 6, 7}, {0, 1}, set(), set(), set()], 500)

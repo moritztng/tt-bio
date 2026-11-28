@@ -1,0 +1,7 @@
+Linux 7b518894c2e6 6.8.0-1066-aws #69~22.04.1-Ubuntu SMP Mon Sep 21 16:20:15 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux
+192
+               total        used        free      shared  buff/cache   available
+Mem:            1996         629         699         484        1160        1366
+Swap:              0           0           0
+Filesystem      Size  Used Avail Use% Mounted on
+overlay         150G   13G  138G   9% /

@@ -1,0 +1,9 @@
+A 1 ['4e0f88d1', 'b3562aa0', 'd2457823'] aiclk 1312 1350
+A 2 ['4e0f88d1', 'b3562aa0', 'd2457823'] aiclk 1318 1350
+A 3 ['4e0f88d1', 'b3562aa0', 'd2457823'] aiclk 1300 1350
+A fold_bwd_s median 0.928 range 0.7176 1.4421 step_s median 9.12
+B 1 ['4e0f88d1', 'b3562aa0', 'd2457823'] aiclk 1312 1350
+B 2 ['4e0f88d1', 'b3562aa0', 'd2457823'] aiclk 1331 1350
+B 3 ['4e0f88d1', 'b3562aa0', 'd2457823'] aiclk 1300 1350
+B fold_bwd_s median 0.831 range 0.6623 1.0475 step_s median 9.24
+GATE PASS {'A': {('4e0f88d11bbfbe80', 'b3562aa0cf9c58ee', 'd245782308c840ec')}, 'B': {('4e0f88d11bbfbe80', 'b3562aa0cf9c58ee', 'd245782308c840ec')}}
