@@ -292,7 +292,7 @@ def cut(sha: str, gate_dir: str, remote: str, dry: bool, wait_s: int, record: Pa
     t0, rec = time.time(), {"version": version, "sha": sha, "release_commit": rel, "gate": gate_dir,
                             "waived": waived or {},
                             "tagged": datetime.now(timezone.utc).isoformat(timespec="seconds")}
-    while not pypi_has(version) and time.time() - t0 < wait_s:
+    while not (seen := pypi_has(version)) and time.time() - t0 < wait_s:
         run = tag_run(version)
         if run.get("status") == "completed" and run.get("conclusion") != "success":
             if run.get("attempt", 1) > 1:
@@ -304,8 +304,10 @@ def cut(sha: str, gate_dir: str, remote: str, dry: bool, wait_s: int, record: Pa
             except Exception as e:
                 print(f"rerun failed to start: {e}")
         time.sleep(60)
-    rec["pypi"] = pypi_has(version)
-    rec["installed"] = install_check(version) if rec["pypi"] else ""
+    # One read decides: PyPI's JSON comes from a CDN, and a second read right after the first saw the
+    # version can hit a node that has not (v0.46.0 was recorded pypi=false 60 s after it published).
+    rec["pypi"] = seen
+    rec["installed"] = install_check(version) if seen else ""
     rec["ok"] = rec["installed"] == version
     rec["merged_back"] = merge_back(rel, sha, remote)
     print(json.dumps(rec))

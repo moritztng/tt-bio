@@ -13,6 +13,7 @@ the diagnostic beside it.
 
 from __future__ import annotations
 
+import types
 from pathlib import Path
 
 import numpy as np
@@ -120,7 +121,50 @@ def test_device_score_network_puts_the_confidence_convolutions_on_the_card(monke
     assert calls == [("score", "a-card")]
 
 
+def test_pose_edge_sets_pad_to_a_ladder_poses_share():
+    """Ten poses of one ligand have ten different cross-edge counts; padded to a multiple of
+    32 that is up to ten sets of device programs, on the ladder it is one or two."""
+    from tt_bio.diffdock.device import TILE, edge_bucket
+
+    assert [edge_bucket(n) for n in (1, 32, 33, 149, 158, 866, 1024, 1025)] == \
+           [32, 32, 64, 256, 256, 1024, 1024, 2048]
+    counts = range(700, 1000, 7)
+    assert len({edge_bucket(n) for n in counts}) == 1
+    assert all(edge_bucket(n) % TILE == 0 and n <= edge_bucket(n) < 2 * max(n, TILE)
+               for n in range(1, 5000))
+
+
 # -- on a card: the assembled head against upstream's goldens ------------------------------
+
+def test_first_layer_receptor_convolutions_run_once_per_receptor():
+    """The first layer's receptor groups read only what the receptor keeps on the card, so a
+    second pose reuses their updates; the ligand's groups and every later layer run again."""
+    from tt_bio.diffdock.confidence_model import LIGAND_GROUPS, WIRING, ConfidenceModel
+    from tt_bio.diffdock.device import DeviceConfidence
+
+    card = DeviceConfidence.__new__(DeviceConfidence)
+    card.first_layer, card._same, ran = len(WIRING), {}, []
+    card._run = lambda i, out, src, e, flip: ran.append(i) or object()
+    model = types.SimpleNamespace(config=types.SimpleNamespace(num_conv_layers=3))
+    rec = {s: object() for s in ("rec", "atom")}
+    rec_edges = {es: object() for es in ("rec", "atom", "ar")}
+
+    def pose():
+        ran.clear()
+        nodes = dict(rec, lig=object())
+        edges = dict(rec_edges, lig=object(), lr=object(), la=object())
+        ConfidenceModel.convolve(model, nodes, edges, conv=card._conv,
+                                 combine=lambda x, updates: object())
+        return list(ran)
+
+    every = list(range(9)) + list(range(9, 18)) + [18 + k for k in LIGAND_GROUPS]
+    assert pose() == every
+    receptor_only = [k for k, (out, src, _, _) in enumerate(WIRING) if "lig" not in (out, src)]
+    assert receptor_only == [3, 5, 6, 8]
+    assert pose() == [i for i in every if i not in receptor_only]
+    rec_edges["atom"] = object()          # another receptor: its groups run again
+    assert pose() == [i for i in every if i not in (5, 6, 8)]
+
 
 @pytest.mark.device
 def test_device_confidence_ranks_every_golden_pose_set_like_upstream():

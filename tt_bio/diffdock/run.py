@@ -35,10 +35,10 @@ class SamplerUnavailable(RuntimeError):
 
 
 class PoseRolloutFailed(RuntimeError):
-    """Every pose of one complex went non-finite in the rollout.
+    """Every sample of one complex failed in the rollout.
 
-    One pose going bad is recorded and ranked last (`sampling.Rollout.failed`); losing all
-    of them means there is no answer for this complex, which is a `failures.csv` row on a
+    One sample failing is counted and left out (`sampling.Rollout.failed`); losing all of
+    them means there is no answer for this complex, which is a `failures.csv` row on a
     CSV or directory run and a loud error on a single complex -- the same split every other
     per-complex failure takes.
     """
@@ -47,6 +47,9 @@ class PoseRolloutFailed(RuntimeError):
 def dock(jobs: list[DockJob], options: DockOptions, out_dir, *, cache=None,
          isolate: bool = False, download: bool = False, model=None) -> dict:
     """Dock every job, writing upstream's layout under ``out_dir``. Returns a summary.
+
+    Each docked complex carries ``failed_samples``: how many of its samples the rollout
+    froze, which are not among the written poses.
 
     ``model`` is a network :func:`load_model` already built, which a fleet worker keeps
     across the complexes it is handed; without it this call loads its own.
@@ -59,8 +62,10 @@ def dock(jobs: list[DockJob], options: DockOptions, out_dir, *, cache=None,
     done, failures = [], []
     for job in jobs:
         try:
-            written = _dock_one(job, options, out_dir / job.name, cache=cache, model=model)
-            done.append({"name": job.name, "files": [p.name for p in written]})
+            written, n_failed = _dock_one(job, options, out_dir / job.name, cache=cache,
+                                          model=model)
+            done.append({"name": job.name, "files": [p.name for p in written],
+                         "failed_samples": n_failed})
         except Exception as e:                       # noqa: BLE001 - reported, not swallowed
             if not isolate:
                 raise
@@ -106,7 +111,7 @@ def _dock_one(job: DockJob, options: DockOptions, write_dir: Path, *, cache=None
         if options.confidence_checkpoint is not None:
             poses, confidences = rank_poses(poses, mol, receptor, options, cache=cache,
                                             name=job.name)
-        return output.write_poses(write_dir, mol, poses, confidences=confidences)
+        return output.write_poses(write_dir, mol, poses, confidences=confidences), 0
     return _sample_one(job, options, write_dir, receptor, model, cache=cache)
 
 
@@ -172,26 +177,32 @@ def _sample_one(job: DockJob, options: DockOptions, write_dir: Path, receptor: P
     # ligand raised `KekulizeException` AFTER the whole rollout had run and lost the complex
     # (5S8I_2LY, CNC(=O)c1scc2c1OCCO2).
     mol = Chem.RemoveHs(Chem.Mol(graph.mol))
-    failed = rollout.failed
-    if bool(failed.all()):
+    # A failed sample is not a pose the model produced, so it is neither scored against
+    # the others nor written. Dropping it after the confidence pass rather than before keeps
+    # that pass's batch, and so every healthy pose's logit, what it is on a clean run. Before
+    # this a frozen sample far from the receptor took the confidence model's zero-edge path,
+    # scored about -1.0 and ranked first (`state/dfd/COLLAPSE.md`).
+    kept = (~rollout.failed).nonzero().flatten().tolist()
+    n_failed = len(rollout.failed) - len(kept)
+    if not kept:
         raise PoseRolloutFailed(
-            f"every one of the {len(failed)} poses went non-finite during the rollout")
-    if bool(failed.any()):
-        log.warning("%s: %d of %d poses went non-finite during the rollout; they are frozen "
-                    "at their last finite coordinates and ranked last",
-                    job.name, int(failed.sum()), len(failed))
-    poses = (rollout.poses + graph.original_center).numpy()
+            f"{job.name}: all {n_failed} samples failed during the rollout, no pose written")
+    if n_failed:
+        log.warning("%s: %d of %d samples failed during the rollout and are not written",
+                    job.name, n_failed, len(rollout.failed))
+    poses = (rollout.poses + graph.original_center).numpy()[kept]
     confidences = None if options.no_confidence else model.confidence(graph, rollout.poses)
-    order = list(range(len(poses)))
+    order = kept
     if confidences is not None:
-        confidences = torch.as_tensor(confidences).flatten().float()
+        confidences = torch.as_tensor(confidences).flatten().float()[kept]
         # Same answer as the confidence model's own for a pose it cannot score: far below
         # any real logit, so it sorts last instead of disappearing. `isfinite`, not `isnan`:
         # an infinite logit would otherwise sort *first* (D-dfd-sampling-9).
-        confidences = torch.where(torch.isfinite(confidences) & ~failed, confidences,
+        confidences = torch.where(torch.isfinite(confidences), confidences,
                                   torch.full_like(confidences, confidence_model.UNSCORABLE))
-        order = torch.argsort(confidences, descending=True).tolist()
-        poses, confidences = poses[order], confidences[order].tolist()
+        rank = torch.argsort(confidences, descending=True, stable=True).tolist()
+        order = [kept[i] for i in rank]
+        poses, confidences = poses[rank], confidences[rank].tolist()
         log.info("%s: ranked %d poses, best confidence %.3f",
                  job.name, len(confidences), confidences[0])
 
@@ -200,7 +211,7 @@ def _sample_one(job: DockJob, options: DockOptions, write_dir: Path, receptor: P
         frames = [(f + graph.original_center).numpy() for f in rollout.trajectory]
         trajectories = [output.trajectory_pdb(mol, [f[b] for f in frames]) for b in order]
     return output.write_poses(write_dir, mol, poses, confidences=confidences,
-                              trajectories=trajectories)
+                              trajectories=trajectories), n_failed
 
 
 def _sampling_config(options: DockOptions):

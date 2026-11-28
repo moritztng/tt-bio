@@ -1549,6 +1549,35 @@ def _k_pair_relu(shipped, args, kwargs):
     return _tape(out_v, [x], make, reads=(0,))
 
 
+@_kernel("col_mix")
+def _k_col_mix(shipped, args, kwargs):
+    """`col_mix.col_mix`'s entry: the depth-2 column attention between its projections as one node.
+
+    The composed chain tapes thirteen nodes and holds their operands; this one holds the `[2, n, 3c]` projection
+    alone and its backward is one program, `col_mix_bw`, which recomputes the key and value differences and the
+    sigmoid. The bias is the MSA mask's and takes no gradient, so a tracked one declines.
+    """
+    from . import col_mix as C
+    ra, rk = _raw(args, kwargs)
+    bias_t = args[2] if len(args) > 2 else kwargs.get("bias")
+    if isinstance(bias_t, Tensor) and bias_t.requires_grad:
+        return None
+    x = _wrap(args[0])
+    out_v = shipped(*ra, **rk)
+    scale = ra[1] if len(ra) > 1 else rk["scale"]
+    bias = ra[2] if len(ra) > 2 else rk.get("bias")
+
+    def make():
+        def bw(g):
+            d = g if g.dtype == ttnn.bfloat16 else ttnn.typecast(g, ttnn.bfloat16)
+            x.add_grad(C.col_mix_bw(x.value, d, scale, bias))
+            if d is not g:
+                ttnn.deallocate(d)
+        return bw
+
+    return _tape(out_v, [x], make, reads=(0,))
+
+
 # --- attention head packing ------------------------------------------------------------
 # Both layouts below are DERIVED FROM THE DEVICE with an index-valued tensor
 # (`perf/ptx_fastpath/heads.py`), not read off a docstring. A head-split backward written
