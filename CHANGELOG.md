@@ -33,6 +33,10 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   ranked first. Such a sample is now stopped and left out, so a complex can return fewer than
   `--samples_per_complex` poses. The count is printed on stderr and reported as `failed_samples` in the JSON.
   The other samples are unchanged. See [`docs/docking.md`](docs/docking.md).
+- **Writing a result no longer stalls on a host that has been serving for a day.** numpy asks the kernel for huge
+  pages behind every large array, and once the host has no free 2 MB block each such write waits on memory
+  compaction: filling four 127 MB arrays took 4.5 to 5.8 s on a Galaxy up 26 hours and 0.24 s without the request.
+  tt-bio now turns the request off at import. Set `NUMPY_MADVISE_HUGEPAGE=1` to keep it. Results are unchanged.
 
 ## [0.46.0] - 2026-11-27
 
