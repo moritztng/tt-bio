@@ -66,6 +66,8 @@ ap.add_argument("--gc-freeze", type=int, default=0,
 ap.add_argument("--gc-census", type=int, default=0,
                 help="at the start of this call write gc_census.json: tracked objects per generation and the "
                      "types that fill generation 2, then time one full collection (0 = never)")
+ap.add_argument("--primal-tape", choices=("asis", "suspend"), default="asis",
+                help="suspend = run every _primal callback under taped_ttnn.suspend() (bc4-bet-recserve A/B)")
 ap.add_argument("--profile", type=int, default=3,
                 help="run this (uninstrumented) gradient call under cProfile; 0 = off")
 a = ap.parse_args()
@@ -271,7 +273,25 @@ def timed(name, fn):
     return run
 
 
+# What tape state a `_primal` callback (frozen recycle, mutate refold) starts in, counted per answer.
+# `--primal-tape suspend` runs it under `taped_ttnn.suspend()`, the serving path by construction.
+primal_tape = collections.Counter()
+
+
+def primal(fn):
+    def run(*args, **kwargs):
+        from tt_bio import ops, taped_ttnn
+        primal_tape[f"taping={ops.taping()} hook={ops.grad_hook() is not None} "
+                    f"shimmed={bool(taped_ttnn._SHIMMED)}"] += 1
+        if a.primal_tape == "asis":
+            return fn(*args, **kwargs)
+        with taped_ttnn.suspend():
+            return fn(*args, **kwargs)
+    return run
+
+
 for _cls in (bc2.EvoformerOnDevice, bc2.ExtraMsaOnDevice, bc2.TemplateOnDevice, bc2.StructureOnDevice):
+    _cls._primal = primal(_cls._primal)
     for _verb in ("_primal", "_taped", "_backward"):
         setattr(_cls, _verb, timed(f"{_cls.__name__}.{_verb}", getattr(_cls, _verb)))
 
@@ -419,7 +439,7 @@ def write(partial=False):
     total = sum(r["synced_s"] for r in rows)
     doc = dict(**HEAD, iteration_s=state["instrumented"], uninstrumented=state["uninstrumented"],
                iteration_trunk_loads=state.get("instrumented_loads"), iteration_load1=state.get("instrumented_load1"),
-               aiclk=state["cl"], synced_total_s=total, ops=rows, calls=len(rec.rec), partial=partial)
+               aiclk=state["cl"], primal_tape=dict(primal_tape), synced_total_s=total, ops=rows, calls=len(rec.rec), partial=partial)
     ag = sys.modules.get("tt_bio.autograd")
     if ag is not None:
         doc.update(rtrace_stats=dict(ag.RTRACE_STATS), rtrace_checks=list(ag.RTRACE_CHECKS))
