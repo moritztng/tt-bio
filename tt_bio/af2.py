@@ -803,29 +803,35 @@ class AF2Attention(Module):
             memory_config=ttnn.DRAM_MEMORY_CONFIG,
         )
         qkv = self._lin(x, self.qkv_weight, memory_config=ttnn.DRAM_MEMORY_CONFIG)
-        w = self.n_heads * self.head_dim
-        part = lambda r0, r1, j: ttnn.slice(qkv, (r0, 0, j * w), (r1, n, (j + 1) * w))
-        q = part(0, rows, 0)
-        k0, k1 = part(0, 1, 1), part(1, 2, 1)
-        v0, v1 = part(0, 1, 2), part(1, 2, 2)
-        ttnn.deallocate(qkv)
-        kd = ttnn.subtract(k0, k1)
-        vd = ttnn.subtract(v0, v1)
-        for t in (k0, k1, v0):
-            ttnn.deallocate(t)
-        qk = ttnn.multiply(q, kd)
-        ttnn.deallocate(q)
-        ttnn.deallocate(kd)
-        gap = self._lin(qk, self.head_sum, memory_config=ttnn.DRAM_MEMORY_CONFIG)
-        ttnn.deallocate(qk)
-        if mask_bias is not None:
-            gap = ttnn.add(gap, mask_bias)
-        mixed = ttnn.multiply(gap, vd, input_tensor_a_activations=[ttnn.UnaryOpType.SIGMOID])
-        ttnn.deallocate(vd)
-        ttnn.deallocate(gap)
-        out = ttnn.add(mixed, v1)
-        ttnn.deallocate(mixed)
-        ttnn.deallocate(v1)
+        from . import col_mix as _cm
+        if _cm.eligible(qkv, self.head_dim, mask_bias):
+            # Everything between the projection and the gate as one program.
+            out = _cm.col_mix(qkv, self.scale_inv, mask_bias)
+            ttnn.deallocate(qkv)
+        else:
+            w = self.n_heads * self.head_dim
+            part = lambda r0, r1, j: ttnn.slice(qkv, (r0, 0, j * w), (r1, n, (j + 1) * w))
+            q = part(0, rows, 0)
+            k0, k1 = part(0, 1, 1), part(1, 2, 1)
+            v0, v1 = part(0, 1, 2), part(1, 2, 2)
+            ttnn.deallocate(qkv)
+            kd = ttnn.subtract(k0, k1)
+            vd = ttnn.subtract(v0, v1)
+            for t in (k0, k1, v0):
+                ttnn.deallocate(t)
+            qk = ttnn.multiply(q, kd)
+            ttnn.deallocate(q)
+            ttnn.deallocate(kd)
+            gap = self._lin(qk, self.head_sum, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+            ttnn.deallocate(qk)
+            if mask_bias is not None:
+                gap = ttnn.add(gap, mask_bias)
+            mixed = ttnn.multiply(gap, vd, input_tensor_a_activations=[ttnn.UnaryOpType.SIGMOID])
+            ttnn.deallocate(vd)
+            ttnn.deallocate(gap)
+            out = ttnn.add(mixed, v1)
+            ttnn.deallocate(mixed)
+            ttnn.deallocate(v1)
         gate = self._lin(x, self.g_weight, bias=self.g_bias,
                          memory_config=ttnn.DRAM_MEMORY_CONFIG)
         ttnn.deallocate(x)
@@ -1167,6 +1173,10 @@ class AF2EvoformerBlock(AF2PairBlock):
             # `_column_depth2` adds the gap between the two keys' biases, per column.
             gap = ttnn.subtract(ttnn.slice(flat, (0, 0), (1, n)), ttnn.slice(flat, (1, 0), (2, n)))
             col_bias = ttnn.reshape(ttnn.permute(gap, (1, 0)), (1, n, 1))
+            from . import col_mix as _cm
+            if _cm.COL_MIX:
+                # Its kernel spreads the column with a matmul, which reads the tile padding too.
+                col_bias = ttnn.fill_implicit_tile_padding(col_bias, 0.0)
         else:
             transposed = ttnn.permute(flat, (1, 0))
             col_bias = ttnn.fill_implicit_tile_padding(
