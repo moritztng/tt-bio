@@ -130,7 +130,8 @@ TRANSITION_L1 = env_flag("TT_BIO_AF2_TRANSITION_L1", False)
 TRANSITION_WS = env_flag("TT_BIO_AF2_TRANSITION_WS", True)
 # The transition's residual add inside that program (`pair_relu(resid=x, keep_x=True)`): `x + f(x)` summed in float32
 # and rounded once, so the update is never written and the residual add is not a pass of its own. Not bit-identical
-# to the update rounded to bfloat16 and then added.
+# to the update rounded to bfloat16 and then added, so `bindcraft2.fast_round` arms it on Blackhole and a plain
+# AF2 fold leaves it off.
 TRANSITION_RES = env_flag("TT_BIO_AF2_TRANSITION_RES", False)
 # Hand the pair representation from the extra-MSA stack straight to the Evoformer stack as a
 # device tensor, instead of downloading it and uploading the same bytes back. `AF2Model.forward`
