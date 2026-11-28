@@ -402,6 +402,12 @@ def test_the_tile_form_keeps_the_torsion_head_on_gemm(monkeypatch):
                               "confidence_model": None})()
         device.DeviceScoreNetwork(host, "a-card", edge_tp=edge_tp)
         assert [made[k] for k in ("conv_layers.0", "conv_layers.1", "tor_bond_conv")] == want
+        # the confidence model's convolutions take the same form as the rollout's
+        made.clear()
+        monkeypatch.setattr(device, "DeviceConfidence", lambda m, convs: None)
+        host.confidence_model = model()
+        device.DeviceScoreNetwork(host, "a-card", edge_tp=edge_tp)
+        assert [made[k] for k in ("conv_layers.0", "conv_layers.1", "tor_bond_conv")] == want
 
 
 def test_device_score_network_has_the_rollout_interface():

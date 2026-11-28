@@ -747,13 +747,13 @@ class DeviceScoreNetwork:
     def __init__(self, host, device, *, edge_tp: str = "gemm"):
         self.host, self.device = host, device
         self.model, self.config = host.model, host.config
-        self.convs = convs_on_device(host.model, device, edge_tp=edge_tp,
-                                     gemm_modules=TILE_GEMM_MODULES if edge_tp == "tile" else ())
-        # The confidence model keeps the GEMM form: the tile kernel was graded on the score
-        # network only, and the ranking pass is 0.54 s, not the bottleneck.
+        form = dict(edge_tp=edge_tp, gemm_modules=TILE_GEMM_MODULES if edge_tp == "tile" else ())
+        self.convs = convs_on_device(host.model, device, **form)
+        # The ranking pass takes the same form as the rollout: on the tile kernel its card time
+        # is 2.1-2.5x lower and it ranked three graded pose sets exactly as the host does.
         self.confidence_convs = ({} if host.confidence_model is None
                                  else convs_on_device(host.confidence_model, device,
-                                                      graphs=CONFIDENCE_GRAPHS))
+                                                      graphs=CONFIDENCE_GRAPHS, **form))
         self._confidence = (None if host.confidence_model is None
                             else DeviceConfidence(host.confidence_model, self.confidence_convs))
 
@@ -837,7 +837,7 @@ class DeviceConfidence:
     :meth:`ConfidenceModel.convolve <tt_bio.diffdock.confidence_model.ConfidenceModel.convolve>`
     walks the wiring; this object is its executor. Per pose the ligand's node table and its
     three edge sets cross to the card once, the receptor's two node tables and three edge sets
-    once per pose set (they are the same host tensors for every pose), and one read-back of the
+    once per receptor (the same host tensors for every pose and ligand), and one read-back of the
     ligand features ends the pass. The 41 convolutions are the :class:`DeviceConvModule`
     layers :func:`convs_on_device` put on the model, so nothing here is a second implementation.
 
@@ -852,6 +852,8 @@ class DeviceConfidence:
         #: edge set -> (out set, source set) in its stored direction
         self.ends = {es: (out, src) for out, src, es, flip in WIRING if not flip}
         self._held = {}
+        self.first_layer = len(WIRING)
+        self._same = {}                   # conv -> (out, src, edges, update), see _conv
 
     def _keep(self, key, src: Tensor, build):
         """*build()*'s upload for *key*, rebuilt only when *src* is a different host tensor."""
@@ -878,6 +880,21 @@ class DeviceConfidence:
                                  layout=ttnn.TILE_LAYOUT, device=self.device))
 
     def _conv(self, i, out, src, e, flip):
+        """Convolution *i*, or the update it gave last time for these same card tensors.
+
+        Only the first layer can repeat: its receptor groups read the receptor's own tables and
+        edges, which :meth:`_keep` holds across poses and ligands, so four of its nine
+        convolutions (the three largest edge sets) run once per receptor. Every later layer
+        reads tables the layer before it made.
+        """
+        hit = self._same.get(i)
+        if hit is None or hit[0] is not out or hit[1] is not src or hit[2] is not e:
+            hit = (out, src, e, self._run(i, out, src, e, flip))
+            if i < self.first_layer:
+                self._same[i] = hit
+        return hit[3]
+
+    def _run(self, i, out, src, e, flip):
         import ttnn
         mod = self.mods[i]
         if e is None:
