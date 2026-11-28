@@ -557,9 +557,14 @@ def run(device, q, k, v, bias, g, scale, ckc, packed=False, q_chunk_tiles=None, 
     # its own L1; this sums the groups. `ttnn.sum(dim=0)` is permute, reduce, permute (0.78 ms at
     # [27, 4, 288, 288]); `lead_sum` reads the slabs in page order and adds in float32 DST.
     from . import lead_sum as _ls
-    dbias = (_ls.lead_sum(part) if _ls.eligible(part)
-             else ttnn.sum(part, dim=0, keepdim=True))
-    ttnn.deallocate(part)
+    if p["groups"] == 1:
+        # One group wrote the whole gradient (a leading axis of 1, the MSA row attention's
+        # folded call): there is nothing to reduce.
+        dbias = part
+    else:
+        dbias = (_ls.lead_sum(part) if _ls.eligible(part)
+                 else ttnn.sum(part, dim=0, keepdim=True))
+        ttnn.deallocate(part)
     if kv_dtype is not None:
         # One rounding to bf16 at the end, the same one the whole-query kernel's pack makes.
         dk, dv = (ttnn.typecast(t, ttnn.bfloat16) for t in (dk, dv))
