@@ -381,6 +381,24 @@ class DeviceConvLayer:
         return _stack(ttnn.matmul(x if k == n else x[a:a + k, :], w, compute_kernel_config=self.ckc,
                                   dtype=self.dtype) for a, k in blocks(n))
 
+    def warm(self, ns=None):
+        """One pass over zeros with a block of every size on every row axis, so every kernel
+        this layer can ask for is compiled. *ns* as in :meth:`__call__`. Needs
+        ``conv.BLOCK_CAP``: without a largest block the set of sizes has no end.
+        """
+        from tt_bio.diffdock import conv
+        if not conv.BLOCK_CAP:
+            raise ValueError("no largest row block (conv.BLOCK_CAP), so no finite set to warm")
+        n, G = (2 * conv.BLOCK_CAP - 1) * TILE, len(self.tps)
+        zeros = lambda rows, width: to_device(self.device, torch.zeros(rows, width))
+        width = self.fcs[0][0].weight.shape[1] - 2 * (ns or 0)
+        g = self.graph(torch.zeros(2, G * n, dtype=torch.long), n, n)
+        mask = self.ttnn.from_torch(torch.zeros(G * n, 1), dtype=self.ttnn.float32,
+                                    layout=self.ttnn.TILE_LAYOUT, device=self.device)
+        self(zeros(n, self.in_dim), g, [zeros(n, width) for _ in range(G)],
+             zeros(G * n, self.layer.sh_irreps.dim), mask, ns=ns)
+        _free(g)
+
     def __call__(self, node_attr, g, edge_attr_groups, edge_sh, edge_mask, ns=None,
                  out_attr=None):
         """*node_attr* is ``[N, pad32(in_dim)]`` TILE.
@@ -676,6 +694,15 @@ class DeviceScoreNetwork:
                                                       graphs=CONFIDENCE_GRAPHS))
         self._confidence = (None if host.confidence_model is None
                             else DeviceConfidence(host.confidence_model, self.confidence_convs))
+
+    def warm(self):
+        """Compile every kernel a dock of any complex can ask this card for
+        (:meth:`DeviceConvLayer.warm`). The two heads take their edge input whole; every other
+        convolution builds it on the card."""
+        for name, mod in self.convs.items():
+            mod.dev.warm(None if name.endswith(("final_conv", "tor_bond_conv")) else self.model.ns)
+        for mod in self.confidence_convs.values():
+            mod.dev.warm(self.host.confidence_model.ns)
 
     def score_fn(self, graph):
         from tt_bio.diffdock.conv import pad_nodes

@@ -78,3 +78,37 @@ def test_card_stack_in_row_blocks_matches_the_host_stack(host_ttnn):
         got = static_net.run_stack([DeviceConvModule(host_ttnn, lyr) for lyr in layers],
                                    x, ei, ea, sh, mask, ns, plan)
     assert (got - ref).norm() / ref.norm() < 1e-5
+
+
+@pytest.mark.parametrize("ns", [None, 8])
+def test_warm_asks_for_every_matmul_a_capped_graph_can(host_ttnn, monkeypatch, ns):
+    """With a largest block, the (rows, K, N) of every matmul, linear and gather of any graph
+    is one the warm pass already ran: that is what makes a prewarm finite."""
+    import ttnn
+    from tt_bio.diffdock import conv
+    from tt_bio.diffdock.device import DeviceConvLayer, to_device
+    monkeypatch.setattr(conv, "BLOCK_CAP", 4)
+    seen = set()
+
+    def spy(name):
+        real = getattr(ttnn, name)
+
+        def call(a, b, *args, **kw):
+            seen.add((name, tuple(a.shape), tuple(b.shape)[1:]))
+            return real(a, b, *args, **kw)
+        monkeypatch.setattr(ttnn, name, call)
+    for name in ("matmul", "linear", "embedding"):
+        spy(name)
+    torch.manual_seed(0)
+    layer = TensorProductConvLayer(IN, SH, OUT, NEF + 2 * (ns or 0), edge_groups=2).eval()
+    dev = DeviceConvLayer(host_ttnn, layer)
+    dev.warm(ns)
+    warm = set(seen)
+    assert {s[1][0] for s in warm if s[0] == "matmul"} == {32, 64, 128}
+    seen.clear()
+    N, sizes = bucket(700), [bucket(1500), bucket(90)]
+    E = sum(sizes)
+    up = lambda *shape: to_device(host_ttnn, torch.randn(*shape))
+    dev(up(N, layer.in_irreps.dim), dev.graph(torch.randint(0, N, (2, E)), N, N),
+        [up(n, NEF) for n in sizes], up(E, 9), torch.ones(E, 1).double(), ns=ns)
+    assert seen and seen <= warm, sorted(seen - warm)[:5]
