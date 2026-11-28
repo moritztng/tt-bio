@@ -1369,6 +1369,11 @@ def main(argv=None, on_step=None):
                         res_cand = trunk(s0_tt, zk0, ck_tt, mk, return_penultimate=True)
                     else:
                         res_cand = trunk(s0_tt, zk0, ck_tt, mk)
+                    # Launch step+1 weight-free CPU prefetch right after candidate trunk dispatch:
+                    # overlaps ~320 ms host work against ~1.0-1.8 s of pure-C++ device traces
+                    # (cand_run + win_trunk + win_bwd + opt + refold) with zero GIL contention
+                    # against cand_pair / cand_prep.
+                    _submit_next_prefetch()
                     if want_penult:
                         sk, zk, penult_k = res_cand
                     else:

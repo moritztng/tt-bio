@@ -856,7 +856,11 @@ class SPMDZero1Step:
             for t in sc_cache.values():
                 ttnn.deallocate(t)
 
-        ran = tracer.run_in_place_trace("opt_body", trace_key, inputs, _body)
+        input_sig = tuple((tuple(x.shape), x.dtype) for x in inputs)
+        ran = tracer.run_in_place_trace(
+            "opt_body", trace_key, inputs, _body,
+            warm_key="opt_body", share_slots_key=input_sig,
+        )
         ttnn.deallocate(scalars_dev)
         if not ran:
             return False

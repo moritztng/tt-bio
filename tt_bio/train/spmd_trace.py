@@ -1541,6 +1541,7 @@ class SPMDMeshTracer:
         self._ns_traces: dict[tuple, Any] = {}
         self._inplace_seen: dict[tuple, int] = {}
         self._inplace_traces: dict[tuple, Any] = {}
+        self._inplace_slots: dict[tuple, list[Any]] = {}
         self.stats = {
             "refold_replay": 0,
             "untaped_replay": 0,
@@ -2502,6 +2503,8 @@ class SPMDMeshTracer:
         body_fn: Callable[[Sequence[Any]], None],
         *,
         extra_owned: Sequence[Any] = (),
+        warm_key: Any = None,
+        share_slots_key: Any = None,
     ) -> bool:
         """Warm, capture, and replay an in-place MeshTrace mutating persistent device state.
 
@@ -2509,12 +2512,18 @@ class SPMDMeshTracer:
         on capture — ``begin_trace_capture`` records without executing, then ``execute_trace``
         runs the recorded trace once for the current step). Returns ``True`` when handled (warm,
         capture+execute, or replay) and ``False`` when disabled/refused so caller runs eager.
+
+        Optional ``warm_key`` decouples kernel-warmth tracking from exact ``key`` so variant
+        masks (e.g. ``opt_body`` at ``d==1`` vs ``d>=2``) capture on first encounter once the
+        tag's kernels are warm. Optional ``share_slots_key`` reuses persistent staging ``slots``
+        across non-overlapping variants with identical input tensor signatures (zero extra DRAM).
         """
         import ttnn
 
         if not self.enabled:
             return False
         full_key = (tag, key)
+        w_key = full_key if warm_key is None else (tag, warm_key)
         tr = self._inplace_traces.get(full_key)
         if tr == "eager":
             return False
@@ -2527,25 +2536,38 @@ class SPMDMeshTracer:
             self.stats[stat_k] = self.stats.get(stat_k, 0) + 1
             return True
 
-        seen = self._inplace_seen.get(full_key, 0)
+        seen = self._inplace_seen.get(w_key, 0)
         if seen == 0 or not self._hole_ready:
             # Warm step: executes body_fn ONCE eagerly, compiling all kernels & ttnn.copy shapes.
             body_fn(inputs)
-            self._inplace_seen[full_key] = 1
+            self._inplace_seen[w_key] = 1
             return True
 
-        slots = [ttnn.clone(x) for x in inputs]
+        s_key = None if share_slots_key is None else (tag, share_slots_key)
+        shared_existing = self._inplace_slots.get(s_key) if s_key is not None else None
+        if shared_existing is not None:
+            slots = shared_existing
+            owns_new_slots = False
+        else:
+            slots = [ttnn.clone(x) for x in inputs]
+            owns_new_slots = True
         for x, sl in zip(inputs, slots):
             ttnn.copy(x, sl)
         ttnn.synchronize_device(self.device)
 
         try:
             tids = self._capture_runs([lambda: body_fn(slots)])
-            self._track(*slots, *extra_owned)
+            if owns_new_slots:
+                self._track(*slots)
+                if s_key is not None:
+                    self._inplace_slots[s_key] = slots
+            if extra_owned:
+                self._track(*extra_owned)
             self._inplace_traces[full_key] = dict(tid=tids[0], slots=slots)
         except Exception as exc:
-            for t in slots:
-                _safe_dealloc(t)
+            if owns_new_slots:
+                for t in slots:
+                    _safe_dealloc(t)
             self._inplace_traces[full_key] = "eager"
             self.stats["refused"] += 1
             self.refusal_reasons.append(f"{tag}:{type(exc).__name__}:{exc}")
@@ -2590,3 +2612,4 @@ class SPMDMeshTracer:
         self._ns_traces.clear()
         self._inplace_traces.clear()
         self._inplace_seen.clear()
+        self._inplace_slots.clear()
