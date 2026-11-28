@@ -59,7 +59,21 @@ def _cb(idx, depth, core_grid):
                              format_descriptors=[fmt])
 
 
-def _build(x, out, device, G, T):
+#: Slabs the pairwise form takes: a power of two whose partial-sum stack (log2 G + 1 float32
+#: tiles) fits the 8 a float32 DST holds.
+PAIR_MAX = 128
+
+
+def pair_eligible(x) -> bool:
+    """What `lead_sum(x, pairwise=True)` serves. Not behind `LEAD_SUM_FUSED`: it reproduces the
+    halving slice/add loop it replaces bit for bit, so there is nothing to gate."""
+    G = int(x.shape[0])
+    return (x.dtype == ttnn.float32 and x.layout == ttnn.TILE_LAYOUT and len(x.shape) >= 3
+            and 2 <= G <= PAIR_MAX and not G & (G - 1)
+            and x.memory_config().memory_layout == ttnn.TensorMemoryLayout.INTERLEAVED)
+
+
+def _build(x, out, device, G, T, pairwise=False):
     num_cores, core_grid, cg1, cg2, work1, work2 = _split_plan(device, T)
     assign, placed = {}, 0
     for group, per_core in ((cg1, work1), (cg2, work2)):
@@ -87,7 +101,7 @@ def _build(x, out, device, G, T):
         kernel_source=str(KERNEL_DIR / "reader_lead_sum.cpp"), source_type=src,
         core_ranges=core_grid,
         compile_time_args=[_gran(G), G, T] + list(ttnn.TensorAccessorArgs(x).get_compile_time_args())
-        + genq_ct, runtime_args=reader_rt, common_runtime_args=[0],
+        + genq_ct + [int(pairwise)], runtime_args=reader_rt, common_runtime_args=[0],
         config=ttnn.ReaderConfigDescriptor())
     # rne_add's writer reads its block size from arg 0: one tile, the rate compute produces. After
     # the genq block it takes DUAL and the bfloat16 copy's accessor: 0, and out's again, unused.
@@ -99,14 +113,15 @@ def _build(x, out, device, G, T):
         config=ttnn.WriterConfigDescriptor())
     compute = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "compute_lead_sum.cpp"), source_type=src,
-        core_ranges=core_grid, compile_time_args=[IN_CB, OUT_CB, G] + genq_ct,
+        core_ranges=core_grid, compile_time_args=[IN_CB, OUT_CB, G] + genq_ct + [int(pairwise)],
         runtime_args=compute_rt, config=cfg)
     return {"kernels": [reader, writer, compute],
             "cbs": [_cb(IN_CB, 2 * _gran(G), core_grid), _cb(OUT_CB, 2, core_grid)]}
 
 
-def lead_sum(x):
-    """``sum(x, dim=0, keepdim=True)``, float32, in DRAM."""
+def lead_sum(x, pairwise=False):
+    """``sum(x, dim=0, keepdim=True)``, float32, in DRAM. `pairwise` adds slab i to slab i + G/2 and
+    halves again, instead of chaining the slabs in order (`pair_eligible`)."""
     device = x.device()
     G = int(x.shape[0])
     ht, wt = _tile_grid(x)
@@ -115,10 +130,10 @@ def lead_sum(x):
     out = ttnn.empty(ttnn.Shape(shape), ttnn.float32, ttnn.TILE_LAYOUT, device,
                      ttnn.DRAM_MEMORY_CONFIG)
     g_ = device.compute_with_storage_grid_size()
-    key = (device.id(), G, T, x.memory_config().buffer_type, g_.x, g_.y, genq.compact())
+    key = (device.id(), G, T, x.memory_config().buffer_type, g_.x, g_.y, genq.compact(), pairwise)
     entry = _CACHE.get(key)
     if entry is None:
-        entry = _CACHE[key] = _build(x, out, device, G, T)
+        entry = _CACHE[key] = _build(x, out, device, G, T, pairwise)
     reader, writer, compute = entry["kernels"]
     reader.common_runtime_args = [x.buffer_address()]
     writer.common_runtime_args = [out.buffer_address(), 0]

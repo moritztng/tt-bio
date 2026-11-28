@@ -47,6 +47,7 @@ def test_cut_is_a_fixed_number_of_whole_tile_chunks(monkeypatch):
                         _Op(x.shape, dtype))
     monkeypatch.setattr(ttnn, "typecast", lambda t, d: calls.append(("cast", d)) or _Op(t.shape, d))
     monkeypatch.setattr(ttnn, "deallocate", lambda t: None)
+    monkeypatch.setattr(ag, "SPLIT_K_SUM_FUSED", False)
     before = ag.SPLIT_K_STATS["served"]
     out = ag._split_k(_Op((28672, 64)), _Op((28672, 224)), {"transpose_a": True, "dtype": ttnn.float32})
     assert out.shape == [64, 224] and out.dtype == ttnn.float32
@@ -83,3 +84,36 @@ def test_matches_float64_at_least_as_well_as_ttnn(K):
     got = ag._split_k(a, b, {"transpose_a": True, "compute_kernel_config": cfg, "dtype": ttnn.float32})
     assert got is not None and list(got.shape) == [64, 224]
     assert rel(got) <= rel(own) * 1.05 + 1e-7, (rel(got), rel(own))
+
+
+def test_fused_sum_replaces_the_whole_tree(monkeypatch):
+    calls = []
+    monkeypatch.setattr(ag, "bmm_program_config", lambda a3, b3, ta, **kw: "plan")
+    monkeypatch.setattr(ttnn, "reshape", lambda t, s: _Op(list(s), t.dtype))
+    monkeypatch.setattr(ttnn, "matmul", lambda a3, b3, **kw: _Op([a3.shape[0], a3.shape[2], b3.shape[2]], kw["dtype"]))
+    monkeypatch.setattr(ttnn, "deallocate", lambda t: None)
+    monkeypatch.setattr(ag._lead_sum, "pair_eligible", lambda x: True)
+    monkeypatch.setattr(ag._lead_sum, "lead_sum", lambda x, pairwise: calls.append((x.shape, pairwise)) or
+                        _Op([1] + x.shape[1:], x.dtype))
+    for name in ("slice", "add"):
+        monkeypatch.setattr(ttnn, name, lambda *a, **k: pytest.fail("the loose tree ran"))
+    out = ag._split_k(_Op((28672, 64)), _Op((28672, 224)), {"transpose_a": True, "dtype": ttnn.float32})
+    assert calls == [([64, 64, 224], True)] and out.shape == [64, 224]
+
+
+@pytest.mark.device
+@pytest.mark.parametrize("K,N", [(8192, 224), (28672, 224), (8192, 24), (4096, 224)])
+def test_fused_sum_is_the_tree_bit_for_bit(K, N, monkeypatch):
+    from tt_bio import tenstorrent as T
+    dev = T.get_device()
+    torch.manual_seed(K + N)
+    a = ttnn.from_torch(torch.randn(K, 64), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)
+    b = ttnn.from_torch(torch.randn(K, N), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)
+    kw = {"transpose_a": True, "compute_kernel_config": ag.precise_config(), "dtype": ttnn.float32}
+    out = {}
+    for fused in (False, True):
+        monkeypatch.setattr(ag, "SPLIT_K_SUM_FUSED", fused)
+        served = ag._lead_sum.STATS[0]
+        out[fused] = ttnn.to_torch(ag._split_k(a, b, dict(kw)))
+        assert ag._lead_sum.STATS[0] - served == int(fused)
+    assert torch.equal(out[False], out[True])
