@@ -145,6 +145,22 @@ def bucket(n: int, multiple: int = 32, bits: int | None = None) -> int:
     return (-(-tiles >> shift) << shift) * multiple
 
 
+def blocks(n: int, multiple: int = 32) -> list[tuple[int, int]]:
+    """``(start, rows)`` ranges cutting an *n*-row axis into power-of-two tile counts, largest
+    first.
+
+    A matmul run per block is keyed on a power of two whatever the axis length, so the kernels
+    any complex needs are one small closed set. On the :func:`bucket` grid an axis has at most
+    ``GRID_BITS`` blocks.
+    """
+    tiles, lo, out = n // multiple, 0, []
+    while tiles:
+        rows = (1 << tiles.bit_length() - 1) * multiple
+        out.append((lo, rows))
+        lo, tiles = lo + rows, tiles - rows // multiple
+    return out
+
+
 def pad_nodes(x: Tensor, n_padded: int) -> Tensor:
     """Append zero rows so the node axis is *n_padded* long."""
     if n_padded < x.shape[0]:

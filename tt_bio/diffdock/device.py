@@ -32,7 +32,7 @@ from __future__ import annotations
 import torch
 from torch import Tensor
 
-from tt_bio.diffdock.conv import bucket
+from tt_bio.diffdock.conv import blocks, bucket
 from tt_bio.diffdock.tensor_product import FullyConnectedTensorProduct
 
 TILE = 32
@@ -345,31 +345,41 @@ class DeviceConvLayer:
         return self._split[ns]
 
     def _groups(self, g, sizes):
-        """Per edge group the ``(src, dst)`` uint32 gather indices and the dense ``[n_out, E_g]``
-        scatter, uploaded once per graph.
+        """Per edge group, per power-of-two block of it: ``(start, rows, src, dst, S)`` with the
+        uint32 gather indices and the dense scatter as one ``[node block, rows]`` piece per
+        node block, uploaded once per graph.
 
         One scatter over the whole edge axis would be a matmul keyed on the sum of the group
-        sizes, which is on no grid even when every group is (:func:`bucket`). The groups
-        partition the edges, so the sum of the per-group scatters is the same reduction and
-        every matmul is keyed on a grid size.
+        sizes and on the node count, so every complex would compile its own. The blocks
+        partition the edges and the nodes (:func:`blocks`), so the sum over edge blocks of the
+        stacked node blocks is the same reduction and every matmul is keyed on powers of two.
         """
         key = ("groups", sizes)
         if key not in g:
             ttnn, out, lo = self.ttnn, [], 0
+            up = lambda r: ttnn.from_torch(r.to(torch.int32).reshape(1, -1), dtype=ttnn.uint32,
+                                           layout=ttnn.ROW_MAJOR_LAYOUT, device=self.device)
             for n in sizes:
-                src, dst = (r[lo:lo + n] for r in g["edge_index"])
-                S = torch.zeros(g["n_out"], n)
-                S[src, torch.arange(n)] = 1.0
-                out.append([
-                    *(ttnn.from_torch(r.to(torch.int32).reshape(1, n), dtype=ttnn.uint32,
-                                      layout=ttnn.ROW_MAJOR_LAYOUT, device=self.device)
-                      for r in (src, dst)),
+                group = []
+                for a, k in blocks(n):
+                    src, dst = (r[lo + a:lo + a + k] for r in g["edge_index"])
+                    S = torch.zeros(g["n_out"], k)
+                    S[src, torch.arange(k)] = 1.0
                     # 0/1, and the scatter is a sum of exact products.
-                    ttnn.from_torch(S, dtype=exact01_dtype(self.device, self.dtype),
-                                    layout=ttnn.TILE_LAYOUT, device=self.device)])
+                    group.append((a, k, up(src), up(dst), [
+                        ttnn.from_torch(S[b:b + m], dtype=exact01_dtype(self.device, self.dtype),
+                                        layout=ttnn.TILE_LAYOUT, device=self.device)
+                        for b, m in blocks(g["n_out"])]))
+                out.append(group)
                 lo += n
             g[key] = out
         return g[key]
+
+    def _mm(self, x, w):
+        """``x @ w`` with the rows of *x* in power-of-two blocks (:func:`blocks`)."""
+        ttnn, n = self.ttnn, int(x.shape[0])
+        return _stack(ttnn.matmul(x if k == n else x[a:a + k, :], w, compute_kernel_config=self.ckc,
+                                  dtype=self.dtype) for a, k in blocks(n))
 
     def __call__(self, node_attr, g, edge_attr_groups, edge_sh, edge_mask, ns=None,
                  out_attr=None):
@@ -388,24 +398,27 @@ class DeviceConvLayer:
         sizes = tuple(int(ea.shape[0]) for ea in edge_attr_groups)
         s = div = None
         lo = 0
-        for gi, (tp, ea, (src, dst, S)) in enumerate(zip(self.tps, edge_attr_groups,
-                                                         self._groups(g, sizes))):
-            n = sizes[gi]
-            rows = lambda t: t if n == g["E"] else t[lo:lo + n, :]
-            h = None
+        for gi, (tp, ea, group) in enumerate(zip(self.tps, edge_attr_groups,
+                                                 self._groups(g, sizes))):
             if ns is not None:
                 w1a, w1s, w1d, b1 = self.fc1_split(ns)[gi]
-                h = ttnn.linear(ea, w1a, bias=b1, compute_kernel_config=ckc, dtype=self.dtype)
-                out_t = node_attr if out_attr is None else out_attr
-                h = ttnn.add(h, gather_rows(mm(out_t, w1s), src, n))
-                h = ttnn.relu(ttnn.add(h, gather_rows(mm(node_attr, w1d), dst, n)))
-            mask = rows(edge_mask)
-            msg = ttnn.multiply(tp(ea, gather_rows(node_attr, dst, n), rows(edge_sh), h=h), mask)
-            part, count = mm(S, msg), mm(S, mask)
-            s, div = (part, count) if s is None else (ttnn.add(s, part), ttnn.add(div, count))
-            lo += n
+                at_src = self._mm(node_attr if out_attr is None else out_attr, w1s)
+                at_dst = self._mm(node_attr, w1d)
+            for a, k, src, dst, S in group:
+                rows = lambda t, at: t if k == t.shape[0] else t[at:at + k, :]
+                e, h = rows(ea, a), None
+                if ns is not None:
+                    h = ttnn.linear(e, w1a, bias=b1, compute_kernel_config=ckc, dtype=self.dtype)
+                    h = ttnn.add(h, gather_rows(at_src, src, k))
+                    h = ttnn.relu(ttnn.add(h, gather_rows(at_dst, dst, k)))
+                mask = rows(edge_mask, lo + a)
+                msg = ttnn.multiply(tp(e, gather_rows(node_attr, dst, k), rows(edge_sh, lo + a),
+                                       h=h), mask)
+                part, count = (_stack(mm(Sb, x) for Sb in S) for x in (msg, mask))
+                s, div = (part, count) if s is None else (ttnn.add(s, part), ttnn.add(div, count))
+            lo += sizes[gi]
         if self.perm is not None:
-            s = ttnn.matmul(s, self.perm, compute_kernel_config=ckc, dtype=self.dtype)
+            s = self._mm(s, self.perm)
         div = ttnn.reciprocal(ttnn.clamp(div, min=float(torch.finfo(torch.float32).eps)))
         out = ttnn.multiply(s, div)
         if self.layer.batch_norm is not None:
@@ -416,6 +429,13 @@ class DeviceConvLayer:
                 res = ttnn.pad(res, [(0, 0), (0, self.out_pad - res.shape[-1])], value=0.0)
             out = ttnn.add(out, res)
         return out
+
+
+def _stack(parts):
+    """Row blocks back into one tensor."""
+    import ttnn
+    parts = list(parts)
+    return parts[0] if len(parts) == 1 else ttnn.concat(parts, dim=0)
 
 
 class GraphCache:
@@ -453,11 +473,13 @@ class GraphCache:
 
 def _free(g: dict) -> None:
     import ttnn
-    for v in g.values():
-        for t in (v if isinstance(v, list) else [v]):
-            for u in (t if isinstance(t, list) else [t]):
-                if isinstance(u, ttnn.Tensor):
-                    ttnn.deallocate(u)
+    todo = list(g.values())
+    while todo:
+        v = todo.pop()
+        if isinstance(v, (list, tuple)):
+            todo.extend(v)
+        elif isinstance(v, ttnn.Tensor):
+            ttnn.deallocate(v)
 
 
 class DeviceConvModule(torch.nn.Module):

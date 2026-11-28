@@ -228,3 +228,13 @@ def test_an_all_masked_edge_set_is_zero_not_nan():
         out = layer(node_attr, edge_index, [edge_attr], edge_sh, edge_mask=mask)
     assert torch.isfinite(out).all()
     assert torch.equal(out, torch.zeros_like(out))
+
+
+def test_blocks_cut_a_grid_axis_into_few_powers_of_two():
+    from tt_bio.diffdock.conv import GRID_BITS, blocks, bucket
+    for n in (1, 31, 33, 1000, 9_999, 287_000, 1_500_000):
+        cut = blocks(bucket(n))
+        assert len(cut) <= GRID_BITS
+        assert [a for a, _ in cut] == [sum(k for _, k in cut[:i]) for i in range(len(cut))]
+        assert sum(k for _, k in cut) == bucket(n)
+        assert all((k // 32) & (k // 32 - 1) == 0 for _, k in cut)
