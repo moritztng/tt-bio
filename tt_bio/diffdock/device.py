@@ -683,6 +683,15 @@ class DeviceScoreNetwork:
         return self.host.confidence(graph, poses, convolve=self._confidence)
 
 
+#: The confidence edge sets a pose changes: the ligand's radius graph and its two cross sets.
+#: The receptor's three are the same for every pose and sit on the fine grid.
+POSE_EDGES = ("lig", "lr", "la")
+
+#: Grid bits for the pose-dependent sets: one bit is the next power of two. Their size moves
+#: with every pose, and on a finer grid nearly every pose is a new shape, so a new set of
+#: device programs. The padding is masked edges, at most as many as the real ones.
+POSE_BITS = 1
+
 #: A confidence pose touches nine graphs per layer, four of them the receptor's; an LRU of 8
 #: would evict each one just before it is needed again.
 CONFIDENCE_GRAPHS = 16
@@ -726,7 +735,7 @@ class DeviceConfidence:
         if E == 0:
             return None
         a, b = self.ends[es]
-        extra = bucket(E) - E
+        extra = bucket(E, bits=POSE_BITS if es in POSE_EDGES else None) - E
         pad = lambda t: torch.nn.functional.pad(t.float(), (0, 0, 0, extra))
         return dict(
             ei=torch.cat([ei, torch.tensor([[rows[a] - 1], [rows[b] - 1]]).expand(2, extra)], 1),

@@ -17,6 +17,11 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 - **`tt-bio dock` runs on the card.** On a host with a Tenstorrent card the convolutions of both the score and the
   confidence network run on the card, otherwise on CPU. The card's confidence network ranks poses exactly as
   upstream's does. See [`docs/docking.md`](docs/docking.md).
+- **Ranking docked poses on the card no longer recompiles for every ligand.** The confidence network pads its
+  pose-dependent edge sets to a small set of sizes, so a new ligand or pose set reuses the programs the first one
+  compiled: an unseen pose set took 7.5 to 130 s on three test ligands and now takes 0.9 to 1.4 s (one Galaxy
+  chip at 1350 MHz). The receptor's all-atom graph is also built once per structure file instead of once per
+  ligand. Ranking is unchanged on those ligands.
 - **ESMFold2 and ESMFold2-Fast fold about 4 % faster on Wormhole**, in both normal and `--fast` mode. A 512-residue
   fold on a Galaxy chip at 1000 MHz: ESMFold2 22.9 -> 21.8 s (normal) and 22.2 -> 21.3 s (`--fast`), ESMFold2-Fast
   13.5 -> 13.0 s and 13.4 -> 12.9 s. The triangle update keeps one pair tensor in 8-bit block floating point across

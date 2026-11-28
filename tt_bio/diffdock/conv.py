@@ -129,7 +129,7 @@ class IrrepBatchNorm(nn.Module):
 GRID_BITS = 5
 
 
-def bucket(n: int, multiple: int = 32) -> int:
+def bucket(n: int, multiple: int = 32, bits: int | None = None) -> int:
     """Padded length of an *n*-row axis: a whole number of tiles, on a geometric grid.
 
     A matmul kernel is compiled per row-tile count, so an axis padded only to the next tile
@@ -138,10 +138,10 @@ def bucket(n: int, multiple: int = 32) -> int:
     32 tiles is on it and above that the step is 1/32 to 1/16 of the length. Pad rows are
     dead edges or pad nodes (mask 0), so the grid changes no result. This is the one ladder
     for every row axis of both networks; ``GRID_BITS`` is read per call, so an A/B sets it
-    for a whole process.
+    for a whole process. *bits* coarsens one axis: at one bit the grid is the powers of two.
     """
     tiles = -(-n // multiple)
-    shift = max(tiles.bit_length() - GRID_BITS, 0)
+    shift = max(tiles.bit_length() - (bits or GRID_BITS), 0)
     return (-(-tiles >> shift) << shift) * multiple
 
 
