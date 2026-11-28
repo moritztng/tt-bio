@@ -37,6 +37,16 @@ def test_grid_never_loses_a_row_and_never_wastes_more_than_the_ratio():
         assert grid_count(n) >= pad_count(n)
 
 
+def test_ratio_one_is_exactly_the_old_padding():
+    """The A/B arm: `GRID_RATIO = 1.0` reproduces pad-to-32 row for row, so a before/after run
+    is one binary and one argument."""
+    import tt_bio.diffdock.graph as g
+
+    for n in range(1, 4000):
+        assert g.grid(n, ratio=1.0) == ((n + 31) // 32) * 32
+        assert g.grid_count(n, ratio=1.0) == pad_count(n)
+
+
 def test_small_axes_keep_todays_padding():
     """Below the first geometric step the grid is the multiple of 32 the port already used, so
     a small ligand's shapes do not move and neither does its cost."""

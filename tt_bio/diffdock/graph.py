@@ -54,7 +54,7 @@ def pad_count(n: int, multiple: int = 32) -> int:
 GRID_RATIO = 1.10
 
 
-def grid(n: int, multiple: int = 32, ratio: float = GRID_RATIO) -> int:
+def grid(n: int, multiple: int = 32, ratio: float | None = None) -> int:
     """The smallest grid row count at or above *n*: a fixed ladder, not *n* rounded up.
 
     A device program is compiled per tensor shape, so an axis whose length is a per-ligand or
@@ -65,15 +65,21 @@ def grid(n: int, multiple: int = 32, ratio: float = GRID_RATIO) -> int:
     most ``ratio - 1`` dead rows. The dead rows are masked, so they add arithmetic and change no
     result -- the convolution's mean divides by the mask sum, not the row count.
     """
+    ratio = GRID_RATIO if ratio is None else ratio
     v = multiple
     while v < n:
         v = max(bucket(int(v * ratio) + 1, multiple), v + multiple)
     return v
 
 
-def grid_count(n: int, multiple: int = 32, ratio: float = GRID_RATIO) -> int:
+def grid_count(n: int, multiple: int = 32, ratio: float | None = None) -> int:
     """:func:`grid` for a node axis: at least one spare row for the pad node, as
-    :func:`pad_count` leaves one."""
+    :func:`pad_count` leaves one.
+
+    ``ratio`` defaults to the module's :data:`GRID_RATIO` when it is read, not when the function
+    was defined, so an A/B can set the ladder for a whole process -- and ``GRID_RATIO = 1.0`` is
+    exactly the pad-to-32 the port used before the grid.
+    """
     return grid(n + 1, multiple, ratio)
 
 
