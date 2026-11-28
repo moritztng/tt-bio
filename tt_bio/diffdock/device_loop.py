@@ -138,12 +138,20 @@ class MLP:
     A ``Linear`` with ``bias=False`` is carried as such rather than as a zero bias row: the
     torsion head's final layer is biasless on both linears and its activation is ``Tanh``,
     not ``ReLU``, unlike every other MLP in the model.
+
+    Called with a list of tensors it is the MLP of their column concatenation, without the
+    concatenation: the first ``Linear`` is ``sum_i part_i @ W[rows of part i] + b``. A
+    ``ttnn.concat(dim=1)`` of parts that are not each a multiple of 16 wide comes back rounded
+    to about bf16 (7.5e-4 relative, `anx-glx:~/dfd/out/cat3.log`), and with that rounding in
+    the torsion head's inputs the resident step failed the SE(3) rule on a torsion score.
     """
 
     _ACTS = {torch.nn.ReLU: "relu", torch.nn.Tanh: "tanh"}
 
     def __init__(self, device, seq: torch.nn.Sequential):
-        self.ops = []
+        self.ops, self.device, self._split = [], device, {}
+        self.first = next((m.weight.detach().t().contiguous() for m in seq
+                           if isinstance(m, torch.nn.Linear)), None)
         for m in seq:
             if isinstance(m, torch.nn.Linear):
                 bias = (None if m.bias is None else
@@ -154,13 +162,34 @@ class MLP:
             elif not isinstance(m, (torch.nn.Identity, torch.nn.Dropout)):
                 raise NotImplementedError(f"no card form for {type(m).__name__}")
 
+    def _first(self, parts, bias):
+        """The first ``Linear`` on the columns *parts* would make side by side."""
+        import ttnn
+        widths = tuple(int(p.shape[1]) for p in parts)
+        if sum(widths) != self.first.shape[0]:
+            raise ValueError(f"parts {widths} do not make the {self.first.shape[0]} input columns")
+        if widths not in self._split:
+            ends = torch.tensor(widths).cumsum(0).tolist()
+            self._split[widths] = [upload(self.device, self.first[e - w:e])
+                                   for w, e in zip(widths, ends)]
+        out = None
+        for part, weight in zip(parts, self._split[widths]):
+            y = ttnn.linear(part, weight, bias=bias if out is None else None)
+            out = y if out is None else ttnn.add(out, y)
+        return out
+
     def __call__(self, x):
         import ttnn
-        for op in self.ops:
+        parts = list(x) if isinstance(x, (list, tuple)) else None
+        if parts is not None and (not self.ops or isinstance(self.ops[0], str)):
+            raise ValueError("a list of parts needs a Linear first")
+        for at, op in enumerate(self.ops):
             if op == "relu":
                 x = ttnn.relu(x)
             elif op == "tanh":
                 x = ttnn.tanh(x)
+            elif at == 0 and parts is not None:
+                x = self._first(parts, op[1])
             else:
                 x = ttnn.linear(x, op[0], bias=op[1])
         return x
@@ -442,15 +471,15 @@ class TowerFeatures:
         import ttnn
         dist = norm3(*lvec_cols)
         sig = self._broadcast(self.ones_lig, sigma_row)
-        x = ttnn.concat([bond_block, sig, self.lig_smear(dist)], dim=1)
-        return self.lig_edge_mlp(x), harmonics(*lvec_cols, self.sh_ls)
+        return (self.lig_edge_mlp([bond_block, sig, self.lig_smear(dist)]),
+                harmonics(*lvec_cols, self.sh_ls))
 
     def cross(self, cvec_cols, sigma_row):
         """``(cross_eattr, cross_sh, rev_sh)``: the cross edges and their reverse harmonics."""
         import ttnn
         dist = norm3(*cvec_cols)
         sig = self._broadcast(self.ones_cross, sigma_row)
-        eattr = self.cross_edge_mlp(ttnn.concat([sig, self.cross_smear(dist)], dim=1))
+        eattr = self.cross_edge_mlp([sig, self.cross_smear(dist)])
         rev = [ttnn.multiply(c, -1.0) for c in cvec_cols]
         return eattr, harmonics(*cvec_cols, self.sh_ls), harmonics(*rev, self.sh_ls)
 
@@ -516,8 +545,7 @@ class CenterHead:
         """
         import ttnn
         sig = ttnn.multiply(self.ones_atoms, sigma_row)
-        x = ttnn.concat([self.smear(norm3(*head_vec)), sig], dim=1)
-        return ttnn.concat([self.edge_mlp(x),
+        return ttnn.concat([self.edge_mlp([self.smear(norm3(*head_vec)), sig]),
                             ttnn.slice(gather(lig_h, src_idx, self.sg.n_lig_padded),
                                        [0, 0], [self.sg.n_lig_padded, ns])], dim=1)
 
@@ -540,7 +568,7 @@ class CenterHead:
         out_pair = []
         for vec, final in ((tr, self.tr_final), (rot, self.rot_final)):
             n = norm3(*[ttnn.slice(vec, [0, k], [n_poses, k + 1]) for k in range(3)])
-            scale = final(ttnn.concat([n, sig], dim=1))
+            scale = final([n, sig])
             out_pair.append(ttnn.multiply(ttnn.multiply(vec, ttnn.reciprocal(n)), scale))
         tr, rot = out_pair
         if self.scale_by_sigma:
@@ -596,7 +624,7 @@ class NodeEncoder:
             return self.linear(self.base)
         if sigma_row is None:
             raise ValueError("this encoder takes a sigma row per step")
-        return self.linear(ttnn.concat([self.base, ttnn.multiply(self.ones, sigma_row)], dim=1))
+        return self.linear([self.base, ttnn.multiply(self.ones, sigma_row)])
 
 
 class TorsionHead:
