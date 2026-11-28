@@ -11,7 +11,7 @@ import torch
 import ttnn
 
 from .. import autograd as ag
-from ..rfd4.pair import STEP_FEATURE, PairInputs, PairOnCard
+from ..rfd4.pair import STEP_FEATURE, PairInputs, PairOnCard, split_bf16
 
 
 def pair_taped(pc: PairOnCard, p: PairInputs, bridge, batch: dict, dtype=None):
@@ -105,51 +105,193 @@ class EncodedPair:
 class _PairStepCache:
     """Device-resident pair tensors shared between the candidate pass and winner taped pass."""
 
-    __slots__ = ("k", "n", "dedup", "C", "F_const", "F_step_k", "ws_h", "ws_l")
+    __slots__ = ("k", "n", "dedup", "C", "F_const", "F_step_k", "ws_parts")
 
-    def __init__(self, k: int, n: int, dedup: bool, C, F_const, F_step_k, ws_h, ws_l):
+    def __init__(self, k: int, n: int, dedup: bool, C, F_const, F_step_k, ws_parts):
         self.k = k
         self.n = n
         self.dedup = dedup
         self.C = C
         self.F_const = F_const
         self.F_step_k = F_step_k
-        self.ws_h = ws_h
-        self.ws_l = ws_l
+        self.ws_parts = ws_parts
 
     def release(self) -> None:
-        for attr in ("C", "F_const", "F_step_k", "ws_h", "ws_l"):
+        for attr in ("C", "F_const", "F_step_k"):
             t = getattr(self, attr, None)
             if t is not None and t.is_allocated():
                 ttnn.deallocate(t)
             setattr(self, attr, None)
+        if self.ws_parts is not None:
+            for t in self.ws_parts:
+                if t is not None and t.is_allocated():
+                    ttnn.deallocate(t)
+            self.ws_parts = None
+
+
+def _permute_exact_f32(t, dims: tuple[int, ...]):
+    """Bit-exact ``permute`` of a float32 TILE tensor via 3-part bf16 decomposition.
+
+    Direct ``ttnn.permute`` on float32 (and ``uint32`` bitcast round-trip on ttnn 0.68.0)
+    truncates mantissa bits (~5.9e-4 rel_l2). Splitting an IEEE float32 (24 significand bits)
+    into three 8-bit bf16 slices ``hi + mid + lo``, permuting each losslessly in bf16 TILE
+    layout, and summing back in float32 preserves all 24 bits bit-exactly (0.0 error).
+    """
+    bf16, f32 = ttnn.bfloat16, ttnn.float32
+    hi = ttnn.typecast(t, bf16)
+    hi_f = ttnn.typecast(hi, f32)
+    r1 = ttnn.subtract(t, hi_f)
+    ttnn.deallocate(hi_f)
+    mid = ttnn.typecast(r1, bf16)
+    mid_f = ttnn.typecast(mid, f32)
+    r2 = ttnn.subtract(r1, mid_f)
+    ttnn.deallocate(r1)
+    ttnn.deallocate(mid_f)
+    lo = ttnn.typecast(r2, bf16)
+    ttnn.deallocate(r2)
+
+    hp = ttnn.permute(hi, dims)
+    ttnn.deallocate(hi)
+    mp = ttnn.permute(mid, dims)
+    ttnn.deallocate(mid)
+    lp = ttnn.permute(lo, dims)
+    ttnn.deallocate(lo)
+
+    h32 = ttnn.typecast(hp, f32)
+    ttnn.deallocate(hp)
+    m32 = ttnn.typecast(mp, f32)
+    ttnn.deallocate(mp)
+    l32 = ttnn.typecast(lp, f32)
+    ttnn.deallocate(lp)
+
+    hm = ttnn.add(h32, m32)
+    ttnn.deallocate(h32)
+    ttnn.deallocate(m32)
+    out = ttnn.add(hm, l32)
+    ttnn.deallocate(hm)
+    ttnn.deallocate(l32)
+    return out
+
+
+def _exact_fp32_row_mean(x, c: int, cfg=None):
+    """Exact IEEE-754 fp32 mean along last dim of ``[b, n1, n2, c]`` (zero TF32 / FPU loss).
+
+    ``ttnn.sum`` unpacks fp32 to TF32 (~2.7e-4 rel_l2) and even a 2-part bf16 matmul
+    against a ones column loses ~1.4e-4 when channels span 400x dynamic range (post-``lnw``
+    squares). This reduces ``c -> 32`` via tile-aligned SFPU fp32 adds, bit-exact permutes
+    the single remaining tile to ``[b, 32, n1, n2]``, reduces ``32 -> 1`` via 5 pure SFPU
+    fp32 adds, and bit-exact permutes back to ``[b, n1, n2, 1]`` (~2.7e-8 rel_l2, 3.5 ms at
+    B=1, pure TILE_LAYOUT, 0 PCIe bytes).
+    """
+    b, n1, n2, ch = (int(d) for d in x.shape)
+    if ch != c or ch % 32 != 0:
+        raise ValueError(f"_exact_fp32_row_mean expects last dim == {c} (multiple of 32), got {x.shape}")
+
+    cur = x
+    owned = False
+    while ch > 32:
+        n_tiles = ch // 32
+        if n_tiles == 3:
+            a = ttnn.slice(cur, [0, 0, 0, 0], [b, n1, n2, 32])
+            b_part = ttnn.slice(cur, [0, 0, 0, 32], [b, n1, n2, 64])
+            c_part = ttnn.slice(cur, [0, 0, 0, 64], [b, n1, n2, 96])
+            ab = ttnn.add(a, b_part)
+            ttnn.deallocate(a)
+            ttnn.deallocate(b_part)
+            nxt = ttnn.add(ab, c_part)
+            ttnn.deallocate(ab)
+            ttnn.deallocate(c_part)
+        else:
+            half = (n_tiles // 2) * 32
+            a = ttnn.slice(cur, [0, 0, 0, 0], [b, n1, n2, half])
+            b_part = ttnn.slice(cur, [0, 0, 0, half], [b, n1, n2, 2 * half])
+            s = ttnn.add(a, b_part)
+            ttnn.deallocate(a)
+            ttnn.deallocate(b_part)
+            if 2 * half < ch:
+                rem = ttnn.slice(cur, [0, 0, 0, 2 * half], [b, n1, n2, ch])
+                nxt = ttnn.concat([s, rem], dim=-1)
+                ttnn.deallocate(s)
+                ttnn.deallocate(rem)
+            else:
+                nxt = s
+        if owned:
+            ttnn.deallocate(cur)
+        cur, owned = nxt, True
+        ch = int(cur.shape[-1])
+
+    p = _permute_exact_f32(cur, (0, 3, 1, 2))
+    if owned:
+        ttnn.deallocate(cur)
+    cur = p
+    k = 32
+    while k > 1:
+        half = k // 2
+        a = ttnn.slice(cur, [0, 0, 0, 0], [b, half, n1, n2])
+        b_part = ttnn.slice(cur, [0, half, 0, 0], [b, k, n1, n2])
+        nxt = ttnn.add(a, b_part)
+        ttnn.deallocate(a)
+        ttnn.deallocate(b_part)
+        ttnn.deallocate(cur)
+        cur = nxt
+        k = half
+    s_col = _permute_exact_f32(cur, (0, 2, 3, 1))
+    ttnn.deallocate(cur)
+    out = ttnn.multiply(s_col, 1.0 / float(c))
+    ttnn.deallocate(s_col)
+    return out
+
+
+def _rsqrt_exact_f32(s):
+    """Exact IEEE-754 fp32 rsqrt via accurate SFPU seed + 1 Newton-Raphson step."""
+    y = ttnn.rsqrt(s, fast_and_approximate_mode=False)
+    yy = ttnn.multiply(y, y)
+    syy = ttnn.multiply(s, yy)
+    ttnn.deallocate(yy)
+    nh = ttnn.multiply(syy, -0.5)
+    ttnn.deallocate(syy)
+    fac = ttnn.add(nh, 1.5)
+    ttnn.deallocate(nh)
+    out = ttnn.multiply(y, fac)
+    ttnn.deallocate(y)
+    ttnn.deallocate(fac)
+    return out
 
 
 def _norm_adaln_on_card(x, lnw_tt, gamma_tt, beta_tt, e1: float, e2: float, c: int, cfg, cg=None,
                         *, return_saved: bool = False):
     """Run PairReprBuilder's RMSNorm -> ln_out -> AdaLN RMSNorm -> gamma/beta strictly on card."""
-    mean = lambda v: ag._row_mean(v, cfg, c)
-    x2 = ttnn.square(x)
-    mx2 = mean(x2)
+    x2 = ttnn.multiply(x, x)
+    mx2 = _exact_fp32_row_mean(x2, c, cfg)
     ttnn.deallocate(x2)
-    r1 = ttnn.rsqrt(ttnn.add(mx2, e1))
+    s1 = ttnn.add(mx2, e1)
     ttnn.deallocate(mx2)
+    r1 = _rsqrt_exact_f32(s1)
+    ttnn.deallocate(s1)
     n1 = ttnn.multiply(x, r1)
+    if not return_saved:
+        ttnn.deallocate(r1)
     a = ttnn.multiply(n1, lnw_tt)
-    a2 = ttnn.square(a)
-    ma2 = mean(a2)
+    if not return_saved:
+        ttnn.deallocate(n1)
+    a2 = ttnn.multiply(a, a)
+    ma2 = _exact_fp32_row_mean(a2, c, cfg)
     ttnn.deallocate(a2)
-    r2 = ttnn.rsqrt(ttnn.add(ma2, e2))
+    s2 = ttnn.add(ma2, e2)
     ttnn.deallocate(ma2)
+    r2 = _rsqrt_exact_f32(s2)
+    ttnn.deallocate(s2)
     bb = ttnn.multiply(a, r2)
     ttnn.deallocate(a)
+    if not return_saved:
+        ttnn.deallocate(r2)
     z1 = ttnn.multiply(bb, gamma_tt)
+    if not return_saved:
+        ttnn.deallocate(bb)
     z = ttnn.add(z1, beta_tt)
     ttnn.deallocate(z1)
     if return_saved:
         return z, n1, r1, bb, r2
-    for t in (r1, n1, r2, bb):
-        ttnn.deallocate(t)
     return z
 
 
@@ -434,36 +576,38 @@ class ResidentPairBuilder:
             )
 
     def _pack_weights_on_card(self):
-        """Pack current ``linear_out.weight`` [c, k_orig] into split-bf16 step & const weights on card."""
-        from .device_optim import _split2_bf16
-
+        """Pack current ``linear_out.weight`` [c, k_orig] into exact 3-part bf16 weights on card."""
         w_host = self.builder.init_repr_factory.linear_out.weight.detach().float()
         w_pack = torch.zeros(self.c, self.k_pack, dtype=torch.float32)
         w_pack[:, self._pack_cols] = w_host[:, self._orig_cols]
 
-        ws = ttnn.from_torch(w_pack[:, :self.step_w].contiguous(), dtype=ttnn.float32,
-                             layout=ttnn.TILE_LAYOUT, device=self.device)
-        wc = ttnn.from_torch(w_pack[:, self.step_w:].contiguous(), dtype=ttnn.float32,
-                             layout=ttnn.TILE_LAYOUT, device=self.device)
-        ws_h, ws_l = _split2_bf16(ws)
-        wc_h, wc_l = _split2_bf16(wc)
-        ttnn.deallocate(ws)
-        ttnn.deallocate(wc)
-        return ws_h, ws_l, wc_h, wc_l
+        ws_parts = tuple(
+            ttnn.from_torch(p.contiguous(), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=self.device)
+            for p in split_bf16(w_pack[:, :self.step_w].contiguous())
+        )
+        wc_parts = tuple(
+            ttnn.from_torch(p.contiguous(), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=self.device)
+            for p in split_bf16(w_pack[:, self.step_w:].contiguous())
+        )
+        return ws_parts, wc_parts
 
-    def _mm_f_wt(self, F_bf16, w_hi, w_lo, cfg):
-        """Compute ``F_bf16 @ (w_hi + w_lo)^T`` in fp32 (HiFi4 + fp32_dest_acc, full core grid)."""
+    def _mm_f_wt(self, F_bf16, w_parts, cfg):
+        """Compute ``F_bf16 @ sum(w_parts)^T`` in fp32 (HiFi4 + fp32_dest_acc, full core grid)."""
         from .device_optim import _core_grid
 
         cg = _core_grid(self.device)
-        p0 = ttnn.matmul(F_bf16, w_hi, transpose_b=True, dtype=ttnn.float32,
-                         compute_kernel_config=cfg, core_grid=cg)
-        p1 = ttnn.matmul(F_bf16, w_lo, transpose_b=True, dtype=ttnn.float32,
-                         compute_kernel_config=cfg, core_grid=cg)
-        out = ttnn.add(p0, p1)
-        ttnn.deallocate(p0)
-        ttnn.deallocate(p1)
-        return out
+        acc = None
+        for wp in w_parts:
+            p = ttnn.matmul(F_bf16, wp, transpose_b=True, dtype=ttnn.float32,
+                            compute_kernel_config=cfg, core_grid=cg)
+            if acc is None:
+                acc = p
+            else:
+                nxt = ttnn.add(acc, p)
+                ttnn.deallocate(acc)
+                ttnn.deallocate(p)
+                acc = nxt
+        return acc
 
     def _build_f_const(self, enc: EncodedPair):
         """Reconstruct exact ``[b_c, n*n, const_w]`` bf16 TILE const features strictly on card."""
@@ -530,11 +674,11 @@ class ResidentPairBuilder:
             b_c = 1 if enc.dedup else k
             nn2 = n * n
 
-            ws_h, ws_l, wc_h, wc_l = self._pack_weights_on_card()
+            ws_parts, wc_parts = self._pack_weights_on_card()
             F_const = self._build_f_const(enc)  # [1, b_c * nn2, const_w] bf16 TILE
-            C_flat = self._mm_f_wt(F_const, wc_h, wc_l, cfg)  # [1, b_c * nn2, c] fp32
-            ttnn.deallocate(wc_h)
-            ttnn.deallocate(wc_l)
+            C_flat = self._mm_f_wt(F_const, wc_parts, cfg)  # [1, b_c * nn2, c] fp32
+            for t in wc_parts:
+                ttnn.deallocate(t)
             C = ttnn.reshape(C_flat, (b_c, n, n, c))
             _safe_dealloc(C_flat, keep=C)
 
@@ -550,7 +694,7 @@ class ResidentPairBuilder:
             lnw = self.builder.init_repr_factory.ln_out.weight.detach().float()
             if dtype == ttnn.bfloat16:
                 # Grad-off bf16 candidate pass: 1-part bf16 step projection + fused ttnn.rms_norm (~35 ms faster).
-                rows_flat = ttnn.matmul(F_step_k, ws_h, transpose_b=True, dtype=ttnn.bfloat16,
+                rows_flat = ttnn.matmul(F_step_k, ws_parts[0], transpose_b=True, dtype=ttnn.bfloat16,
                                         compute_kernel_config=cfg, core_grid=cg)
                 rows = ttnn.reshape(rows_flat, (k, n, n, c))
                 _safe_dealloc(rows_flat, keep=rows)
@@ -576,7 +720,7 @@ class ResidentPairBuilder:
                 ttnn.deallocate(z1)
                 ttnn.deallocate(bet_tt)
             else:
-                rows_flat = self._mm_f_wt(F_step_k, ws_h, ws_l, cfg)  # [1, k * nn2, c] fp32
+                rows_flat = self._mm_f_wt(F_step_k, ws_parts, cfg)  # [1, k * nn2, c] fp32
                 rows = ttnn.reshape(rows_flat, (k, n, n, c))
                 _safe_dealloc(rows_flat, keep=rows)
                 x = ttnn.add(rows, C)
@@ -594,7 +738,7 @@ class ResidentPairBuilder:
                     z32, z = z, ttnn.typecast(z, dtype)
                     ttnn.deallocate(z32)
 
-        cache = _PairStepCache(k, n, enc.dedup, C, F_const, F_step_k, ws_h, ws_l)
+        cache = _PairStepCache(k, n, enc.dedup, C, F_const, F_step_k, ws_parts)
         return z, cache
 
     def winner_taped(self, cache: _PairStepCache, win_idx: int, gamma_w: torch.Tensor,
@@ -632,10 +776,10 @@ class ResidentPairBuilder:
                 _safe_dealloc(cache.C, keep=C_w)
                 cache.C = None
 
-            rows_flat = self._mm_f_wt(F_step_w, cache.ws_h, cache.ws_l, cfg)
-            ttnn.deallocate(cache.ws_h)
-            ttnn.deallocate(cache.ws_l)
-            cache.ws_h = cache.ws_l = None
+            rows_flat = self._mm_f_wt(F_step_w, cache.ws_parts, cfg)
+            for t in cache.ws_parts:
+                ttnn.deallocate(t)
+            cache.ws_parts = None
 
             rows_w = ttnn.reshape(rows_flat, (1, n, n, c))
             _safe_dealloc(rows_flat, keep=rows_w)
