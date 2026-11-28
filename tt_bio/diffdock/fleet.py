@@ -103,7 +103,8 @@ def dock_via_controller(jobs: list[DockJob], options: DockOptions, out_dir, *,
             name = str(row.get("name") or row.get("id", ""))
             if row.get("status") == "ok":
                 _write_job_outputs(client, run_id, str(row.get("id")), out_dir)
-                done.append({"name": name, "files": list(row.get("files") or [])})
+                done.append({"name": name, "files": list(row.get("files") or []),
+                             "failed_samples": int(row.get("failed_samples") or 0)})
                 if verbose:
                     print(f"[dock:{name}] done ({row.get('runtime_s', '?')}s)", flush=True)
             else:
