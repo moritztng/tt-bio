@@ -359,7 +359,8 @@ def row_list(device, x, rows):
 
 
 @ops.fused_kernel("pair_relu")
-def pair_relu(x, w1, b1, w2, b2, fidelity=ttnn.MathFidelity.HiFi4, ln=None, bw_weights=None, resid=None, pb=None):
+def pair_relu(x, w1, b1, w2, b2, fidelity=ttnn.MathFidelity.HiFi4, ln=None, bw_weights=None, resid=None, pb=None,
+              keep_x=False):
     """AF2's Transition after its norm, `relu(x @ w1 + b1) @ w2 + b2`, for a bf16 TILE `x` [..., C]; a new bf16 DRAM
     tensor [..., C_out]. Weights as `relu_weights` returns them. `ln` = (gamma, beta, eps) runs the LayerNorm in the
     kernel first, as `pair_swiglu`. Same fp32 dest accumulation, the bias summed into it before the products.
@@ -368,7 +369,8 @@ def pair_relu(x, w1, b1, w2, b2, fidelity=ttnn.MathFidelity.HiFi4, ln=None, bw_w
     (one float32 rounding, the update never rounded to bf16) and written back over `resid`, and the sum's bf16 copy
     over `x`; returns `(resid, x)`. Each row tile of x is read before its sum is written, by the same core.
     `resid` may also be `x` itself (bf16, RFD4's `pair_bf16z` stream): the sum is rounded once to bf16 and written over
-    `x`; returns `(x, x)`.
+    `x`; returns `(x, x)`. `keep_x` with it (bf16 x): the same sum into a new bf16 DRAM tensor, which is returned, and x
+    is left as it is. That is the form a tape takes, whose backward reads x again.
 
     `pb` = (wt, eps, heads, n_out), with `resid is x` (the bf16 / bfp8 pair stream, square [B, n, n, C], n a tile
     multiple, no padding): the program
@@ -377,7 +379,7 @@ def pair_relu(x, w1, b1, w2, b2, fidelity=ttnn.MathFidelity.HiFi4, ln=None, bw_w
     the bias tiles, so the core split and row order stay the default. Returns `(x, x, biases)`, biases a list of n_out [B, heads, n, n].
 
     Under a tape it runs only through its entry in `taped_ttnn` (`pair_relu`), which needs `bw_weights`
-    (`relu_bw_weights`) and `ln`; otherwise it returns None and the caller's composed ops run."""
+    (`relu_bw_weights`) and `ln`, and takes a residual only with `keep_x`; otherwise it returns None and the caller's composed ops run."""
     if ops.declines_under_tape("pair_relu"):
         return None
     if pb is not None:
@@ -395,6 +397,12 @@ def pair_relu(x, w1, b1, w2, b2, fidelity=ttnn.MathFidelity.HiFi4, ln=None, bw_w
             (("WS_Z8", "1"),) if x.dtype == ttnn.bfloat8_b else ()) + pbd
         _run(x, w1, w2, fidelity, defines, SILU_POLY, ln, resid, (b1, b2), pb=(wt, outs))
         return resid, x, outs
+    if keep_x:
+        assert resid is x and x.dtype == ttnn.bfloat16, "keep_x is x + f(x) for the bf16 pair stream"
+        out = ttnn.allocate_tensor_on_device(x.shape, ttnn.bfloat16, ttnn.TILE_LAYOUT, x.device(),
+                                             ttnn.DRAM_MEMORY_CONFIG)
+        defines = (("WS_RESID", "1"), ("WS_RES32", "1"), ("WS_RES_NOCOPY", "1"))
+        return _run(x, w1, w2, fidelity, defines, SILU_POLY, ln, out, (b1, b2), resid_src=x)
     if resid is not None:
         # generic_op hands back a new handle over resid's buffer; the caller keeps its own two
         defines = (("WS_RESID", "1"), ("WS_RES32", "1")) + ((("WS_RES_NOCOPY", "1"),) if resid is x else ()) + (

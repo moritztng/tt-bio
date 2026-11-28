@@ -128,6 +128,11 @@ TRANSITION_L1 = env_flag("TT_BIO_AF2_TRANSITION_L1", False)
 # alone and its backward is `pair_relu_bw` (pre-activation recomputed in L1) then `lnbw.layer_norm_bw`. AF2-IG at 195
 # tokens: Evoformer -0.12 s on Wormhole, -0.10 s on p150a, structure within 0.03 A of the composed path.
 TRANSITION_WS = env_flag("TT_BIO_AF2_TRANSITION_WS", True)
+# The transition's residual add inside that program (`pair_relu(resid=x, keep_x=True)`): `x + f(x)` summed in float32
+# and rounded once, so the update is never written and the residual add is not a pass of its own. Not bit-identical
+# to the update rounded to bfloat16 and then added, so `bindcraft2.fast_round` arms it on Blackhole and a plain
+# AF2 fold leaves it off.
+TRANSITION_RES = env_flag("TT_BIO_AF2_TRANSITION_RES", False)
 # Hand the pair representation from the extra-MSA stack straight to the Evoformer stack as a
 # device tensor, instead of downloading it and uploading the same bytes back. `AF2Model.forward`
 # does not touch `pair` between the two calls -- it only concatenates the template torsion rows
@@ -269,7 +274,11 @@ class ReluTransition(Module):
         self.fc2_bias = self.torch_to_tt("fc2.bias")
         self._ws_weights = self._ws_bw = None
 
-    def _ws(self, x: ttnn.Tensor) -> ttnn.Tensor | None:
+    def residual(self, x: ttnn.Tensor) -> ttnn.Tensor | None:
+        """`x + self(x)` as one program in a new tensor (`TRANSITION_RES`), or None where it does not serve."""
+        return self._ws(x, residual=True) if TRANSITION_WS and TRANSITION_RES else None
+
+    def _ws(self, x: ttnn.Tensor, residual: bool = False) -> ttnn.Tensor | None:
         """The transition as one `pair_relu` program, or None where it does not serve."""
         from . import ops
         from . import pair_swiglu_ws as W
@@ -283,10 +292,10 @@ class ReluTransition(Module):
             self._ws_bw = W.relu_bw_weights(w["fc1.weight"].t(), w["fc2.weight"].t(), self.device)
         w1, b1, w2, b2 = self._ws_weights
         ln = (self.norm_weight, self.norm_bias)
-        if not W.relu_eligible(x, w1, w2, ln):
+        if not W.relu_eligible(x, w1, w2, ln, resid=x if residual else None):
             return None
         return W.pair_relu(x, w1, b1, w2, b2, fidelity=self.compute_kernel_config.math_fidelity,
-                           ln=ln + (1e-5,), bw_weights=self._ws_bw)
+                           ln=ln + (1e-5,), bw_weights=self._ws_bw, **({"resid": x, "keep_x": True} if residual else {}))
 
     def _rows(self, x: ttnn.Tensor) -> ttnn.Tensor:
         if TRANSITION_L1:
@@ -610,9 +619,17 @@ class AF2PairBlock(Module):
                  ("tri_att_end", lambda t: self.tri_att_end(t, attn_mask))]
         if not self.evoformer_order:
             order = order[2:] + order[:2]
-        for name, device in order + [("pair_transition", self.pair_transition)]:
+        for name, device in order:
             z = self._step(lambda t, name=name, device=device: self._pair_op(t, name, device, drop), z)
-        return z
+        return self._step(lambda t: self._transition("pair_transition", self.pair_transition, t, drop), z)
+
+    def _transition(self, name: str, transition: ReluTransition, x, drop=None):
+        """`x + transition(x)`: one program where `ReluTransition.residual` serves it, else the update and its add."""
+        plain = name not in self.skip and name not in self.substitute and (drop is None or drop.get(name) is None)
+        if plain and (out := transition.residual(x)) is not None:
+            ttnn.deallocate(x)
+            return out
+        return self._residual_dropped(x, name, self._update(name, transition, x), drop)
 
     def _pair_op(self, x, name: str, device, drop):
         """One pair op and its dropped residual. Under `TT_BIO_AF2_T2CM` a triangle multiplication is
@@ -1197,8 +1214,7 @@ class AF2EvoformerBlock(AF2PairBlock):
                              drop)), msa, pair)
         msa = self._step(lambda m: self._residual(
             m, self._update("msa_col_attn", self.msa_col_attn, m, None, col_bias)), msa)
-        msa = self._step(lambda m: self._residual(
-            m, self._update("msa_transition", self.msa_transition, m)), msa)
+        msa = self._step(lambda m: self._transition("msa_transition", self.msa_transition, m), msa)
         return msa
 
     def _opm_update(self, msa: ttnn.Tensor, msa_mask: ttnn.Tensor | None) -> ttnn.Tensor:

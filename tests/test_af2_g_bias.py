@@ -16,12 +16,21 @@ class _Att:
         return None
 
 
+class _Transition:
+    def __call__(self, x):
+        return None
+
+    def residual(self, x):
+        return None
+
+
 def _block():
     b = object.__new__(A.AF2PairBlock)
     b.evoformer_order, b.skip, b.substitute = True, (), ()
     b.tri_att_start, b.tri_att_end = _Att(), _Att()
-    for name in ("tri_mul_out", "tri_mul_in", "pair_transition"):
+    for name in ("tri_mul_out", "tri_mul_in"):
         setattr(b, name, lambda *a: None)
+    b.pair_transition = _Transition()
     b._residual = lambda z, u: z
     return b
 
