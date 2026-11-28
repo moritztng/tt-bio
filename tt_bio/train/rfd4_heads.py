@@ -559,6 +559,8 @@ def device_winner_loss_spmd(
         if seq_seeds is not None else None
     )
 
+    had_ins = dz_ins is not None
+
     if use_head_replay:
         d_ins_tt = (
             dz_ins if dz_ins is not None
@@ -569,9 +571,14 @@ def device_winner_loss_spmd(
         for sd in (d_ca_tt, d_ll_tt, d_seq_tt, d_ins_tt):
             if sd is not None:
                 ttnn.deallocate(sd)
-        head_grads_out.update(head_grads)
-        if head_skip_out is not None:
-            head_skip_out.update(head_grads.keys())
+        for kh, gh in head_grads.items():
+            if (not had_ins) and ("insertion_q_proj" in kh or "insertion_k_proj" in kh):
+                continue
+            if (not have_seq_seed) and ("sequence_readout" in kh):
+                continue
+            head_grads_out[kh] = gh
+            if head_skip_out is not None:
+                head_skip_out.add(kh)
         mean_total = float(sum(per_rank_totals) / world)
         return mean_total, per_rank_totals, per_rank_terms, per_rank_refs, ds_out
 
@@ -598,7 +605,6 @@ def device_winner_loss_spmd(
         if want_head_cap:
             head_g, _ = dfolds.tape_backward(dev_masters)
             ag.release_pins()
-            head_grads_out.update(head_g)
             try:
                 head_tracer.capture_head_pair(
                     head_key,
@@ -625,6 +631,14 @@ def device_winner_loss_spmd(
                 for t in (*cap_masks, *cap_refs):
                     if t is not None and t.is_allocated():
                         ttnn.deallocate(t)
+                for kh, gh in head_g.items():
+                    if ((not had_ins) and ("insertion_q_proj" in kh or "insertion_k_proj" in kh)) or (
+                        (not have_seq_seed) and ("sequence_readout" in kh)
+                    ):
+                        if gh.is_allocated():
+                            ttnn.deallocate(gh)
+                        continue
+                    head_grads_out[kh] = gh
         for sd in seeds_bwd:
             if sd is not None and sd.is_allocated():
                 ttnn.deallocate(sd)

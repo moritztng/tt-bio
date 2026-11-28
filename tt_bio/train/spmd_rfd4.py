@@ -370,6 +370,38 @@ class SPMDZero1Step:
             self._mask_cache[k] = pair
         return pair
 
+    def _get_cached_sh_masks(self, slot, flags: Tuple[bool, ...]):
+        if all(flags):
+            return None
+        k = ("sh_muon", slot.shape, flags)
+        pair = self._mask_cache.get(k)
+        if pair is None:
+            import torch
+            import ttnn
+            from .ccl import _safe_dealloc
+
+            rm, cm = self.muon_sharder.mesh_shape
+            mapper = ttnn.ShardTensor2dMesh(self.device, (rm, cm), dims=(0, None))
+            act_t = torch.tensor(
+                [1.0 if f else 0.0 for f in flags], dtype=torch.float32
+            ).reshape(rm, slot.k_shard, 1, 1)
+            inact_t = 1.0 - act_t
+            ma4 = ttnn.from_torch(
+                act_t.contiguous(), dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT,
+                device=self.device, mesh_mapper=mapper,
+            )
+            mi4 = ttnn.from_torch(
+                inact_t.contiguous(), dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT,
+                device=self.device, mesh_mapper=mapper,
+            )
+            ma = ttnn.reshape(ma4, [slot.k_shard, 1, 1])
+            mi = ttnn.reshape(mi4, [slot.k_shard, 1, 1])
+            _safe_dealloc(ma4, keep=ma)
+            _safe_dealloc(mi4, keep=mi)
+            pair = (ma, mi)
+            self._mask_cache[k] = pair
+        return pair
+
     @staticmethod
     def _buf_addr(t) -> int:
         if t is None:
@@ -382,7 +414,7 @@ class SPMDZero1Step:
         tracer,
         sh_slots: list,
         grad_shards: Mapping[Tuple[int, int], object],
-        masks: Mapping[Tuple[int, int], object],
+        dev_grads: Mapping[str, object],
         packed_rem_muon: list,
         packed_adam: list,
         dis: set,
@@ -404,7 +436,6 @@ class SPMDZero1Step:
             and getattr(tracer, "enabled", False)
             and in_place_masters
             and bool(sh_slots)
-            and all(masks[s.shape] is None for s in sh_slots)
             and all(s.shape in self.sh_mom for s in sh_slots)
             and (
                 not has_ema
@@ -428,6 +459,7 @@ class SPMDZero1Step:
         import torch
         import ttnn
         from .device_optim import _clone_exact_f32, newton_schulz_device
+        from .mesh_dp import mesh_world
 
         # Pack dynamic per-step scalars into ONE [S, 1, 1] replicated fp32 TILE tensor.
         # Layout: [clip_muon, decay_muon, clip_adam, inv_bc1, inv_bc2, lr_adam, decay_adam_only,
@@ -458,16 +490,29 @@ class SPMDZero1Step:
                     ratio_idx[r] = len(scalar_vals)
                     scalar_vals.append(float(-lr_muon * r))
 
+        rep_cls = getattr(ttnn, "ReplicateTensorToMesh", None)
+        sc_kw = (
+            {"mesh_mapper": rep_cls(self.device)}
+            if (rep_cls is not None and mesh_world(self.device) > 1) else {}
+        )
         scalars_dev = ttnn.from_torch(
             torch.tensor(scalar_vals, dtype=torch.float32).reshape(-1, 1, 1),
             dtype=ttnn.float32,
             layout=ttnn.TILE_LAYOUT,
             device=self.device,
+            **sc_kw,
         )
 
         inputs: List[object] = [scalars_dev]
+        sh_spec = []
         for slot in sh_slots:
             inputs.append(grad_shards[slot.shape])
+            fl_t = tuple(
+                (i < slot.k) and (slot.names[i] not in dis) and (dev_grads.get(slot.names[i]) is not None)
+                for i in range(slot.k_pad)
+            )
+            m_pair = self._get_cached_sh_masks(slot, fl_t)
+            sh_spec.append((slot, fl_t, m_pair))
 
         rem_muon_spec = []
         for idx, (bk, g_b, flags) in enumerate(packed_rem_muon):
@@ -497,9 +542,12 @@ class SPMDZero1Step:
         # Key on epoch, active/enabled flags, and exact persistent buffer addresses.
         addr = self._buf_addr
         sh_addrs = tuple(
-            (s.shape, addr(self.sh_master[s.shape]), addr(self.sh_mom[s.shape]),
+            (s.shape, fl_t,
+             addr(m_pair[0]) if m_pair is not None else 0,
+             addr(m_pair[1]) if m_pair is not None else 0,
+             addr(self.sh_master[s.shape]), addr(self.sh_mom[s.shape]),
              addr(self.sh_ema[s.shape]) if has_ema else 0)
-            for s in sh_slots
+            for s, fl_t, m_pair in sh_spec
         )
         rm_key = tuple(
             (bk.shape, g_pos >= 0, fl_t, addr(bk.master_b), addr(bk.state1_b),
@@ -553,7 +601,7 @@ class SPMDZero1Step:
             decay_a_only_t = _sc(6)
 
             # 1. Sharded Muon buckets (1/rm): momentum -> NS -> master -> EMA, all in-place.
-            for si, slot in enumerate(sh_slots):
+            for si, (slot, _fl_t, m_pair) in enumerate(sh_spec):
                 shp = slot.shape
                 g_sh = staged[1 + si]
                 m_prev = self.sh_mom[shp]
@@ -563,10 +611,21 @@ class SPMDZero1Step:
                 diff = ttnn.subtract(g_eff, m_prev)
                 scaled = ttnn.multiply(diff, one_minus_mu)
                 ttnn.deallocate(diff)
-                buf_new = ttnn.add(m_prev, scaled)
+                buf_cand = ttnn.add(m_prev, scaled)
                 ttnn.deallocate(scaled)
-                ttnn.copy(buf_new, m_prev)
-                ttnn.deallocate(buf_new)
+                if m_pair is None:
+                    ttnn.copy(buf_cand, m_prev)
+                    ttnn.deallocate(buf_cand)
+                else:
+                    ma, mi = m_pair
+                    p1 = ttnn.multiply(buf_cand, ma)
+                    p2 = ttnn.multiply(m_prev, mi)
+                    ttnn.deallocate(buf_cand)
+                    buf_new = ttnn.add(p1, p2)
+                    ttnn.deallocate(p1)
+                    ttnn.deallocate(p2)
+                    ttnn.copy(buf_new, m_prev)
+                    ttnn.deallocate(buf_new)
 
                 if mu.nesterov:
                     d2 = ttnn.subtract(m_prev, g_eff)
@@ -591,11 +650,22 @@ class SPMDZero1Step:
                 t2 = ttnn.multiply(o_b, step_sc_t)
                 ttnn.deallocate(o_b)
                 t1 = ttnn.multiply(w_prev, decay_m_t)
-                w_new = ttnn.add(t1, t2)
+                w_cand = ttnn.add(t1, t2)
                 ttnn.deallocate(t1)
                 ttnn.deallocate(t2)
-                ttnn.copy(w_new, w_prev)
-                ttnn.deallocate(w_new)
+                if m_pair is None:
+                    ttnn.copy(w_cand, w_prev)
+                    ttnn.deallocate(w_cand)
+                else:
+                    ma, mi = m_pair
+                    p1 = ttnn.multiply(w_cand, ma)
+                    p2 = ttnn.multiply(w_prev, mi)
+                    ttnn.deallocate(w_cand)
+                    w_new = ttnn.add(p1, p2)
+                    ttnn.deallocate(p1)
+                    ttnn.deallocate(p2)
+                    ttnn.copy(w_new, w_prev)
+                    ttnn.deallocate(w_new)
 
                 if has_ema:
                     e_prev = self.sh_ema[shp]
@@ -1006,14 +1076,13 @@ class SPMDZero1Step:
         # 3. Phase B + unsharded Muon + AdamW + EMA: single MeshTrace (Trace A) when steady-state.
         mu = opt.muon
         one_minus_mu = float(1.0 - mu.momentum)
-        masks = self.muon_sharder.active_masks_for_step(dev_grads, dis, self.device)
         sh_slots = [slot for wg in self.muon_plan.width_groups for slot in wg.buckets]
 
         traced_body = self._try_traced_opt_body(
             tracer,
             sh_slots,
             grad_shards,
-            masks,
+            dev_grads,
             packed_rem_muon,
             packed_adam,
             dis,
@@ -1027,6 +1096,7 @@ class SPMDZero1Step:
         )
 
         if not traced_body:
+            masks = self.muon_sharder.active_masks_for_step(dev_grads, dis, self.device)
             u_list = []
             for slot in sh_slots:
                 shp = slot.shape

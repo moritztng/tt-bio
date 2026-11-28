@@ -652,7 +652,7 @@ def main(argv=None, on_step=None):
                 spmd_mesh_shape,
                 full_shape=full_mesh_shape,
                 eth_dispatch=eth_opt,
-                trace_region_size=(512 << 20) if use_spmd_trace else 0,
+                trace_region_size=(768 << 20) if use_spmd_trace else 0,
             )
         )
         world = mesh_world(dev)
@@ -1863,6 +1863,8 @@ def main(argv=None, on_step=None):
         if use_spmd_trace:
             from tt_bio.train.spmd_trace import SPMDMeshTracer
             spmd_tracer = SPMDMeshTracer(dev, enabled=True)
+            if dev_win_glue is not None:
+                dev_win_glue.tracer = spmd_tracer
             refold_dev_hook = make_rfd4_refold_hook(
                 trunk, glue if real else None,
                 host_glue_params=None,

@@ -1528,6 +1528,7 @@ class SPMDMeshTracer:
         self._head_hole_per_bank = 64 << 20
         self._tids: list[Any] = []
         self._owned_slots: list[Any] = []
+        self._owned_ids: set[int] = set()
         self._refold_state: Any = 0  # 0=unseen, "eager", or tid
         self._untaped_seen: dict[tuple, int] = {}
         self._untaped_traces: dict[tuple, Any] = {}  # key -> "eager" or dict(tid, ...)
@@ -1593,6 +1594,7 @@ class SPMDMeshTracer:
         for t in tensors:
             if t is not None:
                 self._owned_slots.append(t)
+                self._owned_ids.add(id(t))
 
     # ---- T1: In-place refold + _t1_w refresh ----
     def run_refold(self, dfolds, dev_masters: Mapping[str, Any], dev_hook: Optional[Callable] = None) -> None:
@@ -2086,7 +2088,8 @@ class SPMDMeshTracer:
 
         tr = self._win_traces[key]
         ttnn.copy(ds_out, tr["ds_out"])
-        ttnn.deallocate(ds_out)
+        if id(ds_out) not in self._owned_ids:
+            ttnn.deallocate(ds_out)
         ttnn.execute_trace(self.device, tr["tid_bwd"], cq_id=0, blocking=False)
         self.stats["win_pair_replay"] += 1
         return tr["d_s_i"], tr["d_z_in"], tr["d_c"], tr["dev_grads"], tr["idle"]
@@ -2567,6 +2570,7 @@ class SPMDMeshTracer:
         for t in self._owned_slots:
             _safe_dealloc(t)
         self._owned_slots.clear()
+        self._owned_ids.clear()
         if self._scratch is not None:
             try:
                 self._scratch.release()

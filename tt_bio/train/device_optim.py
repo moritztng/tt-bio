@@ -1009,12 +1009,13 @@ class DeviceOptimizer:
                     ttnn.deallocate(bk.state1_b)
                     ttnn.deallocate(bk.state2_b)
                 if not all_enabled:
-                    m_act, _ = self._mask_tensor(enabled, bk.canon[0])
+                    m_act, m_inact = self._mask_tensor(enabled, bk.canon[0])
                     m_new = ttnn.multiply(m_cand, m_act)
                     v_new = ttnn.multiply(v_cand, m_act)
                     ttnn.deallocate(m_cand)
                     ttnn.deallocate(v_cand)
                     ttnn.deallocate(m_act)
+                    ttnn.deallocate(m_inact)
                     bk.state1_b, bk.state2_b = m_new, v_new
                 else:
                     bk.state1_b, bk.state2_b = m_cand, v_cand
