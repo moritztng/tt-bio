@@ -775,9 +775,12 @@ def _sentinels(names):
     return subprocess.Popen(["bash", "-c", sh], env=env, start_new_session=True)
 
 
-def _book(tmp_path, *rows):
+def _book(tmp_path, *rows, asked=True):
+    """Bookings in the box's file. `asked`: their owners were offered the card long ago and did not move (book.py PULL_S),
+    so a booking that would fit from now no longer holds the feed off."""
     (tmp_path / "spd/feed").mkdir(parents=True, exist_ok=True)
     (tmp_path / "spd/feed/windows.tsv").write_text("".join(f"{s}\t{e}\t{o}\t{c}\t\n" for s, e, o, c in rows))
+    (tmp_path / "spd/feed/windows.tsv.pull").write_text("".join(f"{o} {s} 0\n" for s, e, o, c in rows) if asked else "")
 
 
 def test_a_sleep_sentinel_blocks_its_card_only_for_a_while(tmp_path):
@@ -801,6 +804,15 @@ def test_a_bh_waiter_takes_a_booked_card_only_if_it_ends_before_the_booking(tmp_
     assert Path(f"{sh}.log").read_text() == "card 6\n"
     sh = _place_bh(tmp_path, [5, 6, 7], "echo card $CHIP\n", cap=3000, name="4-b.sh")
     assert Path(f"{sh}.log").read_text() == "card 7\n"
+
+
+def test_a_freed_card_goes_to_a_booking_that_fits_from_now_before_the_feed(tmp_path):
+    # 11-28 qb2: an 80 min booking waited behind a feed job's worst-case end, the job ended early and the feed started
+    # its next job on the card at once. The booking on chip 5 fits from now, so the waiter takes chip 6.
+    now = int(time.time())
+    _book(tmp_path, (now + 7200, now + 12000, "abba", "5"), asked=False)
+    sh = _place_bh(tmp_path, [5, 6], "echo card $CHIP\n", name="4-a.sh")
+    assert Path(f"{sh}.log").read_text() == "card 6\n"
 
 
 def test_a_waiter_too_long_for_a_booking_gap_lets_a_shorter_one_through(tmp_path):
