@@ -30,6 +30,10 @@ ap.add_argument("--grid-ratio", type=float, default=None,
 ap.add_argument("--samples", type=int, default=None,
                 help="poses per complex (default: the recipe's 10). Fewer is a cheaper A/B "
                      "instrument, not a perf number: the ranking pass is per pose")
+ap.add_argument("--seed", type=int, default=None,
+                help="sampler seed. Leave unset for a screen's own behaviour (upstream draws "
+                     "from the global stream, so every visit gets different poses and therefore "
+                     "different shapes); set it to compare two arms on identical poses")
 ap.add_argument("--checkpoints", default=None)
 ap.add_argument("--out", required=True)
 ap.add_argument("--profile", default=None,
@@ -48,6 +52,8 @@ jobs = [by_name[n] for n in args.names.split(",")]
 kw = {"device": "tt", "edge_tp": args.edge_tp}
 if args.samples is not None:
     kw["diffusion_samples"] = args.samples
+if args.seed is not None:
+    kw["seed"] = args.seed
 if args.checkpoints:
     kw["checkpoint"] = f"{args.checkpoints}/score_model"
     kw["confidence_checkpoint"] = f"{args.checkpoints}/confidence_model"
@@ -119,7 +125,8 @@ for p in range(args.passes):
         rows.append({"pass": p, **one(job, d)})
         print(json.dumps({k: v for k, v in rows[-1].items() if k != "steps_s"}), flush=True)
         out.write_text(json.dumps({"edge_tp": args.edge_tp, "samples": options.diffusion_samples,
-                                   "grid_ratio": dfd_graph.GRID_RATIO, "rows": rows}, indent=1))
+                                   "seed": options.seed, "grid_ratio": dfd_graph.GRID_RATIO,
+                                   "rows": rows}, indent=1))
 
 if args.profile:
     import cProfile
