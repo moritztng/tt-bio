@@ -179,6 +179,68 @@ def frob(got, want, scale) -> float:
     return (got.double() - want.double()).norm().item() / scale if scale > 0 else 0.0
 
 
+EQUIV_RULE = ("per step and score: max gap_b over transforms <= 2*median(gap_b over transforms) "
+              "+ 1e-6; a form other than stepped also needs median <= 1.25*the stepped form's "
+              "median (--stepped-ref); host_residual <= 1e-5")
+
+
+def equiv_verdict(steps, ref_steps=None, device=True, needs_ref=False):
+    """The SE(3) verdict on the per-step, per-transform gaps of one equivariance run.
+
+    The card's gap to the float64 host is rounding, and rounding is direction-blind, so over
+    the transforms (the identity among them) the gaps are one population. A broken symmetry
+    puts a transformed leg far outside it. The rule therefore reads the worst gap against the
+    population's median, not against the identity's single draw: two forms with the same
+    17 gaps passed and failed on where that one draw happened to land (D-dfd-orch-121,
+    `state/dfd/PERF.md` section 17). A median cannot see a form that is uniformly worse, so
+    a form other than the stepped one is also held to 1.25x the stepped form's median, per
+    step and score, and fails closed without that reference.
+
+    *steps* and *ref_steps* are the ``steps`` member of an equiv json, keys as stored.
+    Returns ``(ok, table)``; ``table[step][score]`` carries the numbers the verdict used.
+    """
+    ok, table = True, {}
+    for k, row in steps.items():
+        table[str(k)] = {}
+        for n in ("tr", "rot", "tor"):
+            gaps = sorted(v[n]["gap_b"] for v in row.values())
+            med = float(torch.tensor(gaps, dtype=torch.float64).median())
+            cell = {"n": len(gaps), "median_gap": med, "worst_gap": gaps[-1],
+                    "worst_over_median": gaps[-1] / med if med > 0 else 0.0,
+                    "worst_host_residual": max(v[n]["host_residual"] for v in row.values())}
+            good = cell["worst_host_residual"] <= 1e-5
+            if device:
+                good = good and gaps[-1] <= 2 * med + 1e-6
+                if needs_ref:
+                    ref = (ref_steps or {}).get(str(k)) or (ref_steps or {}).get(k)
+                    if ref is None:
+                        cell["stepped_median_gap"], good = None, False
+                    else:
+                        rg = torch.tensor([v[n]["gap_b"] for v in ref.values()],
+                                          dtype=torch.float64)
+                        cell["stepped_median_gap"] = float(rg.median())
+                        cell["median_over_stepped"] = med / cell["stepped_median_gap"]
+                        good = good and med <= 1.25 * cell["stepped_median_gap"]
+            cell["pass"] = bool(good)
+            ok = ok and good
+            table[str(k)][n] = cell
+    return bool(ok), table
+
+
+def cmd_regrade(args):
+    """Re-read stored equiv runs under :func:`equiv_verdict`. No card."""
+    run = json.loads(Path(args.run).read_text())
+    ref = json.loads(Path(args.stepped_ref).read_text())["steps"] if args.stepped_ref else None
+    ok, table = equiv_verdict(run["steps"], ref, device=run["net"] != "host",
+                              needs_ref=run.get("form", "stepped") != "stepped")
+    out = {"run": args.run, "stepped_ref": args.stepped_ref, "net": run["net"],
+           "form": run.get("form", "stepped"), "rule": EQUIV_RULE, "pass": ok, "verdict": table,
+           "aiclk_min": run.get("aiclk_min"), "aiclk_max": run.get("aiclk_max")}
+    print(json.dumps(out, indent=1), flush=True)
+    if args.out:
+        Path(args.out).write_text(json.dumps(out, indent=1))
+
+
 def cmd_equiv(args):
     """Rotate the complex, check tr/rot rotate and tor does not, on the card and on the host.
 
@@ -189,6 +251,7 @@ def cmd_equiv(args):
     approximation): rounding is direction-blind, so a sound kernel is as accurate on the
     rotated input as on the original (gap_b ~ gap_a), while a broken symmetry makes the rotated
     leg wrong by O(1). All gaps are Frobenius-relative to the host's untransformed score.
+    The verdict is :func:`equiv_verdict`'s.
     """
     fx, model, convs = build(args.net, args.fixture, args.gemm_modules)
     host = (build("host", args.fixture)[1] if args.net != "host" else model).double()
@@ -197,7 +260,7 @@ def cmd_equiv(args):
     mdt = f64 if args.net == "host" else torch.float32
     g = fx["graph"]
     clock = Clock(args.net != "host")
-    rows, ok = {}, True
+    rows = {}
     for k, step in sorted(fx["steps"].items()):
         if args.steps and str(k) not in args.steps:
             continue
@@ -229,19 +292,19 @@ def cmd_equiv(args):
                         "gap_a": frob(base[i], hbase[i], scale),
                         "gap_b": frob(got[i], hgot[i], scale),
                         "host_residual": frob(hgot[i], moved_ref(hbase[i]), scale)}
-                if args.net != "host" and r[n]["gap_b"] > 2 * r[n]["gap_a"] + 1e-6:
-                    ok = False
-                if r[n]["host_residual"] > 1e-5:
-                    ok = False
             row[seed] = r
             print(f"step {k} seed {seed}: " + "  ".join(
                 f"{n} res {v['residual']:.2g} gap_a {v['gap_a']:.2g} gap_b {v['gap_b']:.2g} "
                 f"host {v['host_residual']:.2g}" for n, v in r.items()), flush=True)
         rows[k] = row
+    ref = json.loads(Path(args.stepped_ref).read_text())["steps"] if args.stepped_ref else None
+    ok, table = equiv_verdict({str(k): {str(a): b for a, b in row.items()}
+                               for k, row in rows.items()}, ref,
+                              device=args.net != "host", needs_ref=args.form != "stepped")
     out = {"net": args.net, "form": args.form, "gemm_modules": args.gemm_modules,
            "complex": fx["complex"], "host_bar": 1e-5, "host_reference": "float64",
-           "rule": "gap_b <= 2*gap_a + 1e-6 on every step/seed/score; host_residual <= 1e-5",
-           "pass": ok, "upstream_pinned_floor": {"tr": 1.57e-7, "rot": 1.25e-6, "tor": 9.29e-7},
+           "rule": EQUIV_RULE, "pass": ok, "verdict": table, "stepped_ref": args.stepped_ref,
+           "upstream_pinned_floor": {"tr": 1.57e-7, "rot": 1.25e-6, "tor": 9.29e-7},
            "steps": rows, **clock.summary()}
     print(json.dumps({k: v for k, v in out.items() if k != "steps"}), flush=True)
     Path(args.out).write_text(json.dumps(out, indent=1))
@@ -291,6 +354,8 @@ def main():
                    help="stepped: static_forward with the convs on the card. resident: "
                         "device_loop.DeviceStep, the whole step on the card")
     e.add_argument("--steps", nargs="*", help="fixture steps to grade (default: all)")
+    e.add_argument("--stepped-ref", help="the stepped form's equiv json, same fixture and "
+                   "transforms: the median guard a resident form is held to")
     e.add_argument("--out", required=True)
     e.set_defaults(fn=cmd_equiv)
     c = sub.add_parser("compare")
@@ -299,6 +364,11 @@ def main():
     c.add_argument("--floor")
     c.add_argument("--out")
     c.set_defaults(fn=cmd_compare)
+    g = sub.add_parser("regrade")
+    g.add_argument("--run", required=True, help="a stored equiv json")
+    g.add_argument("--stepped-ref", help="the stepped form's equiv json, for a resident run")
+    g.add_argument("--out")
+    g.set_defaults(fn=cmd_regrade)
     args = ap.parse_args()
     args.fn(args)
 

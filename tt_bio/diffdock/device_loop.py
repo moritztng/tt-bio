@@ -1221,9 +1221,12 @@ class DeviceStep:
         # the host adds the sigma term after the stack: rec_h[:, :ns] += rec_sig, and the same
         # row onto every receptor edge attribute
         sig = self.rec_sig_mlp(sigma_row)
-        head = ttnn.add(ttnn.slice(h, [0, 0], [h.shape[0], self.ns]),
-                        ttnn.multiply(ttnn.slice(self.ones_rec_nodes, [0, 0], [h.shape[0], 1]), sig))
-        h = ttnn.concat([head, ttnn.slice(h, [0, self.ns], [h.shape[0], h.shape[1]])], dim=1)
+        # added in place across the full width, zeros past `ns`: cutting the head off and
+        # joining it back is a column concat of a 48-wide and a 108-wide part, which rounds
+        # every receptor feature to about bf16 each step (`MLP` has the measurement)
+        wide = ttnn.pad(sig, [(0, 0), (0, h.shape[1] - self.ns)], value=0.0)
+        h = ttnn.add(h, ttnn.multiply(ttnn.slice(self.ones_rec_nodes, [0, 0], [h.shape[0], 1]),
+                                      wide))
         ea_edges = ttnn.add(self.rec_eattr, ttnn.multiply(self.ones_rec_edges, sig))
         return h, ea_edges, mask
 
