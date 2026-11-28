@@ -79,6 +79,9 @@ def main():
     ap.add_argument("--replay", action="store_true",
                     help="also capture one pose's 45 convolutions as a trace and time its replay "
                          "against the eager body: the ceiling of a capture/replay lever")
+    ap.add_argument("--each-pose", action="store_true",
+                    help="run the first layer's receptor convolutions on every pose (the form "
+                         "before they were kept per receptor), for a same-chip A/B")
     args = ap.parse_args()
 
     import sys
@@ -100,6 +103,8 @@ def main():
         get_device(trace="bc2")
     host = network.load(DockOptions(device="cpu", **ck))
     dev = network.load(options)
+    if args.each_pose:
+        dev._confidence.first_layer = 0
     work = Path(args.work)
     work.mkdir(parents=True, exist_ok=True)
 
@@ -127,7 +132,7 @@ def main():
         st.s["read-back"] += time.perf_counter() - t0
         return out
 
-    res = dict(chip=os.environ.get("TT_VISIBLE_DEVICES"), edge_tp=args.edge_tp, n=args.n,
+    res = dict(chip=os.environ.get("TT_VISIBLE_DEVICES"), edge_tp=args.edge_tp, n=args.n, each_pose=args.each_pose,
                torch_threads=torch.get_num_threads(), loadavg_start=os.getloadavg(),
                complexes={})
     for cid in args.ids:
