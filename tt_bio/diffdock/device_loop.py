@@ -756,7 +756,7 @@ def proper_rotation(k16, n_poses: int, squarings: int):
         shift = row if shift is None else ttnn.maximum(shift, row)
     cols = [ttnn.add(k16[4 * a + b], shift) if a == b else k16[4 * a + b]
             for a in range(4) for b in range(4)]
-    mat = ttnn.reshape(ttnn.concat(cols, dim=1), [n_poses, 1, 4, 4])
+    mat = ttnn.reshape(cat_cols(cols), [n_poses, 1, 4, 4])
     ckc = ttnn.types.BlackholeComputeKernelConfig(
         math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,
         fp32_dest_acc_en=True, packer_l1_acc=True)
@@ -846,14 +846,14 @@ class PoseUpdate:
         import ttnn
         d = ttnn.subtract(pos, pivot)
         cols = rotate([ttnn.slice(d, [0, k], [self.n, k + 1]) for k in range(3)], m)
-        return ttnn.add(ttnn.concat(cols, dim=1), pivot)
+        return ttnn.add(cat_cols(cols), pivot)
 
     def rigid(self, pos, tr, rot):
         """The rigid half: rotate each pose about its centre by *rot*, then translate by *tr*."""
         import ttnn
         centre = self._per_atom(pose_centers(pos, self.P, self.n_lig))
         rcols = [ttnn.slice(rot, [0, k], [self.P, k + 1]) for k in range(3)]
-        m = self._per_atom(ttnn.concat(list(axis_angle_matrix(*rcols)), dim=1))
+        m = self._per_atom(cat_cols(list(axis_angle_matrix(*rcols))))
         m = [ttnn.slice(m, [0, k], [self.n, k + 1]) for k in range(9)]
         return ttnn.add(self._move(pos, m, centre), self._per_atom(tr))
 
@@ -868,8 +868,8 @@ class PoseUpdate:
             d = ttnn.subtract(a, b)
             axis = unit3([ttnn.slice(d, [0, k], [self.P, k + 1]) for k in range(3)])
             angle = ttnn.slice(rows, [0, i], [self.P, i + 1])
-            m = self._per_atom(ttnn.concat(
-                list(axis_angle_matrix(*[ttnn.multiply(c, angle) for c in axis])), dim=1))
+            m = self._per_atom(cat_cols(
+                list(axis_angle_matrix(*[ttnn.multiply(c, angle) for c in axis]))))
             m = [ttnn.slice(m, [0, k], [self.n, k + 1]) for k in range(9)]
             moved = self._move(pos, m, self._per_atom(b))
             keep = ttnn.add(ttnn.neg(self.rot_mask[i]), 1.0)
@@ -897,9 +897,9 @@ class PoseUpdate:
                sub(zx, xz), add(xy, yx), sub(sub(yy, xx), zz), add(yz, zy),
                sub(xy, yx), add(zx, xz), add(yz, zy), sub(sub(zz, xx), yy)]
         r = proper_rotation(k16, self.P, self.squarings)
-        per_atom = [ttnn.slice(self._per_atom(ttnn.concat(list(r), dim=1)), [0, k], [self.n, k + 1])
+        per_atom = [ttnn.slice(self._per_atom(cat_cols(list(r))), [0, k], [self.n, k + 1])
                     for k in range(9)]
-        rotated = ttnn.concat(rotate(acol, per_atom), dim=1)      # (a - ca) @ R.T
+        rotated = cat_cols(rotate(acol, per_atom))     # (a - ca) @ R.T
         return ttnn.add(rotated, self._per_atom(cb))              # ... + cb, which is R(a-ca)+cb
 
     def __call__(self, pos, tr, rot, tor):
@@ -1338,8 +1338,7 @@ class DeviceRollout:
         """``score_coeff * guard(score) + noise_coeff * z`` over the real ``[rows, width]`` block."""
         import ttnn
         cols = guard([ttnn.slice(score, [0, k], [rows, k + 1]) for k in range(width)])
-        out = ttnn.multiply(ttnn.concat(cols, dim=1) if width > 1 else cols[0],
-                            self.score_c[t][head])
+        out = ttnn.multiply(cat_cols(cols), self.score_c[t][head])
         if self.noise_c[t][head]:
             out = ttnn.add(out, ttnn.multiply(z, self.noise_c[t][head]))
         return out
