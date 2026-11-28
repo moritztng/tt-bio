@@ -4,7 +4,8 @@ Docks one ligand of the gated screen onto 5SAK_ZRY three ways with the model loa
 `sampling.sample` over `score_fn` (what `tt-bio dock` runs), the device-resident rollout issued
 eagerly (`trace_body`), and one captured trace of it replayed. Each is run more than once so the
 last is warm, the score_fn form is profiled, and the resident poses are compared with the
-score_fn poses at the same seed. The clock is sampled by the caller.
+score_fn poses at the same seed (``--seed``; an unseeded rollout draws its own noise, and two of
+those differ by the seed floor whatever the form). The clock is sampled by the caller.
 """
 import argparse, cProfile, io, json, pstats, time
 from pathlib import Path
@@ -13,6 +14,7 @@ ap = argparse.ArgumentParser()
 ap.add_argument("--edge-tp", default="tile", choices=["gemm", "tile"])
 ap.add_argument("--ligand", type=int, default=9, help="row of screen72.csv")
 ap.add_argument("--workload", default="/home/ttuser/scratch/dfd/wl/workload")
+ap.add_argument("--seed", type=int, default=0)
 ap.add_argument("--out", required=True)
 args = ap.parse_args()
 
@@ -22,14 +24,14 @@ from tt_bio.diffdock import run as dock_run  # noqa: E402
 from tt_bio.diffdock.job import DockOptions, read_csv_jobs  # noqa: E402
 
 out_path = Path(args.out)
-res = {"edge_tp": args.edge_tp}
+res = {"edge_tp": args.edge_tp, "seed": args.seed}
 
 
 def save():
     out_path.write_text(json.dumps(res, indent=1))
 
 
-options = DockOptions(device="tt", edge_tp=args.edge_tp)
+options = DockOptions(device="tt", edge_tp=args.edge_tp, seed=args.seed)
 t = time.time()
 model = network.load(options)
 res["network_load_s"] = round(time.time() - t, 3)
@@ -97,9 +99,12 @@ def deviation(a, b):
             "median_rmsd_a": round(rmsd.median().item(), 3), "max_atom_a": round(d.max().item(), 3)}
 
 
-res["score_fn"] = []
+res["score_fn"], ref = [], None
 for i in range(3):
+    prev = ref
     row, ref = stepped(profile=(i == 2))
+    if prev is not None:
+        row["vs_previous_run"] = deviation(ref, prev)
     res["score_fn"].append(row)
     save()
 
