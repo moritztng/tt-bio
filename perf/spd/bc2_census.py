@@ -423,6 +423,11 @@ def write(partial=False):
     ag = sys.modules.get("tt_bio.autograd")
     if ag is not None:
         doc.update(rtrace_stats=dict(ag.RTRACE_STATS), rtrace_checks=list(ag.RTRACE_CHECKS))
+        # Reach of the backward-matmul levers over the whole process (warm iterations included).
+        doc.update(levers=dict(
+            mmvjp_min=ag.MMVJP_MIN, dw_2d=ag._mm_layout.DW_2D,
+            mmvjp=dict(ag.MMVJP_STATS), dw_2d_reach=dict(ag._mm_layout.DW_2D_REACH),
+            split_k=dict(ag.SPLIT_K_STATS)))
     (a.out / "census.json").write_text(json.dumps(doc, indent=1))
 
     warm = [u["s"] for u in state["uninstrumented"]]
