@@ -36,7 +36,7 @@ def _install_mock_ttnn(monkeypatch):
 
     def subtract(a, b):
         assert a.is_allocated() and b.is_allocated()
-        return a.device().make_tensor([x - y for x, y in zip(a._buf.shards, b._buf.shards)])
+        return a.device().make_tensor([x.reshape(a.shape) - y.reshape(b.shape) for x, y in zip(a._buf.shards, b._buf.shards)])
 
     mod.subtract = subtract
     mod.synchronize_device = lambda dev: None
@@ -996,8 +996,8 @@ def _augment_mock_ttnn_for_glue(mod):
     def _typecast(t, dt):
         assert t.is_allocated()
         if dt == mod.bfloat16:
-            return _mk(t.device(), [s.to(torch.bfloat16).to(torch.float32) for s in t._buf.shards], dt)
-        return _mk(t.device(), [s.to(torch.float32) for s in t._buf.shards], dt)
+            return _mk(t.device(), [s.reshape(t.shape).to(torch.bfloat16).to(torch.float32) for s in t._buf.shards], dt)
+        return _mk(t.device(), [s.reshape(t.shape).to(torch.float32) for s in t._buf.shards], dt)
 
     orig_from_torch = mod.from_torch
 
@@ -1020,8 +1020,8 @@ def _augment_mock_ttnn_for_glue(mod):
         assert a.is_allocated() and b.is_allocated()
         out = []
         for sa, sb in zip(a._buf.shards, b._buf.shards):
-            xa = sa.to(torch.float32)
-            xb = sb.to(torch.float32)
+            xa = sa.reshape(a.shape).to(torch.float32)
+            xb = sb.reshape(b.shape).to(torch.float32)
             if transpose_a:
                 xa = xa.transpose(-2, -1)
             if transpose_b:
@@ -1043,7 +1043,13 @@ def _augment_mock_ttnn_for_glue(mod):
 
     def _reshape(t, shape):
         assert t.is_allocated()
-        return _mk(t.device(), [x.reshape(shape).contiguous() for x in t._buf.shards], getattr(t, "dtype", mod.float32))
+        # Simulate real ttnn zero-copy reshape aliasing the exact same underlying buffer!
+        alias = _FakeMeshTensor(t._buf, tuple(int(d) for d in shape), t.device())
+        alias.dtype = getattr(t, "dtype", mod.float32)
+        alias.buffer_address = lambda _b=t._buf: id(_b)
+        if not hasattr(t, "buffer_address"):
+            t.buffer_address = lambda _b=t._buf: id(_b)
+        return alias
 
     def _pad(t, padding, value=0.0):
         assert t.is_allocated()

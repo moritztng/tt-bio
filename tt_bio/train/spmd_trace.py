@@ -36,8 +36,17 @@ DEVICE_GLUE_WEIGHTS: frozenset[str] = frozenset({
 
 
 def _safe_dealloc(t, *, keep=None) -> None:
-    if t is None or t is keep:
+    """Deallocate ``t`` unless it is None or aliases ``keep``'s underlying device buffer."""
+    if t is None:
         return
+    if keep is not None:
+        if t is keep:
+            return
+        try:
+            if t.buffer_address() == keep.buffer_address():
+                return
+        except Exception:
+            pass
     import ttnn
     try:
         if t.is_allocated():
