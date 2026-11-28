@@ -84,6 +84,8 @@ def test_the_wrapper_never_forwards_none(monkeypatch):
     seen, uploads = [], []
 
     class T:
+        dtype = ttnn.bfloat16  # float32 operands take `_sdpa_fp32`, not the fused op
+
         def __init__(self, shape):
             self.shape = shape
 
@@ -170,7 +172,8 @@ def test_the_generic_op_route_is_only_reached_masked(monkeypatch):
               and n.func.attr == "sdpa" and isinstance(n.func.value, ast.Name) and n.func.value.id == "SG"]
     assert len(ecalls) == 1 and ast.unparse(ecalls[0].args[4]) == "bias"
     att = next(n for n in ast.walk(ef2) if isinstance(n, ast.FunctionDef) and n.name == "attend")
-    assert ecalls[0] in list(ast.walk(att)) and "bias, zero = self._frame(B)" in ast.unparse(att)
+    att_src = ast.unparse(att).replace("(bias, zero)", "bias, zero")  # 3.10 parenthesises the target
+    assert ecalls[0] in list(ast.walk(att)) and "bias, zero = self._frame(B)" in att_src
     of3 = ast.parse((PKG / "openfold3_atom_transformer.py").read_text())
     sup = next(n for n in ast.walk(of3) if isinstance(n, ast.FunctionDef) and n.name == "_attend_superset")
     ocalls = [n for n in ast.walk(of3) if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
