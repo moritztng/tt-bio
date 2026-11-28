@@ -10,6 +10,7 @@ Covers:
 from __future__ import annotations
 
 import ast
+import importlib.machinery
 import importlib.util
 import sys
 import types
@@ -47,6 +48,7 @@ class _FakeTensor:
 
 def _make_fake_ttnn():
     m = types.ModuleType("ttnn")
+    m.__spec__ = importlib.machinery.ModuleSpec("ttnn", loader=None)
     m.Tensor = _FakeTensor
     m.float32 = "float32"
     m.bfloat16 = "bfloat16"
@@ -124,6 +126,15 @@ def _make_fake_ttnn():
     def transpose(t, d0, d1):
         return _FakeTensor(t._data.transpose(d0, d1), dtype=t.dtype, device=t._device)
 
+    def permute(t, dims):
+        return _FakeTensor(t._data.permute(*dims).contiguous(), dtype=t.dtype, device=t._device)
+
+    def to_layout(t, layout):
+        return _FakeTensor(t._data, dtype=t.dtype, device=t._device)
+
+    def rsqrt(x, fast_and_approximate_mode=True):
+        return _FakeTensor(torch.rsqrt(x._data.float()).to(_td(x.dtype)), dtype=x.dtype, device=x._device)
+
     def rms_norm(x, weight=None, epsilon=1e-5, **kw):
         v = x._data.float()
         inv = torch.rsqrt((v * v).mean(dim=-1, keepdim=True) + epsilon)
@@ -159,6 +170,9 @@ def _make_fake_ttnn():
     m.reciprocal = lambda x: _FakeTensor((1.0 / x._data.float()).to(_td(x.dtype)), dtype=x.dtype, device=x._device)
     m.matmul = matmul
     m.transpose = transpose
+    m.permute = permute
+    m.to_layout = to_layout
+    m.rsqrt = rsqrt
     m.rms_norm = rms_norm
     m.linear = linear
     return m
@@ -406,4 +420,298 @@ def test_refold_hook_populates_empty_t1_cache_on_resume(monkeypatch):
                                    blocks=(), _levers=frozenset())
     F.make_rfd4_refold_hook(trunk2)(dev_masters)
     assert tri2._t1_w == {}
+
+
+def test_device_insertion_loss_small_and_near_zero(monkeypatch):
+    """Exact float64 insertion CE must hold on small (~4e-3) and near-zero (<1e-6)
+    losses without SFPU negative-CE bias or p-onehot cancellation, and do 0 PCIe
+    when no query rows are active."""
+    import contextlib
+    fake = _install_fake_ttnn(monkeypatch, preload=("tt_bio.train.rfd4_heads",))
+    if "tt_bio.autograd" not in sys.modules:
+        import tt_bio
+        fake_ag = types.ModuleType("tt_bio.autograd")
+        fake_ag.no_grad = contextlib.nullcontext
+        monkeypatch.setitem(sys.modules, "tt_bio.autograd", fake_ag)
+        monkeypatch.setattr(tt_bio, "autograd", fake_ag, raising=False)
+    import tt_bio.train.rfd4_heads as RH
+    from tt_bio.train import rfd4_objective as RO
+
+    monkeypatch.setattr(RH, "ttnn", fake)
+    reads, writes = [], []
+    orig_to, orig_from = fake.to_torch, fake.from_torch
+
+    def spy_to(t):
+        reads.append(t.shape)
+        return orig_to(t)
+
+    def spy_from(t, *a, **kw):
+        writes.append(tuple(t.shape))
+        return orig_from(t, *a, **kw)
+
+    monkeypatch.setattr(fake, "to_torch", spy_to)
+    monkeypatch.setattr(fake, "from_torch", spy_from)
+
+    n_tok, n_pad = 30, 32
+    pad = np.zeros((1, n_tok), dtype=bool)
+    pad[0, :26] = True
+    z_np = np.full((1, n_pad, n_pad), -8.0, dtype=np.float32)
+
+    # 1. Inactive batch: 0 device ops, 0 PCIe transfers.
+    target_none = np.full((1, n_tok), -1, dtype=np.int64)
+    z_tt = orig_from(torch.from_numpy(z_np))
+    loss0, dz0 = RH.device_insertion_loss(
+        z_tt, {"insertion_source_idx": target_none, "padding_mask": pad},
+    )
+    assert np.array_equal(loss0, np.zeros(1, dtype=np.float64)) and dz0 is None
+    assert reads == [] and writes == []
+
+    # 2. Small-loss (~4e-3) and near-zero (<1e-6) peaked logits (5 active rows).
+    target = np.full((1, n_tok), -1, dtype=np.int64)
+    active_rows = [20, 21, 22, 23, 24]
+    for k, r in enumerate(active_rows):
+        target[0, r] = k  # indexed candidate keys 0..4
+    for label, runner_up in (("small_4e-3", -5.47), ("near_zero_1e-7", -16.1), ("exact_zero", -40.0)):
+        z_case = np.full((1, n_pad, n_pad), -30.0, dtype=np.float32)
+        for k, r in enumerate(active_rows):
+            z_case[0, r, k] = 0.0
+            z_case[0, r, (k + 1) % 5] = runner_up
+        z_tt = orig_from(torch.from_numpy(z_case))
+        loss_got, dz_tt = RH.device_insertion_loss(
+            z_tt, {"insertion_source_idx": target, "padding_mask": pad}, weight=0.5,
+        )
+        loss_ref, dz_ref = RO.insertion_loss(
+            z_case[:, :n_tok, :n_tok].astype(np.float64),
+            {"insertion_source_idx": target, "padding_mask": pad},
+        )
+        assert float(loss_got[0]) >= 0.0, f"{label}: negative CE loss {loss_got[0]}"
+        abs_err = abs(float(loss_got[0]) - float(loss_ref[0]))
+        rel_err = abs_err / max(abs(float(loss_ref[0])), 1e-12)
+        assert abs_err < 1e-12 and rel_err < 1e-12, f"{label}: loss mismatch {loss_got[0]} vs {loss_ref[0]}"
+
+        dz_got = orig_to(dz_tt).numpy()
+        assert np.all(dz_got[:, n_tok:, :] == 0.0) and np.all(dz_got[:, :, n_tok:] == 0.0)
+        dz_want = (dz_ref * 0.5).astype(np.float64)
+        dz_rel = float(np.linalg.norm(dz_got[:, :n_tok, :n_tok] - dz_want) / max(np.linalg.norm(dz_want), 1e-12))
+        assert dz_rel < 1e-6, f"{label}: dz rel_l2={dz_rel:.3e}"
+
+        # Broken-arm check: -5e-4 SFPU bias on small_4e-3 or x1.10 dz must fail the bar loudly.
+        if label == "small_4e-3":
+            bad_loss = float(loss_got[0]) - 5e-4
+            assert abs(bad_loss - float(loss_ref[0])) / float(loss_ref[0]) > 1e-2
+            bad_dz_rel = float(np.linalg.norm(dz_got[:, :n_tok, :n_tok] * 1.10 - dz_want) / np.linalg.norm(dz_want))
+            assert bad_dz_rel > 1e-2
+
+    # 3. Winner-mask scaling + SPMD multi-chip path (world == 2) + shape guard.
+    import tt_bio.train.mesh_dp as mdp
+    b_global = 2
+    z_2 = np.full((b_global, n_pad, n_pad), -30.0, dtype=np.float32)
+    target_2 = np.full((b_global, n_tok), -1, dtype=np.int64)
+    pad_2 = np.broadcast_to(pad, (b_global, n_tok)).copy()
+    for bi in range(b_global):
+        for k, r in enumerate(active_rows):
+            target_2[bi, r] = k
+            z_2[bi, r, k] = 0.0
+            z_2[bi, r, (k + 1) % 5] = -5.47 - 0.5 * bi
+    sharded_in = orig_from(torch.from_numpy(z_2[:1]))
+    monkeypatch.setattr(mdp, "mesh_world", lambda d: 2)
+    monkeypatch.setattr(mdp, "read_sharded", lambda t, d: torch.from_numpy(z_2))
+    put_seen = []
+
+    def fake_put_sharded(t, d, **kw):
+        put_seen.append(t.clone())
+        return orig_from(t[:1])
+
+    monkeypatch.setattr(mdp, "put_sharded", fake_put_sharded)
+    loss_2, _ = RH.device_insertion_loss(
+        sharded_in, {"insertion_source_idx": target_2, "padding_mask": pad_2},
+        win=np.array([1]), weight=0.5,
+    )
+    loss_2_ref, dz_2_ref = RO.insertion_loss(
+        z_2[:, :n_tok, :n_tok].astype(np.float64),
+        {"insertion_source_idx": target_2, "padding_mask": pad_2},
+    )
+    assert np.allclose(loss_2, loss_2_ref, atol=1e-12, rtol=1e-12)
+    dz_uploaded = put_seen[-1].numpy()
+    assert np.all(dz_uploaded[0] == 0.0), "loser rank must get zero insertion dz"
+    assert np.allclose(dz_uploaded[1, :n_tok, :n_tok], dz_2_ref[1] * 0.5, atol=1e-6, rtol=1e-5)
+
+    with pytest.raises(ValueError, match="batch leading dim"):
+        RH.device_insertion_loss(
+            sharded_in, {"insertion_source_idx": target, "padding_mask": pad},
+        )
+
+
+def test_device_heads_split2_mm_precision_and_dealloc(monkeypatch):
+    """_split2_mm must beat bf16-unpacked fp32 matmul by >100x on the 3-matmul
+    insertion chain and free every intermediate when untaped."""
+    fake = _install_fake_ttnn(monkeypatch, preload=("tt_bio.rfd4.heads",))
+    import tt_bio.rfd4.heads as heads_mod
+    monkeypatch.setattr(heads_mod, "ttnn", fake)
+    monkeypatch.setattr(heads_mod.ops, "taping", lambda: False)
+
+    # Simulate Blackhole ttnn.matmul unpacking float32 inputs as bfloat16.
+    def bh_matmul(a, b, transpose_a=False, transpose_b=False, dtype=None, compute_kernel_config=None):
+        av = a._data.to(torch.bfloat16).float()
+        bv = b._data.to(torch.bfloat16).float()
+        if transpose_a:
+            av = av.transpose(-2, -1)
+        if transpose_b:
+            bv = bv.transpose(-2, -1)
+        dt = dtype or a.dtype
+        return _FakeTensor(torch.matmul(av, bv).to(torch.bfloat16 if dt == fake.bfloat16 else torch.float32),
+                           dtype=dt, device=a._device)
+
+    monkeypatch.setattr(fake, "matmul", bh_matmul)
+
+    rng = np.random.default_rng(123)
+    s_np = rng.standard_normal((1, 16, 64)).astype(np.float32) * 0.5
+    wq_np = rng.standard_normal((64, 64)).astype(np.float32) * 0.1
+    wk_np = rng.standard_normal((64, 64)).astype(np.float32) * 0.1
+
+    q_ref = s_np.astype(np.float64) @ wq_np.astype(np.float64)
+    k_ref = s_np.astype(np.float64) @ wk_np.astype(np.float64)
+    ins_ref = np.matmul(q_ref, np.swapaxes(k_ref, -2, -1)) * (64.0 ** -0.5)
+
+    s_t = fake.from_torch(torch.from_numpy(s_np))
+    wq_t = fake.from_torch(torch.from_numpy(wq_np))
+    wk_t = fake.from_torch(torch.from_numpy(wk_np))
+
+    # Broken arm: raw bh_matmul chain on float32 hits >1e-3 rel_l2 error.
+    q_raw = bh_matmul(s_t, wq_t, dtype=fake.float32)
+    k_raw = bh_matmul(s_t, wk_t, dtype=fake.float32)
+    ins_raw = bh_matmul(q_raw, k_raw, transpose_b=True, dtype=fake.float32)._data.numpy() * (64.0 ** -0.5)
+    raw_rel = float(np.linalg.norm(ins_raw - ins_ref) / np.linalg.norm(ins_ref))
+    assert raw_rel > 1e-3, f"expected raw bf16-unpacked matmul chain to exceed 1e-3, got {raw_rel:.3e}"
+
+    # Fixed arm: _split2_mm chain achieves <5e-5 rel_l2 and leaks zero intermediates.
+    created = []
+    orig_tc, orig_sub, orig_add, orig_mm = fake.typecast, fake.subtract, fake.add, fake.matmul
+
+    def _track(fn):
+        def _w(*a, **kw):
+            out = fn(*a, **kw)
+            created.append(out)
+            return out
+        return _w
+
+    monkeypatch.setattr(fake, "typecast", _track(orig_tc))
+    monkeypatch.setattr(fake, "subtract", _track(orig_sub))
+    monkeypatch.setattr(fake, "add", _track(orig_add))
+    monkeypatch.setattr(fake, "matmul", _track(orig_mm))
+
+    q_s = heads_mod._split2_mm(s_t, wq_t, fake.float32, {})
+    k_s = heads_mod._split2_mm(s_t, wk_t, fake.float32, {})
+    ins_s = heads_mod._split2_mm(q_s, k_s, fake.float32, {}, transpose_b=True)
+    ins_got = ins_s._data.numpy() * (64.0 ** -0.5)
+    split_rel = float(np.linalg.norm(ins_got - ins_ref) / np.linalg.norm(ins_ref))
+    assert split_rel < 5e-5, f"_split2_mm chain rel_l2={split_rel:.3e} >= 5e-5"
+
+    live = [t for t in created if t.is_allocated()]
+    assert set(live) == {q_s, k_s, ins_s}, f"leaked intermediates: {len(live)} live tensors"
+    assert s_t.is_allocated() and wq_t.is_allocated() and wk_t.is_allocated()
+
+
+def test_device_insertion_loss_active_row_fast_path_edge_cases(monkeypatch):
+    """Active-row fast path in device_insertion_loss must match RO.insertion_loss bit-exactly
+    across inactive batch items, masked-key targets, and all-masked keys."""
+    fake = _install_fake_ttnn(monkeypatch, preload=("tt_bio.train.rfd4_heads",))
+    import tt_bio.train.rfd4_heads as RH
+    import tt_bio.train.rfd4_objective as RO
+    import tt_bio.train.mesh_dp as mdp
+    monkeypatch.setattr(RH, "ttnn", fake)
+    monkeypatch.setattr(mdp, "mesh_world", lambda d: 1)
+
+    rng = np.random.default_rng(99)
+    b, n_tok, n_pad = 4, 10, 16
+    z_np = rng.standard_normal((b, n_pad, n_pad)).astype(np.float32) * 2.0
+    target = np.full((b, n_tok), -1, dtype=np.int64)
+    pad = np.ones((b, n_tok), dtype=bool)
+    # b=0: inactive (all -1)
+    # b=1: normal active rows
+    target[1, [6, 7]] = [1, 3]
+    pad[1, 9] = False
+    # b=2: active row whose target points to a masked key (pad=False or target>=0)
+    target[2, [4, 5]] = [9, 5]
+    pad[2, 9] = False
+    # b=3: all keys masked (pad=False everywhere) with an active row
+    pad[3, :] = False
+    target[3, 2] = 0
+
+    z_tt = fake.from_torch(torch.from_numpy(z_np))
+    loss_got, dz_tt = RH.device_insertion_loss(
+        z_tt, {"insertion_source_idx": target, "padding_mask": pad}, weight=0.75,
+    )
+    loss_ref, dz_ref = RO.insertion_loss(
+        z_np[:, :n_tok, :n_tok].astype(np.float64),
+        {"insertion_source_idx": target, "padding_mask": pad},
+    )
+    assert np.array_equal(loss_got, loss_ref), f"loss diff={np.max(np.abs(loss_got - loss_ref))}"
+    dz_got = dz_tt._data.numpy()
+    dz_want = np.zeros((b, n_pad, n_pad), dtype=np.float32)
+    dz_want[:, :n_tok, :n_tok] = (dz_ref * 0.75).astype(np.float32)
+    assert np.array_equal(dz_got, dz_want), f"dz diff={np.max(np.abs(dz_got - dz_want))}"
+
+
+def test_exact_fp32_norm_adaln_on_card(monkeypatch):
+    """_exact_fp32_row_mean + _rsqrt_exact_f32 + _norm_adaln_on_card match float64 and leak zero tensors."""
+    import contextlib
+    fake = _install_fake_ttnn(monkeypatch, preload=("tt_bio.train.rfd4_pair", "tt_bio.train.device_optim"))
+    if "tt_bio.autograd" not in sys.modules:
+        import tt_bio
+        fake_ag = types.ModuleType("tt_bio.autograd")
+        fake_ag.no_grad = contextlib.nullcontext
+        monkeypatch.setitem(sys.modules, "tt_bio.autograd", fake_ag)
+        monkeypatch.setattr(tt_bio, "autograd", fake_ag, raising=False)
+    import tt_bio.train.rfd4_pair as RP
+    monkeypatch.setattr(RP, "ttnn", fake)
+
+    rng = np.random.default_rng(7)
+    b, n, c = 2, 4, 384
+    x_np = rng.standard_normal((b, n, n, c)).astype(np.float32)
+    # Include 400x dynamic range across channels (matching trained RFD4 ln_out weights).
+    lnw_np = (1.0 + 0.1 * rng.standard_normal((1, 1, 1, c))).astype(np.float32)
+    lnw_np[..., 0] = 20.0
+    gam_np = rng.standard_normal((b, 1, 1, c)).astype(np.float32)
+    bet_np = rng.standard_normal((b, 1, 1, c)).astype(np.float32)
+    e1, e2 = 1e-5, 1e-5
+
+    x64 = x_np.astype(np.float64)
+    r1 = 1.0 / np.sqrt(np.mean(x64 * x64, axis=-1, keepdims=True) + e1)
+    a64 = x64 * r1 * lnw_np.astype(np.float64)
+    r2 = 1.0 / np.sqrt(np.mean(a64 * a64, axis=-1, keepdims=True) + e2)
+    z64 = a64 * r2 * gam_np.astype(np.float64) + bet_np.astype(np.float64)
+
+    x_tt = fake.from_torch(torch.from_numpy(x_np))
+    lnw_tt = fake.from_torch(torch.from_numpy(lnw_np))
+    gam_tt = fake.from_torch(torch.from_numpy(gam_np))
+    bet_tt = fake.from_torch(torch.from_numpy(bet_np))
+
+    # Simulate inaccurate SFPU rsqrt seed (~2e-4 rel error) AND BH fp32 permute truncation
+    # so any regression back to raw fp32 permute or unrefined rsqrt fails this gate.
+    def approx_rsqrt(s, fast_and_approximate_mode=True):
+        exact = torch.rsqrt(s._data.float())
+        return _FakeTensor((exact * (1.0 + 2e-4)).to(torch.float32), dtype=fake.float32, device=s._device)
+
+    orig_permute = fake.permute
+
+    def bh_permute(t, dims):
+        out = orig_permute(t, dims)
+        if t.dtype == fake.float32:
+            # Real BH float32 permute truncates mantissa bits (~5.9e-4 rel_l2).
+            out._data = out._data.to(torch.bfloat16).to(torch.float32)
+        return out
+
+    monkeypatch.setattr(fake, "rsqrt", approx_rsqrt)
+    monkeypatch.setattr(fake, "permute", bh_permute)
+
+    z_tt = RP._norm_adaln_on_card(x_tt, lnw_tt, gam_tt, bet_tt, e1, e2, c, {}, cg=None)
+    z_got = z_tt._data.numpy().astype(np.float64)
+    rel = float(np.linalg.norm(z_got - z64) / np.linalg.norm(z64))
+    assert rel < 1e-6, f"_norm_adaln_on_card rel_l2={rel:.3e} >= 1e-6"
+    assert x_tt.is_allocated() and lnw_tt.is_allocated() and gam_tt.is_allocated() and bet_tt.is_allocated()
+
+
+
+
 

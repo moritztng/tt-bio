@@ -120,6 +120,19 @@ def test_device_score_network_puts_the_confidence_convolutions_on_the_card(monke
     assert calls == [("score", "a-card")]
 
 
+def test_pose_edge_sets_pad_to_a_ladder_poses_share():
+    """Ten poses of one ligand have ten different cross-edge counts; padded to a multiple of
+    32 that is up to ten sets of device programs, on the ladder it is one or two."""
+    from tt_bio.diffdock.device import TILE, edge_bucket
+
+    assert [edge_bucket(n) for n in (1, 32, 33, 149, 158, 866, 1024, 1025)] == \
+           [32, 32, 64, 256, 256, 1024, 1024, 2048]
+    counts = range(700, 1000, 7)
+    assert len({edge_bucket(n) for n in counts}) == 1
+    assert all(edge_bucket(n) % TILE == 0 and n <= edge_bucket(n) < 2 * max(n, TILE)
+               for n in range(1, 5000))
+
+
 # -- on a card: the assembled head against upstream's goldens ------------------------------
 
 @pytest.mark.device
