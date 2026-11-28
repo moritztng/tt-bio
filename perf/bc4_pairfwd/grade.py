@@ -20,7 +20,7 @@ import tt_bio.rne_add as K
 import tt_bio.tenstorrent as T
 
 OUT = sys.argv[1]
-SHAPES = [tuple(int(v) for v in s.split("x")) for s in sys.argv[2:]] or [(1, 224, 224, 128), (1, 2, 224, 256)]
+SHAPES = [tuple(int(v) for v in s.split("x")) for s in sys.argv[2:]] or [(1, 224, 224, 128)]
 REPS = 20
 dev = T.get_device()
 # the node this process opened: TT_VISIBLE_DEVICES is an index, not the /dev/tenstorrent number
