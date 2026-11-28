@@ -2248,3 +2248,312 @@ def test_cand_conds_row_constant_and_prefetch_parity(monkeypatch):
         mod.deallocate(t)
     assert len(dev.live_bufs) == 0
 
+
+def test_device_winner_glue_and_heads_meshtrace_parity_and_no_leaks(monkeypatch):
+    """Paired MeshTrace for DeviceWinnerGlue and DeviceHeads matches eager across live in-place weight updates, 0 leaks."""
+    import contextlib
+    import tt_bio
+
+    mod = _augment_mock_ttnn_for_glue(_install_mock_ttnn(monkeypatch))
+    # Add mock execute_trace / release_trace / synchronize_device and mock TraceScratch to test trace wiring end-to-end.
+    trace_fns: dict[int, Any] = {}
+    next_tid = [1]
+
+    class _FakeScratch:
+        def __init__(self, dev):
+            self.dev = dev
+            self.captures = 0
+            self.released = False
+
+        def capture(self, need, size, runs, settle=None):
+            tids = []
+            try:
+                for fn in runs:
+                    fn()
+                    tid = next_tid[0]
+                    next_tid[0] += 1
+                    trace_fns[tid] = fn
+                    tids.append(tid)
+                self.captures += len(tids)
+            finally:
+                if settle is not None:
+                    settle()
+            return tids
+
+        def release(self):
+            self.released = True
+
+    def _mock_copy(src, dst):
+        for s_src, s_dst in zip(src._buf.shards, dst._buf.shards):
+            s_dst.copy_(s_src)
+
+    monkeypatch.setattr(mod, "copy", _mock_copy, raising=False)
+    monkeypatch.setattr(mod, "execute_trace", lambda dev, tid, cq_id=0, blocking=False: trace_fns[tid](), raising=False)
+    monkeypatch.setattr(mod, "release_trace", lambda dev, tid: trace_fns.pop(tid, None), raising=False)
+    monkeypatch.setattr(mod, "synchronize_device", lambda dev: None, raising=False)
+
+    fake_tt = types.ModuleType("tt_bio.tenstorrent")
+    fake_tt.TraceScratch = _FakeScratch
+    monkeypatch.setitem(sys.modules, "tt_bio.tenstorrent", fake_tt)
+    monkeypatch.setattr(tt_bio, "tenstorrent", fake_tt, raising=False)
+
+    fake_ag = types.ModuleType("tt_bio.autograd")
+    fake_ag.precise_config = lambda: None
+    fake_ag.no_grad = contextlib.nullcontext
+    fake_ag.tape = contextlib.nullcontext
+    fake_ag.release_pins = lambda: None
+
+    class _FakeAgT:
+        def __init__(self, value, requires_grad=False):
+            self.value = value
+            self.requires_grad = requires_grad
+            self.grad = None
+
+    fake_ag.Tensor = _FakeAgT
+    monkeypatch.setitem(sys.modules, "tt_bio.autograd", fake_ag)
+    monkeypatch.setattr(tt_bio, "autograd", fake_ag, raising=False)
+
+    from tt_bio.train.mesh_dp import put_sharded, read_sharded
+    from tt_bio.train.spmd_trace import DeviceWinnerGlue, FactoryStaticSplit, SPMDMeshTracer
+
+    class _StaticFeat(torch.nn.Module):
+        def __init__(self, key):
+            super().__init__()
+            self.key = key
+
+        def forward(self, batch):
+            return batch[self.key]
+
+    class _DynEmb(torch.nn.Module):
+        def __init__(self, vocab, dim, key):
+            super().__init__()
+            self.key = key
+            self.emb = torch.nn.Embedding(vocab, dim)
+
+        def forward(self, batch):
+            return self.emb(batch[self.key])
+
+    class _RemFeat(torch.nn.Module):
+        def __init__(self, dim=4):
+            super().__init__()
+            self.dim = dim
+
+        def forward(self, batch):
+            rem = batch.get("recycle_remaining", None)
+            n = batch["padding_mask"].shape[0]
+            out = torch.zeros((n, 1, self.dim), dtype=torch.float32)
+            if rem is not None:
+                out[:, :, min(int(rem), self.dim - 1)] = 1.0
+            return out
+
+    class _Factory(torch.nn.Module):
+        def __init__(self, creators, in_dim, out_dim):
+            super().__init__()
+            self.feat_creators = torch.nn.ModuleList(creators)
+            self.linear_out = torch.nn.Linear(in_dim, out_dim, bias=False)
+
+        @staticmethod
+        def apply_padding_mask(x, mask):
+            return x * mask[..., None].to(x.dtype)
+
+    class _Transition(torch.nn.Module):
+        def __init__(self, dim, hidden):
+            super().__init__()
+            self.swish_linear = torch.nn.Sequential(torch.nn.Linear(dim, 2 * hidden, bias=False))
+            self.linear_out = torch.nn.Linear(hidden, dim, bias=False)
+
+    class _ToyGlue(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.condition_on_recycle_remaining = True
+            self.init_repr_factory = _Factory([_StaticFeat("s_ir"), _DynEmb(8, 5, "tok_ir")], 27 + 5, 32)
+            self.cond_factory = _Factory([_StaticFeat("s_cf"), _DynEmb(6, 4, "tok_cf"), _RemFeat(4)], 24 + 4 + 4, 32)
+            self.transition_c_1 = _Transition(32, 64)
+            self.transition_c_2 = _Transition(32, 64)
+
+    torch.manual_seed(55)
+    glue = _ToyGlue()
+    world, n_tok = 4, 32
+    dev = _FakeMeshDevice(2, 2)
+    dev_masters = {
+        "glue.init_repr_factory.linear_out.weight": dev.make_tensor(
+            [glue.init_repr_factory.linear_out.weight.detach().clone() for _ in range(world)]
+        ),
+        "glue.cond_factory.linear_out.weight": dev.make_tensor(
+            [glue.cond_factory.linear_out.weight.detach().clone() for _ in range(world)]
+        ),
+        "glue.transition_c_1.swish_linear.0.weight": dev.make_tensor(
+            [glue.transition_c_1.swish_linear[0].weight.detach().clone() for _ in range(world)]
+        ),
+        "glue.transition_c_1.linear_out.weight": dev.make_tensor(
+            [glue.transition_c_1.linear_out.weight.detach().clone() for _ in range(world)]
+        ),
+        "glue.transition_c_2.swish_linear.0.weight": dev.make_tensor(
+            [glue.transition_c_2.swish_linear[0].weight.detach().clone() for _ in range(world)]
+        ),
+        "glue.transition_c_2.linear_out.weight": dev.make_tensor(
+            [glue.transition_c_2.linear_out.weight.detach().clone() for _ in range(world)]
+        ),
+    }
+
+    split = FactoryStaticSplit(glue)
+    tracer = SPMDMeshTracer(dev, enabled=True, trace_win_pair=False)
+    dwg_tr = DeviceWinnerGlue(glue, split, dev, tracer=tracer)
+    dwg_eg = DeviceWinnerGlue(glue, split, dev, tracer=None)
+
+    def _mk_bw(seed):
+        g = torch.Generator().manual_seed(seed)
+        m = torch.ones((world, n_tok), dtype=torch.bool)
+        m[1, 18:] = False
+        return {
+            "padding_mask": m,
+            "s_ir": torch.randn((world, n_tok, 27), generator=g),
+            "tok_ir": torch.randint(0, 8, (world, n_tok), generator=g),
+            "s_cf": torch.randn((world, n_tok, 24), generator=g),
+            "tok_cf": torch.randint(0, 6, (world, n_tok), generator=g),
+        }
+
+    # Step 0: captures DeviceWinnerGlue paired trace
+    bw0 = _mk_bw(101)
+    mk0 = put_sharded(bw0["padding_mask"].float()[..., None], dev, dtype=mod.float32, layout=mod.TILE_LAYOUT)
+    ds0 = put_sharded(torch.randn(world, n_tok, 32), dev, dtype=mod.float32, layout=mod.TILE_LAYOUT)
+    dc0 = put_sharded(torch.randn(world, n_tok, 32), dev, dtype=mod.float32, layout=mod.TILE_LAYOUT)
+    s0, c0, sv0 = dwg_tr.forward(bw0, [0] * world, 1, prefetched=None, m1_tok=mk0, recycle_remaining=1,
+                                 trunk_dtype=mod.float32, dev_masters=dev_masters)
+    g0 = dwg_tr.backward(ds0, dc0, sv0, dev_masters)
+    assert tracer.stats["captures"] == 2 and tracer.stats["refused"] == 0
+    for t in (s0, c0, mk0, ds0, dc0, *g0.values()):
+        mod.deallocate(t)
+
+    # Mutate all 6 dev_masters IN-PLACE to prove Step 1 trace replay reads LIVE weights!
+    for nm, dm in dev_masters.items():
+        upd = dev.make_tensor([s + 0.05 for s in dm._buf.shards])
+        mod.copy(upd, dm)
+        mod.deallocate(upd)
+
+    # Step 1: replays trace on brand-new inputs + mutated weights and matches eager exact!
+    bw1 = _mk_bw(202)
+    mk1 = put_sharded(bw1["padding_mask"].float()[..., None], dev, dtype=mod.float32, layout=mod.TILE_LAYOUT)
+    ds1 = put_sharded(torch.randn(world, n_tok, 32), dev, dtype=mod.float32, layout=mod.TILE_LAYOUT)
+    dc1 = put_sharded(torch.randn(world, n_tok, 32), dev, dtype=mod.float32, layout=mod.TILE_LAYOUT)
+    glue.zero_grad(set_to_none=True)
+    s_tr, c_tr, sv_tr = dwg_tr.forward(bw1, [0] * world, 1, prefetched=None, m1_tok=mk1, recycle_remaining=2,
+                                       trunk_dtype=mod.float32, dev_masters=dev_masters)
+    g_tr = dwg_tr.backward(ds1, dc1, sv_tr, dev_masters)
+    emb_tr = {nm: p.grad.detach().clone() for nm, p in glue.named_parameters() if p.grad is not None}
+
+    glue.zero_grad(set_to_none=True)
+    s_eg, c_eg, sv_eg = dwg_eg.forward(bw1, [0] * world, 1, prefetched=None, m1_tok=mk1, recycle_remaining=2,
+                                       trunk_dtype=mod.float32, dev_masters=dev_masters)
+    g_eg = dwg_eg.backward(ds1, dc1, sv_eg, dev_masters)
+    emb_eg = {nm: p.grad.detach().clone() for nm, p in glue.named_parameters() if p.grad is not None}
+
+    assert tracer.stats["win_glue_replay"] == 1
+    assert float((read_sharded(s_tr, dev) - read_sharded(s_eg, dev)).abs().max()) == 0.0
+    assert float((read_sharded(c_tr, dev) - read_sharded(c_eg, dev)).abs().max()) == 0.0
+    for k in g_tr:
+        assert float((read_sharded(g_tr[k], dev) - read_sharded(g_eg[k], dev)).abs().max()) == 0.0
+    for k in emb_tr:
+        assert float((emb_tr[k] - emb_eg[k]).abs().max()) == 0.0
+    for t in (s_tr, c_tr, s_eg, c_eg, mk1, ds1, dc1, *g_tr.values(), *g_eg.values()):
+        mod.deallocate(t)
+
+    # Now test SPMDMeshTracer head_pair capture + replay into disjoint _head_scratch!
+    class _ToyDeviceHeads:
+        def __init__(self):
+            self.ca_norm_w = dev.make_tensor([torch.ones(1, 32) for _ in range(world)])
+            self.ca_w = dev.make_tensor([torch.randn(32, 3) for _ in range(world)])
+            self.ll_norm_w = None
+            self.ll_w = None
+            self.seq_norm_w = None
+            self.seq_w = None
+            self.ins_q_w = None
+            self.ins_k_w = None
+
+        def __call__(self, s_leaf, batch, *, insertion=True, sequence=True, masks_dev=None):
+            eca, ell, pm = masks_dev
+            ca_m = mod.matmul(s_leaf.value, self.ca_w)
+            ca = _FakeAgT(mod.multiply(ca_m, eca), requires_grad=True)
+            mod.deallocate(ca_m)
+            ll = _FakeAgT(mod.multiply(s_leaf.value, ell), requires_grad=True)
+            ins = _FakeAgT(mod.matmul(s_leaf.value, s_leaf.value, transpose_b=True), requires_grad=True)
+            out = {"bb_ca": {"v": ca}, "local_latents": {"v": ll}, "insertion": {"logits": ins}}
+            if sequence:
+                out["sequence"] = {"logits": _FakeAgT(mod.multiply(s_leaf.value, pm), requires_grad=True)}
+            self._last_s = s_leaf
+            return out
+
+    dh = _ToyDeviceHeads()
+
+    def _fake_ag_bwd(outs, seeds):
+        # Compute analytical grad on s_leaf: d_ca @ W^T + d_ll
+        ds = mod.matmul(seeds[0], dh.ca_w, transpose_b=True)
+        ds2 = mod.add(ds, seeds[1])
+        mod.deallocate(ds)
+        dh._last_s.grad = ds2
+
+    monkeypatch.setattr(fake_ag, "backward", _fake_ag_bwd, raising=False)
+
+    class _ToyFolds:
+        def tape_backward(self, dm):
+            return {"glue.ca_linear.1.weight": mod.clone(dh.ca_w)}, []
+
+    s_in0 = put_sharded(torch.randn(world, n_tok, 32), dev, dtype=mod.float32, layout=mod.TILE_LAYOUT)
+    m_in0 = put_sharded(torch.ones(world, n_tok, 1), dev, dtype=mod.float32, layout=mod.TILE_LAYOUT)
+    dca0 = put_sharded(torch.randn(world, n_tok, 3), dev, dtype=mod.float32, layout=mod.TILE_LAYOUT)
+    dll0 = put_sharded(torch.randn(world, n_tok, 32), dev, dtype=mod.float32, layout=mod.TILE_LAYOUT)
+    dseq0 = put_sharded(torch.randn(world, n_tok, 32), dev, dtype=mod.float32, layout=mod.TILE_LAYOUT)
+    dins0 = put_sharded(torch.randn(world, n_tok, n_tok), dev, dtype=mod.float32, layout=mod.TILE_LAYOUT)
+    _t1 = mod.matmul(s_in0, dh.ca_w)
+    ca_r = mod.multiply(_t1, m_in0)
+    mod.deallocate(_t1)
+    ll_r = mod.multiply(s_in0, m_in0)
+    seq_r = mod.multiply(s_in0, m_in0)
+    ins_r = mod.matmul(s_in0, s_in0, transpose_b=True)
+    _t2 = mod.matmul(dca0, dh.ca_w, transpose_b=True)
+    ds_r = mod.add(_t2, dll0)
+    mod.deallocate(_t2)
+    hg_r = {"glue.ca_linear.1.weight": mod.clone(dh.ca_w)}
+
+    hkey = tracer.head_pair_key(s_in0, dh, True)
+    assert tracer.head_pair_should_capture(hkey)
+    ok = tracer.capture_head_pair(
+        hkey, dh=dh, dfolds=_ToyFolds(), dev_masters=dev_masters,
+        s_val=s_in0, emit_ca=m_in0, emit_ll=m_in0, pad_m=m_in0,
+        ca_ref=ca_r, ll_ref=ll_r, seq_ref=seq_r, ins_ref=ins_r,
+        d_ca_ref=dca0, d_ll_ref=dll0, d_seq_ref=dseq0, d_ins_ref=dins0,
+        ds_ref=ds_r, head_grads_ref=hg_r, run_seq=True,
+    )
+    assert ok and tracer.has_head_pair(hkey)
+    assert tracer._head_scratch is not None and tracer._head_scratch is not tracer._scratch
+
+    # Mutate dh.ca_w IN-PLACE and replay on new input s_in1 -> matches exact!
+    w_upd = dev.make_tensor([s * 1.3 for s in dh.ca_w._buf.shards])
+    mod.copy(w_upd, dh.ca_w)
+    mod.deallocate(w_upd)
+    s_in1 = put_sharded(torch.randn(world, n_tok, 32), dev, dtype=mod.float32, layout=mod.TILE_LAYOUT)
+    ca_o, ll_o, seq_o, ins_o = tracer.replay_head_pair_fwd(hkey, s_in1, m_in0, m_in0, m_in0)
+    ds_o, hg_o = tracer.replay_head_pair_bwd(hkey, dca0, dll0, dseq0, dins0)
+    assert tracer.stats["head_pair_replay"] == 1
+    _t3 = mod.matmul(s_in1, dh.ca_w)
+    ca_exp = mod.multiply(_t3, m_in0)
+    mod.deallocate(_t3)
+    _t4 = mod.matmul(dca0, dh.ca_w, transpose_b=True)
+    ds_exp = mod.add(_t4, dll0)
+    mod.deallocate(_t4)
+    assert float((read_sharded(ca_o, dev) - read_sharded(ca_exp, dev)).abs().max()) == 0.0
+    assert float((read_sharded(ds_o, dev) - read_sharded(ds_exp, dev)).abs().max()) == 0.0
+    assert float((read_sharded(hg_o["glue.ca_linear.1.weight"], dev) - read_sharded(dh.ca_w, dev)).abs().max()) == 0.0
+
+    # Clean up everything and verify ZERO leaked device buffers!
+    for t in (
+        s_in0, s_in1, m_in0, dca0, dll0, dseq0, dins0, ca_r, ll_r, seq_r, ins_r, ds_r,
+        ca_exp, ds_exp, *hg_r.values(), dh.ca_norm_w, dh.ca_w, *dev_masters.values(),
+    ):
+        mod.deallocate(t)
+    dwg_tr.release()
+    dwg_eg.release()
+    tracer.release()
+    assert len(dev.live_bufs) == 0
+
+

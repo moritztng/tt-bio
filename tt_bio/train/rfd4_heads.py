@@ -412,6 +412,11 @@ def device_winner_loss_spmd(
     stacked_bw: dict | None = None,
     stop_at_s: bool = False,
     pool=None,
+    head_tracer=None,
+    dfolds=None,
+    dev_masters=None,
+    head_grads_out: dict | None = None,
+    head_skip_out: set | None = None,
 ):
     """Run taped ``FlowGlue.heads`` on a ``MeshDevice`` and backprop all ``world`` chips together.
 
@@ -423,6 +428,9 @@ def device_winner_loss_spmd(
     ``ag.Tensor(..., requires_grad=True)`` so ``ag.backward`` runs ONLY through ``DeviceHeads``
     and returns ``(mean_total, per_rank_totals, per_rank_terms, per_rank_refs, ds_out)`` where
     ``ds_out`` is the fp32 gradient seed on ``s`` (used by paired ``MeshTrace`` trunk backward).
+    When ``head_tracer``, ``dfolds``, and ``dev_masters`` are also supplied, replays paired
+    ``DeviceHeads`` fwd/bwd+fold traces inside a dedicated 64 MiB/bank scratch hole disjoint from
+    ``win_pair``'s hole and populates ``head_grads_out`` (and ``head_skip_out`` on replay).
     """
     from .mesh_dp import put_sharded, read_sharded, stack_batches
 
@@ -435,13 +443,49 @@ def device_winner_loss_spmd(
     n_pad = int(s_raw.shape[1])
     dev = s_raw.device()
 
-    s_local = ag.Tensor(s_raw, requires_grad=True) if stop_at_s else s_taped
-    with ag.tape():
-        o = glue.heads(s_local, stacked_bw, insertion=True)
-    ca_t = next(iter(o["bb_ca"].values()))
-    ll_t = next(iter(o["local_latents"].values()))
-    seq_t = o["sequence"]["logits"] if "sequence" in o else None
-    ins_t = o["insertion"]["logits"]
+    dh = getattr(glue, "_device_heads", None)
+    can_trace_heads = bool(
+        stop_at_s
+        and head_tracer is not None
+        and dfolds is not None
+        and dev_masters is not None
+        and dh is not None
+        and head_grads_out is not None
+    )
+    run_seq = bool(dh.sequence_readout_enabled) if dh is not None else False
+    head_key = head_tracer.head_pair_key(s_raw, dh, run_seq) if can_trace_heads else None
+    use_head_replay = bool(can_trace_heads and head_tracer.has_head_pair(head_key))
+    want_head_cap = bool(can_trace_heads and not use_head_replay and head_tracer.head_pair_should_capture(head_key))
+
+    cap_masks = None
+    cap_refs = None
+    if use_head_replay:
+        emit_ca, emit_ll, pad_m = dh._upload_masks(stacked_bw, n_pad, need_seq=run_seq)
+        ca_t, ll_t, seq_t, ins_t = head_tracer.replay_head_pair_fwd(head_key, s_raw, emit_ca, emit_ll, pad_m)
+        for mt in (emit_ca, emit_ll, pad_m):
+            if mt is not None:
+                ttnn.deallocate(mt)
+    else:
+        s_local = ag.Tensor(s_raw, requires_grad=True) if stop_at_s else s_taped
+        if want_head_cap:
+            emit_ca, emit_ll, pad_m = dh._upload_masks(stacked_bw, n_pad, need_seq=run_seq)
+            cap_masks = (emit_ca, emit_ll, pad_m)
+            with ag.tape():
+                o = dh(s_local, None, insertion=True, sequence=run_seq, masks_dev=cap_masks)
+        else:
+            with ag.tape():
+                o = glue.heads(s_local, stacked_bw, insertion=True)
+        ca_t = next(iter(o["bb_ca"].values()))
+        ll_t = next(iter(o["local_latents"].values()))
+        seq_t = o["sequence"]["logits"] if "sequence" in o else None
+        ins_t = o["insertion"]["logits"]
+        if want_head_cap:
+            cap_refs = (
+                ttnn.clone(getattr(ca_t, "value", ca_t)),
+                ttnn.clone(getattr(ll_t, "value", ll_t)),
+                ttnn.clone(getattr(seq_t, "value", seq_t)) if seq_t is not None else None,
+                ttnn.clone(getattr(ins_t, "value", ins_t)),
+            )
 
     def read_tok_all(t, d_out: int) -> np.ndarray:
         arr = read_sharded(getattr(t, "value", t), dev).float().numpy()
@@ -486,6 +530,8 @@ def device_winner_loss_spmd(
         seq_seeds = np.zeros((world, n_pad, 147), dtype=np.float32)
         seq_seeds[:, :n_tok, :147] = seeds_all["sequence_logits"].astype(np.float32)
         have_seq_seed = True
+    elif seq_t is not None and (use_head_replay or want_head_cap):
+        seq_seeds = np.zeros((world, n_pad, 147), dtype=np.float32)
 
     per_rank_totals: list[float] = []
     per_rank_terms: list[dict] = []
@@ -506,30 +552,88 @@ def device_winner_loss_spmd(
             ref_r = {k: float(rt[k][w_r]) for k in terms_r if k in rt and w_r < len(rt[k])}
         per_rank_refs.append(ref_r)
 
-    outs_bwd = [ca_t, ll_t]
-    seeds_bwd = [
-        put_sharded(torch.from_numpy(ca_seeds), dev, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT),
-        put_sharded(torch.from_numpy(ll_seeds), dev, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT),
-    ]
-    if seq_t is not None and have_seq_seed:
-        outs_bwd.append(seq_t)
-        seeds_bwd.append(
-            put_sharded(torch.from_numpy(seq_seeds), dev, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT)
+    d_ca_tt = put_sharded(torch.from_numpy(ca_seeds), dev, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT)
+    d_ll_tt = put_sharded(torch.from_numpy(ll_seeds), dev, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT)
+    d_seq_tt = (
+        put_sharded(torch.from_numpy(seq_seeds), dev, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT)
+        if seq_seeds is not None else None
+    )
+
+    if use_head_replay:
+        d_ins_tt = (
+            dz_ins if dz_ins is not None
+            else put_sharded(torch.zeros((world, n_pad, n_pad), dtype=torch.float32), dev,
+                             dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT)
         )
+        ds_out, head_grads = head_tracer.replay_head_pair_bwd(head_key, d_ca_tt, d_ll_tt, d_seq_tt, d_ins_tt)
+        for sd in (d_ca_tt, d_ll_tt, d_seq_tt, d_ins_tt):
+            if sd is not None:
+                ttnn.deallocate(sd)
+        head_grads_out.update(head_grads)
+        if head_skip_out is not None:
+            head_skip_out.update(head_grads.keys())
+        mean_total = float(sum(per_rank_totals) / world)
+        return mean_total, per_rank_totals, per_rank_terms, per_rank_refs, ds_out
+
+    outs_bwd = [ca_t, ll_t]
+    seeds_bwd = [d_ca_tt, d_ll_tt]
+    if seq_t is not None and (have_seq_seed or want_head_cap):
+        outs_bwd.append(seq_t)
+        seeds_bwd.append(d_seq_tt)
     if dz_ins is not None:
+        outs_bwd.append(ins_t)
+        seeds_bwd.append(dz_ins)
+    elif want_head_cap:
+        dz_ins = put_sharded(torch.zeros((world, n_pad, n_pad), dtype=torch.float32), dev,
+                             dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT)
         outs_bwd.append(ins_t)
         seeds_bwd.append(dz_ins)
 
     ag.backward(outs_bwd, seeds_bwd)
-    for sd in seeds_bwd:
-        ttnn.deallocate(sd)
     del o, ca_t, ll_t, seq_t, ins_t, outs_bwd
 
     if stop_at_s:
         ds_out = s_local.grad
         s_local.grad = None
+        if want_head_cap:
+            head_g, _ = dfolds.tape_backward(dev_masters)
+            ag.release_pins()
+            head_grads_out.update(head_g)
+            try:
+                head_tracer.capture_head_pair(
+                    head_key,
+                    dh=dh,
+                    dfolds=dfolds,
+                    dev_masters=dev_masters,
+                    s_val=s_raw,
+                    emit_ca=cap_masks[0],
+                    emit_ll=cap_masks[1],
+                    pad_m=cap_masks[2],
+                    ca_ref=cap_refs[0],
+                    ll_ref=cap_refs[1],
+                    seq_ref=cap_refs[2],
+                    ins_ref=cap_refs[3],
+                    d_ca_ref=d_ca_tt,
+                    d_ll_ref=d_ll_tt,
+                    d_seq_ref=d_seq_tt,
+                    d_ins_ref=dz_ins,
+                    ds_ref=ds_out,
+                    head_grads_ref=head_g,
+                    run_seq=run_seq,
+                )
+            finally:
+                for t in (*cap_masks, *cap_refs):
+                    if t is not None and t.is_allocated():
+                        ttnn.deallocate(t)
+        for sd in seeds_bwd:
+            if sd is not None and sd.is_allocated():
+                ttnn.deallocate(sd)
         mean_total = float(sum(per_rank_totals) / world)
         return mean_total, per_rank_totals, per_rank_terms, per_rank_refs, ds_out
+
+    for sd in seeds_bwd:
+        if sd is not None and sd.is_allocated():
+            ttnn.deallocate(sd)
 
     if bridge is not None:
         bridge.backward_ups()

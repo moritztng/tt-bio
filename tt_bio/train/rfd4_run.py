@@ -1590,7 +1590,7 @@ def main(argv=None, on_step=None):
             win_mode = ctx.get("win_mode", "eager")
             glue_saved = ctx.get("glue_saved")
 
-            def _merge_trunk_head_grads(trunk_g, head_g, skip_init):
+            def _merge_trunk_head_grads(trunk_g, head_g, skip_init, head_skip=()):
                 merged = dict(trunk_g)
                 skip_out = set(skip_init)
                 for kh, gh in head_g.items():
@@ -1598,21 +1598,31 @@ def main(argv=None, on_step=None):
                         sg = ttnn.add(merged[kh], gh)
                         if kh not in skip_out:
                             ttnn.deallocate(merged[kh])
-                        ttnn.deallocate(gh)
+                        if kh not in head_skip:
+                            ttnn.deallocate(gh)
                         merged[kh] = sg
                         skip_out.discard(kh)
                     else:
                         merged[kh] = gh
+                        if kh in head_skip:
+                            skip_out.add(kh)
                 return merged, skip_out
 
             if win_mode == "replay":
+                head_grads_box: dict = {}
+                head_skip_box: set = set()
                 mean_total, per_rank_totals, per_rank_terms, per_rank_refs, ds_out = device_winner_loss_spmd(
                     glue, s, ctx["rank_bws"], bridge=ctx["br"], ref_terms_list=ctx["rank_refs"],
                     win_indices=ctx["win_indices"], stacked_bw=ctx["stacked_bw"], stop_at_s=True,
                     pool=_get_spmd_pool(),
+                    head_tracer=spmd_tracer, dfolds=dfolds, dev_masters=opt.master,
+                    head_grads_out=head_grads_box, head_skip_out=head_skip_box,
                 )
-                head_grads, _ = dfolds.tape_backward(opt.master)
-                ag.release_pins()
+                if head_grads_box:
+                    head_grads = head_grads_box
+                else:
+                    head_grads, _ = dfolds.tape_backward(opt.master)
+                    ag.release_pins()
                 d_s_i, d_z_in, d_c, trunk_grads, trunk_idle = spmd_tracer.replay_win_pair_bwd_fold(
                     ctx["win_key"], ds_out,
                 )
@@ -1628,7 +1638,9 @@ def main(argv=None, on_step=None):
                 ag.backward([ctx["z_in_pre"]], [dz_c])
                 ttnn.deallocate(dz_c)
                 ctx["br"].backward_ups()
-                merged_g, merged_skip = _merge_trunk_head_grads(trunk_grads, head_grads, set(trunk_grads))
+                merged_g, merged_skip = _merge_trunk_head_grads(
+                    trunk_grads, head_grads, set(trunk_grads), head_skip=head_skip_box,
+                )
                 if glue_grads:
                     merged_g, merged_skip = _merge_trunk_head_grads(merged_g, glue_grads, merged_skip)
                 ctx["traced_dev_grads"] = merged_g
@@ -1840,7 +1852,7 @@ def main(argv=None, on_step=None):
         if real and spmd_mesh_shape is not None and a.spmd_dev_prep and can_offload_cond_init(glue):
             factory_split = FactoryStaticSplit(glue)
             if use_dev_win_glue:
-                dev_win_glue = DeviceWinnerGlue(glue, factory_split, dev)
+                dev_win_glue = DeviceWinnerGlue(glue, factory_split, dev, tracer=spmd_tracer)
             spmd_prefetcher = SPMDPrefetcher(factory_split, res_pair=res_pair)
         refold_hook = make_rfd4_refold_hook(
             trunk, glue if real else None,

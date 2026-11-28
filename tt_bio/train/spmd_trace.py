@@ -888,16 +888,39 @@ class DeviceWinnerGlue:
     D2H for only the 5 tiny CPU embeddings).
     """
 
-    def __init__(self, glue, factory_split: FactoryStaticSplit, device):
+    _W_KEYS = (
+        "glue.init_repr_factory.linear_out.weight",
+        "glue.cond_factory.linear_out.weight",
+        "glue.transition_c_1.swish_linear.0.weight",
+        "glue.transition_c_1.linear_out.weight",
+        "glue.transition_c_2.swish_linear.0.weight",
+        "glue.transition_c_2.linear_out.weight",
+    )
+
+    def __init__(self, glue, factory_split: FactoryStaticSplit, device, *, tracer: Optional["SPMDMeshTracer"] = None):
         self.glue = glue
         self.split = factory_split
         self.device = device
+        self.tracer = tracer
         self._p_ir_dyn = None
         self._p_cf_dyn = None
         self._ir_pad_in = 0
         self._cf_pad_in = 0
         self._ir_orig_in = int(glue.init_repr_factory.linear_out.weight.shape[1])
         self._cf_orig_in = int(glue.cond_factory.linear_out.weight.shape[1])
+        self._traces: dict[tuple, Any] = {}
+
+    def _trace_key(self, n_tok: int, m1_tok, trunk_dtype, dev_masters: Mapping[str, Any]) -> tuple:
+        def _addr(t):
+            return t.buffer_address() if hasattr(t, "buffer_address") else id(t)
+
+        return (
+            int(n_tok),
+            m1_tok is not None,
+            None if m1_tok is None else str(m1_tok.dtype),
+            str(trunk_dtype),
+            tuple(_addr(dev_masters[k]) for k in self._W_KEYS),
+        )
 
     def _ensure_gather_mats(self, sample_batch: Mapping[str, Any]) -> None:
         if self._p_ir_dyn is not None:
@@ -907,6 +930,356 @@ class DeviceWinnerGlue:
         self._cf_pad_in = ((self._cf_orig_in + 31) // 32) * 32
         self._p_ir_dyn = _put_replicated_f32(self.split.ir.gather_matrix(self._ir_pad_in), self.device)
         self._p_cf_dyn = _put_replicated_f32(self.split.cf.gather_matrix(self._cf_pad_in), self.device)
+
+    def _fwd_device_ops(
+        self,
+        ir_tt,
+        cf_tt,
+        m1_tok,
+        n_tok: int,
+        trunk_dtype,
+        dev_masters: Mapping[str, Any],
+    ):
+        """Pure device-op forward body shared identically by eager and MeshTrace capture."""
+        import ttnn
+        from .. import autograd as ag
+
+        cfg = ag.precise_config()
+        m_f32 = None
+        m_f32_owned = False
+        if m1_tok is not None:
+            if m1_tok.dtype == ttnn.float32:
+                m_f32 = m1_tok
+            else:
+                m_f32 = ttnn.typecast(m1_tok, ttnn.float32)
+                m_f32_owned = True
+
+        w_ir_pad, own_w_ir = _pad_cols_32_dev(dev_masters[self._W_KEYS[0]])
+        w_cf_pad, own_w_cf = _pad_cols_32_dev(dev_masters[self._W_KEYS[1]])
+
+        s_i_raw = _exact_f32_mm(ir_tt, w_ir_pad, transpose_b=True, cfg=cfg)
+        if m_f32 is not None:
+            s_i_dev = ttnn.multiply(s_i_raw, m_f32)
+            ttnn.deallocate(s_i_raw)
+        else:
+            s_i_dev = s_i_raw
+
+        c0_raw = _exact_f32_mm(cf_tt, w_cf_pad, transpose_b=True, cfg=cfg)
+        if m_f32 is not None:
+            c0_dev = ttnn.multiply(c0_raw, m_f32)
+            ttnn.deallocate(c0_raw)
+        else:
+            c0_dev = c0_raw
+
+        w_t1_1 = dev_masters[self._W_KEYS[2]]
+        w_t1_2 = dev_masters[self._W_KEYS[3]]
+        w_t2_1 = dev_masters[self._W_KEYS[4]]
+        w_t2_2 = dev_masters[self._W_KEYS[5]]
+        half = int(w_t1_1.shape[0]) // 2
+        b_loc = int(c0_dev.shape[0])
+
+        def _tr_fwd_save(x_in, w1, w2):
+            h = _exact_f32_mm(x_in, w1, transpose_b=True, cfg=cfg)
+            a = ttnn.slice(h, [0, 0, 0], [b_loc, n_tok, half])
+            g = ttnn.slice(h, [0, 0, half], [b_loc, n_tok, 2 * half])
+            ttnn.deallocate(h)
+            sig = _accurate_sigmoid(g)
+            sg = ttnn.multiply(g, sig)
+            ttnn.deallocate(g)
+            sw = ttnn.multiply(sg, a)
+            out = _exact_f32_mm(sw, w2, transpose_b=True, cfg=cfg)
+            if m_f32 is not None:
+                om = ttnn.multiply(out, m_f32)
+                ttnn.deallocate(out)
+                out = om
+            return out, (a, sig, sg, sw)
+
+        c1_dev, st1 = _tr_fwd_save(c0_dev, w_t1_1, w_t1_2)
+        c2_f32, st2 = _tr_fwd_save(c1_dev, w_t2_1, w_t2_2)
+        if trunk_dtype != ttnn.float32:
+            c_out_dev = ttnn.typecast(c2_f32, trunk_dtype)
+            ttnn.deallocate(c2_f32)
+        else:
+            c_out_dev = c2_f32
+
+        return (
+            s_i_dev, c_out_dev, c0_dev, c1_dev, st1, st2,
+            w_ir_pad, own_w_ir, w_cf_pad, own_w_cf, m_f32, m_f32_owned,
+        )
+
+    def _bwd_device_ops(
+        self,
+        ds_i,
+        dc_out,
+        *,
+        ir_tt,
+        cf_tt,
+        w_ir_pad,
+        w_cf_pad,
+        c0_dev,
+        c1_dev,
+        st1,
+        st2,
+        m_f32,
+        dev_masters: Mapping[str, Any],
+        consume_saved: bool,
+    ):
+        """Pure device-op backward body shared identically by eager and MeshTrace capture."""
+        import ttnn
+        from .. import autograd as ag
+
+        cfg = ag.precise_config()
+        w_t1_1 = dev_masters[self._W_KEYS[2]]
+        w_t1_2 = dev_masters[self._W_KEYS[3]]
+        w_t2_1 = dev_masters[self._W_KEYS[4]]
+        w_t2_2 = dev_masters[self._W_KEYS[5]]
+
+        def _mm2d_t_a(a_3d, b_3d):
+            bn = int(a_3d.shape[0]) * int(a_3d.shape[1])
+            a2 = ttnn.reshape(a_3d, [bn, int(a_3d.shape[2])])
+            b2 = ttnn.reshape(b_3d, [bn, int(b_3d.shape[2])])
+            out = _exact_f32_mm(a2, b2, transpose_a=True, cfg=cfg)
+            _safe_dealloc(a2, keep=a_3d)
+            _safe_dealloc(b2, keep=b_3d)
+            return out
+
+        def _tr_bwd(d_out, x_in, st, w1, w2):
+            a, sig, sg, sw = st
+            d_out_f32 = d_out if d_out.dtype == ttnn.float32 else ttnn.typecast(d_out, ttnn.float32)
+            own_df = d_out_f32 is not d_out
+            if m_f32 is not None:
+                d_out_m = ttnn.multiply(d_out_f32, m_f32)
+                if own_df:
+                    ttnn.deallocate(d_out_f32)
+            else:
+                d_out_m = d_out_f32 if own_df else ttnn.clone(d_out_f32)
+
+            dw2 = _mm2d_t_a(d_out_m, sw)
+            d_sw = _exact_f32_mm(d_out_m, w2, cfg=cfg)
+            ttnn.deallocate(d_out_m)
+
+            d_a = ttnn.multiply(d_sw, sg)
+            d_sg = ttnn.multiply(d_sw, a)
+            ttnn.deallocate(d_sw)
+
+            one_m_sig = ttnn.rsub(sig, 1.0)
+            sg_term = ttnn.multiply(sg, one_m_sig)
+            ttnn.deallocate(one_m_sig)
+            dsilu = ttnn.add(sig, sg_term)
+            ttnn.deallocate(sg_term)
+            d_g = ttnn.multiply(d_sg, dsilu)
+            ttnn.deallocate(d_sg)
+            ttnn.deallocate(dsilu)
+
+            d_h = ttnn.concat([d_a, d_g], dim=-1)
+            ttnn.deallocate(d_a)
+            ttnn.deallocate(d_g)
+
+            dw1 = _mm2d_t_a(d_h, x_in)
+            d_x = _exact_f32_mm(d_h, w1, cfg=cfg)
+            ttnn.deallocate(d_h)
+            if consume_saved:
+                for t in (a, sig, sg, sw):
+                    ttnn.deallocate(t)
+            return d_x, dw1, dw2
+
+        d_c1, dw_t2_1, dw_t2_2 = _tr_bwd(dc_out, c1_dev, st2, w_t2_1, w_t2_2)
+        if consume_saved:
+            ttnn.deallocate(c1_dev)
+        d_c0, dw_t1_1, dw_t1_2 = _tr_bwd(d_c1, c0_dev, st1, w_t1_1, w_t1_2)
+        ttnn.deallocate(d_c1)
+        if consume_saved:
+            ttnn.deallocate(c0_dev)
+
+        if m_f32 is not None:
+            d_c0_m = ttnn.multiply(d_c0, m_f32)
+            ttnn.deallocate(d_c0)
+        else:
+            d_c0_m = d_c0
+        dw_cf_pad = _mm2d_t_a(d_c0_m, cf_tt)
+        if consume_saved:
+            ttnn.deallocate(cf_tt)
+        dw_cf = _unpad_cols_dev(dw_cf_pad, self._cf_orig_in)
+        if dw_cf is not dw_cf_pad:
+            ttnn.deallocate(dw_cf_pad)
+
+        w_cf_dyn = _exact_f32_mm(w_cf_pad, self._p_cf_dyn, cfg=cfg)
+        d_cf_dyn_dev = _exact_f32_mm(d_c0_m, w_cf_dyn, cfg=cfg)
+        ttnn.deallocate(w_cf_dyn)
+        ttnn.deallocate(d_c0_m)
+
+        ds_f32 = ds_i if ds_i.dtype == ttnn.float32 else ttnn.typecast(ds_i, ttnn.float32)
+        own_dsf = ds_f32 is not ds_i
+        if m_f32 is not None:
+            d_s_m = ttnn.multiply(ds_f32, m_f32)
+            if own_dsf:
+                ttnn.deallocate(ds_f32)
+        else:
+            d_s_m = ds_f32 if own_dsf else ttnn.clone(ds_f32)
+        dw_ir_pad = _mm2d_t_a(d_s_m, ir_tt)
+        if consume_saved:
+            ttnn.deallocate(ir_tt)
+        dw_ir = _unpad_cols_dev(dw_ir_pad, self._ir_orig_in)
+        if dw_ir is not dw_ir_pad:
+            ttnn.deallocate(dw_ir_pad)
+
+        w_ir_dyn = _exact_f32_mm(w_ir_pad, self._p_ir_dyn, cfg=cfg)
+        d_ir_dyn_dev = _exact_f32_mm(d_s_m, w_ir_dyn, cfg=cfg)
+        ttnn.deallocate(w_ir_dyn)
+        ttnn.deallocate(d_s_m)
+
+        return (dw_ir, dw_cf, dw_t1_1, dw_t1_2, dw_t2_1, dw_t2_2), d_ir_dyn_dev, d_cf_dyn_dev
+
+    def _capture_pair(
+        self,
+        key: tuple,
+        *,
+        ir_src,
+        cf_src,
+        m1_src,
+        ds_src,
+        dc_src,
+        n_tok: int,
+        trunk_dtype,
+        dev_masters: Mapping[str, Any],
+    ) -> bool:
+        """Capture paired (fwd, bwd) traces with persistent outside-hole saved activation slots."""
+        import ttnn
+        from .. import autograd as ag
+
+        tracer = self.tracer
+        if tracer is None or not tracer.enabled or not tracer._hole_ready:
+            return False
+
+        owned_local: list[Any] = []
+
+        def _mk(t):
+            c = ttnn.clone(t)
+            ttnn.copy(t, c)
+            owned_local.append(c)
+            return c
+
+        try:
+            with ag.no_grad():
+                ir_slot = _mk(ir_src)
+                cf_slot = _mk(cf_src)
+                m_slot = _mk(m1_src) if m1_src is not None else None
+                ds_slot = _mk(ds_src)
+                dc_slot = _mk(dc_src)
+
+                # Eager warmup: allocates persistent activation & output slots + warms all kernels/copies.
+                (
+                    s_w, c_w, c0_w, c1_w, st1_w, st2_w,
+                    wir_w, own_wir, wcf_w, own_wcf, mf_w, own_mf,
+                ) = self._fwd_device_ops(ir_slot, cf_slot, m_slot, n_tok, trunk_dtype, dev_masters)
+
+                s_i_out = _mk(s_w)
+                c_out = _mk(c_w)
+                c0_slot = _mk(c0_w)
+                c1_slot = _mk(c1_w)
+                st1_slots = tuple(_mk(t) for t in st1_w)
+                st2_slots = tuple(_mk(t) for t in st2_w)
+                wir_slot = _mk(wir_w) if own_wir else None
+                wcf_slot = _mk(wcf_w) if own_wcf else None
+                mf_slot = _mk(mf_w) if own_mf else None
+                for t in (s_w, c_w, c0_w, c1_w, *st1_w, *st2_w):
+                    ttnn.deallocate(t)
+                if own_wir:
+                    ttnn.deallocate(wir_w)
+                if own_wcf:
+                    ttnn.deallocate(wcf_w)
+                if own_mf:
+                    ttnn.deallocate(mf_w)
+
+                dws_w, dir_w, dcf_w = self._bwd_device_ops(
+                    ds_slot, dc_slot,
+                    ir_tt=ir_slot, cf_tt=cf_slot,
+                    w_ir_pad=(wir_slot if wir_slot is not None else dev_masters[self._W_KEYS[0]]),
+                    w_cf_pad=(wcf_slot if wcf_slot is not None else dev_masters[self._W_KEYS[1]]),
+                    c0_dev=c0_slot, c1_dev=c1_slot, st1=st1_slots, st2=st2_slots,
+                    m_f32=(mf_slot if mf_slot is not None else m_slot),
+                    dev_masters=dev_masters,
+                    consume_saved=False,
+                )
+                dw_out = {k: _mk(g) for k, g in zip(self._W_KEYS, dws_w)}
+                d_ir_dyn_out = _mk(dir_w)
+                d_cf_dyn_out = _mk(dcf_w)
+                for t in (*dws_w, dir_w, dcf_w):
+                    ttnn.deallocate(t)
+                ttnn.synchronize_device(self.device)
+
+            def _cap_fwd():
+                with ag.no_grad():
+                    (
+                        s_t, c_t, c0_t, c1_t, st1_t, st2_t,
+                        wir_t, own_wi, wcf_t, own_wc, mf_t, own_m,
+                    ) = self._fwd_device_ops(ir_slot, cf_slot, m_slot, n_tok, trunk_dtype, dev_masters)
+                    ttnn.copy(s_t, s_i_out)
+                    ttnn.copy(c_t, c_out)
+                    ttnn.copy(c0_t, c0_slot)
+                    ttnn.copy(c1_t, c1_slot)
+                    for src, dst in zip(st1_t, st1_slots):
+                        ttnn.copy(src, dst)
+                    for src, dst in zip(st2_t, st2_slots):
+                        ttnn.copy(src, dst)
+                    if own_wi and wir_slot is not None:
+                        ttnn.copy(wir_t, wir_slot)
+                        ttnn.deallocate(wir_t)
+                    if own_wc and wcf_slot is not None:
+                        ttnn.copy(wcf_t, wcf_slot)
+                        ttnn.deallocate(wcf_t)
+                    if own_m and mf_slot is not None:
+                        ttnn.copy(mf_t, mf_slot)
+                        ttnn.deallocate(mf_t)
+                    for t in (s_t, c_t, c0_t, c1_t, *st1_t, *st2_t):
+                        ttnn.deallocate(t)
+
+            def _cap_bwd():
+                with ag.no_grad():
+                    dws_t, dir_t, dcf_t = self._bwd_device_ops(
+                        ds_slot, dc_slot,
+                        ir_tt=ir_slot, cf_tt=cf_slot,
+                        w_ir_pad=(wir_slot if wir_slot is not None else dev_masters[self._W_KEYS[0]]),
+                        w_cf_pad=(wcf_slot if wcf_slot is not None else dev_masters[self._W_KEYS[1]]),
+                        c0_dev=c0_slot, c1_dev=c1_slot, st1=st1_slots, st2=st2_slots,
+                        m_f32=(mf_slot if mf_slot is not None else m_slot),
+                        dev_masters=dev_masters,
+                        consume_saved=False,
+                    )
+                    for k, src in zip(self._W_KEYS, dws_t):
+                        ttnn.copy(src, dw_out[k])
+                        ttnn.deallocate(src)
+                    ttnn.copy(dir_t, d_ir_dyn_out)
+                    ttnn.deallocate(dir_t)
+                    ttnn.copy(dcf_t, d_cf_dyn_out)
+                    ttnn.deallocate(dcf_t)
+
+            tids = tracer._capture_runs([_cap_fwd, _cap_bwd])
+            tracer._track(*owned_local)
+            self._traces[key] = {
+                "tid_fwd": tids[0],
+                "tid_bwd": tids[1],
+                "ir_slot": ir_slot,
+                "cf_slot": cf_slot,
+                "m_slot": m_slot,
+                "s_i_out": s_i_out,
+                "c_out": c_out,
+                "ds_slot": ds_slot,
+                "dc_slot": dc_slot,
+                "ds_dtype": str(ds_src.dtype),
+                "dc_dtype": str(dc_src.dtype),
+                "dw_out": dw_out,
+                "d_ir_dyn_out": d_ir_dyn_out,
+                "d_cf_dyn_out": d_cf_dyn_out,
+            }
+            return True
+        except Exception as exc:
+            for t in owned_local:
+                _safe_dealloc(t)
+            self._traces[key] = "eager"
+            tracer.stats["refused"] += 1
+            tracer.refusal_reasons.append(f"win_glue:{type(exc).__name__}:{exc}")
+            return False
 
     def forward(
         self,
@@ -971,66 +1344,48 @@ class DeviceWinnerGlue:
                 else:
                     cf_buf[:, :, base_dim:base_dim + rem_dim] = 0.0
 
-        cfg = ag.precise_config()
-        m_f32 = None
-        m_f32_owned = False
-        if m1_tok is not None:
-            if m1_tok.dtype == ttnn.float32:
-                m_f32 = m1_tok
-            else:
-                m_f32 = ttnn.typecast(m1_tok, ttnn.float32)
-                m_f32_owned = True
-
         with ag.no_grad():
             ir_tt = put_sharded(ir_pad, self.device, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT)
             cf_tt = put_sharded(cf_buf, self.device, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT)
-            w_ir_pad, own_w_ir = _pad_cols_32_dev(dev_masters["glue.init_repr_factory.linear_out.weight"])
-            w_cf_pad, own_w_cf = _pad_cols_32_dev(dev_masters["glue.cond_factory.linear_out.weight"])
 
-            s_i_raw = _exact_f32_mm(ir_tt, w_ir_pad, transpose_b=True, cfg=cfg)
-            if m_f32 is not None:
-                s_i_dev = ttnn.multiply(s_i_raw, m_f32)
-                ttnn.deallocate(s_i_raw)
-            else:
-                s_i_dev = s_i_raw
+            tkey = (
+                self._trace_key(n_tok, m1_tok, trunk_dtype, dev_masters)
+                if (self.tracer is not None and self.tracer.enabled) else None
+            )
+            tr = self._traces.get(tkey) if tkey is not None else None
+            if isinstance(tr, dict):
+                ttnn.copy(ir_tt, tr["ir_slot"])
+                ttnn.copy(cf_tt, tr["cf_slot"])
+                ttnn.deallocate(ir_tt)
+                ttnn.deallocate(cf_tt)
+                if tr["m_slot"] is not None:
+                    ttnn.copy(m1_tok, tr["m_slot"])
+                ttnn.execute_trace(self.device, tr["tid_fwd"], cq_id=0, blocking=False)
+                self.tracer.stats["win_glue_replay"] += 1
+                s_i_dev = ttnn.clone(tr["s_i_out"])
+                c_out_dev = ttnn.clone(tr["c_out"])
+                saved = {
+                    "traced": tr,
+                    "ir_dyn_cat": ir_dyn_cat,
+                    "cf_dyn_cat": cf_dyn_cat,
+                    "world": world,
+                    "n_tok": n_tok,
+                }
+                return s_i_dev, c_out_dev, saved
 
-            c0_raw = _exact_f32_mm(cf_tt, w_cf_pad, transpose_b=True, cfg=cfg)
-            if m_f32 is not None:
-                c0_dev = ttnn.multiply(c0_raw, m_f32)
-                ttnn.deallocate(c0_raw)
-            else:
-                c0_dev = c0_raw
+            want_cap = (
+                tkey is not None
+                and tr is None
+                and self.tracer._hole_ready
+            )
+            cap_ir = ttnn.clone(ir_tt) if want_cap else None
+            cap_cf = ttnn.clone(cf_tt) if want_cap else None
+            cap_m1 = (ttnn.clone(m1_tok) if (want_cap and m1_tok is not None) else None)
 
-            w_t1_1 = dev_masters["glue.transition_c_1.swish_linear.0.weight"]
-            w_t1_2 = dev_masters["glue.transition_c_1.linear_out.weight"]
-            w_t2_1 = dev_masters["glue.transition_c_2.swish_linear.0.weight"]
-            w_t2_2 = dev_masters["glue.transition_c_2.linear_out.weight"]
-            half = int(w_t1_1.shape[0]) // 2
-            b_loc = int(c0_dev.shape[0])
-
-            def _tr_fwd_save(x_in, w1, w2):
-                h = _exact_f32_mm(x_in, w1, transpose_b=True, cfg=cfg)
-                a = ttnn.slice(h, [0, 0, 0], [b_loc, n_tok, half])
-                g = ttnn.slice(h, [0, 0, half], [b_loc, n_tok, 2 * half])
-                ttnn.deallocate(h)
-                sig = _accurate_sigmoid(g)
-                sg = ttnn.multiply(g, sig)
-                ttnn.deallocate(g)
-                sw = ttnn.multiply(sg, a)
-                out = _exact_f32_mm(sw, w2, transpose_b=True, cfg=cfg)
-                if m_f32 is not None:
-                    om = ttnn.multiply(out, m_f32)
-                    ttnn.deallocate(out)
-                    out = om
-                return out, (a, sig, sg, sw)
-
-            c1_dev, st1 = _tr_fwd_save(c0_dev, w_t1_1, w_t1_2)
-            c2_f32, st2 = _tr_fwd_save(c1_dev, w_t2_1, w_t2_2)
-            if trunk_dtype != ttnn.float32:
-                c_out_dev = ttnn.typecast(c2_f32, trunk_dtype)
-                ttnn.deallocate(c2_f32)
-            else:
-                c_out_dev = c2_f32
+            (
+                s_i_dev, c_out_dev, c0_dev, c1_dev, st1, st2,
+                w_ir_pad, own_w_ir, w_cf_pad, own_w_cf, m_f32, m_f32_owned,
+            ) = self._fwd_device_ops(ir_tt, cf_tt, m1_tok, n_tok, trunk_dtype, dev_masters)
 
         saved = {
             "ir_tt": ir_tt,
@@ -1050,6 +1405,8 @@ class DeviceWinnerGlue:
             "world": world,
             "n_tok": n_tok,
         }
+        if want_cap:
+            saved["_cap"] = (tkey, cap_ir, cap_cf, cap_m1, trunk_dtype)
         return s_i_dev, c_out_dev, saved
 
     def backward(
@@ -1064,120 +1421,60 @@ class DeviceWinnerGlue:
         from .. import autograd as ag
         from .mesh_dp import read_sharded
 
-        cfg = ag.precise_config()
-        m_f32 = saved["m_f32"]
         n_tok = saved["n_tok"]
         world = saved["world"]
 
-        w_t1_1 = dev_masters["glue.transition_c_1.swish_linear.0.weight"]
-        w_t1_2 = dev_masters["glue.transition_c_1.linear_out.weight"]
-        w_t2_1 = dev_masters["glue.transition_c_2.swish_linear.0.weight"]
-        w_t2_2 = dev_masters["glue.transition_c_2.linear_out.weight"]
+        if "traced" in saved:
+            tr = saved["traced"]
+            with ag.no_grad():
+                ttnn.copy(ds_i, tr["ds_slot"])
+                ttnn.copy(dc_out, tr["dc_slot"])
+                ttnn.execute_trace(self.device, tr["tid_bwd"], cq_id=0, blocking=False)
+                d_ir_pad_h = read_sharded(tr["d_ir_dyn_out"], self.device).float().reshape(world, n_tok, -1)
+                d_cf_pad_h = read_sharded(tr["d_cf_dyn_out"], self.device).float().reshape(world, n_tok, -1)
+                out_grads = {k: ttnn.clone(tr["dw_out"][k]) for k in self._W_KEYS}
+        else:
+            with ag.no_grad():
+                dws, d_ir_dyn_dev, d_cf_dyn_dev = self._bwd_device_ops(
+                    ds_i, dc_out,
+                    ir_tt=saved["ir_tt"],
+                    cf_tt=saved["cf_tt"],
+                    w_ir_pad=saved["w_ir_pad"],
+                    w_cf_pad=saved["w_cf_pad"],
+                    c0_dev=saved["c0_dev"],
+                    c1_dev=saved["c1_dev"],
+                    st1=saved["st1"],
+                    st2=saved["st2"],
+                    m_f32=saved["m_f32"],
+                    dev_masters=dev_masters,
+                    consume_saved=True,
+                )
+                if saved["own_w_cf"]:
+                    ttnn.deallocate(saved["w_cf_pad"])
+                if saved["own_w_ir"]:
+                    ttnn.deallocate(saved["w_ir_pad"])
+                if saved["m_f32_owned"] and saved["m_f32"] is not None:
+                    ttnn.deallocate(saved["m_f32"])
 
-        def _mm2d_t_a(a_3d, b_3d):
-            bn = int(a_3d.shape[0]) * int(a_3d.shape[1])
-            a2 = ttnn.reshape(a_3d, [bn, int(a_3d.shape[2])])
-            b2 = ttnn.reshape(b_3d, [bn, int(b_3d.shape[2])])
-            out = _exact_f32_mm(a2, b2, transpose_a=True, cfg=cfg)
-            _safe_dealloc(a2, keep=a_3d)
-            _safe_dealloc(b2, keep=b_3d)
-            return out
+            cap_info = saved.pop("_cap", None)
+            if cap_info is not None:
+                tkey, cap_ir, cap_cf, cap_m1, trunk_dtype = cap_info
+                try:
+                    self._capture_pair(
+                        tkey,
+                        ir_src=cap_ir, cf_src=cap_cf, m1_src=cap_m1,
+                        ds_src=ds_i, dc_src=dc_out,
+                        n_tok=n_tok, trunk_dtype=trunk_dtype, dev_masters=dev_masters,
+                    )
+                finally:
+                    for t in (cap_ir, cap_cf, cap_m1):
+                        _safe_dealloc(t)
 
-        def _tr_bwd(d_out, x_in, st, w1, w2):
-            a, sig, sg, sw = st
-            d_out_f32 = d_out if d_out.dtype == ttnn.float32 else ttnn.typecast(d_out, ttnn.float32)
-            own_df = d_out_f32 is not d_out
-            if m_f32 is not None:
-                d_out_m = ttnn.multiply(d_out_f32, m_f32)
-                if own_df:
-                    ttnn.deallocate(d_out_f32)
-            else:
-                d_out_m = d_out_f32 if own_df else ttnn.clone(d_out_f32)
-
-            dw2 = _mm2d_t_a(d_out_m, sw)
-            d_sw = _exact_f32_mm(d_out_m, w2, cfg=cfg)
-            ttnn.deallocate(d_out_m)
-
-            d_a = ttnn.multiply(d_sw, sg)
-            d_sg = ttnn.multiply(d_sw, a)
-            ttnn.deallocate(d_sw)
-
-            one_m_sig = ttnn.rsub(sig, 1.0)
-            sg_term = ttnn.multiply(sg, one_m_sig)
-            ttnn.deallocate(one_m_sig)
-            dsilu = ttnn.add(sig, sg_term)
-            ttnn.deallocate(sg_term)
-            d_g = ttnn.multiply(d_sg, dsilu)
-            ttnn.deallocate(d_sg)
-            ttnn.deallocate(dsilu)
-
-            d_h = ttnn.concat([d_a, d_g], dim=-1)
-            ttnn.deallocate(d_a)
-            ttnn.deallocate(d_g)
-
-            dw1 = _mm2d_t_a(d_h, x_in)
-            d_x = _exact_f32_mm(d_h, w1, cfg=cfg)
-            ttnn.deallocate(d_h)
-            for t in (a, sig, sg, sw):
-                ttnn.deallocate(t)
-            return d_x, dw1, dw2
-
-        with ag.no_grad():
-            d_c1, dw_t2_1, dw_t2_2 = _tr_bwd(dc_out, saved["c1_dev"], saved["st2"], w_t2_1, w_t2_2)
-            ttnn.deallocate(saved["c1_dev"])
-            d_c0, dw_t1_1, dw_t1_2 = _tr_bwd(d_c1, saved["c0_dev"], saved["st1"], w_t1_1, w_t1_2)
-            ttnn.deallocate(d_c1)
-            ttnn.deallocate(saved["c0_dev"])
-
-            # cond_factory.linear_out backward
-            if m_f32 is not None:
-                d_c0_m = ttnn.multiply(d_c0, m_f32)
-                ttnn.deallocate(d_c0)
-            else:
-                d_c0_m = d_c0
-            dw_cf_pad = _mm2d_t_a(d_c0_m, saved["cf_tt"])
-            ttnn.deallocate(saved["cf_tt"])
-            dw_cf = _unpad_cols_dev(dw_cf_pad, self._cf_orig_in)
-            if dw_cf is not dw_cf_pad:
-                ttnn.deallocate(dw_cf_pad)
-
-            w_cf_dyn = _exact_f32_mm(saved["w_cf_pad"], self._p_cf_dyn, cfg=cfg)
-            d_cf_dyn_dev = _exact_f32_mm(d_c0_m, w_cf_dyn, cfg=cfg)
-            ttnn.deallocate(w_cf_dyn)
-            ttnn.deallocate(d_c0_m)
-            if saved["own_w_cf"]:
-                ttnn.deallocate(saved["w_cf_pad"])
-
-            # init_repr_factory.linear_out backward
-            ds_f32 = ds_i if ds_i.dtype == ttnn.float32 else ttnn.typecast(ds_i, ttnn.float32)
-            own_dsf = ds_f32 is not ds_i
-            if m_f32 is not None:
-                d_s_m = ttnn.multiply(ds_f32, m_f32)
-                if own_dsf:
-                    ttnn.deallocate(ds_f32)
-            else:
-                d_s_m = ds_f32 if own_dsf else ttnn.clone(ds_f32)
-            dw_ir_pad = _mm2d_t_a(d_s_m, saved["ir_tt"])
-            ttnn.deallocate(saved["ir_tt"])
-            dw_ir = _unpad_cols_dev(dw_ir_pad, self._ir_orig_in)
-            if dw_ir is not dw_ir_pad:
-                ttnn.deallocate(dw_ir_pad)
-
-            w_ir_dyn = _exact_f32_mm(saved["w_ir_pad"], self._p_ir_dyn, cfg=cfg)
-            d_ir_dyn_dev = _exact_f32_mm(d_s_m, w_ir_dyn, cfg=cfg)
-            ttnn.deallocate(w_ir_dyn)
-            ttnn.deallocate(d_s_m)
-            if saved["own_w_ir"]:
-                ttnn.deallocate(saved["w_ir_pad"])
-
-            if saved["m_f32_owned"] and m_f32 is not None:
-                ttnn.deallocate(m_f32)
-
-        # Compact D2H readback (only ~5.7 MB across all 32 chips) + tiny CPU embedding backward (~3 ms).
-        d_ir_pad_h = read_sharded(d_ir_dyn_dev, self.device).float().reshape(world, n_tok, -1)
-        d_cf_pad_h = read_sharded(d_cf_dyn_dev, self.device).float().reshape(world, n_tok, -1)
-        ttnn.deallocate(d_ir_dyn_dev)
-        ttnn.deallocate(d_cf_dyn_dev)
+            d_ir_pad_h = read_sharded(d_ir_dyn_dev, self.device).float().reshape(world, n_tok, -1)
+            d_cf_pad_h = read_sharded(d_cf_dyn_dev, self.device).float().reshape(world, n_tok, -1)
+            ttnn.deallocate(d_ir_dyn_dev)
+            ttnn.deallocate(d_cf_dyn_dev)
+            out_grads = dict(zip(self._W_KEYS, dws))
 
         leaves: list[torch.Tensor] = []
         grads: list[torch.Tensor] = []
@@ -1193,20 +1490,14 @@ class DeviceWinnerGlue:
             torch.autograd.backward(leaves, grads)
 
         saved.clear()
-        return {
-            "glue.init_repr_factory.linear_out.weight": dw_ir,
-            "glue.cond_factory.linear_out.weight": dw_cf,
-            "glue.transition_c_1.swish_linear.0.weight": dw_t1_1,
-            "glue.transition_c_1.linear_out.weight": dw_t1_2,
-            "glue.transition_c_2.swish_linear.0.weight": dw_t2_1,
-            "glue.transition_c_2.linear_out.weight": dw_t2_2,
-        }
+        return out_grads
 
     def release(self) -> None:
         _safe_dealloc(self._p_ir_dyn)
         _safe_dealloc(self._p_cf_dyn)
         self._p_ir_dyn = None
         self._p_cf_dyn = None
+        self._traces.clear()
 
 
 class SPMDMeshTracer:
@@ -1233,6 +1524,8 @@ class SPMDMeshTracer:
         self.hole_per_bank = int(hole_per_bank)
         self._hole_ready = not self.trace_win_pair
         self._scratch = None
+        self._head_scratch = None
+        self._head_hole_per_bank = 64 << 20
         self._tids: list[Any] = []
         self._owned_slots: list[Any] = []
         self._refold_state: Any = 0  # 0=unseen, "eager", or tid
@@ -1241,12 +1534,16 @@ class SPMDMeshTracer:
         self._win_seen: dict[tuple, int] = {}
         self._win_grad_meta: dict[tuple, Tuple[list[str], list[str]]] = {}
         self._win_traces: dict[tuple, Any] = {}  # key -> "eager" or dict(tid_fwd, tid_bwd, ...)
+        self._head_seen: dict[tuple, int] = {}
+        self._head_traces: dict[tuple, Any] = {}
         self._ns_seen: dict[tuple, int] = {}
         self._ns_traces: dict[tuple, Any] = {}
         self.stats = {
             "refold_replay": 0,
             "untaped_replay": 0,
             "win_pair_replay": 0,
+            "win_glue_replay": 0,
+            "head_pair_replay": 0,
             "ns_replay": 0,
             "captures": 0,
             "refused": 0,
@@ -1259,6 +1556,12 @@ class SPMDMeshTracer:
             self._scratch = TraceScratch(self.device)
         return self._scratch
 
+    def _get_head_scratch(self):
+        if self._head_scratch is None:
+            from ..tenstorrent import TraceScratch
+            self._head_scratch = TraceScratch(self.device)
+        return self._head_scratch
+
     def _capture_runs(self, runs: Sequence[Callable[[], Any]], settle: Optional[Callable[[], None]] = None):
         sc = self._get_scratch()
         need = self.hole_per_bank // 2
@@ -1266,6 +1569,18 @@ class SPMDMeshTracer:
         tids = sc.capture(need, size, list(runs), settle=settle)
         if tids is None:
             raise RuntimeError(f"TraceScratch could not reserve {size >> 20} MiB/bank hole")
+        self._tids.extend(tids)
+        self.stats["captures"] += len(tids)
+        return tids
+
+    def _capture_head_runs(self, runs: Sequence[Callable[[], Any]], settle: Optional[Callable[[], None]] = None):
+        """Capture ``DeviceHeads`` into its own 64 MiB/bank hole disjoint from ``win_pair``'s hole."""
+        sc = self._get_head_scratch()
+        need = self._head_hole_per_bank // 2
+        size = self._head_hole_per_bank
+        tids = sc.capture(need, size, list(runs), settle=settle)
+        if tids is None:
+            raise RuntimeError(f"Head TraceScratch could not reserve {size >> 20} MiB/bank hole")
         self._tids.extend(tids)
         self.stats["captures"] += len(tids)
         return tids
@@ -1926,6 +2241,197 @@ class SPMDMeshTracer:
             self.refusal_reasons.append(f"win_pair:{type(exc).__name__}:{exc}")
             return False
 
+    # ---- T4b: Paired MeshTrace for DeviceHeads (disjoint 64 MiB/bank hole, safe mid-win_pair) ----
+    @staticmethod
+    def head_pair_key(s_raw, dh, run_seq: bool) -> tuple:
+        def _addr(t):
+            return t.buffer_address() if hasattr(t, "buffer_address") else id(t)
+
+        w_attrs = ("ca_norm_w", "ca_w", "ll_norm_w", "ll_w", "seq_norm_w", "seq_w", "ins_q_w", "ins_k_w")
+        w_addrs = tuple(_addr(getattr(dh, a)) for a in w_attrs if getattr(dh, a, None) is not None)
+        return (
+            tuple(int(d) for d in s_raw.shape),
+            str(s_raw.dtype),
+            bool(run_seq),
+            w_addrs,
+        )
+
+    def has_head_pair(self, key: tuple) -> bool:
+        return isinstance(self._head_traces.get(key), dict)
+
+    def head_pair_should_capture(self, key: tuple) -> bool:
+        if not self.enabled or not self._hole_ready or self._head_traces.get(key) == "eager":
+            return False
+        return key not in self._head_traces
+
+    def replay_head_pair_fwd(self, key: tuple, s_raw, emit_ca, emit_ll, pad_m):
+        import ttnn
+
+        tr = self._head_traces[key]
+        ttnn.copy(s_raw, tr["s_in"])
+        ttnn.copy(emit_ca, tr["emit_ca"])
+        ttnn.copy(emit_ll, tr["emit_ll"])
+        if tr["pad_m"] is not None and pad_m is not None:
+            ttnn.copy(pad_m, tr["pad_m"])
+        ttnn.execute_trace(self.device, tr["tid_fwd"], cq_id=0, blocking=False)
+        self.stats["head_pair_replay"] += 1
+        return tr["ca_out"], tr["ll_out"], tr["seq_out"], tr["ins_out"]
+
+    def replay_head_pair_bwd(self, key: tuple, d_ca, d_ll, d_seq, d_ins):
+        import ttnn
+
+        tr = self._head_traces[key]
+        ttnn.copy(d_ca, tr["d_ca"])
+        ttnn.copy(d_ll, tr["d_ll"])
+        if tr["d_seq"] is not None:
+            ttnn.copy(d_seq, tr["d_seq"])
+        ttnn.copy(d_ins, tr["d_ins"])
+        ttnn.execute_trace(self.device, tr["tid_bwd"], cq_id=0, blocking=False)
+        return tr["ds_out"], tr["head_grads"]
+
+    def capture_head_pair(
+        self,
+        key: tuple,
+        *,
+        dh,
+        dfolds,
+        dev_masters: Mapping[str, Any],
+        s_val,
+        emit_ca,
+        emit_ll,
+        pad_m,
+        ca_ref,
+        ll_ref,
+        seq_ref,
+        ins_ref,
+        d_ca_ref,
+        d_ll_ref,
+        d_seq_ref,
+        d_ins_ref,
+        ds_ref,
+        head_grads_ref: Mapping[str, Any],
+        run_seq: bool,
+    ) -> bool:
+        """Capture paired (DeviceHeads fwd, bwd+fold) into disjoint 64 MiB/bank ``_head_scratch``."""
+        import gc
+        import ttnn
+        from .. import autograd as ag
+
+        if not self.enabled or not self._hole_ready:
+            return False
+
+        owned_local: list[Any] = []
+
+        def _mk(t):
+            if t is None:
+                return None
+            c = ttnn.clone(t)
+            ttnn.copy(t, c)
+            owned_local.append(c)
+            return c
+
+        held: dict[str, Any] = {}
+
+        def _settle():
+            held.clear()
+            ag.release_pins()
+            gc.collect()
+
+        try:
+            s_in = _mk(s_val)
+            eca_in = _mk(emit_ca)
+            ell_in = _mk(emit_ll)
+            pm_in = _mk(pad_m) if run_seq else None
+            ca_out = _mk(ca_ref)
+            ll_out = _mk(ll_ref)
+            seq_out = _mk(seq_ref) if run_seq else None
+            ins_out = _mk(ins_ref)
+            d_ca_in = _mk(d_ca_ref)
+            d_ll_in = _mk(d_ll_ref)
+            d_seq_in = _mk(d_seq_ref) if run_seq else None
+            d_ins_in = _mk(d_ins_ref)
+            ds_out = _mk(ds_ref)
+            grad_names = sorted(head_grads_ref.keys())
+            head_grad_slots = {nm: _mk(head_grads_ref[nm]) for nm in grad_names}
+            ttnn.synchronize_device(self.device)
+
+            def _run_fwd():
+                with ag.tape():
+                    s_leaf = ag.Tensor(s_in, requires_grad=True)
+                    o = dh(s_leaf, None, insertion=True, sequence=run_seq, masks_dev=(eca_in, ell_in, pm_in))
+                ca_t = next(iter(o["bb_ca"].values()))
+                ll_t = next(iter(o["local_latents"].values()))
+                seq_t = o["sequence"]["logits"] if run_seq else None
+                ins_t = o["insertion"]["logits"]
+                ttnn.copy(getattr(ca_t, "value", ca_t), ca_out)
+                ttnn.copy(getattr(ll_t, "value", ll_t), ll_out)
+                if run_seq:
+                    ttnn.copy(getattr(seq_t, "value", seq_t), seq_out)
+                ttnn.copy(getattr(ins_t, "value", ins_t), ins_out)
+                held.update(s_leaf=s_leaf, ca_t=ca_t, ll_t=ll_t, seq_t=seq_t, ins_t=ins_t)
+
+            def _run_bwd_fold():
+                s_leaf = held["s_leaf"]
+                outs = [held["ca_t"], held["ll_t"]]
+                seeds = [ttnn.clone(d_ca_in), ttnn.clone(d_ll_in)]
+                if run_seq:
+                    outs.append(held["seq_t"])
+                    seeds.append(ttnn.clone(d_seq_in))
+                outs.append(held["ins_t"])
+                seeds.append(ttnn.clone(d_ins_in))
+                ag.backward(outs, seeds)
+                for sd in seeds:
+                    ttnn.deallocate(sd)
+                for ot in outs:
+                    _safe_dealloc(getattr(ot, "value", ot))
+                gs = getattr(s_leaf.grad, "value", s_leaf.grad)
+                ttnn.copy(gs, ds_out)
+                ttnn.deallocate(gs)
+                s_leaf.grad = None
+                dg_c, _ = dfolds.tape_backward(dev_masters)
+                for nm in grad_names:
+                    g = dg_c.pop(nm)
+                    ttnn.copy(g, head_grad_slots[nm])
+                    ttnn.deallocate(g)
+                for g in dg_c.values():
+                    _safe_dealloc(g)
+
+            # Warm kernels + ttnn.copy eagerly once before capture (prevents cold JIT inside capture).
+            _run_fwd()
+            _run_bwd_fold()
+            _settle()
+            ttnn.synchronize_device(self.device)
+
+            tids = self._capture_head_runs([_run_fwd, _run_bwd_fold], settle=_settle)
+            self._track(*owned_local)
+            self._head_traces[key] = {
+                "tid_fwd": tids[0],
+                "tid_bwd": tids[1],
+                "s_in": s_in,
+                "emit_ca": eca_in,
+                "emit_ll": ell_in,
+                "pad_m": pm_in,
+                "ca_out": ca_out,
+                "ll_out": ll_out,
+                "seq_out": seq_out,
+                "ins_out": ins_out,
+                "d_ca": d_ca_in,
+                "d_ll": d_ll_in,
+                "d_seq": d_seq_in,
+                "d_ins": d_ins_in,
+                "ds_out": ds_out,
+                "head_grads": head_grad_slots,
+            }
+            return True
+        except Exception as exc:
+            _settle()
+            for t in owned_local:
+                _safe_dealloc(t)
+            self._head_traces[key] = "eager"
+            self.stats["refused"] += 1
+            self.refusal_reasons.append(f"head_pair:{type(exc).__name__}:{exc}")
+            return False
+
     # ---- T5a: Traced batch of sharded Muon Newton-Schulz loops (zero dynamic scalars) ----
     def run_muon_ns_batch(
         self,
@@ -1998,7 +2504,14 @@ class SPMDMeshTracer:
             except Exception:
                 pass
             self._scratch = None
+        if self._head_scratch is not None:
+            try:
+                self._head_scratch.release()
+            except Exception:
+                pass
+            self._head_scratch = None
         self._refold_state = 0
         self._untaped_traces.clear()
         self._win_traces.clear()
+        self._head_traces.clear()
         self._ns_traces.clear()
