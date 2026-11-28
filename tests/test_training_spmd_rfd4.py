@@ -1063,12 +1063,18 @@ def _augment_mock_ttnn_for_glue(mod):
             getattr(t, "dtype", mod.float32),
         )
 
+    mod._silu_calls = 0
+    mod._sigmoid_modes = []
+    mod.SigmoidMode = types.SimpleNamespace(Accurate="Accurate", FastApproximate="FastApproximate")
+
     def _silu(t):
         assert t.is_allocated()
+        mod._silu_calls += 1
         return _mk(t.device(), [torch.nn.functional.silu(x.float()) for x in t._buf.shards], getattr(t, "dtype", mod.float32))
 
-    def _sigmoid(t):
+    def _sigmoid(t, mode=None):
         assert t.is_allocated()
+        mod._sigmoid_modes.append(mode)
         return _mk(t.device(), [torch.sigmoid(x.float()) for x in t._buf.shards], getattr(t, "dtype", mod.float32))
 
     def _rsub(t, val):
@@ -1276,6 +1282,8 @@ def test_device_winner_glue_forward_backward_parity_and_no_leaks(monkeypatch):
 
     dev_grads = dwg.backward(ds_dev, dc_dev, saved, dev_masters)
     assert set(dev_grads.keys()) == set(dev_masters.keys())
+    assert mod._silu_calls == 0, f"approximate ttnn.silu must not be called (got {mod._silu_calls})"
+    assert mod._sigmoid_modes == ["Accurate", "Accurate"], f"expected 2 Accurate sigmoids reused in bwd, got {mod._sigmoid_modes}"
 
     # Check all 6 device weight grads (sum across shards matches full-batch ref grad).
     for nm, g_t in dev_grads.items():

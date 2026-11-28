@@ -114,6 +114,16 @@ def _put_replicated_f32(t: torch.Tensor, device):
     return ttnn.from_torch(t.detach().to(torch.float32).contiguous(), **kw)
 
 
+def _accurate_sigmoid(g):
+    """Exact fp32 sigmoid (avoids BH ``ttnn.silu``'s hardcoded ~2e-3 approx LUT)."""
+    import ttnn
+
+    mode = getattr(getattr(ttnn, "SigmoidMode", None), "Accurate", None)
+    if mode is not None:
+        return ttnn.sigmoid(g, mode=mode)
+    return ttnn.sigmoid(g)
+
+
 def _exact_f32_mm(a, b, *, transpose_a: bool = False, transpose_b: bool = False, cfg=None):
     """Exact fp32 matmul via bf16 hi+lo split (eliminates BH TF32 10-bit input truncation)."""
     import ttnn
@@ -561,7 +571,9 @@ def cand_conds_and_s0_device(
             a = ttnn.slice(h, [0, 0, 0], [k_local, n_tok, half])
             g = ttnn.slice(h, [0, 0, half], [k_local, n_tok, 2 * half])
             ttnn.deallocate(h)
-            sg = ttnn.silu(g)
+            sig = _accurate_sigmoid(g)
+            sg = ttnn.multiply(g, sig)
+            ttnn.deallocate(sig)
             ttnn.deallocate(g)
             sw = ttnn.multiply(sg, a)
             ttnn.deallocate(sg)
@@ -759,14 +771,16 @@ class DeviceWinnerGlue:
                 a = ttnn.slice(h, [0, 0, 0], [b_loc, n_tok, half])
                 g = ttnn.slice(h, [0, 0, half], [b_loc, n_tok, 2 * half])
                 ttnn.deallocate(h)
-                sg = ttnn.silu(g)
+                sig = _accurate_sigmoid(g)
+                sg = ttnn.multiply(g, sig)
+                ttnn.deallocate(g)
                 sw = ttnn.multiply(sg, a)
                 out = _exact_f32_mm(sw, w2, transpose_b=True, cfg=cfg)
                 if m_f32 is not None:
                     om = ttnn.multiply(out, m_f32)
                     ttnn.deallocate(out)
                     out = om
-                return out, (a, g, sg, sw)
+                return out, (a, sig, sg, sw)
 
             c1_dev, st1 = _tr_fwd_save(c0_dev, w_t1_1, w_t1_2)
             c2_f32, st2 = _tr_fwd_save(c1_dev, w_t2_1, w_t2_2)
@@ -828,7 +842,7 @@ class DeviceWinnerGlue:
             return out
 
         def _tr_bwd(d_out, x_in, st, w1, w2):
-            a, g, sg, sw = st
+            a, sig, sg, sw = st
             d_out_f32 = d_out if d_out.dtype == ttnn.float32 else ttnn.typecast(d_out, ttnn.float32)
             own_df = d_out_f32 is not d_out
             if m_f32 is not None:
@@ -846,12 +860,10 @@ class DeviceWinnerGlue:
             d_sg = ttnn.multiply(d_sw, a)
             ttnn.deallocate(d_sw)
 
-            sig = ttnn.sigmoid(g)
             one_m_sig = ttnn.rsub(sig, 1.0)
             sg_term = ttnn.multiply(sg, one_m_sig)
             ttnn.deallocate(one_m_sig)
             dsilu = ttnn.add(sig, sg_term)
-            ttnn.deallocate(sig)
             ttnn.deallocate(sg_term)
             d_g = ttnn.multiply(d_sg, dsilu)
             ttnn.deallocate(d_sg)
@@ -864,7 +876,7 @@ class DeviceWinnerGlue:
             dw1 = _mm2d_t_a(d_h, x_in)
             d_x = _exact_f32_mm(d_h, w1, cfg=cfg)
             ttnn.deallocate(d_h)
-            for t in (a, g, sg, sw):
+            for t in (a, sig, sg, sw):
                 ttnn.deallocate(t)
             return d_x, dw1, dw2
 
