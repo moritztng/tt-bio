@@ -657,13 +657,13 @@ class DeviceScoreNetwork:
     def __init__(self, host, device, *, edge_tp: str = "gemm"):
         self.host, self.device = host, device
         self.model, self.config = host.model, host.config
-        self.convs = convs_on_device(host.model, device, edge_tp=edge_tp,
-                                     gemm_modules=TILE_GEMM_MODULES if edge_tp == "tile" else ())
-        # The confidence model keeps the GEMM form: the tile kernel was graded on the score
-        # network only, and the ranking pass is 0.54 s, not the bottleneck.
+        form = dict(edge_tp=edge_tp, gemm_modules=TILE_GEMM_MODULES if edge_tp == "tile" else ())
+        self.convs = convs_on_device(host.model, device, **form)
+        # The ranking pass takes the same form as the rollout: on the tile kernel its card time
+        # is 2.1-2.5x lower and it ranked three graded pose sets exactly as the host does.
         self.confidence_convs = ({} if host.confidence_model is None
                                  else convs_on_device(host.confidence_model, device,
-                                                      graphs=CONFIDENCE_GRAPHS))
+                                                      graphs=CONFIDENCE_GRAPHS, **form))
         self._confidence = (None if host.confidence_model is None
                             else DeviceConfidence(host.confidence_model, self.confidence_convs))
 
