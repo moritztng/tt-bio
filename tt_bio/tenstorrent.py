@@ -17780,15 +17780,21 @@ class PairWeightedAveraging(Module):
         lin = dict(compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN)
         if (_PWA_CMAJOR and self.head_dim == S
                 and 3 * blk * H * S * int(mc.shape[-1]) * 2 <= PWA_DEPTH_BUDGET_BYTES):
+            w_cat = ws if isinstance(ws, ttnn.Tensor) else ttnn.concat(list(ws), dim=0)
             reps = [ttnn.repeat(ttnn.unsqueeze(ttnn.transpose(w, -2, -1), 0), (blk, 1, 1))
                     for w in packed]
-            parts = [self._heads_cmajor(mc[r:min(r + blk, rows)], ws, reps, lin)
+            parts = [self._heads_cmajor(mc[r:min(r + blk, rows)], w_cat, reps, lin)
                      for r in range(0, rows, blk)]
             for w in reps:
                 ttnn.deallocate(w)
+            if w_cat is not ws:
+                ttnn.deallocate(w_cat)
         elif rows > blk:
-            parts = [self._heads_fused(mc[r:min(r + blk, rows)], ws, packed)
+            w_cat = ws if isinstance(ws, ttnn.Tensor) else ttnn.concat(list(ws), dim=0)
+            parts = [self._heads_fused(mc[r:min(r + blk, rows)], w_cat, packed)
                      for r in range(0, rows, blk)]
+            if w_cat is not ws:
+                ttnn.deallocate(w_cat)
         else:
             parts = None
         if parts is not None:
@@ -17855,10 +17861,12 @@ class PairWeightedAveraging(Module):
     @staticmethod
     def _head_contract(vh, ws, H, M, T, lin):
         """`vh` [H, M, T] against every head's token weights: [H, M, T], vh freed."""
-        w = ttnn.concat(list(ws), dim=0)                         # [H, T, T]
+        owned = not isinstance(ws, ttnn.Tensor)
+        w = ttnn.concat(list(ws), dim=0) if owned else ws        # [H, T, T]
         o = ttnn.matmul(vh, w, transpose_b=True, **lin)
         ttnn.deallocate(vh)
-        ttnn.deallocate(w)
+        if owned:
+            ttnn.deallocate(w)
         return o
 
     def _heads_unpadded(self, mc, ws):

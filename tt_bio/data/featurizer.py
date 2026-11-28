@@ -1589,9 +1589,15 @@ def process_msa_features(
 
     # Prepare features
     assert torch.all(msa >= 0) and torch.all(msa < const.num_tokens)
-    msa_one_hot = torch.nn.functional.one_hot(msa, num_classes=const.num_tokens)
+    n_msa, n_res = msa.shape
     msa_mask = torch.ones_like(msa)
-    profile = msa_one_hot.float().mean(dim=0)
+    offsets = torch.arange(n_res, dtype=torch.int64, device=msa.device) * const.num_tokens
+    profile = (
+        torch.bincount((msa + offsets).reshape(-1), minlength=n_res * const.num_tokens)
+        .reshape(n_res, const.num_tokens)
+        .float()
+        / max(n_msa, 1)
+    )
     has_deletion = deletion > 0
     deletion = np.pi / 2 * np.arctan(deletion / 3)
     deletion_mean = deletion.mean(axis=0)
