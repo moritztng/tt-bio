@@ -381,23 +381,28 @@ class DeviceConvLayer:
         return _stack(ttnn.matmul(x if k == n else x[a:a + k, :], w, compute_kernel_config=self.ckc,
                                   dtype=self.dtype) for a, k in blocks(n))
 
-    def warm(self, ns=None):
+    def warm(self, ns=None, graphs=None):
         """One pass over zeros with a block of every size on every row axis, so every kernel
-        this layer can ask for is compiled. *ns* as in :meth:`__call__`. Needs
+        this layer can ask for is compiled. *ns* as in :meth:`__call__`. The edge groups share
+        their shapes, so the first carries the blocks and the rest are one tile. *graphs* holds
+        the graph per group count across layers; the caller frees it. Needs
         ``conv.BLOCK_CAP``: without a largest block the set of sizes has no end.
         """
         from tt_bio.diffdock import conv
         if not conv.BLOCK_CAP:
             raise ValueError("no largest row block (conv.BLOCK_CAP), so no finite set to warm")
         n, G = (2 * conv.BLOCK_CAP - 1) * TILE, len(self.tps)
+        sizes = [n] + [TILE] * (G - 1)
+        E = sum(sizes)
+        graphs = {} if graphs is None else graphs
+        if G not in graphs:
+            graphs[G] = self.graph(torch.zeros(2, E, dtype=torch.long), n, n)
         zeros = lambda rows, width: to_device(self.device, torch.zeros(rows, width))
         width = self.fcs[0][0].weight.shape[1] - 2 * (ns or 0)
-        g = self.graph(torch.zeros(2, G * n, dtype=torch.long), n, n)
-        mask = self.ttnn.from_torch(torch.zeros(G * n, 1), dtype=self.ttnn.float32,
+        mask = self.ttnn.from_torch(torch.zeros(E, 1), dtype=self.ttnn.float32,
                                     layout=self.ttnn.TILE_LAYOUT, device=self.device)
-        self(zeros(n, self.in_dim), g, [zeros(n, width) for _ in range(G)],
-             zeros(G * n, self.layer.sh_irreps.dim), mask, ns=ns)
-        _free(g)
+        self(zeros(n, self.in_dim), graphs[G], [zeros(k, width) for k in sizes],
+             zeros(E, self.layer.sh_irreps.dim), mask, ns=ns)
 
     def __call__(self, node_attr, g, edge_attr_groups, edge_sh, edge_mask, ns=None,
                  out_attr=None):
@@ -699,10 +704,14 @@ class DeviceScoreNetwork:
         """Compile every kernel a dock of any complex can ask this card for
         (:meth:`DeviceConvLayer.warm`). The two heads take their edge input whole; every other
         convolution builds it on the card."""
+        graphs = {}
         for name, mod in self.convs.items():
-            mod.dev.warm(None if name.endswith(("final_conv", "tor_bond_conv")) else self.model.ns)
+            mod.dev.warm(None if name.endswith(("final_conv", "tor_bond_conv")) else self.model.ns,
+                         graphs)
         for mod in self.confidence_convs.values():
-            mod.dev.warm(self.host.confidence_model.ns)
+            mod.dev.warm(self.host.confidence_model.ns, graphs)
+        for g in graphs.values():
+            _free(g)
 
     def score_fn(self, graph):
         from tt_bio.diffdock.conv import pad_nodes
