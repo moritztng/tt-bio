@@ -29,7 +29,7 @@ RESCOUNT = CO / "state/dfd/evidence/residue-counts.json"
 CAP = 3000
 
 
-NAN_MARK = ("non-finite", "nan", "linalg.svd", "inf")
+NAN_MARK = ("non-finite", "nan", "linalg.svd", "inf", "collapsed")
 
 
 def nan_failures(failures: dict) -> dict:
