@@ -3,7 +3,8 @@
     TT_VISIBLE_DEVICES=<chip> python3 perf/bc4_msafuse/col_probe.py [--n 224]
 
 Prints rel L2 against the float64 function of the device's own bf16 inputs for both paths. The kernel has to be
-at least as close as the chain.
+at least as close as the chain. `vjp` is `col_mix_bw` against float64 autograd of the same function, which a
+bfloat16 output can meet to about 2e-3.
 """
 import argparse
 import json
@@ -67,7 +68,15 @@ def main():
             rel = lambda y: float((ttnn.to_torch(y).double() - want).norm() / want.norm())
             row = {"n": n, "bias": with_bias, "kernel": rel(C.col_mix(qkv, D ** -0.5, bias)),
                    "chain": rel(chain(qkv, bias, head_sum, cfg))}
-            row["ok"] = row["kernel"] <= row["chain"] * 1.05 + 1e-6
+            x = ttnn.to_torch(qkv).double().requires_grad_()
+            d = up(torch.randn(2, n, H * D))
+            (gref,) = torch.autograd.grad(ref(x, ttnn.to_torch(bias).double() if with_bias else None), x,
+                                          ttnn.to_torch(d).double())
+            got = ttnn.to_torch(C.col_mix_bw(qkv, d, D ** -0.5, bias)).double()
+            row["vjp"] = float((got - gref).norm() / gref.norm())
+            row["vjp_parts"] = [float((got[..., j * 256:(j + 1) * 256] - gref[..., j * 256:(j + 1) * 256]).norm()
+                                      / gref[..., j * 256:(j + 1) * 256].norm()) for j in range(3)]
+            row["ok"] = row["kernel"] <= row["chain"] * 1.05 + 1e-6 and row["vjp"] < 4e-3
             rows.append(row)
             print(json.dumps(row), flush=True)
     print("PASS" if all(r["ok"] for r in rows) else "FAIL")

@@ -18,12 +18,13 @@ import torch
 import ttnn
 
 from . import genq
+from . import ops as _ops
 from .envflags import env_flag
 from .rne_add import _split_plan
 
 KERNEL_DIR = Path(__file__).resolve().parent / "kernels" / "col_mix"
 TILE = 32
-IN_CB, BIAS_CB, CONST_CB, OUT_CB, MID_CB = 0, 1, 2, 16, 24
+IN_CB, BIAS_CB, CONST_CB, D_CB, OUT_CB, MID_CB = 0, 1, 2, 3, 16, 24
 
 #: The lever. Default OFF until it is graded on a BindCraft 2 round.
 COL_MIX = env_flag("TT_BIO_COL_MIX", False)
@@ -41,8 +42,9 @@ def _plain(t) -> bool:
 
 
 def eligible(qkv, head_dim, bias=None) -> bool:
-    """bfloat16 TILE interleaved `[2, n, 3 * heads * 32]`, heads one tile wide, and a `[1, n, 1]` bias or none."""
-    if not COL_MIX:
+    """bfloat16 TILE interleaved `[2, n, 3 * heads * 32]`, heads one tile wide, and a `[1, n, 1]` bias or none.
+    Under a tape only with the `col_mix` entry installed (`TT_BIO_TAPED_KERNELS`)."""
+    if not COL_MIX or _ops.declines_under_tape("col_mix"):
         return False
     shape = [int(d) for d in qkv.shape]
     ok = (head_dim == TILE and len(shape) == 3 and shape[0] == 2 and shape[2] % (3 * TILE) == 0 and _plain(qkv)
@@ -70,7 +72,7 @@ def _cb(idx, dtype, tiles, core_grid):
     return ttnn.CBDescriptor(total_size=tiles * tile_bytes, core_ranges=core_grid, format_descriptors=[fmt])
 
 
-def _build(qkv, const, bias, out, device, nt, heads):
+def _build(qkv, const, bias, out, device, nt, heads, d=None):
     units = nt * heads
     num_cores, core_grid, cg1, cg2, work1, work2 = _split_plan(device, units)
     assign, placed = {}, 0
@@ -90,47 +92,61 @@ def _build(qkv, const, bias, out, device, nt, heads):
             compute_rt[cx][cy] = [per_core]
             writer_rt[cx][cy] = [fst, per_core]
 
-    has_bias = int(bias is not None)
+    has_bias, bw = int(bias is not None), int(d is not None)
     acc = lambda t: list(ttnn.TensorAccessorArgs(t).get_compile_time_args())
     src = ttnn.KernelDescriptor.SourceType.FILE_PATH
     reader = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "reader.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[nt, heads, has_bias] + acc(qkv) + acc(const) + acc(bias if has_bias else const) + genq_ct,
-        runtime_args=reader_rt, common_runtime_args=[0, 0, 0], config=ttnn.ReaderConfigDescriptor())
+        compile_time_args=[nt, heads, has_bias, bw] + acc(qkv) + acc(const) + acc(bias if has_bias else const)
+        + acc(d if bw else const) + genq_ct,
+        runtime_args=reader_rt, common_runtime_args=[0, 0, 0, 0], config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "writer.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[nt, heads] + acc(out) + genq_ct, runtime_args=writer_rt,
+        compile_time_args=[nt, heads, bw] + acc(out) + genq_ct, runtime_args=writer_rt,
         common_runtime_args=[0], config=ttnn.WriterConfigDescriptor())
     compute = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "compute.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[has_bias] + genq_ct, runtime_args=compute_rt,
+        compile_time_args=[has_bias, bw] + genq_ct, runtime_args=compute_rt,
         config=ttnn.ComputeConfigDescriptor(math_fidelity=ttnn.MathFidelity.HiFi4, fp32_dest_acc_en=True))
     cbs = [_cb(IN_CB, ttnn.bfloat16, 12, core_grid), _cb(CONST_CB, ttnn.bfloat16, 2, core_grid),
-           _cb(OUT_CB, ttnn.bfloat16, 4, core_grid), _cb(MID_CB, ttnn.float32, 2, core_grid)]
+           _cb(OUT_CB, ttnn.bfloat16, 12 if bw else 4, core_grid),
+           _cb(MID_CB, ttnn.float32, 4 if bw else 2, core_grid)]
     if has_bias:
         cbs.append(_cb(BIAS_CB, ttnn.bfloat16, 2, core_grid))
+    if bw:
+        cbs.append(_cb(D_CB, ttnn.bfloat16, 4, core_grid))
     return {"kernels": [reader, writer, compute], "cbs": cbs}
 
 
-def col_mix(qkv, scale, bias=None):
-    """`v1 + sigmoid(scale * headsum(q * (k0 - k1)) + bias) * (v0 - v1)` for both MSA rows, `[2, n, c]` in DRAM."""
+def _run(qkv, scale, bias, d):
     device = qkv.device()
-    two, n, c3 = (int(d) for d in qkv.shape)
+    two, n, c3 = (int(x) for x in qkv.shape)
     nt, heads = -(-n // TILE), c3 // (3 * TILE)
     const = _const(device, scale)
-    out = ttnn.allocate_tensor_on_device(ttnn.Shape([two, n, c3 // 3]), ttnn.bfloat16, ttnn.TILE_LAYOUT, device,
-                                         ttnn.DRAM_MEMORY_CONFIG)
+    out = ttnn.allocate_tensor_on_device(ttnn.Shape([two, n, c3 if d is not None else c3 // 3]), ttnn.bfloat16,
+                                         ttnn.TILE_LAYOUT, device, ttnn.DRAM_MEMORY_CONFIG)
     g_ = device.compute_with_storage_grid_size()
-    key = (device.id(), nt, heads, bias is not None, qkv.memory_config().buffer_type,
-           bias is not None and bias.memory_config().buffer_type, g_.x, g_.y, genq.compact(), scale)
+    bt = lambda t: t is not None and t.memory_config().buffer_type
+    key = (device.id(), nt, heads, bt(qkv), bt(bias), bt(d), g_.x, g_.y, genq.compact(), scale)
     entry = _CACHE.get(key)
     if entry is None:
-        entry = _CACHE[key] = _build(qkv, const, bias, out, device, nt, heads)
+        entry = _CACHE[key] = _build(qkv, const, bias, out, device, nt, heads, d)
     reader, writer, compute = entry["kernels"]
-    reader.common_runtime_args = [qkv.buffer_address(), const.buffer_address(),
-                                  bias.buffer_address() if bias is not None else 0]
-    writer.common_runtime_args = [out.buffer_address()]
+    addr = lambda t: t.buffer_address() if t is not None else 0
+    reader.common_runtime_args = [addr(qkv), addr(const), addr(bias), addr(d)]
+    writer.common_runtime_args = [addr(out)]
     pd = ttnn.ProgramDescriptor(kernels=[reader, writer, compute], semaphores=[], cbs=entry["cbs"])
     STATS[0] += 1
-    ttnn.generic_op([qkv, const] + ([bias] if bias is not None else []) + [out], pd)
+    ttnn.generic_op([qkv, const] + [t for t in (bias, d) if t is not None] + [out], pd)
     return out
+
+
+@_ops.fused_kernel("col_mix")
+def col_mix(qkv, scale, bias=None):
+    """`v1 + sigmoid(scale * headsum(q * (k0 - k1)) + bias) * (v0 - v1)` for both MSA rows, `[2, n, c]` in DRAM."""
+    return _run(qkv, scale, bias, None)
+
+
+def col_mix_bw(qkv, d, scale, bias=None):
+    """The cotangent of `qkv` from `d`, that of `col_mix`'s output (bfloat16, `[2, n, c]`): `[2, n, 3c]` in DRAM."""
+    return _run(qkv, scale, bias, d)
