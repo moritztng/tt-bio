@@ -6,7 +6,7 @@
 #
 #   eval_device_rearm.sh <name> <forms> <chip> <seconds>
 set -uo pipefail
-name=${1:-dev3} forms=${2:-gemm,tile} chip=${3:-2} dur=${4:-10800}
+name=${1:-dev3} forms=${2:-gemm,tile} chip=${3:-0} dur=${4:-10800}
 R=/home/ttuser/scratch/dfd/eval L=/home/moritz/scratch/dfd/eval/device
 SSH="ssh -o BatchMode=yes -o ConnectTimeout=15"
 mkdir -p "$L"

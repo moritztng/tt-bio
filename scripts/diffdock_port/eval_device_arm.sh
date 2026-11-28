@@ -92,6 +92,7 @@ deadline=$(( $(date +%s) + dur - 300 ))
 forms=(${etps//,/ })
 for idx in "${!forms[@]}"; do
   etp=${forms[$idx]}
+  [ -e "$OUT/poses-$etp/DONE" ] && continue
   left=$(( deadline - $(date +%s) ))
   [ $left -le 120 ] && { say "$etp: no time left in the window, resumes next window"; break; }
   # Split what is left evenly over the forms still to run, so a slow first form cannot starve the
@@ -103,12 +104,15 @@ for idx in "${!forms[@]}"; do
   s=$(date +%s)
   timeout $share $PY scripts/diffdock_port/pose_eval.py dock \
     --ids "$ids" --out "$poses" --device tt --edge-tp "$etp" \
-    --workers 1 --chunk 1 --seed 42 >> "$log" 2>&1
+    --workers 1 --chunk 1 --seed 42 > "$OUT/$name-$etp.out" 2>&1
   rc=$?
+  cat "$OUT/$name-$etp.out" >> "$log"
+  # the form is done when THIS run printed DOCK_DONE, so a resumed window cannot count gemm twice
+  grep -q '^DOCK_DONE' "$OUT/$name-$etp.out" && touch "$poses/DONE"
   say "$etp rc=$rc wall_s=$(( $(date +%s) - s )) docked_dirs=$(ls "$poses" 2>/dev/null | wc -l)"
   [ $rc -eq 124 ] && { say "$etp timed out, resetting chip $card"; /home/ttuser/.local/bin/tt-smi -r $card >> "$log" 2>&1; }
 done
-# Done means every form printed its own DOCK_DONE in this log, not that directories exist.
-[ "$(grep -c '^DOCK_DONE' "$log")" -ge ${#forms[@]} ] && { touch "$OUT/$name.done"; say "all forms done"; }
+alldone=1; for e in "${forms[@]}"; do [ -e "$OUT/poses-$e/DONE" ] || alldone=0; done
+[ $alldone = 1 ] && { touch "$OUT/$name.done"; say "all forms done"; }
 $PY $B rm $owner
 say "window released"
