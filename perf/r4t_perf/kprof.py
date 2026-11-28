@@ -46,6 +46,18 @@ def call(self, s, *a, **k):
     OUT["calls"] = CALLS
     json.dump(OUT, open(os.environ["KPROF_OUT"], "w"), indent=1)
     return r
+SITES = {}
+_add = BP.Rec.add
+def add(self, name, out, args, ns, sns, kw=None):
+    if name.split(".")[-1] in ("permute", "transpose", "typecast") and self.on:
+        f, chain = sys._getframe(3), []
+        while f and len(chain) < 4:
+            chain.append(f"{os.path.basename(f.f_code.co_filename)}:{f.f_code.co_name}:{f.f_lineno}"); f = f.f_back
+        d = BP._desc(out); k = (name, str(d[0] if d else ()), " < ".join(chain))
+        v = SITES.setdefault(k, [0, 0.0]); v[0] += 1; v[1] += sns / 1e9
+        OUT["sites"] = sorted(([*k, *v] for k, v in SITES.items()), key=lambda x: -x[4])[:30]
+    return _add(self, name, out, args, ns, sns, kw)
+BP.Rec.add = add
 TR.Trunk.__call__ = call
 sys.argv = sys.argv[1:]
 runpy.run_path(sys.argv[0], run_name="__main__")

@@ -250,13 +250,24 @@ class FlowGlue(torch.nn.Module):
             return s_init, self.pair_repr_builder(batch)
         return s_init, self.pair_split.inputs(batch, pair_constant, modulation)
 
-    def heads(self, s: torch.Tensor, batch: dict, *, insertion: bool = True
-              ) -> dict[str, dict[str, torch.Tensor]]:
+    def heads(self, s, batch: dict, *, insertion: bool = True, device_heads=None
+              ) -> dict[str, dict[str, object]]:
         """The four readouts. `emit_masks` decide which tokens a modality may move.
 
         The sampler reads the insertion logits from the final step alone (`sampler.SamplerOutput`),
         and they are a [tokens, tokens] bilinear map, so `insertion=False` leaves them out of a step
-        whose output is only a state update. Every other readout is computed as it always was."""
+        whose output is only a state update. Every other readout is computed as it always was.
+
+        When ``s`` is a device tensor (not a ``torch.Tensor``) or ``device_heads`` is supplied,
+        dispatches to :class:`tt_bio.rfd4.heads.DeviceHeads` on card; host ``torch.Tensor`` inputs
+        execute the unchanged PyTorch path below."""
+        if not isinstance(s, torch.Tensor):
+            dh = device_heads if device_heads is not None else getattr(self, "_device_heads", None)
+            if dh is None:
+                raise TypeError(
+                    "FlowGlue.heads received a device tensor without `device_heads` attached "
+                    "(pass device_heads=... or attach glue._device_heads)")
+            return dh(s, batch, insertion=insertion)
         from tt_bio._vendor.rfd4_prep._cif.model_masks import compute_flow_emit_masks
 
         emit = compute_flow_emit_masks(batch)

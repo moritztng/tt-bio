@@ -155,6 +155,18 @@ class PairSplit:
         proj = torch.cat(parts, dim=-1) @ self.w_const.t()
         return PairConstant(proj, self.scales(proj))
 
+    def features(self, batch: dict) -> torch.Tensor:
+        """`[b, n, n, 107]` fp32: every pair feature in the projection's column order, the step's one-hot included.
+        What a weight gradient of the projection reads (`PairOnCard.taped`)."""
+        n = batch["padding_mask"].shape[-1]
+        parts = []
+        for creator in self.builder.init_repr_factory.feat_creators:
+            f = creator(batch)
+            if f.ndim == 2:
+                f = f.reshape(f.shape[0], 1, 1, -1).expand(-1, n, n, -1)
+            parts.append(f.float())
+        return torch.cat(parts, dim=-1)
+
     def scales(self, proj: torch.Tensor, rows: int = 4096) -> torch.Tensor:
         """`[..., nbins]` fp32: `r1 * r2` of `proj + W_x[k]` for every bin k, in float64.
         `r1 = rsqrt(mean(x^2) + eps1)` is the first RMSNorm's, `r2 = rsqrt(r1^2 mean(x^2 w^2) +
@@ -235,6 +247,10 @@ class PairOnCard:
             return self._const[2]
         self.release()
         proj = c.proj
+        if proj.shape[0] > 1 and proj.stride(0) == 0:
+            # PairSplit.constant's dedup view (K candidates / samples of one design): upload the one row, which
+            # `pair_build` broadcasts. Materialising the expansion cost 4x the host memory traffic and PCIe bytes.
+            proj = proj[:1]
         padded = torch.nn.functional.pad(proj, [0, 0, 0, npad, 0, npad]) if npad else proj
         self._const = (c, npad, upload(padded.float().contiguous(), dtype=ttnn.float32, device=self.device))
         return self._const[2]
@@ -253,8 +269,11 @@ class PairOnCard:
         if z is not None:
             return z
         rows = self.rows(bins)
-        x = ttnn.add(rows, const)
+        full = const if int(const.shape[0]) == int(bins.shape[0]) else ttnn.concat([const] * int(bins.shape[0]), dim=0)
+        x = ttnn.add(rows, full)
         ttnn.deallocate(rows)
+        if full is not const:
+            ttnn.deallocate(full)
         # z = x * r1 r2 * (w gamma) + beta; r1 r2 is the host's per-pair scale.
         s = upload(scale[..., None].float().contiguous(), dtype=ttnn.float32, device=self.device)
         wg = (self.split.ln_weight.double() * p.gamma.double()).float()
@@ -270,7 +289,7 @@ class PairOnCard:
             ttnn.deallocate(t)
         return z
 
-    def one_program(self, const, bins: torch.Tensor, scale: torch.Tensor, gamma: torch.Tensor, beta: torch.Tensor):
+    def one_program(self, const, bins: torch.Tensor, scale: torch.Tensor, gamma, beta, unit: bool = False):
         """The same z as the ttnn ops below, as one program (`tt_bio.pair_build`), or None where it declines.
         Its gather is exact, so z sits closer to float64 than the one-hot matmul's."""
         import ttnn
@@ -281,13 +300,33 @@ class PairOnCard:
         rm = dict(layout=ttnn.ROW_MAJOR_LAYOUT, device=self.device)
         bins_tt = ttnn.from_torch(bins.reshape(b * n, n).to(torch.int32), dtype=ttnn.uint32, **rm)
         scale_tt = ttnn.from_torch(scale.reshape(b * n, n).float().contiguous(), dtype=ttnn.float32, **rm)
-        wg = (self.split.ln_weight.double() * gamma.double()).float()
-        wg_tt, beta_tt = (ttnn.from_torch(v.float()[:, None, :].expand(b, 32, c).contiguous(), layout=ttnn.TILE_LAYOUT,
-                                          device=self.device, dtype=ttnn.float32) for v in (wg, beta))
+        if unit:  # x itself: unit scale and gain, no shift (`_x`)
+            wg, beta = torch.ones(b, c), torch.zeros(b, c)
+        else:
+            wg = (self.split.ln_weight.double() * gamma.double()).float()
+        wg_tt, beta_tt = (ttnn.from_torch(v.detach().float()[:, None, :].expand(b, 32, c).contiguous(),
+                                          layout=ttnn.TILE_LAYOUT, device=self.device, dtype=ttnn.float32)
+                          for v in (wg, beta))
         z = pair_build(const, self.table, bins_tt, scale_tt, wg_tt, beta_tt)
         for t in (bins_tt, scale_tt, wg_tt, beta_tt):
             ttnn.deallocate(t)
         return z
+
+    def _x(self, const, bins: torch.Tensor):
+        """`C + W_x[bins]`, [b, n, n, pair] fp32: the pre-norm projection the forward normalises."""
+        import ttnn
+
+        b, n, c = int(bins.shape[0]), int(bins.shape[1]), int(self.table.shape[1])
+        z = self.one_program(const, bins, torch.ones(b, n, n), None, None, unit=True)
+        if z is not None:
+            return z
+        rows = self.rows(bins)
+        full = const if int(const.shape[0]) == b else ttnn.concat([const] * b, dim=0)
+        x = ttnn.add(rows, full)
+        ttnn.deallocate(rows)
+        if full is not const:
+            ttnn.deallocate(full)
+        return x
 
     def rows(self, bins: torch.Tensor):
         """`W_x[bins]` on the card, [b, n, n, pair] fp32, the fp32 weight rows to ~1e-4."""

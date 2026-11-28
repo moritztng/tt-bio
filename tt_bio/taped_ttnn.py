@@ -895,16 +895,21 @@ def _permute_fwd(shipped, ra, rk, dims):
     `_permute_back` unchanged: for these two `dims` that is the inverse kernel.
     """
     if len(ra) and not rk.get("pad_value"):
-        from . import reblock_permute as R
+        from . import ops, reblock_permute as R
         if not R.TAPED_MOVE:
             return shipped(*ra, **rk)
         x = ra[0]
         try:
             mc = rk.get("memory_config") or x.memory_config()
+            # Raw, under `untaped_kernel`: with the registry's `reblock_permute` entry installed
+            # the fused wrapper would record a second node over an untracked leaf of `x`, and
+            # this node's cotangent would never reach `x` (K9: every trimul in-projection dead).
             if dims == [0, 3, 1, 2] and R.eligible(x, mc, taped_ok=True):
-                return R.reblock_permute(x, mc)
+                with ops.untaped_kernel():
+                    return R.reblock_permute(x, mc)
             if dims == [0, 2, 3, 1] and R.eligible_back(x, mc, taped_ok=True):
-                return R.reblock_permute_back(x, mc)
+                with ops.untaped_kernel():
+                    return R.reblock_permute_back(x, mc)
         except AttributeError:
             pass
     return shipped(*ra, **rk)
@@ -1256,6 +1261,16 @@ def _reblock_vjp(dims):
     instead of pinning it, and these are the largest tensors the trunk moves.
     """
     def entry(shipped, args, kwargs):
+        # `out=` fills a caller's buffer in place: a node here would hang off the return value
+        # while the caller reads its own buffer untaped, silently cutting the gradient upstream.
+        # `eligible_back(..., into=True)` keeps such calls off the tape; this catches a new one.
+        # The hook stays installed between tapes, so an untaped forward reaches here too: with no
+        # taped operand there is no gradient to cut and the move runs as shipped.
+        if kwargs.get("out") is not None or len(args) > 3:
+            ra, rk = _raw(args, kwargs)
+            if _on_tape(args, kwargs):
+                raise RuntimeError("reblock_permute: an in-place out= move cannot be taped")
+            return shipped(*ra, **rk)
         x = _wrap(args[0])
         ra, rk = _raw(args, kwargs)
         out_v = shipped(*ra, **rk)
@@ -1905,6 +1920,31 @@ def recompute_scope():
 
 
 @contextlib.contextmanager
+def suspend():
+    """Temporarily unshim ttnn and clear autograd hooks inside an active `tape()` for a grad-off
+    non-final recycle cycle, restoring the exact shimmed tape and hooks on exit while preserving
+    registered parameters and live taped tensors."""
+    if not _SHIMMED:
+        with ag.suspended():
+            yield
+        return
+    from . import ops
+    _swap(False)
+    prev = (ops.set_recycle_hook(None),
+            ops.set_checkpoint_hook(None),
+            ops.set_host_softmax_hook(None),
+            ops.set_grad_hook(None),
+            ops.set_suspend_tape_hook(None),
+            ops.set_wrap_untaped_hook(None))
+    try:
+        with ag.without_exact():
+            yield
+    finally:
+        ag._restore_hooks(prev)
+        _swap(True)
+
+
+@contextlib.contextmanager
 def tape():
     """Make the shipped forward differentiable for the duration of the block.
 
@@ -1983,7 +2023,14 @@ def _v_typecast(shipped, args, kwargs):
 
     def make():
         def bw(g):
-            x.add_grad(g if g.dtype == src else ttnn.typecast(g, src))
+            # When WIDEN_ADD is armed, let a bf16 cotangent reach an fp32 parent's `add_grad`
+            # directly so fan-in widens in the unpacker (`widen_add`, bit-identical to
+            # `typecast(g, f32) + acc`, saving one full-tensor DRAM pass per residual branch).
+            if (src == ttnn.float32 and g.dtype == ttnn.bfloat16
+                    and ag._rne_add.WIDEN_ADD and g.layout == ttnn.TILE_LAYOUT):
+                x.add_grad(g)
+            else:
+                x.add_grad(g if g.dtype == src else ttnn.typecast(g, src))
         return bw
 
     # `reads=()`: neither the input nor the output is read by the backward, only its dtype,

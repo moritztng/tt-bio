@@ -34,7 +34,7 @@ def clouds(n_atoms=24, n_poses=10, seed=11, torsion=0.3):
 
 def test_it_returns_a_rotation_not_merely_an_orthogonal_matrix():
     a, b = clouds()
-    r, _, _ = kabsch_horn(a, b)
+    r, _, _, _ = kabsch_horn(a, b)
     eye = torch.eye(3).expand_as(r)
     assert (r @ r.transpose(1, 2) - eye).abs().max().item() < 1e-5
     assert (torch.linalg.det(r) - 1).abs().max().item() < 1e-5
@@ -42,8 +42,8 @@ def test_it_returns_a_rotation_not_merely_an_orthogonal_matrix():
 
 def test_it_matches_samplings_svd_on_a_torsion_perturbed_conformer():
     a, b = clouds(torsion=0.08)
-    r, t, det = kabsch_horn(a, b)
-    want_r, want_t = kabsch_batch(a, b)
+    r, t, det, _ = kabsch_horn(a, b)
+    want_r, want_t, _ = kabsch_batch(a, b)
     assert (det > 0).all(), "this fixture is the reflection-free case"
     assert (r - want_r).abs().max().item() < FLOOR_F32
     assert (t - want_t).abs().max().item() < 1e-4
@@ -59,8 +59,8 @@ def test_it_matches_samplings_svd_in_the_reflection_case_too():
     a, b = clouds()
     a = a.clone()
     a[..., 2] *= -1
-    r, _, det = kabsch_horn(a, b)
-    want_r, _ = kabsch_batch(a, b)
+    r, _, det, _ = kabsch_horn(a, b)
+    want_r, _, _ = kabsch_batch(a, b)
     assert (det < 0).all(), "the fixture must actually be the reflecting case"
     assert (torch.linalg.det(r) - 1).abs().max().item() < 1e-4, "still a proper rotation"
     assert (r - want_r).abs().max().item() < FLOOR_F32
@@ -74,7 +74,7 @@ def test_ten_squarings_reach_the_float32_floor(mirror):
     if mirror:
         a = a.clone()
         a[..., 2] *= -1
-    want, _ = kabsch_batch(a.double(), b.double())
+    want, _, _ = kabsch_batch(a.double(), b.double())
     h = (a - a.mean(1, keepdim=True)).transpose(1, 2) @ (b - b.mean(1, keepdim=True))
     errs = {n: (proper_rotation(h, squarings=n).double() - want).abs().max().item()
             for n in (6, 8, SQUARINGS)}
@@ -87,6 +87,6 @@ def test_ten_squarings_reach_the_float32_floor(mirror):
 def test_the_method_itself_is_exact_in_float64():
     """Separating the method from its precision: in float64 it agrees with the SVD to 1e-13."""
     a, b = clouds()
-    r, _, _ = kabsch_horn(a.double(), b.double())
-    want, _ = kabsch_batch(a.double(), b.double())
+    r, _, _, _ = kabsch_horn(a.double(), b.double())
+    want, _, _ = kabsch_batch(a.double(), b.double())
     assert (r - want).abs().max().item() < 1e-12

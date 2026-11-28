@@ -3535,8 +3535,34 @@ def fused_sdpa(q, k, v, attn_mask=None, *, scale: float, **kw):
             hit = _ZERO_MASKS[key] = (dev, ttnn.zeros([1, 1, key[1], key[2]], dtype=ttnn.bfloat16,
                                                       layout=ttnn.TILE_LAYOUT, device=dev))
         attn_mask = hit[1]
+    if q.dtype == ttnn.float32:
+        return _sdpa_fp32(q, k, v, attn_mask, scale)
     return ttnn.transformer.scaled_dot_product_attention(
         q, k, v, attn_mask=attn_mask, is_causal=False, scale=scale, **kw)
+
+
+def _sdpa_fp32(q, k, v, mask, scale):
+    """`fused_sdpa` for float32 operands, which the fused kernel refuses (TT_FATAL in
+    `sdpa_device_operation`). The same attention, softmax((q k^T + mask) * scale) v with the mask
+    before the scale, with the scores materialised and each row reduced in one pass at HiFi4, fp32
+    destination and an exact exp. Every verb is one the tape follows, so a taped call needs no rule
+    of its own. Only a float32 trunk reaches it: RFD4 training under `attn_fp32` and the float32
+    gradient controls. No served model hands this function float32."""
+    cfg = ttnn.WormholeComputeKernelConfig(math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,
+                                           fp32_dest_acc_en=True, packer_l1_acc=True)
+    s = ttnn.matmul(q, k, transpose_b=True, compute_kernel_config=cfg)
+    m = mask if mask.dtype == ttnn.float32 else ttnn.typecast(mask, ttnn.float32)
+    sm = ttnn.add(s, m)
+    ttnn.deallocate(s)
+    if m is not mask:
+        ttnn.deallocate(m)
+    ss = ttnn.multiply(sm, scale)
+    ttnn.deallocate(sm)
+    p = ttnn.softmax(ss, dim=-1, compute_kernel_config=cfg)
+    ttnn.deallocate(ss)
+    o = ttnn.matmul(p, v, compute_kernel_config=cfg)
+    ttnn.deallocate(p)
+    return o
 
 
 def _sdpa_masked(fn, q, k, v, bias, *args, site: str, pad: bool = False, **kw):
@@ -11008,8 +11034,8 @@ class TriangleMultiplication(Module):
         # and c_z 256 one
         w8 = lever("trimul_t1w8")
         if w8 not in self._t1_w:
-            wpT, wgT, wgo = TT1.t1_host_weights(self._g_in_t, self._p_in_t,
-                                                self.weights["g_out.weight"].t())
+            wpT, wgT, wgo = TT1.t1_host_weights(self._g_in_t.detach(), self._p_in_t.detach(),
+                                                self.weights["g_out.weight"].detach().t())
             up = lambda t: ttnn.from_torch(  # noqa: E731
                 t, layout=ttnn.TILE_LAYOUT, device=self.device,
                 dtype=ttnn.bfloat8_b if w8 else ttnn.bfloat16)
@@ -11635,7 +11661,7 @@ class TriangleMultiplication(Module):
             one_pass = not _TRIMUL_RAW_CHANNEL_MOVES and (
                 large_seq or (_TRIMUL_BACK_ONE_PASS_L1 and _reblock.eligible_back(xc, back_mc)))
             into = (one_pass and _TRIMUL_BACK_INTO and large_seq and not host_acc and not keep_chunks
-                    and _reblock.eligible_back(xc, back_mc))
+                    and _reblock.eligible_back(xc, back_mc, into=True))
             return back_mc, one_pass, into
 
         def x8(out_mc):
