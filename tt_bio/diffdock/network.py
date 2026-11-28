@@ -36,9 +36,10 @@ network does not implement it and is run step by step;
 agree, and it skips until a device network offers this member.
 
 `network.rollout(graph, start, cfg, bounds, noise) -> sampling.Rollout` runs that body eagerly
-and reads once. `tt-bio dock` does not call it yet: on a 287k-edge complex its poses came back
-12 A from the stepped rollout at the same seed, so the dock path steps `score_fn` until the
-resident step is graded against `static_forward` on a card.
+and reads once, and `tt-bio dock` calls it when the network has it (`run._roll_out`). It holds
+a pose whose score leaves the schedule the way `sampling.sample` does and reports it failed.
+On a 287k-edge complex at one seed its poses sit 0.59 A median from the stepped rollout
+(`state/dfd/PERF.md` section 17), in 11.8 s where the stepped form takes 17.1 s.
 
 `load` returns the host implementation, `score_model.HostScoreNetwork`, around the released
 v1.1 weights, or with ``DockOptions(device="tt")`` `device.DeviceScoreNetwork`, the same
