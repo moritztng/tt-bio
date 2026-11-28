@@ -1131,13 +1131,13 @@ def _augment_mock_ttnn_for_glue(mod):
     def _slice(t, starts, ends):
         assert t.is_allocated()
         sl = tuple(slice(s, e) for s, e in zip(starts, ends))
-        return _mk(t.device(), [x[sl].contiguous() for x in t._buf.shards], getattr(t, "dtype", mod.float32))
+        return _mk(t.device(), [x.reshape(t.shape)[sl].contiguous() for x in t._buf.shards], getattr(t, "dtype", mod.float32))
 
     def _concat(ts, dim=-1):
         for t in ts:
             assert t.is_allocated()
         n_sh = len(ts[0]._buf.shards)
-        shards = [torch.cat([t._buf.shards[i] for t in ts], dim=dim) for i in range(n_sh)]
+        shards = [torch.cat([t._buf.shards[i].reshape(t.shape) for t in ts], dim=dim) for i in range(n_sh)]
         return _mk(ts[0].device(), shards, getattr(ts[0], "dtype", mod.float32))
 
     def _reshape(t, shape):
@@ -2555,5 +2555,230 @@ def test_device_winner_glue_and_heads_meshtrace_parity_and_no_leaks(monkeypatch)
     dwg_eg.release()
     tracer.release()
     assert len(dev.live_bufs) == 0
+
+
+def test_spmd_zero1_traced_opt_body_and_ag_unpack_bit_exact(monkeypatch):
+    """Commit 5: SPMDZero1Step Trace A (opt_body) + Trace B (ag_unpack) match eager bit-exact across
+    6 steps (varying LR, clip < 1 and clip == 1, EMA, partial-disabled AdamW) AND --save-at 1/resume."""
+    import sys
+    import types
+    import tt_bio
+
+    mod = _install_mock_ttnn(monkeypatch)
+
+    # Realistic tt-metal capture semantics: begin_trace_capture records without mutating DRAM;
+    # execute_trace executes the recorded closure once on hardware.
+    trace_fns: dict[int, Any] = {}
+    next_tid = [1]
+
+    class _RecordingScratch:
+        def __init__(self, dev):
+            self.dev = dev
+            self.captures = 0
+            self.released = False
+
+        def capture(self, need, size, runs, settle=None):
+            tids = []
+            try:
+                for fn in runs:
+                    tid = next_tid[0]
+                    next_tid[0] += 1
+                    trace_fns[tid] = fn
+                    tids.append(tid)
+                self.captures += len(tids)
+            finally:
+                if settle is not None:
+                    settle()
+            return tids
+
+        def release(self):
+            self.released = True
+
+    def _mock_copy(src, dst):
+        for s_src, s_dst in zip(src._buf.shards, dst._buf.shards):
+            s_dst.copy_(s_src.reshape(dst.shape))
+
+    def _mock_typecast(t, dt):
+        if dt == mod.bfloat16:
+            return t.device().make_tensor([s.reshape(t.shape).to(torch.bfloat16).to(torch.float32) for s in t._buf.shards])
+        return t.device().make_tensor([s.reshape(t.shape).to(torch.float32) for s in t._buf.shards])
+
+    def _mock_matmul(a, b, transpose_a=False, transpose_b=False, dtype=None, compute_kernel_config=None, core_grid=None):
+        out = []
+        for sa, sb in zip(a._buf.shards, b._buf.shards):
+            xa = sa.reshape(a.shape).to(torch.float32)
+            xb = sb.reshape(b.shape).to(torch.float32)
+            if transpose_a:
+                xa = xa.transpose(-2, -1)
+            if transpose_b:
+                xb = xb.transpose(-2, -1)
+            out.append(torch.matmul(xa, xb))
+        return a.device().make_tensor(out)
+
+    orig_add = mod.add
+    monkeypatch.setattr(
+        mod, "add",
+        lambda a, b: orig_add(a, b) if hasattr(b, "_buf") else a.device().make_tensor([s.reshape(a.shape) + float(b) for s in a._buf.shards]),
+        raising=False,
+    )
+    monkeypatch.setattr(mod, "copy", _mock_copy, raising=False)
+    monkeypatch.setattr(mod, "typecast", _mock_typecast, raising=False)
+    monkeypatch.setattr(mod, "matmul", _mock_matmul, raising=False)
+    monkeypatch.setattr(mod, "execute_trace", lambda dev, tid, cq_id=0, blocking=False: trace_fns[tid](), raising=False)
+    monkeypatch.setattr(mod, "release_trace", lambda dev, tid: trace_fns.pop(tid, None), raising=False)
+    monkeypatch.setattr(mod, "synchronize_device", lambda dev: None, raising=False)
+    monkeypatch.setattr(mod, "Tensor", _FakeMeshTensor, raising=False)
+    monkeypatch.setattr(mod, "square", lambda a: a.device().make_tensor([s.reshape(a.shape) ** 2 for s in a._buf.shards]), raising=False)
+    monkeypatch.setattr(mod, "sqrt", lambda a: a.device().make_tensor([torch.sqrt(s.reshape(a.shape)) for s in a._buf.shards]), raising=False)
+    monkeypatch.setattr(mod, "rsqrt", lambda a: a.device().make_tensor([torch.rsqrt(s.reshape(a.shape)) for s in a._buf.shards]), raising=False)
+    monkeypatch.setattr(mod, "clamp", lambda a, min=None, max=None: a.device().make_tensor([torch.clamp(s.reshape(a.shape), min=min, max=max) for s in a._buf.shards]), raising=False)
+    monkeypatch.setattr(mod, "reciprocal", lambda a: a.device().make_tensor([torch.reciprocal(s.reshape(a.shape)) for s in a._buf.shards]), raising=False)
+    monkeypatch.setattr(
+        mod, "divide",
+        lambda a, b: a.device().make_tensor(
+            [sa.reshape(a.shape) / sb.reshape(b.shape) for sa, sb in zip(a._buf.shards, b._buf.shards)]
+            if hasattr(b, "_buf") else [sa.reshape(a.shape) / float(b) for sa in a._buf.shards]
+        ),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        mod, "sum",
+        lambda a, dim=-1, keepdim=False, compute_kernel_config=None: a.device().make_tensor(
+            [s.reshape(a.shape).sum(dim=dim, keepdim=keepdim) for s in a._buf.shards]
+        ),
+        raising=False,
+    )
+    monkeypatch.setattr(mod, "MathFidelity", types.SimpleNamespace(HiFi4="HiFi4", HiFi2="HiFi2"), raising=False)
+    monkeypatch.setattr(mod, "types", types.SimpleNamespace(BlackholeComputeKernelConfig=lambda **k: None), raising=False)
+    monkeypatch.setattr(mod, "init_device_compute_kernel_config", lambda *a, **k: None, raising=False)
+    monkeypatch.setattr(mod, "WormholeComputeKernelConfig", lambda *a, **k: None, raising=False)
+
+    fake_tt = types.ModuleType("tt_bio.tenstorrent")
+    fake_tt.TraceScratch = _RecordingScratch
+    monkeypatch.setitem(sys.modules, "tt_bio.tenstorrent", fake_tt)
+    monkeypatch.setattr(tt_bio, "tenstorrent", fake_tt, raising=False)
+
+    from tt_bio.train.device_optim import DeviceOptimizer
+    from tt_bio.train.optim import Muon
+    from tt_bio.train.spmd_rfd4 import SPMDZero1Step
+    from tt_bio.train.spmd_trace import SPMDMeshTracer
+
+    rng = np.random.default_rng(77)
+    init_w = {
+        # 4 sharded Muon matrices (2x2 mesh -> rm=2 -> 2 per rank!)
+        "sh_a0": rng.standard_normal((32, 64)).astype(np.float32) * 0.05,
+        "sh_a1": rng.standard_normal((32, 64)).astype(np.float32) * 0.05,
+        "sh_b0": rng.standard_normal((64, 64)).astype(np.float32) * 0.05,
+        "sh_b1": rng.standard_normal((64, 64)).astype(np.float32) * 0.05,
+        # 1 unsharded Muon matrix (non-tile-aligned width -> goes to rem_muon!)
+        "rem_mu0": rng.standard_normal((32, 24)).astype(np.float32) * 0.05,
+        # 2 AdamW vectors in same shape bucket (1 will be disabled -> tests partial-enabled mask cache!)
+        "ad_v0": rng.standard_normal((32,)).astype(np.float32) * 0.1,
+        "ad_v1": rng.standard_normal((32,)).astype(np.float32) * 0.1,
+        # 1 AdamW matrix (all enabled)
+        "ad_m0": rng.standard_normal((16, 16)).astype(np.float32) * 0.1,
+    }
+    disabled = ("ad_v1",)
+
+    def _mk_zero1(dev_cur):
+        opt = DeviceOptimizer(
+            init_w,
+            dev_cur,
+            lr=1e-2,
+            weight_decay=0.05,
+            clip_norm=0.5,
+            schedule=lambda st: 1e-2 * (0.25 * st if st <= 4 else 1.0),
+            ema_decay=0.95,
+            muon=Muon(
+                exclude=("ad_.*",),
+                weight_decay=0.02,
+                ns_steps=2,
+                schedule=lambda st: 1.5e-2 * (0.25 * st if st <= 4 else 1.0),
+            ),
+            ns_mode="fp32",
+        )
+        return SPMDZero1Step(opt, init_w, dev_cur, full_shape=(2, 2), use_zero1_muon=True)
+
+    dev_eg = _FakeMeshDevice(2, 2)
+    dev_tr = _FakeMeshDevice(2, 2)
+    z_eg = _mk_zero1(dev_eg)
+    z_tr = _mk_zero1(dev_tr)
+    tracer = SPMDMeshTracer(dev_tr, enabled=True)
+    # Mark hole ready (as after win_pair Step 1 capture on real hardware).
+    tracer._hole_ready = True
+    tracer._scratch = _RecordingScratch(dev_tr)
+
+    # Pre-generate 6 steps of deterministic sharded gradients (some large to trigger clip < 1, some tiny for clip == 1).
+    step_grads = []
+    for st in range(6):
+        scale = 3.0 if st in (0, 2, 4) else 0.005
+        step_grads.append({
+            nm: [rng.standard_normal(arr.shape).astype(np.float32) * scale for _ in range(4)]
+            for nm, arr in init_w.items()
+        })
+
+    def _put_grads(dev_cur, gmap):
+        return {nm: dev_cur.make_tensor([torch.from_numpy(a.copy()) for a in shs]) for nm, shs in gmap.items()}
+
+    ckpt_masters = None
+    ckpt_fams = None
+    ckpt_sd = None
+    for st in range(6):
+        g_eg = _put_grads(dev_eg, step_grads[st])
+        g_tr = _put_grads(dev_tr, step_grads[st])
+        r_eg = z_eg.step(g_eg, disabled=disabled, free_grads=True, in_place_masters=True, tracer=None)
+        r_tr = z_tr.step(g_tr, disabled=disabled, free_grads=True, in_place_masters=True, tracer=tracer)
+        assert r_eg["clip_muon"] == pytest.approx(r_tr["clip_muon"], abs=0.0, rel=0.0)
+        assert r_eg["clip_adam"] == pytest.approx(r_tr["clip_adam"], abs=0.0, rel=0.0)
+        assert z_eg.master_digest() == z_tr.master_digest(), f"step {st} digest mismatch"
+        # Verify EMA shadow parity too!
+        f_eg = z_eg.state_families()
+        f_tr = z_tr.state_families()
+        for fam in ("exp_avg", "exp_avg_sq", "momentum_buffer", "ema_shadow"):
+            for nm in f_eg[fam]:
+                diff = float(np.max(np.abs(f_eg[fam][nm] - f_tr[fam][nm])))
+                assert diff <= 1e-6, f"step {st} fam={fam} param={nm} diff={diff}"
+        if st == 0:
+            ckpt_masters = z_tr.host_master()
+            ckpt_fams = z_tr.state_families()
+            ckpt_sd = z_tr.base_opt.state_dict()
+
+    # Steps: 0=eager(init), 1=warm, 2=capture+replay, 3/4/5=replay -> 4 opt_body replays;
+    # ag_unpack: 0=warm, 1=capture+replay, 2/3/4/5=replay -> 5 ag_unpack replays; 0 refused!
+    assert tracer.stats["opt_body_replay"] == 4
+    assert tracer.stats["ag_unpack_replay"] == 5
+    assert tracer.stats["refused"] == 0
+    assert z_tr.base_opt.ema.n_averaged == 6
+
+    # Verify --save-at 1 / --resume produces BIT-EXACT identical master_digest after Steps 1..5!
+    dev_res = _FakeMeshDevice(2, 2)
+    z_res = _mk_zero1(dev_res)
+    z_res.base_opt.load_state_dict(ckpt_sd)
+    z_res.load_host_state(ckpt_masters, ckpt_fams)
+    tracer_res = SPMDMeshTracer(dev_res, enabled=True)
+    tracer_res._hole_ready = True
+    tracer_res._scratch = _RecordingScratch(dev_res)
+    for st in range(1, 6):
+        g_res = _put_grads(dev_res, step_grads[st])
+        z_res.step(g_res, disabled=disabled, free_grads=True, in_place_masters=True, tracer=tracer_res)
+    assert z_res.master_digest() == z_eg.master_digest()
+    assert tracer_res.stats["opt_body_replay"] == 4
+    assert tracer_res.stats["refused"] == 0
+
+    # Clean up and verify ZERO leaked device buffers on all three devices!
+    from tt_bio.train import device_optim as _do
+
+    for z_cur, tr_cur, d_cur in ((z_eg, None, dev_eg), (z_tr, tracer, dev_tr), (z_res, tracer_res, dev_res)):
+        if tr_cur is not None:
+            tr_cur.release()
+        z_cur.deallocate()
+        z_cur.base_opt.deallocate()
+        for cache in (_do._ONES_COL_CACHE, _do._ONES_ROW_CACHE):
+            for k in [ck for ck in list(cache) if ck[0] == id(d_cur)]:
+                t = cache.pop(k)
+                if t.is_allocated():
+                    mod.deallocate(t)
+        assert len(d_cur.live_bufs) == 0
+
 
 

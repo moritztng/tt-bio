@@ -287,6 +287,8 @@ class SPMDZero1Step:
         self.sh_master: Dict[Tuple[int, int], object] = {}
         self.sh_mom: Dict[Tuple[int, int], object] = {}
         self.sh_ema: Dict[Tuple[int, int], object] = {}
+        self._state_epoch: int = 0
+        self._mask_cache: Dict[tuple, Tuple[object, object]] = {}
 
         if self.use_zero1_muon:
             self.muon_plan = plan_spmd_muon_shards(
@@ -359,6 +361,449 @@ class SPMDZero1Step:
         if self.use_zero1_muon and self.muon_plan is not None:
             return self.muon_plan.sharded_names
         return frozenset()
+
+    def _get_cached_masks(self, kind: str, bk_idx: int, flags: Tuple[bool, ...], s0: int):
+        k = (kind, bk_idx, flags, s0)
+        pair = self._mask_cache.get(k)
+        if pair is None:
+            pair = self.base_opt._mask_tensor(list(flags), s0)
+            self._mask_cache[k] = pair
+        return pair
+
+    @staticmethod
+    def _buf_addr(t) -> int:
+        if t is None:
+            return 0
+        fn = getattr(t, "buffer_address", None)
+        return int(fn()) if fn is not None else id(t)
+
+    def _try_traced_opt_body(
+        self,
+        tracer,
+        sh_slots: list,
+        grad_shards: Mapping[Tuple[int, int], object],
+        masks: Mapping[Tuple[int, int], object],
+        packed_rem_muon: list,
+        packed_adam: list,
+        dis: set,
+        *,
+        clip_muon: float,
+        lr_muon: float,
+        clip_adam: float,
+        lr_now: float,
+        bc1: float,
+        bc2: float,
+        in_place_masters: bool,
+    ) -> bool:
+        """Execute Phase B + unsharded Muon + AdamW + EMA inside a single MeshTrace (Trace A)."""
+        opt = self.base_opt
+        mu = opt.muon
+        has_ema = opt.ema is not None
+        if not (
+            tracer is not None
+            and getattr(tracer, "enabled", False)
+            and in_place_masters
+            and bool(sh_slots)
+            and all(masks[s.shape] is None for s in sh_slots)
+            and all(s.shape in self.sh_mom for s in sh_slots)
+            and (
+                not has_ema
+                or (
+                    all(s.shape in self.sh_ema for s in sh_slots)
+                    and opt.ema.n_averaged >= 1
+                    and getattr(opt.ema, "_buckets", None) is not None
+                    and all(bk.ema_b is not None for bk in opt.ema._buckets)
+                )
+            )
+            and all((g_b is None) or (bk.state1_b is not None) for bk, g_b, _ in packed_rem_muon)
+            and all(
+                (not any(nm not in dis for nm in bk.names))
+                or (g_b is None)
+                or (bk.state1_b is not None and bk.state2_b is not None)
+                for bk, g_b, _ in packed_adam
+            )
+        ):
+            return False
+
+        import torch
+        import ttnn
+        from .device_optim import _clone_exact_f32, newton_schulz_device
+
+        # Pack dynamic per-step scalars into ONE [S, 1, 1] replicated fp32 TILE tensor.
+        # Layout: [clip_muon, decay_muon, clip_adam, inv_bc1, inv_bc2, lr_adam, decay_adam_only,
+        #          step_scale(ratio_0), ..., step_scale(ratio_{R-1})]
+        decay_muon = float(1.0 - lr_muon * mu.weight_decay)
+        inv_bc1 = float(1.0 / bc1)
+        inv_bc2 = float(1.0 / bc2)
+        decay_adam_only = float(1.0 - lr_now * opt.weight_decay)
+        ratio_idx: Dict[float, int] = {}
+        scalar_vals: List[float] = [
+            float(clip_muon),
+            decay_muon,
+            float(clip_adam),
+            inv_bc1,
+            inv_bc2,
+            float(lr_now),
+            decay_adam_only,
+        ]
+        for slot in sh_slots:
+            r = float(mu.ratio(slot.shape))
+            if r not in ratio_idx:
+                ratio_idx[r] = len(scalar_vals)
+                scalar_vals.append(float(-lr_muon * r))
+        for bk, g_b, _ in packed_rem_muon:
+            if g_b is not None:
+                r = float(mu.ratio(bk.shape))
+                if r not in ratio_idx:
+                    ratio_idx[r] = len(scalar_vals)
+                    scalar_vals.append(float(-lr_muon * r))
+
+        scalars_dev = ttnn.from_torch(
+            torch.tensor(scalar_vals, dtype=torch.float32).reshape(-1, 1, 1),
+            dtype=ttnn.float32,
+            layout=ttnn.TILE_LAYOUT,
+            device=self.device,
+        )
+
+        inputs: List[object] = [scalars_dev]
+        for slot in sh_slots:
+            inputs.append(grad_shards[slot.shape])
+
+        rem_muon_spec = []
+        for idx, (bk, g_b, flags) in enumerate(packed_rem_muon):
+            fl_t = tuple(bool(f) for f in flags)
+            has_g = g_b is not None
+            g_pos = len(inputs) if has_g else -1
+            if has_g:
+                inputs.append(g_b)
+            m_pair = None
+            if has_g and not all(fl_t):
+                m_pair = self._get_cached_masks("rem_muon", idx, fl_t, bk.canon[0])
+            rem_muon_spec.append((bk, g_pos, fl_t, m_pair))
+
+        adam_spec = []
+        for idx, (bk, g_b, _flags) in enumerate(packed_adam):
+            en_t = tuple(nm not in dis for nm in bk.names)
+            has_g = g_b is not None
+            has_s1 = bk.state1_b is not None
+            g_pos = len(inputs) if has_g else -1
+            if has_g:
+                inputs.append(g_b)
+            m_pair = None
+            if any(en_t) and not all(en_t):
+                m_pair = self._get_cached_masks("adam", idx, en_t, bk.canon[0])
+            adam_spec.append((bk, g_pos, en_t, has_s1, m_pair))
+
+        # Key on epoch, active/enabled flags, and exact persistent buffer addresses.
+        addr = self._buf_addr
+        sh_addrs = tuple(
+            (s.shape, addr(self.sh_master[s.shape]), addr(self.sh_mom[s.shape]),
+             addr(self.sh_ema[s.shape]) if has_ema else 0)
+            for s in sh_slots
+        )
+        rm_key = tuple(
+            (bk.shape, g_pos >= 0, fl_t, addr(bk.master_b), addr(bk.state1_b),
+             addr(bk.ema_b) if has_ema else 0,
+             tuple(addr(opt.master[nm]) for nm in bk.names))
+            for bk, g_pos, fl_t, _ in rem_muon_spec
+        )
+        ad_key = tuple(
+            (bk.shape, g_pos >= 0, en_t, has_s1, addr(bk.master_b),
+             addr(bk.state1_b), addr(bk.state2_b),
+             addr(bk.ema_b) if has_ema else 0,
+             tuple(addr(opt.master[nm]) for nm in bk.names))
+            for bk, g_pos, en_t, has_s1, _ in adam_spec
+        )
+        trace_key = (
+            self._state_epoch,
+            has_ema,
+            len(scalar_vals),
+            opt.ns_mode,
+            mu.ns_steps,
+            tuple(mu.ns_coefficients),
+            sh_addrs,
+            rm_key,
+            ad_key,
+        )
+
+        one_minus_mu = float(1.0 - mu.momentum)
+        b1, b2 = float(opt.beta1), float(opt.beta2)
+        om1, om2 = float(1.0 - b1), float(1.0 - b2)
+        wd_adam = float(opt.weight_decay)
+        eps_adam = float(opt.eps)
+        ema_w = float(1.0 - opt.ema.decay) if has_ema else 0.0
+
+        def _body(staged: Sequence[object]) -> None:
+            sc_vec = staged[0]
+            sc_cache: Dict[int, object] = {}
+
+            def _sc(i: int):
+                t = sc_cache.get(i)
+                if t is None:
+                    t = ttnn.slice(sc_vec, [i, 0, 0], [i + 1, 1, 1])
+                    sc_cache[i] = t
+                return t
+
+            clip_m_t = _sc(0)
+            decay_m_t = _sc(1)
+            clip_a_t = _sc(2)
+            inv_bc1_t = _sc(3)
+            inv_bc2_t = _sc(4)
+            lr_a_t = _sc(5)
+            decay_a_only_t = _sc(6)
+
+            # 1. Sharded Muon buckets (1/rm): momentum -> NS -> master -> EMA, all in-place.
+            for si, slot in enumerate(sh_slots):
+                shp = slot.shape
+                g_sh = staged[1 + si]
+                m_prev = self.sh_mom[shp]
+                w_prev = self.sh_master[shp]
+
+                g_eff = ttnn.multiply(g_sh, clip_m_t)
+                diff = ttnn.subtract(g_eff, m_prev)
+                scaled = ttnn.multiply(diff, one_minus_mu)
+                ttnn.deallocate(diff)
+                buf_new = ttnn.add(m_prev, scaled)
+                ttnn.deallocate(scaled)
+                ttnn.copy(buf_new, m_prev)
+                ttnn.deallocate(buf_new)
+
+                if mu.nesterov:
+                    d2 = ttnn.subtract(m_prev, g_eff)
+                    s2 = ttnn.multiply(d2, one_minus_mu)
+                    ttnn.deallocate(d2)
+                    u_b = ttnn.subtract(m_prev, s2)
+                    ttnn.deallocate(s2)
+                else:
+                    u_b = _clone_exact_f32(m_prev)
+                ttnn.deallocate(g_eff)
+
+                o_b = newton_schulz_device(
+                    u_b,
+                    steps=mu.ns_steps,
+                    coeffs=mu.ns_coefficients,
+                    eps=mu.eps,
+                    mode=opt.ns_mode,
+                )
+                ttnn.deallocate(u_b)
+
+                step_sc_t = _sc(ratio_idx[float(mu.ratio(shp))])
+                t2 = ttnn.multiply(o_b, step_sc_t)
+                ttnn.deallocate(o_b)
+                t1 = ttnn.multiply(w_prev, decay_m_t)
+                w_new = ttnn.add(t1, t2)
+                ttnn.deallocate(t1)
+                ttnn.deallocate(t2)
+                ttnn.copy(w_new, w_prev)
+                ttnn.deallocate(w_new)
+
+                if has_ema:
+                    e_prev = self.sh_ema[shp]
+                    ediff = ttnn.subtract(w_prev, e_prev)
+                    esc = ttnn.multiply(ediff, ema_w)
+                    ttnn.deallocate(ediff)
+                    e_nxt = ttnn.add(e_prev, esc)
+                    ttnn.deallocate(esc)
+                    ttnn.copy(e_nxt, e_prev)
+                    ttnn.deallocate(e_nxt)
+
+            # 2. Remaining unsharded Muon buckets (in-place).
+            for bk, g_pos, fl_t, m_pair in rem_muon_spec:
+                if g_pos < 0:
+                    continue
+                g_b = staged[g_pos]
+                all_active = all(fl_t)
+
+                g_eff = ttnn.multiply(g_b, clip_m_t)
+                diff = ttnn.subtract(g_eff, bk.state1_b)
+                scaled = ttnn.multiply(diff, one_minus_mu)
+                ttnn.deallocate(diff)
+                buf_cand = ttnn.add(bk.state1_b, scaled)
+                ttnn.deallocate(scaled)
+                if all_active:
+                    ttnn.copy(buf_cand, bk.state1_b)
+                    ttnn.deallocate(buf_cand)
+                else:
+                    ma, mi = m_pair
+                    p1 = ttnn.multiply(buf_cand, ma)
+                    p2 = ttnn.multiply(bk.state1_b, mi)
+                    ttnn.deallocate(buf_cand)
+                    buf_new = ttnn.add(p1, p2)
+                    ttnn.deallocate(p1)
+                    ttnn.deallocate(p2)
+                    ttnn.copy(buf_new, bk.state1_b)
+                    ttnn.deallocate(buf_new)
+
+                if mu.nesterov:
+                    d2 = ttnn.subtract(bk.state1_b, g_eff)
+                    s2 = ttnn.multiply(d2, one_minus_mu)
+                    ttnn.deallocate(d2)
+                    u_b = ttnn.subtract(bk.state1_b, s2)
+                    ttnn.deallocate(s2)
+                else:
+                    u_b = _clone_exact_f32(bk.state1_b)
+                ttnn.deallocate(g_eff)
+
+                o_b = newton_schulz_device(
+                    u_b,
+                    steps=mu.ns_steps,
+                    coeffs=mu.ns_coefficients,
+                    eps=mu.eps,
+                    mode=opt.ns_mode,
+                )
+                ttnn.deallocate(u_b)
+
+                step_sc_t = _sc(ratio_idx[float(mu.ratio(bk.shape))])
+                t1 = ttnn.multiply(bk.master_b, decay_m_t)
+                t2 = ttnn.multiply(o_b, step_sc_t)
+                ttnn.deallocate(o_b)
+                cand = ttnn.add(t1, t2)
+                ttnn.deallocate(t1)
+                ttnn.deallocate(t2)
+                if all_active:
+                    ttnn.copy(cand, bk.master_b)
+                    ttnn.deallocate(cand)
+                else:
+                    ma, mi = m_pair
+                    p1 = ttnn.multiply(cand, ma)
+                    p2 = ttnn.multiply(bk.master_b, mi)
+                    ttnn.deallocate(cand)
+                    w_new = ttnn.add(p1, p2)
+                    ttnn.deallocate(p1)
+                    ttnn.deallocate(p2)
+                    ttnn.copy(w_new, bk.master_b)
+                    ttnn.deallocate(w_new)
+
+                opt._unpack_master(bk, in_place=True)
+
+            # 3. AdamW buckets (in-place).
+            for bk, g_pos, en_t, has_s1, m_pair in adam_spec:
+                if not any(en_t):
+                    continue
+                all_enabled = all(en_t)
+                if g_pos < 0 and not has_s1 and wd_adam == 0.0:
+                    continue
+
+                if g_pos < 0:
+                    if has_s1:
+                        m_cand = ttnn.multiply(bk.state1_b, b1)
+                        v_cand = ttnn.multiply(bk.state2_b, b2)
+                    else:
+                        m_cand = v_cand = None
+                else:
+                    g_b = staged[g_pos]
+                    g_eff = ttnn.multiply(g_b, clip_a_t)
+                    g2 = ttnn.square(g_eff)
+                    mb = ttnn.multiply(bk.state1_b, b1)
+                    mg = ttnn.multiply(g_eff, om1)
+                    m_cand = ttnn.add(mb, mg)
+                    ttnn.deallocate(mb)
+                    ttnn.deallocate(mg)
+                    vb = ttnn.multiply(bk.state2_b, b2)
+                    vg = ttnn.multiply(g2, om2)
+                    v_cand = ttnn.add(vb, vg)
+                    ttnn.deallocate(vb)
+                    ttnn.deallocate(vg)
+                    ttnn.deallocate(g2)
+                    ttnn.deallocate(g_eff)
+
+                if m_cand is not None:
+                    if all_enabled:
+                        ttnn.copy(m_cand, bk.state1_b)
+                        ttnn.copy(v_cand, bk.state2_b)
+                        ttnn.deallocate(m_cand)
+                        ttnn.deallocate(v_cand)
+                    else:
+                        ma, mi = m_pair
+                        m1 = ttnn.multiply(m_cand, ma)
+                        m2 = ttnn.multiply(bk.state1_b, mi)
+                        v1 = ttnn.multiply(v_cand, ma)
+                        v2 = ttnn.multiply(bk.state2_b, mi)
+                        ttnn.deallocate(m_cand)
+                        ttnn.deallocate(v_cand)
+                        m_new = ttnn.add(m1, m2)
+                        v_new = ttnn.add(v1, v2)
+                        ttnn.deallocate(m1)
+                        ttnn.deallocate(m2)
+                        ttnn.deallocate(v1)
+                        ttnn.deallocate(v2)
+                        ttnn.copy(m_new, bk.state1_b)
+                        ttnn.copy(v_new, bk.state2_b)
+                        ttnn.deallocate(m_new)
+                        ttnn.deallocate(v_new)
+
+                if not has_s1:
+                    cand = ttnn.multiply(bk.master_b, decay_a_only_t)
+                else:
+                    m_hat = ttnn.multiply(bk.state1_b, inv_bc1_t)
+                    v_hat = ttnn.multiply(bk.state2_b, inv_bc2_t)
+                    sqv = ttnn.sqrt(v_hat)
+                    ttnn.deallocate(v_hat)
+                    den = ttnn.add(sqv, eps_adam)
+                    ttnn.deallocate(sqv)
+                    ratio = ttnn.divide(m_hat, den)
+                    ttnn.deallocate(m_hat)
+                    ttnn.deallocate(den)
+                    if wd_adam != 0.0:
+                        wd_term = ttnn.multiply(bk.master_b, wd_adam)
+                        comb = ttnn.add(ratio, wd_term)
+                        ttnn.deallocate(ratio)
+                        ttnn.deallocate(wd_term)
+                        ratio = comb
+                    upd = ttnn.multiply(ratio, lr_a_t)
+                    ttnn.deallocate(ratio)
+                    cand = ttnn.subtract(bk.master_b, upd)
+                    ttnn.deallocate(upd)
+
+                if all_enabled:
+                    ttnn.copy(cand, bk.master_b)
+                    ttnn.deallocate(cand)
+                else:
+                    ma, mi = m_pair
+                    p1 = ttnn.multiply(cand, ma)
+                    p2 = ttnn.multiply(bk.master_b, mi)
+                    ttnn.deallocate(cand)
+                    w_new = ttnn.add(p1, p2)
+                    ttnn.deallocate(p1)
+                    ttnn.deallocate(p2)
+                    ttnn.copy(w_new, bk.master_b)
+                    ttnn.deallocate(w_new)
+
+                opt._unpack_master(bk, in_place=True)
+
+            # 4. Non-sharded EMA buckets (in-place; n_averaged incremented on host after trace).
+            if has_ema:
+                for bk in opt.ema._buckets:
+                    e = bk.ema_b
+                    ediff = ttnn.subtract(bk.master_b, e)
+                    esc = ttnn.multiply(ediff, ema_w)
+                    ttnn.deallocate(ediff)
+                    e_nxt = ttnn.add(e, esc)
+                    ttnn.deallocate(esc)
+                    ttnn.copy(e_nxt, e)
+                    ttnn.deallocate(e_nxt)
+
+            for t in sc_cache.values():
+                ttnn.deallocate(t)
+
+        ran = tracer.run_in_place_trace("opt_body", trace_key, inputs, _body)
+        ttnn.deallocate(scalars_dev)
+        if not ran:
+            return False
+
+        if has_ema:
+            opt.ema.n_averaged += 1
+        for slot in sh_slots:
+            g_sh = grad_shards[slot.shape]
+            if g_sh.is_allocated():
+                ttnn.deallocate(g_sh)
+        for _bk, g_b, _flags in packed_rem_muon:
+            if g_b is not None and g_b.is_allocated():
+                ttnn.deallocate(g_b)
+        for _bk, g_b, _flags in packed_adam:
+            if g_b is not None and g_b.is_allocated():
+                ttnn.deallocate(g_b)
+        return True
 
     def step(
         self,
@@ -558,152 +1003,198 @@ class SPMDZero1Step:
         opt.last_grad_norm_muon = muon_gnorm
         opt.last_dead_grads = frozenset(dead)
 
-        # 3. Phase B: 1/rm Muon step matching DeviceOptimizer._step_muon_bucket verbatim.
+        # 3. Phase B + unsharded Muon + AdamW + EMA: single MeshTrace (Trace A) when steady-state.
         mu = opt.muon
         one_minus_mu = float(1.0 - mu.momentum)
         masks = self.muon_sharder.active_masks_for_step(dev_grads, dis, self.device)
         sh_slots = [slot for wg in self.muon_plan.width_groups for slot in wg.buckets]
-        u_list = []
-        for slot in sh_slots:
-            shp = slot.shape
-            g_sh = grad_shards[shp]
-            g_eff = ttnn.multiply(g_sh, float(clip_muon)) if clip_muon != 1.0 else g_sh
-            m_prev = self.sh_mom.get(shp)
-            m_pair = masks[shp]
-            if m_prev is None:
-                buf_new = ttnn.multiply(g_eff, one_minus_mu)
+
+        traced_body = self._try_traced_opt_body(
+            tracer,
+            sh_slots,
+            grad_shards,
+            masks,
+            packed_rem_muon,
+            packed_adam,
+            dis,
+            clip_muon=clip_muon,
+            lr_muon=lr_muon,
+            clip_adam=clip_adam,
+            lr_now=lr_now,
+            bc1=bc1,
+            bc2=bc2,
+            in_place_masters=in_place_masters,
+        )
+
+        if not traced_body:
+            u_list = []
+            for slot in sh_slots:
+                shp = slot.shape
+                g_sh = grad_shards[shp]
+                g_eff = ttnn.multiply(g_sh, float(clip_muon)) if clip_muon != 1.0 else g_sh
+                m_prev = self.sh_mom.get(shp)
+                m_pair = masks[shp]
+                if m_prev is None:
+                    buf_new = ttnn.multiply(g_eff, one_minus_mu)
+                else:
+                    diff = ttnn.subtract(g_eff, m_prev)
+                    scaled = ttnn.multiply(diff, one_minus_mu)
+                    ttnn.deallocate(diff)
+                    buf_cand = ttnn.add(m_prev, scaled)
+                    ttnn.deallocate(scaled)
+                    if m_pair is None:
+                        ttnn.deallocate(m_prev)
+                        buf_new = buf_cand
+                    else:
+                        ma, mi = m_pair
+                        p1 = ttnn.multiply(buf_cand, ma)
+                        p2 = ttnn.multiply(m_prev, mi)
+                        ttnn.deallocate(buf_cand)
+                        ttnn.deallocate(m_prev)
+                        buf_new = ttnn.add(p1, p2)
+                        ttnn.deallocate(p1)
+                        ttnn.deallocate(p2)
+                self.sh_mom[shp] = buf_new
+
+                if mu.nesterov:
+                    d2 = ttnn.subtract(buf_new, g_eff)
+                    s2 = ttnn.multiply(d2, one_minus_mu)
+                    ttnn.deallocate(d2)
+                    u_b = ttnn.subtract(buf_new, s2)
+                    ttnn.deallocate(s2)
+                else:
+                    u_b = _clone_exact_f32(buf_new)
+
+                if g_eff is not g_sh:
+                    ttnn.deallocate(g_eff)
+                ttnn.deallocate(g_sh)
+
+                u_list.append(u_b)
+
+            def _run_ns_all(us):
+                return [
+                    newton_schulz_device(
+                        u_cur, steps=mu.ns_steps, coeffs=mu.ns_coefficients, eps=mu.eps,
+                        mode=opt.ns_mode,
+                    )
+                    for u_cur in us
+                ]
+
+            if tracer is not None and sh_slots:
+                ns_key = (
+                    "muon_ns",
+                    tuple((s.k_shard, s.m, s.cols) for s in sh_slots),
+                    opt.ns_mode, mu.ns_steps, tuple(mu.ns_coefficients),
+                )
+                o_list = tracer.run_muon_ns_batch(ns_key, u_list, _run_ns_all)
             else:
-                diff = ttnn.subtract(g_eff, m_prev)
-                scaled = ttnn.multiply(diff, one_minus_mu)
-                ttnn.deallocate(diff)
-                buf_cand = ttnn.add(m_prev, scaled)
-                ttnn.deallocate(scaled)
+                o_list = _run_ns_all(u_list)
+            for u_cur in u_list:
+                ttnn.deallocate(u_cur)
+
+            for slot, o_b in zip(sh_slots, o_list):
+                shp = slot.shape
+                m_pair = masks[shp]
+                w_prev = self.sh_master[shp]
+                decay_scale = float(1.0 - lr_muon * mu.weight_decay)
+                step_scale = float(-lr_muon * mu.ratio(shp))
+                t2 = ttnn.multiply(o_b, step_scale)
+                ttnn.deallocate(o_b)
+                if decay_scale == 1.0:
+                    w_cand = ttnn.add(w_prev, t2)
+                    ttnn.deallocate(t2)
+                else:
+                    t1 = ttnn.multiply(w_prev, decay_scale)
+                    w_cand = ttnn.add(t1, t2)
+                    ttnn.deallocate(t1)
+                    ttnn.deallocate(t2)
+
                 if m_pair is None:
-                    ttnn.deallocate(m_prev)
-                    buf_new = buf_cand
+                    ttnn.deallocate(w_prev)
+                    w_new = w_cand
                 else:
                     ma, mi = m_pair
-                    p1 = ttnn.multiply(buf_cand, ma)
-                    p2 = ttnn.multiply(m_prev, mi)
-                    ttnn.deallocate(buf_cand)
-                    ttnn.deallocate(m_prev)
-                    buf_new = ttnn.add(p1, p2)
+                    p1 = ttnn.multiply(w_cand, ma)
+                    p2 = ttnn.multiply(w_prev, mi)
+                    ttnn.deallocate(w_cand)
+                    ttnn.deallocate(w_prev)
+                    w_new = ttnn.add(p1, p2)
                     ttnn.deallocate(p1)
                     ttnn.deallocate(p2)
-            self.sh_mom[shp] = buf_new
+                    ttnn.deallocate(ma)
+                    ttnn.deallocate(mi)
+                self.sh_master[shp] = w_new
 
-            if mu.nesterov:
-                d2 = ttnn.subtract(buf_new, g_eff)
-                s2 = ttnn.multiply(d2, one_minus_mu)
-                ttnn.deallocate(d2)
-                u_b = ttnn.subtract(buf_new, s2)
-                ttnn.deallocate(s2)
-            else:
-                u_b = _clone_exact_f32(buf_new)
+                if opt.ema is not None:
+                    if shp not in self.sh_ema:
+                        self.sh_ema[shp] = _clone_exact_f32(w_new)
+                    else:
+                        e_prev = self.sh_ema[shp]
+                        diff = ttnn.subtract(w_new, e_prev)
+                        sc = ttnn.multiply(diff, float(1.0 - opt.ema.decay))
+                        ttnn.deallocate(diff)
+                        e_nxt = ttnn.add(e_prev, sc)
+                        ttnn.deallocate(sc)
+                        ttnn.deallocate(e_prev)
+                        self.sh_ema[shp] = e_nxt
 
-            if g_eff is not g_sh:
-                ttnn.deallocate(g_eff)
-            ttnn.deallocate(g_sh)
-
-            u_list.append(u_b)
-
-        def _run_ns_all(us):
-            return [
-                newton_schulz_device(
-                    u_cur, steps=mu.ns_steps, coeffs=mu.ns_coefficients, eps=mu.eps,
-                    mode=opt.ns_mode,
-                )
-                for u_cur in us
-            ]
-
-        if tracer is not None and sh_slots:
-            ns_key = (
-                "muon_ns",
-                tuple((s.k_shard, s.m, s.cols) for s in sh_slots),
-                opt.ns_mode, mu.ns_steps, tuple(mu.ns_coefficients),
-            )
-            o_list = tracer.run_muon_ns_batch(ns_key, u_list, _run_ns_all)
-        else:
-            o_list = _run_ns_all(u_list)
-        for u_cur in u_list:
-            ttnn.deallocate(u_cur)
-
-        for slot, o_b in zip(sh_slots, o_list):
-            shp = slot.shape
-            m_pair = masks[shp]
-            w_prev = self.sh_master[shp]
-            decay_scale = float(1.0 - lr_muon * mu.weight_decay)
-            step_scale = float(-lr_muon * mu.ratio(shp))
-            t2 = ttnn.multiply(o_b, step_scale)
-            ttnn.deallocate(o_b)
-            if decay_scale == 1.0:
-                w_cand = ttnn.add(w_prev, t2)
-                ttnn.deallocate(t2)
-            else:
-                t1 = ttnn.multiply(w_prev, decay_scale)
-                w_cand = ttnn.add(t1, t2)
-                ttnn.deallocate(t1)
-                ttnn.deallocate(t2)
-
-            if m_pair is None:
-                ttnn.deallocate(w_prev)
-                w_new = w_cand
-            else:
-                ma, mi = m_pair
-                p1 = ttnn.multiply(w_cand, ma)
-                p2 = ttnn.multiply(w_prev, mi)
-                ttnn.deallocate(w_cand)
-                ttnn.deallocate(w_prev)
-                w_new = ttnn.add(p1, p2)
-                ttnn.deallocate(p1)
-                ttnn.deallocate(p2)
-                ttnn.deallocate(ma)
-                ttnn.deallocate(mi)
-            self.sh_master[shp] = w_new
-
+            # 4. Step remaining unsharded Muon + AdamW buckets identically on every chip.
+            ip_kw = {"in_place_masters": True} if in_place_masters else {}
+            for bk, g_b, flags in packed_rem_muon:
+                opt._step_muon_bucket(bk, g_b, flags, clip_muon, lr_muon, **ip_kw)
+                if g_b is not None and g_b.is_allocated():
+                    ttnn.deallocate(g_b)
+            for bk, g_b, _flags in packed_adam:
+                opt._step_adam_bucket(bk, g_b, dis, clip_adam, lr_now, bc1, bc2, **ip_kw)
+                if g_b is not None and g_b.is_allocated():
+                    ttnn.deallocate(g_b)
             if opt.ema is not None:
-                if shp not in self.sh_ema:
-                    self.sh_ema[shp] = _clone_exact_f32(w_new)
-                else:
-                    e_prev = self.sh_ema[shp]
-                    diff = ttnn.subtract(w_new, e_prev)
-                    sc = ttnn.multiply(diff, float(1.0 - opt.ema.decay))
-                    ttnn.deallocate(diff)
-                    e_nxt = ttnn.add(e_prev, sc)
-                    ttnn.deallocate(sc)
-                    ttnn.deallocate(e_prev)
-                    self.sh_ema[shp] = e_nxt
-
-        # 4. Step remaining unsharded Muon + AdamW buckets identically on every chip.
-        ip_kw = {"in_place_masters": True} if in_place_masters else {}
-        for bk, g_b, flags in packed_rem_muon:
-            opt._step_muon_bucket(bk, g_b, flags, clip_muon, lr_muon, **ip_kw)
-            if g_b is not None and g_b.is_allocated():
-                ttnn.deallocate(g_b)
-        for bk, g_b, _flags in packed_adam:
-            opt._step_adam_bucket(bk, g_b, dis, clip_adam, lr_now, bc1, bc2, **ip_kw)
-            if g_b is not None and g_b.is_allocated():
-                ttnn.deallocate(g_b)
-        if opt.ema is not None:
-            opt.ema.update()
+                opt.ema.update()
 
         # 5. Phase C: AG_axis0 -> bit-identical replicated masters for all sharded Muon params.
         if profile_sync:
             ttnn.synchronize_device(self.device)
             _ts1 = _time.time()
-        gathered = self.muon_sharder.all_gather_masters(self.sh_master, self.device)
+        full_wgs = self.muon_sharder.all_gather_width_groups(self.sh_master, self.device)
         if profile_sync:
             ttnn.synchronize_device(self.device)
             sync_s += _time.time() - _ts1
-        for nm, new_m in gathered.items():
-            old_m = opt.master.get(nm)
-            if in_place_masters and old_m is not None:
-                if new_m is not old_m:
-                    ttnn.copy(new_m, old_m)
-                    _safe_dealloc(new_m, keep=old_m)
+
+        can_in_place_ag = in_place_masters and all(
+            opt.master.get(nm) is not None for nm in self.muon_plan.sharded_names
+        )
+        ag_traced = False
+        if can_in_place_ag and tracer is not None and getattr(tracer, "enabled", False):
+            ag_key = (
+                self._state_epoch,
+                tuple(tuple(int(d) for d in f.shape) for f in full_wgs),
+                tuple(self._buf_addr(opt.master[nm]) for nm in sorted(self.muon_plan.sharded_names)),
+            )
+            ag_traced = tracer.run_in_place_trace(
+                "ag_unpack",
+                ag_key,
+                full_wgs,
+                lambda staged: self.muon_sharder.unpack_width_groups_in_place(staged, opt.master),
+            )
+        if not ag_traced:
+            if can_in_place_ag:
+                self.muon_sharder.unpack_width_groups_in_place(full_wgs, opt.master)
             else:
-                opt.master[nm] = new_m
-                _safe_dealloc(old_m, keep=new_m)
+                for wg, full in zip(self.muon_plan.width_groups, full_wgs):
+                    for slot in wg.buckets:
+                        for i, nm in enumerate(slot.names):
+                            r = i // slot.k_shard
+                            j = i % slot.k_shard
+                            off = r * wg.row_block_h + slot.slot_off + j * slot.m
+                            sl = ttnn.slice(full, [0, 0, off, 0], [1, 1, off + slot.m, wg.cols])
+                            new_m = ttnn.reshape(sl, [slot.m, wg.cols])
+                            _safe_dealloc(sl, keep=new_m)
+                            old_m = opt.master.get(nm)
+                            opt.master[nm] = new_m
+                            _safe_dealloc(old_m, keep=new_m)
+        for full in full_wgs:
+            if full.is_allocated():
+                ttnn.deallocate(full)
 
         if not skip_reduce_for_broken_arm:
             for nm, g in rem_grads.items():
@@ -798,6 +1289,7 @@ class SPMDZero1Step:
         from .device_optim import _safe_dealloc
 
         fams = dict(families) if families else {}
+        self._state_epoch += 1
         self.base_opt.load_host_state(masters, fams)
         if not (self.use_zero1_muon and self.muon_sharder is not None and self.muon_plan is not None):
             return
@@ -856,3 +1348,8 @@ class SPMDZero1Step:
                 if v is not None and v.is_allocated():
                     ttnn.deallocate(v)
             d.clear()
+        for m_act, m_inact in self._mask_cache.values():
+            for m in (m_act, m_inact):
+                if m is not None and m.is_allocated():
+                    ttnn.deallocate(m)
+        self._mask_cache.clear()

@@ -1194,15 +1194,15 @@ class SPMDMuonSharder:
 
         return out
 
-    def all_gather_masters(
+    def all_gather_width_groups(
         self,
         master_shards: Mapping[Tuple[int, int], object],
         device,
-    ) -> Dict[str, object]:
-        """Run ``AG_axis0`` per width group and unpack bit-identical full ``{name: [m, cols]}`` masters."""
+    ) -> list:
+        """Run ``AG_axis0`` per width group and return packed ``full`` tensors (one per width group)."""
         import ttnn
 
-        out: Dict[str, object] = {}
+        full_wgs = []
         for wg in self.plan.width_groups:
             views = []
             pieces = []
@@ -1229,7 +1229,42 @@ class SPMDMuonSharder:
                 force_linear=self.force_linear,
                 deallocate_input=True,
             )
+            full_wgs.append(full)
+        return full_wgs
 
+    def unpack_width_groups_in_place(
+        self,
+        full_wgs: Sequence[object],
+        masters: Mapping[str, object],
+    ) -> None:
+        """Unpack gathered width-group tensors directly into existing ``masters[nm]`` slots in-place."""
+        import ttnn
+
+        for wg, full in zip(self.plan.width_groups, full_wgs):
+            for slot in wg.buckets:
+                for i, nm in enumerate(slot.names):
+                    r = i // slot.k_shard
+                    j = i % slot.k_shard
+                    off = r * wg.row_block_h + slot.slot_off + j * slot.m
+                    sl = ttnn.slice(full, [0, 0, off, 0], [1, 1, off + slot.m, wg.cols])
+                    m2d = ttnn.reshape(sl, [slot.m, wg.cols])
+                    _safe_dealloc(sl, keep=m2d)
+                    old_m = masters[nm]
+                    if m2d is not old_m:
+                        ttnn.copy(m2d, old_m)
+                        _safe_dealloc(m2d, keep=old_m)
+
+    def all_gather_masters(
+        self,
+        master_shards: Mapping[Tuple[int, int], object],
+        device,
+    ) -> Dict[str, object]:
+        """Run ``AG_axis0`` per width group and unpack bit-identical full ``{name: [m, cols]}`` masters."""
+        import ttnn
+
+        full_wgs = self.all_gather_width_groups(master_shards, device)
+        out: Dict[str, object] = {}
+        for wg, full in zip(self.plan.width_groups, full_wgs):
             for slot in wg.buckets:
                 for i, nm in enumerate(slot.names):
                     r = i // slot.k_shard
@@ -1239,9 +1274,7 @@ class SPMDMuonSharder:
                     m2d = ttnn.reshape(sl, [slot.m, wg.cols])
                     _safe_dealloc(sl, keep=m2d)
                     out[nm] = m2d
-
             ttnn.deallocate(full)
-
         return out
 
     def gather_host_shards(

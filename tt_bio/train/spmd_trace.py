@@ -1538,12 +1538,16 @@ class SPMDMeshTracer:
         self._head_traces: dict[tuple, Any] = {}
         self._ns_seen: dict[tuple, int] = {}
         self._ns_traces: dict[tuple, Any] = {}
+        self._inplace_seen: dict[tuple, int] = {}
+        self._inplace_traces: dict[tuple, Any] = {}
         self.stats = {
             "refold_replay": 0,
             "untaped_replay": 0,
             "win_pair_replay": 0,
             "win_glue_replay": 0,
             "head_pair_replay": 0,
+            "opt_body_replay": 0,
+            "ag_unpack_replay": 0,
             "ns_replay": 0,
             "captures": 0,
             "refused": 0,
@@ -2486,6 +2490,71 @@ class SPMDMeshTracer:
             self.refusal_reasons.append(f"muon_ns:{type(exc).__name__}:{exc}")
         return o_warm
 
+    # ---- T5b: Generic in-place MeshTrace (SPMDZero1Step body + AG unpack) ----
+    def run_in_place_trace(
+        self,
+        tag: str,
+        key: tuple,
+        inputs: Sequence[Any],
+        body_fn: Callable[[Sequence[Any]], None],
+        *,
+        extra_owned: Sequence[Any] = (),
+    ) -> bool:
+        """Warm, capture, and replay an in-place MeshTrace mutating persistent device state.
+
+        Semantics guarantee ``body_fn`` executes on hardware EXACTLY ONCE per call (never twice
+        on capture — ``begin_trace_capture`` records without executing, then ``execute_trace``
+        runs the recorded trace once for the current step). Returns ``True`` when handled (warm,
+        capture+execute, or replay) and ``False`` when disabled/refused so caller runs eager.
+        """
+        import ttnn
+
+        if not self.enabled:
+            return False
+        full_key = (tag, key)
+        tr = self._inplace_traces.get(full_key)
+        if tr == "eager":
+            return False
+
+        if isinstance(tr, dict):
+            for src, dst in zip(inputs, tr["slots"]):
+                ttnn.copy(src, dst)
+            ttnn.execute_trace(self.device, tr["tid"], cq_id=0, blocking=False)
+            stat_k = f"{tag}_replay"
+            self.stats[stat_k] = self.stats.get(stat_k, 0) + 1
+            return True
+
+        seen = self._inplace_seen.get(full_key, 0)
+        if seen == 0 or not self._hole_ready:
+            # Warm step: executes body_fn ONCE eagerly, compiling all kernels & ttnn.copy shapes.
+            body_fn(inputs)
+            self._inplace_seen[full_key] = 1
+            return True
+
+        slots = [ttnn.clone(x) for x in inputs]
+        for x, sl in zip(inputs, slots):
+            ttnn.copy(x, sl)
+        ttnn.synchronize_device(self.device)
+
+        try:
+            tids = self._capture_runs([lambda: body_fn(slots)])
+            self._track(*slots, *extra_owned)
+            self._inplace_traces[full_key] = dict(tid=tids[0], slots=slots)
+        except Exception as exc:
+            for t in slots:
+                _safe_dealloc(t)
+            self._inplace_traces[full_key] = "eager"
+            self.stats["refused"] += 1
+            self.refusal_reasons.append(f"{tag}:{type(exc).__name__}:{exc}")
+            # Capture failed before hardware ran; apply this step once eagerly.
+            body_fn(inputs)
+            return True
+
+        ttnn.execute_trace(self.device, tids[0], cq_id=0, blocking=False)
+        stat_k = f"{tag}_replay"
+        self.stats[stat_k] = self.stats.get(stat_k, 0) + 1
+        return True
+
     def release(self) -> None:
         import ttnn
 
@@ -2515,3 +2584,5 @@ class SPMDMeshTracer:
         self._win_traces.clear()
         self._head_traces.clear()
         self._ns_traces.clear()
+        self._inplace_traces.clear()
+        self._inplace_seen.clear()
