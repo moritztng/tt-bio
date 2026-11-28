@@ -16,6 +16,10 @@ campaigns at several seeds, graded by perf/spd/bc2_quality.py rather than timed.
 trajectory budget the campaign always spends, and the example's own binder lengths, so --example, --max-traj,
 --final-designs and --binder-len example exist. Every default is the timing run's, so the protocol command is
 unchanged.
+
+--gate DIR --slot J is perf/kitcmp/bc4_pack.py's: several of these processes share one GPU and DIR/phase ("<name> <n>
+<w>") says which run now. A process whose slot is below n runs w trajectories, touches DIR/done.<name>.<J> and holds
+(outside every timed window) until the phase changes; "end" emits the last trajectory and exits.
 """
 import argparse, contextlib, json, os, subprocess, sys, time, traceback
 from datetime import datetime
@@ -33,6 +37,8 @@ ap.add_argument("--max-traj", type=int, default=None, help="max_trajectories; de
 ap.add_argument("--final-designs", type=int, default=None,
                 help="number_of_final_designs; raise it so a campaign always spends its whole trajectory budget "
                      "instead of stopping early on an accepted design")
+ap.add_argument("--gate", type=Path, help="phase directory of bc4_pack.py (see above)")
+ap.add_argument("--slot", type=int, default=0)
 a = ap.parse_args()
 a.out.mkdir(parents=True, exist_ok=True)
 sys.path.insert(0, str(a.bc2))
@@ -87,12 +93,43 @@ def emit(i):
     row, acc = table_row(project, tr["n"])
     log(ev="rep", trajectory=tr["n"], kind="cold" if i == 0 else "warm", design_s=tr.get("design_s"),
         validate_s=tr.get("validate_s"), traj_s=time.time() - tr["t0w"], iterations=tr.get("iterations"),
-        s_per_iter=s_per_iter(tr), loadavg=tr.get("loadavg"), other_load=tr.get("other_load"),
+        t0w=tr["t0w"], phase=tr.get("phase"), s_per_iter=s_per_iter(tr), loadavg=tr.get("loadavg"), other_load=tr.get("other_load"),
         sm=sm_mhz(tr["t0w"], tr["t0w"] + (tr.get("design_s") or 0)), terminated=row.get("terminated") or None,
         accepted_total=acc, csv_row=row, err=tr.get("err"))
 
 
+def gated(run):
+    """Hold between trajectories until the current phase gives this slot work. Wraps the hook's timer, so no wait is
+    ever inside design_s."""
+    st = dict(phase=None, left=0)
+
+    def go(*args, **kw):
+        while not st["left"]:
+            if st["phase"]:
+                (a.gate / f"done.{st['phase']}.{a.slot}").touch()
+            while True:
+                with contextlib.suppress(OSError, ValueError):
+                    name, n, w = (a.gate / "phase").read_text().split()
+                    if name != st["phase"]:
+                        break
+                time.sleep(0.2)
+            if name == "end":
+                if traj:
+                    emit(len(traj) - 1)
+                log(ev="end")
+                os._exit(0)
+            st.update(phase=name, left=int(w) if a.slot < int(n) else 0)
+        st["left"] -= 1
+        try:
+            return run(*args, **kw)
+        finally:
+            traj[-1]["phase"] = st["phase"]
+    return go
+
+
 traj = hook(campaign, project, emit)
+if a.gate:
+    campaign.run_trajectory = gated(campaign.run_trajectory)
 af2, mpnn = model_weights()
 try:
     campaign.run_campaign(settings, str(project), af2_weights=af2, mpnn_weights=mpnn)
