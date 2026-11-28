@@ -28,6 +28,7 @@ from tt_bio.esmc import SwiGLUFFN, apply_rotary
 from tt_bio.envflags import env_flag
 from tt_bio.runtime import serial_host
 from tt_bio.tenstorrent import (
+    _SDPA32_PAD_MASK,
     CORE_GRID_MAIN,
     Module,
     TorchWrapper,
@@ -400,9 +401,9 @@ class AttentionPairBias(Module):
             self._fold = (to_tt(qkv), to_tt(b), to_tt(W("g_proj.weight").t() @ Sg))
         return self._fold
 
-    def __call__(self, a: ttnn.Tensor, s: ttnn.Tensor, z: ttnn.Tensor, terms=None) -> ttnn.Tensor:
+    def __call__(self, a: ttnn.Tensor, s: ttnn.Tensor, z: ttnn.Tensor, terms=None, key_mask=None) -> ttnn.Tensor:
         """`terms` (dit_shoist): the adaLN windows; the output then comes back without its s-gate, which the
-        caller applies with the residual add."""
+        caller applies with the residual add. `key_mask`: see `_pair_bias`."""
         ck = self.compute_kernel_config
         d_model = a.shape[-1]
         head_dim = d_model // self.num_heads
@@ -419,7 +420,7 @@ class AttentionPairBias(Module):
             g_pad = ttnn.sigmoid(lin(x, g_w))
             ttnn.deallocate(x)
             B, _, n, w = (int(d) for d in qkv.shape)
-            ctx = _sdpa32_fused(qkv, self._pair_bias(z, head_dim, ck), head_dim**-0.5, self.num_heads,
+            ctx = _sdpa32_fused(qkv, self._pair_bias(z, head_dim, ck, key_mask), head_dim**-0.5, self.num_heads,
                                 out_dtype=_DTYPE)
             ttnn.deallocate(qkv)
             return self._out(ttnn.reshape(ctx, (B, n, w // 3)), g_pad, s)
@@ -428,7 +429,7 @@ class AttentionPairBias(Module):
             qh, kh, vh = self._split_heads(lin(x, qkv_w, qkv_b), self.num_heads)
             g_pad = ttnn.sigmoid(lin(x, g_w))  # pad lanes read 0.5, against ctx pad lanes that are 0
             ttnn.deallocate(x)
-            return self._attend(qh, kh, vh, g_pad, s, z, head_dim, ck)
+            return self._attend(qh, kh, vh, g_pad, s, z, head_dim, ck, key_mask)
         q = lin(x, self.q_w, self.q_b)
         kv = lin(x, self.kv_w)
         k, v = ttnn.chunk(kv, 2, dim=-1)
@@ -450,9 +451,9 @@ class AttentionPairBias(Module):
         qh, kh, vh = self._split_heads(qkv, self.num_heads)
         g_pad = lin(g, self.scatter_g)  # [B, L, Dpad]
         ttnn.deallocate(g)
-        return self._attend(qh, kh, vh, g_pad, s, z, head_dim, ck)
+        return self._attend(qh, kh, vh, g_pad, s, z, head_dim, ck, key_mask)
 
-    def _pair_bias(self, z, head_dim, ck):
+    def _pair_bias(self, z, head_dim, ck, key_mask=None):
         """pair_bias = pair_bias_proj(layer_norm(z)) [B, H, L, L], or under dit_qkvf `_sdpa32`'s mask
         made from it (`_sdpa32_mask`).
 
@@ -460,7 +461,10 @@ class AttentionPairBias(Module):
         resident sampler feeds the same cached z object each step). So it is built once and reused while the same
         z is fed; a new protein passes a fresh z, which rebuilds it. Bit-identical to recomputing, and saves an
         O(L^2 . H) layer_norm + projection per step per layer, the single largest step-invariant cost in the
-        token DiT."""
+        token DiT.
+
+        `key_mask` [1, 1, 1, L], 0 on real tokens and `_SDPA32_PAD_MASK` on the pad of a token axis held at its
+        bucket: added to the bias, it takes the pad keys out of every softmax and adds 0.0 to the real ones."""
         if _STEP_CACHE and self._pb_src is z:
             return self._pb
         if self._pb is not None:
@@ -472,6 +476,10 @@ class AttentionPairBias(Module):
         ttnn.deallocate(z_norm)
         pair_bias = ttnn.permute(pb, (0, 3, 1, 2))  # [B, H, L, L]
         ttnn.deallocate(pb)
+        if key_mask is not None:
+            masked = ttnn.add(pair_bias, key_mask)
+            ttnn.deallocate(pair_bias)
+            pair_bias = masked
         if lever("dit_qkvf"):  # cache the fp32 mask in place of the bf16 bias
             m = _sdpa32_mask(pair_bias, head_dim**-0.5)
             ttnn.deallocate(pair_bias)
@@ -480,8 +488,8 @@ class AttentionPairBias(Module):
         self._pb_src = z
         return pair_bias
 
-    def _attend(self, qh, kh, vh, g_pad, s, z, head_dim, ck):
-        pair_bias = self._pair_bias(z, head_dim, ck)
+    def _attend(self, qh, kh, vh, g_pad, s, z, head_dim, ck, key_mask=None):
+        pair_bias = self._pair_bias(z, head_dim, ck, key_mask)
         ctx = _attn_fp32(qh, kh, vh, pair_bias, head_dim**-0.5, ck, self.accurate_softmax)
         ttnn.deallocate(qh); ttnn.deallocate(kh); ttnn.deallocate(vh)
         return self._out(self._merge_heads(ctx), g_pad, s)  # [B, L, H*head_dim_pad]  (pad value dims are 0)
@@ -566,7 +574,7 @@ class DiffusionTransformerModel(Module):
         ttnn.deallocate(s_hat)
         return out
 
-    def _blocks_shoist(self, a, s, z):
+    def _blocks_shoist(self, a, s, z, key_mask=None):
         """The block loop under dit_shoist: each sub-block reads its adaLN windows and returns ungated; the gate
         window multiplies it into the residual in one op."""
         sc, sh, g = self._shoist(s)
@@ -575,7 +583,7 @@ class DiffusionTransformerModel(Module):
         for i, (attn, trans) in enumerate(zip(self.attn, self.trans)):
             for j, blk in ((2 * i, attn), (2 * i + 1, trans)):
                 terms = (W(sc, j), W(sh, j))
-                y = blk(x, s, z, terms) if blk is attn else blk(x, s, terms)
+                y = blk(x, s, z, terms, key_mask) if blk is attn else blk(x, s, terms)
                 x_new = _win_addcmul(x, y, W(g, j))
                 if x_new is None:
                     gj = W(g, j).cut()
@@ -589,7 +597,7 @@ class DiffusionTransformerModel(Module):
             ttnn.deallocate(t)
         return x
 
-    def __call__(self, a: ttnn.Tensor, s: ttnn.Tensor, z: ttnn.Tensor) -> ttnn.Tensor:
+    def __call__(self, a: ttnn.Tensor, s: ttnn.Tensor, z: ttnn.Tensor, key_mask=None) -> ttnn.Tensor:
         # dit_qkvf runs the attention at sdpa32_rows. The token stream is padded to it here, once a call, not
         # q, k and v in every block: rows are independent everywhere but the attention, and its mask
         # (`_sdpa32_mask`) hides the new keys. The same padding Protenix's and OpenFold3's token DiTs do.
@@ -598,11 +606,11 @@ class DiffusionTransformerModel(Module):
         if npad != n:
             a, s = (ttnn.pad(t, [(0, 0), (0, npad - n), (0, 0)], value=0.0) for t in (a, s))
         if lever("dit_shoist"):
-            x = self._blocks_shoist(a, s, z)
+            x = self._blocks_shoist(a, s, z, key_mask)
         else:
             x = a
             for attn, trans in zip(self.attn, self.trans):
-                x = ttnn.add(x, attn(x, s, z))
+                x = ttnn.add(x, attn(x, s, z, key_mask=key_mask))
                 x = ttnn.add(x, trans(x, s))
         if npad != n:
             out = ttnn.slice(x, [0, 0, 0], [int(x.shape[0]), n, int(x.shape[2])])
@@ -1246,21 +1254,21 @@ class DiffusionModuleModel(Module):
         self.token_norm_w = self.torch_to_tt("token_norm.weight")
         self.token_norm_b = self.torch_to_tt("token_norm.bias")
 
-    def _denoise(self, s, z, atom_feats, r_input, cos, sin, band, scatter_m, gather_g, valid):
+    def _denoise(self, s, z, atom_feats, r_input, cos, sin, band, scatter_m, gather_g, valid, key_mask=None):
         # atom_l1: the step's linears write L1 where the output fits (placement only, the same bits). The DiT's
         # short-K and 512-row projections wait on their interleaved DRAM write: on a Galaxy chip at 1000 MHz
         # [4128, 128] x [128, 256] reads 59.9 us with a DRAM output and 30.5 us with an L1 one, [512, 768] x
         # [768, 3072] 103.2 vs 70.1 us, rel_l2 vs float64 equal (wdy).
         with atom_l1_linears():
-            return self._denoise_step(s, z, atom_feats, r_input, cos, sin, band, scatter_m, gather_g, valid)
+            return self._denoise_step(s, z, atom_feats, r_input, cos, sin, band, scatter_m, gather_g, valid, key_mask)
 
-    def _denoise_step(self, s, z, atom_feats, r_input, cos, sin, band, scatter_m, gather_g, valid):
+    def _denoise_step(self, s, z, atom_feats, r_input, cos, sin, band, scatter_m, gather_g, valid, key_mask):
         ck = self.compute_kernel_config
         lin = self._lin
         a, q_skip, c_skip = self.atom_encoder(atom_feats, cos, sin, band, scatter_m, r_input=r_input, valid=valid)
         s_step = ttnn.layer_norm(s, weight=self.s_step_norm_w, bias=self.s_step_norm_b, epsilon=1e-5, compute_kernel_config=ck)
         a = ttnn.add(a, lin(s_step, self.s_to_token_w))
-        a = self.token_transformer(a, s, z)
+        a = self.token_transformer(a, s, z, key_mask)
         a = ttnn.layer_norm(a, weight=self.token_norm_w, bias=self.token_norm_b, epsilon=1e-5, compute_kernel_config=ck)
         return self.atom_decoder(a, q_skip, c_skip, cos, sin, band, gather_g, valid=valid)
 
@@ -1276,10 +1284,10 @@ class DiffusionModuleModel(Module):
     # re-transferring z_trunk/relpos (~L²·256) and re-computing the pair
     # conditioning at every one of the ~20 sampling steps. ---
     def prepare(self, s_inputs, z_trunk, relpos, atom_feats, cos, sin, band,
-                scatter_m, gather_g, valid=None):
+                scatter_m, gather_g, valid=None, key_mask=None):
         self._ctx = dict(
             s_inputs=s_inputs, atom_feats=atom_feats, cos=cos, sin=sin, band=band,
-            scatter_m=scatter_m, gather_g=gather_g, valid=valid,
+            scatter_m=scatter_m, gather_g=gather_g, valid=valid, key_mask=key_mask,
             z=self.conditioning.cond_pair(z_trunk, relpos),  # cached pair conditioning
         )
         ttnn.deallocate(z_trunk); ttnn.deallocate(relpos)
@@ -1288,7 +1296,7 @@ class DiffusionModuleModel(Module):
         c = self._ctx
         s = self.conditioning.cond_single(c["s_inputs"], n_raw)
         out = self._denoise(s, c["z"], c["atom_feats"], r_input, c["cos"], c["sin"],
-                            c["band"], c["scatter_m"], c["gather_g"], c["valid"])
+                            c["band"], c["scatter_m"], c["gather_g"], c["valid"], c["key_mask"])
         ttnn.deallocate(s)
         return out
 
@@ -2147,7 +2155,7 @@ class StructureHead(TorchWrapper):
             self.release()
 
     def prepare(self, z_trunk, s_inputs, relpos, ref_pos, ref_charge, ref_mask, ref_element,
-                ref_atom_name_chars, ref_space_uid, tok_idx):
+                ref_atom_name_chars, ref_space_uid, tok_idx, n_real=None):
         # Build the step-invariant tensors ONCE and keep them resident on the
         # device until release(): the pair conditioning, atom features,
         # 3D-RoPE / band / scatter / gather tables. Only the (tiny) noisy coords
@@ -2156,6 +2164,9 @@ class StructureHead(TorchWrapper):
         # sample chunk: the fp32 z_trunk upload is one contiguous L²·256·4 B
         # request, and re-making it per chunk is what failed 1152 tokens x 2
         # samples on Wormhole once the first chunk had fragmented DRAM.
+        #
+        # `n_real`: the token count when z_trunk, s_inputs and relpos arrive padded to the token bucket. No atom
+        # maps to a pad token, so the atom side never reads one; the token DiT must not attend to them (key_mask).
         dmm = self.module
         B, N, L = ref_pos.shape[0], ref_pos.shape[1], s_inputs.shape[1]
         ft = self._from_torch
@@ -2170,9 +2181,14 @@ class StructureHead(TorchWrapper):
         gather_g = oh.unsqueeze(0)
         scatter_m = (oh / oh.sum(0).clamp(min=1)).t().unsqueeze(0)
         relpos = relpos.device(self.tt_device) if isinstance(relpos, PairLookup) else ft(relpos)
+        key_mask = None
+        if n_real is not None and n_real != L:
+            key_mask = torch.zeros(1, 1, 1, L)
+            key_mask[..., n_real:] = _SDPA32_PAD_MASK
+            key_mask = ft(key_mask)
         dmm.prepare(ft(s_inputs), z_trunk if isinstance(z_trunk, ttnn.Tensor) else ft(z_trunk), relpos, ft(atom_feats.float()),
                     ft(cos.float()), ft(sin.float()), band,
-                    ft(scatter_m.float()), ft(gather_g.float()), ft(valid))
+                    ft(scatter_m.float()), ft(gather_g.float()), ft(valid), key_mask)
         self._base, self._ref_mask, self._n_atoms = dmm._ctx, ref_mask, N
 
     def draw(self, steps=14, seed=0, multiplicity=1):

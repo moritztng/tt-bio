@@ -219,21 +219,28 @@ class _StructureHeadAdapter(_Adapter):
             # the caller asked for.)
             seed = torch.initial_seed()
         n = max(1, num_diffusion_samples)
-        L = int(s_inputs.shape[1])  # residue (token) count
+        L = n = int(s_inputs.shape[1])  # residue (token) count
+        relpos = relative_position_encoding
         if isinstance(z_trunk, _DevPair):  # the device tail: prepare consumes (and frees) the device pair
-            if _device_conf():  # the confidence head reads its own copy on the device
+            n = int(z_trunk.t.shape[1])
+            if _device_conf():  # the confidence head reads its own copy on the device, at the real length
                 import ttnn
-                z_trunk.keep = ttnn.clone(z_trunk.t)
+                z_trunk.keep = (ttnn.clone(z_trunk.t) if n == L else
+                                ttnn.slice(z_trunk.t, [0, 0, 0, 0], [1, L, L, int(z_trunk.t.shape[-1])]))
             else:
                 z_trunk.host = self.m._to_torch(z_trunk.t)[:, :L, :L].float()  # for the confidence head
             z_trunk = z_trunk.t
-        args = (z_trunk.float() if torch.is_tensor(z_trunk) else z_trunk, s_inputs.float(), relative_position_encoding.float(),
+        if n != L:  # a pair at the token bucket: the conditioning joins it there, so no program is built per length
+            s_inputs = _pad_tokens(s_inputs, (1,), n)
+            relpos = (E.PairLookup(_pad_tokens(relpos.codes, (1, 2), n), relpos.rows) if isinstance(relpos, E.PairLookup)
+                      else _pad_tokens(relpos, (1, 2), n))
+        args = (z_trunk.float() if torch.is_tensor(z_trunk) else z_trunk, s_inputs.float(), relpos.float(),
                 ref_pos.float(), ref_charge.float(), ref_mask.float(), ref_element.float(),
                 ref_atom_name_chars.float(), ref_space_uid, tok_idx)
         budget = _diffusion_budget()
         chunk = max(1, min(n, budget // (L * L)))
         out, done = [], 0
-        self.m.prepare(*args)  # the conditioning is the molecule's, shared by every chunk
+        self.m.prepare(*args, n_real=L)  # the conditioning is the molecule's, shared by every chunk
         try:
             while done < n:
                 k = min(chunk, n - done)
@@ -384,7 +391,7 @@ def _dev_forward(m, x):
     r = _trunk_on_device(m, x, to_host=False)
     if not _aliases(r, x.t):
         ttnn.deallocate(x.t)
-    return _DevPair(_unpad(r, x.seq_len), x.seq_len)
+    return _DevPair(r, x.seq_len)  # still at the bucket: every reader goes by seq_len
 
 
 # The confidence head's L^2 part (ConfidenceHead._pair_outputs) on the device: z_norm, the pair sum, the outer
