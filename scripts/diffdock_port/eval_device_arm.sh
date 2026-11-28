@@ -37,7 +37,8 @@ log=$OUT/$name.log
 mkdir -p "$OUT"
 for e in ${etps//,/ }; do mkdir -p "$OUT/poses-$e"; done
 say() { echo "$(date -u +%FT%TZ) $name: $*" >> "$log"; }
-exec 9>"$OUT/$name.armlock"; flock -n 9 || { say "another arm holds the lock, exiting"; exit 0; }
+[ -e "$OUT/$name.done" ] && exit 0
+exec 9>"$OUT/$name.armlock"; flock -n 9 || exit 0   # already armed: the re-arm tick calls this every 10 min
 
 cd "$WT" || exit 1
 export PYTHONPATH=$WT
@@ -85,13 +86,7 @@ done
 exec 8>/home/ttuser/spd_qb2_chip$card.lock
 flock -w 900 8 || { say "gave up: chip $card lock"; $PY $B rm $owner; exit 0; }
 
-# AICLK sampled DURING the arm. A perf number without its clock is not a measurement, and an
-# accuracy arm states it anyway so a later reader can tell a clamped run from a clean one.
-( while :; do /home/ttuser/.local/bin/tt-smi -s 2>/dev/null \
-    | $PY -c "import json,sys;print(json.load(sys.stdin)['device_info'][$card]['telemetry'].get('aiclk'))" \
-    >> "$OUT/$name.aiclk"; sleep 5; done ) &
-clockpid=$!
-
+# AICLK is sampled DURING each form by pose_eval.py itself (poses-<form>/clock.json).
 export TT_VISIBLE_DEVICES=$card TT_BIO_LEASE_CARDS=$card TT_BIO_LEASE_HOLDER=worker:dfd-eval
 deadline=$(( $(date +%s) + dur - 300 ))
 forms=(${etps//,/ })
@@ -113,7 +108,7 @@ for idx in "${!forms[@]}"; do
   say "$etp rc=$rc wall_s=$(( $(date +%s) - s )) docked_dirs=$(ls "$poses" 2>/dev/null | wc -l)"
   [ $rc -eq 124 ] && { say "$etp timed out, resetting chip $card"; /home/ttuser/.local/bin/tt-smi -r $card >> "$log" 2>&1; }
 done
-kill $clockpid 2>/dev/null
-say "aiclk during: $(sort -n "$OUT/$name.aiclk" 2>/dev/null | uniq -c | tr '\n' ' ')"
+# Done means every form printed its own DOCK_DONE in this log, not that directories exist.
+[ "$(grep -c '^DOCK_DONE' "$log")" -ge ${#forms[@]} ] && { touch "$OUT/$name.done"; say "all forms done"; }
 $PY $B rm $owner
 say "window released"
