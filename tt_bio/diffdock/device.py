@@ -514,12 +514,19 @@ class DeviceConvModule(torch.nn.Module):
         #: and the read-back: everything this module owns. The rest of a step is host glue, so
         #: 1 - sum(secs) / step is the card's idle fraction in the untraced form.
         self.secs = 0.0
+        #: Per-layer device seconds and rows, filled only when :attr: is on.
+        self.layer_secs, self.layer_rows = 0.0, 0
         self.host = copy.deepcopy(layer).double() if grade else None
         #: :meth:`run_stack` may carry this layer. Grading needs every layer's input on the host.
         self.resident = not grade
         self.layer = layer
         self.dev = DeviceConvLayer(device, copy.deepcopy(layer).float(), dtype=dtype,
                                    edge_tp=edge_tp)
+
+    #: Set by an attribution script: time and synchronise around every layer of a stack, so
+    #: ``layer_secs`` is that layer's own device time rather than the stack's. Off by default,
+    #: because the synchronisation is itself a cost no shipped rollout should pay.
+    time_layers = False
 
     def _graph(self, ei: Tensor, n_out_p: int, n_in_p: int) -> dict:
         return self.graphs.get((tuple(ei.shape), n_out_p, n_in_p), ei,
@@ -563,8 +570,14 @@ class DeviceConvModule(torch.nn.Module):
                 raise ValueError(f"{mod.name}: {len(edges) - 1} edge groups for "
                                  f"{len(mod.dev.tps)} FC blocks")
             g = mod._graph(ei[:, :c], n_p, n_p)
+            t1 = time.perf_counter() if DeviceConvModule.time_layers else None
             x = mod.dev(x, g, [rows_of(a, b)[0] for a, b in zip(edges, edges[1:])],
                         rows_of(0, c)[1], rows_of(0, c)[2], ns=ns)
+            if t1 is not None:
+                # attribution only: without the sync a layer is charged for queueing, not work
+                ttnn.synchronize_device(d)
+                mod.layer_secs += time.perf_counter() - t1
+                mod.layer_rows += c
         out = ttnn.to_torch(x)[:N, :mods[-1].layer.out_irreps.dim].to(node_attr.dtype)
         mods[0].secs += time.perf_counter() - t0
         return out
