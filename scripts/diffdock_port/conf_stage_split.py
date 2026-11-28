@@ -5,7 +5,8 @@
 
 Per complex: one seeded card rollout gives the pose set (kept in ``<work>/<id>.npz`` and reused
 on the next run, so a before/after pair scores the same poses), then
-``network.confidence(graph, poses)`` once warm and *n* times timed. Every stage of the pass is
+``network.confidence(graph, poses)`` once cold (``first_call_s``), *n* times timed, and once
+more on the same poses moved 0.5 A (``new_shapes_s``: new edge counts in a warm process). Every stage of the pass is
 wrapped with an exclusive timer, the card is drained before the read-back so device seconds
 are not booked to it, and AICLK plus load are sampled during the timed block
 (``perf/clocksample.py``). Host scores on the same poses give top-1, order and Spearman.
@@ -174,6 +175,13 @@ def main():
                 runs.append(time.perf_counter() - t0)
         ttnn.to_torch = real_to_torch
         got = torch.as_tensor(got).double().numpy()
+        # What the next ligand pays in a warm process: the same complex with every pose moved
+        # 0.5 A rms, so the cross and radius edge counts, and with them the shapes, are new.
+        moved = torch.as_tensor(poses) + 0.5 * torch.randn(
+            torch.as_tensor(poses).shape, generator=torch.Generator().manual_seed(1))
+        t0 = time.perf_counter()
+        dev.confidence(graph, moved)
+        new_shapes = time.perf_counter() - t0
         table = st.table(args.n)
         table["card: 45 conv dispatch"]["s"] = round(
             table["card: 45 conv dispatch"]["s"]
@@ -184,7 +192,7 @@ def main():
             n_poses=len(poses), lig_atoms=int(graph.ligand["pos"].shape[0]),
             nodes={k: int(v.shape[0]) for k, v in g["nodes"].items()},
             edges={k: int(v[0].shape[1]) for k, v in g["edges"].items()},
-            first_call_s=round(first, 3), runs_s=[round(r, 3) for r in runs],
+            first_call_s=round(first, 3), new_shapes_s=round(new_shapes, 3), runs_s=[round(r, 3) for r in runs],
             median_s=round(float(np.median(runs)), 3), stages=table,
             clock=clk.summary().get(0), clock_line=clk.line(), load_per_core=clk.load,
             scores_card=got.tolist(), scores_host=ref.tolist(),
@@ -193,7 +201,8 @@ def main():
             == np.argsort(-ref, kind="stable").tolist(),
             spearman=_spearman(got, ref), max_abs=float(np.max(np.abs(got - ref))))
         c = res["complexes"][cid]
-        print(cid, c["runs_s"], c["clock_line"], "top1", c["top1_same"], "rho", c["spearman"],
+        print(cid, "first", c["first_call_s"], "new shapes", c["new_shapes_s"], c["runs_s"],
+              c["clock_line"], "top1", c["top1_same"], "rho", c["spearman"],
               flush=True)
         for k, v in table.items():
             print(f"   {v['s']:8.4f} s  x{v['calls']:<5d} {k}", flush=True)
