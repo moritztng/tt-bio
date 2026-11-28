@@ -18778,12 +18778,20 @@ class MSALayer(Module):
             # what blocks the large targets is the pair representation, not MSA occupancy.
             parts = []
             N = m.shape[1]
-            for s in range(0, N, MSA_CHUNK_SIZE):
-                mc = m[:, s:min(s + MSA_CHUNK_SIZE, N), :]
-                mc = ttnn.add_(mc, self.pair_weighted_averaging(mc, z, attn_mask))
-                mc = ttnn.add_(mc, self.msa_transition(mc))
-                parts.append(mc)
-                dram_peak("msalayer chunked: row loop")
+            # Head weights depend only on `z` and `attn_mask`, not on the MSA rows: compute
+            # them once before the row-chunk loop instead of repeating z layer_norm + proj_z +
+            # softmax for every 512-row chunk.
+            pwa_ws = self.pair_weighted_averaging.head_weights(z, attn_mask)
+            try:
+                for s in range(0, N, MSA_CHUNK_SIZE):
+                    mc = m[:, s:min(s + MSA_CHUNK_SIZE, N), :]
+                    mc = ttnn.add_(mc, self.pair_weighted_averaging(mc, None, weights=pwa_ws))
+                    mc = ttnn.add_(mc, self.msa_transition(mc))
+                    parts.append(mc)
+                    dram_peak("msalayer chunked: row loop")
+            finally:
+                for w in pwa_ws:
+                    ttnn.deallocate(w)
             if len(parts) == 1:
                 # One chunk means the slice above spanned the whole tensor, and a full-span
                 # ttnn.slice hands back the input's OWN buffer: `parts[0]` and `m` are two
@@ -18835,6 +18843,23 @@ class MSA(Module):
         super().__init__(state_dict, compute_kernel_config)
         self.s_weight = self.torch_to_tt("s_proj.weight")
         self.msa_weight = self.torch_to_tt("msa_proj.weight")
+        # Split msa_proj.weight [36, c_m] into a 34-row embedding table (33 amino-acid classes +
+        # 1 zero sentinel for padded positions) and a 4-row scalar weight (has_deletion,
+        # deletion_value, msa_paired + 1 zero pad for even ROW_MAJOR width). Lets _build_static
+        # upload integer indices + 3 scalars (~50 MB) instead of a 1.1 GB CPU one_hot + 302 MB
+        # tiled upload at 8192 rows.
+        msa_w_t = self.weights["msa_proj.weight"].t().detach().contiguous()
+        c_m = int(msa_w_t.shape[1])
+        embed_tbl = torch.zeros(34, c_m, dtype=torch.bfloat16)
+        embed_tbl[:33] = msa_w_t[:33].to(torch.bfloat16)
+        self.msa_embed_table = ttnn.from_torch(
+            embed_tbl, layout=ttnn.ROW_MAJOR_LAYOUT, device=self.device, dtype=ttnn.bfloat16
+        )
+        scalar_w = torch.zeros(4, c_m, dtype=msa_w_t.dtype)
+        scalar_w[:3] = msa_w_t[33:36]
+        self.msa_scalar_weight = ttnn.from_torch(
+            scalar_w, layout=ttnn.TILE_LAYOUT, device=self.device, dtype=_dtype(ttnn.bfloat16)
+        )
         self.blocks = [
             MSALayer(
                 avg_head_dim,
@@ -18862,13 +18887,31 @@ class MSA(Module):
         # z + the one-hot input, before the c_m projection exists) so a measured peak can be
         # decomposed into floor + k*m_feat rather than guessed at. No-op unless
         # TT_BIO_DRAM_PEAK is set.
-        dram_peak(f"msa floor [depth={m.shape[1]} tokens={m.shape[2]}]")
-        m = ttnn.linear(
-            m,
-            self.msa_weight,
-            compute_kernel_config=self.compute_kernel_config,
-            core_grid=CORE_GRID_MAIN,
-        )
+        if isinstance(m, tuple):
+            msa_idx_tt, msa_scalars_rm, n_msa_pad, seq_pad_len = m
+            dram_peak(f"msa floor [depth={n_msa_pad} tokens={seq_pad_len}]")
+            m_emb = ttnn.embedding(
+                msa_idx_tt, self.msa_embed_table, layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16
+            )
+            m = ttnn.reshape(m_emb, (1, n_msa_pad, seq_pad_len, -1))
+            scalars_tile = ttnn.to_layout(msa_scalars_rm, ttnn.TILE_LAYOUT)
+            m_sc = ttnn.linear(
+                scalars_tile,
+                self.msa_scalar_weight,
+                compute_kernel_config=self.compute_kernel_config,
+                core_grid=CORE_GRID_MAIN,
+            )
+            ttnn.deallocate(scalars_tile)
+            m = ttnn.add_(m, m_sc)
+            ttnn.deallocate(m_sc)
+        else:
+            dram_peak(f"msa floor [depth={m.shape[1]} tokens={m.shape[2]}]")
+            m = ttnn.linear(
+                m,
+                self.msa_weight,
+                compute_kernel_config=self.compute_kernel_config,
+                core_grid=CORE_GRID_MAIN,
+            )
         m = ttnn.add_(
             m,
             ttnn.linear(
@@ -21427,26 +21470,33 @@ class TrunkModule(TorchWrapper):
         seq_pad = pad_amount(seq_len, PAIRFORMER_PAD_MULTIPLE) if bucket_enabled() else 0
         padded_seq = seq_len + seq_pad
 
-        # ---- MSA feature tensor (host), mirrors MSAModule.forward ----
-        m = torch.cat(
-            [
-                torch.nn.functional.one_hot(feats["msa"], num_classes=33),
-                feats["has_deletion"].unsqueeze(-1),
-                feats["deletion_value"].unsqueeze(-1),
-                feats["msa_paired"].unsqueeze(-1),
-            ],
-            dim=-1,
-        )
-        n_msa = m.shape[1]
+        # ---- MSA feature tensor (compact index + 3 scalars, mirrors MSAModule.forward) ----
+        msa_raw = feats["msa"]
+        n_msa = int(msa_raw.shape[1])
         msa_pad = msa_pad_amount(n_msa)
+        padded_msa = n_msa + msa_pad
+        pad = torch.nn.functional.pad
+
+        # Sentinel 33 indexes the zero row of MSA.msa_embed_table, matching zero-padded one_hot.
+        msa_idx = msa_raw.reshape(n_msa, seq_len).to(torch.int32)
+        if seq_pad or msa_pad:
+            msa_idx = pad(msa_idx, (0, seq_pad, 0, msa_pad), value=33)
+        msa_idx_tt = ttnn.from_torch(
+            msa_idx.contiguous(), layout=ttnn.ROW_MAJOR_LAYOUT, device=get_device(), dtype=ttnn.uint32
+        )
+        msa_scalars = torch.zeros(1, padded_msa, padded_seq, 4, dtype=torch.bfloat16)
+        msa_scalars[:, :n_msa, :seq_len, 0] = feats["has_deletion"]
+        msa_scalars[:, :n_msa, :seq_len, 1] = feats["deletion_value"]
+        msa_scalars[:, :n_msa, :seq_len, 2] = feats["msa_paired"]
+        msa_scalars_rm = ttnn.from_torch(
+            msa_scalars, layout=ttnn.ROW_MAJOR_LAYOUT, device=get_device(), dtype=ttnn.bfloat16
+        )
 
         # ---- pad the per-protein constants ----
-        pad = torch.nn.functional.pad
         s_init_p = pad(s_init, (0, 0, 0, seq_pad)) if seq_pad else s_init
         z_init_p = None if z_init is None else (
             pad(z_init, (0, 0, 0, seq_pad, 0, seq_pad)) if seq_pad else z_init)
         s_inputs_p = pad(s_inputs, (0, 0, 0, seq_pad)) if seq_pad else s_inputs
-        m_p = pad(m, (0, 0, 0, seq_pad, 0, msa_pad)) if (seq_pad or msa_pad) else m
 
         # ---- Pairformer masks (mirror PairformerModule.forward, non-affinity) ----
         # One recipe for the whole resident trunk: the template and token-distance
@@ -21540,7 +21590,10 @@ class TrunkModule(TorchWrapper):
             "z_init_tt": (self._from_torch(z_init_p) if z_init_p is not None
                           else z_init_build(s_inputs, feats, seq_len, seq_pad)),
             "emb_tt": self._from_torch(s_inputs_p),
-            "m_tt": self._from_torch(m_p),
+            "msa_idx_tt": msa_idx_tt,
+            "msa_scalars_rm": msa_scalars_rm,
+            "padded_msa": padded_msa,
+            "padded_seq": padded_seq,
             "pf_mask_tt": pf_mask_tt,
             "pf_attn_tt": pf_attn_tt,
             "msa_mask_tt": msa_mask_tt,
@@ -21629,7 +21682,7 @@ class TrunkModule(TorchWrapper):
         z_for_msa = ttnn.clone(z_rec)
         z_msa = self.msa(
             z_for_msa,
-            st["m_tt"],
+            (st["msa_idx_tt"], st["msa_scalars_rm"], st["padded_msa"], st["padded_seq"]),
             st["emb_tt"],
             st["msa_mask_tt"],
             st["msa_attn_tt"],
