@@ -769,11 +769,11 @@ def drop_numpy_hugepage_hint() -> None:
     """
     if os.environ.setdefault("NUMPY_MADVISE_HUGEPAGE", "0") != "0":
         return
-    np = sys.modules.get("numpy")
-    core = getattr(np, "_core", None) or getattr(np, "core", None)
-    flip = getattr(getattr(core, "multiarray", None), "_set_madvise_hugepage", None)
-    if flip is not None:
-        flip(False)
+    for name in ("numpy._core.multiarray", "numpy.core.multiarray"):  # numpy 2, numpy 1
+        flip = getattr(sys.modules.get(name), "_set_madvise_hugepage", None)
+        if flip is not None:
+            flip(False)
+            return
 
 
 def reuse_freed_heap(trim_bytes: int = 1 << 30) -> bool:

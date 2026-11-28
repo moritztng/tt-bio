@@ -248,8 +248,8 @@ def test_numpy_arrays_carry_no_hugepage_hint_by_default():
 def test_hugepage_hint_is_dropped_when_numpy_is_already_loaded(monkeypatch):
     import numpy as np
 
-    core = getattr(np, "_core", None) or np.core
+    multiarray = np.core.multiarray if np.__version__ < "2" else np._core.multiarray
     monkeypatch.delenv("NUMPY_MADVISE_HUGEPAGE", raising=False)
-    core.multiarray._set_madvise_hugepage(True)
+    multiarray._set_madvise_hugepage(True)
     runtime.drop_numpy_hugepage_hint()
-    assert core.multiarray._set_madvise_hugepage(False) is False  # returns the previous setting
+    assert multiarray._set_madvise_hugepage(False) is False  # returns the previous setting
