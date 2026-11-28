@@ -2953,5 +2953,231 @@ def test_spmd_zero1_traced_opt_body_8x4_padded_buckets(monkeypatch):
         assert len(d_cur.live_bufs) == 0
 
 
+def test_run_in_place_trace_warm_key_and_shared_slots(monkeypatch):
+    """Verify warm_key avoids re-warming new variant keys and share_slots_key reuses DRAM slots."""
+    import sys
+    import types
+    import tt_bio
+
+    mod = _install_mock_ttnn(monkeypatch)
+    trace_fns: dict[int, Any] = {}
+    next_tid = [1]
+
+    class _RecScratch:
+        def __init__(self, dev):
+            self.dev = dev
+
+        def capture(self, need, size, runs, settle=None):
+            tids = []
+            try:
+                for fn in runs:
+                    tid = next_tid[0]
+                    next_tid[0] += 1
+                    trace_fns[tid] = fn
+                    tids.append(tid)
+            finally:
+                if settle is not None:
+                    settle()
+            return tids
+
+        def release(self):
+            pass
+
+    def _mock_copy(src, dst):
+        for s_src, s_dst in zip(src._buf.shards, dst._buf.shards):
+            s_dst.copy_(s_src.reshape(dst.shape))
+
+    monkeypatch.setattr(mod, "copy", _mock_copy, raising=False)
+    monkeypatch.setattr(mod, "execute_trace", lambda dev, tid, cq_id=0, blocking=False: trace_fns[tid](), raising=False)
+    monkeypatch.setattr(mod, "release_trace", lambda dev, tid: trace_fns.pop(tid, None), raising=False)
+    monkeypatch.setattr(mod, "synchronize_device", lambda dev: None, raising=False)
+
+    fake_tt = types.ModuleType("tt_bio.tenstorrent")
+    fake_tt.TraceScratch = _RecScratch
+    monkeypatch.setitem(sys.modules, "tt_bio.tenstorrent", fake_tt)
+    monkeypatch.setattr(tt_bio, "tenstorrent", fake_tt, raising=False)
+
+    from tt_bio.train.spmd_trace import SPMDMeshTracer
+
+    dev = _FakeMeshDevice(1, 2)
+    tracer = SPMDMeshTracer(dev, enabled=True)
+    tracer._hole_ready = True
+    tracer._scratch = _RecScratch(dev)
+
+    acc = dev.make_tensor([torch.zeros((4, 4)) for _ in range(2)])
+    calls = []
+
+    def _run_var(tag: str, scale: float, x_val: float):
+        x = dev.make_tensor([torch.full((4, 4), x_val) for _ in range(2)])
+
+        def _fn(in_ts):
+            calls.append(tag)
+            for sa, sx in zip(acc._buf.shards, in_ts[0]._buf.shards):
+                sa.add_(sx * scale)
+
+        out = tracer.run_in_place_trace(
+            "opt_body", (tag,), [x], _fn,
+            warm_key="opt_body",
+            share_slots_key=("sig", (4, 4)),
+        )
+        assert out is True
+        mod.deallocate(x)
+
+    # Call 0 (var A): warm eagerly (live_bufs == 1 = acc only)
+    _run_var("A", 1.0, 2.0)
+    assert tracer.stats["captures"] == 0 and tracer.stats["opt_body_replay"] == 0
+    assert len(dev.live_bufs) == 1
+
+    # Call 1 (var A): captures trace + allocates ONE shared slot (live_bufs == 2 = acc + 1 shared slot)
+    _run_var("A", 1.0, 3.0)
+    assert tracer.stats["captures"] == 1 and tracer.stats["opt_body_replay"] == 1
+    assert len(dev.live_bufs) == 2
+
+    # Call 2 (var B, NEW key, SAME warm_key + share_slots_key): captures IMMEDIATELY (no extra warm!)
+    # AND reuses the exact same shared slot (live_bufs stays 2 -> 0 extra DRAM!)
+    _run_var("B", 10.0, 4.0)
+    assert tracer.stats["captures"] == 2 and tracer.stats["opt_body_replay"] == 2
+    assert len(dev.live_bufs) == 2
+    assert len(tracer._inplace_slots) == 1
+
+    # Call 3 (var B replay): zero new captures, exact accumulation = 2 + 3 + 40 + 50 = 95
+    _run_var("B", 10.0, 5.0)
+    assert tracer.stats["captures"] == 2 and tracer.stats["opt_body_replay"] == 3
+    for sa in acc._buf.shards:
+        assert torch.allclose(sa, torch.full((4, 4), 95.0))
+
+    tracer.release()
+    mod.deallocate(acc)
+    assert len(dev.live_bufs) == 0
+
+
+def test_resident_pair_direct_onehot_and_cdist_bins(monkeypatch):
+    """Verify ResidentPairBuilder._try_direct_onehot_idx (present, missing, out-of-range)
+    and _bins_step (cdist) match reference bit-for-bit."""
+    _install_mock_ttnn(monkeypatch)
+    from tt_bio.train.rfd4_pair import ResidentPairBuilder
+
+    class TokenBondPathLengthPairFeat:
+        pass
+
+    class BondOrderPairFeat:
+        pass
+
+    fc_pl = TokenBondPathLengthPairFeat()
+    fc_bo = BondOrderPairFeat()
+    b_c, n = 2, 16
+    pl = torch.randint(0, 80, (b_c, n, n), dtype=torch.int64)
+    bo = torch.randint(0, 5, (b_c, n, n), dtype=torch.int64)
+
+    # 1. TokenBondPathLengthPairFeat: clamps at d_cls-1 and returns int32 [b_c, n*n]
+    got_pl = ResidentPairBuilder._try_direct_onehot_idx(fc_pl, {"token_bond_path_length": pl}, 64, b_c, n)
+    assert got_pl is not None and got_pl.dtype == torch.int32 and tuple(got_pl.shape) == (b_c, n * n)
+    assert torch.equal(got_pl, pl.clamp(max=63).to(torch.int32).reshape(b_c, n * n))
+
+    # Out-of-range negative path length must fall back to None (never silently mis-index!)
+    pl_neg = pl.clone()
+    pl_neg[0, 1, 2] = -1
+    assert ResidentPairBuilder._try_direct_onehot_idx(fc_pl, {"token_bond_path_length": pl_neg}, 64, b_c, n) is None
+
+    # 2. BondOrderPairFeat: valid [0, d_cls-1], missing key -> all d_cls, out-of-range -> None
+    got_bo = ResidentPairBuilder._try_direct_onehot_idx(fc_bo, {"bond_order": bo}, 5, b_c, n)
+    assert got_bo is not None and torch.equal(got_bo, bo.to(torch.int32).reshape(b_c, n * n))
+    got_bo_miss = ResidentPairBuilder._try_direct_onehot_idx(fc_bo, {}, 5, b_c, n)
+    assert got_bo_miss is not None and torch.equal(got_bo_miss, torch.full((b_c, n * n), 5, dtype=torch.int32))
+    bo_bad = bo.clone()
+    bo_bad[0, 0, 1] = 5
+    assert ResidentPairBuilder._try_direct_onehot_idx(fc_bo, {"bond_order": bo_bad}, 5, b_c, n) is None
+
+    # 3. _bins_step cdist matches torch.norm(x[:,:,None]-x[:,None,:]) bit-for-bit
+    rp = object.__new__(ResidentPairBuilder)
+    rp._bins_grid = torch.linspace(0.0, 22.0, 29)
+    gen = torch.Generator().manual_seed(7)
+    x = torch.randn((4, 32, 3), generator=gen, dtype=torch.float32) * 10.0
+    got_bins = rp._bins_step({"x_t": {"bb_ca": x}})
+    d_ref = torch.norm(x[:, :, None, :] - x[:, None, :, :], dim=-1)
+    ref_bins = torch.bucketize(d_ref, rp._bins_grid).to(torch.int32)
+    assert torch.equal(got_bins, ref_bins)
+
+
+def test_spmd_prefetcher_double_buffer_and_build_static_template_into():
+    """Verify build_static_template_into clears dynamic cols + tail on dirty dst, and
+    SPMDPrefetcher toggles disjoint double-buffered ir_static slots."""
+    import torch.nn as nn
+    from tt_bio.train.spmd_trace import FactoryStaticSplit, SPMDPrefetcher
+
+    class _StaticFeat(nn.Module):
+        def forward(self, batch):
+            return batch["s_feat"]
+
+    class _DynFeat(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.w = nn.Parameter(torch.ones(2))
+
+        def forward(self, batch):
+            b, n = batch["padding_mask"].shape
+            return self.w.view(1, 1, 2).expand(b, n, 2)
+
+    class _FakeFactory(nn.Module):
+        def __init__(self, mode="seq"):
+            super().__init__()
+            self.mode = mode
+            self.feat_creators = nn.ModuleList([_StaticFeat(), _DynFeat()])
+            self.linear_out = nn.Linear(6, 8, bias=False)
+
+        def apply_padding_mask(self, x, mask):
+            return x * mask.to(x.dtype)[..., None]
+
+    class _FakeGlue:
+        def __init__(self):
+            self.cond_factory = _FakeFactory("seq")
+            self.cond_factory.feat_creators.append(_StaticFeat())  # excluded recycle slot
+            self.cond_factory.linear_out = nn.Linear(10, 8, bias=False)
+            self.init_repr_factory = _FakeFactory("seq")
+
+    def _mk_batch(val: float):
+        mask = torch.tensor([[1.0, 1.0, 0.0, 0.0]], dtype=torch.float32)
+        return {
+            "padding_mask": mask,
+            "is_in_context_conditioning": torch.zeros_like(mask),
+            "supports_local_latent": torch.ones_like(mask),
+            "is_resolved_mask": mask.clone(),
+            "s_feat": torch.full((1, 4, 4), val, dtype=torch.float32),
+            "x_1": {"bb_ca": torch.zeros(1, 4, 3), "local_latents": torch.zeros(1, 4, 2)},
+            "x_t": {"bb_ca": torch.zeros(1, 4, 3), "local_latents": torch.zeros(1, 4, 2)},
+            "t": {"bb_ca": torch.zeros(1, 4), "local_latents": torch.zeros(1, 4)},
+        }
+
+    glue = _FakeGlue()
+    fs = FactoryStaticSplit(glue)
+    b1 = _mk_batch(3.0)
+    b2 = _mk_batch(7.0)
+    fs.ensure_probed(b1)
+
+    # 1. Dirty dst (filled with 999.0) must match clean build_static_template bit-for-bit
+    dirty = torch.full((1, 4, 32), 999.0, dtype=torch.float32)
+    fs.ir.build_static_template_into(b1, dirty)
+    clean = fs.ir.build_static_template(b1, pad_to=32)
+    assert torch.equal(dirty, clean)
+    assert (dirty[:, :, 4:6] == 0.0).all()   # dynamic slice cleared
+    assert (dirty[:, :, 6:] == 0.0).all()    # tail padding cleared
+    assert (dirty[:, 2:, :] == 0.0).all()    # masked tokens cleared
+
+    # 2. SPMDPrefetcher toggles disjoint buffers even on same-parity step_idx calls
+    pf = SPMDPrefetcher(fs, res_pair=None, max_workers=2)
+    try:
+        p0 = pf._compute(0, [b1, b1])
+        p2 = pf._compute(2, [b2, b2])  # same parity as 0, MUST use disjoint slot!
+        assert p0.ir_static.data_ptr() != p2.ir_static.data_ptr()
+        # Poisoning p0 must NOT affect p2, and next call reusing slot 0 must overwrite poison cleanly
+        p0.ir_static.fill_(777.0)
+        assert torch.equal(p2.ir_static[:1], fs.ir.build_static_template(b2, pad_to=32))
+        p4 = pf._compute(4, [b1, b1])
+        assert p4.ir_static.data_ptr() == p0.ir_static.data_ptr()
+        assert torch.equal(p4.ir_static[:1], fs.ir.build_static_template(b1, pad_to=32))
+    finally:
+        pf.close()
+
+
 
 

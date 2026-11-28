@@ -243,7 +243,7 @@ class _OneFactorySplit:
         self._probed = True
 
     def build_static_template_into(self, batch: Mapping[str, Any], dst: torch.Tensor) -> None:
-        """Write masked static columns directly into pre-allocated ``dst`` ([B, n, width] zeroed)."""
+        """Write masked static columns directly into pre-allocated ``dst`` ([B, n, width])."""
         self.ensure_probed(batch)
         mask = batch["padding_mask"]
         n = int(mask.shape[1])
@@ -251,7 +251,14 @@ class _OneFactorySplit:
             for fc, c0, c1 in self.static_specs:
                 feat = _fc_expand(fc(batch), n).to(torch.float32)
                 dst[:, :, c0:c1] = feat
-            dst[:, :, :self.total_dim] = self.factory.apply_padding_mask(dst[:, :, :self.total_dim], mask)
+            for _fc, c0, c1 in self.dynamic_specs:
+                dst[:, :, c0:c1].zero_()
+            if getattr(self.factory, "mode", None) == "seq":
+                dst[:, :, :self.total_dim].mul_(mask.to(dtype=dst.dtype)[..., None])
+            else:
+                dst[:, :, :self.total_dim] = self.factory.apply_padding_mask(dst[:, :, :self.total_dim], mask)
+            if int(dst.shape[-1]) > self.total_dim:
+                dst[:, :, self.total_dim:].zero_()
 
     def build_static_template(self, batch: Mapping[str, Any], *, pad_to: int = 0) -> torch.Tensor:
         """Compute ``[B, n, max(total_dim, pad_to)]`` float32 template with static columns filled and masked."""
@@ -377,6 +384,11 @@ class SPMDPrefetcher:
         self._inner = ThreadPoolExecutor(max_workers=max(1, int(max_workers)))
         self._bg = ThreadPoolExecutor(max_workers=1)
         self._pending: Optional[Tuple[int, Future]] = None
+        # Double-buffered pre-allocated ir_static buffers (toggled per _compute call) to eliminate
+        # per-step 122 MB Linux page faults while keeping consecutive steps completely disjoint.
+        self._ir_buf_shape: Optional[Tuple[int, int, int]] = None
+        self._ir_bufs: Optional[Tuple[torch.Tensor, torch.Tensor]] = None
+        self._ir_slot: int = 0
 
     def _compute(self, step_idx: int, rank_bts: Sequence[Mapping[str, Any]]) -> PrefetchedStep:
         from .rfd4_heads import extract_cand_score_meta
@@ -392,8 +404,19 @@ class SPMDPrefetcher:
         world = len(rank_bts)
         k_local = int(rank_bts[0]["padding_mask"].shape[0])
         n_tok = int(rank_bts[0]["padding_mask"].shape[1])
-        # Pre-allocate one contiguous ir_static buffer (eliminates 122 MB torch.cat copy + page faults).
-        ir_static = torch.zeros((world * k_local, n_tok, ir_pad_in), dtype=torch.float32)
+        # Reuse double-buffered contiguous ir_static buffers (toggled per _compute) so
+        # step t's in-place dynamic fill and step t+1's background prefetch never alias,
+        # while eliminating per-step 122 MB page faults & zeroing.
+        ir_shape = (world * k_local, n_tok, ir_pad_in)
+        if self._ir_buf_shape != ir_shape or self._ir_bufs is None:
+            self._ir_buf_shape = ir_shape
+            self._ir_bufs = (
+                torch.zeros(ir_shape, dtype=torch.float32),
+                torch.zeros(ir_shape, dtype=torch.float32),
+            )
+            self._ir_slot = 0
+        ir_static = self._ir_bufs[self._ir_slot]
+        self._ir_slot ^= 1
 
         def _one_rank(item):
             r_idx, b = item
