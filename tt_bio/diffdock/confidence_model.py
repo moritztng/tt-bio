@@ -439,13 +439,30 @@ def load_checkpoint(ckpt_path, params_dir=None, *, old_model: bool = True) -> "C
     return load_released(state, cfg)
 
 
+def embed_receptor(model: "ConfidenceModel", receptor: dict) -> dict:
+    """:meth:`ConfidenceModel.receptor_side` of an all-atom receptor graph
+    (``input.CONFIDENCE_GRAPH``). It does not depend on the ligand, so a screen embeds its
+    receptor once and scores every ligand's poses against the result (:func:`score_poses`)."""
+    if "atom" not in receptor:
+        raise ValueError(
+            "the confidence model needs an all-atom receptor graph; build it with "
+            "input.CONFIDENCE_GRAPH (all_atoms=True), not SCORE_GRAPH")
+    atom = receptor["atom"]
+    with torch.no_grad():
+        return model.receptor_side(
+            receptor["x"].float(), receptor["pos"].float(), receptor["edge_index"].long(),
+            atom["x"].float(), atom["pos"].float(), atom["edge_index"].long(),
+            atom["atom_rec_edge_index"].long())
+
+
 def score_poses(model: "ConfidenceModel", receptor: dict, ligand: dict,
-                poses: Tensor, *, convolve=None) -> Tensor:
+                poses: Tensor, *, convolve=None, embedded: dict | None = None) -> Tensor:
     """Confidence of every pose, as a ``[N]`` tensor. Higher is better.
 
     *receptor* is a graph built with ``all_atoms=True`` (``input.CONFIDENCE_GRAPH``) and
-    must be in the same frame as *poses* -- both centred, or neither. *poses* is
-    ``[N, n_lig, 3]``.
+    must be in the same frame as *poses* -- both centred, or neither. A caller that keeps
+    its :func:`embed_receptor` across ligands passes that as *embedded* and *receptor* is
+    not read. *poses* is ``[N, n_lig, 3]``.
 
     The receptor side is embedded once (it does not depend on the pose), then one pass per
     pose. *convolve* ``(graph) -> ligand features`` replaces :meth:`ConfidenceModel.convolve`;
@@ -459,18 +476,10 @@ def score_poses(model: "ConfidenceModel", receptor: dict, ligand: dict,
     first; column 1 is near but not equal to its negation, so averaging or flattening the
     two would change the order.
     """
-    if "atom" not in receptor:
-        raise ValueError(
-            "the confidence model needs an all-atom receptor graph; build it with "
-            "input.CONFIDENCE_GRAPH (all_atoms=True), not SCORE_GRAPH")
-    atom = receptor["atom"]
+    rec = embed_receptor(model, receptor) if embedded is None else embedded
     convolve = convolve or (lambda g: model.convolve(g["nodes"], g["edges"]))
     out = []
     with torch.no_grad():
-        rec = model.receptor_side(
-            receptor["x"].float(), receptor["pos"].float(), receptor["edge_index"].long(),
-            atom["x"].float(), atom["pos"].float(), atom["edge_index"].long(),
-            atom["atom_rec_edge_index"].long())
         for pose in poses:
             g = model.ligand_side(rec, ligand["x"].float(), pose.float(),
                                   ligand["edge_index"].long(), ligand["edge_attr"].float())

@@ -37,7 +37,7 @@ from torch import Tensor
 from .harmonics import unit
 from .kabsch import kabsch_horn
 from .sampling import (SamplingConfig, SigmaBounds, _temperature_scale, axis_angle_to_matrix,
-                       guard_scores)
+                       guard_scores, off_schedule)
 
 
 @dataclass(frozen=True)
@@ -47,11 +47,13 @@ class CoefficientTable:
     ``drawn[t]`` records whether sampling draws noise at step t at all -- it does not on a
     quiet step (``no_random``, or ``no_final_step_noise`` on the last one), and a caller
     feeding the same RNG as the eager sampler has to skip the draw, not multiply it by zero.
+    ``limit[t, h]`` is `SigmaBounds.score_limit`, the score past which a sample is frozen.
     """
 
     score: Tensor
     noise: Tensor
     drawn: tuple
+    limit: Tensor
 
     @property
     def steps(self) -> int:
@@ -77,6 +79,7 @@ def coefficient_table(cfg: SamplingConfig, bounds: SigmaBounds,
     steps = cfg.steps
     score = np.zeros((steps, 3))
     noise = np.zeros((steps, 3))
+    limit = np.zeros((steps, 3))
     drawn = []
     for t_idx in range(steps):
         last = t_idx == steps - 1
@@ -87,6 +90,7 @@ def coefficient_table(cfg: SamplingConfig, bounds: SigmaBounds,
         sigmas = bounds.sigmas(*ts)
         for head, (name, sigma, dt) in enumerate(zip(("tr", "rot", "tor"), sigmas, dts)):
             g = bounds.g(name, sigma)
+            limit[t_idx, head] = bounds.score_limit(name, sigma)
             if cfg.ode:
                 score[t_idx, head] = 0.5 * g * g * dt
                 continue
@@ -94,7 +98,8 @@ def coefficient_table(cfg: SamplingConfig, bounds: SigmaBounds,
             score[t_idx, head] = g * g * dt * a
             noise[t_idx, head] = 0.0 if quiet else g * np.sqrt(dt * w)
     return CoefficientTable(torch.as_tensor(score, dtype=dtype),
-                            torch.as_tensor(noise, dtype=dtype), tuple(drawn))
+                            torch.as_tensor(noise, dtype=dtype), tuple(drawn),
+                            torch.as_tensor(limit, dtype=dtype))
 
 
 def step_inputs(cfg: SamplingConfig, bounds: SigmaBounds, crop_beyond_a: float | None = None):
@@ -187,27 +192,29 @@ def fixed_update(pos: Tensor, tr_update: Tensor, rot_update: Tensor,
     return torch.bmm(flexible, rot.transpose(1, 2)) + t.transpose(1, 2), det, bad
 
 
-def diffusion_step(pos, scores, score_coeff, noise_coeff, noise, bonds, mask_rotate):
+def diffusion_step(pos, scores, score_coeff, noise_coeff, noise, bonds, mask_rotate,
+                   limit, failed):
     """One step: guard the three scores, perturb, move. Returns `(pos, n_bad, det, failed)`.
 
     *scores* and *noise* are `(tr, rot, tor)` triples, `[B, 3]`, `[B, 3]`, `[B, R]`. Nothing
     here reads a value off the device.
 
-    A sample whose Kabsch correlation matrix overflowed fp32 keeps the coordinates it came in
-    with and is reported in *failed*, which is the host rollout's freeze-and-record (
-    `sampling._move`) written as a select, so the traced program keeps its static shapes.
+    A sample that came in *failed*, whose score is `sampling.off_schedule` against *limit*
+    or whose Kabsch correlation matrix overflowed fp32 keeps the coordinates it came in with
+    and is reported in the returned *failed*. That is the host rollout's freeze-and-record
+    (`sampling._move`) written as a select, so the traced program keeps its static shapes.
     """
     tr_score, n_tr = guard_scores(scores[0])
     rot_score, _ = guard_scores(scores[1])
+    tor_score = None if scores[2] is None else guard_scores(scores[2])[0]
+    held = failed | off_schedule((tr_score, rot_score, tor_score), limit)
     tr_perturb = score_coeff[0] * tr_score + noise_coeff[0] * noise[0]
     rot_perturb = score_coeff[1] * rot_score + noise_coeff[1] * noise[1]
-    if scores[2] is None:
-        tor_perturb = None
-    else:
-        tor_score, _ = guard_scores(scores[2])
-        tor_perturb = score_coeff[2] * tor_score + noise_coeff[2] * noise[2]
-    moved, det, failed = fixed_update(pos, tr_perturb, rot_perturb, tor_perturb, bonds,
-                                      mask_rotate)
+    tor_perturb = (None if tor_score is None
+                   else score_coeff[2] * tor_score + noise_coeff[2] * noise[2])
+    moved, det, overflowed = fixed_update(pos, tr_perturb, rot_perturb, tor_perturb, bonds,
+                                          mask_rotate)
+    failed = held | overflowed
     return torch.where(failed[:, None, None], pos, moved), n_tr, det, failed
 
 
@@ -217,17 +224,17 @@ def run_loop(pos, score_fn, table: CoefficientTable, noise_fn, bonds, mask_rotat
     `score_fn(pos, t_idx)` returns the three scores and `noise_fn(t_idx)` the three draws.
     Returns `(pos, n_bad_total, min_det, failed)` -- every diagnostic accumulated on device
     and read once by the caller, never inside the loop. `failed` `[B]` is the samples frozen
-    on an overflowed Kabsch, the device path's half of `Rollout.failed`.
+    on an off-schedule score or an overflowed Kabsch, the device path's half of `Rollout.failed`.
     """
     n_bad = torch.zeros((), dtype=torch.long)
     failed = torch.zeros(pos.shape[0], dtype=torch.bool, device=pos.device)
     min_det = None
     for t_idx in range(table.steps):
         s, z = table.row(t_idx)
-        pos, step_bad, det, step_failed = diffusion_step(
-            pos, score_fn(pos, t_idx), s, z, noise_fn(t_idx), bonds, mask_rotate)
+        pos, step_bad, det, failed = diffusion_step(
+            pos, score_fn(pos, t_idx), s, z, noise_fn(t_idx), bonds, mask_rotate,
+            table.limit[t_idx], failed)
         n_bad = n_bad + step_bad
-        failed = failed | step_failed
         if det is not None:
             min_det = det.min() if min_det is None else torch.minimum(min_det, det.min())
     return pos, n_bad, min_det, failed

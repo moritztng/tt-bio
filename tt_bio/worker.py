@@ -3240,6 +3240,7 @@ def _execute_dock_job_inprocess(
         summary = dock_run.dock([dock_job], options, out_dir, download=True,
                                 model=_dock_model(options))
         row.update({"status": "ok", "files": summary["docked"][0]["files"],
+                    "failed_samples": summary["docked"][0]["failed_samples"],
                     "runtime_s": round(time.time() - t0, 1)})
         outputs = _read_outputs(out_dir, _shared_outputs_dir(cfg))
     except Exception as exc:

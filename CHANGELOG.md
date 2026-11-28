@@ -12,23 +12,27 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   single-chip and multi-chip data parallel (`--chips`), checkpoint and bit-identical resume from the same `--out`,
   `status.json` / `progress.jsonl`, and refuses unhonoured flags by name. Inference and design outputs are
   byte-identical when gradients are off. See [`docs/training.md`](docs/training.md#rfd4-proteina-a-model-whose-step-is-its-own).
-- **`tt-bio dock --model diffdock` places a ligand in a receptor and ranks the poses.** DiffDock-L, end to end:
-  upstream's four-column CSV or a tt-bio job YAML in, upstream's `rank1.sdf` / `rank1_confidence-0.42.sdf` layout
-  out, plus a `confidence.json` with the ranking. Defaults are the published inference recipe, so a plain command
-  reproduces the paper's settings, and `tt-bio weights --download diffdock` fetches the v1.1 release. The score
-  network is graded against upstream's own at PCC 0.9999999999984 or better across three complexes at five points
-  of the schedule. On a host with a Tenstorrent card the convolutions of both the score and the confidence network
-  run on the card, otherwise on CPU; the card's confidence network ranks poses exactly as upstream's does. Every
-  upstream inference option has a flag: `--ligand`, `--name`, `--weights`, `--confidence_checkpoint`, `--no_confidence`, `--actual_steps`,
-  `--initial_noise_std`, `--init_at_residue`, `--sampler`, `--deterministic`, `--no_model`, `--pocket`,
-  `--pocket_radius`, `--minimize`, `--gnina_path` and `--limit_failures`. See
-  [`docs/docking.md`](docs/docking.md).
 
 ### Changed
+- **`tt-bio dock` runs on the card.** On a host with a Tenstorrent card the convolutions of both the score and the
+  confidence network run on the card, otherwise on CPU. The card's confidence network ranks poses exactly as
+  upstream's does. See [`docs/docking.md`](docs/docking.md).
+- **Ranking docked poses on the card no longer recompiles for every ligand.** The confidence network pads its
+  pose-dependent edge sets to a small set of sizes, so a new ligand or pose set reuses the programs the first one
+  compiled: an unseen pose set took 7.5 to 130 s on three test ligands and now takes 0.9 to 1.4 s (one Galaxy
+  chip at 1350 MHz). The receptor's all-atom graph is also built once per structure file instead of once per
+  ligand. Ranking is unchanged on those ligands.
 - **ESMFold2 and ESMFold2-Fast fold about 4 % faster on Wormhole**, in both normal and `--fast` mode. A 512-residue
   fold on a Galaxy chip at 1000 MHz: ESMFold2 22.9 -> 21.8 s (normal) and 22.2 -> 21.3 s (`--fast`), ESMFold2-Fast
   13.5 -> 13.0 s and 13.4 -> 12.9 s. The triangle update keeps one pair tensor in 8-bit block floating point across
   two kernels; structures change slightly and pass each mode's accuracy bar on 11 complexes x 4 seeds.
+
+### Fixed
+- **`tt-bio dock` no longer writes a pose far outside the receptor.** On a few inputs the score network returns a
+  huge finite number for one sample at one step, and that sample could end up 1e8 A or more away and still be
+  ranked first. Such a sample is now stopped and left out, so a complex can return fewer than
+  `--samples_per_complex` poses. The count is printed on stderr and reported as `failed_samples` in the JSON.
+  The other samples are unchanged. See [`docs/docking.md`](docs/docking.md).
 
 ## [0.46.0] - 2026-11-27
 
