@@ -382,14 +382,76 @@ class DeviceConvLayer:
             g[key] = idx
         return g[key]
 
+    def pose_graph(self, lay: dict, cut: int):
+        """Upload the blocks of a :func:`pose_layout` a layer cut at padded row *cut* sees.
+
+        Per block the one-pose 0/1 scatter ``S [n_out, e]`` and the gathers of each edge's
+        source and destination row, ``S.T`` and ``G [e, n_in]``, each held once per pose
+        because ``ttnn.matmul`` wants equal batch dimensions.
+        """
+        ttnn, P = self.ttnn, lay["P"]
+        dt = exact01_dtype(self.device, self.dtype)
+        up = lambda m: ttnn.from_torch(m.expand(P, *m.shape).contiguous(), dtype=dt,
+                                       layout=ttnn.TILE_LAYOUT, device=self.device)
+        blocks, nbytes = [], 0
+        for b in lay["blocks"]:
+            if b["at"] >= cut:
+                break
+            k, e = b["src"].numel(), b["e"]
+            n_o, n_i = lay["sets"][b["out_set"]], lay["sets"][b["in_set"]]
+            S, G = torch.zeros(n_o, e), torch.zeros(e, n_i)
+            S[b["src"], torch.arange(k)] = 1.0
+            G[torch.arange(k), b["dst"]] = 1.0
+            blocks.append(dict(b, S=up(S), src=up(S.T), dst=up(G)))
+            nbytes += P * e * (2 * n_o + n_i) * (2 if dt == ttnn.bfloat16 else 4)
+        return dict(blocks=blocks, P=P, E=cut, sets=lay["sets"], node_at=lay["node_at"],
+                    nbytes=nbytes)
+
+    def gather(self, g, table, side: str, lo: int, n: int, idx=None):
+        """Rows of *table* at the *side* (``src`` or ``dst``) node of edges ``[lo, lo + n)``.
+
+        A dense graph gathers through *idx* (:func:`gather_rows`). A pose graph multiplies each
+        block's one-pose 0/1 matrix into that pose's rows of the table, which rounds an fp32
+        table to bf16 as one slice does.
+        """
+        if "blocks" not in g:
+            return gather_rows(table, idx, n, self.slices)
+        ttnn, P, d, parts = self.ttnn, g["P"], table.shape[-1], []
+        for b in g["blocks"]:
+            if not lo <= b["at"] < lo + n:
+                continue
+            k = b["out_set" if side == "src" else "in_set"]
+            a, rows = g["node_at"][k], g["sets"][k]
+            tab = ttnn.reshape(table[a:a + P * rows, :], (P, rows, d))
+            got = ttnn.matmul(b[side], tab, compute_kernel_config=self.ckc, dtype=table.dtype)
+            parts.append(ttnn.reshape(got, (P * b["e"], d)))
+        return parts[0] if len(parts) == 1 else ttnn.concat(parts, dim=0)
+
+    def scatter(self, g, x):
+        """Sum the edge rows *x* onto their source nodes: ``[n_out, d]``."""
+        ttnn = self.ttnn
+        mm = lambda s, m: ttnn.matmul(s, m, compute_kernel_config=self.ckc, dtype=self.dtype)
+        if "blocks" not in g:
+            return mm(g["S"], x)
+        P, d, out = g["P"], x.shape[-1], [None] * len(g["sets"])
+        for b in g["blocks"]:
+            rows = g["sets"][b["out_set"]]
+            s = mm(b["S"], ttnn.reshape(x[b["at"]:b["at"] + P * b["e"], :], (P, b["e"], d)))
+            s = ttnn.reshape(s, (P * rows, d))
+            out[b["out_set"]] = s if out[b["out_set"]] is None else ttnn.add(out[b["out_set"]], s)
+        out = [ttnn.zeros((P * rows, d), dtype=self.dtype, layout=ttnn.TILE_LAYOUT,
+                          device=self.device) if t is None else t
+               for t, rows in zip(out, g["sets"])]
+        return out[0] if len(out) == 1 else ttnn.concat(out, dim=0)
+
     def inv_degree(self, g, edge_mask):
         """``1 / max(sum of the mask over a node's edges, eps)``, ``[n_out, 1]``.
 
         It depends on the graph and the mask only, so layers that share both share it.
         """
         ttnn = self.ttnn
-        div = ttnn.matmul(g["S"], edge_mask, compute_kernel_config=self.ckc, dtype=self.dtype)
-        return ttnn.reciprocal(ttnn.clamp(div, min=float(torch.finfo(torch.float32).eps)))
+        return ttnn.reciprocal(ttnn.clamp(self.scatter(g, edge_mask),
+                                          min=float(torch.finfo(torch.float32).eps)))
 
     def __call__(self, node_attr, g, edge_attr_groups, edge_sh, edge_mask, ns=None,
                  out_attr=None, inv_degree=None):
@@ -406,11 +468,12 @@ class DeviceConvLayer:
         ttnn = self.ttnn
         ckc = self.ckc
         # Rounding the table first gives the kernel the bits it would round an exact copy to.
-        x1 = gather_rows(ttnn.typecast(node_attr, ttnn.bfloat16) if self.slices == 1 else node_attr,
-                         g["idx"], g["E"])
+        x1 = self.gather(g, ttnn.typecast(node_attr, ttnn.bfloat16) if self.slices == 1 else node_attr,
+                         "dst", 0, g["E"], g.get("idx"))
+        index = None
         if ns is not None:
-            sizes = tuple(int(ea.shape[0]) for ea in edge_attr_groups)
-            index = self._group_index(g, sizes)
+            if "blocks" not in g:
+                index = self._group_index(g, tuple(int(ea.shape[0]) for ea in edge_attr_groups))
             mm = lambda x, w: ttnn.matmul(x, w, compute_kernel_config=ckc, dtype=self.dtype)
         msgs, lo = [], 0
         for gi, (tp, ea) in enumerate(zip(self.tps, edge_attr_groups)):
@@ -418,16 +481,16 @@ class DeviceConvLayer:
             h = None
             if ns is not None:
                 w1a, w1s, w1d, b1 = self.fc1_split(ns)[gi]
-                src, dst = index[gi]
+                src, dst = index[gi] if index else (None, None)
                 h = ttnn.linear(ea, w1a, bias=b1, compute_kernel_config=ckc, dtype=self.dtype)
                 out_t = node_attr if out_attr is None else out_attr
-                h = ttnn.add(h, gather_rows(mm(out_t, w1s), src, n, self.slices))
-                h = ttnn.relu(ttnn.add(h, gather_rows(mm(node_attr, w1d), dst, n, self.slices)))
+                h = ttnn.add(h, self.gather(g, mm(out_t, w1s), "src", lo, n, src))
+                h = ttnn.relu(ttnn.add(h, self.gather(g, mm(node_attr, w1d), "dst", lo, n, dst)))
             msgs.append(tp(ea, x1[lo:lo + n, :], edge_sh[lo:lo + n, :], h=h))
             lo += n
         msg = msgs[0] if len(msgs) == 1 else ttnn.concat(msgs, dim=0)
         msg = ttnn.multiply(msg, edge_mask)
-        s = ttnn.matmul(g["S"], msg, compute_kernel_config=ckc, dtype=self.dtype)
+        s = self.scatter(g, msg)
         if self.perm is not None:
             s = ttnn.matmul(s, self.perm, compute_kernel_config=ckc, dtype=self.dtype)
         out = ttnn.multiply(s, self.inv_degree(g, edge_mask) if inv_degree is None else inv_degree)
@@ -497,6 +560,9 @@ def stack_layout(edge_index: Tensor, n_p: int, plan, n_in_p: int | None = None):
     Shared by :meth:`DeviceConvModule.run_stack`, which uploads host edge features into this
     layout, and :class:`tt_bio.diffdock.device_loop.ResidentStack`, which keeps them on the
     card -- the two cannot drift apart because the layout is computed in one place.
+
+    Also returns ``blocks``, ``(lo, hi, extra)`` per block: the source rows and the dead rows
+    after them.
     """
     n_in_p = n_p if n_in_p is None else n_in_p
     E = edge_index.shape[1]
@@ -512,18 +578,56 @@ def stack_layout(edge_index: Tensor, n_p: int, plan, n_in_p: int | None = None):
         at += n + extra
     pos[E] = at
     return torch.cat(cols, 1), pos, blocks
+def pose_layout(edge_index: Tensor, plan, node_sets, n_poses: int):
+    """The per-pose form of :func:`stack_layout`, or None when a block is not a tiling.
+
+    Every block between consecutive cut/split boundaries is laid out pose-major with each
+    pose's edges padded to a multiple of 32, and every node set pose-major with each pose's
+    nodes padded likewise, so a block of edge rows or a set of node rows reshapes to
+    ``[P, rows, d]`` on tile boundaries and one ``[P, n, e]`` matmul scatters all poses.
+
+    ``edges`` and ``nodes`` give the source row of every layout row (-1: a dead row),
+    ``pos`` maps an unpadded edge boundary to its layout row, ``node_at`` is the first row of
+    each node set and ``sets`` its padded rows per pose. ``blocks`` are :func:`pose_blocks`
+    results with ``at`` (first layout row) and ``e`` (padded edges per pose).
+    """
+    P, E = n_poses, edge_index.shape[1]
+    bounds = sorted({0, E} | {c for c, _ in plan} | {x for _, sp in plan for x in sp or ()})
+    sets = [pad32(n) for _, n in node_sets]
+    node_at = [P * sum(sets[:k]) for k in range(len(sets))]
+    nodes = torch.full((P * sum(sets),), -1)
+    for (start, n), at, rows in zip(node_sets, node_at, sets):
+        nodes.view(-1)[at:at + P * rows].view(P, rows)[:, :n] = start + torch.arange(P * n).view(P, n)
+    pos, edges, blocks, at = {}, [], [], 0
+    for lo, hi in zip(bounds, bounds[1:]):
+        b = pose_blocks(edge_index, lo, hi, node_sets, P)
+        if b is None:
+            return None
+        e = pad32(b["src"].numel())
+        rows = torch.full((P, e), -1)
+        rows[:, :b["src"].numel()] = b["rows"]
+        pos[lo] = at
+        blocks.append(dict(at=at, e=e, src=b["src"], dst=b["dst"], out_set=b["out_set"],
+                           in_set=b["in_set"]))
+        edges.append(rows.reshape(-1))
+        at += P * e
+    pos[E] = at
+    return dict(P=P, edges=torch.cat(edges), nodes=nodes, pos=pos, node_at=node_at, sets=sets,
+                blocks=blocks, nbytes=0)
+
+
 class GraphCache:
     """Uploaded static graphs (gather index + dense ``[n_out, E]`` bf16 scatter), keyed by shape
     and checked by content, least recently used out first.
 
     The static network reuses one edge index across layers and steps (masks carry what moves),
     so the conv modules of one network share a cache and each graph crosses to the card once
-    per rollout instead of once per call. A rollout touches six: the receptor, ligand and main
+    per rollout instead of once per call. A dense rollout touches six: the receptor, ligand and main
     stacks, the main stack's last layer and the two heads. A screening run brings new shapes
     with every complex, so past *size* entries the oldest is freed on the card.
     """
 
-    def __init__(self, size: int = 8):
+    def __init__(self, size: int = 16):
         from collections import OrderedDict
         self.size, self.entries = size, OrderedDict()
 
@@ -543,18 +647,21 @@ class GraphCache:
         ``(src, dst)`` indices :meth:`DeviceConvLayer._group_index` added."""
         total = 0
         for _, g in self.entries.values():
+            if "nbytes" in g:        # a pose graph or a host layout
+                total += g["nbytes"]
+                continue
             groups = sum(1 for k in g if isinstance(k, tuple))
             total += g["n_out"] * g["E"] * 2 + g["E"] * 4 * (1 + 2 * groups)
         return total
 
 
-def _free(g: dict) -> None:
+def _free(g) -> None:
     import ttnn
-    for v in g.values():
-        for t in (v if isinstance(v, list) else [v]):
-            for u in (t if isinstance(t, list) else [t]):
-                if isinstance(u, ttnn.Tensor):
-                    ttnn.deallocate(u)
+    if isinstance(g, ttnn.Tensor):
+        ttnn.deallocate(g)
+    elif isinstance(g, (dict, list, tuple)):
+        for v in (g.values() if isinstance(g, dict) else g):
+            _free(v)
 
 
 class DeviceConvModule(torch.nn.Module):
@@ -594,12 +701,17 @@ class DeviceConvModule(torch.nn.Module):
     #: because the synchronisation is itself a cost no shipped rollout should pay.
     time_layers = False
 
+    #: Run a tile stack over :func:`pose_layout` when the caller names the poses. Off until the
+    #: card A/B against the dense form is in (state/dfd/PERF.md).
+    pose_stack = False
+
     def _graph(self, ei: Tensor, n_out_p: int, n_in_p: int) -> dict:
         return self.graphs.get((tuple(ei.shape), n_out_p, n_in_p), ei,
                                lambda: self.dev.graph(ei, n_out_p, n_in_p))
 
     @staticmethod
-    def run_stack(mods, node_attr, edge_index, edge_attr, edge_sh, edge_mask, ns, plan):
+    def run_stack(mods, node_attr, edge_index, edge_attr, edge_sh, edge_mask, ns, plan,
+                  poses=None):
         """A stack of convolutions with the node features on the card from first to last.
 
         The host form (:func:`tt_bio.diffdock.static_net.run_stack`) concatenates
@@ -608,6 +720,10 @@ class DeviceConvModule(torch.nn.Module):
         input is built on the card (:meth:`DeviceConvLayer.fc1_split`) and one read-back ends
         it. *plan* is ``[(cut, splits)]`` per layer: the layer sees edges ``[:cut]``, split into
         FC groups at the offsets *splits* (None: one group). Out nodes = in nodes.
+
+        *poses* is ``(node_sets, n_poses)`` of :func:`pose_blocks` when the graph is one pose
+        tiled. A stack of tile layers then gathers and scatters per pose (:func:`pose_layout`),
+        a tenth of the dense scatter's products at ten poses.
         """
         import time
         import ttnn
@@ -615,18 +731,27 @@ class DeviceConvModule(torch.nn.Module):
         t0 = time.perf_counter()
         E, N = edge_index.shape[1], node_attr.shape[0]
         n_p = pad_count(N)
-        mask = edge_mask.reshape(E).float()
-        ei, pos, blocks = stack_layout(edge_index, n_p, plan)
-        attrs, shs, masks = [], [], []
-        for lo, hi, extra in blocks:
-            attrs.append(torch.nn.functional.pad(edge_attr[lo:hi].float(), (0, 0, 0, extra)))
-            shs.append(torch.nn.functional.pad(edge_sh[lo:hi].float(), (0, 0, 0, extra)))
-            masks.append(torch.nn.functional.pad(mask[lo:hi], (0, extra)))
+        graphs, lay = mods[0].graphs, None
+        if poses is not None and DeviceConvModule.pose_stack and all(
+                mod.dev.slices == 1 for mod in mods):
+            key = ("layout", E, N, tuple((c, tuple(sp or ())) for c, sp in plan))
+            lay = graphs.get(key, edge_index,
+                             lambda: pose_layout(edge_index, plan, *poses) or {"nbytes": 0})
+        if lay and "blocks" in lay:
+            pos, edges, nodes = lay["pos"], lay["edges"], lay["nodes"]
+        else:
+            lay = None
+            ei, pos, blocks = stack_layout(edge_index, n_p, plan)
+            edges = torch.cat([torch.cat([torch.arange(lo, hi), torch.full((extra,), -1)])
+                               for lo, hi, extra in blocks])
+            nodes = torch.cat([torch.arange(N), torch.full((n_p - N,), -1)])
+        # index -1 picks the zero row appended here: a dead row carries zeros and mask 0
+        take = lambda t, at: torch.cat([t.float(), t.new_zeros(1, t.shape[1]).float()])[at]
         d = mods[0].dev.device
-        ea, sh = to_device(d, torch.cat(attrs)), to_device(d, torch.cat(shs))
-        m = ttnn.from_torch(torch.cat(masks).reshape(-1, 1), dtype=ttnn.float32,
+        ea, sh = to_device(d, take(edge_attr, edges)), to_device(d, take(edge_sh, edges))
+        m = ttnn.from_torch(take(edge_mask.reshape(E, 1), edges), dtype=ttnn.float32,
                             layout=ttnn.TILE_LAYOUT, device=d)
-        x = to_device(d, torch.nn.functional.pad(node_attr.float(), (0, 0, 0, n_p - N)))
+        x = to_device(d, take(node_attr, nodes))
         rows, inv = {}, {}
         rows_of = lambda a, b: rows.setdefault((a, b), (ea[a:b, :], sh[a:b, :], m[a:b, :]))
         for mod, (cut, splits) in zip(mods, plan):
@@ -635,7 +760,11 @@ class DeviceConvModule(torch.nn.Module):
             if len(edges) - 1 != len(mod.dev.tps):
                 raise ValueError(f"{mod.name}: {len(edges) - 1} edge groups for "
                                  f"{len(mod.dev.tps)} FC blocks")
-            g = mod._graph(ei[:, :c], n_p, n_p)
+            if lay is None:
+                g = mod._graph(ei[:, :c], n_p, n_p)
+            else:
+                g = graphs.get(("poses", E, N, cut), edge_index[:, :cut],
+                               lambda: mod.dev.pose_graph(lay, c))
             t1 = time.perf_counter() if DeviceConvModule.time_layers else None
             if c not in inv:  # layers over the same cut share the graph and the mask
                 inv[c] = mod.dev.inv_degree(g, rows_of(0, c)[2])
@@ -646,7 +775,9 @@ class DeviceConvModule(torch.nn.Module):
                 ttnn.synchronize_device(d)
                 mod.layer_secs += time.perf_counter() - t1
                 mod.layer_rows += c
-        out = ttnn.to_torch(x)[:N, :mods[-1].layer.out_irreps.dim].to(node_attr.dtype)
+        dim, real = mods[-1].layer.out_irreps.dim, nodes >= 0
+        out = node_attr.new_zeros(N, dim)
+        out[nodes[real]] = ttnn.to_torch(x)[real, :dim].to(node_attr.dtype)
         mods[0].secs += time.perf_counter() - t0
         return out
 
@@ -706,7 +837,7 @@ class DeviceConvModule(torch.nn.Module):
 
 
 def convs_on_device(model, device, *, dtype=None, grade: bool = False,
-                    edge_tp: str = "gemm", gemm_modules=(), graphs: int = 8) -> dict:
+                    edge_tp: str = "gemm", gemm_modules=(), graphs: int = 16) -> dict:
     """Swap every convolution in *model* for a :class:`DeviceConvModule`, in place.
 
     *edge_tp* is the edge tensor-product form of every convolution except those whose path ends

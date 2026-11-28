@@ -2,7 +2,7 @@
 import pytest
 import torch
 
-from tt_bio.diffdock.device import pose_blocks
+from tt_bio.diffdock.device import pose_blocks, pose_layout
 from tt_bio.diffdock.graph import StaticGraphs
 
 
@@ -56,3 +56,48 @@ def test_not_a_tiling_is_refused(break_it):
     else:
         ei[1, 0], ei[1, 1] = ei[1, 1].clone(), ei[1, 0].clone()
     assert pose_blocks(ei, bounds[0], bounds[1], sets, sg.n_poses) is None
+
+
+def test_layout_gathers_and_scatters_like_the_dense_graph():
+    """`pose_layout` rows, with the one-pose matrices a pose graph uploads, against index ops."""
+    sg, ei, bounds, sets = stack()
+    P, N, E = sg.n_poses, sg.n_lig_padded + sg.n_rec_padded, ei.shape[1]
+    lay = pose_layout(ei, [(E, bounds[1:-1]), (bounds[2], bounds[1:2])], sets, P)
+    assert [lay["pos"][b] for b in bounds] == [0] + [b["at"] + P * b["e"] for b in lay["blocks"]]
+    assert all(b["at"] % 32 == 0 and b["e"] % 32 == 0 for b in lay["blocks"])
+    g = torch.Generator().manual_seed(2)
+    x = torch.randn(N, 5, dtype=torch.float64, generator=g)
+    msg = torch.randn(E, 5, dtype=torch.float64, generator=g)
+    take = lambda t, at: torch.cat([t, t.new_zeros(1, t.shape[1])])[at]
+    xl, ml = take(x, lay["nodes"]), take(msg, lay["edges"])
+    real = lay["edges"] >= 0
+    assert torch.equal(lay["edges"][real].sort().values,
+                       torch.cat([pose_blocks(ei, lo, hi, sets, P)["rows"].reshape(-1)
+                                  for lo, hi in zip(bounds, bounds[1:])]).sort().values)
+    out = torch.zeros_like(xl)
+    for b in lay["blocks"]:
+        k, e = b["src"].numel(), b["e"]
+        (ao, no), (ai, ni) = ((lay["node_at"][s], lay["sets"][s]) for s in (b["out_set"], b["in_set"]))
+        S, G = torch.zeros(no, e, dtype=torch.float64), torch.zeros(e, ni, dtype=torch.float64)
+        S[b["src"], torch.arange(k)] = 1
+        G[torch.arange(k), b["dst"]] = 1
+        rows = slice(b["at"], b["at"] + P * e)
+        live = lay["edges"][rows] >= 0
+        for side, M, a, n in (("src", S.T, ao, no), ("dst", G, ai, ni)):
+            got = (M @ xl[a:a + P * n].reshape(P, n, 5)).reshape(P * e, 5)
+            want = x[ei[0 if side == "src" else 1, lay["edges"][rows][live]]]
+            assert torch.equal(got[live], want) and not got[~live].any()
+        out[ao:ao + P * no] += (S @ ml[rows].reshape(P, e, 5)).reshape(P * no, 5)
+    live = lay["edges"][real]
+    dense = torch.zeros(N, 5, dtype=torch.float64).index_add_(0, ei[0, live], msg[live])
+    back = torch.zeros_like(dense)
+    back[lay["nodes"][lay["nodes"] >= 0]] = out[lay["nodes"] >= 0]
+    assert torch.allclose(back, dense, rtol=0, atol=1e-12)
+    assert not out[lay["nodes"] < 0].any()
+
+
+def test_layout_refuses_what_is_not_a_tiling():
+    sg, ei, bounds, sets = stack()
+    ei = ei.clone()
+    ei[1, 0] += sg.n_lig
+    assert pose_layout(ei, [(ei.shape[1], None)], sets, sg.n_poses) is None

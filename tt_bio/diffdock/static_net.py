@@ -93,18 +93,20 @@ def _conv(lyr, node_attr, edge_index, edge_attr, edge_sh, mask, ns, groups=None,
     return lyr(node_attr, edge_index, e, edge_sh, edge_mask=mask, **kw)
 
 
-def run_stack(layers, node_attr, edge_index, edge_attr, edge_sh, mask, ns, plan=None):
+def run_stack(layers, node_attr, edge_index, edge_attr, edge_sh, mask, ns, plan=None,
+              poses=None):
     """Convolutions in sequence over one edge set; *plan* is ``[(cut, splits)]`` per layer (the
     layer sees edges ``[:cut]``, FC groups split at *splits*), default all edges, one group.
 
     Card layers that are not grading run as one device-resident stack
-    (:meth:`tt_bio.diffdock.device.DeviceConvModule.run_stack`), same arithmetic.
+    (:meth:`tt_bio.diffdock.device.DeviceConvModule.run_stack`), same arithmetic. *poses*,
+    ``(node_sets, n_poses)``, tells that form the graph is one pose tiled.
     """
     layers = list(layers)
     plan = plan or [(edge_index.shape[1], None)] * len(layers)
     if layers and all(getattr(lyr, "resident", False) for lyr in layers):
         return type(layers[0]).run_stack(layers, node_attr, edge_index, edge_attr, edge_sh,
-                                         mask, ns, plan)
+                                         mask, ns, plan, poses)
     for lyr, (cut, splits) in zip(layers, plan):
         node_attr = _conv(lyr, node_attr, edge_index[:, :cut], edge_attr[:cut], edge_sh[:cut],
                           mask[:cut], ns, splits)
@@ -159,7 +161,8 @@ def static_forward(model, c: StaticComplex, lig_pos: Tensor, t_tr: float, tr_sig
             pad_nodes(torch.ones(sg.n_rec_total, 1, dtype=dt), sg.n_rec_padded)[:, 0])
     rec_mask = sg.rec_edge_mask(keep, rei)
     rec_h, rec_eattr, rec_sh = c.receptor_base(model)
-    rec_h = run_stack(model.rec_emb_layers, rec_h, rei, rec_eattr, rec_sh, rec_mask, ns)
+    rec_h = run_stack(model.rec_emb_layers, rec_h, rei, rec_eattr, rec_sh, rec_mask, ns,
+                      poses=([(0, sg.n_rec)], P))
     rec_sig = model.rec_sigma_embedding(sigma_emb)
     rec_h = rec_h + 0
     rec_h[:, :ns] = rec_h[:, :ns] + rec_sig
@@ -175,7 +178,8 @@ def static_forward(model, c: StaticComplex, lig_pos: Tensor, t_tr: float, tr_sig
         [bond, lig_sig[lei[0]], model.lig_distance_expansion(lvec.norm(dim=-1))], 1))
     lig_sh = spherical_harmonics(lvec, model.sh_ls)
     lig_h = model.lig_node_embedding(torch.cat([c.lig_x, lig_sig], 1))
-    lig_h = run_stack(model.lig_emb_layers, lig_h, lei, lig_eattr, lig_sh, lig_mask, ns)
+    lig_h = run_stack(model.lig_emb_layers, lig_h, lei, lig_eattr, lig_sh, lig_mask, ns,
+                      poses=([(0, sg.n_lig)], P))
 
     # Cross edges, then the main stack on cat([ligand rows, receptor rows]).
     cutoff = (tr_sigma * 3 + 20).expand(P) if cfg.dynamic_max_cross else cfg.cross_max_distance
@@ -193,7 +197,8 @@ def static_forward(model, c: StaticComplex, lig_pos: Tensor, t_tr: float, tr_sig
     ea = torch.cat([lig_eattr, cross_eattr, rec_eattr, cross_eattr], 0)
     esh = torch.cat([lig_sh, cross_sh, rec_sh, rev_sh], 0)
     em = torch.cat([lig_mask, cross_m, rec_mask, cross_m], 0)
-    node = run_stack(model.conv_layers, node, ei, ea, esh, em, ns, plan)
+    node = run_stack(model.conv_layers, node, ei, ea, esh, em, ns, plan,
+                     poses=([(0, sg.n_lig), (off, sg.n_rec)], P))
     lig_h = node[:off]
 
     # The centre head: every atom into its own pose's centre of mass, pad atoms masked out.
