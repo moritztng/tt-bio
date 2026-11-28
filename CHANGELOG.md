@@ -53,7 +53,10 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   share one copy per process. Nesso-1's output is unchanged.
 - **Protenix-v2 is about 2 % faster on Wormhole.** The pair-biased token attention now runs as one fp32 program read
   straight out of the fused projection, in both modes: 512 tokens at 1000 MHz go 40.2 -> 39.4 s (`--fast`) and
-  46.2 -> 45.6 s. Graded on 11 complexes x 4 seeds with no accuracy loss; Blackhole is unchanged.
+  46.2 -> 45.6 s. Graded on 11 complexes x 4 seeds with no accuracy loss.
+- **Protenix-v2 `--fast` is about 1 s faster on Blackhole.** It takes the same attention read as Wormhole. A warm
+  512-token fold is a median 1.0 s faster at 1312-1343 MHz, faster on 11 of 11 complexes. Graded on 11 complexes x 4
+  seeds inside the fast-mode accuracy bar (CA-lDDT -0.002, docking success 37 -> 36 of 44).
 
 ## [0.45.2] - 2026-11-25
 
