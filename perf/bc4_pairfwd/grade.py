@@ -56,7 +56,8 @@ def run(shape):
     def composed(x):
         u = mod(x)
         out = K.rne_add(x, u, memory_config=ttnn.DRAM_MEMORY_CONFIG)
-        ttnn.deallocate(u)
+        if not isinstance(u, ag.Tensor):     # the tape owns a taped update
+            ttnn.deallocate(u)
         return out
 
     def fused(x):
