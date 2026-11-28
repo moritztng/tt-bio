@@ -26,6 +26,9 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   fold on a Galaxy chip at 1000 MHz: ESMFold2 22.9 -> 21.8 s (normal) and 22.2 -> 21.3 s (`--fast`), ESMFold2-Fast
   13.5 -> 13.0 s and 13.4 -> 12.9 s. The triangle update keeps one pair tensor in 8-bit block floating point across
   two kernels; structures change slightly and pass each mode's accuracy bar on 11 complexes x 4 seeds.
+- **Protenix-v2 `--fast` is about 1 s faster on Blackhole.** It takes the attention read Wormhole got in 0.46.0. A warm
+  512-token fold is a median 1.0 s faster at 1312-1343 MHz, faster on 11 of 11 complexes. Graded on 11 complexes x 4
+  seeds inside the fast-mode accuracy bar (CA-lDDT -0.002, docking success 37 -> 36 of 44).
 
 ### Fixed
 - **`tt-bio dock` no longer writes a pose far outside the receptor.** On a few inputs the score network returns a
@@ -57,10 +60,7 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   share one copy per process. Nesso-1's output is unchanged.
 - **Protenix-v2 is about 2 % faster on Wormhole.** The pair-biased token attention now runs as one fp32 program read
   straight out of the fused projection, in both modes: 512 tokens at 1000 MHz go 40.2 -> 39.4 s (`--fast`) and
-  46.2 -> 45.6 s. Graded on 11 complexes x 4 seeds with no accuracy loss.
-- **Protenix-v2 `--fast` is about 1 s faster on Blackhole.** It takes the same attention read as Wormhole. A warm
-  512-token fold is a median 1.0 s faster at 1312-1343 MHz, faster on 11 of 11 complexes. Graded on 11 complexes x 4
-  seeds inside the fast-mode accuracy bar (CA-lDDT -0.002, docking success 37 -> 36 of 44).
+  46.2 -> 45.6 s. Graded on 11 complexes x 4 seeds with no accuracy loss; Blackhole is unchanged.
 
 ## [0.45.2] - 2026-11-25
 
