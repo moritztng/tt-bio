@@ -382,9 +382,9 @@ TAIL_KB1 = int(os.environ.get("TT_BIO_TRIATT_TAIL_KB1", "1"))
 TAIL_T = os.environ.get("TT_BIO_TRIATT_TAIL_T")   # "1" / "0" overrides the per-arch default
 TAIL_T_GRAN = 4   # sums per DEST batch, as pair_transpose_add
 TAIL_FORCE = os.environ.get("TT_BIO_TRIATT_TAIL")   # "1" / "0" overrides the `triatt_tail` lever
-# INSTRUMENT, never a shipped knob (as triatt_sdpa's TT_BIO_TRIATT_ABLATE): TT_BIO_TRIATT_TAIL_ABLATE=READ,WRITE,SIG,MM
+# INSTRUMENT, never a shipped knob (as triatt_sdpa's TT_BIO_TRIATT_ABLATE): TT_BIO_TRIATT_TAIL_ABLATE=READ,WRITE,SIG,MM,SHUF
 # compiles gated_out_proj without the named stage (o, g and z reads after a core's first unit; the output writes;
-# the gate's sigmoid; all but one K tile of the projection). The output is wrong on purpose, only the time is read.
+# the gate's sigmoid; all but one K tile of the projection; the ending form's row shuffle). The output is wrong on purpose, only the time is read.
 TAIL_ABLATE = tuple(x.strip().upper() for x in os.environ.get("TT_BIO_TRIATT_TAIL_ABLATE", "").split(",") if x.strip())
 if TAIL_ABLATE:
     import warnings

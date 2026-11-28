@@ -60,6 +60,7 @@ void kernel_main() {
             for (uint32_t q = 0; q < 32; ++q, lz += tb) rows(z.get_noc_addr(page(q, n)), lz, off, false);
             cb_reserve_back(t_cb, 32);
             const uint32_t slot = get_write_ptr(t_cb);
+#ifndef ABL_SHUF   // INSTRUMENT (triatt_qkv.TAIL_ABLATE): the staged rows are not shuffled into z's orientation
             for (uint32_t r = 0; r < R; ++r) {
                 const uint32_t src_tile = stage + (r * Nt + n) * tb, rr = r0 + r;
                 const uint32_t dst_row = ((rr >> 4) * 2) * FACE + (rr & 15) * ROW;
@@ -70,6 +71,7 @@ void kernel_main() {
                     noc_async_read(get_noc_addr(src + FACE), dst + FACE, ROW);
                 }
             }
+#endif
             noc_async_read_barrier();
             cb_push_back(z_cb, 32);
             cb_push_back(t_cb, 32);
