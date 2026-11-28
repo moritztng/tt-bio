@@ -669,7 +669,7 @@ class PairUpdate(Module):
         return z, zb
 
 
-def trunk_masks(mask, device, dtype=ttnn.bfloat16, residual_dtype=None, elide=None):
+def trunk_masks(mask, device, dtype=ttnn.bfloat16, residual_dtype=None, elide=None, *, sharded: bool = False):
     """The device masks one trunk call reads, from a host [b, n] 0/1 token mask: the token mask
     [b, n, 1], the attention's additive [b, 1, n, n] pair mask, the pair mask as [b, n, n]
     (triangle multiplication) and [b, n, n, 1], then the token and [b, n, n, 1] pair masks again in
@@ -682,8 +682,11 @@ def trunk_masks(mask, device, dtype=ttnn.bfloat16, residual_dtype=None, elide=No
     `mask:none`, bit-identical)."""
     m = mask.to(torch.float32)
     pair = m[:, :, None] * m[:, None, :]
+    mm = (ttnn.ShardTensorToMesh(device, dim=0)
+          if (sharded and getattr(device, "get_num_devices", lambda: 1)() > 1) else None)
     up = lambda t: ttnn.from_torch(t.contiguous(), dtype=dtype, layout=ttnn.TILE_LAYOUT,  # noqa: E731
-                                   device=device, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+                                   device=device, memory_config=ttnn.DRAM_MEMORY_CONFIG,
+                                   **({"mesh_mapper": mm} if mm is not None else {}))
     if (ELIDE_FULL_MASKS if elide is None else elide) and bool((m == 1).all()):
         return None, None, None, None, None, None
     tok, pair_c = up(m[..., None]), up(pair[..., None])

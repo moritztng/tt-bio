@@ -39,9 +39,20 @@ __all__ = [
     "transpose_exact_f32",
 ]
 
-_ONES_COL_CACHE: Dict[Tuple[int, int], object] = {}
-_ONES_ROW_CACHE: Dict[Tuple[int, int], object] = {}
-_CORE_GRID_CACHE: Dict[int, object] = {}
+_ONES_COL_CACHE: Dict[Tuple[object, int], object] = {}
+_ONES_ROW_CACHE: Dict[Tuple[object, ...], object] = {}
+_CORE_GRID_CACHE: Dict[object, object] = {}
+
+
+def _dev_key(device):
+    try:
+        if hasattr(device, "get_device_ids"):
+            return ("mesh", tuple(device.get_device_ids()))
+        if hasattr(device, "id"):
+            return ("dev", int(device.id()))
+    except Exception:
+        pass
+    return id(device)
 
 
 def _core_grid(device):
@@ -50,7 +61,7 @@ def _core_grid(device):
 
     if not hasattr(device, "compute_with_storage_grid_size") or not hasattr(ttnn, "CoreGrid"):
         return None
-    key = id(device)
+    key = _dev_key(device)
     hit = _CORE_GRID_CACHE.get(key)
     if hit is None:
         cg = device.compute_with_storage_grid_size()
@@ -225,7 +236,7 @@ def _ones_col_bf16(n: int, device):
     import torch
     import ttnn
 
-    key = (id(device), int(n))
+    key = (_dev_key(device), int(n))
     hit = _ONES_COL_CACHE.get(key)
     if hit is not None and hit.is_allocated():
         return hit
@@ -242,7 +253,7 @@ def _ones_row_bf16(m: int, device):
     import torch
     import ttnn
 
-    key = (id(device), int(m))
+    key = (_dev_key(device), int(m))
     hit = _ONES_ROW_CACHE.get(key)
     if hit is not None and hit.is_allocated():
         return hit
@@ -259,7 +270,7 @@ def _ones_batch_row_bf16(k: int, m: int, device):
     import torch
     import ttnn
 
-    key = (id(device), int(k), int(m))
+    key = (_dev_key(device), int(k), int(m))
     hit = _ONES_ROW_CACHE.get(key)
     if hit is not None and hit.is_allocated():
         return hit
@@ -770,7 +781,7 @@ class DeviceOptimizer:
             _safe_dealloc(p, keep=orig)
         return g_b, flags
 
-    def _unpack_master(self, bk: _Bucket) -> None:
+    def _unpack_master(self, bk: _Bucket, *, in_place: bool = False) -> None:
         """Refresh ``self.master[name]`` individual slices from ``bk.master_b``."""
         import ttnn
 
@@ -783,8 +794,13 @@ class DeviceOptimizer:
             new_m = ttnn.reshape(sl, list(bk.shape))
             _safe_dealloc(sl, keep=new_m)
             old_m = self.master[nm]
-            self.master[nm] = new_m
-            _safe_dealloc(old_m, keep=new_m)
+            if in_place and old_m is not None:
+                if new_m is not old_m:
+                    ttnn.copy(new_m, old_m)
+                    _safe_dealloc(new_m, keep=old_m)
+            else:
+                self.master[nm] = new_m
+                _safe_dealloc(old_m, keep=new_m)
 
     def _mask_tensor(self, flags: list, s0: int):
         """Build ``[k*s0, 1, 1]`` float32 active and inactive masks on card (tiny, 4*k bytes)."""
@@ -865,7 +881,8 @@ class DeviceOptimizer:
             off += bk.k * s0
         return sq_muon, sq_adam, dead
 
-    def _step_muon_bucket(self, bk: _Bucket, g_b, flags: list, clip_muon: float, lr_muon: float) -> None:
+    def _step_muon_bucket(self, bk: _Bucket, g_b, flags: list, clip_muon: float, lr_muon: float,
+                          *, in_place_masters: bool = False) -> None:
         import ttnn
 
         if g_b is None:
@@ -941,10 +958,11 @@ class DeviceOptimizer:
             ttnn.deallocate(m_act)
             ttnn.deallocate(m_inact)
 
-        self._unpack_master(bk)
+        self._unpack_master(bk, in_place=in_place_masters)
 
     def _step_adam_bucket(self, bk: _Bucket, g_b, dis: set,
-                          clip_adam: float, lr: float, bc1: float, bc2: float) -> None:
+                          clip_adam: float, lr: float, bc1: float, bc2: float,
+                          *, in_place_masters: bool = False) -> None:
         import ttnn
 
         b1, b2 = self.beta1, self.beta2
@@ -991,12 +1009,13 @@ class DeviceOptimizer:
                     ttnn.deallocate(bk.state1_b)
                     ttnn.deallocate(bk.state2_b)
                 if not all_enabled:
-                    m_act, _ = self._mask_tensor(enabled, bk.canon[0])
+                    m_act, m_inact = self._mask_tensor(enabled, bk.canon[0])
                     m_new = ttnn.multiply(m_cand, m_act)
                     v_new = ttnn.multiply(v_cand, m_act)
                     ttnn.deallocate(m_cand)
                     ttnn.deallocate(v_cand)
                     ttnn.deallocate(m_act)
+                    ttnn.deallocate(m_inact)
                     bk.state1_b, bk.state2_b = m_new, v_new
                 else:
                     bk.state1_b, bk.state2_b = m_cand, v_cand
@@ -1057,7 +1076,7 @@ class DeviceOptimizer:
             ttnn.deallocate(m_act)
             ttnn.deallocate(m_inact)
 
-        self._unpack_master(bk)
+        self._unpack_master(bk, in_place=in_place_masters)
 
     def step(
         self,
@@ -1068,6 +1087,8 @@ class DeviceOptimizer:
         gather_fn: Optional[Callable[[Dict[str, object], frozenset], None]] = None,
         disabled=(),
         free_grads: bool = False,
+        in_place_masters: bool = False,
+        free_skip: Optional[set] = None,
     ) -> dict:
         """Run one optimizer step wholly on card."""
         import ttnn
@@ -1076,6 +1097,7 @@ class DeviceOptimizer:
         if reduce_fn is not None:
             grads = reduce_fn(grads)
         dis = set(disabled)
+        skip = set(free_skip) if free_skip is not None else ()
 
         lr = self.lr if self.schedule is None else float(self.schedule(self.steps))
         lr_muon = (
@@ -1092,10 +1114,11 @@ class DeviceOptimizer:
         adam_packed = [(bk, *self._pack_grads(bk, grads, dis)) for bk in self._adam_buckets]
 
         if free_grads:
+            skip_ids = {id(orig_grads[nm]) for nm in skip if orig_grads.get(nm) is not None}
             freed_ids: set[int] = set()
             for mapping in (grads, orig_grads):
                 for g in mapping.values():
-                    if g is not None and id(g) not in freed_ids and g.is_allocated():
+                    if g is not None and id(g) not in freed_ids and id(g) not in skip_ids and g.is_allocated():
                         freed_ids.add(id(g))
                         ttnn.deallocate(g)
 
@@ -1119,12 +1142,12 @@ class DeviceOptimizer:
             self.last_grad_norm_muon = 0.0
 
         for bk, g_b, flags in muon_packed:
-            self._step_muon_bucket(bk, g_b, flags, clip_muon, lr_muon)
+            self._step_muon_bucket(bk, g_b, flags, clip_muon, lr_muon, in_place_masters=in_place_masters)
             if g_b is not None:
                 ttnn.deallocate(g_b)
 
         for bk, g_b, _flags in adam_packed:
-            self._step_adam_bucket(bk, g_b, dis, clip_adam, lr, bc1, bc2)
+            self._step_adam_bucket(bk, g_b, dis, clip_adam, lr, bc1, bc2, in_place_masters=in_place_masters)
             if g_b is not None:
                 ttnn.deallocate(g_b)
 

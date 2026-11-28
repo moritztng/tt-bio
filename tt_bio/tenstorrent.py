@@ -3529,9 +3529,11 @@ def fused_sdpa(q, k, v, attn_mask=None, *, scale: float, **kw):
     """
     if attn_mask is None:
         dev = q.device()
-        key = (id(dev), int(q.shape[2]), int(k.shape[2]))
+        dkey = (("mesh", tuple(dev.get_device_ids())) if hasattr(dev, "get_device_ids")
+                else ("dev", int(dev.id())) if hasattr(dev, "id") else id(dev))
+        key = (dkey, int(q.shape[2]), int(k.shape[2]))
         hit = _ZERO_MASKS.get(key)
-        if hit is None:  # the device is kept in the entry so its id cannot be reused
+        if hit is None or not hit[1].is_allocated():
             hit = _ZERO_MASKS[key] = (dev, ttnn.zeros([1, 1, key[1], key[2]], dtype=ttnn.bfloat16,
                                                       layout=ttnn.TILE_LAYOUT, device=dev))
         attn_mask = hit[1]

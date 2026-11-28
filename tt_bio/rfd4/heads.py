@@ -161,12 +161,15 @@ class DeviceHeads:
         from tt_bio._vendor.rfd4_prep._cif.model_masks import compute_flow_emit_masks
 
         emit = compute_flow_emit_masks(batch)
+        multi = getattr(self.device, "get_num_devices", lambda: 1)() > 1
+        mm = ttnn.ShardTensorToMesh(self.device, dim=0) if multi else None
 
         def up_m(arr) -> object:
             m = _pad_1d(_as_np(arr).astype(np.float32), n_pad, 0.0)
             t = torch.from_numpy(m[..., None].copy())
             return ttnn.from_torch(
-                t, dtype=self.dtype, layout=ttnn.TILE_LAYOUT, device=self.device)
+                t, dtype=self.dtype, layout=ttnn.TILE_LAYOUT, device=self.device,
+                **({"mesh_mapper": mm} if mm is not None else {}))
 
         emit_ca = up_m(emit["bb_ca"])
         emit_ll = up_m(emit["local_latents"])

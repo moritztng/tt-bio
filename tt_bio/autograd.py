@@ -61,6 +61,17 @@ DEVICE_ZEROS = True
 _ZERO_CACHE: dict = {}
 
 
+def _dev_key(device):
+    try:
+        if hasattr(device, "get_device_ids"):
+            return ("mesh", tuple(device.get_device_ids()))
+        if hasattr(device, "id"):
+            return ("dev", int(device.id()))
+    except Exception:
+        pass
+    return id(device)
+
+
 def grad_zeros(shape, dtype, device):
     """A zero tensor of ``shape`` on ``device``, for a backward that pads a gradient out.
 
@@ -70,9 +81,9 @@ def grad_zeros(shape, dtype, device):
     shape = [int(d) for d in shape]
     if not DEVICE_ZEROS:
         return ttnn.zeros(shape, dtype=dtype, layout=ttnn.TILE_LAYOUT, device=device)
-    key = (tuple(shape), str(dtype), id(device))
+    key = (tuple(shape), str(dtype), _dev_key(device))
     z = _ZERO_CACHE.get(key)
-    if z is None:
+    if z is None or not z.is_allocated():
         z = _ZERO_CACHE[key] = ttnn.zeros(shape, dtype=dtype, layout=ttnn.TILE_LAYOUT,
                                           device=device)
     # A clone, so a caller that frees its input cannot free the cache entry. It costs a device
@@ -1511,7 +1522,7 @@ def _l1_bank(device) -> int:
     1461760 (`perf/bcw_bmm/out/cb_probe2_bh.json`). Wormhole's bank is 1395424. One read per
     device, because the view drains the pipeline.
     """
-    k = id(device)
+    k = _dev_key(device)
     if k not in _L1_BANK:
         _L1_BANK[k] = int(ttnn.get_memory_view(device, ttnn.BufferType.L1).total_bytes_per_bank)
     return _L1_BANK[k]
