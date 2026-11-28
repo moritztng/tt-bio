@@ -30,6 +30,41 @@ def upload(device, x: torch.Tensor):
     return ttnn.from_torch(x, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=device)
 
 
+def _split_weight(device, w: torch.Tensor):
+    """Split an fp32 constant matrix into bf16 ``(hi, lo)`` TILE tensors on *device*."""
+    import ttnn
+    w = w.to(torch.float32)
+    hi = w.to(torch.bfloat16)
+    lo = (w - hi.to(torch.float32)).to(torch.bfloat16)
+    up = lambda t: ttnn.from_torch(t, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=device)
+    return up(hi), up(lo)
+
+
+def _split_mm(a, w_pair, ckc):
+    """Exact-ish fp32 matmul ``a @ (w_hi + w_lo)`` via bf16 hi+lo split (~15-bit mantissa).
+
+    Blackhole ``ttnn.matmul`` unpacks ``float32`` operands as ``bfloat16``, which left every
+    resident MLP 2e-3 from float64 even when K-blocked to 32 tiles. Splitting both operands
+    into bf16 pairs recovers ~15-bit mantissa accuracy (~1e-5) with no extra weight DRAM.
+    """
+    import ttnn
+    w_hi, w_lo = w_pair
+    a_hi = ttnn.typecast(a, ttnn.bfloat16)
+    a_hi32 = ttnn.typecast(a_hi, ttnn.float32)
+    a_lo32 = ttnn.subtract(a, a_hi32)
+    a_lo = ttnn.typecast(a_lo32, ttnn.bfloat16)
+    ttnn.deallocate(a_hi32)
+    ttnn.deallocate(a_lo32)
+    m0 = ttnn.matmul(a_hi, w_hi, dtype=ttnn.float32, compute_kernel_config=ckc)
+    m1 = ttnn.matmul(a_hi, w_lo, dtype=ttnn.float32, compute_kernel_config=ckc)
+    m2 = ttnn.matmul(a_lo, w_hi, dtype=ttnn.float32, compute_kernel_config=ckc)
+    m01 = ttnn.add(m0, m1)
+    out = ttnn.add(m01, m2)
+    for t in (a_hi, a_lo, m0, m1, m2, m01):
+        ttnn.deallocate(t)
+    return out
+
+
 _ZEROS: dict = {}
 _ONEHOT: dict = {}
 
@@ -178,7 +213,7 @@ class MLP:
             blocks, start = [], 0
             for w in widths:
                 blocks.append([(c, min(c + self.BLOCK, w),
-                                upload(self.device, weight[start + c:start + min(c + self.BLOCK, w)]))
+                                _split_weight(self.device, weight[start + c:start + min(c + self.BLOCK, w)]))
                                for c in range(0, w, self.BLOCK)])
                 start += w
             self._split[(at, widths)] = blocks
@@ -188,9 +223,9 @@ class MLP:
         out = None
         for part, blocks in zip(parts, self._split[(at, widths)]):
             rows = part.shape[0]
-            for lo, hi, w in blocks:
+            for lo, hi, w_pair in blocks:
                 cols = part if len(blocks) == 1 else ttnn.slice(part, [0, lo], [rows, hi])
-                y = ttnn.matmul(cols, w, compute_kernel_config=ckc)
+                y = _split_mm(cols, w_pair, ckc)
                 out = y if out is None else ttnn.add(out, y)
         return out if bias is None else ttnn.add(out, bias)
 
@@ -739,7 +774,7 @@ class FullTP:
             rows = [module(eye1, torch.eye(d2, dtype=torch.float64)[j].expand(d1, d2))
                     for j in range(d2)]
         self.d1, self.d2 = d1, d2
-        self.m = [upload(device, r) for r in rows]           # m[j][i] is the (j, i) row
+        self.m = [_split_weight(device, r) for r in rows]    # m[j][i] is the (j, i) row
         self.ckc = ttnn.types.BlackholeComputeKernelConfig(
             math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,
             fp32_dest_acc_en=True, packer_l1_acc=True)
@@ -750,8 +785,7 @@ class FullTP:
         n = x1.shape[0]
         out = None
         for j, m in enumerate(self.m):
-            y = ttnn.matmul(ttnn.multiply(x1, ttnn.slice(x2, [0, j], [n, j + 1])), m,
-                            compute_kernel_config=self.ckc)
+            y = _split_mm(ttnn.multiply(x1, ttnn.slice(x2, [0, j], [n, j + 1])), m, self.ckc)
             out = y if out is None else ttnn.add(out, y)
         return out
 # ---------------------------------------------------------------------------
