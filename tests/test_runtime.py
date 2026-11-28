@@ -219,3 +219,37 @@ def test_boltzgen_fanout_still_respects_an_explicit_operator_setting(monkeypatch
         assert env["OMP_NUM_THREADS"] == "7"
         # They capped threads, not the wait policy, so parking is still ours to set.
         assert runtime.IDLE_THREADS_PARK.items() <= env.items()
+
+
+def _hinted_bytes(env):
+    """Bytes of this process flagged for huge pages after numpy fills a 32 MB array."""
+    import subprocess
+    import sys
+
+    code = (
+        "import tt_bio, numpy as np; a = np.ones(1 << 25, np.uint8); f = open('/proc/self/smaps').read().split('\\n');"
+        "size = 0; total = 0\n"
+        "for l in f:\n"
+        "    if l.startswith('Size:'): size = int(l.split()[1])\n"
+        "    if l.startswith('VmFlags:') and ' hg' in l: total += size\n"
+        "print(total)"
+    )
+    out = subprocess.run([sys.executable, "-c", code], env=env, capture_output=True, text=True, check=True)
+    return int(out.stdout.split()[-1])
+
+
+@pytest.mark.skipif(not os.path.exists("/proc/self/smaps"), reason="Linux only")
+def test_numpy_arrays_carry_no_hugepage_hint_by_default():
+    env = {k: v for k, v in os.environ.items() if k != "NUMPY_MADVISE_HUGEPAGE"}
+    assert _hinted_bytes(env) == 0
+    assert _hinted_bytes({**env, "NUMPY_MADVISE_HUGEPAGE": "1"}) >= 1 << 14  # an operator's own value wins
+
+
+def test_hugepage_hint_is_dropped_when_numpy_is_already_loaded(monkeypatch):
+    import numpy as np
+
+    core = getattr(np, "_core", None) or np.core
+    monkeypatch.delenv("NUMPY_MADVISE_HUGEPAGE", raising=False)
+    core.multiarray._set_madvise_hugepage(True)
+    runtime.drop_numpy_hugepage_hint()
+    assert core.multiarray._set_madvise_hugepage(False) is False  # returns the previous setting
