@@ -2373,8 +2373,13 @@ def dock(data, ligand, name, out_dir, model, config, loglevel, cache, device_ids
                                     isolate=len(jobs) > 1, download=True)
     except (RuntimeError, ValueError, FileNotFoundError) as e:
         raise click.ClickException(str(e))
+    lost = {d["name"]: d["failed_samples"] for d in summary["docked"] if d["failed_samples"]}
+    for name, n in lost.items():
+        click.echo(f"{name}: {n} sample(s) failed during the rollout and were not written",
+                   err=True)
     click.echo(json.dumps({"docked": [d["name"] for d in summary["docked"]],
                            "failed": [f[0] for f in summary["failed"]],
+                           "failed_samples": lost,
                            "out_dir": summary["out_dir"]}, indent=2))
 
 
