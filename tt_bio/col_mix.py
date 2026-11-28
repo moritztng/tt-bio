@@ -24,7 +24,7 @@ from .rne_add import _split_plan
 
 KERNEL_DIR = Path(__file__).resolve().parent / "kernels" / "col_mix"
 TILE = 32
-IN_CB, BIAS_CB, CONST_CB, D_CB, OUT_CB, MID_CB = 0, 1, 2, 3, 16, 24
+IN_CB, BIAS_CB, CONST_CB, D_CB, OUT_CB, MID_CB, P_CB, G_CB = 0, 1, 2, 3, 16, 24, 25, 26
 
 #: The lever. Default OFF until it is graded on a BindCraft 2 round.
 COL_MIX = env_flag("TT_BIO_COL_MIX", False)
@@ -114,7 +114,8 @@ def _build(qkv, const, bias, out, device, nt, heads, d=None):
     if has_bias:
         cbs.append(_cb(BIAS_CB, ttnn.bfloat16, 2, core_grid))
     if bw:
-        cbs.append(_cb(D_CB, ttnn.bfloat16, 4, core_grid))
+        cbs += [_cb(D_CB, ttnn.bfloat16, 4, core_grid), _cb(P_CB, ttnn.float32, 4, core_grid),
+                _cb(G_CB, ttnn.float32, 2, core_grid)]
     return {"kernels": [reader, writer, compute], "cbs": cbs}
 
 
