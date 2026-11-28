@@ -72,3 +72,38 @@ for name, (n, e) in BLOCKS.items():
     res["blocks"][name] = row
     print(name, row, flush=True)
     open(a.out, "w").write(json.dumps(res, indent=1))
+
+# Gather as a matmul: table[dst] is G @ table with G the [e, n] 0/1 transpose of a scatter block,
+# one 1 per row, so the product is a copy. Against gather_rows (three bf16 slices of an fp32
+# table), per block: ms, and whether each is the torch gather bit for bit.
+res["gather"] = {}
+for name, (n, e) in BLOCKS.items():
+    dst = torch.randint(0, n, (e,))
+    tab = torch.randn(P * n, D)
+    ref = tab.reshape(P, n, D)[:, dst]                      # [P, e, D], fp32
+    row = {"n": n, "e": e}
+    t2 = up(tab)
+    try:
+        flat = (dst[None] + n * torch.arange(P)[:, None]).reshape(1, P * e)
+        idx = ttnn.from_torch(flat.to(torch.int32), dtype=ttnn.uint32, layout=ttnn.ROW_MAJOR_LAYOUT, device=dev)
+        ms, r = timed(lambda: ddev.gather_rows(t2, idx, P * e))
+        got = ttnn.to_torch(r).reshape(P, e, D)
+        row["slices_ms"] = round(ms, 3); row["slices_equal"] = bool(torch.equal(got, ref))
+        row["slices_rel_err"] = rel(got, ref.double())
+    except Exception as ex:
+        row["slices_error"] = repr(ex)[:300]
+    t3 = ttnn.reshape(t2, (P, n, D))
+    g = torch.zeros(e, n); g[torch.arange(e), dst] = 1.0
+    for label, s in (("batched", g.expand(P, e, n)), ("shared", g.reshape(1, e, n))):
+        try:
+            gt = up(s, s_dt)
+            ms, r = timed(lambda: ttnn.matmul(gt, t3, compute_kernel_config=ckc, dtype=ttnn.float32))
+            got = ttnn.to_torch(r).reshape(P, e, D)
+            row[label + "_ms"] = round(ms, 3); row[label + "_equal"] = bool(torch.equal(got, ref))
+            row[label + "_rel_err"] = rel(got, ref.double())
+            ttnn.deallocate(gt)
+        except Exception as ex:
+            row[label + "_error"] = repr(ex)[:300]
+    res["gather"][name] = row
+    print("gather", name, row, flush=True)
+    open(a.out, "w").write(json.dumps(res, indent=1))
