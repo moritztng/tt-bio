@@ -33,7 +33,7 @@ for idx in "${!forms[@]}"; do
   share=$(( left / (${#forms[@]} - idx) ))
   say "start $etp chip $chip node $node budget ${share}s $(uptime)"
   s=$(date +%s)
-  timeout -s INT -k 60 $share $PY scripts/diffdock_port/pose_eval.py dock --ids "$ids" --out "$poses" \
+  nice -n 10 timeout -s INT -k 60 $share $PY scripts/diffdock_port/pose_eval.py dock --ids "$ids" --out "$poses" \
     --device tt --edge-tp "$etp" --seed 42 \
     --clk-sysfs "/sys/class/tenstorrent/tenstorrent!$node/tt_aiclk" > "$OUT/$name-$etp.out" 2>&1
   rc=$?

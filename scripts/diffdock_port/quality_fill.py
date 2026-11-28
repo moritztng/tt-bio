@@ -152,6 +152,52 @@ def library_crosscheck(poses: Path, ids):
     }
 
 
+RUNAWAY_A = 1000.0
+
+
+def runaway_poses(evaluate, poses: Path, ids):
+    """Every WRITTEN pose whose closest approach to the receptor is a numerical blow-up.
+
+    The grader's `nonfinite_or_collapse` reads `math.isfinite` over the coordinates, so it sees a
+    NaN and nothing else. A sample whose score overflows mid-rollout does not have to end
+    non-finite: it can land a perfectly finite pose 2.9e6 A from the protein, get ranked, and be
+    graded as an ordinary 2.9e6 A RMSD miss. QUALITY.md condition 4 says "any collapsed pose" is a
+    FAIL, so the collapse has to be measured, not inferred from NaN.
+
+    The bar is physical and fixed here, not after seeing which side it catches: a pose further than
+    RUNAWAY_A = 1000 A from every receptor heavy atom. The whole upstream reference half tops out at
+    a 99.5 A rank-1 and the port's own non-runaway worst is 373 A, so 1000 A is three orders of
+    magnitude past any pose either side produces by docking badly. Everything between 15 A and
+    1000 A is bad docking, is counted in the RMSD distribution where it belongs, and is NOT a
+    collapse. Each complex is reported with its worst pose and whether rank-1 is the one affected.
+    """
+    from rdkit import Chem
+    out = {}
+    for cid in ids:
+        pdb = PB / cid / f"{cid}_protein.pdb"
+        if not pdb.exists():
+            continue
+        rec = [(float(l[30:38]), float(l[38:46]), float(l[46:54]))
+               for l in open(pdb)
+               if l.startswith("ATOM") and l[76:78].strip() not in ("H", "")]
+        if not rec:
+            continue
+        worst, ranks = 0.0, []
+        for sdf in sorted((poses / cid).glob("rank*.sdf")):
+            mol = Chem.MolFromMolFile(str(sdf), sanitize=False)
+            if mol is None or mol.GetNumConformers() == 0:
+                continue
+            d = evaluate.min_cross_distance(mol.GetConformer().GetPositions(), rec)
+            if d > RUNAWAY_A:
+                worst = max(worst, d)
+                ranks.append(sdf.name)
+        if ranks:
+            out[cid] = {"worst_approach_a": round(worst, 1), "poses": sorted(ranks),
+                        "rank1_affected": any(r.startswith("rank1.sdf") or
+                                              r.startswith("rank1_") for r in ranks)}
+    return out
+
+
 def steric_cross(evaluate, poses: Path, ids):
     """Closest ligand-receptor approach over the set's rank-1 poses, in Angstrom.
 
@@ -241,6 +287,7 @@ def main():
     pbs["n_scored"] = summary["n_graded"]
     pbs["exclusions"] = exclusions(per, fails, attempted)
     nans = nan_failures(fails)
+    runaway = runaway_poses(load_evaluate(), poses, ids)
     pbs["tt"] = {
         "top1_rmsd_lt2": summary["top1_success_lt2A"],
         "top1_ci95_wilson": summary["top1_success_ci95"],
@@ -252,10 +299,14 @@ def main():
         "steric": {"min_cross_distance": steric_cross(load_evaluate(), poses, ids),
                    "self_intersection_frac": (cross or {}).get("self_intersect_frac")},
         # written-pose NaNs the grader can see, PLUS the complexes that died non-finite before
-        # any pose was written and so cannot appear in a coordinate scan
-        "nan_or_collapse": summary["nonfinite_or_collapse"] + len(nans),
+        # any pose was written and so cannot appear in a coordinate scan, PLUS the complexes
+        # whose written pose is finite but a numerical runaway (see runaway_poses)
+        "nan_or_collapse": (summary["nonfinite_or_collapse"] + len(nans)
+                            + len(set(runaway) - set(nans))),
         "nan_in_written_poses": summary["nonfinite_or_collapse"],
         "nan_failed_before_writing": nans,
+        "collapsed_written_poses": runaway,
+        "collapse_bar_a": RUNAWAY_A,
         "network": "host torch HostScoreNetwork, released v1.1 checkpoints",
     }
     if redocked:
