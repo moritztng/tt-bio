@@ -649,7 +649,9 @@ class DeviceScoreNetwork:
         self.convs = convs_on_device(host.model, device, edge_tp=edge_tp,
                                      gemm_modules=TILE_GEMM_MODULES if edge_tp == "tile" else ())
         # The confidence model keeps the GEMM form: the tile kernel was graded on the score
-        # network only, and the ranking pass is 0.54 s, not the bottleneck.
+        # network only. The ranking pass is not the small cost an earlier comment here claimed:
+        # it runs one graph per pose and carries 80-87 % of a large ligand's wall
+        # (484 of 583 s on 7BA0_T5H, anx-glx chip 18, state/dfd/SHAPES.md).
         self.confidence_convs = ({} if host.confidence_model is None
                                  else convs_on_device(host.confidence_model, device,
                                                       graphs=CONFIDENCE_GRAPHS))
