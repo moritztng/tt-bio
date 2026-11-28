@@ -5,6 +5,8 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+## [0.47.0] - 2026-11-28
+
 ### Added
 - **`tt-bio train batches/ --model rfd4` trains RFD4-Proteina's release trunk weights on Tenstorrent cards.** Each
   step runs `k` noise candidates through the production trunk with gradients off, picks the winner on upstream's
