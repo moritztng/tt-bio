@@ -311,7 +311,8 @@ def main():
         json.dump(q, open(QJ, "w"), indent=2)
 
     r = json.load(open(ROW)) if not a.dry_run else {}
-    r.update(status="done", branch="wk/dfd-eval",
+    # The row is done when the device column is graded too (phase 2), not when the host one is.
+    r.update(status="done" if q.get("device") else "in_progress", branch="wk/dfd-eval",
              n_attempted=pbs["n_attempted"], n_scored=pbs["n_scored"],
              top1_rmsd_lt2=pbs["tt"]["top1_rmsd_lt2"], ks_p=pbs["paired"]["ks_p"],
              paired_ci=pbs["paired"]["ci95"], validity=pbs["tt"]["posebusters_validity"],
