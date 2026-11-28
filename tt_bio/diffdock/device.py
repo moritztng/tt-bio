@@ -435,6 +435,47 @@ class DeviceConvLayer:
         return out
 
 
+def pose_blocks(edge_index: Tensor, lo: int, hi: int, node_sets, n_poses: int):
+    """Edges ``[lo, hi)`` as *n_poses* copies of one graph, or None when they are not.
+
+    The static graph is one pose tiled over the poses, so the dense ``[N, E]`` scatter of a
+    block is the same ``[n, e]`` matrix *n_poses* times on the diagonal, and the gather its
+    transpose. This finds that one matrix. *node_sets* are ``(start, n)`` per node type: pose
+    ``p`` owns nodes ``start + p * n .. start + (p + 1) * n``. Edges that touch a node outside
+    every set are the layout's dead padding and are left out.
+
+    Returns ``rows`` (``[n_poses, e]``, the edge rows of each pose in order), the pose-local
+    ``src`` and ``dst`` (``[e]``) and the node set each indexes, ``out_set`` and ``in_set``.
+    """
+    def locate(nodes):
+        which = torch.full_like(nodes, -1)
+        pose, local = torch.zeros_like(nodes), torch.zeros_like(nodes)
+        for k, (start, n) in enumerate(node_sets):
+            hit = (nodes >= start) & (nodes < start + n * n_poses)
+            which[hit] = k
+            pose[hit] = (nodes[hit] - start) // n
+            local[hit] = (nodes[hit] - start) % n
+        return which, pose, local
+
+    (ws, ps, ls), (wd, pd, ld) = locate(edge_index[0, lo:hi]), locate(edge_index[1, lo:hi])
+    real = (ws >= 0) & (wd >= 0)
+    if not real.any() or (ps != pd)[real].any():
+        return None
+    out_set, in_set = int(ws[real][0]), int(wd[real][0])
+    if (ws[real] != out_set).any() or (wd[real] != in_set).any():
+        return None
+    at = torch.nonzero(real).reshape(-1)
+    order = at[torch.sort(ps[at], stable=True).indices]
+    if order.numel() % n_poses:
+        return None
+    rows = order.reshape(n_poses, -1)
+    src, dst = ls[rows], ld[rows]
+    if (ps[rows] != torch.arange(n_poses)[:, None]).any() or (src != src[0]).any() \
+            or (dst != dst[0]).any():
+        return None
+    return dict(rows=rows + lo, src=src[0], dst=dst[0], out_set=out_set, in_set=in_set)
+
+
 def stack_layout(edge_index: Tensor, n_p: int, plan, n_in_p: int | None = None):
     """The padded edge layout a stack of convolutions runs over: ``(ei, pos)``.
 

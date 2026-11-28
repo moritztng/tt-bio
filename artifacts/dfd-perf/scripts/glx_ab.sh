@@ -8,7 +8,7 @@ chip=31; node=23; OUT=$HOME/dfd/out; W=$HOME/fleet/HOLDER.windows; cd $HOME/dfd/
 [ -e $HOME/fleet/HANDBACK ] && exit 0
 exec 9>$OUT/ab.runlock; flock -n 9 || exit 0
 log() { echo "ab: $* $(date -u +%FT%TZ)" >> $OUT/ab.log; }
-stop=$(date -ud 2026-11-28T12:50:00Z +%s); loadwait=$(date -ud 2026-11-28T12:00:00Z +%s)
+stop=$(date -ud 2026-11-28T12:50:00Z +%s); loadwait=$(date -ud 2026-11-28T10:20:00Z +%s)
 room() {  # seconds until the next open window starts (0 inside one), capped by the hard stop
   local now=$(date +%s) r=$(( stop - now )) who a b rest s e
   while read -r who a b rest; do
