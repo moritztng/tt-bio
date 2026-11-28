@@ -145,7 +145,7 @@ def bucket(n: int, multiple: int = 32, bits: int | None = None) -> int:
     return (-(-tiles >> shift) << shift) * multiple
 
 
-BLOCK_CAP = None
+BLOCK_CAP = 512
 
 
 def blocks(n: int, multiple: int = 32) -> list[tuple[int, int]]:
