@@ -922,33 +922,37 @@ class DeviceScoreNetwork:
         sampler's generator, drawn here in `sampling.sample`'s order, so a replay and
         ``sample(self.score_fn(graph), ...)`` take the same trajectory.
         """
+        r = self._resident(graph, start, cfg, bounds, noise)
+        return r.body, r.read_poses
+
+    def _resident(self, graph, start: Tensor, cfg, bounds, noise):
         from tt_bio.diffdock.device_loop import DeviceRollout
         from tt_bio.diffdock.static_net import StaticComplex
 
         lig, rec = graph.ligand, graph.receptor
         c = StaticComplex.build(lig, self.host._receptor_x(rec), rec["pos"].float(),
                                 rec["edge_index"], start.shape[0])
-        r = DeviceRollout(self.device, self.model, c, self.convs, start, lig["mask_rotate"],
-                          cfg, bounds, noise, self.config.crop_beyond)
-        return r.body, r.read_poses
+        return DeviceRollout(self.device, self.model, c, self.convs, start, lig["mask_rotate"],
+                             cfg, bounds, noise, self.config.crop_beyond)
 
     def rollout(self, graph, start: Tensor, cfg, bounds, noise):
         """`sampling.sample` on the card: every step of :meth:`trace_body`, then one read.
 
         Poses, edge features and noise stay on the card for the whole rollout, where
         ``sample(self.score_fn(graph), ...)`` uploads every pose's edge features each step.
-        Same seed, same trajectory. A pose that comes back non-finite is marked failed and
-        handed back at its start coordinates, the last finite ones the host holds.
+        Same seed, same trajectory. A pose held on an off-schedule score is marked failed where
+        it stopped; one that comes back non-finite is marked failed and handed back at its
+        start coordinates, the last finite ones the host holds.
         """
         from tt_bio.diffdock.sampling import Rollout, _nonfinite_rows
 
-        body, read_poses = self.trace_body(graph, start, cfg, bounds, noise)
+        r = self._resident(graph, start, cfg, bounds, noise)
         for t in range(cfg.steps):
-            body(t)
-        poses = read_poses()
-        failed = _nonfinite_rows(poses, poses.shape[0])
-        return Rollout(poses=torch.where(failed[:, None, None], start.float(), poses),
-                       failed=failed)
+            r.body(t)
+        poses = r.read_poses()
+        lost = _nonfinite_rows(poses, poses.shape[0])
+        return Rollout(poses=torch.where(lost[:, None, None], start.float(), poses),
+                       failed=lost | r.read_failed())
 
     def confidence(self, graph, poses: Tensor):
         """The host ranking pass with its interaction layers in :class:`DeviceConfidence`."""

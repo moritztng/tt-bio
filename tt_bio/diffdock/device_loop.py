@@ -1302,6 +1302,10 @@ class DeviceRollout:
     ``guard -> perturb -> move`` on the card with no host value in it, and its result is copied
     into the one pose buffer :meth:`read_poses` reads.
 
+    A pose whose guarded score is past `SigmaBounds.score_limit` on any head is held where it
+    is, for that step and every later one, and reported by :meth:`read_failed`: the sampler's
+    `off_schedule` freeze (`loop.diffusion_step`) as a 0/1 column and two multiplies.
+
     Step 0 reads the start poses from their own buffer rather than from the pose buffer, so
     the body is the same program however often it ran before: the eager warm-up pass a capture
     needs leaves the pose buffer one step on, and the captured step 0 starts from the start
@@ -1322,6 +1326,9 @@ class DeviceRollout:
         self.inputs = step_inputs(cfg, bounds, crop_beyond)
         table = coefficient_table(cfg, bounds, dtype=torch.float64)
         self.score_c, self.noise_c = table.score.tolist(), table.noise.tolist()
+        self.limit = table.limit.tolist()
+        self.none_failed = upload(device, torch.zeros(self.P))
+        self.failed = upload(device, torch.zeros(self.P))
         tr, rot, tor = draw_noise(noise, table, self.P, self.nb if self.step.torsion else 0)
         mc = model.config
         self.sigma_rows = [upload(device, timestep_embedding(
@@ -1335,13 +1342,28 @@ class DeviceRollout:
         self.pos = upload(device, lp)
 
     def _perturb(self, score, rows: int, width: int, t: int, head: int, z):
-        """``score_coeff * guard(score) + noise_coeff * z`` over the real ``[rows, width]`` block."""
+        """One head over its real ``[rows, width]`` block: ``(perturbation, off)``.
+
+        The perturbation is ``score_coeff * guard(score) + noise_coeff * z``. *off* is a
+        ``[P, 1]`` count of the pose's guarded entries past this step's limit
+        (`sampling.off_schedule`); the rows are pose-major, ``rows / P`` to a pose.
+        """
         import ttnn
         cols = guard([ttnn.slice(score, [0, k], [rows, k + 1]) for k in range(width)])
+        over = [ttnn.typecast(ttnn.gt(ttnn.abs(c), self.limit[t][head]), ttnn.float32)
+                for c in cols]
+        off = over[0]
+        for c in over[1:]:
+            off = ttnn.add(off, c)
+        if rows != self.P:                        # the torsion head: one row per bond
+            per = ttnn.reshape(off, [self.P, rows // self.P])
+            off = ttnn.slice(per, [0, 0], [self.P, 1])
+            for k in range(1, rows // self.P):
+                off = ttnn.add(off, ttnn.slice(per, [0, k], [self.P, k + 1]))
         out = ttnn.multiply(cat_cols(cols), self.score_c[t][head])
         if self.noise_c[t][head]:
             out = ttnn.add(out, ttnn.multiply(z, self.noise_c[t][head]))
-        return out
+        return out, off
 
     def body(self, t: int):
         """Step *t*: score, guard, perturb and move, written into the pose buffer."""
@@ -1351,12 +1373,31 @@ class DeviceRollout:
         tr, rot, tor = self.step(pos, self.sigma_rows[t], s.tr_sigma, s.rot_sigma, s.tor_sigma,
                                  crop_cutoff=s.crop_cutoff)
         ztr, zrot, ztor = self.z[t]
-        tr = self._perturb(tr, self.P, 3, t, 0, ztr)
-        rot = self._perturb(rot, self.P, 3, t, 1, zrot)
+        tr, off = self._perturb(tr, self.P, 3, t, 0, ztr)
+        rot, off_rot = self._perturb(rot, self.P, 3, t, 1, zrot)
+        off = ttnn.add(ttnn.add(off, off_rot), self.none_failed if t == 0 else self.failed)
         if tor is not None:
-            tor = self._perturb(tor, self.P * self.nb, 1, t, 2, ztor)
-        ttnn.copy(self.update(pos, tr, rot, tor), self.pos)
+            tor, off_tor = self._perturb(tor, self.P * self.nb, 1, t, 2, ztor)
+            off = ttnn.add(off, off_tor)
+        held = ttnn.typecast(ttnn.gt(off, 0.5), ttnn.float32)
+        move = ttnn.add(ttnn.neg(held), 1.0)
+        # A held pose gets a zero perturbation, so nothing off the schedule enters the update,
+        # and then its old coordinates, so it does not drift on the re-superposition either.
+        tr, rot = ttnn.multiply(tr, move), ttnn.multiply(rot, move)
+        if tor is not None:
+            tor = ttnn.reshape(ttnn.multiply(ttnn.reshape(tor, [self.P, self.nb]), move),
+                               [self.P * self.nb, 1])
+        held_atom, move_atom = self.update._per_atom(held), self.update._per_atom(move)
+        moved = ttnn.add(ttnn.multiply(self.update(pos, tr, rot, tor), move_atom),
+                         ttnn.multiply(pos, held_atom))
+        ttnn.copy(held, self.failed)
+        ttnn.copy(moved, self.pos)
         return self.pos
+
+    def read_failed(self):
+        """``[n_poses]`` bool: the poses held on an off-schedule score, `Rollout.failed`'s half."""
+        import ttnn
+        return ttnn.to_torch(self.failed).float()[:self.P, 0] > 0.5
 
     def read_poses(self):
         """The pose buffer as ``[n_poses, n_lig, 3]`` host fp32, the one read of the rollout."""
