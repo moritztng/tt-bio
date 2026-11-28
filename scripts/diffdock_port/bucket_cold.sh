@@ -5,7 +5,7 @@
 #
 # <arm> names a worktree under ~/dfd-bucket/<arm> (main or grid) and its own private JIT cache, so a
 # warm shared cache cannot flatter the cold number. Per complex it records wall seconds, the kernel
-# directories the run created (by kernel name), the AICLK sampled during it and the box load.
+# variants the run compiled (one directory per kernel name and compile-argument hash), the AICLK sampled during it and the box load.
 # Output: ~/dfd-bucket/out/<arm>.log, <arm>.json, <arm>.aiclk.
 set -u
 chip=$1 node=$2 arm=$3 budget=$4; shift 4
@@ -31,15 +31,15 @@ echo "[" > $OUT/$arm.json
 end=$(( $(date +%s) + budget ))
 for name in $C; do
   [ $(date +%s) -lt $((end - 300)) ] || { echo "$arm: budget out before $name" >> $L; break; }
-  before=$(find $CACHE -maxdepth 4 -mindepth 4 -type d 2>/dev/null | wc -l)
+  before=$(find $CACHE -mindepth 5 -maxdepth 5 -type d -path '*/kernels/*' 2>/dev/null | wc -l)
   t0=$(date +%s.%N)
   timeout $((end - $(date +%s))) $HOME/fleet/env/bin/python -m tt_bio.main dock \
       $PB/$name/${name}_protein.pdb --ligand $PB/$name/${name}_ligand.sdf \
       --name $name --out_dir $OUT/poses-$arm --seed 0 >> $L 2>&1
   rc=$?
   t1=$(date +%s.%N)
-  after=$(find $CACHE -maxdepth 4 -mindepth 4 -type d 2>/dev/null | wc -l)
-  by=$(find $CACHE -maxdepth 4 -mindepth 4 -type d -newermt "@${t0%.*}" -printf '%h\n' 2>/dev/null \
+  after=$(find $CACHE -mindepth 5 -maxdepth 5 -type d -path '*/kernels/*' 2>/dev/null | wc -l)
+  by=$(find $CACHE -mindepth 5 -maxdepth 5 -type d -path '*/kernels/*' -newermt "@${t0%.*}" -printf '%h\n' 2>/dev/null \
        | sed 's|.*/||' | sort | uniq -c | sort -rn | head -8 | tr '\n' ';')
   clkd=$(awk -v a="${t0%.*}" '{print $2}' $OUT/$arm.aiclk | sort -n | uniq -c | tr '\n' ' ')
   printf '{"name":"%s","rc":%d,"wall_s":%.1f,"kernels_before":%d,"kernels_after":%d,"new_kernels":%d,"by_kernel":"%s","aiclk":"%s","load":"%s"},\n' \
