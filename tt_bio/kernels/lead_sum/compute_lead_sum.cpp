@@ -4,7 +4,11 @@
 
 // lead_sum compute: per output tile, acc = sum of its G input tiles, accumulated with the SFPU add
 // in a float32 DST (the input is unpacked straight to DST, `UnpackToDestFp32`), packed once.
-// DST slots: 0 = accumulator, 1 = the next tile.
+// DST slots: 0 = accumulator, 1 = the next tile. With PAIR the adds form a pairwise tree instead of
+// a chain: the DST is a stack of partial sums, slab k lands in slot popcount(k) and every trailing
+// one bit of k folds the top two slots, so at most log2(G) + 1 slots are live. The reader hands
+// the slabs over bit-reversed, which makes this the tree that adds slab i to slab i + G/2,
+// the order of a halving slice/add loop on the host.
 #include <cstdint>
 
 #include "api/compute/common.h"
@@ -21,6 +25,7 @@ void kernel_main() {
     constexpr uint32_t G = get_compile_time_arg_val(2);
     constexpr uint32_t C = 3;
     constexpr uint32_t COMPACT = get_compile_time_arg_val(C);
+    constexpr uint32_t PAIR = get_compile_time_arg_val(C + 8);
     uint32_t num_tiles;
     if constexpr (COMPACT) {
         num_tiles = genq::slice<get_compile_time_arg_val(C + 1), get_compile_time_arg_val(C + 2),
@@ -41,12 +46,15 @@ void kernel_main() {
         copy_tile(in_cb, 0, 0);
         cb_pop_front(in_cb, 1);
         for (uint32_t k = 1; k < G; ++k) {
+            uint32_t top = PAIR ? static_cast<uint32_t>(__builtin_popcount(k)) : 1;
             cb_wait_front(in_cb, 1);
             copy_tile_to_dst_init_short(in_cb);
-            copy_tile(in_cb, 0, 1);
+            copy_tile(in_cb, 0, top);
             cb_pop_front(in_cb, 1);
             add_binary_tile_init();
-            add_binary_tile(0, 1, 0);
+            for (uint32_t c = PAIR ? k : 1; c & 1; c >>= 1, --top) {
+                add_binary_tile(top - 1, top, top - 1);
+            }
         }
         tile_regs_commit();
         tile_regs_wait();

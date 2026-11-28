@@ -324,6 +324,13 @@ TRIATT_Q10_WH = frozenset({"triatt_q10"})
 # every interval covers 0 bar pLDDT -0.0006 (fast) / -0.0001 (normal). Same folds, 1000 MHz: median -0.72 s fast,
 # -0.64 s normal, 33 of 33 warm pairs faster in each mode.
 APB_SDPA_WH = frozenset({"apb_sdpa", "apb_qkvf"})
+# Protenix-v2's Blackhole --fast takes the same pair-biased read plus apb_ln, the LayerNorm fused into the bias projection
+# that normal mode already runs (TRIATT_LN). Blackhole 512-token fast grade vs the shipped Protenix-v2 Blackhole fast
+# set, the three as one stack, 44 paired folds over 4 seeds (spd-m-protenix-8 gs, 2026-11-28), PASS: same-seed top pose
+# median 0.723 A vs the 1.431 A A/A floor, every interval covers 0 (CA-lDDT -0.0019 [-0.0051, +0.0002], ipTM -0.034
+# [-0.077, +0.001]), docking 37 -> 36. Same folds on p300 chips at 1312-1343 MHz median: warm fold -1.01 s median,
+# 11 of 11 complexes faster. Device kernel seconds on cdk2x2 512 at 1350 MHz median: 17.31 -> 16.37 s.
+APB_BH_FAST = TRIATT_LN | APB_SDPA_WH
 # pz_device + dit_mod16 on Wormhole --fast: the diffusion-conditioned pair stays on the chip (one device LN feeds the bf16
 # DiT, no host round trip) and the bf16 AdaLN modulation and the DiT's gated residuals run as one addcmul each, as OpenDDE's
 # DIT_SEAM. Normal mode takes pz_device too on both chips (WH_V2_NORMAL, BH_V2_NORMAL). Wormhole 512-token fast grade, shipped Protenix-v2 Wormhole
@@ -459,7 +466,7 @@ def mode_levers(state_dict):
     """The mode's lever set for a Protenix checkpoint: `FAST_LEVERS` under --fast, else `NORMAL_LEVERS`,
     plus `T2_TAIL`, `WS_CHAIN` and `QSPLIT_NORMAL` for Protenix-v2 (c_z 256), the one width their normal grades cover; Wormhole --fast takes
     `WH_FAST_LEVERS`, and Wormhole adds `TRIATT_LN`, `DIT_MM_WH`, `TRIATT_Q10_WH`, `X8_WH` and `APB_SDPA_WH` to both Protenix-v2 modes and `WS_FAST`, `TRIATT_LN_B8_FAST`, `GIN_W8_FAST`, `T1W8_FAST`,
-    `OPM_B8CFG_FAST`, `WH_PAIR_FAST` to its --fast and `WH_V2_NORMAL`, `WH_PAIR_NORMAL` to its normal mode; Blackhole adds `BH_V2_FAST` to Protenix-v2's --fast and `BH_V2_NORMAL`, `BH_PAIR_NORMAL` to its normal mode, which drops `BH_NORMAL_DROP`. Protenix-v2 takes `BRES_NORMAL`, `TRIATT_LN` and `WS_RESID_NORMAL` in normal mode, `SHOIST_FAST` and `DIT_SEAM_FAST` under --fast and `T1_PSIG` and `TRIATT_K1` in both modes on both chips.
+    `OPM_B8CFG_FAST`, `WH_PAIR_FAST` to its --fast and `WH_V2_NORMAL`, `WH_PAIR_NORMAL` to its normal mode; Blackhole adds `BH_V2_FAST` and `APB_BH_FAST` to Protenix-v2's --fast and `BH_V2_NORMAL`, `BH_PAIR_NORMAL` to its normal mode, which drops `BH_NORMAL_DROP`. Protenix-v2 takes `BRES_NORMAL`, `TRIATT_LN` and `WS_RESID_NORMAL` in normal mode, `SHOIST_FAST` and `DIT_SEAM_FAST` under --fast and `T1_PSIG` and `TRIATT_K1` in both modes on both chips.
     Mol-1 (pair widths 448 and 320) adds `WIDE_NORMAL` to its normal mode, plus `MOL1_BH` on Blackhole and `MOL1_WH` on Wormhole;
     its --fast is that normal set plus `MOL1_BH_FAST` or `MOL1_WH_FAST`."""
     widths = Trunk._pair_widths(state_dict)
@@ -471,7 +478,7 @@ def mode_levers(state_dict):
     m1 = (MOL1_WH if wh else MOL1_BH) if ws and 448 in widths else frozenset()
     wh_both = TRIATT_LN | DIT_MM_WH | TRIATT_Q10_WH | X8_WH | APB_SDPA_WH if v2 and wh else frozenset()
     wh_v2 = WS_FAST | TRIATT_LN_B8_FAST | GIN_W8_FAST | T1W8_FAST | OPM_B8CFG_FAST | WH_PAIR_FAST
-    fast = WH_FAST_LEVERS | wh_both | (wh_v2 if v2 else frozenset()) if wh else FAST_LEVERS | (BH_V2_FAST if v2 else frozenset())
+    fast = WH_FAST_LEVERS | wh_both | (wh_v2 if v2 else frozenset()) if wh else FAST_LEVERS | (BH_V2_FAST | APB_BH_FAST if v2 else frozenset())
     if m1:
         fast = NORMAL_LEVERS | ws | m1 | (MOL1_WH_FAST if wh else MOL1_BH_FAST)
     return _T.model_levers((NORMAL_LEVERS | T2_TAIL | WS_CHAIN | QSPLIT_NORMAL | BRES_NORMAL | TRIATT_LN | WS_RESID_NORMAL | T1_PSIG | TRIATT_K1

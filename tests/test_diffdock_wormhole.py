@@ -48,25 +48,35 @@ LAYERS = {
 BAR = dict(pcc_min=0.99999, max_rel_err=1e-2, rel_frobenius=5e-3)
 
 
-def _checkpoint():
+def _checkpoint(download: bool = False):
+    """The released v1.1 score checkpoint: $DIFFDOCK_MODELS, the dev scratch copy, then the
+    weights cache, fetched into it when ``download`` is set."""
+    from tt_bio.diffdock import checkpoints
     env = os.environ.get("DIFFDOCK_MODELS")
     for p in (Path(env) if env else None, Path.home() / "scratch/dfd/ckpt/extracted"):
-        if p is not None and (p / "score_model/best_ema_inference_epoch_model.pt").is_file():
-            return p / "score_model/best_ema_inference_epoch_model.pt"
-    return None
+        if p is not None and (p / checkpoints.SCORE_DIR / checkpoints.SCORE_CKPT).is_file():
+            return p / checkpoints.SCORE_DIR / checkpoints.SCORE_CKPT
+    try:
+        return checkpoints.resolve("score", None, download=download)[0]
+    except checkpoints.CheckpointMissing:
+        return None
 
 
-def _layer(name: str) -> TensorProductConvLayer:
-    """The layer at its released signature: the checkpoint's weights when present, else seeded.
+def _layer(name: str, released: bool = False) -> TensorProductConvLayer:
+    """The layer at its released signature, with the checkpoint's weights.
 
-    Seeded weights have the same shapes and torch's default init; the bar is relative, so
-    either grades the arithmetic. The checkpoint is preferred because it is what users run.
+    Without ``released`` a host that lacks the checkpoint gets seeded weights of the same
+    shapes. That is enough for the card-free identity, which holds to rounding on any
+    weights. It is not enough for the card grade: the bar is Blackhole's envelope on the
+    released weights, and the same card program reads a different error on torch's default
+    init (final_conv 5.4e-3 rel Frobenius seeded against 4.6e-3 released on Wormhole,
+    state/dfd/WH-BAR.md). So the card grade passes ``released`` and fetches the checkpoint.
     """
     a, sh, b, groups, nef, residual = LAYERS[name]
     torch.manual_seed(0)
     m = TensorProductConvLayer(a, sh, b, nef, hidden_features=nef, edge_groups=groups,
                                residual=residual)
-    ckpt = _checkpoint()
+    ckpt = _checkpoint(download=released)
     if ckpt is not None:
         sd = torch.load(ckpt, map_location="cpu", weights_only=False)
         pre = name + "."
@@ -132,7 +142,8 @@ def test_the_device_program_is_the_golden_in_float64(name):
 
 @pytest.mark.device
 def test_wh_matches_bh_within_bar(record_property):
-    """Every graded layer on a Wormhole card clears Blackhole's bar against float64.
+    """Every graded layer on a Wormhole card clears Blackhole's bar against float64, on the
+    released weights (fetched if this host lacks them).
 
     The all-masked node must come out as its residual (never NaN), and the AICLK sampled
     during the run is recorded beside the grade.
@@ -153,7 +164,7 @@ def test_wh_matches_bh_within_bar(record_property):
     rows, failed = {}, []
     try:
         for name in LAYERS:
-            layer = _layer(name)
+            layer = _layer(name, released=True)
             ei, x, sh, groups, mask = _case(layer)
             N, E = x.shape[0], ei.shape[1]
             with torch.no_grad():

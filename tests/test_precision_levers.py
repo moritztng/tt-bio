@@ -261,7 +261,7 @@ def test_protenix_v2_normal_takes_t2_tail(monkeypatch):
     import torch
     from tt_bio.protenix import (BH_NORMAL_DROP, BH_PAIR_NORMAL, BH_V2_FAST, BH_V2_NORMAL, BRES_NORMAL, DIT_SEAM_FAST, FAST_LEVERS, GIN_W8_FAST, NORMAL_LEVERS, OPM_B8CFG_FAST, QSPLIT_NORMAL, T1W8_FAST, WH_PAIR_FAST, WH_PAIR_NORMAL,
                                  T2_TAIL, SHOIST_FAST, DIT_MM_WH, T1_PSIG, TRIATT_Q10_WH, TRIATT_K1, TRIATT_LN, TRIATT_LN_B8_FAST, WH_V2_NORMAL, WS_CHAIN, WS_FAST, WS_RESID_NORMAL,
-                                 WS_NORMAL, X8_WH, APB_SDPA_WH, mode_levers)
+                                 WS_NORMAL, X8_WH, APB_BH_FAST, APB_SDPA_WH, mode_levers)
 
     def ck(c_z):
         return {"layernorm_z_cycle.weight": torch.zeros(c_z)}
@@ -281,7 +281,7 @@ def test_protenix_v2_normal_takes_t2_tail(monkeypatch):
     assert mode_levers(ck(128)) == NORMAL_LEVERS
     monkeypatch.setattr(T, "_FAST_MODE", True)
     monkeypatch.setattr(T, "is_wormhole", lambda: False)
-    assert mode_levers(ck(256)) == FAST_LEVERS | BH_V2_FAST | SHOIST_FAST | DIT_SEAM_FAST | T1_PSIG | TRIATT_K1
+    assert mode_levers(ck(256)) == FAST_LEVERS | BH_V2_FAST | APB_BH_FAST | SHOIST_FAST | DIT_SEAM_FAST | T1_PSIG | TRIATT_K1
     assert mode_levers(ck(128)) == FAST_LEVERS
     monkeypatch.setattr(T, "is_wormhole", lambda: True)
     assert (mode_levers(ck(256)) == FAST_LEVERS - {"trimul_t1_c256"} | TRIATT_LN | TRIATT_K1 | WS_FAST | TRIATT_LN_B8_FAST | GIN_W8_FAST

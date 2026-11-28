@@ -132,3 +132,32 @@ assert open(log).read().count("moved") == 3
 out = {r[2]: r for r in book.take(list(out.values()), "leg2", {1}, H, t0, "", log=log)}
 assert out["fair"][0] == t0 + H and out["s9c0"][0] == out["s9c1"][0] == t0 + 4 * H, out
 print("ok")
+
+# next --pull: a card that frees early goes to the booking that would fit from now, not to the feed's next job
+if os.path.exists(book.F + ".pull"):
+    os.remove(book.F + ".pull")
+t0 = 10**9; no_feed = lambda cs: 0
+win = lambda s, d, o, cs: (s, s + d, o, set(cs), "")
+rows = [win(t0 + 4 * 3600, 4800, "abba", [3]), win(t0 + 5400, 18000, "lease", [3])]
+assert book.pull(rows, 3, t0, feed_end=no_feed)                 # 80 min fit before the lease at +90 min
+assert not book.pull(rows, 2, t0, feed_end=no_feed)             # another card is not held off
+assert not book.pull(rows, 3, t0 + 900, feed_end=no_feed)       # 15 min later they no longer fit
+assert not book.pull(rows, 3, t0, x="abba", feed_end=no_feed)   # the 5 h lease does not fit before abba
+rows = [win(t0 + 4 * 3600, 4800, "two", [0, 3])]
+assert not book.pull(rows, 3, t0, feed_end=lambda cs: t0 + 600 if 0 in cs else 0)   # its other card still runs a feed job
+assert book.pull(rows, 3, t0, feed_end=no_feed)
+# an owner that does not re-run `add` holds the feed off for PULL_S only; one that moved is asked afresh
+rows = [win(t0 + 4 * 3600, 600, "static", [1])]
+assert book.pull(rows, 1, t0, feed_end=no_feed) and book.pull(rows, 1, t0 + book.PULL_S - 1, feed_end=no_feed)
+assert not book.pull(rows, 1, t0 + book.PULL_S, feed_end=no_feed)
+assert not book.pull(rows, 1, t0 + 3600, feed_end=no_feed)
+rows = [win(t0 + 5 * 3600, 600, "static", [1])]
+assert book.pull(rows, 1, t0 + 3600, feed_end=no_feed)
+# a booking already started is not a pull: the feed reads it through `next` as before
+assert not book.pull([win(t0 - 60, 600, "on", [1])], 1, t0, feed_end=no_feed)
+print("ok pull")
+# asking about one card keeps what was asked on another
+rows = [win(t0 + 4 * 3600, 600, "p", [1]), win(t0 + 4 * 3600, 600, "q", [2])]
+assert book.pull(rows, 1, t0, feed_end=no_feed) and book.pull(rows, 2, t0 + 60, feed_end=no_feed)
+assert not book.pull(rows, 1, t0 + book.PULL_S, feed_end=no_feed) and book.pull(rows, 2, t0 + book.PULL_S, feed_end=no_feed)
+print("ok pull cards")

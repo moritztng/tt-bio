@@ -3,6 +3,7 @@
 # on pc. Rents the first B200 offer that passes (ssh up, power limit in window), pushes the BindCraft 2 harness, runs
 # box_bc4.sh on the box, pulls /root/kc/bc4 every 3 minutes, and destroys the box at BC4-DONE or at the cap.
 #   usage: bc4_session.sh <label> <cap_h> ['<vastai search query>'] [max_attempts]
+# BOX=box_bc4_pack.sh runs the rule-5 packing sweep instead (any card: pass its query and MINW/MAXW).
 # Status on stdout (redirect it); results perf/kitcmp/results/<label>/bc4/...
 # Trimmed from session.sh, which drives the multi-kit chain; BC4 needs one stack and one chain, not that machinery.
 set -u
@@ -10,7 +11,7 @@ L=${1:?usage: bc4_session.sh <label> <cap_h> [query] [attempts]} CAP_H=${2:?cap 
 # reliability>=0.97 was the only clause that rejected a live B200 on 2026-10-19 (offer 51577286, 0.995 passes but the
 # market is thin enough that one filter empties it); 0.90 keeps the junk out without emptying the list.
 Q=${3:-'gpu_name=B200 num_gpus=1 cuda_max_good>=13.0 inet_down>=200 reliability>=0.90 dph<=7'}
-MINW=${MINW:-990} MAXW=${MAXW:-1010} SLUG=${SLUG:-bc4-b200}
+MINW=${MINW:-990} MAXW=${MAXW:-1010} SLUG=${SLUG:-bc4-b200} BOX=${BOX:-box_bc4.sh}
 P=$(cd "$(dirname "$0")" && pwd)
 S4=${S4:-/home/moritz/.coworker/state/bc4}
 OUT=$P/results/$L; mkdir -p "$OUT"
@@ -38,13 +39,13 @@ for _ in $(seq $NMAX); do
   R(){ rsync -a -e "${S% root@*}" "$@"; }; H=root@$HOST
   $S 'mkdir -p /root/kc' &&
     R $P/bc2_gpu.py $P/bc2_traj.py $P/bc4_arms.py $P/bc4_census.py $P/bc4_quality_ref.py $P/box_bc_setup.sh \
-       $P/box_bc4.sh $H:/root/kc/ && echo "$I $O" | timeout 30 $S 'cat > /root/kc/instance' ||
+       $P/$BOX $H:/root/kc/ && echo "$I $O" | timeout 30 $S 'cat > /root/kc/instance' ||
     { destroy $I "push failed"; continue; }
   # bc4-quality's reference request, if it has written one by now (the box runs it with the time left over)
   [ -f $S4/QUALITY-REF-REQUEST.json ] && R $S4/QUALITY-REF-REQUEST.json $H:/root/kc/quality-req.json
-  timeout 60 $S -f "cd /root/kc && setsid nohup bash box_bc4.sh $CAP_H > box_bc4.log 2>&1 < /dev/null &" ||
+  timeout 60 $S -f "cd /root/kc && setsid nohup bash $BOX $CAP_H > ${BOX%.sh}.log 2>&1 < /dev/null &" ||
     { destroy $I "launch failed"; continue; }
-  log "$I running box_bc4.sh"
+  log "$I running $BOX"
   END=""
   while :; do
     sleep 180

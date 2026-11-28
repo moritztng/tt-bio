@@ -17,6 +17,11 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 - **`tt-bio dock` runs on the card.** On a host with a Tenstorrent card the convolutions of both the score and the
   confidence network run on the card, otherwise on CPU. The card's confidence network ranks poses exactly as
   upstream's does. See [`docs/docking.md`](docs/docking.md).
+- **Ranking docked poses on the card no longer recompiles for every ligand.** The confidence network pads its
+  pose-dependent edge sets to a small set of sizes, so a new ligand or pose set reuses the programs the first one
+  compiled: an unseen pose set took 7.5 to 130 s on three test ligands and now takes 0.9 to 1.4 s (one Galaxy
+  chip at 1350 MHz). The receptor's all-atom graph is also built once per structure file instead of once per
+  ligand. Ranking is unchanged on those ligands.
 - **ESMFold2 and ESMFold2-Fast fold about 4 % faster on Wormhole**, in both normal and `--fast` mode. A 512-residue
   fold on a Galaxy chip at 1000 MHz: ESMFold2 22.9 -> 21.8 s (normal) and 22.2 -> 21.3 s (`--fast`), ESMFold2-Fast
   13.5 -> 13.0 s and 13.4 -> 12.9 s. The triangle update keeps one pair tensor in 8-bit block floating point across
@@ -28,6 +33,10 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   ranked first. Such a sample is now stopped and left out, so a complex can return fewer than
   `--samples_per_complex` poses. The count is printed on stderr and reported as `failed_samples` in the JSON.
   The other samples are unchanged. See [`docs/docking.md`](docs/docking.md).
+- **Writing a result no longer stalls on a host that has been serving for a day.** numpy asks the kernel for huge
+  pages behind every large array, and once the host has no free 2 MB block each such write waits on memory
+  compaction: filling four 127 MB arrays took 4.5 to 5.8 s on a Galaxy up 26 hours and 0.24 s without the request.
+  tt-bio now turns the request off at import. Set `NUMPY_MADVISE_HUGEPAGE=1` to keep it. Results are unchanged.
 
 ## [0.46.0] - 2026-11-27
 
@@ -48,7 +57,10 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   share one copy per process. Nesso-1's output is unchanged.
 - **Protenix-v2 is about 2 % faster on Wormhole.** The pair-biased token attention now runs as one fp32 program read
   straight out of the fused projection, in both modes: 512 tokens at 1000 MHz go 40.2 -> 39.4 s (`--fast`) and
-  46.2 -> 45.6 s. Graded on 11 complexes x 4 seeds with no accuracy loss; Blackhole is unchanged.
+  46.2 -> 45.6 s. Graded on 11 complexes x 4 seeds with no accuracy loss.
+- **Protenix-v2 `--fast` is about 1 s faster on Blackhole.** It takes the same attention read as Wormhole. A warm
+  512-token fold is a median 1.0 s faster at 1312-1343 MHz, faster on 11 of 11 complexes. Graded on 11 complexes x 4
+  seeds inside the fast-mode accuracy bar (CA-lDDT -0.002, docking success 37 -> 36 of 44).
 
 ## [0.45.2] - 2026-11-25
 
