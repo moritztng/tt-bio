@@ -223,10 +223,9 @@ class _StructureHeadAdapter(_Adapter):
         relpos = relative_position_encoding
         if isinstance(z_trunk, _DevPair):  # the device tail: prepare consumes (and frees) the device pair
             nb = int(z_trunk.t.shape[1])
-            if _device_conf():  # the confidence head reads its own copy on the device, at the real length
+            if _device_conf():  # the confidence head reads its own copy on the device, still at the bucket
                 import ttnn
-                z_trunk.keep = (ttnn.clone(z_trunk.t) if nb == L else
-                                ttnn.slice(z_trunk.t, [0, 0, 0, 0], [1, L, L, int(z_trunk.t.shape[-1])]))
+                z_trunk.keep = ttnn.clone(z_trunk.t)
             else:
                 z_trunk.host = self.m._to_torch(z_trunk.t)[:, :L, :L].float()  # for the confidence head
             z_trunk = z_trunk.t
@@ -454,12 +453,17 @@ def _conf_pair_dev(head, ftw, z, s_n, relpos, bonds, bins, mask, n, tm_per_bin):
     The sample-independent part (z_norm, the [L,c] broadcasts, relpos, bonds, the outer product) is built once; each
     of the n samples adds its own distance-bin embedding and runs the trunk and heads (the host path batches the same
     n pairs as B=n).
+
+    A device `z` may be padded to the token bucket (`_bucket_len`). Everything then runs at the bucket, so no program
+    is built per length: host inputs are zero-padded, the trunk masks the pad, the row pooling gives pad keys weight
+    0, and every result is cut to L on the host.
     """
     import ttnn
     if not _device_conf():
         DEVICE_CONF_STATS[1] += 1
         if isinstance(z, ttnn.Tensor):
-            z = ftw._to_torch(z).float()
+            L = int(bins.shape[-1])
+            z = ftw._to_torch(z)[:, :L, :L].float()
         return type(head)._pair_outputs(head, z, s_n, _host(relpos), _host(bonds), bins, mask, n, tm_per_bin)
     DEVICE_CONF_STATS[0] += 1
     w, ck, L = _conf_weights(head, ftw), ftw.compute_kernel_config, int(bins.shape[-1])
@@ -473,21 +477,25 @@ def _conf_pair_dev(head, ftw, z, s_n, relpos, bonds, bins, mask, n, tm_per_bin):
         return new
 
     zt = z if isinstance(z, ttnn.Tensor) else ftw._from_torch(z.float())
+    nb = int(zt.shape[1])  # L, or the token bucket
+    pad = lambda t, *dims: _pad_tokens(t, dims, nb)  # noqa: E731
     p0 = ln(zt, w["zn"], head.z_norm)
     if zt is not z:
         ttnn.deallocate(zt)
     if E.gate(_PAIR_INIT, "ef2_pair_init"):  # the [L,c] broadcasts and the lookups added on the device, as z_init
-        for t in (head.s_to_z(s_n).unsqueeze(2), head.s_to_z_transpose(s_n).unsqueeze(1), relpos, bonds):
+        for t in (pad(head.s_to_z(s_n).unsqueeze(2), 1), pad(head.s_to_z_transpose(s_n).unsqueeze(1), 2)):
+            p0 = _add_pair(p0, t, ftw)
+        for t in (relpos, bonds):
             if t is not None:
-                p0 = _add_pair(p0, t, ftw)
+                p0 = _add_pair(p0, t, ftw, nb)
     else:
         host = head.s_to_z(s_n).unsqueeze(2) + head.s_to_z_transpose(s_n).unsqueeze(1)
         for t in (relpos, bonds):
             if t is not None:
                 host = host + _host(t)
-        p0 = _add_pair(p0, host, ftw)
-    a = ftw._from_torch(head.s_to_z_prod_in1(s_n)[:, :, None, :].float())
-    b = ftw._from_torch(head.s_to_z_prod_in2(s_n)[:, None, :, :].float())
+        p0 = _add_pair(p0, host, ftw, nb)
+    a = ftw._from_torch(pad(head.s_to_z_prod_in1(s_n)[:, :, None, :].float(), 1))
+    b = ftw._from_torch(pad(head.s_to_z_prod_in2(s_n)[:, None, :, :].float(), 2))
     op = ttnn.multiply(a, b)  # [1,L,1,c] x [1,1,L,c] -> the outer product [1,L,L,c]
     for t in (a, b):
         ttnn.deallocate(t)
@@ -502,11 +510,13 @@ def _conf_pair_dev(head, ftw, z, s_n, relpos, bonds, bins, mask, n, tm_per_bin):
     one = torch.ones_like(centres)
     v_pde = up(centres, one)
     for k in range(int(bins.shape[0])):
-        et = pair_lookup_device(bins[k], head.dist_bin_pairwise_embed.weight.detach(), ftw.tt_device)
+        et = pair_lookup_device(pad(bins[k], 0, 1), head.dist_bin_pairwise_embed.weight.detach(), ftw.tt_device)
         p = ttnn.add(p0, et)
         ttnn.deallocate(et)
         x = ttnn.clone(p)  # the trunk consumes its input; the residual needs p
-        delta = _unpad(_trunk_on_device(ftw, _DevPair(x, L), to_host=False), L)
+        delta = _trunk_on_device(ftw, _DevPair(x, L), to_host=False)
+        if nb == L:  # an unpadded pair: the trunk padded its own copy
+            delta = _unpad(delta, L)
         pair = ttnn.add(p, delta)
         for t in (x, p, delta):
             if t.is_allocated():
@@ -516,7 +526,7 @@ def _conf_pair_dev(head, ftw, z, s_n, relpos, bonds, bins, mask, n, tm_per_bin):
         ttnn.deallocate(sc)
         mk = mask[k:k + 1]
         scores = scores + torch.where(mk[:, None, :].bool(), torch.zeros_like(scores), torch.full_like(scores, -1e9))
-        wt = ftw._from_torch(torch.softmax(scores, dim=-1).reshape(1, L, 1, L))
+        wt = ftw._from_torch(pad(torch.softmax(scores, dim=-1).reshape(1, L, 1, L), 1, 3))
         pooled = ttnn.matmul(wt, pair, compute_kernel_config=ck)  # per row i: weights[i] @ pair[i]
         ttnn.deallocate(wt)
         singles.append(head.row_attention_pooling.out_proj(ftw._to_torch(pooled)[:, :L, 0, :].float()))
