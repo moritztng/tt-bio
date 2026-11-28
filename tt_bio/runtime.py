@@ -11,6 +11,7 @@ import contextlib
 import glob
 import os
 import subprocess
+import sys
 import re
 import socket
 import time
@@ -751,6 +752,28 @@ def cap_malloc_arenas(arenas: int) -> bool:
     if arenas <= 0 or libc is None:
         return False
     return libc.mallopt(M_ARENA_MAX, int(arenas)) == 1
+
+
+def drop_numpy_hugepage_hint() -> None:
+    """Stop numpy asking the kernel for huge pages behind every array of 4 MB or more.
+
+    With transparent huge pages on ``madvise`` (the Ubuntu default) a hinted page fault compacts
+    memory in the faulting thread when no 2 MB block is free. On a host that has served for a day
+    there is none, every such fault fails after the compaction, and a fold stalls in the kernel
+    while it writes its result: a 127 MB array took 1.1 to 1.4 s to fill against 0.06 s unhinted on a
+    serving Galaxy, and Boltz-2 folds of 640 tokens and up lost 10 to 30 s there one time in
+    five. On a freshly booted host the hint saves about 0.05 s per array, which is not worth it.
+    The hint also sticks to the heap range, so torch tensors that later reuse it stall the same
+    way. numpy reads the variable at import; if numpy is already loaded the switch is flipped.
+    A user's own NUMPY_MADVISE_HUGEPAGE wins.
+    """
+    if os.environ.setdefault("NUMPY_MADVISE_HUGEPAGE", "0") != "0":
+        return
+    for name in ("numpy._core.multiarray", "numpy.core.multiarray"):  # numpy 2, numpy 1
+        flip = getattr(sys.modules.get(name), "_set_madvise_hugepage", None)
+        if flip is not None:
+            flip(False)
+            return
 
 
 def reuse_freed_heap(trim_bytes: int = 1 << 30) -> bool:
